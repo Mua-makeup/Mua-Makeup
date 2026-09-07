@@ -15,7 +15,7 @@ version: 2.0.0
 1. Thiết lập `code/backend/<service-name>/build.gradle`:
    - Plugin: Java, Spring Boot `3.3.3`, Spring Dependency Management `1.1.6`.
    - BOM: `spring-cloud-dependencies:2023.0.3`.
-   - Dependencies: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `spring-boot-starter-validation`, `flyway-core`, `flyway-mysql`, `mysql-connector-j`, `lombok`, `spring-boot-starter-test`.
+   - Dependencies: `spring-boot-starter-web`, `spring-boot-starter-data-jpa`, `spring-boot-starter-validation`, `flyway-core`, `flyway-database-postgresql`, `postgresql`, `lombok`, `spring-boot-starter-test`.
 2. Tạo `settings.gradle` và wrapper nếu cần.
 
 ## Phase 3: Layered Architecture Scaffolding
@@ -35,7 +35,7 @@ Tạo toàn bộ cây thư mục theo chuẩn:
 
 ## Phase 4: Resources & Database Migration
 1. Tạo `src/main/resources/application.yml`:
-   - Config database URL riêng (`jdbc:mysql://localhost:3306/<service_db_name>`).
+   - Config database URL riêng (`jdbc:postgresql://localhost:5432/<service_db_name>`).
    - Bật Flyway `enabled: true`, tắt Hibernate DDL auto `validate`.
 2. Tạo `src/main/resources/text/messages.properties` cho chuỗi thông báo i18n.
 3. Tạo `src/main/resources/db/migration/V1__Init_Tables.sql`.

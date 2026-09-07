@@ -2,7 +2,7 @@
 name: flyway-migration
 description: Universal database schema design, Flyway SQL versioning, and JPA synchronization standard for all microservices.
 version: 2.0.0
-tags: [database, flyway, sql, mysql, migration, system-wide]
+tags: [database, flyway, sql, postgresql, migration, system-wide]
 ---
 
 # Universal Flyway Database Migration Skill
