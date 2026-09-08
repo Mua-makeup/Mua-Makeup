@@ -1,73 +1,71 @@
 version: '3.8'
 
 services:
-  # ==========================================
-  # 1. Cơ sở dữ liệu mẫu (PostgreSQL Database)
-  # ==========================================
+
   postgres:
-    image: postgres:16-alpine
-    container_name: sample-postgres
+    image: postgis/postgis:16-3.4-alpine
+    container_name: makeup-postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: app_db
-      POSTGRES_USER: app_user
-      POSTGRES_PASSWORD: app_password
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
+      POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # ==========================================
-  # 2. Bộ nhớ đệm mẫu (Redis Cache)
-  # ==========================================
   redis:
     image: redis:7-alpine
-    container_name: sample-redis
+    container_name: makeup-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-
-  # ==========================================
-  # 3. Backend Service mẫu (API Gateway / Core)
-  # ==========================================
-  api-gateway:
-    build:
-      context: ./code/backend/api-gateway
-      dockerfile: Dockerfile
-    container_name: sample-api-gateway
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: makeup-zookeeper
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "2181:2181"
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/app_db
-      - SPRING_DATASOURCE_USERNAME=app_user
-      - SPRING_DATASOURCE_PASSWORD=app_password
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-    depends_on:
-      - postgres
-      - redis
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
 
-  # ==========================================
-  # 4. Frontend Application mẫu (React + Vite)
-  # ==========================================
-  frontend:
-    build:
-      context: ./code/frontend
-      dockerfile: Dockerfile
-    container_name: sample-frontend
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: makeup-kafka
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "9092:9092"
+      - "29092:29092"
     depends_on:
-      - api-gateway
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
-# ==========================================
-# Volumes lưu trữ dữ liệu
-# ==========================================
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local

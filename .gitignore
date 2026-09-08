@@ -1,0 +1,82 @@
+# ============================================================================
+# GITIGNORE - MAKEUP BOOKING PLATFORM
+# ============================================================================
+
+# 1. Environment & Secret Configuration Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!*.env.example
+*.pem
+*.key
+*.cert
+*.jks
+
+# 2. IDE & Editor Files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.factorypath
+*.sublime-project
+*.sublime-workspace
+
+# 3. Java & Gradle Build Artifacts
+build/
+!src/**/build/
+.gradle/
+out/
+target/
+bin/
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# 4. Node.js & Frontend Build Artifacts
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 5. Database & Persistent Data Volumes
+postgres_data/
+redis_data/
+*.rdb
+*.aof
+*.sql.bak
+
+# 6. Log Files & Monitoring Dumps
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+.sonar/
+.scannerwork/
+
+# 7. Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
