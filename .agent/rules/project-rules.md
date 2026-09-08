@@ -3,22 +3,24 @@
 ## 1. Triết lý Kiến trúc Toàn Hệ thống (System Architecture)
 Hệ thống Nền tảng Đặt lịch Make-up (**Makeup Booking Platform**) được xây dựng theo kiến trúc **Event-Driven Microservices** kết hợp **Single Page Application (SPA)** Frontend theo tiêu chuẩn ISO/IEC/IEEE 29148:
 
-- **Backend (Spring Boot 3 Ecosystem & Event Broker)**:
-  - 8 Microservices chuyên sâu:
-    1. `api-gateway`: Spring Cloud Gateway + Netty WebSocket Persistent Gateway, JWT Verification, Rate Limiting.
-    2. `user-agency-mua-profile-service`: Quản lý tài khoản, RBAC, hồ sơ thợ (Portfolio, bằng cấp, chứng chỉ).
-    3. `agency-operations-service`: Quản lý nghiệp vụ Đại lý/Studio, mời thợ, xếp ca làm việc, cấu hình hoa hồng nội bộ.
-    4. `catalog-media-service`: Quản lý gói dịch vụ Đại lý & Freelancer, upload/nén ảnh/video Before-After (Cloudinary/S3).
-    5. `location-service`: High-throughput GPS Telemetry streaming, Redis GEO, PostGIS tracking.
-    6. `booking-service`: State Machine quản lý đơn hàng, điều phối 2 luồng (Realtime vs Scheduled), chống tranh chấp ca làm qua Redlock.
-    7. `pricing-service`: Tính cước phí di chuyển thực tế (Google/Goong Maps API), phụ phí đêm/sáng sớm 3h-5h, Surge Pricing.
-    8. `payment-service`: Quản lý Ví điện tử 3 tầng (Khách, Thợ, Đại lý, Sàn), ký quỹ Escrow, thanh toán MoMo/VNPay/Stripe.
-  - **Asynchronous Event Bus**: Apache Kafka làm message broker trung tâm truyền tin bất đồng bộ giữa các service.
+- **Backend (9 Spring Boot Microservices)**:
+  1. `api-gateway` (Port: 8080): Stateless HTTP Reverse Proxy, JWT Verification, Rate Limiting (Redis DB 0).
+  2. `websocket-service` (Port: 8088): Stateful Connection Hub, quản lý WebSocket STOMP, Redis Pub/Sub (Redis DB 1), Kafka bridge.
+  3. `user-agency-mua-profile-service` (Port: 8081): Quản lý Users, phân quyền RBAC, hồ sơ thợ (Portfolio, bằng cấp, chứng chỉ) $\rightarrow$ DB: `user_profile_db`.
+  4. `agency-operations-service` (Port: 8082): Quản lý nhân sự Studio, mời thợ (Email/Mã giới thiệu), phân quyền nội bộ, chia sẻ hoa hồng $\rightarrow$ DB: `agency_operations_db`.
+  5. `catalog-media-service` (Port: 8083): Danh mục gói dịch vụ, giá niêm yết, Album ảnh Trước/Sau (Before-After), Cloudinary CDN $\rightarrow$ DB: `catalog_media_db`.
+  6. `location-service` (Port: 8084): High-throughput GPS Telemetry streaming, Redis GEO (Redis DB 2), lưu vết di chuyển PostGIS $\rightarrow$ DB: `location_tracking_db`.
+  7. `booking-service` (Port: 8085): State Machine quản lý đơn hàng, điều phối 2 luồng (Realtime vs Scheduled), Redlock chống tranh chấp đơn (Redis DB 3) $\rightarrow$ DB: `booking_dispatch_db`.
+  8. `pricing-service` (Port: 8086): Dynamic Pricing, tính cước di chuyển thực tế (Google/Goong Maps API), phụ phí đêm/sớm 3h-5h, Surge pricing, Cache cước (Redis DB 4).
+  9. `payment-service` (Port: 8087): Quản lý Ví điện tử 3 tầng (Khách, Thợ, Đại lý, Sàn), ký quỹ Escrow, thanh toán MoMo/VNPay $\rightarrow$ DB: `payment_wallet_db`.
+
+- **Asynchronous Event Broker (Apache Kafka & Zookeeper)**:
+  - Kafka Broker (Port: 9092) làm trung tâm truyền tin sự kiện phân tán giữa các service (VD: `driver-location-stream`, `booking-broadcast`, `BOOKING_COMPLETED`).
 
 - **Frontend (React + Vite + JavaScript/JSX)**:
   - Ứng dụng giao diện modularized, chia tách ranh giới rõ ràng qua `eslint-plugin-boundaries`.
-  - Design system cao cấp (Luxury Beauty / Glamour aesthetic) với TailwindCSS ghi đè semantic tokens (`brand-*`, `surface-*`).
-  - Validation chặt chẽ qua **Zod** schema tại `src/schemas/`.
+  - Design system cao cấp (**Luxury Beauty / Glamour Aesthetic**) với TailwindCSS tokens (`brand-*`, `surface-*`).
+  - Validation 100% qua **Zod** schema tại `src/schemas/`.
   - Giám sát lỗi realtime qua **Sentry**.
 
 ---
@@ -44,17 +46,16 @@ src/main/java/com/trung/<service_name>/
 
 ### 2.1. Quy tắc Code & Data Flow Backend
 1. **Tuyệt đối không expose Entity ra ngoài Controller**: Luôn sử dụng Request DTO (`dto/request/*Req.java`) và Response DTO (`dto/response/*Res.java`).
-2. **Bắt buộc Validation**: Mọi Request DTO phải chứa Bean Validation (`@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Email`, `@Pattern`, `@Future`). Controller phải có `@Valid @RequestBody`.
-3. **Kế thừa Base Components**: Mọi Entity phải kế thừa `BaseEntity`. Mọi Controller kế thừa `BaseController`. Mọi CRUD service cơ bản kế thừa `BaseService` & `BaseServiceImpl`.
+2. **Bắt buộc Bean Validation**: Mọi Request DTO phải chứa `@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Email`, `@Pattern`, `@Future`. Controller phải có `@Valid @RequestBody`.
+3. **Kế thừa Base Components**: Mọi JPA Entity phải kế thừa `BaseEntity`. Mọi Controller kế thừa `BaseController`. Mọi CRUD service cơ bản kế thừa `BaseService` & `BaseServiceImpl`.
 4. **Quản lý Ngoại lệ & i18n**: Không hardcode thông báo lỗi tiếng Việt/Anh trong code Java. Ném `CustomBusinessException` và định nghĩa thông điệp qua ResourceBundle tại `resources/text/messages.properties`.
 5. **Database Migration với Flyway**: Mọi thay đổi bảng phải viết script Flyway tại `resources/db/migration/V<N>__<Mo_ta>.sql`. Nghiêm cấm bật `ddl-auto: create/update` trên môi trường production.
-6. **Kiểm soát chất lượng**: Thư mục `unitest/` và `sonarLint/` quản lý unit test và bộ rule chất lượng code.
+6. **Bảo mật & Biến môi trường**: Tuyệt đối không hardcode mật khẩu hay secret key vào code; toàn bộ đọc qua `.env` và `application.yaml` (`${DB_PASSWORD:123456}`).
 
 ---
 
 ## 3. Quy chuẩn Bắt buộc cho Frontend (React + Vite + JavaScript/JSX)
 
-Mọi module trong `code/frontend/` bắt buộc tuân thủ cấu trúc:
 ```text
 code/frontend/
 ├── src/
@@ -62,8 +63,8 @@ code/frontend/
 │   ├── services/                      # Axios HTTP client tương tác backend
 │   ├── constants/                     # Định nghĩa hằng số hệ thống (tránh Magic Numbers)
 │   ├── utils/                         # Hàm dùng chung (format tiền tệ, ngày giờ, geolocation)
-│   ├── hooks/                         # Custom React hooks (useBooking, useLocationTracking, useAuth)
-│   ├── store/                         # Zustand global state (authStore, bookingStore, cartStore)
+│   ├── hooks/                         # Custom React hooks (useBooking, useGpsTracker, useAuth)
+│   ├── store/                         # Zustand global state (authStore, bookingStore)
 │   ├── components/
 │   │   ├── base/                      # Atomic UI (BaseButton, BaseInput, BaseModal, BaseTable)
 │   │   └── features/                  # UI theo nghiệp vụ (features/booking/, features/agency/...)
@@ -71,23 +72,22 @@ code/frontend/
 │   ├── pages/                         # Màn hình tổng hợp
 │   └── routes/                        # Cấu hình react-router-dom
 ├── eslint.config.mjs                  # Linter khắt khe: boundaries, kebab-case, no magic numbers, no hardcode colors
-├── tailwind.config.js                 # Design system ghi đè mã màu
-├── sentry/                            # Giám sát và ghi nhận crash bug
-└── Dockerfile, docker-compose.yml
+├── tailwind.config.js                 # Design system ghi đè mã màu Luxury Beauty
+└── sentry/                            # Giám sát và ghi nhận crash bug
 ```
 
 ### 3.1. Quy tắc Code Frontend
-1. **Ranh giới Module (Module Boundaries)**: `schemas/`, `utils/`, `constants/` tuyệt đối không được import ngược từ `components/`, `pages/`, `services/`.
+1. **Ranh giới Module (Module Boundaries)**: `schemas/`, `utils/`, `constants/` tuyệt đối không import ngược từ `components/`, `pages/`, `services/`.
 2. **Form Validation**: 100% form và API payload phải được kiểm tra qua **Zod** schema tại `src/schemas/`.
-3. **Cấm Magic Numbers & Hard-coded Colors**: Mọi mã màu phải lấy từ semantic color palette của `tailwind.config.js` (`brand-rose`, `brand-gold`, `surface-dark`, `surface-light`), mọi con số (timeout, pagination limit) phải đưa vào `src/constants/`.
+3. **Cấm Magic Numbers & Hard-coded Colors**: Mọi mã màu phải lấy từ semantic color palette của `tailwind.config.js` (`brand-primary`, `brand-rose`, `brand-dark`, `surface-card`), mọi con số (timeout, countdown 30s) phải đưa vào `src/constants/`.
 4. **Quy ước đặt tên**:
-   - React Components: `PascalCase.jsx` (`BookingCard.jsx`, `CountdownModal.jsx`).
+   - React Components: `PascalCase.jsx` (`BookingCard.jsx`, `InstantCountdownModal.jsx`).
    - Helpers, Schemas, Services: `kebab-case.js` (`booking-service.js`, `agency.schema.js`).
-   - Custom Hooks: `use<Name>.js` (`useGpsTracker.js`).
+   - Custom Hooks: `use<Name>.js` (`useWebSocket.js`, `useGpsTracker.js`).
 
 ---
 
-## 4. Quy chuẩn Event-Driven & Realtime Streaming
-1. **Realtime GPS Telemetry**: Stream tọa độ thợ di chuyển gửi qua WebSocket theo chu kỳ 5–10s, đẩy qua Kafka topic `driver-location-stream` vào Redis GEO.
-2. **Realtime Instant Booking**: Khi khách đặt ca gấp 30-60 phút, hệ thống quét thợ rảnh qua Redis GEO $\rightarrow$ Broadcast qua WebSocket kèm đồng hồ đếm ngược 30-45s $\rightarrow$ Thợ nhận đơn được bảo vệ chống race condition bằng **Redlock**.
-3. **Ví & Escrow**: Khi đơn hoàn thành (`BOOKING_COMPLETED`), Booking Service phát Kafka Event $\rightarrow$ Payment Service tự động giải ngân từ quỹ cọc Escrow vào Ví Đại lý và Ví Thợ.
+## 4. Quy chuẩn Realtime & Concurrency Control
+1. **GPS Telemetry**: Stream tọa độ thợ gửi qua WebSocket `websocket-service` theo chu kỳ 5–10s, đẩy qua Kafka topic `driver-location-stream` vào `location-service` (Redis GEO & PostGIS).
+2. **Instant Booking Broadcast**: Khi khách đặt ca gấp 30-60 phút, hệ thống quét thợ rảnh qua Redis GEO $\rightarrow$ Broadcast qua WebSocket kèm đồng hồ đếm ngược 30-45s $\rightarrow$ Thợ nhận ca đầu tiên được bảo vệ chống race condition bằng **Redlock (Redisson)**.
+3. **Ví & Escrow**: Khi đơn hoàn thành (`BOOKING_COMPLETED`), `booking-service` phát Kafka Event $\rightarrow$ `payment-service` tự động giải ngân từ quỹ cọc Escrow vào Ví Đại lý và Ví Thợ.
