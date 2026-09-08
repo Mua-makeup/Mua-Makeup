@@ -1,40 +1,53 @@
 ---
 name: react-frontend
-description: Universal engineering standards and patterns for developing scalable Frontend features on React + Vite + JavaScript (JSX) with Zod validation, Axios layer, and strict boundaries.
-version: 2.0.0
-tags: [frontend, react, vite, javascript, tailwindcss, zod, system-wide]
+description: Universal engineering standards and patterns for developing scalable Frontend features on React + Vite + JavaScript (JSX) with Zod validation, Axios layer, strict boundaries, and Sentry monitoring.
+version: 2.1.0
+tags: [frontend, react, vite, javascript, tailwindcss, zod, boundaries, sentry, system-wide]
 ---
 
 # Universal React Frontend Development Skill
 
 ## 1. Phạm vi & Mục đích
-Skill này định hình quy chuẩn phát triển cho toàn bộ ứng dụng giao diện (`code/front end/`), phục vụ mọi phân hệ nghiệp vụ hiện tại và mở rộng về sau (E-commerce, Dịch vụ Làm đẹp/Makeup, Đặt lịch hẹn, Giỏ hàng, Thanh toán, Quản trị Admin, v.v.).
+Skill này định hình quy chuẩn phát triển cho toàn bộ ứng dụng giao diện (`code/frontend/`), phục vụ 3 phân hệ người dùng chính theo SRS:
+- **Phân hệ Khách hàng (Customer)**: Tìm kiếm thợ/đại lý, đặt ca Realtime/Scheduled, xem bản đồ GPS tracking, thanh toán ví/thẻ, đánh giá review.
+- **Phân hệ Thợ Make-up Tự do (Freelance MUA)**: Quản lý portfolio, nhận ca đếm ngược 30s, bật GPS tracking, quản lý ví cá nhân.
+- **Phân hệ Đại lý Make-up (Agency / Studio)**: Quản lý thợ thuộc quyền, bảng giá đại lý, nhận & điều phối đơn, quản lý ví đại lý.
 
 ---
 
-## 2. Kiến trúc Thư mục & Luồng Dữ liệu 1 chiều (Data Flow)
-Mỗi tính năng mới được xây dựng theo cấu trúc phân tầng rõ ràng:
-```
-code/front end/src/
-├── schemas/                           # Zod Schemas (Contract dữ liệu & Form Validation)
-│   └── <feature>.schema.js
-├── services/                          # Tương tác API qua Axios (apiClient)
-│   └── <feature>.service.js
-├── constants/                         # Hằng số hệ thống (Pagination, Status, Endpoints, Storage keys)
-│   └── <feature>.constant.js
-├── utils/                             # Hàm tiện ích dùng chung (Formatters, Helpers, Parsers)
-│   └── <feature>.util.js
-├── hooks/                             # Custom React Hooks logic tái sử dụng
-│   └── use<Feature>.js
-├── store/                             # Global State Management (Zustand)
-│   └── <feature>Store.js
-├── components/
-│   ├── base/                          # UI nguyên tử tái sử dụng (BaseButton, BaseInput, BaseModal, BaseTable)
-│   └── features/<feature>/            # UI chuyên biệt cho từng tính năng
-├── layouts/                           # Khung bố cục (MainLayout, AuthLayout, AdminLayout)
-├── pages/                             # Màn hình tổng hợp
-│   └── <Feature>/<Feature>Page.jsx
-└── routes/                            # Quản lý định tuyến (AppRoutes)
+## 2. Kiến trúc Thư mục Chuẩn (Frontend Project Structure)
+
+Mọi tính năng mới được xây dựng theo cấu trúc phân tầng rõ ràng:
+```text
+code/frontend/
+├── .husky/                            # Pre-commit hook chạy lint trước khi git commit
+├── public/                            # Tài nguyên tĩnh không qua build (favicon, robots.txt)
+├── src/
+│   ├── assets/                        # Ảnh, svg, local fonts đi qua Vite build
+│   ├── schemas/                       # Validator trên front end (Bắt buộc sử dụng ZOD)
+│   ├── services/                      # Các hàm gọi API tới backend qua Axios
+│   ├── constants/                     # Định nghĩa hằng số (Status, Enums, Endpoints, cấm Magic Number)
+│   ├── utils/                         # Hàm tiện ích dùng chung (Formatters, Geolocation, Currency)
+│   ├── hooks/                         # Custom React Hooks (useBooking, useGpsTracker, useAuth)
+│   ├── store/                         # Global State Management (Zustand)
+│   ├── components/
+│   │   ├── base/                      # Atomic UI component (BaseButton, BaseInput, BaseModal, BaseTable)
+│   │   └── features/                  # Component theo nghiệp vụ (features/booking/, features/agency/...)
+│   ├── layouts/                       # MainLayout, AuthLayout, AgencyLayout, CustomerLayout
+│   ├── pages/                         # Màn hình tổng hợp (Auth/, Dashboard/, Booking/, Agency/...)
+│   ├── routes/                        # Cấu hình react-router-dom
+│   ├── lib/                           # Cấu hình axios instance, websocket client, utils chung
+│   ├── styles/                        # Cấu hình CSS theme, global styles
+│   ├── providers/                     # React Context Providers (QueryClient, AuthProvider, ThemeProvider)
+│   ├── App.jsx                        # Component gốc
+│   └── main.jsx                       # Điểm neo vào index.html
+├── eslint.config.mjs                  # Linter khắt khe: eslint-plugin-boundaries, kebab-case, cấm magic number, cấm hardcode
+├── .prettierrc                        # Cấu hình Prettier format code
+├── tailwind.config.js                 # Ghi đè mã màu semantic (brand-*, surface-*)
+├── vite.config.js                     # Cấu hình Vite build
+├── sentry/                            # Cấu hình ghi nhận crash bug trên production
+├── Dockerfile, .dockerignore
+└── .env, .env.local, .env.development # Cấu hình biến môi trường
 ```
 
 ---
@@ -42,38 +55,41 @@ code/front end/src/
 ## 3. Quy chuẩn Kỹ thuật Bắt buộc
 
 ### 3.1. Ranh giới Module (Enforced by ESLint Boundaries)
-- **Tầng Core (`schemas/`, `utils/`, `constants/`)**: Chỉ chứa logic thuần JS, tuyệt đối không phụ thuộc hoặc import từ `components/`, `pages/`, `services/`.
-- **Tầng Service (`services/`)**: Chỉ nhận dữ liệu đầu vào đã validate, gửi qua `apiClient` và trả về kết quả hoặc bắt lỗi HTTP.
-- **Tầng UI (`components/`, `pages/`)**: Sử dụng Hook/Service/Schema để hiển thị và tương tác.
+- **Tầng Core (`schemas/`, `utils/`, `constants/`)**: Chỉ chứa logic thuần JavaScript, tuyệt đối không phụ thuộc hoặc import ngược từ `components/`, `pages/`, `services/`.
+- **Tầng Service (`services/`)**: Chỉ nhận dữ liệu đã được Zod validate, gửi qua `apiClient` Axios và trả về payload chuẩn.
+- **Tầng UI (`components/`, `pages/`)**: Tương tác thông qua Hooks, Services và Schemas.
 
 ### 3.2. Form Validation & Data Contract với Zod
-Mọi dữ liệu từ người dùng nhập vào hoặc payload gửi lên backend phải được validate qua Zod schema:
+Mọi dữ liệu người dùng nhập hoặc payload API gửi lên backend phải có Zod schema tại `src/schemas/`:
 ```javascript
 import { z } from 'zod';
 
-export const makeupBookingSchema = z.object({
-  serviceId: z.string().min(1, 'Vui lòng chọn dịch vụ'),
-  appointmentDate: z.string().min(1, 'Vui lòng chọn ngày hẹn'),
-  customerPhone: z.string().regex(/^(0[3|5|7|8|9])+([0-9]{8})$/, 'Số điện thoại không hợp lệ'),
-  note: z.string().max(200, 'Ghi chú tối đa 200 ký tự').optional(),
+export const instantBookingSchema = z.object({
+  serviceId: z.number().positive('Vui lòng chọn dịch vụ make-up'),
+  address: z.string().min(5, 'Địa chỉ phải từ 5 ký tự trở lên'),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  paymentMethod: z.enum(['MOMO', 'VNPAY', 'WALLET', 'CASH']),
+  notes: z.string().max(255).optional(),
 });
 ```
 
-### 3.3. Clean Code & Styling
-- **Không Magic Numbers**: Đưa các giá trị (thời gian timeout, limit phân trang, kích thước file upload...) vào `constants/`.
-- **Không Hard-code Color**: Luôn sử dụng design system từ `tailwind.config.js` (`brand-*`, `surface-*`).
-- **File Naming**:
-  - React Component: `PascalCase.jsx` (ví dụ: `BookingModal.jsx`, `ServiceCard.jsx`).
-  - JS Helpers/Services: `kebab-case.js` (ví dụ: `makeup-service.js`, `booking-schema.js`).
-  - Hooks: `use<Name>.js` (ví dụ: `useBooking.js`).
+### 3.3. Quy tắc Clean Code & Styling
+- **Không Magic Numbers**: Đưa tất cả các hằng số (timeout, countdown 30s, max file upload size 5MB, pagination limit 10) vào `src/constants/`.
+- **Không Hard-code Color**: Bắt buộc dùng semantic color tokens từ `tailwind.config.js` (`brand-rose`, `brand-gold`, `surface-dark`, `surface-card`).
+- **File Naming Convention**:
+  - React Component: `PascalCase.jsx` (`BookingCard.jsx`, `AgencyStaffModal.jsx`).
+  - JS Helpers / Services / Schemas: `kebab-case.js` (`booking-service.js`, `agency.schema.js`).
+  - Custom Hooks: `use<Name>.js` (`useGpsLocation.js`, `useCountdownTimer.js`).
 
 ---
 
-## 4. Quy trình triển khai một Feature mới
+## 4. Quy trình triển khai một UI Feature mới
 - [ ] 1. Tạo Zod Schema tại `src/schemas/<feature>.schema.js`.
-- [ ] 2. Tạo API service tại `src/services/<feature>.service.js`.
-- [ ] 3. Tạo custom hook hoặc store (nếu cần quản lý state phức tạp).
-- [ ] 4. Xây dựng các UI Components con trong `src/components/features/<feature>/`.
-- [ ] 5. Tổng hợp màn hình tại `src/pages/<Feature>/<Feature>Page.jsx`.
-- [ ] 6. Đăng ký route tại `src/routes/index.jsx`.
-- [ ] 7. Chạy `npm run lint` đảm bảo 0 lỗi cảnh báo và 0 vi phạm ranh giới.
+- [ ] 2. Định nghĩa hằng số, status enums tại `src/constants/<feature>.constant.js`.
+- [ ] 3. Tạo API service tại `src/services/<feature>.service.js`.
+- [ ] 4. Tạo custom hook hoặc Zustand store tại `src/hooks/` hoặc `src/store/`.
+- [ ] 5. Xây dựng Atomic UI components cơ sở trong `src/components/base/` và Feature components trong `src/components/features/<feature>/`.
+- [ ] 6. Ghép màn hình hoàn chỉnh tại `src/pages/<Feature>/<Feature>Page.jsx` và gắn Layout phù hợp.
+- [ ] 7. Đăng ký route tại `src/routes/index.jsx`.
+- [ ] 8. Chạy `npm run lint` đảm bảo 0 warning, 0 error và tuân thủ ranh giới folder.

@@ -2,7 +2,15 @@
 <project version="4">
   <component name="ExternalStorageConfigurationManager" enabled="true" />
   <component name="FrameworkDetectionExcludesConfiguration">
+    <file type="web" url="file://$PROJECT_DIR$/agency-operations-service" />
     <file type="web" url="file://$PROJECT_DIR$/api-gateway" />
+    <file type="web" url="file://$PROJECT_DIR$/booking-service" />
+    <file type="web" url="file://$PROJECT_DIR$/catalog-media-service" />
+    <file type="web" url="file://$PROJECT_DIR$/location-service" />
+    <file type="web" url="file://$PROJECT_DIR$/payment-service" />
+    <file type="web" url="file://$PROJECT_DIR$/pricing-service" />
+    <file type="web" url="file://$PROJECT_DIR$/user-agency-mua-profile-service" />
+    <file type="web" url="file://$PROJECT_DIR$/websocket-service" />
   </component>
   <component name="MavenProjectsManager">
     <option name="originalFiles">
