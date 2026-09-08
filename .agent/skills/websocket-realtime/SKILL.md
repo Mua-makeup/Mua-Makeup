@@ -1,14 +1,14 @@
 ---
 name: websocket-realtime
-description: Realtime bidirectional WebSocket streaming, Redis Pub/Sub, Kafka event integration standard for GPS Telemetry tracking, 30s Instant Booking broadcasts, and in-app chat.
-version: 1.0.0
+description: Realtime bidirectional WebSocket streaming, Redis Pub/Sub, Kafka event integration standard for GPS Telemetry tracking, 30s Instant Booking broadcasts, and in-app chat via dedicated websocket-service.
+version: 2.0.0
 tags: [realtime, websocket, kafka, redis-pubsub, telemetry, gps, system-wide]
 ---
 
 # Realtime WebSocket & Event Streaming Skill
 
 ## 1. Mục đích & Nguyên lý
-Hệ thống sử dụng **WebSocket Gateway** kết hợp với **Kafka Event Bus** và **Redis Pub/Sub** để đáp ứng các tính năng thời gian thực với độ trễ thấp (< 100ms):
+Hệ thống sử dụng riêng **`websocket-service` (Port: 8088)** kết hợp với **Kafka Event Bus (Port: 9092)** và **Redis Pub/Sub (Redis DB 1)** để đáp ứng các tính năng thời gian thực với độ trễ thấp (< 100ms):
 1. **GPS Telemetry Streaming**: Thợ gửi tọa độ GPS định kỳ (5–10s), khách hàng nhận tọa độ realtime để vẽ đường đi.
 2. **Instant Booking Broadcast**: Đẩy thông báo nhận đơn tức thì có đếm ngược 30–45s đến danh sách thợ rảnh trong bán kính $R$ km.
 3. **In-app Chat & Live Status Notification**: Nhắn tin trực tiếp giữa Khách và Thợ / Đại lý, cập nhật trạng thái đơn hàng.
@@ -20,21 +20,21 @@ Hệ thống sử dụng **WebSocket Gateway** kết hợp với **Kafka Event B
 ```text
 [ Mobile / Web Client ] 
        │ 
-       ▼ (WSS Connection / JWT Auth)
-[ API & WebSocket Gateway ] 
+       ▼ (WSS Connection / JWT Auth: Port 8088)
+[ websocket-service ] 
        │ 
        ├── (Publish Event) ──> [ Apache Kafka Topic: driver-location-stream ]
        │                                     │
        │                                     ▼
-       │                          [ Location Service ]
+       │                          [ location-service (Port 8084) ]
        │                                     │ (Save)
        │                                     ▼
-       │                          [ Redis GEO + PostGIS ]
+       │                          [ Redis GEO DB 2 + PostGIS location_tracking_db ]
        │
-       └── (Subscribe) <────── [ Redis Pub/Sub Channel: booking:{id} ]
+       └── (Subscribe) <────── [ Redis Pub/Sub DB 1 Channel: booking:{id} ]
                                              ▲
                                              │ (Publish)
-                                  [ Booking Service / Location Service ]
+                                  [ booking-service (Port 8085) ]
 ```
 
 ---
@@ -42,9 +42,9 @@ Hệ thống sử dụng **WebSocket Gateway** kết hợp với **Kafka Event B
 ## 3. Quy chuẩn Kỹ thuật Bắt buộc
 
 ### 3.1. Xác thực & Quản lý Kết nối (Handshake & Session)
-- Client kết nối qua WebSocket URL: `wss://<domain>/ws?token=<jwt_token>`.
-- WebSocket Gateway xác thực JWT trong bước Handshake. Nếu token hết hạn $\rightarrow$ từ chối kết nối ngay tại tầng mạng (HTTP 401).
-- Session ID được lưu trữ và liên kết với `userId` và `role` (`CUSTOMER`, `FREELANCER`, `AGENCY_COORDINATOR`).
+- Client kết nối qua WebSocket URL: `wss://<domain>:8088/ws?token=<jwt_token>`.
+- `websocket-service` xác thực JWT trong bước Handshake (`ChannelInterceptor`). Nếu token hết hạn $\rightarrow$ từ chối kết nối ngay tại tầng mạng (HTTP 401).
+- Session ID được lưu trữ trong Redis DB 1 và liên kết với `userId` và `role` (`CUSTOMER`, `FREELANCER`, `AGENCY_COORDINATOR`).
 
 ### 3.2. Cấu trúc Message Payload (Standard Message Envelope)
 Mọi tin nhắn truyền tải qua WebSocket bắt buộc tuân theo cấu trúc JSON chuẩn:

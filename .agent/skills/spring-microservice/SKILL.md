@@ -1,22 +1,26 @@
 ---
 name: spring-microservice
-description: Universal engineering standards and patterns for developing any Spring Boot 3 Microservice in the Makeup Booking Platform ecosystem (Gateway, Profile, Agency, Catalog, Location, Booking, Pricing, Payment).
-version: 2.1.0
+description: Universal engineering standards and patterns for developing any Spring Boot 3 Microservice in the Makeup Booking Platform ecosystem (Gateway, WebSocket, Profile, Agency, Catalog, Location, Booking, Pricing, Payment).
+version: 2.2.0
 tags: [backend, java, spring-boot, microservices, layered-architecture, event-driven, kafka, redis, system-wide]
 ---
 
 # Universal Spring Boot 3 Microservice Engineering Skill
 
-## 1. Phạm vi & Mục đích
-Skill này áp dụng cho toàn bộ **8 Backend Microservices** trong nền tảng Đặt lịch Make-up (`code/backend/<service-name>/`):
-1. `api-gateway`: Spring Cloud Gateway + Netty WebSocket, JWT Verification, Rate Limiting.
-2. `user-agency-mua-profile-service`: Profile, bằng cấp, chứng chỉ, xác thực.
-3. `agency-operations-service`: Nghiệp vụ Đại lý/Studio, mời thợ, chia sẻ hoa hồng.
-4. `catalog-media-service`: Bảng giá, Album Before-After, tích hợp S3/Cloudinary.
-5. `location-service`: GPS Telemetry, Redis GEO, PostGIS.
-6. `booking-service`: State Machine đơn hàng, Realtime vs Scheduled, Redlock.
-7. `pricing-service`: Dynamic pricing, tính khoảng cách Maps API, phụ phí đêm/sớm.
-8. `payment-service`: Ví 3 tầng, ký quỹ Escrow, VNPay/MoMo/Stripe.
+## 1. Phạm vi & Ma trận 9 Microservices Cốt lõi
+Skill này áp dụng cho toàn bộ **9 Backend Microservices** trong nền tảng Đặt lịch Make-up (`code/backend/<service-name>/`):
+
+| STT | Service | Port | Database PostgreSQL | Redis Index | Vai trò cốt lõi |
+| :---: | :--- | :---: | :--- | :---: | :--- |
+| 1 | **`api-gateway`** | `8080` | *(Không)* | `DB 0` | Stateless Reverse Proxy, JWT Filter, Rate Limiting |
+| 2 | **`websocket-service`** | `8088` | *(Không)* | `DB 1` | Stateful Connection Hub, STOMP, Redis Pub/Sub, Kafka bridge |
+| 3 | **`user-agency-mua-profile-service`** | `8081` | `user_profile_db` | *(Không)* | Quản lý Users, RBAC, Profile thợ, Chứng chỉ |
+| 4 | **`agency-operations-service`** | `8082` | `agency_operations_db` | *(Không)* | Quản lý Studio, Lời mời thợ, Phân quyền, Hoa hồng |
+| 5 | **`catalog-media-service`** | `8083` | `catalog_media_db` | *(Không)* | Bảng giá, Album ảnh Before/After, Cloudinary CDN |
+| 6 | **`location-service`** | `8084` | `location_tracking_db` | `DB 2` | PostGIS Spatial, GPS Telemetry stream 5s, Redis GEO |
+| 7 | **`booking-service`** | `8085` | `booking_dispatch_db` | `DB 3` | State Machine đơn hàng, Đặt ca 30s vs Hẹn trước, Redlock |
+| 8 | **`pricing-service`** | `8086` | *(Không)* | `DB 4` | Dynamic Pricing, Maps Matrix API, Surge pricing cache |
+| 9 | **`payment-service`** | `8087` | `payment_wallet_db` | *(Không)* | Ví 3 tầng, Ký quỹ Escrow, VNPay/MoMo SHA512 |
 
 ---
 
@@ -57,11 +61,9 @@ code/backend/<service-name>/
 │   │   └── messages.properties            # ResourceBundle lưu trữ text, không hardcode text vào code
 │   └── db/migration/
 │       └── V1__Init_Tables.sql            # Script Flyway tạo bảng CSDL
-├── unitest/                               # Thư mục quản lý test case kiểm thử
-├── sonarLint/                             # Cấu hình sonarlint quản lý chất lượng mã nguồn
-├── Dockerfile                             # Dockerfile build backend
-├── .dockerignore
-└── build.gradle                           # Cấu hình dependencies (Spring Boot, Postgres, Flyway, Validation)
+├── unitest/ & sonarLint/                  # Quản lý test case kiểm thử và chất lượng code
+├── Dockerfile, .dockerignore
+└── build.gradle                           # Cấu hình dependencies
 ```
 
 ---
@@ -93,17 +95,7 @@ code/backend/<service-name>/
 
 ### 3.2. Data Transfer Objects (DTO) & Bean Validation
 - **Cấm expose JPA Entity ra Controller**. Mọi payload gửi lên / trả về phải dùng DTO.
-- Mọi Request DTO bắt buộc có Bean Validation:
-  ```java
-  public class CreateBookingReq {
-      @NotNull(message = "{booking.service_id.not_null}")
-      private Long serviceId;
-
-      @NotNull(message = "{booking.start_time.not_null}")
-      @Future(message = "{booking.start_time.must_be_future}")
-      private LocalDateTime startTime;
-  }
-  ```
+- Mọi Request DTO bắt buộc có Bean Validation (`@NotNull`, `@NotBlank`, `@Future`, `@Size`...).
 - Controller phải đặt `@Valid @RequestBody <DTO> request`.
 
 ### 3.3. Xử lý Lỗi & Không Hard-code Text (ResourceBundle)
@@ -111,17 +103,5 @@ code/backend/<service-name>/
 - Mọi chuỗi thông báo lỗi được định nghĩa trong `src/main/resources/text/messages.properties`.
 - `GlobalExceptionHandler` `@RestControllerAdvice` bắt và map HTTP status code chính xác (400, 401, 403, 404, 409, 500).
 
-### 3.4. Event-Driven Messaging (Kafka) & Distributed Locking (Redlock)
-- Khi xử lý giao dịch phân tán (đổi trạng thái đơn hàng, giải ngân tiền vào ví), publish event qua Kafka Producer.
-- Tại `booking-service`, khi điều phối đơn realtime đếm ngược 30s, bắt buộc dùng **Redlock** (thông qua Redisson) để khóa phân tán theo `bookingId`, loại bỏ triệt để xung đột race condition giữa nhiều thợ cùng nhận đơn.
-
----
-
-## 4. Checklist triển khai Microservice
-- [ ] 1. Kiểm tra `build.gradle` có đầy đủ: `spring-boot-starter-web` (hoặc `webflux` cho Gateway), `spring-boot-starter-validation`, `data-jpa`, `postgresql`, `flyway-core`, `spring-kafka`, `lombok`.
-- [ ] 2. Kiểm tra `application.yaml` có cổng riêng và kết nối database riêng (Database-per-service pattern).
-- [ ] 3. Viết migration script tại `resources/db/migration/V1__Init_Tables.sql`.
-- [ ] 4. Mọi JPA Entity kế thừa `BaseEntity`.
-- [ ] 5. Mọi Controller có phân chia package theo role (`admin/`, `customer/`, `agency/`, `freelancer/`).
-- [ ] 6. Không hardcode text, sử dụng ResourceBundle `resources/text/messages.properties`.
-- [ ] 7. Kiểm tra compile `./gradlew compileJava` thành công 100%.
+### 3.4. Distributed Locking (Redlock)
+- Tại `booking-service`, khi xử lý tranh chấp đơn hàng đếm ngược 30s giữa nhiều thợ, bắt buộc dùng **Redlock** (thông qua Redisson trên Redis DB 3) để khóa phân tán theo `bookingId`.

@@ -1,14 +1,20 @@
 ---
 name: flyway-migration
-description: Universal database schema design, Flyway SQL versioning, and JPA synchronization standard for all 8 microservices in the Makeup Booking Platform.
-version: 2.1.0
+description: Universal database schema design, Flyway SQL versioning, and JPA synchronization standard for all microservices with PostgreSQL and PostGIS.
+version: 2.2.0
 tags: [database, flyway, sql, postgresql, postgis, migration, system-wide]
 ---
 
 # Universal Flyway Database Migration Skill
 
-## 1. Phạm vi & Vai trò
-Skill này áp dụng cho việc quản lý cơ sở dữ liệu trên **tất cả 8 Microservices** trong hệ sinh thái backend (`code/backend/<service-name>/src/main/resources/db/migration/`). Mỗi microservice sở hữu CSDL PostgreSQL riêng biệt (*Database per Service Pattern*).
+## 1. Phạm vi & 6 Cơ sở dữ liệu Phân tán
+Skill này áp dụng cho 6 Microservices có sử dụng cơ sở dữ liệu quan hệ PostgreSQL trong hệ thống:
+1. `user-agency-mua-profile-service` $\rightarrow$ `user_profile_db`
+2. `agency-operations-service` $\rightarrow$ `agency_operations_db`
+3. `catalog-media-service` $\rightarrow$ `catalog_media_db`
+4. `location-service` $\rightarrow$ `location_tracking_db` (Kèm **PostGIS Extension**)
+5. `booking-service` $\rightarrow$ `booking_dispatch_db`
+6. `payment-service` $\rightarrow$ `payment_wallet_db`
 
 ---
 
@@ -36,10 +42,10 @@ Ví dụ:
 3. **Idempotency & Naming Convention**:
    - Khóa ngoại: `fk_<bang_nguon>_<bang_dich>` (ví dụ: `fk_agency_members_agencies`).
    - Chỉ mục tìm kiếm: `idx_<ten_bang>_<ten_cot>` (ví dụ: `idx_users_email`).
-   - Chỉ mục không gian (Spatial Index cho `location-service`):
+   - Chỉ mục không gian (Spatial Index cho `location_tracking_db`):
      ```sql
      CREATE EXTENSION IF NOT EXISTS postgis;
-     CREATE INDEX idx_telemetry_location_geom ON telemetry_locations USING GIST(geom_point);
+     CREATE INDEX idx_telemetry_locations_point ON telemetry_locations USING GIST(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326));
      ```
 
 ---
@@ -51,5 +57,4 @@ Ví dụ:
   - `DECIMAL(12, 2)` $\leftrightarrow$ `BigDecimal`
   - `BOOLEAN` $\leftrightarrow$ `Boolean`
   - `TIMESTAMP WITH TIME ZONE` $\leftrightarrow$ `LocalDateTime` hoặc `Instant`
-  - `geometry(Point, 4326)` $\leftrightarrow$ `org.locationtech.jts.geom.Point` (Hibernate Spatial)
 - Luôn kiểm tra đối chiếu giữa `entity/` và script SQL trước khi commit.
