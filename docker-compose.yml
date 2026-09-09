@@ -1,9 +1,10 @@
-version: '3.8'
-
 services:
 
   postgres:
-    image: postgis/postgis:16-3.4-alpine
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    image: makeup-postgres:latest
     container_name: makeup-postgres
     restart: unless-stopped
     ports:
@@ -11,23 +12,24 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
-      POSTGRES_DB: postgres
+      POSTGRES_DB: makeup_platform_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d makeup_platform_db"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    build:
+      context: ./docker/redis
+      dockerfile: Dockerfile
+    image: makeup-redis:latest
     container_name: makeup-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     healthcheck:
@@ -35,34 +37,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.0
-    container_name: makeup-zookeeper
-    restart: unless-stopped
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-
-  kafka:
-    image: confluentinc/cp-kafka:7.6.0
-    container_name: makeup-kafka
-    restart: unless-stopped
-    ports:
-      - "9092:9092"
-      - "29092:29092"
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
 volumes:
   postgres_data:

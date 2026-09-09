@@ -1,56 +1,39 @@
 ---
 name: create-new-service
-description: Universal step-by-step workflow for bootstrapping ANY new Spring Boot Microservice in the Makeup Booking Platform ecosystem.
-version: 2.1.0
+description: Universal step-by-step workflow for implementing a new Business Feature Domain in the Layered Architecture Monolith (core-api).
+version: 3.0.0
 ---
 
-# Universal Workflow: Create New Backend Microservice
+# Universal Workflow: Add New Business Domain to Layered Monolith
 
-## Phase 1: Planning & Service Domain Definition
-1. Xác định tên service theo danh từ / Bounded Context (ví dụ: `review-service`, `notification-service`).
-2. Xác định cổng chạy `server.port` trong `application.yaml` (tránh xung đột với 8 service cốt lõi: 8080 Gateway, 8081 User, 8082 Agency, 8083 Catalog, 8084 Location, 8085 Booking, 8086 Pricing, 8087 Payment).
-3. Tạo thư mục tại `code/backend/<service-name>/`.
+## Phase 1: Database Migration & Schema Allocation
+1. Xác định PostgreSQL Schema cho nghiệp vụ (`auth_schema`, `agency_schema`, `mua_schema`, `catalog_schema`, `booking_schema`, `wallet_schema`...).
+2. Viết file Flyway migration mới tại `src/main/resources/db/migration/V<N>__<Ten_Migration>.sql`.
 
-## Phase 2: Build & Dependency Configuration
-1. Thiết lập file `code/backend/<service-name>/build.gradle`:
-   - Plugins: `java`, `org.springframework.boot`, `io.spring.dependency-management`.
-   - Toolchain: Java 17.
-   - Core Dependencies:
-     - `org.springframework.boot:spring-boot-starter-web` (hoặc `webflux`)
-     - `org.springframework.boot:spring-boot-starter-data-jpa`
-     - `org.springframework.boot:spring-boot-starter-validation`
-     - `org.springframework.boot:spring-boot-starter-actuator`
-     - `org.postgresql:postgresql`
-     - `org.flywaydb:flyway-core`, `org.flywaydb:flyway-database-postgresql`
-     - `org.springframework.kafka:spring-kafka`
-     - `org.projectlombok:lombok`
-     - `org.springframework.cloud:spring-cloud-starter-openfeign`
-     - Test dependencies (`starter-test`, `validation-test`, `data-jpa-test`).
+## Phase 2: Entity & Repository Layer
+1. Tạo Entity kế thừa `BaseEntity`:
+   - Đặt tại `src/main/java/com/makeup/platform/entity/<domain>/<Domain>Entity.java`.
+   - Khai báo rõ `@Table(name = "...", schema = "<domain>_schema")`.
+2. Tạo Repository:
+   - Đặt tại `src/main/java/com/makeup/platform/repository/<Domain>Repository.java` (kế thừa `JpaRepository`).
+   - Nếu có query Native/PostGIS phức tạp, tạo thêm `repository/custom/<Domain>CustomRepository.java`.
 
-## Phase 3: Layered Architecture Scaffolding
-Tạo toàn bộ cây thư mục mã nguồn theo chuẩn Layered Pattern:
-- `src/main/java/com/trung/<service_domain>/`:
-  - `Application.java`
-  - `common/base/`: `BaseEntity.java`, `BaseController.java`, `BaseService.java`, `BaseServiceImpl.java`
-  - `common/constants/`: `ErrorCodes.java`, `SystemConstants.java`, `RegexConstants.java`
-  - `common/exception/`: `GlobalExceptionHandler.java`, `CustomBusinessException.java`
-  - `common/utils/`: Helpers
-  - `config/`: `SecurityConfig.java`, `OpenApiConfig.java`, `DatabaseConfig.java`, `KafkaConfig.java`
-  - `controller/`: Phân chia theo role (`admin/`, `customer/`, `agency/`, `freelancer/`)
-  - `dto/request/` (với `@Valid`, `@NotNull`...) và `dto/response/`
-  - `entity/` (Kế thừa `BaseEntity`)
-  - `repository/` và `repository/custom/`
-  - `service/` (Interface) và `service/impl/` (Implementation)
+## Phase 3: DTOs & Bean Validation
+1. Tạo Request DTO tại `dto/request/<domain>/`:
+   - Bắt buộc Bean Validation: `@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Size`...
+2. Tạo Response DTO tại `dto/response/<domain>/`.
 
-## Phase 4: Resources & Database Migration
-1. Tạo `src/main/resources/application.yaml`:
-   - Cấu hình tên service: `spring.application.name: <service-name>`.
-   - Kết nối database riêng: `jdbc:postgresql://localhost:5432/<service_db>`.
-   - Kích hoạt Flyway: `spring.flyway.enabled: true`.
-2. Tạo `src/main/resources/text/messages.properties` cho chuỗi thông báo i18n (tuyệt đối không hardcode text trong code).
-3. Tạo `src/main/resources/db/migration/V1__Init_Tables.sql`.
-4. Tạo thư mục `unitest/`, `sonarLint/`, `Dockerfile`, `.dockerignore`, `docker-compose.yml`.
+## Phase 4: Service Layer (Interface & Implementation)
+1. Tạo Interface tại `service/<Domain>Service.java`.
+2. Tạo Implementation tại `service/impl/<Domain>ServiceImpl.java`:
+   - Ném ngoại lệ nghiệp vụ qua `CustomBusinessException`.
+   - Thêm chuỗi thông báo i18n vào `src/main/resources/text/messages.properties`.
 
-## Phase 5: Verification & Quality Gate
-1. Chạy `./gradlew compileJava` kiểm tra biên dịch thành công 100%.
-2. Cập nhật tài liệu SRS `docs/makeup_platform_srs.md` và `docs/project-structure.md`.
+## Phase 5: Controller Layer (Theo Actor/Role)
+1. Tạo Controller kế thừa `BaseController`:
+   - Đặt tại `controller/<actor>/` (`customer/`, `freelancer/`, `agency/`, `admin/`, `auth/`).
+   - Trả về `ResponseEntity<ApiResponse<ResponseDTO>>`.
+
+## Phase 6: Verification
+1. Viết Unit Test với Mockito tại `src/test/java/com/makeup/platform/service/<Domain>ServiceTest.java`.
+2. Chạy `./gradlew compileJava` và `./gradlew test` kiểm tra 100% pass.

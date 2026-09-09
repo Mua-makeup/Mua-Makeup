@@ -5,7 +5,151 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.agent/rules/project-rules.md" beforeDir="false" afterPath="$PROJECT_DIR$/.agent/rules/project-rules.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.agent/skills/flyway-migration/SKILL.md" beforeDir="false" afterPath="$PROJECT_DIR$/.agent/skills/flyway-migration/SKILL.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.agent/skills/spring-microservice/SKILL.md" beforeDir="false" afterPath="$PROJECT_DIR$/.agent/skills/spring-microservice/SKILL.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.agent/skills/websocket-realtime/SKILL.md" beforeDir="false" afterPath="$PROJECT_DIR$/.agent/skills/websocket-realtime/SKILL.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.agent/workflows/api-integration.md" beforeDir="false" afterPath="$PROJECT_DIR$/.agent/workflows/api-integration.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.agent/workflows/create-new-service.md" beforeDir="false" afterPath="$PROJECT_DIR$/.agent/workflows/create-new-service.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.agent/workflows/realtime-gps-booking-flow.md" beforeDir="false" afterPath="$PROJECT_DIR$/.agent/workflows/realtime-gps-booking-flow.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/.idea/gradle.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/src/main/java/com/trung/agencyoperationsservice/AgencyOperationsServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/src/main/resources/db/migration/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/src/main/resources/db/migration/V1__Init_Tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/src/main/resources/static/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/src/main/resources/templates/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/agency-operations-service/src/test/java/com/trung/agencyoperationsservice/AgencyOperationsServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/Dockerfile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/src/main/java/com/trung/apigateway/ApiGatewayApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/src/test/java/com/trung/apigateway/ApiGatewayApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/target/classes/com/trung/apigateway/ApiGatewayApplication.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/target/generated-sources/annotations/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/api-gateway/target/generated-test-sources/test-annotations/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/src/main/java/com/trung/bookingservice/BookingServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/src/main/resources/db/migration/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/src/main/resources/db/migration/V1__Init_Tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/src/main/resources/static/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/src/main/resources/templates/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/booking-service/src/test/java/com/trung/bookingservice/BookingServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/src/main/java/com/trung/catalogmediaservice/CatalogMediaServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/src/main/resources/db/migration/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/src/main/resources/db/migration/V1__Init_Tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/src/main/resources/static/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/src/main/resources/templates/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/catalog-media-service/src/test/java/com/trung/catalogmediaservice/CatalogMediaServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/src/main/java/com/trung/locationservice/LocationServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/src/main/resources/db/migration/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/src/main/resources/db/migration/V1__Init_Tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/src/main/resources/static/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/src/main/resources/templates/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/location-service/src/test/java/com/trung/locationservice/LocationServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/src/main/java/com/trung/paymentservice/PaymentServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/src/main/resources/db/migration/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/src/main/resources/db/migration/V1__Init_Tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/src/main/resources/static/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/src/main/resources/templates/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/payment-service/src/test/java/com/trung/paymentservice/PaymentServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/src/main/java/com/trung/pricingservice/PricingServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/pricing-service/src/test/java/com/trung/pricingservice/PricingServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/src/main/java/com/trung/useragencymuaprofileservice/UserAgencyMuaProfileServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/src/main/resources/db/migration/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/src/main/resources/db/migration/V1__Init_Tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/src/main/resources/static/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/src/main/resources/templates/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service/src/test/java/com/trung/useragencymuaprofileservice/UserAgencyMuaProfileServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/.gitattributes" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/build.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/settings.gradle" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/src/main/java/com/trung/websocketservice/WebsocketServiceApplication.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/src/main/resources/application.yaml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/src/main/resources/static/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/src/main/resources/templates/.gitkeep" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/websocket-service/src/test/java/com/trung/websocketservice/WebsocketServiceApplicationTests.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker/init-db/01-init-databases.sql" beforeDir="false" afterPath="$PROJECT_DIR$/docker/init-db/01-init-databases.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/Database dự án.docx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/backlogs/sprint0/user_story_auth_service.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/backlogs/sprint0/user_story_auth_service.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/database_full_schema.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/makeup_platform_srs.docx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/project-structure.md" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,6 +199,9 @@
     <projectState path="$PROJECT_DIR$/code/backend/catalog-media-service">
       <ProjectState />
     </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/core-api">
+      <ProjectState />
+    </projectState>
     <projectState path="$PROJECT_DIR$/code/backend/location-service">
       <ProjectState />
     </projectState>
@@ -98,6 +245,10 @@
     &quot;accountId&quot;: &quot;31706cd5-1284-444b-bf1a-e44bd48d7db1&quot;
   }
 }</component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
@@ -112,26 +263,39 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;develop&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;E:/Trung/Code/IOC Internship&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build core-api.executor": "Run",
+    "Gradle.Build user-agency-mua-profile-service.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "Spring Boot.Application.executor": "Run",
+    "Spring Boot.UserAgencyMuaProfileServiceApplication.executor": "Run",
+    "git-widget-placeholder": "develop",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "E:/Trung/Code/IOC Internship",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "run.configurations.included.in.services": "true",
+    "vue.rearranger.settings.migration": "true"
+  },
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "redis"
+    ]
   }
-}</component>
+}]]></component>
   <component name="RunDashboard">
     <option name="configurationTypes">
       <set>
@@ -142,17 +306,10 @@
       </set>
     </option>
   </component>
-  <component name="RunManager" selected="Spring Boot.PricingServiceApplication">
-    <configuration name="AgencyOperationsServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
-      <module name="agency-operations-service.main" />
-      <option name="SPRING_BOOT_MAIN_CLASS" value="com.trung.agencyoperationsservice.AgencyOperationsServiceApplication" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="ApiGatewayApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
-      <module name="api-gateway.main" />
-      <option name="SPRING_BOOT_MAIN_CLASS" value="com.trung.apigateway.ApiGatewayApplication" />
+  <component name="RunManager" selected="Spring Boot.Application">
+    <configuration name="Application" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="core-api.main" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.makeup.platform.Application" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -192,28 +349,16 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="UserAgencyMuaProfileServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
-      <module name="user-agency-mua-profile-service.main" />
-      <option name="SPRING_BOOT_MAIN_CLASS" value="com.trung.useragencymuaprofileservice.UserAgencyMuaProfileServiceApplication" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="WebsocketServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
-      <module name="websocket-service.main" />
-      <option name="SPRING_BOOT_MAIN_CLASS" value="com.trung.websocketservice.WebsocketServiceApplication" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.33514.17" />
+        <option value="bundled-jdk-9823dce3aa75-a94e463ab2e7-intellij.indexing.shared.core-IU-243.26053.27" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-IU-243.26053.27" />
       </set>
     </attachedChunks>
   </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="" />
@@ -224,6 +369,7 @@
       <workItem from="1788849889384" duration="4422000" />
       <workItem from="1788913945318" duration="592000" />
       <workItem from="1788915341994" duration="1329000" />
+      <workItem from="1788941950806" duration="1937000" />
     </task>
     <servers />
   </component>

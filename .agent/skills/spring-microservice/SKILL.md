@@ -1,66 +1,59 @@
 ---
 name: spring-microservice
-description: Universal engineering standards and patterns for developing any Spring Boot 3 Microservice in the Makeup Booking Platform ecosystem (Gateway, WebSocket, Profile, Agency, Catalog, Location, Booking, Pricing, Payment).
-version: 2.2.0
-tags: [backend, java, spring-boot, microservices, layered-architecture, event-driven, kafka, redis, system-wide]
+description: Universal engineering standards and patterns for developing the Spring Boot Layered Architecture Monolith in the Makeup Booking Platform ecosystem (Auth, Agency, Catalog, Location, Booking, Pricing, Payment, WebSocket).
+version: 3.0.0
+tags: [backend, java, spring-boot, layered-architecture, monolith, redis, redisson, websocket, postgis, system-wide]
 ---
 
-# Universal Spring Boot 3 Microservice Engineering Skill
+# Universal Spring Boot Layered Architecture Monolith Engineering Skill
 
-## 1. Phạm vi & Ma trận 9 Microservices Cốt lõi
-Skill này áp dụng cho toàn bộ **9 Backend Microservices** trong nền tảng Đặt lịch Make-up (`code/backend/<service-name>/`):
-
-| STT | Service | Port | Database PostgreSQL | Redis Index | Vai trò cốt lõi |
-| :---: | :--- | :---: | :--- | :---: | :--- |
-| 1 | **`api-gateway`** | `8080` | *(Không)* | `DB 0` | Stateless Reverse Proxy, JWT Filter, Rate Limiting |
-| 2 | **`websocket-service`** | `8088` | *(Không)* | `DB 1` | Stateful Connection Hub, STOMP, Redis Pub/Sub, Kafka bridge |
-| 3 | **`user-agency-mua-profile-service`** | `8081` | `user_profile_db` | *(Không)* | Quản lý Users, RBAC, Profile thợ, Chứng chỉ |
-| 4 | **`agency-operations-service`** | `8082` | `agency_operations_db` | *(Không)* | Quản lý Studio, Lời mời thợ, Phân quyền, Hoa hồng |
-| 5 | **`catalog-media-service`** | `8083` | `catalog_media_db` | *(Không)* | Bảng giá, Album ảnh Before/After, Cloudinary CDN |
-| 6 | **`location-service`** | `8084` | `location_tracking_db` | `DB 2` | PostGIS Spatial, GPS Telemetry stream 5s, Redis GEO |
-| 7 | **`booking-service`** | `8085` | `booking_dispatch_db` | `DB 3` | State Machine đơn hàng, Đặt ca 30s vs Hẹn trước, Redlock |
-| 8 | **`pricing-service`** | `8086` | *(Không)* | `DB 4` | Dynamic Pricing, Maps Matrix API, Surge pricing cache |
-| 9 | **`payment-service`** | `8087` | `payment_wallet_db` | *(Không)* | Ví 3 tầng, Ký quỹ Escrow, VNPay/MoMo SHA512 |
+## 1. Phạm vi Kiến trúc
+Áp dụng cho toàn bộ mã nguồn Backend tại **`code/backend/core-api/`** (Port: `8080`), kết nối CSDL duy nhất **`makeup_platform_db`** (PostgreSQL 16 + PostGIS) phân tách thành 8 Schemas độc lập.
 
 ---
 
 ## 2. Cấu trúc Thư mục Phân tầng Bắt buộc (Layered Architecture)
 
-Mọi service phải tuân thủ nghiêm ngặt cấu trúc package:
+Mọi thành phần code phải tuân thủ nghiêm ngặt cấu trúc package:
 ```text
-code/backend/<service-name>/
-├── src/main/java/com/trung/<service_name>/
+code/backend/core-api/
+├── src/main/java/com/makeup/platform/
 │   ├── Application.java                   # Class bootstrap Spring Boot
 │   │
 │   ├── common/                            # Tiện ích và core classes dùng chung
 │   │   ├── base/
 │   │   │   ├── BaseEntity.java            # @MappedSuperclass chứa id, created_at, updated_at
-│   │   │   ├── BaseController.java        # Định nghĩa hàm phản hồi HTTP chuẩn (ok, created, badRequest)
+│   │   │   ├── BaseController.java        # Định nghĩa hàm phản hồi HTTP chuẩn (ok, created, error)
+│   │   │   ├── ApiResponse.java           # Standard JSON response envelope <T>
 │   │   │   ├── BaseService.java           # Interface CRUD dùng Generics <T, ID>
 │   │   │   └── BaseServiceImpl.java       # Code thực thi CRUD dùng chung
-│   │   ├── constants/                     # ErrorCodes, SystemConstants, RegexConstants
+│   │   ├── constants/                     # ErrorCodes, SecurityConstants, RegexConstants
 │   │   ├── exception/
 │   │   │   ├── GlobalExceptionHandler.java # @RestControllerAdvice bắt lỗi tập trung
 │   │   │   └── CustomBusinessException.java# Định nghĩa lỗi nghiệp vụ riêng
-│   │   └── utils/                         # JwtUtils, DateUtils, PasswordEncoder, SecurityUtils
+│   │   └── utils/                         # JwtUtils, DateUtils, GeoSpatialUtils
 │   │
-│   ├── config/                            # Cấu hình Framework (Security, OpenAPI, Database, Kafka, Redis)
-│   ├── controller/                        # TẦNG GIAO TIẾP HTTP (admin/, customer/, agency/, freelancer/)
+│   ├── config/                            # Cấu hình Framework (Security, OpenAPI, Database, Redis, Redisson, WebSocket)
+│   ├── controller/                        # TẦNG GIAO TIẾP HTTP (auth/, customer/, agency/, freelancer/, admin/)
 │   ├── dto/                               # DATA TRANSFER OBJECT (request/ với @Valid, response/)
-│   ├── entity/                            # TẦNG MAP DATABASE (JPA Entity kế thừa BaseEntity)
+│   ├── entity/                            # TẦNG MAP DATABASE (JPA Entity kế thừa BaseEntity, chỉ định schema)
 │   ├── repository/                        # TẦNG TRUY VẤN DỮ LIỆU
-│   │   ├── custom/                        # Interface gọi Native SQL / Stored Procedure phức tạp
+│   │   ├── custom/                        # Interface gọi Native SQL / PostGIS Spatial queries
 │   │   └── <Domain>Repository.java        # Kế thừa JpaRepository cho truy vấn cơ bản
 │   └── service/                           # TẦNG NGHIỆP VỤ LÕI
-│       ├── impl/                          # Code thực thi logic nghiệp vụ thực tế
+│       ├── impl/                          # BẮT BUỘC CHỨA CODE THỰC THI THẬT
 │       └── <Domain>Service.java           # Interface định nghĩa hợp đồng hành động
 │
 ├── src/main/resources/
-│   ├── application.yaml                   # Cấu hình port, database credentials, Eureka, Kafka
+│   ├── application.yaml                   # Cấu hình port 8080, datasource (8 schemas), redis
 │   ├── text/
-│   │   └── messages.properties            # ResourceBundle lưu trữ text, không hardcode text vào code
-│   └── db/migration/
-│       └── V1__Init_Tables.sql            # Script Flyway tạo bảng CSDL
+│   │   └── messages.properties            # ResourceBundle lưu trữ text tiếng Việt i18n
+│   └── db/migration/                      # Scripts Flyway cho 1 database duy nhất
+│       ├── V1__Create_Schemas_And_Extensions.sql
+│       ├── V2__Init_Auth_And_Profiles.sql
+│       ├── V3__Init_Catalog_And_Telemetry.sql
+│       ├── V4__Init_Booking_And_Interaction.sql
+│       └── V5__Init_Wallet_Double_Entry.sql
 ├── unitest/ & sonarLint/                  # Quản lý test case kiểm thử và chất lượng code
 ├── Dockerfile, .dockerignore
 └── build.gradle                           # Cấu hình dependencies
@@ -71,26 +64,8 @@ code/backend/<service-name>/
 ## 3. Quy chuẩn Kỹ thuật Bắt buộc
 
 ### 3.1. Kế thừa Base Components
-- **`BaseEntity`**:
-  ```java
-  @MappedSuperclass
-  @Getter
-  @Setter
-  public abstract class BaseEntity {
-      @Id
-      @GeneratedValue(strategy = GenerationType.IDENTITY)
-      private Long id;
-
-      @CreationTimestamp
-      @Column(name = "created_at", updatable = false)
-      private LocalDateTime createdAt;
-
-      @UpdateTimestamp
-      @Column(name = "updated_at")
-      private LocalDateTime updatedAt;
-  }
-  ```
-- **`BaseController`**: Chuẩn hóa cấu trúc ApiResponse `<T>` đồng nhất cho toàn hệ thống.
+- **`BaseEntity`**: Mọi Entity phải kế thừa `BaseEntity` (id, createdAt, updatedAt).
+- **`BaseController`**: Mọi Controller phải kế thừa `BaseController` và trả về `ResponseEntity<ApiResponse<T>>`.
 - **`BaseService<T, ID>` & `BaseServiceImpl<T, ID, R>`**: Đảm bảo tái sử dụng logic CRUD cơ bản.
 
 ### 3.2. Data Transfer Objects (DTO) & Bean Validation
@@ -99,9 +74,13 @@ code/backend/<service-name>/
 - Controller phải đặt `@Valid @RequestBody <DTO> request`.
 
 ### 3.3. Xử lý Lỗi & Không Hard-code Text (ResourceBundle)
-- Ném lỗi nghiệp vụ qua `CustomBusinessException(ErrorCode, args)`.
+- Ném lỗi nghiệp vụ qua `CustomBusinessException(ErrorCode, message, HttpStatus)`.
 - Mọi chuỗi thông báo lỗi được định nghĩa trong `src/main/resources/text/messages.properties`.
-- `GlobalExceptionHandler` `@RestControllerAdvice` bắt và map HTTP status code chính xác (400, 401, 403, 404, 409, 500).
+- `GlobalExceptionHandler` `@RestControllerAdvice` bắt và map HTTP status code chính xác (400, 401, 403, 404, 409, 429, 500).
 
-### 3.4. Distributed Locking (Redlock)
-- Tại `booking-service`, khi xử lý tranh chấp đơn hàng đếm ngược 30s giữa nhiều thợ, bắt buộc dùng **Redlock** (thông qua Redisson trên Redis DB 3) để khóa phân tán theo `bookingId`.
+### 3.4. Quản lý 1 Database + 8 Schemas
+- Khai báo rõ schema trong `@Table`: `@Table(name = "users", schema = "auth_schema")`.
+- Khóa ngoại xuyên schema được hỗ trợ hoàn toàn tự nhiên trong PostgreSQL.
+
+### 3.5. Distributed Locking (Redlock)
+- Khi xử lý tranh chấp đơn hàng đếm ngược 30s giữa nhiều thợ, dùng **Redlock** (thông qua Redisson trên Redis).
