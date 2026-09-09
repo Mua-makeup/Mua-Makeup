@@ -29,20 +29,5 @@ CREATE TABLE IF NOT EXISTS agency_staff_styles (
     PRIMARY KEY (staff_id, style_id)
 );
 
-CREATE TABLE IF NOT EXISTS staff_portfolio_showcases (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    staff_id BIGINT REFERENCES agency_staff(id) ON DELETE CASCADE,
-    mua_id BIGINT,              -- Logical ref: mua_profiles.id (user_profile_db)
-    package_id BIGINT,          -- Logical ref: service_packages.id (catalog_media_db)
-    style_id INT,               -- Logical ref: makeup_styles.id (catalog_media_db)
-    title VARCHAR(150),
-    image_url TEXT NOT NULL,
-    additional_images JSONB DEFAULT '[]'::jsonb,
-    description TEXT,
-    is_featured BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_agency_staff_styles ON agency_staff_styles(staff_id, style_id, is_qualified);
-CREATE INDEX IF NOT EXISTS idx_portfolio_showcase_lookup ON staff_portfolio_showcases(staff_id, mua_id, package_id, style_id);

@@ -54,6 +54,22 @@ CREATE TABLE IF NOT EXISTS package_styles (
     PRIMARY KEY (package_id, style_id)
 );
 
+CREATE TABLE IF NOT EXISTS portfolio_showcases (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    mua_id BIGINT NOT NULL,     -- Logical ref: mua_profiles.id (user_profile_db)
+    staff_id BIGINT,            -- Logical ref: agency_staff.id (agency_operations_db)
+    package_id BIGINT REFERENCES service_packages(id) ON DELETE SET NULL,
+    style_id INT REFERENCES makeup_styles(id) ON DELETE SET NULL,
+    title VARCHAR(150),
+    image_url TEXT NOT NULL,
+    additional_images JSONB DEFAULT '[]'::jsonb,
+    description TEXT,
+    is_featured BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT check_showcase_owner CHECK (staff_id IS NOT NULL OR mua_id IS NOT NULL)
+);
+COMMENT ON TABLE portfolio_showcases IS 'Bảng lưu Album ảnh sản phẩm trang điểm thực tế của cả Thợ Tự Do và Thợ Studio';
+
 CREATE TABLE IF NOT EXISTS surcharges (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     agency_id BIGINT,          -- Logical ref: agency_profiles.id (user_profile_db)
@@ -68,3 +84,4 @@ CREATE INDEX IF NOT EXISTS idx_packages_category_price ON service_packages(maste
 CREATE INDEX IF NOT EXISTS idx_packages_agency ON service_packages(agency_id);
 CREATE INDEX IF NOT EXISTS idx_packages_mua ON service_packages(mua_id);
 CREATE INDEX IF NOT EXISTS idx_package_items_pkg_type ON package_items(package_id, item_type, is_active);
+CREATE INDEX IF NOT EXISTS idx_portfolio_showcase_lookup ON portfolio_showcases(mua_id, staff_id, package_id, style_id);

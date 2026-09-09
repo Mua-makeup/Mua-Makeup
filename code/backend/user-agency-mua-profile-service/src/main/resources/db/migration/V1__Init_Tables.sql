@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS mua_profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS mua_styles (
+    mua_id BIGINT REFERENCES mua_profiles(id) ON DELETE CASCADE,
+    style_id INT NOT NULL, -- Logical ref: makeup_styles.id (catalog_media_db)
+    is_qualified BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (mua_id, style_id)
+);
+COMMENT ON TABLE mua_styles IS 'Bảng gán kỹ năng Tone Make-up trực tiếp cho Thợ trang điểm';
+
 CREATE TABLE IF NOT EXISTS in_app_notifications (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -87,4 +95,5 @@ CREATE TABLE IF NOT EXISTS in_app_notifications (
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_lookup ON role_permissions(role_id, permission_code);
 CREATE INDEX IF NOT EXISTS idx_mua_online_status ON mua_profiles(is_online, is_busy);
+CREATE INDEX IF NOT EXISTS idx_mua_styles ON mua_styles(mua_id, style_id, is_qualified);
 CREATE INDEX IF NOT EXISTS idx_notifications_unread ON in_app_notifications(user_id, is_read, created_at DESC);
