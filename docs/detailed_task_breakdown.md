@@ -2,11 +2,11 @@
 
 ---
 
-## 📌 SPRINT 0: KHỞI TẠO DỰ ÁN MODULAR MONOLITH, DB & AUTH MODULE (13 ISSUES)
+## 📌 SPRINT 0: KHỞI TẠO DỰ ÁN LAYERED MONOLITH (CORE-API), DB & AUTH MODULE (13 ISSUES)
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-6** | Task | Khởi tạo Git Repository và cấu trúc thư mục Modular Monolith (`src/modules`) | Done | 8/9/2026 | Medium | DE, SA |
+| **ISSUE-6** | Task | Khởi tạo Git Repository và cấu trúc thư mục Layered Monolith (`controller`, `service`, `repository`, `entity`) | Done | 8/9/2026 | Medium | DE, SA |
 | **ISSUE-4** | User Story | Tạo cấu trúc thư mục dự án tổng quan | Done | 8/9/2026 | High | DE, SA |
 | **ISSUE-1** | User Story | Phân tích và tạo tài liệu đặc tả SRS cho phân hệ ADMIN | Done | 8/9/2026 | High | SA, BE1 |
 | **ISSUE-8.1** | Task | Cấu hình Docker Compose cho PostgreSQL 16 & PostGIS Extension | In Progress | 9/9/2026 | Medium | DE |
@@ -45,12 +45,12 @@
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-14.1** | User Story | Location Telemetry Service - Khởi tạo Microservice bằng Go / PostGIS | To Do | - | Medium | BE3, DE |
+| **ISSUE-14.1** | User Story | Location Telemetry Module - Xây dựng Module Định vị GPS & Redis GEO trong Monolith | To Do | - | Medium | BE3, DE |
 | **ISSUE-14.2** | Task | Redis GEO Spatial Index lưu tọa độ Thợ rảnh Realtime | To Do | - | High | BE3 |
 | **ISSUE-14.3** | Task | GPS Telemetry Background Task trên Mobile App Thợ (Stream 5-10s) | To Do | - | High | FE2, BE3 |
 | **ISSUE-14.4** | Task | API Quét danh sách Thợ/Studio rảnh trong bán kính R km từ vị trí khách | To Do | - | High | BE3 |
 | **ISSUE-14.5** | Task | Bảng lưu vết Lịch sử tọa độ GPS di chuyển thợ (`telemetry_logs`) | To Do | - | Medium | BE3 |
-| **ISSUE-15.1** | User Story | Dynamic Pricing Engine - Khởi tạo Microservice Tính giá động | To Do | - | Medium | BE3, FE1 |
+| **ISSUE-15.1** | User Story | Dynamic Pricing Module - Xây dựng Module Tính giá động & Phụ phí trong Monolith | To Do | - | Medium | BE3, FE1 |
 | **ISSUE-15.2** | Task | Tích hợp Maps API (Google Maps / Goong Maps API) tính khoảng cách km | To Do | - | High | BE3 |
 | **ISSUE-15.3** | Task | Thuật toán tính Phí di chuyển theo km (Distance Fee Calculator) | To Do | - | Medium | BE3 |
 | **ISSUE-15.4** | Task | Thuật toán Surge Pricing tự động tăng giá theo khung giờ cao điểm | To Do | - | Medium | BE3 |
@@ -67,7 +67,7 @@
 | **ISSUE-16.2** | Task | Nhật ký Audit Log lịch sử biến động trạng thái đơn (`booking_history`) | To Do | - | Medium | BE1 |
 | **ISSUE-16.3** | Task | Tích hợp Redlock (Redis Distributed Lock) chống tranh chấp ca khẩn cấp | To Do | - | High | BE1 |
 | **ISSUE-17.1** | User Story | Luồng 1: Đặt ca Khẩn cấp Realtime (Instant 30-60 phút) - API tạo đơn | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-17.2** | Task | Bắn Event `INSTANT_BOOKING_CREATED` vào Apache Kafka Topic | To Do | - | High | BE1, DE |
+| **ISSUE-17.2** | Task | Bắn Event `INSTANT_BOOKING_CREATED` qua Spring `ApplicationEventPublisher` | To Do | - | High | BE1, DE |
 | **ISSUE-17.3** | Task | Màn hình Popup Đếm ngược 30-45s nhận ca khẩn cấp trên App Thợ | To Do | - | High | FE2 |
 | **ISSUE-17.4** | Task | Logic Thợ bấm 'Chấp nhận' ca -> Khóa đơn duy nhất và phát sinh Escrow cọc | To Do | - | High | BE1, FE2 |
 | **ISSUE-18.1** | User Story | Luồng 2: Đặt Lịch Hẹn Trước cho tương lai (Scheduled Booking Flow) | To Do | - | Medium | BE1, FE1 |
@@ -79,19 +79,19 @@
 
 ---
 
-## 📌 SPRINT 4: WEBSOCKET REALTIME GATEWAY & KAFKA NOTIFICATION SERVICE (11 ISSUES)
+## 📌 SPRINT 4: EMBEDDED WEBSOCKET REALTIME GATEWAY & IN-APP NOTIFICATION MODULE (11 ISSUES)
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-20.1** | User Story | WebSocket Realtime Gateway - Khởi tạo Microservice độc lập (Node.js/WebFlux) | To Do | - | Medium | BE2, SA |
+| **ISSUE-20.1** | User Story | WebSocket Realtime Gateway - Tích hợp Embedded STOMP WebSocket trong core-api | To Do | - | Medium | BE2, SA |
 | **ISSUE-20.2** | Task | Kết nối màng lưới thời gian thực mã hóa WSS (WebSocket Secure qua SSL) | To Do | - | High | BE2, DE |
 | **ISSUE-20.3** | Task | Authentication Middleware xác thực kết nối WebSocket bằng Short-lived JWT | To Do | - | High | BE2 |
 | **ISSUE-20.4** | Task | Tích hợp Redis PubSub Adapter đồng bộ kết nối WebSocket trên nhiều Gateway | To Do | - | High | BE2, DE |
 | **ISSUE-20.5** | Task | Kênh Broadcast Popup Đếm ngược 30s đồng loạt đến App các Thợ rảnh gần nhất | To Do | - | High | BE2, FE2 |
 | **ISSUE-20.6** | Task | Kênh Stream vị trí GPS Thợ di chuyển Realtime cho Khách xem trên bản đồ | To Do | - | High | BE2, FE1 |
-| **ISSUE-21.1** | User Story | In-App Notification Service - Khởi tạo Service tiêu thụ Kafka Event Bus | To Do | - | Medium | BE2, DE |
-| **ISSUE-21.2** | Task | Kafka Consumer lắng nghe Kafka Topic `notification-events` | To Do | - | High | BE2 |
-| **ISSUE-21.3** | Task | Idempotency Key chống trùng lặp tin nhắn thông báo khi Kafka Retry | To Do | - | Medium | BE2 |
+| **ISSUE-21.1** | User Story | In-App Notification Module - Xử lý thông báo In-App qua In-Memory EventBus | To Do | - | Medium | BE2, DE |
+| **ISSUE-21.2** | Task | @EventListener lắng nghe Event phát sinh từ các Domain Modules | To Do | - | High | BE2 |
+| **ISSUE-21.3** | Task | Xử lý chống trùng lặp thông báo Event qua Event ID | To Do | - | Medium | BE2 |
 | **ISSUE-21.4** | Task | In-App Toast Popup Notification Client-side (<100ms response time) | To Do | - | High | FE1, FE2, FE3 |
 | **ISSUE-21.5** | Task | Lưu danh sách thông báo In-App vào Bảng `in_app_notifications` & Đánh dấu Đã đọc | To Do | - | Medium | BE2 |
 
@@ -101,7 +101,7 @@
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-22.1** | User Story | Phân vùng Ví 7 Bảng - Khởi tạo Schema Sổ cái Kế toán Đúp (`payment_service`) | To Do | - | Medium | BE3, SA |
+| **ISSUE-22.1** | User Story | Phân vùng Ví 7 Bảng - Khởi tạo Schema Sổ cái Kế toán Đúp (`wallet_schema` trong core-api) | To Do | - | Medium | BE3, SA |
 | **ISSUE-22.2** | Task | Module Quản lý Số dư khả dụng & Số dư phong tỏa trong Bảng `wallets` | To Do | - | High | BE3 |
 | **ISSUE-22.3** | Task | Bảng Sổ cái Kế toán Đúp (`ledger_entries`) hạch toán Nợ (`debit`) / Có (`credit`) đối ứng | To Do | - | High | BE3 |
 | **ISSUE-22.4** | Task | Bảng Sao kê Biến động số dư từng Ví (`wallet_transactions`) CREDIT/DEBIT/FREEZE | To Do | - | High | BE3 |
@@ -125,9 +125,9 @@
 | **ISSUE-25.1** | User Story | Hoàn thiện UI/UX App Khách hàng (Map tracking thợ, Lightbox Portfolio) | To Do | - | Medium | FE1 |
 | **ISSUE-25.2** | Task | Hoàn thiện UI/UX App Thợ (Công tắc On/Off phát sóng GPS, Đĩa đếm ngược) | To Do | - | Medium | FE2 |
 | **ISSUE-25.3** | Task | Hoàn thiện UI/UX Web Studio Portal (Dashboard Analytics, Ma trận xếp ca) | To Do | - | Medium | FE3 |
-| **ISSUE-26.1** | User Story | Viết Kịch bản Integration Test E2E: Đặt đơn -> Kafka -> WebSocket -> Ví | To Do | - | Medium | QA, BE1-3 |
+| **ISSUE-26.1** | User Story | Viết Kịch bản Integration Test E2E: Đặt đơn -> EventBus -> WebSocket -> Ví | To Do | - | Medium | QA, BE1-3 |
 | **ISSUE-26.2** | Task | Thực thi Kiểm thử Tích hợp E2E trên Môi trường Staging | To Do | - | High | QA |
-| **ISSUE-27.1** | User Story | Load Testing Kafka & WSS: Giả lập 1,000 Thợ phát sóng GPS Telemetry đồng thời | To Do | - | Medium | QA, DE, SA |
+| **ISSUE-27.1** | User Story | Load Testing Redis GEO & Embedded WSS: Giả lập 1,000 Thợ phát sóng GPS Telemetry đồng thời | To Do | - | Medium | QA, DE, SA |
 | **ISSUE-27.2** | Task | Stress Testing Booking Engine: Giả lập 500 yêu cầu Đặt ca khẩn cấp/giây | To Do | - | High | QA, DE |
 | **ISSUE-28.1** | User Story | Security Audit: Kiểm tra mã hóa TLS/WSS, Masking số dư Ví & OWASP Top 10 | To Do | - | Medium | SA, DE |
 | **ISSUE-28.2** | Task | Bug Fixing & Tối ưu hóa hiệu năng SQL Queries, B-Tree & GIST Spatial Indexes | To Do | - | High | BE1-3 |
@@ -140,7 +140,7 @@
 - **Sprint 1**: 12 Issues (Profile, Studio & Gói dịch vụ).
 - **Sprint 2**: 11 Issues (Telemetry GPS & Pricing Engine).
 - **Sprint 3**: 13 Issues (Booking Engine 2 luồng & Dispatching).
-- **Sprint 4**: 11 Issues (WebSocket WSS Gateway & Kafka Notifications).
+- **Sprint 4**: 11 Issues (Embedded WebSocket WSS Gateway & In-App Notifications).
 - **Sprint 5**: 11 Issues (Ví 7 Bảng Sổ cái & Cổng thanh toán Payout).
 - **Sprint 6**: 13 Issues (Review, Polish UI, Testing, Security & Go-Live).
 - **TỔNG CỘNG HỆ THỐNG**: **84 Issues chi tiết** phân bổ đều trong 7 Sprints (chuẩn 10-15 Issues / Sprint).

@@ -1,4 +1,4 @@
-package com.makeup.platform.service;
+package com.makeup.platform.service.auth;
 
 import com.makeup.platform.dto.request.auth.ChangePasswordReq;
 import com.makeup.platform.dto.request.auth.LoginReq;
@@ -15,7 +15,11 @@ public interface AuthService {
 
     AuthRes login(LoginReq req);
 
-    AuthRes refreshToken(RefreshTokenReq req);
+    AuthRes refreshToken(RefreshTokenReq req, String oldAccessToken);
+
+    default AuthRes refreshToken(RefreshTokenReq req) {
+        return refreshToken(req, req != null ? req.getAccessToken() : null);
+    }
 
     void logout(LogoutReq req, String accessToken);
 

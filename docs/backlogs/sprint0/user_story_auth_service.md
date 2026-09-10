@@ -1,22 +1,22 @@
 # TÀI LIỆU ĐẶC TẢ USER STORIES & TIÊU CHÍ NGHIỆM THU
-## MICROSERVICE: USER & AUTHENTICATION SERVICE (XÁC THỰC & PHÂN QUYỀN RBAC 4 BẢNG)
+## MODULE: USER & AUTHENTICATION MODULE (MONOLITHIC CORE-API - PHÂN HỆ AUTH, AGENCY, MUA)
 
 ---
 
 ## 📌 1. TỔNG QUAN TÍNH NĂNG (FEATURE OVERVIEW)
 
-* **Tên Microservice:** `User, Agency & MUA Profile Service` (Service ID: `user-agency-mua-profile-service`, Port: `8081`).
-* **Cơ sở dữ liệu:** PostgreSQL 16 (`user_profile_db`).
+* **Tên Module:** `User, Agency & MUA Profile Module` (Đóng gói trong `core-api`, Port: `8080`).
+* **Cơ sở dữ liệu:** PostgreSQL 16 (`makeup_platform_db` - Schemas: `auth_schema`, `agency_schema`, `mua_schema`).
 * **Phạm vi Module:** 
   * Quản lý Đăng ký tài khoản đa phân hệ (Khách hàng, Thợ tự do, Chủ Studio/Đại lý).
   * Đăng nhập an toàn bằng Số điện thoại/Email kết hợp Mật khẩu mã hóa BCrypt.
-  * Cấp phát và quản lý vòng đời JWT (Access Token thời hạn 2h, Refresh Token thời hạn 30 ngày với cơ chế Refresh Token Rotation).
-  * Thu hồi Session và Đăng xuất an toàn thông qua Redis Token Blacklist.
+  * Cấp phát và quản lý vòng đời JWT (Access Token thời hạn 1 ngày / 86400s, Refresh Token tự sinh chứa `user_id` lưu trong `HttpOnly` Cookie thời hạn 30 ngày kèm cơ chế Rotation & Blacklist).
+  * Thu hồi Session và Đăng xuất an toàn thông qua Redis Token Blacklist và xóa Cookie.
   * Động cơ Phân quyền Chi tiết RBAC 4 Bảng (`users` $\rightarrow$ `user_roles` $\rightarrow$ `roles` $\rightarrow$ `role_permissions`), nhúng danh sách mã quyền (`permission_code`) trực tiếp vào JWT Claims.
   * *(Lưu ý: Phân hệ xác thực OTP qua SMS/ZNS được lược bỏ trong giai đoạn hiện tại theo yêu cầu dự án, tập trung vào xác thực Số điện thoại / Email + Mật khẩu an toàn).*
 * **Mã Jira Issue liên quan:**
-  * `ISSUE-10.1`: User & Auth Service - API Đăng ký / Đăng nhập 3 Phân hệ.
-  * `ISSUE-10.2`: User & Auth Service - Tích hợp Phân quyền RBAC 4 Bảng.
+  * `ISSUE-10.1`: Auth & Profile Module - API Đăng ký / Login & Phân hệ người dùng.
+  * `ISSUE-10.2`: Auth & Profile Module - Tích hợp Phân quyền RBAC 4 Bảng (`users`, `roles`, `user_roles`, `role_permissions`).
   * `ISSUE-106`: Thiết kế & Triển khai Mô hình Phân quyền Granular RBAC Permissions.
 * **Đối tượng sử dụng (User Personas):**
   1. **Customer (Khách hàng đặt trang điểm)**: Đăng ký nhanh, đăng nhập, quản lý thông tin cá nhân.
@@ -51,8 +51,8 @@
   * **Given** Khách hàng đã có tài khoản đang ở trạng thái kích hoạt (`is_active = true`).
   * **When** Gửi yêu cầu đăng nhập với Số điện thoại (hoặc Email) và Mật khẩu chính xác.
   * **Then** Hệ thống trả về `200 OK` chứa:
-    * `access_token`: JWT có thời hạn 2 giờ (7200 giây), chứa thông tin `user_id`, `phone_number`, mảng `roles` và mảng `permissions`.
-    * `refresh_token`: Token ngẫu nhiên bảo mật cao có thời hạn 30 ngày để cấp lại access token.
+    * `access_token`: JWT có thời hạn 1 ngày (86,400 giây), chứa thông tin `user_id`, `phone_number`, mảng `roles` và mảng `permissions`.
+    * `refresh_token`: Token tự sinh dạng JWT chứa `user_id` có thời hạn 30 ngày (lưu an toàn trong `HttpOnly` Cookie và Redis) để cấp lại access token.
     * Thông tin người dùng (`user_info`).
 
 * **Scenario 04: Đăng nhập thất bại do sai mật khẩu hoặc tài khoản bị khóa**
@@ -143,13 +143,13 @@
 
 ### **US-AUTH-05: Động cơ Phân quyền RBAC 4 Bảng & Cấp JWT Claims (RBAC Engine & JWT Token)**
 > **As a** Kỹ sư Kiến trúc Hệ thống (System Architect),  
-> **I want** Auth Service xác thực người dùng dựa trên mô hình RBAC 4 Bảng (`users` $\rightarrow$ `user_roles` $\rightarrow$ `roles` $\rightarrow$ `role_permissions`) và nhúng danh sách `permission_code` vào JWT Token,  
-> **So that** API Gateway và các Microservices phía sau (Booking, Wallet, Catalog...) có thể giải mã và kiểm tra quyền hạn tức thì mà không cần gọi truy vấn Database lặp lại trên từng request.
+> **I want** Auth Module / Service (core-api) xác thực người dùng dựa trên mô hình RBAC 4 Bảng (`users` $\rightarrow$ `user_roles` $\rightarrow$ `roles` $\rightarrow$ `role_permissions`) và nhúng danh sách `permission_code` vào JWT Token,  
+> **So that** Spring Security Filter và các Modules nội bộ trong Monolith core-api (Booking, Wallet, Catalog...) có thể giải mã và kiểm tra quyền hạn tức thì mà không cần gọi truy vấn Database lặp lại trên từng request.
 
 #### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
 * **Scenario 01: Trích xuất toàn bộ Permissions khi sinh JWT Token**
   * **Given** Người dùng đăng nhập thành công.
-  * **When** Auth Service tổng hợp quyền hạn của user.
+  * **When** Auth Module / Service (core-api) tổng hợp quyền hạn của user.
   * **Then** Thực hiện truy vấn JOIN qua 4 bảng để thu thập toàn bộ danh sách `permission_code` độc bản (distinct).
   * **And** Ký số mã JWT bằng thuật toán `HMAC-SHA256` với Secret Key an toàn đọc từ biến môi trường `${JWT_SECRET}`.
   * **And** Đảm bảo Payload JWT chứa:
@@ -527,7 +527,7 @@ Bảng ma trận ánh xạ 5 Vai trò cốt lõi với danh sách Mã Quyền h�
 ### 6.1. Script DDL 4 Bảng RBAC (PostgreSQL 16)
 ```sql
 -- =============================================================================
--- DATABASE: user_profile_db
+-- DATABASE: makeup_platform_db (SCHEMA: auth_schema)
 -- MÔ HÌNH PHÂN QUYỀN RBAC 4 BẢNG (ROLE-BASED ACCESS CONTROL)
 -- =============================================================================
 
