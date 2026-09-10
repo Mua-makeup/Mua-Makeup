@@ -24,12 +24,18 @@ import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.RolePermissionRepository;
 import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
+import com.makeup.platform.security.CustomUserDetails;
 import com.makeup.platform.service.AuthService;
 import com.makeup.platform.service.RedisTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +46,6 @@ import java.time.Year;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -55,8 +60,9 @@ public class AuthServiceImpl implements AuthService {
     private final RedisTokenService redisTokenService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
+    private final AuthenticationManager authenticationManager;
 
-    @Value("${jwt.access-token-expiration-ms:7200000}")
+    @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
 
     @Value("${jwt.refresh-token-expiration-days:30}")
@@ -167,33 +173,45 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthRes login(LoginReq req) {
-        log.info("Processing login for identifier: {}", req.getLoginIdentifier());
+        log.info("Processing login via AuthenticationManager for identifier: {}", req.getLoginIdentifier());
 
-        // 1. Tìm User qua SĐT hoặc Email
-        UserEntity user = userRepository.findByPhoneNumber(req.getLoginIdentifier())
-                .or(() -> userRepository.findByEmail(req.getLoginIdentifier()))
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_INVALID_CREDENTIALS,
-                        "Thông tin đăng nhập không chính xác hoặc tài khoản đã bị vô hiệu hóa.", HttpStatus.UNAUTHORIZED));
+        try {
+            // Xác thực tập trung bằng AuthenticationManager & CustomUserDetailsService
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(req.getLoginIdentifier(), req.getPassword())
+            );
 
-        // 2. Xác thực Mật khẩu
-        if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+            UserEntity user = userRepository.findById(userDetails.getUserId())
+                    .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
+                            "Không tìm thấy thông tin người dùng.", HttpStatus.NOT_FOUND));
+
+            return generateAuthResponse(user);
+        } catch (BadCredentialsException e) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_CREDENTIALS,
                     "Thông tin đăng nhập không chính xác hoặc tài khoản đã bị vô hiệu hóa.", HttpStatus.UNAUTHORIZED);
-        }
-
-        // 3. Kiểm tra Trạng thái tài khoản
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
+        } catch (DisabledException e) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_CREDENTIALS,
                     "Tài khoản của bạn đã bị khóa hoặc vô hiệu hóa. Vui lòng liên hệ hỗ trợ.", HttpStatus.UNAUTHORIZED);
         }
-
-        return generateAuthResponse(user);
     }
 
     @Override
     @Transactional
     public AuthRes refreshToken(RefreshTokenReq req) {
+        return refreshToken(req, req != null ? req.getAccessToken() : null);
+    }
+
+    @Override
+    @Transactional
+    public AuthRes refreshToken(RefreshTokenReq req, String oldAccessToken) {
         String token = req.getRefreshToken();
+        if (!jwtUtils.validateToken(token) || !jwtUtils.isRefreshToken(token)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
+                    "Refresh Token không hợp lệ hoặc đã hết hạn.", HttpStatus.UNAUTHORIZED);
+        }
+
         Long userId = redisTokenService.getUserIdByRefreshToken(token);
 
         if (userId == null) {
@@ -203,6 +221,20 @@ public class AuthServiceImpl implements AuthService {
 
         // Refresh Token Rotation: Xóa token cũ ngay lập tức
         redisTokenService.deleteRefreshToken(token);
+
+        // Blacklist Access Token cũ nếu nó còn thời hạn tồn tại
+        String tokenToBlacklist = StringUtils.hasText(oldAccessToken) ? oldAccessToken : req.getAccessToken();
+        if (StringUtils.hasText(tokenToBlacklist)) {
+            String cleanToken = tokenToBlacklist.startsWith(SecurityConstants.TOKEN_PREFIX)
+                    ? tokenToBlacklist.substring(SecurityConstants.TOKEN_PREFIX.length())
+                    : tokenToBlacklist;
+
+            long remainingMs = jwtUtils.getRemainingExpirationMs(cleanToken);
+            if (remainingMs > 0) {
+                redisTokenService.blacklistAccessToken(cleanToken, remainingMs);
+                log.info("Blacklisted old access token during refresh: remaining {} ms", remainingMs);
+            }
+        }
 
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
@@ -319,7 +351,7 @@ public class AuthServiceImpl implements AuthService {
                 permissions
         );
 
-        String refreshToken = UUID.randomUUID().toString();
+        String refreshToken = jwtUtils.generateRefreshToken(user.getId());
         redisTokenService.saveRefreshToken(refreshToken, user.getId(), refreshTokenExpirationDays);
 
         UserInfoRes userInfo = UserInfoRes.builder()

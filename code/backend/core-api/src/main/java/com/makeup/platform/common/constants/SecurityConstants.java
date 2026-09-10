@@ -15,7 +15,8 @@ public final class SecurityConstants {
     public static final String REDIS_PREFIX_REFRESH_TOKEN = "rt:";
     public static final String REDIS_PREFIX_BLACKLIST = "jwt:blacklist:";
 
-    // Headers & Token prefix
+    // Headers, Cookies & Token prefix
     public static final String TOKEN_PREFIX = "Bearer ";
     public static final String HEADER_STRING = "Authorization";
+    public static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
 }
