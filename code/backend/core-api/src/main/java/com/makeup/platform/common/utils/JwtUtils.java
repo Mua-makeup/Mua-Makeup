@@ -1,12 +1,19 @@
 package com.makeup.platform.common.utils;
 
+import com.makeup.platform.common.constants.ErrorCodes;
+import com.makeup.platform.common.exception.CustomBusinessException;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SecurityException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -85,9 +92,31 @@ public class JwtUtils {
         try {
             Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            log.warn("Invalid JWT token: {}", e.getMessage());
-            return false;
+        } catch (ExpiredJwtException e) {
+            log.warn("Invalid JWT token - Expired: {}", e.getMessage());
+            throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_EXPIRED,
+                    "Token đã hết hạn. Vui lòng làm mới token hoặc đăng nhập lại.",
+                    HttpStatus.UNAUTHORIZED);
+        } catch (SecurityException e) {
+            log.warn("Invalid JWT token - Signature invalid: {}", e.getMessage());
+            throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID_SIGNATURE,
+                    "Chữ ký token không hợp lệ hoặc đã bị chỉnh sửa.",
+                    HttpStatus.UNAUTHORIZED);
+        } catch (MalformedJwtException e) {
+            log.warn("Invalid JWT token - Malformed: {}", e.getMessage());
+            throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_MALFORMED,
+                    "Cấu trúc token không đúng định dạng.",
+                    HttpStatus.UNAUTHORIZED);
+        } catch (UnsupportedJwtException e) {
+            log.warn("Invalid JWT token - Unsupported: {}", e.getMessage());
+            throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_UNSUPPORTED,
+                    "Token không được hỗ trợ bởi hệ thống.",
+                    HttpStatus.UNAUTHORIZED);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid JWT token - Empty or illegal claims: {}", e.getMessage());
+            throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
+                    "Chuỗi token không hợp lệ hoặc rỗng.",
+                    HttpStatus.UNAUTHORIZED);
         }
     }
 

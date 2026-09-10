@@ -97,7 +97,7 @@ public class AuthController extends BaseController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestBody(required = false) LogoutReq req,
-            @RequestHeader(value = SecurityConstants.HEADER_STRING, required = false) String bearerToken,
+            @RequestHeader(value = SecurityConstants.HEADER_STRING) String bearerToken,
             HttpServletRequest request,
             HttpServletResponse response) {
         String tokenFromCookie = cookieUtils.getRefreshTokenFromCookie(request).orElse(null);
