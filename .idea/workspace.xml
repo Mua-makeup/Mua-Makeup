@@ -4,19 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/gradlew" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/gradlew" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/ErrorCodes.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/ErrorCodes.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/utils/JwtUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/utils/JwtUtils.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/JwtAuthenticationFilter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/AuthController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/resources/text/messages.properties" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/resources/text/messages.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-    </list>
+    <list default="true" id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -119,12 +107,12 @@
     &quot;assignee&quot;: &quot;trung1609&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/phuongdanban19303/Mua-Makeup.git",
-    "accountId": "31706cd5-1284-444b-bf1a-e44bd48d7db1"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/phuongdanban19303/Mua-Makeup.git&quot;,
+    &quot;accountId&quot;: &quot;31706cd5-1284-444b-bf1a-e44bd48d7db1&quot;
   }
-}]]></component>
+}</component>
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
   &quot;isMigrated&quot;: true
@@ -144,39 +132,39 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Gradle.Build core-api.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.Build user-agency-mua-profile-service.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
-    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
-    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
-    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;Spring Boot.Application.executor&quot;: &quot;Run&quot;,
-    &quot;Spring Boot.UserAgencyMuaProfileServiceApplication.executor&quot;: &quot;Run&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;feature/auth&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;E:/Trung/Code/IOC Internship&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build core-api.executor": "Run",
+    "Gradle.Build user-agency-mua-profile-service.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "Spring Boot.Application.executor": "Run",
+    "Spring Boot.UserAgencyMuaProfileServiceApplication.executor": "Run",
+    "git-widget-placeholder": "develop",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "E:/Trung/Code/IOC Internship",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "run.configurations.included.in.services": "true",
+    "vue.rearranger.settings.migration": "true"
   },
-  &quot;keyToStringList&quot;: {
-    &quot;DatabaseDriversLRU&quot;: [
-      &quot;redis&quot;
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "redis"
     ]
   }
-}</component>
+}]]></component>
   <component name="RunDashboard">
     <option name="configurationTypes">
       <set>
@@ -185,17 +173,6 @@
         <option value="QuarkusRunConfigurationType" />
         <option value="SpringBootApplicationConfigurationType" />
       </set>
-    </option>
-    <option name="configurationStatuses">
-      <map>
-        <entry key="SpringBootApplicationConfigurationType">
-          <value>
-            <map>
-              <entry key="Application" value="STOPPED" />
-            </map>
-          </value>
-        </entry>
-      </map>
     </option>
   </component>
   <component name="RunManager">
