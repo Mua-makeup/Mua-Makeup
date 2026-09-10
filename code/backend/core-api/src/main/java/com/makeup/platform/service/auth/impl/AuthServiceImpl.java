@@ -1,4 +1,4 @@
-package com.makeup.platform.service.impl;
+package com.makeup.platform.service.auth.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.SecurityConstants;
@@ -25,8 +25,8 @@ import com.makeup.platform.repository.RolePermissionRepository;
 import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.security.CustomUserDetails;
-import com.makeup.platform.service.AuthService;
-import com.makeup.platform.service.RedisTokenService;
+import com.makeup.platform.service.auth.AuthService;
+import com.makeup.platform.service.auth.RedisTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

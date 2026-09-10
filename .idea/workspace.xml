@@ -6,7 +6,21 @@
   <component name="ChangeListManager">
     <list default="true" id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/ErrorCodes.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/ErrorCodes.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/JwtAuthenticationFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/AuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerProfileController.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerProfileController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/AuthService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/RedisTokenService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/UserService.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/impl/AuthServiceImpl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/impl/RedisTokenServiceImpl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/impl/UserServiceImpl.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/config/JwtAuthenticationFilterTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/config/JwtAuthenticationFilterTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/service/AuthServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/service/AuthServiceTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/backlogs/sprint1/user_story_catalog_surcharge_service.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/backlogs/sprint1/user_story_catalog_surcharge_service.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/project_structure.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/project_structure.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,39 +149,39 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Gradle.Build core-api.executor": "Run",
-    "Gradle.Build user-agency-mua-profile-service.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RequestMappingsPanelOrder0": "0",
-    "RequestMappingsPanelOrder1": "1",
-    "RequestMappingsPanelWidth0": "75",
-    "RequestMappingsPanelWidth1": "75",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "Spring Boot.Application.executor": "Run",
-    "Spring Boot.UserAgencyMuaProfileServiceApplication.executor": "Run",
-    "git-widget-placeholder": "develop",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "E:/Trung/Code/IOC Internship",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "run.configurations.included.in.services": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.Build core-api.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.Build user-agency-mua-profile-service.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RequestMappingsPanelOrder0&quot;: &quot;0&quot;,
+    &quot;RequestMappingsPanelOrder1&quot;: &quot;1&quot;,
+    &quot;RequestMappingsPanelWidth0&quot;: &quot;75&quot;,
+    &quot;RequestMappingsPanelWidth1&quot;: &quot;75&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;Spring Boot.Application.executor&quot;: &quot;Run&quot;,
+    &quot;Spring Boot.UserAgencyMuaProfileServiceApplication.executor&quot;: &quot;Run&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feature/Catalog__and__Surcharge&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;E:/Trung/Code/IOC Internship&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "DatabaseDriversLRU": [
-      "redis"
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;redis&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RunDashboard">
     <option name="configurationTypes">
       <set>
@@ -206,7 +220,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.33514.17" />
+        <option value="bundled-jdk-9823dce3aa75-a94e463ab2e7-intellij.indexing.shared.core-IU-243.26053.27" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-IU-243.26053.27" />
       </set>
     </attachedChunks>
   </component>
@@ -223,6 +238,7 @@
       <workItem from="1788915341994" duration="1329000" />
       <workItem from="1788941950806" duration="1937000" />
       <workItem from="1789008002914" duration="635000" />
+      <workItem from="1789028660590" duration="479000" />
     </task>
     <servers />
   </component>

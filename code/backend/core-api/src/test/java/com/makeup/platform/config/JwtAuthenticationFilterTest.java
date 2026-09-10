@@ -7,7 +7,7 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.SecurityConstants;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.utils.JwtUtils;
-import com.makeup.platform.service.RedisTokenService;
+import com.makeup.platform.service.auth.RedisTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

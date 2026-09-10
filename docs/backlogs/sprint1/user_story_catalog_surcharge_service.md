@@ -85,15 +85,18 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       └── SurchargeRepository.java           # findByAgencyId, findByMuaId, findActiveByType
 │
 └── service/
-    ├── MasterCategoryService.java
-    ├── ServicePackageService.java             # Logic CRUD gói, kiểm tra sở hữu, validate giá
-    ├── PackageItemService.java                # Logic thêm/sửa add-on, bước quy trình
-    ├── SurchargeService.java                  # Cấu hình phụ phí & Engine tính toán phụ phí realtime
-    └── impl/
-        ├── MasterCategoryServiceImpl.java
-        ├── ServicePackageServiceImpl.java
-        ├── PackageItemServiceImpl.java
-        └── SurchargeServiceImpl.java
+    └── catalog/
+        ├── MasterTaxonomyService.java
+        ├── ServicePackageService.java             # Logic CRUD gói, kiểm tra sở hữu, validate giá
+        ├── PackageItemService.java                # Logic thêm/sửa add-on, bước quy trình
+        ├── SurchargeService.java                  # Cấu hình phụ phí & Engine tính toán phụ phí realtime
+        ├── helper/
+        │   └── CatalogOwnerHelper.java            # Phân giải danh tính Studio vs MUA, ngăn chặn IDOR
+        └── impl/
+            ├── MasterTaxonomyServiceImpl.java
+            ├── ServicePackageServiceImpl.java
+            ├── PackageItemServiceImpl.java
+            └── SurchargeServiceImpl.java
 ```
 
 ---

@@ -1,4 +1,4 @@
-package com.makeup.platform.service;
+package com.makeup.platform.service.auth;
 
 public interface RedisTokenService {
 
