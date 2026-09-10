@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="" />
+    <list default="true" id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/backlogs/sprint1/user_story_catalog_surcharge_service.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/backlogs/sprint1/user_story_catalog_surcharge_service.md" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
