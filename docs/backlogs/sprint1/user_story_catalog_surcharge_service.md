@@ -1,399 +1,518 @@
-# TÀI LIỆU ĐẶC TẢ USER STORIES & TIÊU CHÍ NGHIỆM THU
-## MODULE: SERVICE CATALOG & SURCHARGE MANAGEMENT (MONOLITHIC CORE-API - PHÂN HỆ CATALOG)
+# TÀI LIỆU ĐẶC TẢ USER STORIES & THIẾT KẾ BACK-END CHI TIẾT
+## PHÂN HỆ: QUẢN LÝ GÓI DỊCH VỤ (SERVICE CATALOG) & ĐỘNG CƠ PHỤ PHÍ (SURCHARGES)
+### (Spring Boot Layered Monolith `core-api` - Schema: `catalog_schema`, Port `8080`)
 
 ---
 
 ## 📌 1. TỔNG QUAN TÍNH NĂNG (FEATURE OVERVIEW)
 
-* **Tên Phân hệ / Module:** `Service Catalog & Surcharge Management Module` (Đóng gói trong `core-api`, CSDL `makeup_platform_db`, schema: `catalog_schema`).
-* **Phạm vi Module:** Quản lý Danh mục Gốc (Master Categories), Tone/Style Trang điểm chuẩn toàn hệ thống (Makeup Styles), Gói dịch vụ cho Studio (Agency Catalog) & Thợ tự do (Freelancer Catalog), Chi tiết bước thực hiện/Add-on mua thêm, Kỹ năng Tone trang điểm thợ tự do (`mua_styles`), Gán kỹ năng cho thợ Studio (`agency_staff_services` & `agency_staff_styles`), Album ảnh sản phẩm hoàn thiện của cả Thợ Tự Do & Thợ Studio (`portfolio_showcases`), và Engine cấu hình Phụ phí linh hoạt (Làm sớm 3h-5h sáng, đi tỉnh/ngoài bán kính, ngày Lễ/Tết).
-* **Mã Jira Issue liên quan:** `ISSUE-13.1`, `ISSUE-13.2`, `ISSUE-13.3`, `ISSUE-13.4`, `ISSUE-13.5`, `ISSUE-11.3` (Sprint 1).
-* **Đối tượng sử dụng (User Personas):**
-  1. **Super Admin (Quản trị viên Hệ thống):** Quản lý Danh mục Dịch vụ Master & Danh sách Tone Make-up dùng chung.
-  2. **Agency Owner / Studio Admin (Chủ Studio / Đại lý):** Tạo & quản lý Gói dịch vụ của Studio, phân công thợ làm gói/tone phù hợp, thiết lập chính sách phụ phí Studio.
-  3. **Agency Staff (Thợ thuộc Studio):** Quản lý album ảnh sản phẩm mẫu hoàn thiện thực tế làm tại Studio.
-  4. **Freelance MUA (Thợ trang điểm tự do):** Khai báo danh mục gói cá nhân, tự đăng ký danh sách Tone Make-up tay nghề làm được (`mua_styles`), đăng tải album ảnh sản phẩm mẫu hoàn thiện (`portfolio_showcases`), tự cấu hình mức phụ phí di chuyển, phụ phí làm sớm và ngày Lễ/Tết.
-  5. **Customer (Khách hàng):** Xem danh mục gói minh bạch, quy trình chi tiết, album ảnh làm thực tế của thợ theo đúng [Gói + Tone], option mua thêm và tổng phụ phí trước khi tiến hành đặt đơn.
+* **Tên Phân hệ Nghiệp vụ:** `Service Package Catalog & Surcharge Engine`
+* **Mã Jira Issues phụ trách (Sprint 1):**
+  * `ISSUE-13.1`: Quản lý Danh mục Dịch vụ Gốc (`master_service_categories`) & Phong cách Make-up chuẩn sàn (`makeup_styles`).
+  * `ISSUE-13.2`: CRUD Gói Dịch vụ Agency Catalog vs Freelancer Catalog (`service_packages`, `package_styles`).
+  * `ISSUE-13.3`: Chi tiết các bước thực hiện mặc định & Tuỳ chọn mua thêm Add-on (`package_items`).
+  * `ISSUE-13.5`: Cấu hình Phụ phí linh hoạt (`surcharges`): Làm sớm (3h-5h sáng), di chuyển ngoài bán kính & ngày Lễ/Tết.
+* **Mô hình Kiến trúc:** Spring Boot 3.3.x Layered Architecture Monolith (`core-api: 8080`).
+* **Cơ sở Dữ liệu Phụ trách:** PostgreSQL 16 (`makeup_platform_db`, schema: `catalog_schema`).
+* **Đối tượng Sử dụng (Personas):**
+  1. **Agency Owner / Studio Admin (Chủ Studio / Đại lý):** Tạo, quản lý và niêm yết bảng giá các Gói dịch vụ của Studio (`agency_id` NOT NULL, `mua_id` = NULL), thiết lập các bước quy trình, cấu hình chính sách phụ phí làm sớm/đi tỉnh của Studio.
+  2. **Freelance MUA (Thợ trang điểm tự do):** Tạo và quản lý Gói dịch vụ cá nhân (`mua_id` NOT NULL, `agency_id` = NULL), tùy biến add-on mua thêm, cấu hình phụ phí di chuyển theo km và phụ phí làm sớm.
+  3. **Super Admin (Quản trị viên Hệ thống):** Quản lý Danh mục Gốc (Cưới hỏi, Tiệc, Kỷ yếu...) và gắn cờ kiểm duyệt gói dịch vụ vi phạm.
+  4. **Customer (Khách hàng):** Xem danh mục gói dịch vụ, lọc theo mức giá/phong cách, chọn add-on mua thêm và xem bảng tính phụ phí tự động (Preview Hóa đơn) minh bạch trước khi bấm đặt lịch.
 
 ---
 
-## 📋 2. DANH SÁCH USER STORIES CHI TIẾT
+## 🏗️ 2. KIẾN TRÚC PHÂN TẦNG BACK-END (LAYERED ARCHITECTURE BACKEND)
 
-### **US-CATALOG-01: Quản lý Danh mục Gốc & Tone Make-up Hệ thống (Master Categories & Makeup Styles)**
-> **As a** Super Admin (Quản trị viên Hệ thống),  
-> **I want to** tạo và quản lý danh mục dịch vụ gốc (Trang điểm Cô Dâu, Trang điểm Tiệc/Sự kiện, Kỷ yếu...) và danh mục Tone trang điểm (Tone Hàn Douyin, Tone Thái, Tone Tây, Tone Baby...),  
-> **So that** toàn bộ Studio và Thợ tự do có chuẩn taxonomy dùng chung để phân loại gói và tìm kiếm.
+Mã nguồn tại `code/backend/core-api/` được tổ chức chặt chẽ theo chuẩn Layered Monolith cho phân hệ Catalog & Surcharge:
+
+```text
+code/backend/core-api/src/main/java/com/makeup/platform/
+├── common/
+│   ├── base/
+│   │   ├── BaseEntity.java                    # id, created_at, updated_at
+│   │   ├── BaseController.java                # Helper response chuẩn (ok, created, error)
+│   │   └── ApiResponse.java                   # JSON envelope: {success, code, message, data, timestamp}
+│   ├── constants/
+│   │   ├── ErrorCode.java                     # Bộ hằng số mã lỗi nghiệp vụ
+│   │   └── SurchargeType.java                 # Enum: EARLY_MORNING, OUT_OF_RADIUS, HOLIDAY, CUSTOM
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCode
+│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
+│   │   └── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   └── utils/
+│       ├── SecurityContextUtils.java          # Tiện ích lấy user_id, agency_id, mua_id từ JWT
+│       └── HolidayUtils.java                  # Tra cứu danh sách ngày Lễ/Tết Việt Nam theo năm
+│
+├── config/
+│   └── SecurityConfig.java                    # Phân quyền URL & Method Security (@PreAuthorize)
+│
+├── controller/
+│   └── catalog/
+│       ├── MasterCategoryController.java      # /api/v1/master/categories (Danh mục gốc Admin)
+│       ├── ServicePackageController.java      # /api/v1/packages (CRUD gói Agency vs Freelancer)
+│       ├── PackageItemController.java         # /api/v1/packages/{packageId}/items (Add-ons & quy trình)
+│       └── SurchargeController.java           # /api/v1/surcharges (Cấu hình & Calculate phụ phí)
+│
+├── dto/
+│   ├── request/catalog/
+│   │   ├── CreatePackageReq.java              # @NotBlank name, @DecimalMin price, duration, styleIds
+│   │   ├── UpdatePackageReq.java              # Cập nhật thông tin gói
+│   │   ├── CreatePackageItemReq.java          # @NotBlank itemName, @NotNull itemType, itemPrice
+│   │   ├── ConfigureSurchargeReq.java         # @NotNull surchargeType, @DecimalMin amount
+│   │   └── CalculateSurchargeReq.java         # providerType, providerId, bookingTime, customerLat, customerLng
+│   └── response/catalog/
+│       ├── PackageDetailRes.java              # Chi tiết gói, danh sách styles, danh sách items add-on
+│       ├── PackageSummaryRes.java             # Dùng trong danh sách tìm kiếm (gọn nhẹ, tối ưu)
+│       ├── SurchargeDetailRes.java            # Chi tiết cấu hình phụ phí của Thợ / Studio
+│       └── SurchargeCalculationRes.java       # Bóc tách từng loại phụ phí tính cho đơn hàng
+│
+├── entity/
+│   └── catalog/
+│       ├── MasterCategoryEntity.java          # table: master_service_categories
+│       ├── ServicePackageEntity.java          # table: service_packages (CHECK constraint owner)
+│       ├── PackageItemEntity.java             # table: package_items (COMPONENT / ADD_ON)
+│       ├── PackageStyleEntity.java            # table: package_styles (Composite Key)
+│       └── SurchargeEntity.java               # table: surcharges
+│
+├── repository/
+│   └── catalog/
+│       ├── MasterCategoryRepository.java
+│       ├── ServicePackageRepository.java      # findByAgencyId, findByMuaId, findActiveById
+│       ├── PackageItemRepository.java         # findByPackageIdOrderByStepOrderAsc
+│       ├── PackageStyleRepository.java
+│       └── SurchargeRepository.java           # findByAgencyId, findByMuaId, findActiveByType
+│
+└── service/
+    ├── MasterCategoryService.java
+    ├── ServicePackageService.java             # Logic CRUD gói, kiểm tra sở hữu, validate giá
+    ├── PackageItemService.java                # Logic thêm/sửa add-on, bước quy trình
+    ├── SurchargeService.java                  # Cấu hình phụ phí & Engine tính toán phụ phí realtime
+    └── impl/
+        ├── MasterCategoryServiceImpl.java
+        ├── ServicePackageServiceImpl.java
+        ├── PackageItemServiceImpl.java
+        └── SurchargeServiceImpl.java
+```
+
+---
+
+## 📋 3. DANH SÁCH USER STORIES CHI TIẾT & TIÊU CHÍ BDD
+
+---
+
+### **US-CAT-01: Quản lý Gói Dịch vụ Studio vs Freelancer (Agency Catalog vs Freelancer Catalog)**
+> **As a** Chủ Studio (Agency Owner) hoặc Thợ Trang điểm Tự do (Freelance MUA),  
+> **I want to** tạo mới, chỉnh sửa, xem danh sách và bật/tắt trạng thái nhận khách cho các Gói Dịch vụ của mình,  
+> **So that** khách hàng nắm được bảng giá niêm yết, thời gian thực hiện ước tính và các phong cách make-up mà gói đó hỗ trợ.
 
 #### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Super Admin tạo mới Danh mục Gốc thành công**
-  * **Given** Admin có vai trò `ROLE_SUPER_ADMIN` và sở hữu quyền `catalog:master_manage`.
-  * **When** Admin gửi request tạo Danh mục mới với `category_code = "MAKE_CO_DAU"`, `category_name = "Trang điểm Cô Dâu"`, kèm mô tả và Icon URL.
-  * **Then** Hệ thống lưu bản ghi vào bảng `master_service_categories` và trả về `201 Created`.
-* **Scenario 02: Ràng buộc trùng lặp Mã Danh mục hoặc Mã Tone**
-  * **Given** Mã `style_code = "TONE_DOUYIN"` đã tồn tại trong hệ thống.
-  * **When** Admin tạo mới một Tone Make-up trùng mã `TONE_DOUYIN`.
-  * **Then** Hệ thống từ chối request và trả về lỗi `409 Conflict` với thông báo *"Makeup style code 'TONE_DOUYIN' already exists"*.
+
+* **Scenario 01: Chủ Studio tạo mới Gói Dịch vụ Studio thành công (Happy Path)**
+  * **Given** Chủ Studio đã đăng nhập với quyền `ROLE_AGENCY_ADMIN` (`agency_id = 105`).
+  * **When** Gửi request `POST /api/v1/packages` với thông tin:
+    ```json
+    {
+      "master_category_id": 1,
+      "package_name": "Gói Trang điểm Cô Dâu Luxury 2026",
+      "description": "Bao gồm làm tóc cô dâu cao cấp, dán mi gẩy sợi kiềm dầu 24h",
+      "price": 2500000.00,
+      "estimated_duration_minutes": 90,
+      "style_ids": [2, 4]
+    }
+    ```
+  * **Then** Service kiểm tra `price >= 50000` và `estimated_duration_minutes >= 30`.
+  * **And** Hệ thống khởi tạo bản ghi `service_packages` với `agency_id = 105`, `mua_id = NULL` (thỏa mãn constraint `check_package_owner`).
+  * **And** Tự động lưu 2 bản ghi liên kết vào bảng trung gian `package_styles` (`style_id` = 2, 4).
+  * **And** Trả về HTTP `201 Created` kèm toàn bộ dữ liệu gói dịch vụ.
+
+* **Scenario 02: Thợ Tự do tạo Gói Dịch vụ cá nhân thành công**
+  * **Given** Thợ tự do có vai trò `ROLE_FREELANCE_MUA` (`mua_id = 89`).
+  * **When** Gửi request tạo gói `package_name = "Make-up Tiệc Tone Hàn Douyin"`, `price = 600000.00`.
+  * **Then** Hệ thống tạo bản ghi với `agency_id = NULL`, `mua_id = 89`.
+  * **And** Trả về HTTP `201 Created`.
+
+* **Scenario 03: Chặn sửa/xóa Gói Dịch vụ của người khác (IDOR Prevention)**
+  * **Given** Thợ A (`mua_id = 89`) sở hữu gói `package_id = 45`.
+  * **When** Thợ B (`mua_id = 99`) cố tình gửi request `PUT /api/v1/packages/45` hoặc `DELETE /api/v1/packages/45`.
+  * **Then** Backend đối chiếu quyền sở hữu và phát hiện `package.getMuaId() != 99`.
+  * **And** Ném ra `AccessDeniedException` với mã lỗi `PACKAGE_ACCESS_DENIED`, trả về HTTP `403 Forbidden`.
+
+* **Scenario 04: Thất bại do vi phạm validation giá hoặc thời gian**
+  * **When** Người dùng gửi request tạo gói với `price = 0` hoặc `estimated_duration_minutes = 10`.
+  * **Then** Tầng DTO kích hoạt Bean Validation ném lỗi `MethodArgumentNotValidException`.
+  * **And** `GlobalExceptionHandler` trả về HTTP `400 Bad Request` với mã `VALIDATION_FAILED`.
+
+* **Scenario 05: Bật / Tắt trạng thái hoạt động của Gói Dịch vụ**
+  * **When** Chủ sở hữu gửi `PATCH /api/v1/packages/{id}/toggle-availability`.
+  * **Then** Hệ thống đảo cờ `is_available` (`true` $\leftrightarrow$ `false`).
+  * **And** Trả về HTTP `200 OK`. Khi `is_available = false`, khách hàng không thể chọn gói này khi đặt lịch.
 
 ---
 
-### **US-CATALOG-02: Quản lý Gói Dịch vụ Studio vs Freelancer (Service Package Catalog)**
-> **As a** Chủ Studio (Agency Owner) hoặc Thợ tự do (Freelance MUA),  
-> **I want to** khởi tạo, chỉnh sửa và quản lý danh mục Gói Dịch vụ trang điểm của tôi/Studio,  
-> **So that** khách hàng xem được thông tin giá cả niêm yết, thời gian ước tính, trạng thái hoạt động và các Tone trang điểm gói đó hỗ trợ.
-
-#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Chủ Studio tạo Gói Dịch vụ thành công**
-  * **Given** Chủ Studio có vai trò `ROLE_AGENCY_ADMIN` (`agency_id = 105`).
-  * **When** Gửi thông tin gói dịch vụ mới: `package_name = "Gói Cô Dâu Luxury 2026"`, `price = 2500000`, `estimated_duration_minutes = 90`, `master_category_id = 1`, danh sách `style_ids = [2, 4]` (Tone Thái & Tone Tây).
-  * **Then** Hệ thống khởi tạo bản ghi `service_packages` với `agency_id = 105`, `mua_id = NULL` (thỏa mãn constraint `check_package_owner`).
-  * **And** Thêm 2 bản ghi tương ứng vào bảng trung gian `package_styles`.
-* **Scenario 02: Thợ Tự do tạo Gói Dịch vụ thành công**
-  * **Given** Thợ Tự do có vai trò `ROLE_FREELANCE_MUA` (`mua_id = 89`).
-  * **When** Gửi thông tin gói dịch vụ cá nhân `package_name = "Make-up Tiệc Tone Hàn"`, `price = 600000`, `estimated_duration_minutes = 60`.
-  * **Then** Hệ thống tạo `service_packages` với `agency_id = NULL`, `mua_id = 89`.
-* **Scenario 03: Ràng buộc tính hợp lệ về Giá và Sở hữu gói**
-  * **Given** Một Thợ tự do B cố tình chỉnh sửa Gói dịch vụ thuộc sở hữu của Thợ tự do A (`mua_id = 89`).
-  * **When** Thợ B gửi request `PUT /api/v1/packages/{package_id_of_A}`.
-  * **Then** Hệ thống từ chối và trả về lỗi `403 Forbidden` với thông báo *"Access Denied: You do not own this service package"*.
-
----
-
-### **US-CATALOG-03: Chi tiết Bước thực hiện & Option Mua thêm (Package Items & Add-ons)**
+### **US-CAT-02: Chi tiết Quy trình Thực hiện & Tùy chọn Mua thêm (Package Items & Add-ons)**
 > **As a** Chủ Studio hoặc Thợ Tự do,  
-> **I want to** thêm các bước quy trình mặc định (như Đánh kem nền, Dán mi giả, Tạo kiểu tóc) và các tùy chọn mua thêm (như Dán nhũ mắt kiêm đá, Sơn móng tay),  
-> **So that** khách hàng hiểu rõ giá trị gói và có thể chọn mua thêm các dịch vụ đi kèm khi đặt lịch.
+> **I want to** định nghĩa các bước thực hiện mặc định trong gói và tạo danh mục các option mua thêm (Add-ons),  
+> **So that** khách hàng hiểu rõ quy trình làm việc và có thể chọn mua thêm các dịch vụ bổ trợ khi đặt đơn.
 
 #### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Thêm quy trình thực hiện mặc định (`COMPONENT`)**
-  * **Given** Gói dịch vụ `package_id = 45` đã tồn tại.
-  * **When** Người sở hữu thêm item `item_name = "Đánh nền kiềm dầu 24h"`, `item_type = "COMPONENT"`, `is_required = true`, `step_order = 1`, `item_price = 0`.
-  * **Then** Hệ thống lưu bản ghi vào `package_items` với trạng thái `is_active = true`.
+
+* **Scenario 01: Thêm bước quy trình mặc định (`COMPONENT`)**
+  * **Given** Gói dịch vụ `package_id = 45` đã tồn tại và thuộc sở hữu của người tạo.
+  * **When** Người dùng thêm item: `item_name = "Đánh nền mỏng nhẹ kiềm dầu chuẩn HD"`, `item_type = "COMPONENT"`, `is_required = true`, `step_order = 1`, `item_price = 0.00`.
+  * **Then** Hệ thống lưu vào `package_items` với giá 0 VND và cờ `is_required = true`.
+  * **And** Trả về HTTP `201 Created`.
+
 * **Scenario 02: Thêm Option mua thêm tùy chọn (`ADD_ON`)**
-  * **When** Người sở hữu thêm option `item_name = "Tạo kiểu tóc uốn sóng Hàn Quốc"`, `item_type = "ADD_ON"`, `is_required = false`, `item_price = 150000`.
-  * **Then** Bản ghi được lưu với `is_required = false` và giá mua thêm `150,000 VND`. Khi Khách hàng chọn option này, đơn hàng sẽ cộng thêm tiền tương ứng.
+  * **When** Thêm option: `item_name = "Tạo kiểu tóc uốn sóng Hàn Quốc kèm phụ kiện"`, `item_type = "ADD_ON"`, `is_required = false`, `item_price = 150000.00`.
+  * **Then** Hệ thống lưu vào `package_items` với giá `150,000 VND` và cờ `is_required = false`.
+  * **And** Khi Khách hàng chọn option này lúc đặt đơn, tổng tiền sẽ tự động cộng thêm 150,000 VND.
+
+* **Scenario 03: Thất bại do Add-on có giá âm**
+  * **When** Người dùng nhập `item_price = -50000.00`.
+  * **Then** Bean Validation chặn lại và trả về HTTP `400 Bad Request` với mã lỗi `INVALID_ITEM_PRICE`.
 
 ---
 
-### **US-CATALOG-04: Gán Kỹ năng & Tone Trang điểm cho Thợ Studio (Agency Staff Capability Mapping)**
-> **As a** Chủ Studio / Đại lý (Agency Owner),  
-> **I want to** phân công thợ trong Studio (`agency_staff`) xem thợ nào làm được Gói dịch vụ nào (`agency_staff_services`) và thành thạo Tone trang điểm nào (`agency_staff_styles`),  
-> **So that** hệ thống không điều phối nhầm thợ chưa có tay nghề cho đơn đặt lịch của khách hàng.
-
-#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Chủ Studio gán Kỹ năng Gói Dịch vụ cho Nhân viên Studio**
-  * **Given** Studio sở hữu Nhân viên `staff_id = 12` và Gói `package_id = 45` ("Gói Cô Dâu Luxury").
-  * **When** Chủ Studio gửi request gán `staff_id = 12`, `package_id = 45`, `proficiency_level = "PRIMARY_MUA"`, `is_qualified = true`.
-  * **Then** Hệ thống lưu vào bảng `agency_staff_services`. Nhân viên này chính thức đủ điều kiện nhận ca Cô Dâu Luxury.
-* **Scenario 02: Gán Kỹ năng Tone Trang điểm chi tiết cho Nhân viên Studio (`agency_staff_styles`)**
-  * **When** Chủ Studio xác nhận Nhân viên `staff_id = 12` thành thạo `style_id = 2` (Tone Thái).
-  * **Then** Hệ thống tạo bản ghi trong `agency_staff_styles` với `staff_id = 12`, `style_id = 2`, `is_qualified = true`.
-  * **And** Khi khách hàng đặt ca Studio với yêu cầu Tone Thái, thuật toán dispatching sẽ lọc ra các thợ có bản ghi `is_qualified = true` trong bảng này.
-
----
-
-### **US-CATALOG-05: Khai báo Kỹ năng Tone Make-up trực tiếp cho Thợ Tự do (Freelancer Tone Capability Mapping - `mua_styles`)**
-> **As a** Thợ Make-up Tự do (Freelance MUA),  
-> **I want to** tự chọn và đăng ký danh sách Tone/Style trang điểm thế mạnh của tay nghề cá nhân (Tone Hàn Douyin, Tone Thái, Tone Tây, Tone Baby...),  
-> **So that** hồ sơ thợ của tôi tự động hiển thị mác tay nghề minh bạch và xuất hiện trong kết quả tìm kiếm theo Tone của Khách hàng.
-
-#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Thợ Tự do khai báo danh sách Tone Make-up thế mạnh thành công**
-  * **Given** Thợ Tự do đã xác minh có tài khoản active (`mua_id = 89`).
-  * **When** Thợ chọn danh sách Tone thế mạnh `style_ids = [1, 2, 4]` (Tone Douyin, Tone Thái, Tone Tây).
-  * **Then** Hệ thống cập nhật bảng `mua_styles` cho `mua_id = 89` với 3 bản ghi chứa `is_qualified = true`.
-* **Scenario 02: Khách hàng lọc Thợ Tự do theo Tone Make-up yêu thích**
-  * **Given** Khách hàng tìm kiếm thợ tự do khu vực Quận 1 làm được "Tone Thái" (`style_id = 2`).
-  * **When** Khách hàng bấm Lọc theo Tone Thái.
-  * **Then** Hệ thống thực hiện JOIN giữa `mua_profiles` và `mua_styles`, chỉ trả về danh sách thợ có bản ghi `is_qualified = true` với `style_id = 2`.
-
----
-
-### **US-CATALOG-06: Album Ảnh Sản phẩm Hoàn thiện thực tế cho Thợ Tự do & Thợ Studio (`portfolio_showcases`)**
-> **As a** Thợ Trang điểm Tự do (Freelance MUA) hoặc Thợ thuộc Studio (Agency Staff),  
-> **I want to** tải lên album các hình ảnh sản phẩm make-up đã hoàn thiện thực tế cho khách trước đó, gắn nhãn thông tin Gói dịch vụ (`package_id`) và Tone Make-up (`style_id`) tương ứng,  
-> **So that** khách hàng có bằng chứng thực tế xem tay nghề của tôi trước khi tiến hành đặt đơn.
-
-#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Thợ Tự do tải Album Ảnh sản phẩm hoàn thiện thành công**
-  * **Given** Thợ Tự do `mua_id = 89` sở hữu bức ảnh làm cho khách hàng cũ.
-  * **When** Đăng tải ảnh `image_url = "https://cdn.makeupbooking.vn/portfolio/img1.jpg"`, tiêu đề `"Cô dâu tone Thái sang trọng"`, gắn `package_id = 45` và `style_id = 2`.
-  * **Then** Hệ thống tạo bản ghi trong `portfolio_showcases` với `mua_id = 89`, `staff_id = NULL`, `package_id = 45`, `style_id = 2`.
-* **Scenario 02: Thợ Studio tải Album Ảnh sản phẩm hoàn thiện làm tại Studio**
-  * **Given** Thợ thuộc Studio `staff_id = 12` (`mua_id = 89`).
-  * **When** Đăng tải ảnh sản phẩm hoàn thiện khi phục vụ ca tại Studio.
-  * **Then** Hệ thống tạo bản ghi trong `portfolio_showcases` với `mua_id = 89`, `staff_id = 12`, `package_id = 88`, `style_id = 2`.
-* **Scenario 03: Khách hàng xem Album Ảnh mẫu thực tế lọc chính xác theo [Gói + Tone]**
-  * **Given** Khách hàng đang xem trang chi tiết Thợ A hoặc Studio B.
-  * **When** Khách hàng chọn Gói Cô Dâu và nhấp vào Tone Thái.
-  * **Then** Hệ thống truy vấn `portfolio_showcases` và trả về danh sách hình ảnh góc cận cảnh mặt/tóc của khách hàng cũ tương ứng đúng 100% với [Gói Cô Dâu + Tone Thái].
-
----
-
-### **US-SURCHARGE-01: Cấu hình Phụ phí & Tự động tính toán (Flexible Surcharges & Pricing Rules)**
+### **US-SUR-01: Cấu hình Phụ phí Linh hoạt (Flexible Surcharge Configuration)**
 > **As a** Chủ Studio hoặc Thợ Tự do,  
-> **I want to** cấu hình các loại Phụ phí di chuyển ngoài bán kính, Phụ phí làm sớm (3h - 5h sáng), và Phụ phí ngày Lễ/Tết,  
-> **So that** hệ thống tự động tính chính xác phụ phí phát sinh vào đơn hàng của khách hàng mà không cần trao đổi thủ công.
+> **I want to** thiết lập mức phụ phí làm sớm (3h - 5h sáng), phụ phí di chuyển ngoài bán kính và phụ phí ngày Lễ/Tết,  
+> **So that** hệ thống tự động tính chính xác chi phí phát sinh theo đúng chính sách của tôi mà không cần thương lượng thủ công.
 
 #### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Cấu hình Phụ phí Làm sớm (Early Morning Slot)**
-  * **Given** Thợ Tự do / Studio thiết lập phụ phí `surcharge_name = "Phụ phí làm sớm (3h - 5h sáng)"`, `amount = 150000`, `is_active = true`.
-  * **When** Khách hàng đặt ca có thời gian bắt đầu nằm trong khoảng `03:00:00 - 05:00:00`.
-  * **Then** Dynamic Pricing Engine tự động nhận diện và cộng phụ phí `150,000 VND` vào hóa đơn trước thanh toán.
-* **Scenario 02: Cấu hình Phụ phí di chuyển ngoài bán kính miễn phí**
-  * **Given** Thợ Tự do quy định bán kính phục vụ miễn phí `max_service_radius_km = 10.0` km và phụ phí `TRAVEL_PER_KM = 15000 VND/km`.
-  * **When** Khách hàng đặt địa điểm làm cách thợ `14.5` km (vượt bán kính 4.5 km).
-  * **Then** Hệ thống tính Phụ phí di chuyển: `4.5 km * 15,000 VND = 67,500 VND`.
-* **Scenario 03: Tự động cộng dồn nhiều Phụ phí hợp lệ**
-  * **Given** Đơn đặt rơi vào ngày 01/01 (Tết Dương Lịch) lúc 04:00 sáng + di chuyển ngoài bán kính 5 km.
-  * **When** Khách hàng xem màn hình Preview Hóa đơn (Invoice Preview API).
-  * **Then** Hệ thống cộng dồn chính xác 3 loại phụ phí: `Phụ phí Lễ/Tết` + `Phụ phí Khung giờ 4h sáng` + `Phụ phí Khoảng cách vượt bán kính`, hiển thị rõ ràng từng mục.
+
+* **Scenario 01: Cấu hình Phụ phí Làm sớm (Early Morning Slot 3h - 5h sáng)**
+  * **Given** Thợ tự do (`mua_id = 89`) thiết lập phụ phí khung giờ làm sớm.
+  * **When** Gửi request `POST /api/v1/surcharges`:
+    ```json
+    {
+      "surcharge_name": "Phụ phí làm sớm (03:00 - 05:00 sáng)",
+      "surcharge_type": "EARLY_MORNING",
+      "amount": 150000.00,
+      "is_active": true
+    }
+    ```
+  * **Then** Hệ thống lưu vào bảng `surcharges` gắn với `mua_id = 89`.
+  * **And** Trả về HTTP `201 Created`.
+
+* **Scenario 02: Cấu hình Phụ phí Di chuyển Vượt Bán kính (Distance Travel per Km)**
+  * **Given** Thợ quy định giá di chuyển phát sinh: `surcharge_type = "DISTANCE_PER_KM"`, `amount = 15000.00` (15,000 VND/km).
+  * **When** Gửi request cấu hình.
+  * **Then** Bản ghi được lưu kích hoạt. Khi khách hàng đặt đơn cách thợ vượt bán kính miễn phí, hệ thống sẽ nhân số km vượt với mức giá này.
+
+* **Scenario 03: Cấu hình Phụ phí ngày Lễ / Tết (Holiday Surcharge)**
+  * **When** Cấu hình `surcharge_type = "HOLIDAY"`, `amount = 200000.00`.
+  * **Then** Hệ thống tự động nhận diện các ngày nghỉ lễ quốc gia theo lịch pháp lý Việt Nam để áp dụng phụ phí này.
 
 ---
 
-## 💻 3. ĐẶC TẢ REST API ENDPOINTS
+### **US-SUR-02: Động cơ Tính toán Phụ phí Tự động & Preview Hóa đơn (Realtime Surcharge Engine)**
+> **As a** Khách hàng (Customer),  
+> **I want** hệ thống tự động bóc tách và tính toán chính xác tổng phụ phí phát sinh dựa trên thời gian và địa điểm trang điểm,  
+> **So that** tôi thấy rõ từng khoản tiền minh bạch trên hóa đơn trước khi xác nhận đặt đơn.
 
-### 1. `POST /api/v1/master/categories` (Admin tạo Danh mục Gốc)
-* **Headers:** `Authorization: Bearer <JWT_ACCESS_TOKEN>`, `Content-Type: application/json`
-* **Request Body:**
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+
+* **Scenario 01: Tính toán tự động cộng dồn nhiều loại Phụ phí hợp lệ (Happy Path)**
+  * **Given** Thợ có cấu hình:
+    - Bán kính phục vụ miễn phí: `10.0 km`.
+    - Phụ phí km vượt bán kính: `15,000 VND / km`.
+    - Phụ phí làm sớm (3h - 5h sáng): `150,000 VND`.
+    - Phụ phí ngày Lễ/Tết: `200,000 VND`.
+  * **When** Khách hàng chọn lịch làm lúc **04:15 sáng** ngày **01/01/2027** (Tết Dương Lịch), địa điểm cách thợ **14.5 km** (vượt 4.5 km).
+  * **And** Gọi API `POST /api/v1/surcharges/calculate`.
+  * **Then** Engine tính toán bóc tách chi tiết:
+    - `EARLY_MORNING`: 150,000 VND (do rơi vào khung 04:15).
+    - `OUT_OF_RADIUS`: 4.5 km $\times$ 15,000 VND = 67,500 VND.
+    - `HOLIDAY`: 200,000 VND (ngày Tết Dương Lịch).
+  * **And** Tổng phụ phí trả về: `417,500 VND`.
+  * **And** Trả về HTTP `200 OK` kèm mảng `surcharge_breakdown` rõ ràng từng mục.
+
+* **Scenario 02: Không phát sinh phụ phí khi trong khung giờ và bán kính chuẩn**
+  * **When** Khách đặt lúc 09:00 sáng ngày thường, khoảng cách 5.0 km (trong bán kính 10km).
+  * **Then** `total_surcharge_amount = 0.00` và mảng `surcharge_breakdown` rỗng `[]`.
+
+---
+
+### **US-UI-01: Trải nghiệm Khách hàng Chọn Gói & Phụ phí trên Ứng dụng (Customer Selection Flow)**
+> **As a** Khách hàng (Customer),  
+> **I want to** xem danh sách gói dịch vụ, tích chọn các option add-on và xem hóa đơn tạm tính kèm phụ phí nhảy realtime,  
+> **So that** tôi chủ động ngân sách và nắm rõ 100% chi phí trước khi bấm Đặt ca.
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **AC-01**: Khách bấm vào Profile Thợ/Studio $\rightarrow$ Màn hình hiển thị Tab "Gói Dịch Vụ".
+* **AC-02**: Khi nhấp vào 1 Gói $\rightarrow$ Mở rộng danh sách "Bước thực hiện (Đã bao gồm)" và danh sách checkbox "Dịch vụ mua thêm (Add-on)".
+* **AC-03**: Khi khách tích/bỏ tích Add-on $\rightarrow$ Tổng tiền tạm tính ở góc dưới màn hình tự động cập nhật mượt mà (<16ms).
+* **AC-04**: Khi chọn giờ đặt lịch (VD: 4h sáng) hoặc nhập địa chỉ $\rightarrow$ Khung "Chi tiết Phụ phí" tự động hiển thị dòng: `Phụ phí làm sớm: +150,000đ`, `Phụ phí di chuyển (4.5km): +67,500đ`.
+
+---
+
+## ⚠️ 4. CHI TIẾT NGOẠI LỆ, VALIDATION & BẢNG MÃ LỖI BACK-END
+
+Tất cả các lỗi nghiệp vụ và lỗi xác thực dữ liệu đều được bắt qua `GlobalExceptionHandler.java`, trả về JSON chuẩn mực:
+
 ```json
 {
-  "category_code": "MAKE_KY_YEU",
-  "category_name": "Trang điểm Kỷ yếu / Học sinh - Sinh viên",
-  "description": "Gói trang điểm nhẹ nhàng, độ bền cao cho sinh viên chụp ảnh kỷ yếu",
-  "icon_url": "https://cdn.makeupbooking.vn/icons/ky-yeu.png"
+  "success": false,
+  "code": "MÃ_LỖI_NGHIỆP_VỤ",
+  "message": "Thông điệp lỗi thân thiện cho người dùng",
+  "errors": [],
+  "timestamp": "2026-09-10T11:35:00Z"
+}
+```
+
+### 4.1. Bảng Ma trận Mã Lỗi Chi tiết Phân hệ Catalog & Surcharge
+
+| HTTP Status | Mã Lỗi (`code`) | Nguyên Nhân Kích Hoạt | Giải Pháp Xử Lý Phía Server |
+| :--- | :--- | :--- | :--- |
+| **`400 BAD_REQUEST`** | `VALIDATION_FAILED` | Dữ liệu vi phạm Bean Validation (`package_name` rỗng, `price < 50000`, `duration < 30`). | Trả về danh sách từng field vi phạm trong mảng `errors`. |
+| **`400 BAD_REQUEST`** | `INVALID_PACKAGE_PRICE` | Giá gói dịch vụ nhỏ hơn mức sàn tối thiểu của hệ thống (50,000 VND). | Báo lỗi yêu cầu nhập giá gói hợp lệ. |
+| **`400 BAD_REQUEST`** | `INVALID_ITEM_PRICE` | Giá Add-on âm (`item_price < 0`). | Ném ngoại lệ validation, chặn ghi database. |
+| **`400 BAD_REQUEST`** | `INVALID_SURCHARGE_AMOUNT` | Mức phụ phí cấu hình nhỏ hơn 0 hoặc vượt quá mức trần quy định. | Báo lỗi giá trị phụ phí không hợp lệ. |
+| **`400 BAD_REQUEST`** | `INVALID_OWNER_MAPPING` | Vi phạm ràng buộc CHECK: Không xác định được gói thuộc về Studio hay Thợ tự do. | Kiểm tra `(agency_id != null ^ mua_id != null)`. |
+| **`401 UNAUTHORIZED`** | `UNAUTHORIZED` | Token JWT thiếu, hết hạn hoặc không hợp lệ khi gọi các API quản trị gói. | Spring Security chặn ở tầng Filter trước khi vào Controller. |
+| **`403 FORBIDDEN`** | `PACKAGE_ACCESS_DENIED` | Thợ A cố tình sửa hoặc xóa gói dịch vụ của Thợ B hoặc Studio khác (Lỗ hổng IDOR). | Đối chiếu quyền sở hữu: `current_user.mua_id != package.mua_id`. |
+| **`403 FORBIDDEN`** | `SURCHARGE_ACCESS_DENIED` | Người dùng cố tình sửa cấu hình phụ phí của đơn vị khác. | Kiểm tra quyền sở hữu bản ghi phụ phí trong bảng `surcharges`. |
+| **`404 NOT_FOUND`** | `PACKAGE_NOT_FOUND` | `package_id` không tồn tại trong DB hoặc đã bị xóa mềm. | Ném `ResourceNotFoundException("Gói dịch vụ không tồn tại")`. |
+| **`404 NOT_FOUND`** | `PACKAGE_ITEM_NOT_FOUND` | `item_id` của bước thực hiện/add-on không tìm thấy trong gói. | Ném `ResourceNotFoundException("Dịch vụ bổ trợ không tồn tại")`. |
+| **`404 NOT_FOUND`** | `MASTER_CATEGORY_NOT_FOUND` | `master_category_id` truyền vào không có trong danh mục gốc sàn. | Ném `ResourceNotFoundException("Danh mục dịch vụ gốc không tồn tại")`. |
+| **`404 NOT_FOUND`** | `SURCHARGE_NOT_FOUND` | `surcharge_id` không tồn tại trong hệ thống. | Ném `ResourceNotFoundException("Cấu hình phụ phí không tồn tại")`. |
+| **`409 CONFLICT`** | `CATEGORY_CODE_ALREADY_EXISTS` | Tạo mới Master Category nhưng mã `category_code` đã bị trùng. | Ném `CustomBusinessException` mã `409 Conflict`. |
+
+---
+
+### 4.2. Mã nguồn Validation DTO Mẫu (Bean Validation)
+
+```java
+package com.makeup.platform.dto.request.catalog;
+
+import jakarta.validation.constraints.*;
+import lombok.Data;
+import java.math.BigDecimal;
+import java.util.List;
+
+@Data
+public class CreatePackageReq {
+
+    @NotNull(message = "Danh mục gốc (master_category_id) không được để trống")
+    private Integer masterCategoryId;
+
+    @NotBlank(message = "Tên gói dịch vụ không được để trống")
+    @Size(min = 5, max = 150, message = "Tên gói phải từ 5 đến 150 ký tự")
+    private String packageName;
+
+    @Size(max = 2000, message = "Mô tả gói tối đa 2000 ký tự")
+    private String description;
+
+    @NotNull(message = "Giá gói dịch vụ không được để trống")
+    @DecimalMin(value = "50000.00", message = "Giá gói dịch vụ tối thiểu là 50,000 VND")
+    @Digits(integer = 10, fraction = 2, message = "Định dạng giá tiền không hợp lệ")
+    private BigDecimal price;
+
+    @NotNull(message = "Thời gian ước tính không được để trống")
+    @Min(value = 30, message = "Thời gian thực hiện tối thiểu 30 phút")
+    @Max(value = 480, message = "Thời gian thực hiện tối đa 480 phút (8 tiếng)")
+    private Integer estimatedDurationMinutes;
+
+    @NotEmpty(message = "Gói dịch vụ phải hỗ trợ ít nhất 1 phong cách (style_ids)")
+    private List<Integer> styleIds;
 }
 ```
 
 ---
 
-### 2. `POST /api/v1/packages` (Tạo mới Gói Dịch vụ Studio / Freelancer)
-* **Headers:** `Authorization: Bearer <JWT_ACCESS_TOKEN>`, `Content-Type: application/json`
+## 💻 5. ĐẶC TẢ REST API ENDPOINTS
+
+---
+
+### 5.1. `POST /api/v1/packages` (Tạo mới Gói Dịch vụ)
+* **Quyền hạn:** `ROLE_AGENCY_ADMIN` hoặc `ROLE_FREELANCE_MUA`.
+* **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: application/json`
 * **Request Body:**
 ```json
 {
   "master_category_id": 1,
-  "package_name": "Gói Trang điểm Cô Dâu Tone Thái / Tây Luxury",
+  "package_name": "Gói Trang điểm Cô Dâu Luxury 2026",
   "description": "Bao gồm làm tóc cô dâu cao cấp, dán mi gẩy sợi kiềm dầu 24h",
-  "price": 2200000.00,
+  "price": 2500000.00,
   "estimated_duration_minutes": 90,
-  "style_ids": [2, 4],
-  "items": [
-    {
-      "item_name": "Đánh nền kiềm dầu chuẩn HD",
-      "item_type": "COMPONENT",
-      "step_order": 1,
-      "item_price": 0,
-      "is_required": true
-    },
-    {
-      "item_name": "Sơn móng tay gel cô dâu tone Pastel",
-      "item_type": "ADD_ON",
-      "step_order": 2,
-      "item_price": 150000.00,
-      "is_required": false
-    }
-  ]
+  "style_ids": [2, 4]
 }
 ```
-
----
-
-### 3. `POST /api/v1/mua/styles` (Thợ Tự Do Đăng ký Danh sách Tone Make-up Thế mạnh)
-* **Headers:** `Authorization: Bearer <JWT_ACCESS_TOKEN>`, `Content-Type: application/json`
-* **Request Body:**
-```json
-{
-  "style_ids": [1, 2, 4]
-}
-```
-* **Response Body (`200 OK`):**
+* **Response `201 Created`:**
 ```json
 {
   "success": true,
-  "message": "Updated MUA makeup style capabilities successfully",
+  "code": "PACKAGE_CREATED",
+  "message": "Tạo mới gói dịch vụ thành công!",
   "data": {
-    "mua_id": 89,
+    "id": 45,
+    "package_name": "Gói Trang điểm Cô Dâu Luxury 2026",
+    "price": 2500000.00,
+    "estimated_duration_minutes": 90,
+    "is_available": true,
+    "agency_id": 105,
+    "mua_id": null,
     "styles": [
-      { "id": 1, "style_code": "TONE_DOUYIN", "style_name": "Tone Hàn Douyin" },
-      { "id": 2, "style_code": "TONE_THAI", "style_name": "Tone Thái Sang Trọng" },
-      { "id": 4, "style_code": "TONE_TAY", "style_name": "Tone Tây Sắc Sảo" }
-    ]
-  }
-}
-```
-
----
-
-### 4. `POST /api/v1/portfolios/showcases` (Đăng tải Album Ảnh Sản phẩm Hoàn thiện)
-* **Headers:** `Authorization: Bearer <JWT_ACCESS_TOKEN>`, `Content-Type: application/json`
-* **Request Body (Dành cho cả Thợ Tự Do & Thợ Studio):**
-```json
-{
-  "package_id": 45,
-  "style_id": 2,
-  "title": "Cô dâu Tone Thái tone trầm kiềm dầu 24h",
-  "image_url": "https://cdn.makeupbooking.vn/portfolio/codau_thai_01.jpg",
-  "additional_images": [
-    "https://cdn.makeupbooking.vn/portfolio/codau_thai_02.jpg",
-    "https://cdn.makeupbooking.vn/portfolio/codau_thai_03.jpg"
-  ],
-  "description": "Thực hiện trang điểm cho khách hàng đám cưới tại Quận 1. Đánh nền mỏng nhẹ HD, dán mi gẩy sợi.",
-  "is_featured": true
-}
-```
-* **Response Body (`201 Created`):**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 512,
-    "mua_id": 89,
-    "staff_id": null,
-    "package_id": 45,
-    "style_id": 2,
-    "title": "Cô dâu Tone Thái tone trầm kiềm dầu 24h",
-    "image_url": "https://cdn.makeupbooking.vn/portfolio/codau_thai_01.jpg",
-    "is_featured": true,
-    "created_at": "2026-09-09T09:45:00Z"
-  }
-}
-```
-
----
-
-### 5. `GET /api/v1/portfolios/showcases` (Lấy danh sách Album Ảnh mẫu - Public / Khách xem)
-* **Query Parameters:** `mua_id`, `staff_id`, `package_id`, `style_id`, `page=1`, `limit=12`
-* **Response Body (`200 OK`):**
-```json
-{
-  "success": true,
-  "pagination": {
-    "page": 1,
-    "limit": 12,
-    "total_records": 18,
-    "total_pages": 2
+      { "id": 2, "code": "TONE_THAI", "name": "Tone Thái Sang Trọng" },
+      { "id": 4, "code": "TONE_TAY", "name": "Tone Tây Sắc Sảo" }
+    ],
+    "created_at": "2026-09-10T11:40:00Z"
   },
-  "data": [
-    {
-      "id": 512,
-      "title": "Cô dâu Tone Thái tone trầm kiềm dầu 24h",
-      "image_url": "https://cdn.makeupbooking.vn/portfolio/codau_thai_01.jpg",
-      "additional_images": [
-        "https://cdn.makeupbooking.vn/portfolio/codau_thai_02.jpg"
-      ],
-      "package_name": "Gói Trang điểm Cô Dâu Luxury",
-      "style_name": "Tone Thái Sang Trọng",
-      "is_featured": true
-    }
-  ]
+  "timestamp": "2026-09-10T11:40:00Z"
 }
 ```
 
 ---
 
-### 6. `POST /api/v1/surcharges/calculate` (API Compute Engine Tính Phụ phí Realtime)
+### 5.2. `POST /api/v1/packages/{packageId}/items` (Thêm Add-on / Bước quy trình)
+* **Quyền hạn:** Chủ sở hữu gói (`ROLE_AGENCY_ADMIN` hoặc `ROLE_FREELANCE_MUA`).
 * **Request Body:**
 ```json
 {
-  "provider_type": "FREELANCER",
+  "item_name": "Tạo kiểu tóc uốn sóng Hàn Quốc kèm hoa cài",
+  "item_type": "ADD_ON", // Enum: COMPONENT | ADD_ON
+  "step_order": 2,
+  "item_price": 150000.00,
+  "is_required": false
+}
+```
+* **Response `201 Created`:**
+```json
+{
+  "success": true,
+  "code": "PACKAGE_ITEM_CREATED",
+  "message": "Thêm dịch vụ bổ trợ thành công!",
+  "data": {
+    "id": 112,
+    "package_id": 45,
+    "item_name": "Tạo kiểu tóc uốn sóng Hàn Quốc kèm hoa cài",
+    "item_type": "ADD_ON",
+    "item_price": 150000.00,
+    "is_required": false,
+    "is_active": true
+  },
+  "timestamp": "2026-09-10T11:41:00Z"
+}
+```
+
+---
+
+### 5.3. `POST /api/v1/surcharges` (Cấu hình Phụ phí Thợ / Studio)
+* **Quyền hạn:** `ROLE_AGENCY_ADMIN` hoặc `ROLE_FREELANCE_MUA`.
+* **Request Body:**
+```json
+{
+  "surcharge_name": "Phụ phí làm sớm (03:00 - 05:00 sáng)",
+  "surcharge_type": "EARLY_MORNING",
+  "amount": 150000.00,
+  "is_active": true
+}
+```
+* **Response `201 Created`:**
+```json
+{
+  "success": true,
+  "code": "SURCHARGE_CONFIGURED",
+  "message": "Thiết lập phụ phí thành công!",
+  "data": {
+    "id": 18,
+    "surcharge_name": "Phụ phí làm sớm (03:00 - 05:00 sáng)",
+    "surcharge_type": "EARLY_MORNING",
+    "amount": 150000.00,
+    "is_active": true
+  },
+  "timestamp": "2026-09-10T11:42:00Z"
+}
+```
+
+---
+
+### 5.4. `POST /api/v1/surcharges/calculate` (Động cơ Tính toán Phụ phí Tự động - Preview Hóa đơn)
+* **Quyền truy cập:** Công khai hoặc Khách hàng đã đăng nhập (`permitAll` / `hasAuthority('booking:preview')`).
+* **Request Body:**
+```json
+{
+  "provider_type": "FREELANCER", // FREELANCER hoặc AGENCY
   "provider_id": 89,
-  "booking_time": "2026-09-15T04:15:00Z",
+  "booking_time": "2027-01-01T04:15:00Z",
   "customer_latitude": 21.028511,
   "customer_longitude": 105.804817
 }
 ```
-* **Response Body (`200 OK`):**
+* **Response `200 OK` (Bóc tách chi tiết):**
 ```json
 {
   "success": true,
+  "code": "SURCHARGE_CALCULATED",
+  "message": "Tính toán phụ phí thành công",
   "data": {
     "distance_km": 14.5,
     "free_radius_km": 10.0,
     "excess_distance_km": 4.5,
     "surcharge_breakdown": [
       {
-        "type": "EARLY_MORNING_SLOT",
+        "type": "EARLY_MORNING",
         "description": "Phụ phí làm sớm (04:15 sáng)",
         "amount": 150000.00
       },
       {
-        "type": "OUT_OF_RADIUS_TRAVEL",
+        "type": "OUT_OF_RADIUS",
         "description": "Phụ phí di chuyển vượt bán kính (4.5 km x 15,000 VND)",
         "amount": 67500.00
+      },
+      {
+        "type": "HOLIDAY",
+        "description": "Phụ phí ngày Lễ Tết (Tết Dương Lịch 01/01)",
+        "amount": 200000.00
       }
     ],
-    "total_surcharge_amount": 217500.00
-  }
+    "total_surcharge_amount": 417500.00
+  },
+  "timestamp": "2026-09-10T11:43:00Z"
 }
 ```
 
 ---
 
-## 🔑 4. PHÂN QUYỀN RBAC & JWT CLAIMS
-
-Chi tiết permission codes được xác thực từ JWT Payload Token:
-
-| Method | Endpoint URI | Role Cho phép | Required Permission Code |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/master/categories` | `ROLE_SUPER_ADMIN` | `catalog:master_manage` |
-| `POST` | `/api/v1/master/styles` | `ROLE_SUPER_ADMIN` | `catalog:master_manage` |
-| `POST` | `/api/v1/packages` | `ROLE_AGENCY_ADMIN`, `ROLE_FREELANCE_MUA` | `package:create` |
-| `PUT` | `/api/v1/packages/{id}` | `ROLE_AGENCY_ADMIN`, `ROLE_FREELANCE_MUA` | `package:update` |
-| `POST` | `/api/v1/mua/styles` | `ROLE_FREELANCE_MUA` | `mua:manage_style` |
-| `POST` | `/api/v1/portfolios/showcases` | `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_STAFF`, `ROLE_AGENCY_ADMIN` | `portfolio:upload` |
-| `DELETE`| `/api/v1/portfolios/showcases/{id}`| `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_STAFF`, `ROLE_AGENCY_ADMIN` | `portfolio:delete` |
-| `POST` | `/api/v1/agency/staff/{staffId}/services` | `ROLE_AGENCY_ADMIN` | `agency:assign_staff_skill` |
-| `POST` | `/api/v1/agency/staff/{staffId}/styles` | `ROLE_AGENCY_ADMIN` | `agency:assign_staff_skill` |
-| `POST` | `/api/v1/surcharges` | `ROLE_AGENCY_ADMIN`, `ROLE_FREELANCE_MUA` | `surcharge:configure` |
-| `GET` | `/api/v1/portfolios/showcases` | Public / Khách hàng | None (Public access) |
-| `POST` | `/api/v1/surcharges/calculate` | Public / Customer Logged-in | `booking:preview` |
-
----
-
-## 🗄️ 5. CƠ SỞ DỮ LIỆU LIÊN QUAN (POSTGRESQL DDL SCHEMA)
-
-Dưới đây là cấu trúc 9 bảng PostgreSQL 16 hoàn chỉnh quản lý Catalog, Năng lực Tone & Album Sản phẩm (đồng bộ 100% với `schema.sql`):
+## 🗄️ 6. CƠ SỞ DỮ LIỆU ĐỒNG BỘ (DDL POSTGRESQL 16)
 
 ```sql
--- 1. DANH MỤC GỐC HỆ THỐNG
-CREATE TABLE master_service_categories (
+-- 1. DANH MỤC DỊCH VỤ GỐC TOÀN SÀN
+CREATE TABLE IF NOT EXISTS catalog_schema.master_service_categories (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    category_code VARCHAR(50) UNIQUE NOT NULL, -- MAKE_TIEC, MAKE_CO_DAU, MAKE_KY_YEU...
+    category_code VARCHAR(50) UNIQUE NOT NULL,       -- MAKE_CO_DAU, MAKE_TIEC, MAKE_KY_YEU...
     category_name VARCHAR(100) NOT NULL,
     description TEXT,
-    icon_url TEXT
+    icon_url TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. DANH MỤC TONE/STYLE TRANG ĐIỂM HỆ THỐNG
-CREATE TABLE makeup_styles (
-    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    style_code VARCHAR(50) UNIQUE NOT NULL, -- TONE_DOUYIN, TONE_THAI, TONE_HONG_BABY, TONE_TAY...
-    style_name VARCHAR(100) NOT NULL,
-    description TEXT
-);
-
--- 3. GÓI DỊCH VỤ (AGENCY VS FREELANCER)
-CREATE TABLE service_packages (
+-- 2. GÓI DỊCH VỤ (AGENCY VS FREELANCER)
+CREATE TABLE IF NOT EXISTS catalog_schema.service_packages (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    master_category_id INT NOT NULL REFERENCES master_service_categories(id),
-    agency_id BIGINT REFERENCES agency_profiles(id) ON DELETE CASCADE,
-    mua_id BIGINT REFERENCES mua_profiles(id) ON DELETE CASCADE,
+    master_category_id INT NOT NULL REFERENCES catalog_schema.master_service_categories(id),
+    agency_id BIGINT REFERENCES agency_schema.agency_profiles(id) ON DELETE CASCADE,
+    mua_id BIGINT REFERENCES mua_schema.mua_profiles(id) ON DELETE CASCADE,
     package_name VARCHAR(150) NOT NULL,
     description TEXT,
-    price DECIMAL(12, 2) NOT NULL CHECK (price >= 0),
-    estimated_duration_minutes INT DEFAULT 60,
+    price DECIMAL(12, 2) NOT NULL CHECK (price >= 50000.00),
+    estimated_duration_minutes INT DEFAULT 60 CHECK (estimated_duration_minutes >= 30),
     is_available BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT check_package_owner CHECK (
         (agency_id IS NOT NULL AND mua_id IS NULL) OR 
         (agency_id IS NULL AND mua_id IS NOT NULL)
     )
 );
 
--- 4. BƯỚC QUY TRÌNH & OPTION MUA THÊM (ADD-ONS)
-CREATE TABLE package_items (
+-- 3. BƯỚC QUY TRÌNH & DỊCH VỤ MUA THÊM (ADD-ONS)
+CREATE TABLE IF NOT EXISTS catalog_schema.package_items (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    package_id BIGINT NOT NULL REFERENCES service_packages(id) ON DELETE CASCADE,
+    package_id BIGINT NOT NULL REFERENCES catalog_schema.service_packages(id) ON DELETE CASCADE,
     item_type VARCHAR(20) NOT NULL CHECK (item_type IN ('COMPONENT', 'ADD_ON')),
     item_name VARCHAR(150) NOT NULL,
     step_order INT DEFAULT 1,
@@ -403,64 +522,43 @@ CREATE TABLE package_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. BẢNG TRUNG GIÁN GÓI - TONE TRANG ĐIỂM
-CREATE TABLE package_styles (
-    package_id BIGINT REFERENCES service_packages(id) ON DELETE CASCADE,
-    style_id INT REFERENCES makeup_styles(id) ON DELETE CASCADE,
+-- 4. BẢNG TRUNG GIAN GÓI - PHONG CÁCH
+CREATE TABLE IF NOT EXISTS catalog_schema.package_styles (
+    package_id BIGINT REFERENCES catalog_schema.service_packages(id) ON DELETE CASCADE,
+    style_id INT REFERENCES catalog_schema.makeup_styles(id) ON DELETE CASCADE,
     PRIMARY KEY (package_id, style_id)
 );
 
--- 6. GÁN KỸ NĂNG GÓI DỊCH VỤ CHO THỢ STUDIO
-CREATE TABLE agency_staff_services (
-    staff_id BIGINT REFERENCES agency_staff(id) ON DELETE CASCADE,
-    package_id BIGINT REFERENCES service_packages(id) ON DELETE CASCADE,
-    proficiency_level VARCHAR(30) DEFAULT 'PRIMARY_MUA',
-    is_qualified BOOLEAN DEFAULT TRUE,
-    PRIMARY KEY (staff_id, package_id)
-);
-
--- 7. GÁN KỸ NĂNG TONE TRANG ĐIỂM CHO THỢ STUDIO & THỢ TỰ DO
-CREATE TABLE agency_staff_styles (
-    staff_id BIGINT REFERENCES agency_staff(id) ON DELETE CASCADE,
-    style_id INT REFERENCES makeup_styles(id) ON DELETE CASCADE,
-    is_qualified BOOLEAN DEFAULT TRUE,
-    PRIMARY KEY (staff_id, style_id)
-);
-
-CREATE TABLE mua_styles (
-    mua_id BIGINT REFERENCES mua_profiles(id) ON DELETE CASCADE,
-    style_id INT REFERENCES makeup_styles(id) ON DELETE CASCADE,
-    is_qualified BOOLEAN DEFAULT TRUE,
-    PRIMARY KEY (mua_id, style_id)
-);
-COMMENT ON TABLE mua_styles IS 'Bảng gán kỹ năng Tone Make-up trực tiếp cho Thợ trang điểm (áp dụng cho cả Thợ tự do và Thợ Studio)';
-
--- 8. ALBUM ẢNH SẢN PHẦM HOÀN THIỆN CỦA KHÁCH TRƯỚC ĐÓ (FREELANCER & AGENCY STAFF)
-CREATE TABLE portfolio_showcases (
+-- 5. BẢNG CẤU HÌNH PHỤ PHÍ STUDIO & FREELANCER
+CREATE TABLE IF NOT EXISTS catalog_schema.surcharges (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    mua_id BIGINT NOT NULL REFERENCES mua_profiles(id) ON DELETE CASCADE,
-    staff_id BIGINT REFERENCES agency_staff(id) ON DELETE CASCADE,
-    package_id BIGINT REFERENCES service_packages(id) ON DELETE SET NULL,
-    style_id INT REFERENCES makeup_styles(id) ON DELETE SET NULL,
-    title VARCHAR(150),
-    image_url TEXT NOT NULL,                  -- Ảnh sản phẩm make-up hoàn thiện của khách trước đó
-    additional_images JSONB DEFAULT '[]'::jsonb, -- Album ảnh bổ sung (các góc chụp khác)
-    description TEXT,
-    is_featured BOOLEAN DEFAULT FALSE,
+    agency_id BIGINT REFERENCES agency_schema.agency_profiles(id) ON DELETE CASCADE,
+    mua_id BIGINT REFERENCES mua_schema.mua_profiles(id) ON DELETE CASCADE,
+    surcharge_name VARCHAR(100) NOT NULL,
+    surcharge_type VARCHAR(30) NOT NULL CHECK (surcharge_type IN ('EARLY_MORNING', 'OUT_OF_RADIUS', 'HOLIDAY', 'CUSTOM')),
+    amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT check_showcase_owner CHECK (
-        staff_id IS NOT NULL OR mua_id IS NOT NULL
+    CONSTRAINT check_surcharge_owner CHECK (
+        (agency_id IS NOT NULL AND mua_id IS NULL) OR 
+        (agency_id IS NULL AND mua_id IS NOT NULL)
     )
 );
-COMMENT ON TABLE portfolio_showcases IS 'Bảng lưu Album ảnh sản phẩm trang điểm thực tế của cả Thợ Tự Do và Thợ Studio';
 
--- 9. BẢNG CẤU HÌNH PHỤ PHÍ STUDIO & FREELANCER
-CREATE TABLE surcharges (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    agency_id BIGINT REFERENCES agency_profiles(id) ON DELETE CASCADE,
-    mua_id BIGINT REFERENCES mua_profiles(id) ON DELETE CASCADE,
-    surcharge_name VARCHAR(100) NOT NULL,
-    amount DECIMAL(12, 2) NOT NULL CHECK (amount >= 0),
-    is_active BOOLEAN DEFAULT TRUE
-);
+-- CHỈ MỤC TỐI ƯU TRUY VẤN
+CREATE INDEX IF NOT EXISTS idx_packages_agency ON catalog_schema.service_packages(agency_id, is_available);
+CREATE INDEX IF NOT EXISTS idx_packages_mua ON catalog_schema.service_packages(mua_id, is_available);
+CREATE INDEX IF NOT EXISTS idx_package_items ON catalog_schema.package_items(package_id, is_active, step_order);
+CREATE INDEX IF NOT EXISTS idx_surcharges_owner ON catalog_schema.surcharges(agency_id, mua_id, is_active);
 ```
+
+---
+
+## 🛡️ 7. YÊU CẦU PHI CHỨC NĂNG & HIỆU NĂNG BACK-END (NFRS)
+
+1. **Hiệu năng Tính toán (Calculation Latency)**:
+   - API tính toán phụ phí (`POST /api/v1/surcharges/calculate`) phải có thời gian phản hồi **< 30ms** để phục vụ việc cập nhật tức thì (realtime update) trên giao diện chọn giờ/chọn địa điểm của khách hàng mà không gây giật lag.
+2. **Tính Toàn vẹn Dữ liệu Sở hữu (Integrity Constraints)**:
+   - Đảm bảo 100% bản ghi gói dịch vụ và phụ phí tuân thủ ràng buộc XOR giữa `agency_id` và `mua_id` (`check_package_owner` và `check_surcharge_owner`). Không bao giờ có bản ghi mồ côi hoặc thuộc về cả 2 cùng lúc.
+3. **Bảo mật & Kiểm soát IDOR (IDOR Prevention)**:
+   - Mọi thao tác chỉnh sửa/xóa gói hoặc phụ phí đều được kiểm tra quyền sở hữu đối chiếu trực tiếp từ Principal Token JWT (`current_user`), ngăn chặn triệt để tấn công đổi giá hoặc xóa gói của đối thủ cạnh tranh.
