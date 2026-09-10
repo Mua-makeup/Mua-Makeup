@@ -46,7 +46,7 @@
     </persistenceIdMap>
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="178" />
+    <option name="cachedIndexableFilesCount" value="258" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="ExternalProjectsData">
@@ -220,6 +220,7 @@
       <workItem from="1788915341994" duration="1329000" />
       <workItem from="1788941950806" duration="1937000" />
       <workItem from="1789008002914" duration="635000" />
+      <workItem from="1789011343951" duration="709000" />
     </task>
     <servers />
   </component>
