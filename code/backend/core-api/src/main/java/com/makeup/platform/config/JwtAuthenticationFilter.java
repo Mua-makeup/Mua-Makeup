@@ -30,20 +30,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final RedisTokenService redisTokenService;
 
     @Override
+    @SuppressWarnings("null")
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = parseJwt(request);
             if (StringUtils.hasText(jwt)) {
-                // Check if token is in Redis Blacklist
+                // 1. Check if token is in Redis Blacklist
                 if (redisTokenService.isTokenBlacklisted(jwt)) {
                     log.warn("Access token is blacklisted in Redis: {}", jwt);
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token has been revoked/logged out");
                     return;
                 }
 
+                // 2. Validate token signature & expiry
                 if (jwtUtils.validateToken(jwt)) {
+                    // 3. Strict Check: Verify token_type is ACCESS_TOKEN (prevents Token Type Confusion Attack)
+                    if (!jwtUtils.isAccessToken(jwt)) {
+                        log.warn("Token is not of ACCESS_TOKEN type: {}", jwtUtils.getTokenType(jwt));
+                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token type for resource access");
+                        return;
+                    }
+
                     Long userId = jwtUtils.getUserId(jwt);
                     List<String> roles = jwtUtils.getRoles(jwt);
                     List<String> permissions = jwtUtils.getPermissions(jwt);

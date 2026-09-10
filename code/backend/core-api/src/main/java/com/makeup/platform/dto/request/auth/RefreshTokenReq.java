@@ -1,6 +1,5 @@
 package com.makeup.platform.dto.request.auth;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RefreshTokenReq {
 
-    @NotBlank(message = "Refresh token không được để trống")
     private String refreshToken;
+
+    private String accessToken;
 }
