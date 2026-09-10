@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/utils/CookieUtils.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/CustomAccessDeniedHandler.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/JwtAuthenticationEntryPoint.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/security/CustomUserDetails.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/security/CustomUserDetailsService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/common/utils/JwtUtilsTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/config/JwtAuthenticationFilterTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/ErrorCodes.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/ErrorCodes.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/SecurityConstants.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/SecurityConstants.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/utils/JwtUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/common/utils/JwtUtils.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/JwtAuthenticationFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/AuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/dto/request/auth/LogoutReq.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/dto/request/auth/LogoutReq.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/dto/request/auth/RefreshTokenReq.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/dto/request/auth/RefreshTokenReq.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/AuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/impl/AuthServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/java/com/makeup/platform/service/impl/AuthServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/resources/application.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/main/resources/text/messages.properties" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/main/resources/text/messages.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/service/AuthServiceTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/code/backend/core-api/src/test/java/com/makeup/platform/service/AuthServiceTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ComposerSettings">
+    <execution />
+  </component>
+  <component name="CopilotChats">
+    <option name="panelChat">
+      <chat>
+        <option name="activeSessionId" value="fefec107-6114-43be-b90b-323743e33ec8" />
+        <option name="sessions">
+          <session>
+            <option name="chatType" value="PANEL" />
+            <option name="id" value="a18370d6-a246-4dc3-b09c-76337313d6de" />
+            <option name="modeId" value="Agent" />
+            <option name="modelType" value="builtin_family" />
+            <option name="modelValue" value="auto" />
+            <option name="targetType" value="LOCAL" />
+          </session>
+          <session>
+            <option name="chatType" value="PANEL" />
+            <option name="id" value="fefec107-6114-43be-b90b-323743e33ec8" />
+            <option name="modeId" value="Ask" />
+            <option name="modelType" value="builtin_family" />
+            <option name="modelValue" value="auto" />
+            <option name="targetType" value="LOCAL" />
+          </session>
+        </option>
+        <option name="type" value="PANEL" />
+      </chat>
+    </option>
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_E:/Trung/Code/IOC Internship" value="3J2CgX2sYgbwwqfHB0ddjl6FcNo" />
+      <entry key="_E:/Trung/Code/IOC Internship/Mua-Makeup" value="3J7N907G5bPKBqseVkY4iAqs9e6" />
+    </persistenceIdMap>
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="178" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+  </component>
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$/code/backend/agency-operations-service">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/api-gateway">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/booking-service">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/catalog-media-service">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/core-api">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/location-service">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/payment-service">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/pricing-service">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/user-agency-mua-profile-service">
+      <ProjectState />
+    </projectState>
+    <projectState path="$PROJECT_DIR$/code/backend/websocket-service">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <projects_view>
+          <tree_state>
+            <expand>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="core-api" type="f1a62948:ProjectNode" />
+              </path>
+            </expand>
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;trung1609&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/phuongdanban19303/Mua-Makeup.git&quot;,
+    &quot;accountId&quot;: &quot;31706cd5-1284-444b-bf1a-e44bd48d7db1&quot;
+  }
+}</component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="PhpDebugGeneral" listening_started="true" />
+  <component name="PhpWorkspaceProjectConfiguration" interpreter_name="PHP" />
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3J2CgX2sYgbwwqfHB0ddjl6FcNo" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build core-api.executor": "Run",
+    "Gradle.Build user-agency-mua-profile-service.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "Spring Boot.Application.executor": "Run",
+    "Spring Boot.UserAgencyMuaProfileServiceApplication.executor": "Run",
+    "git-widget-placeholder": "Merging develop",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "E:/Trung/Code/IOC Internship",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "run.configurations.included.in.services": "true",
+    "vue.rearranger.settings.migration": "true"
+  },
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "redis"
+    ]
+  }
+}]]></component>
+  <component name="RunDashboard">
+    <option name="configurationTypes">
+      <set>
+        <option value="KtorApplicationConfigurationType" />
+        <option value="MicronautRunConfigurationType" />
+        <option value="QuarkusRunConfigurationType" />
+        <option value="SpringBootApplicationConfigurationType" />
+      </set>
+    </option>
+    <option name="configurationStatuses">
+      <map>
+        <entry key="SpringBootApplicationConfigurationType">
+          <value>
+            <map>
+              <entry key="Application" value="STOPPED" />
+            </map>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="RunManager">
+    <configuration name="Application" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="envFilePaths">
+        <option value="$PROJECT_DIR$/.env" />
+      </option>
+      <module name="core-api.main" />
+      <selectedOptions>
+        <option name="environmentVariables" />
+      </selectedOptions>
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.makeup.platform.Application" />
+      <extension name="net.ashald.envfile">
+        <option name="IS_ENABLED" value="false" />
+        <option name="IS_SUBST" value="false" />
+        <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
+        <option name="IS_IGNORE_MISSING_FILES" value="false" />
+        <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
+        <ENTRIES>
+          <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
+        </ENTRIES>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.33514.17" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c01f0b2a-0270-4b35-a9ca-518a694f71bd" name="Changes" comment="" />
+      <created>1788849888212</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1788849888212</updated>
+      <workItem from="1788849889384" duration="4422000" />
+      <workItem from="1788913945318" duration="592000" />
+      <workItem from="1788915341994" duration="1329000" />
+      <workItem from="1788941950806" duration="1937000" />
+      <workItem from="1789008002914" duration="635000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>
