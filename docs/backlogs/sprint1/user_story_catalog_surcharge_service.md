@@ -1,11 +1,11 @@
 # TÀI LIỆU ĐẶC TẢ USER STORIES & TIÊU CHÍ NGHIỆM THU
-## MICROSERVICE: SERVICE CATALOG & SURCHARGE MANAGEMENT SERVICE (DANH MỤC GÓI DỊCH VỤ, NĂNG LỰC TONE MAKE-UP & PHỤ PHÍ)
+## MODULE: SERVICE CATALOG & SURCHARGE MANAGEMENT (MONOLITHIC CORE-API - PHÂN HỆ CATALOG)
 
 ---
 
 ## 📌 1. TỔNG QUAN TÍNH NĂNG (FEATURE OVERVIEW)
 
-* **Tên Microservice / Sub-module:** `Service Catalog & Surcharge Management Service`
+* **Tên Phân hệ / Module:** `Service Catalog & Surcharge Management Module` (Đóng gói trong `core-api`, CSDL `makeup_platform_db`, schema: `catalog_schema`).
 * **Phạm vi Module:** Quản lý Danh mục Gốc (Master Categories), Tone/Style Trang điểm chuẩn toàn hệ thống (Makeup Styles), Gói dịch vụ cho Studio (Agency Catalog) & Thợ tự do (Freelancer Catalog), Chi tiết bước thực hiện/Add-on mua thêm, Kỹ năng Tone trang điểm thợ tự do (`mua_styles`), Gán kỹ năng cho thợ Studio (`agency_staff_services` & `agency_staff_styles`), Album ảnh sản phẩm hoàn thiện của cả Thợ Tự Do & Thợ Studio (`portfolio_showcases`), và Engine cấu hình Phụ phí linh hoạt (Làm sớm 3h-5h sáng, đi tỉnh/ngoài bán kính, ngày Lễ/Tết).
 * **Mã Jira Issue liên quan:** `ISSUE-13.1`, `ISSUE-13.2`, `ISSUE-13.3`, `ISSUE-13.4`, `ISSUE-13.5`, `ISSUE-11.3` (Sprint 1).
 * **Đối tượng sử dụng (User Personas):**

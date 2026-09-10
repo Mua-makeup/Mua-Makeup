@@ -7,8 +7,11 @@ tags: [backend, java, spring-boot, layered-architecture, monolith, redis, rediss
 
 # Universal Spring Boot Layered Architecture Monolith Engineering Skill
 
-## 1. Phạm vi Kiến trúc
-Áp dụng cho toàn bộ mã nguồn Backend tại **`code/backend/core-api/`** (Port: `8080`), kết nối CSDL duy nhất **`makeup_platform_db`** (PostgreSQL 16 + PostGIS) phân tách thành 8 Schemas độc lập.
+## 1. Phạm vi Kiến trúc (Monolith Core)
+- **Mô hình Kiến trúc**: **Layered Architecture Monolith** (Toàn bộ các phân hệ Auth, Agency, Catalog, Location, Booking, Pricing, Wallet, WebSocket chạy trong tiến trình ứng dụng đơn lẻ **`core-api`**, Port: `8080`).
+- **Không sử dụng Microservices phân mảnh**: Không triển khai microservices phân mảnh hay Spring Cloud API Gateway riêng biệt; không dùng Apache Kafka mà sử dụng Spring In-Memory EventBus (`ApplicationEventPublisher` & `@EventListener`).
+- **Cơ sở dữ liệu**: Kết nối 1 CSDL duy nhất **`makeup_platform_db`** (PostgreSQL 16 + PostGIS) phân tách thành 8 Schemas độc lập (`auth_schema`, `agency_schema`, `mua_schema`, `catalog_schema`, `booking_schema`, `pricing_schema`, `wallet_schema`, `interaction_schema`).
+- **Realtime Gateway**: Embedded STOMP WebSocket Gateway tích hợp trực tiếp bên trong `core-api`.
 
 ---
 
