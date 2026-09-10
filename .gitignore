@@ -17,6 +17,8 @@
 
 # 2. IDE & Editor Files
 .idea/
+.idea/**
+.idea/workspace.xml
 .vscode/
 *.iml
 *.ipr
@@ -80,3 +82,5 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 Desktop.ini
+.idea/
+.ai/
