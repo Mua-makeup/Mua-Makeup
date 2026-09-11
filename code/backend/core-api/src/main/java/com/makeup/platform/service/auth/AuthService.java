@@ -1,4 +1,4 @@
-package com.makeup.platform.service;
+package com.makeup.platform.service.auth;
 
 import com.makeup.platform.dto.request.auth.ChangePasswordReq;
 import com.makeup.platform.dto.request.auth.LoginReq;

@@ -1,4 +1,4 @@
-package com.makeup.platform.service;
+package com.makeup.platform.service.auth;
 
 import com.makeup.platform.dto.request.auth.UpdateProfileReq;
 import com.makeup.platform.dto.response.auth.UserInfoRes;

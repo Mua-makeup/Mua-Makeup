@@ -1,4 +1,4 @@
-package com.makeup.platform.service.impl;
+package com.makeup.platform.service.auth.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
@@ -6,8 +6,8 @@ import com.makeup.platform.dto.request.auth.UpdateProfileReq;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.repository.UserRepository;
-import com.makeup.platform.service.AuthService;
-import com.makeup.platform.service.UserService;
+import com.makeup.platform.service.auth.AuthService;
+import com.makeup.platform.service.auth.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
