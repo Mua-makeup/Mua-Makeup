@@ -133,16 +133,17 @@ Mọi tính năng mới (Business Feature / Module) được phát triển trên
 
 ## 6. Quy chuẩn Quyền hạn & Giới hạn Tác vụ của AI (AI Boundaries & User Authority)
 
-Nhằm đảm bảo tính toàn vẹn của mã nguồn, sự kiểm soát tuyệt đối từ người dùng và tính nhất quán với mục tiêu dự án, AI BẮT BUỘC tuân thủ nghiêm ngặt các nguyên tắc sau:
+Nhằm đảm bảo tính toàn vẹn của mã nguồn, quyền kiểm soát tối cao của người dùng và tính nhất quán với mục tiêu dự án, AI BẮT BUỘC tuân thủ nghiêm ngặt các nguyên tắc sau:
 
-1. **Quyền Commit Cuối Cùng Thuộc Về Người Dùng (Final Commit Ownership)**:
-   - **User chính là người duy nhất sở hữu quyền commit mã nguồn cuối cùng** vào Git repository (`git commit`, `git push`).
-   - AI TUYỆT ĐỐI KHÔNG tự ý thực hiện commit, tag hay push code lên repository. Mọi công việc của AI dừng lại ở việc chuẩn bị, sửa đổi, kiểm thử và báo cáo chi tiết để người dùng tự tay nghiệm thu và commit.
+1. **Người Dùng Là Người "Commit" (Xác Nhận & Chốt Code) Cuối Cùng**:
+   - **User chính là người DUY NHẤT có quyền "commit" cuối cùng** — được hiểu theo nghĩa là **nghiệm thu, xác nhận và chốt mã nguồn tối hậu** (chứ không chỉ bó hẹp ở lệnh `git commit`).
+   - Mọi câu trả lời, đoạn code hay giải pháp do AI đưa ra chỉ mang tính đề xuất để người dùng đánh giá. AI TUYỆT ĐỐI KHÔNG được tự ý xem một thay đổi là đã hoàn thành hay tự quyết định chốt code khi người dùng chưa chính thức xác nhận.
+   - Toàn quyền quyết định lưu trữ, chốt phiên bản và đồng bộ mã nguồn thuộc về người dùng.
 
-2. **Không Được Phép Thay Đổi Yêu Cầu Khi Chưa Có Chấp Thuận (Strict Requirement Freezing)**:
-   - AI TUYỆT ĐỐI KHÔNG tự ý thay đổi, cắt giảm, tự biên dịch lại hoặc mở rộng phạm vi yêu cầu (scope / requirements / user stories) mà người dùng đã đưa ra.
-   - Nếu phát hiện điểm chưa tối ưu, xung đột logic hoặc bất cập kỹ thuật, AI CHỈ ĐƯỢC đề xuất phương án và giải thích lý do; KHÔNG ĐƯỢC tự ý áp dụng cho đến khi người dùng rõ ràng đồng ý ("Accept").
+2. **AI Không Được Phép Tự Ý Thay Đổi Yêu Cầu Khi Người Dùng Chưa Chấp Thuận (Strict Requirement Freezing)**:
+   - AI TUYỆT ĐỐI KHÔNG được tự ý thay đổi, cắt giảm, biến tướng hoặc tự suy diễn mở rộng yêu cầu ban đầu của người dùng khi chưa có sự đồng ý rõ ràng.
+   - Nếu phát hiện vấn đề kỹ thuật hoặc có giải pháp tối ưu hơn, AI CHỈ ĐƯỢC đề xuất phương án và giải thích lý do; KHÔNG ĐƯỢC tự ý áp dụng cho đến khi người dùng rõ ràng đồng ý ("Accept").
 
-3. **Mọi Sửa Đổi Code Đều Phải Do Người Dùng Accept (Mandatory User Code Acceptance)**:
-   - Mọi câu trả lời, giải pháp, đề xuất chỉnh sửa mã nguồn hoặc thay đổi cấu trúc file PHẢI được giải thích rõ ràng (file nào, thay đổi những gì, vì sao) để người dùng xem xét.
-   - Toàn bộ kết quả sửa code chỉ được xem là hoàn tất và chính thức khi người dùng đã kiểm duyệt và bấm Accept/xác nhận đồng ý. Nếu người dùng chưa accept hoặc yêu cầu điều chỉnh, AI phải tuân theo chỉ đạo của người dùng.
+3. **Mọi Câu Trả Lời Sửa Code Đều Phải Do Người Dùng Accept (Mandatory User Acceptance)**:
+   - Toàn bộ các câu trả lời sửa code, tái cấu trúc file hoặc thêm chức năng BẮT BUỘC phải được trình bày minh bạch để người dùng trực tiếp kiểm duyệt và bấm **Accept / Chấp thuận**.
+   - Mọi chỉnh sửa chỉ có hiệu lực và được coi là hoàn tất khi người dùng đã Accept. Nếu người dùng chưa Accept, từ chối hoặc yêu cầu điều chỉnh, AI phải tuân thủ nghiêm túc chỉ đạo của người dùng để chỉnh sửa lại cho đến khi đạt yêu cầu.
