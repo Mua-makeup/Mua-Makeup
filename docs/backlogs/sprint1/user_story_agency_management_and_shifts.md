@@ -14,18 +14,17 @@
   * `ISSUE-12.2`: Quản lý Danh sách Nhân viên Studio (`agency_staff`) & Duyệt thợ quét mã gia nhập Studio.
   * `ISSUE-12.3`: Cấu hình & Đàm phán % Hoa hồng nội bộ giữa Studio và Thợ trang điểm (`agreed_commission_rate` vs `commission_rate_internal`).
   * `ISSUE-12.4`: Quản lý Năng lực thợ Studio theo Tone Make-up chuẩn sàn (`agency_staff_styles`).
-  * `ISSUE-13.4`: Gán Kỹ năng Gói Dịch vụ Studio cho thợ trực thuộc phụ trách (`agency_staff_services`).
   * `ISSUE-12.5`: Bảng ma trận Xếp ca làm việc cố định theo tuần của Thợ Studio (`agency_staff_shifts`) & Theo dõi trạng thái ca làm.
 * **Phạm vi Nghiệp vụ Cốt lõi:**
   1. **Hồ sơ Studio & Cơ sở vật chất**: Cập nhật thông tin phòng trang điểm, hotline, địa chỉ, ảnh đại diện, tỷ lệ hoa hồng mặc định của Studio.
   2. **Luồng Mời Thợ & Tuyển dụng (Staff Onboarding)**: Sinh mã mời động, link mời kèm mã QR Base64 (ZXing) có thời hạn 72 giờ lưu Redis. Thợ quét QR để nộp đơn xin gia nhập.
   3. **Phê duyệt Thợ & Thiết lập Hoa hồng Cá nhân hóa**: Studio Admin duyệt đơn, thỏa thuận tỷ lệ chia hoa hồng riêng (`agreed_commission_rate`: ví dụ Studio giữ 30%, Thợ nhận 70%).
-  4. **Ma trận Năng lực (Skill Matrix)**: Gán các Gói dịch vụ của Studio (`agency_staff_services`) và Phong cách trang điểm (`agency_staff_styles`) mà thợ có khả năng thực hiện, phục vụ điều phối đơn hàng chính xác.
+  4. **Năng lực Phong cách Make-up (Style Matrix)**: Gán các Phong cách trang điểm chuẩn sàn (`agency_staff_styles`) mà thợ có khả năng thực hiện, phục vụ hiển thị thế mạnh của thợ và điều phối theo gu của khách.
   5. **Xếp ca Tuần & Điều phối Thợ (Weekly Shift Scheduling)**: Thiết lập lịch làm việc cố định 7 ngày trong tuần (Thứ 2 $\rightarrow$ Chủ Nhật, Ca Sáng/Chiều/Tối), quản lý trạng thái Online/Sẵn sàng/Nghỉ phép, ngăn chặn phân ca trùng giờ.
 * **Đối tượng Sử dụng (User Personas):**
   1. **Agency Owner / Studio Admin (`ROLE_AGENCY_ADMIN`)**: Chủ Studio toàn quyền quản trị hồ sơ, mời thợ, duyệt thợ, cấu hình hoa hồng, phân công ca làm và xem báo cáo năng suất.
   2. **Agency Staff / Receptionist (`ROLE_AGENCY_STAFF`)**: Lễ tân/Quản lý điều phối được ủy quyền xếp ca làm việc, kiểm tra lịch trực của thợ, không có quyền can thiệp vào % hoa hồng tài chính.
-  3. **Studio MUA / Freelance MUA (`ROLE_FREELANCE_MUA`)**: Thợ trang điểm quét mã QR gia nhập Studio, theo dõi lịch ca được phân công, xem danh sách gói dịch vụ được giao và xem mức hoa hồng được hưởng.
+  3. **Studio MUA / Freelance MUA (`ROLE_FREELANCE_MUA`)**: Thợ trang điểm quét mã QR gia nhập Studio, theo dõi lịch ca được phân công, xem danh sách phong cách trang điểm phụ trách và xem mức hoa hồng được hưởng.
   4. **Super Admin (`ROLE_SUPER_ADMIN`)**: Quản trị viên sàn kiểm duyệt tính hợp pháp của Studio, giải quyết tranh chấp hợp đồng lao động/hoa hồng giữa Studio và Thợ.
 
 ---
@@ -61,7 +60,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── AgencyProfileController.java       # /api/v1/agencies/profile (Hồ sơ Studio, Hotline, Địa chỉ)
 │       ├── AgencyInvitationController.java    # /api/v1/agencies/invitations (Sinh QR, Link mời thợ)
 │       ├── AgencyStaffController.java         # /api/v1/agencies/staff (Duyệt thợ, hoa hồng, trạng thái)
-│       ├── AgencyStaffSkillController.java    # /api/v1/agencies/staff/{staffId}/skills (Gán gói dịch vụ & style)
+│       ├── AgencyStaffStyleController.java    # /api/v1/agencies/staff/{staffId}/styles (Gán tone make-up cho thợ)
 │       └── AgencyShiftController.java         # /api/v1/agencies/shifts (Ma trận xếp ca tuần)
 │
 ├── dto/
@@ -71,13 +70,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   │   ├── AcceptInvitationReq.java           # Mã mời/token nhận từ QR để nộp đơn gia nhập
 │   │   ├── ReviewStaffApplicationReq.java     # APPROVE / REJECT thợ gia nhập
 │   │   ├── UpdateStaffCommissionReq.java      # Cập nhật % hoa hồng riêng cho thợ
-│   │   ├── AssignStaffSkillsReq.java          # Danh sách packageIds và styleIds phân công
+│   │   ├── AssignStaffStylesReq.java          # Danh sách styleIds phân công
 │   │   └── ConfigureShiftReq.java             # staffId, dayOfWeek (1-7), shiftType, startTime, endTime
 │   └── response/agency/
 │       ├── AgencyProfileRes.java              # Chi tiết hồ sơ Studio, rating, số lượng thợ
 │       ├── InvitationDetailRes.java           # Mã mời, QR Base64, Link mời, ngày hết hạn
 │       ├── AgencyStaffSummaryRes.java         # Danh sách thợ, SĐT, % hoa hồng, trạng thái hoạt động
-│       ├── AgencyStaffDetailRes.java          # Chi tiết thợ kèm danh sách Gói và Phong cách phụ trách
+│       ├── AgencyStaffDetailRes.java          # Chi tiết thợ kèm danh sách Phong cách phụ trách
 │       ├── ShiftDetailRes.java                # Chi tiết 1 ca làm việc
 │       └── WeeklyShiftMatrixRes.java          # Ma trận ca trực 7 ngày trong tuần của toàn bộ Studio
 │
@@ -86,7 +85,6 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── AgencyProfileEntity.java           # table: agency_schema.agency_profiles
 │       ├── AgencyInvitationEntity.java        # table: agency_schema.agency_invitations
 │       ├── AgencyStaffEntity.java             # table: agency_schema.agency_staff
-│       ├── AgencyStaffServiceEntity.java      # table: agency_schema.agency_staff_services (Composite PK)
 │       ├── AgencyStaffStyleEntity.java        # table: agency_schema.agency_staff_styles (Composite PK)
 │       └── AgencyStaffShiftEntity.java        # table: agency_schema.agency_staff_shifts (Ca làm việc)
 │
@@ -95,7 +93,6 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── AgencyProfileRepository.java       # findByOwnerId, findByAgencyCode
 │       ├── AgencyInvitationRepository.java    # findByInvitationCode, findByAgencyIdAndStatus
 │       ├── AgencyStaffRepository.java         # findByAgencyId, findByMuaId, findByAgencyIdAndMuaId
-│       ├── AgencyStaffServiceRepository.java  # findByStaffId, deleteByStaffId
 │       ├── AgencyStaffStyleRepository.java    # findByStaffId, deleteByStaffId
 │       └── AgencyStaffShiftRepository.java    # findByAgencyIdAndDayOfWeek, checkOverlappingShifts
 │
@@ -104,13 +101,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
         ├── AgencyProfileService.java          # Xem & cập nhật thông tin Studio
         ├── AgencyInvitationService.java       # Sinh QR, kiểm tra token mời, chấp nhận lời mời
         ├── AgencyStaffService.java            # Quản trị nhân sự, duyệt đơn, điều chỉnh hoa hồng
-        ├── AgencyStaffSkillService.java       # Gán gói dịch vụ & style make-up cho thợ
+        ├── AgencyStaffStyleService.java        # Gán style make-up chuẩn sàn cho thợ
         ├── AgencyShiftService.java            # Lập lịch ca tuần, kiểm tra xung đột lịch
         └── impl/
             ├── AgencyProfileServiceImpl.java
             ├── AgencyInvitationServiceImpl.java
             ├── AgencyStaffServiceImpl.java
-            ├── AgencyStaffSkillServiceImpl.java
+            ├── AgencyStaffStyleServiceImpl.java
             └── AgencyShiftServiceImpl.java
 ```
 
@@ -234,31 +231,29 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### **US-AGC-04: Phân bổ Kỹ năng Gói Dịch vụ & Phong cách Make-up cho Thợ (`ISSUE-12.4`, `ISSUE-13.4`)**
+### **US-AGC-04: Quản lý Năng lực Thợ Studio theo Phong cách Make-up (`ISSUE-12.4`)**
 > **As an** Chủ Studio (`ROLE_AGENCY_ADMIN`),  
-> **I want to** gán danh sách các Gói Dịch vụ của Studio và Phong cách make-up mà thợ đủ năng lực đảm nhiệm,  
-> **So that** thuật toán điều phối đơn hàng chỉ phân công các ca make-up phù hợp với tay nghề của thợ.
+> **I want to** gán danh sách các Phong cách make-up chuẩn sàn mà thợ đủ năng lực đảm nhiệm,  
+> **So that** Studio nắm rõ thế mạnh phong cách của từng thợ để hiển thị cho khách hàng lựa chọn đúng gu make-up.
 
 #### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **Scenario 01: Gán danh sách Gói dịch vụ & Phong cách cho thợ thành công (Happy Path)**
+* **Scenario 01: Gán danh sách Phong cách make-up cho thợ thành công (Happy Path)**
   * **Given** Thợ `staff_id = 101` thuộc Studio `agency_id = 1`.
-  * **When** Chủ Studio gửi request `PUT /api/v1/agencies/staff/101/skills`:
+  * **When** Chủ Studio gửi request `PUT /api/v1/agencies/staff/101/styles`:
     ```json
     {
-      "packageIds": [1, 2, 5],
       "styleIds": [1, 2, 4]
     }
     ```
   * **Then** Backend xóa các mapping cũ và lưu các bản ghi mới vào:
-    - Bảng `agency_schema.agency_staff_services` (cho các package 1, 2, 5).
     - Bảng `agency_schema.agency_staff_styles` (cho các style 1, 2, 4).
-  * **And** Trả về HTTP `200 OK` kèm danh sách chi tiết các kỹ năng vừa cập nhật.
+  * **And** Trả về HTTP `200 OK` kèm danh sách chi tiết các phong cách vừa cập nhật.
 
-* **Scenario 02: Chặn gán Gói dịch vụ không thuộc sở hữu của Studio**
-  * **Given** Gói `package_id = 99` thuộc quyền sở hữu của Studio khác (`agency_id = 2`).
-  * **When** Chủ Studio 1 gửi gán `packageIds = [99]`.
-  * **Then** Backend phát hiện gói 99 không thuộc `agency_id = 1`.
-  * **And** Ném `CustomBusinessException` với mã lỗi `ERR_PACKAGE_NOT_OWNED_BY_AGENCY`, HTTP `400 BAD_REQUEST`.
+* **Scenario 02: Báo lỗi khi danh sách styleIds chứa mã phong cách không tồn tại**
+  * **Given** Phong cách `style_id = 999` không tồn tại trong hệ thống.
+  * **When** Chủ Studio gửi gán `styleIds = [1, 999]`.
+  * **Then** Backend phát hiện style 999 không tồn tại trong bảng `catalog_schema.makeup_styles`.
+  * **And** Ném `ResourceNotFoundException` với mã lỗi `ERR_STYLE_NOT_FOUND`, HTTP `404 NOT_FOUND`.
 
 ---
 
@@ -318,7 +313,7 @@ Tất cả các lỗi nghiệp vụ và lỗi xác thực đều tuân thủ đ�
 | **`400 BAD_REQUEST`** | `ERR_VALIDATION_FAILED` | Vi phạm Bean Validation (`agencyName` rỗng, `hotline` sai định dạng). | Trả về chi tiết lỗi từng trường vi phạm. |
 | **`400 BAD_REQUEST`** | `ERR_INVALID_COMMISSION_RATE` | % hoa hồng nhỏ hơn `0.00%` hoặc lớn hơn `100.00%`. | Yêu cầu nhập tỷ lệ phần trăm hợp lệ từ 0 đến 100. |
 | **`400 BAD_REQUEST`** | `ERR_INVITATION_EXPIRED` | Mã mời đã hết hạn 72h trong Redis hoặc đã bị hủy trước đó. | Thông báo mã mời hết hạn và yêu cầu Studio sinh mã mới. |
-| **`400 BAD_REQUEST`** | `ERR_PACKAGE_NOT_OWNED_BY_AGENCY` | Gán gói dịch vụ cho thợ nhưng gói đó không thuộc Studio hiện tại. | Kiểm tra quyền sở hữu gói `package.agency_id == current_agency_id`. |
+| **`404 NOT_FOUND`** | `ERR_STYLE_NOT_FOUND` | Phong cách make-up truyền vào không tồn tại trong danh mục hệ thống. | Kiểm tra tồn tại trong bảng `catalog_schema.makeup_styles`. |
 | **`401 UNAUTHORIZED`** | `ERR_TOKEN_INVALID` | Token JWT thiếu hoặc hết hạn khi gọi các API quản lý Studio. | Spring Security chặn ở tầng Filter. |
 | **`403 FORBIDDEN`** | `ERR_AGENCY_ACCESS_DENIED` | Tài khoản không có quyền `ROLE_AGENCY_ADMIN` hoặc cố tình sửa Studio khác (IDOR). | Kiểm tra `agency.owner_id == currentUser.id`. |
 | **`404 NOT_FOUND`** | `ERR_AGENCY_NOT_FOUND` | Không tìm thấy hồ sơ Studio gắn với User ID hiện tại. | Ném `ResourceNotFoundException("Studio không tồn tại")`. |
@@ -555,12 +550,11 @@ public class UpdateAgencyProfileReq {
 
 ---
 
-### 5.7. `PUT /api/v1/agencies/staff/{staffId}/skills` (Gán Gói Dịch Vụ & Style Make-up)
+### 5.7. `PUT /api/v1/agencies/staff/{staffId}/styles` (Gán Phong Cách Make-up Cho Thợ)
 * **Quyền hạn:** `ROLE_AGENCY_ADMIN`.
 * **Request Body:**
 ```json
 {
-  "packageIds": [1, 2],
   "styleIds": [1, 2, 4]
 }
 ```
@@ -569,16 +563,13 @@ public class UpdateAgencyProfileReq {
 {
   "success": true,
   "code": "200",
-  "message": "Cập nhật năng lực kỹ năng cho thợ thành công!",
+  "message": "Cập nhật phong cách make-up cho thợ thành công!",
   "data": {
     "staffId": 101,
-    "assignedPackages": [
-      { "id": 1, "packageName": "Gói Trang điểm Cô Dâu VIP" },
-      { "id": 2, "packageName": "Gói Make-up Tiệc Luxury" }
-    ],
     "assignedStyles": [
       { "id": 1, "styleName": "Tone Hàn Douyin" },
-      { "id": 2, "styleName": "Tone Thái Sang Trọng" }
+      { "id": 2, "styleName": "Tone Thái Sang Trọng" },
+      { "id": 4, "styleName": "Tone Tây Sắc Sảo" }
     ]
   },
   "timestamp": "2026-09-11T15:01:00Z"
@@ -688,17 +679,7 @@ CREATE TABLE IF NOT EXISTS agency_schema.agency_staff (
     UNIQUE (agency_id, mua_id)
 );
 
--- 3. BẢNG GÁN KỸ NĂNG GÓI DỊCH VỤ CỦA STUDIO CHO THỢ (AGENCY STAFF SERVICES)
-CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_services (
-    staff_id BIGINT NOT NULL REFERENCES agency_schema.agency_staff(id) ON DELETE CASCADE,
-    package_id BIGINT NOT NULL REFERENCES catalog_schema.service_packages(id) ON DELETE CASCADE,
-    proficiency_level VARCHAR(30) DEFAULT 'PRIMARY_MUA' NOT NULL, -- PRIMARY_MUA, ASSISTANT_MUA
-    is_qualified BOOLEAN DEFAULT TRUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (staff_id, package_id)
-);
-
--- 4. BẢNG GÁN PHONG CÁCH MAKE-UP CHO THỢ STUDIO (AGENCY STAFF STYLES)
+-- 3. BẢNG GÁN PHONG CÁCH MAKE-UP CHO THỢ STUDIO (AGENCY STAFF STYLES)
 CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_styles (
     staff_id BIGINT NOT NULL REFERENCES agency_schema.agency_staff(id) ON DELETE CASCADE,
     style_id INT NOT NULL REFERENCES catalog_schema.makeup_styles(id) ON DELETE CASCADE,
@@ -707,7 +688,7 @@ CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_styles (
     PRIMARY KEY (staff_id, style_id)
 );
 
--- 5. BẢNG XẾP CA LÀM VIỆC CỐ ĐỊNH THEO TUẦN (AGENCY STAFF SHIFTS)
+-- 4. BẢNG XẾP CA LÀM VIỆC CỐ ĐỊNH THEO TUẦN (AGENCY STAFF SHIFTS)
 CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_shifts (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     agency_id BIGINT NOT NULL REFERENCES agency_schema.agency_profiles(id) ON DELETE CASCADE,
@@ -772,7 +753,7 @@ code/frontend/src/
     └── agency/
         ├── AgencyProfilePage.jsx          # Cập nhật thông tin Studio & % hoa hồng
         ├── AgencyStaffListPage.jsx        # Danh sách thợ, Modal QR mời thợ & Duyệt đơn
-        ├── StaffSkillAssignModal.jsx      # Modal tích chọn Gói dịch vụ & Style make-up
+        ├── StaffStyleAssignModal.jsx      # Modal tích chọn Tone Style make-up phụ trách
         └── WeeklyShiftMatrixPage.jsx      # Bảng ma trận xếp ca tuần kéo-thả trực quan
 ```
 
