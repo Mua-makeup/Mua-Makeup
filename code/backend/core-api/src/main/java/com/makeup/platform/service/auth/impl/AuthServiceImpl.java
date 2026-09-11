@@ -78,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
             throw new CustomBusinessException(ErrorCodes.ERR_PHONE_ALREADY_EXISTS,
                     "Số điện thoại này đã được đăng ký trên hệ thống.", HttpStatus.CONFLICT);
         }
+
         if (StringUtils.hasText(req.getEmail()) && userRepository.existsByEmail(req.getEmail())) {
             throw new CustomBusinessException(ErrorCodes.ERR_EMAIL_ALREADY_EXISTS,
                     "Email này đã được đăng ký trên hệ thống.", HttpStatus.CONFLICT);
@@ -199,12 +200,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AuthRes refreshToken(RefreshTokenReq req) {
-        return refreshToken(req, req != null ? req.getAccessToken() : null);
-    }
-
-    @Override
-    @Transactional
     public AuthRes refreshToken(RefreshTokenReq req, String oldAccessToken) {
         String token = req.getRefreshToken();
         if (!jwtUtils.validateToken(token) || !jwtUtils.isRefreshToken(token)) {
@@ -223,11 +218,10 @@ public class AuthServiceImpl implements AuthService {
         redisTokenService.deleteRefreshToken(token);
 
         // Blacklist Access Token cũ nếu nó còn thời hạn tồn tại
-        String tokenToBlacklist = StringUtils.hasText(oldAccessToken) ? oldAccessToken : req.getAccessToken();
-        if (StringUtils.hasText(tokenToBlacklist)) {
-            String cleanToken = tokenToBlacklist.startsWith(SecurityConstants.TOKEN_PREFIX)
-                    ? tokenToBlacklist.substring(SecurityConstants.TOKEN_PREFIX.length())
-                    : tokenToBlacklist;
+        if (StringUtils.hasText(oldAccessToken)) {
+            String cleanToken = oldAccessToken.startsWith(SecurityConstants.TOKEN_PREFIX)
+                    ? oldAccessToken.substring(SecurityConstants.TOKEN_PREFIX.length())
+                    : oldAccessToken;
 
             long remainingMs = jwtUtils.getRemainingExpirationMs(cleanToken);
             if (remainingMs > 0) {
