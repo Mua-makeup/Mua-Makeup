@@ -17,10 +17,6 @@ public interface AuthService {
 
     AuthRes refreshToken(RefreshTokenReq req, String oldAccessToken);
 
-    default AuthRes refreshToken(RefreshTokenReq req) {
-        return refreshToken(req, req != null ? req.getAccessToken() : null);
-    }
-
     void logout(LogoutReq req, String accessToken);
 
     void changePassword(Long userId, ChangePasswordReq req);
