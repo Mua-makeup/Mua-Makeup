@@ -22,6 +22,7 @@ public class UserInfoRes {
     private Boolean isVerified;
     private Long agencyId;
     private Long muaId;
+    private String language;
     private List<String> roles;
     private List<String> permissions;
 }

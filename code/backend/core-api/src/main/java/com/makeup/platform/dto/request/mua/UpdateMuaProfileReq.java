@@ -21,12 +21,12 @@ public class UpdateMuaProfileReq {
 
     private String bio;
 
-    @NotNull(message = "Số năm kinh nghiệm không được để trống")
-    @Min(value = 0, message = "Số năm kinh nghiệm tối thiểu là 0 năm")
+    @NotNull(message = "{validation.experience_years_required}")
+    @Min(value = 0, message = "{validation.experience_years_min}")
     private Integer experienceYears;
 
-    @NotNull(message = "Bán kính phục vụ không được để trống")
-    @DecimalMin(value = "1.0", message = "Bán kính phục vụ tối thiểu là 1.0 km")
-    @DecimalMax(value = "50.0", message = "Bán kính phục vụ tối đa là 50.0 km")
+    @NotNull(message = "{validation.radius_required}")
+    @DecimalMin(value = "1.0", message = "{validation.radius_min}")
+    @DecimalMax(value = "50.0", message = "{validation.radius_max}")
     private BigDecimal maxServiceRadiusKm;
 }

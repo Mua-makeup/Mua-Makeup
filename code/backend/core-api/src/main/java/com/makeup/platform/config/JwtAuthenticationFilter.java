@@ -78,6 +78,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     permissions.forEach(perm -> authorities.add(new SimpleGrantedAuthority(perm)));
                 }
 
+                String language = jwtUtils.getLanguage(jwt);
+                request.setAttribute("USER_LANGUAGE", language);
+
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userId, null, authorities);
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -111,9 +114,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader(SecurityConstants.HEADER_STRING);
-        if (StringUtils.hasText(headerAuth) && headerAuth.startsWith(SecurityConstants.TOKEN_PREFIX)) {
-            return headerAuth.substring(SecurityConstants.TOKEN_PREFIX.length());
+        if (StringUtils.hasText(headerAuth)) {
+            String token = headerAuth.trim();
+            while (token.regionMatches(true, 0, SecurityConstants.TOKEN_PREFIX, 0, SecurityConstants.TOKEN_PREFIX.length())) {
+                token = token.substring(SecurityConstants.TOKEN_PREFIX.length()).trim();
+            }
+            if (!token.isEmpty() && !"null".equalsIgnoreCase(token) && !"undefined".equalsIgnoreCase(token)) {
+                return token;
+            }
         }
         return null;
     }
 }
+

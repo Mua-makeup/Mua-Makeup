@@ -28,6 +28,6 @@ public class AdminMuaCredentialController extends BaseController {
             @PathVariable Long muaId,
             @Valid @RequestBody VerifyCertificateReq req) {
         CertificateRes res = muaProfileService.verifyCertificate(muaId, req);
-        return ok(res, "Cập nhật trạng thái duyệt chứng chỉ thành công");
+        return ok(res, "mua.cert_verify_success");
     }
 }

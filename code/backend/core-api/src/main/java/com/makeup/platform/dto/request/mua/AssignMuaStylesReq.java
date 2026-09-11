@@ -16,6 +16,6 @@ import java.util.Set;
 @Builder
 public class AssignMuaStylesReq {
 
-    @NotEmpty(message = "Danh sách phong cách sở trường không được để trống")
+    @NotEmpty(message = "{validation.styles_required}")
     private Set<Integer> styleIds;
 }

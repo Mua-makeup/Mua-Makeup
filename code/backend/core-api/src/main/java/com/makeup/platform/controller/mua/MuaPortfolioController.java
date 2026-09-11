@@ -67,7 +67,7 @@ public class MuaPortfolioController extends BaseController {
                 .build();
 
         PortfolioDetailRes res = portfolioService.createPortfolioShowcase(userId, req);
-        return created(res, "Đăng tác phẩm lên bộ sưu tập thành công!");
+        return created(res, "mua.portfolio_create_success");
     }
 
     @PutMapping("/my-profile/portfolios/{id}")
@@ -77,7 +77,7 @@ public class MuaPortfolioController extends BaseController {
             @PathVariable Long id,
             @Valid @RequestBody UpdatePortfolioReq req) {
         PortfolioDetailRes res = portfolioService.updatePortfolioShowcase(userId, id, req);
-        return ok(res, "Cập nhật thông tin tác phẩm thành công!");
+        return ok(res, "mua.portfolio_update_success");
     }
 
     @PatchMapping("/my-profile/portfolios/{id}/featured")
@@ -87,7 +87,7 @@ public class MuaPortfolioController extends BaseController {
             @PathVariable Long id,
             @Valid @RequestBody UpdatePortfolioFeaturedReq req) {
         PortfolioDetailRes res = portfolioService.updateFeaturedStatus(userId, id, req);
-        return ok(res, "Cập nhật trạng thái tiêu biểu thành công");
+        return ok(res, "mua.portfolio_update_success");
     }
 
     @PatchMapping("/my-profile/portfolios/{id}/visibility")
@@ -97,7 +97,7 @@ public class MuaPortfolioController extends BaseController {
             @PathVariable Long id,
             @Valid @RequestBody UpdatePortfolioVisibilityReq req) {
         PortfolioDetailRes res = portfolioService.updateVisibilityStatus(userId, id, req);
-        return ok(res, "Đã cập nhật trạng thái hiển thị của tác phẩm thành công");
+        return ok(res, "mua.portfolio_update_success");
     }
 
     @DeleteMapping("/my-profile/portfolios/{id}")
@@ -106,7 +106,7 @@ public class MuaPortfolioController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long id) {
         portfolioService.softDeletePortfolio(userId, id);
-        return ok(null, "Đã xóa tác phẩm khỏi bộ sưu tập thành công (dữ liệu được lưu trữ an toàn phục vụ đối soát)");
+        return ok(null, "mua.portfolio_delete_success");
     }
 
     @GetMapping("/{muaId}/portfolios")
@@ -122,7 +122,7 @@ public class MuaPortfolioController extends BaseController {
         PageResponse<PortfolioSummaryRes> res = portfolioService.getPublicGallery(
                 muaId, styleId, isFeatured, PageRequest.of(page, size)
         );
-        return ok(res, "Lấy danh sách tác phẩm thành công");
+        return ok(res, "mua.portfolios_list_success");
     }
 
 
@@ -136,7 +136,7 @@ public class MuaPortfolioController extends BaseController {
             @Max(value = 50, message = "Kích thước trang tối đa không được vượt quá 50") int size) {
 
         PageResponse<PortfolioDetailRes> res = portfolioService.getMyPortfolios(userId, PageRequest.of(page, size));
-        return ok(res, "Lấy danh sách tác phẩm của bạn thành công");
+        return ok(res, "mua.portfolios_list_success");
     }
 
     @GetMapping("/my-profile/portfolios/{id}")
@@ -144,6 +144,6 @@ public class MuaPortfolioController extends BaseController {
     public ResponseEntity<ApiResponse<PortfolioDetailRes>> getPortfolioDetail(
             @PathVariable Long id) {
         PortfolioDetailRes res = portfolioService.getPortfolioDetail(id);
-        return ok(res, "Lấy chi tiết tác phẩm thành công");
+        return ok(res, "mua.portfolio_get_success");
     }
 }

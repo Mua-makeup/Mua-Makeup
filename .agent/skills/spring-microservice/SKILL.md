@@ -76,10 +76,18 @@ code/backend/core-api/
 - Mọi Request DTO bắt buộc có Bean Validation (`@NotNull`, `@NotBlank`, `@Future`, `@Size`...).
 - Controller phải đặt `@Valid @RequestBody <DTO> request`.
 
-### 3.3. Xử lý Lỗi & Không Hard-code Text (ResourceBundle)
-- Ném lỗi nghiệp vụ qua `CustomBusinessException(ErrorCode, message, HttpStatus)`.
-- Mọi chuỗi thông báo lỗi được định nghĩa trong `src/main/resources/text/messages.properties`.
-- `GlobalExceptionHandler` `@RestControllerAdvice` bắt và map HTTP status code chính xác (400, 401, 403, 404, 409, 429, 500).
+### 3.3. Đa Ngôn Ngữ Chuẩn Hóa Toàn Hệ Thống (i18n qua JSON & Header & Database)
+- **Tuyệt đối KHÔNG hard-code chuỗi text**: Không hardcode tiếng Việt hay tiếng Anh trong Controller, Service, DTO hay Validator.
+- **Khai báo thông điệp JSON**: Mọi message trả về và mã lỗi phải được định nghĩa đồng thời tại cả 2 file:
+  - `src/main/resources/i18n/messages_en.json` (Tiếng Anh - Mặc định)
+  - `src/main/resources/i18n/messages_vi.json` (Tiếng Việt)
+- **Cơ chế xác định ngôn ngữ**: Tự động nhận diện theo thứ tự ưu tiên:
+  1. Header `Accept-Language` (`vi`, `vi-VN`, `en`, `en-US`).
+  2. Thuộc tính `language` của User đăng nhập (`auth_schema.users`, claim JWT).
+  3. Mặc định fallback: `en` (Tiếng Anh).
+- **Ném lỗi & Trả về**:
+  - Ném ngoại lệ nghiệp vụ: `throw new CustomBusinessException(ErrorCodes.XXX, "module.error_key", args...)`.
+  - Trả về Controller: `return ok(res, "module.success_key")` hoặc `created(res, "module.created_key")`. `BaseController` và `GlobalExceptionHandler` sẽ tự động tra cứu `JsonMessageSource` theo Locale của request.
 
 ### 3.4. Quản lý 1 Database + 8 Schemas
 - Khai báo rõ schema trong `@Table`: `@Table(name = "users", schema = "auth_schema")`.

@@ -153,7 +153,7 @@ class AuthServiceTest {
         when(userRepository.findById(100L)).thenReturn(Optional.of(user));
         when(rolePermissionRepository.findPermissionCodesByRoleId(anyInt()))
                 .thenReturn(List.of("booking:create", "booking:view_my_jobs"));
-        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList()))
+        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList(), any()))
                 .thenReturn("mocked.jwt.token");
         when(jwtUtils.generateRefreshToken(anyLong()))
                 .thenReturn("mocked.refresh.token");
@@ -189,7 +189,7 @@ class AuthServiceTest {
         when(jwtUtils.isRefreshToken("valid.refresh.jwt")).thenReturn(true);
         when(redisTokenService.getUserIdByRefreshToken("valid.refresh.jwt")).thenReturn(100L);
         when(userRepository.findById(100L)).thenReturn(Optional.of(user));
-        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList()))
+        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList(), any()))
                 .thenReturn("new.access.token");
         when(jwtUtils.generateRefreshToken(100L)).thenReturn("new.refresh.token");
 
@@ -224,7 +224,7 @@ class AuthServiceTest {
         when(redisTokenService.getUserIdByRefreshToken("valid.refresh.jwt")).thenReturn(100L);
         when(userRepository.findById(100L)).thenReturn(Optional.of(user));
         when(jwtUtils.getRemainingExpirationMs("old.access.token")).thenReturn(50000L);
-        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList()))
+        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList(), any()))
                 .thenReturn("new.access.token");
         when(jwtUtils.generateRefreshToken(100L)).thenReturn("new.refresh.token");
 

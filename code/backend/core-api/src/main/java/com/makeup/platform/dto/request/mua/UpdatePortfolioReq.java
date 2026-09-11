@@ -15,8 +15,8 @@ import lombok.Setter;
 @Builder
 public class UpdatePortfolioReq {
 
-    @NotBlank(message = "Tiêu đề tác phẩm không được để trống")
-    @Size(min = 2, max = 150, message = "Tiêu đề tác phẩm phải từ 2 đến 150 ký tự")
+    @NotBlank(message = "{validation.title_required}")
+    @Size(min = 2, max = 150, message = "{validation.title_size}")
     private String title;
 
     private String description;

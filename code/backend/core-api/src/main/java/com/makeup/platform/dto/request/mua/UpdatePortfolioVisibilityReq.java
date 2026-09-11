@@ -14,6 +14,6 @@ import lombok.Setter;
 @Builder
 public class UpdatePortfolioVisibilityReq {
 
-    @NotNull(message = "Trạng thái hiển thị không được để trống")
+    @NotNull(message = "{validation.visibility_required}")
     private Boolean isVisible;
 }

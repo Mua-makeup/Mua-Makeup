@@ -46,6 +46,13 @@ public class JwtUtils {
     public String generateAccessToken(Long userId, String phoneNumber, String fullName,
                                       Long agencyId, Long muaId,
                                       List<String> roles, List<String> permissions) {
+        return generateAccessToken(userId, phoneNumber, fullName, agencyId, muaId, roles, permissions, "en");
+    }
+
+    public String generateAccessToken(Long userId, String phoneNumber, String fullName,
+                                      Long agencyId, Long muaId,
+                                      List<String> roles, List<String> permissions,
+                                      String language) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpirationMs);
 
@@ -55,6 +62,7 @@ public class JwtUtils {
                 .claim("full_name", fullName)
                 .claim("agency_id", agencyId)
                 .claim("mua_id", muaId)
+                .claim("language", language != null ? language : "en")
                 .claim("roles", roles)
                 .claim("permissions", permissions)
                 .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
@@ -163,5 +171,11 @@ public class JwtUtils {
     public List<String> getPermissions(String token) {
         Claims claims = getClaimsFromToken(token);
         return (List<String>) claims.get("permissions");
+    }
+
+    public String getLanguage(String token) {
+        Claims claims = getClaimsFromToken(token);
+        String lang = claims.get("language", String.class);
+        return lang != null ? lang : "en";
     }
 }

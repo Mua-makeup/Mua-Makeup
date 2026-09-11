@@ -317,9 +317,23 @@ public class AuthServiceImpl implements AuthService {
                 .isVerified(user.getIsVerified())
                 .agencyId(agencyId)
                 .muaId(muaId)
+                .language(user.getLanguage() != null ? user.getLanguage() : "en")
                 .roles(roles)
                 .permissions(permissions)
                 .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserInfoRes updateLanguage(Long userId, com.makeup.platform.dto.request.auth.UpdateLanguageReq req) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
+                        "ERR_USER_NOT_FOUND", HttpStatus.NOT_FOUND));
+
+        user.setLanguage(req.getLanguage().toLowerCase());
+        userRepository.save(user);
+
+        return getCurrentUser(userId);
     }
 
     private AuthRes generateAuthResponse(UserEntity user) {
@@ -342,7 +356,8 @@ public class AuthServiceImpl implements AuthService {
                 agencyId,
                 muaId,
                 roles,
-                permissions
+                permissions,
+                user.getLanguage() != null ? user.getLanguage() : "en"
         );
 
         String refreshToken = jwtUtils.generateRefreshToken(user.getId());

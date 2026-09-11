@@ -32,7 +32,7 @@ public class MuaStyleController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody AssignMuaStylesReq req) {
         AssignMuaStylesRes res = muaStyleService.assignStyles(userId, req);
-        return ok(res, "Đồng bộ danh sách phong cách sở trường thành công");
+        return ok(res, "mua.styles_assign_success");
     }
 
     @GetMapping
@@ -40,6 +40,6 @@ public class MuaStyleController extends BaseController {
     public ResponseEntity<ApiResponse<List<MuaStyleRes>>> getMyStyles(
             @AuthenticationPrincipal Long userId) {
         List<MuaStyleRes> res = muaStyleService.getMyStyles(userId);
-        return ok(res, "Lấy danh sách phong cách sở trường thành công");
+        return ok(res, "mua.styles_assign_success");
     }
 }

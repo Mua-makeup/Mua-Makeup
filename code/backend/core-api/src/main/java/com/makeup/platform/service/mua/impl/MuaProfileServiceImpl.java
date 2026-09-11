@@ -25,6 +25,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -75,6 +76,11 @@ public class MuaProfileServiceImpl implements MuaProfileService {
     @Transactional(rollbackFor = Exception.class)
     public CertificateRes uploadCertificate(Long userId, UploadCertificateReq req) {
         MuaProfileEntity mua = getMuaProfileByUserId(userId);
+
+        if (!StringUtils.hasText(req.getCertName())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                    "mua.cert_name_required", HttpStatus.BAD_REQUEST);
+        }
 
         FileValidationUtils.validateImageFile(req.getFile(), MediaConstants.MAX_MAIN_IMAGE_SIZE);
 

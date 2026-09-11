@@ -97,3 +97,23 @@ code/frontend/
 1. **GPS Telemetry**: Stream tọa độ thợ gửi qua Embedded WebSocket `/ws-makeup` theo chu kỳ 5–10s, lưu vị trí tức thời vào Redis GEO và phát tới khách hàng qua `/topic/gps-stream/{bookingId}`.
 2. **Instant Booking Broadcast**: Khi khách đặt ca gấp 30-60 phút, hệ thống quét thợ rảnh qua Redis GEO $\rightarrow$ Broadcast qua STOMP `/topic/booking-broadcast` kèm đồng hồ đếm ngược 30-45s $\rightarrow$ Thợ nhận ca đầu tiên được bảo vệ chống race condition bằng **Redlock (Redisson)**.
 3. **Ví & Escrow**: Khi đơn hoàn thành, Spring EventBus kích hoạt `DoubleEntryLedgerService` tự động giải ngân từ quỹ cọc Escrow vào Ví Đại lý và Ví Thợ trong cùng 1 database transaction ACID.
+
+---
+
+## 5. Quy chuẩn Bắt buộc về Đa ngôn ngữ (System-Wide Internationalization - i18n)
+
+Mọi tính năng mới (Business Feature / Module) được phát triển trên Backend **BẮT BUỘC** phải tuân thủ chuẩn đa ngôn ngữ:
+1. **Tuyệt đối KHÔNG hardcode chuỗi thông báo** bằng tiếng Việt hoặc tiếng Anh trong Controller, Service, Validator hay Exception handler.
+2. **Cấu trúc File i18n JSON**:
+   - Tất cả chuỗi hiển thị thành công và thông báo lỗi phải được khai báo đồng thời tại cả 2 file:
+     - `src/main/resources/i18n/messages_en.json` (Tiếng Anh - Mặc định)
+     - `src/main/resources/i18n/messages_vi.json` (Tiếng Việt)
+   - Đặt key theo dạng phân cấp hoặc tiền tố module: ví dụ `mua.profile_update_success`, `booking.cancel_success`, hoặc theo mã lỗi `ErrorCodes`.
+3. **Cơ chế xác định ngôn ngữ (Locale Resolution)**:
+   - Hệ thống tự động nhận diện ngôn ngữ theo thứ tự ưu tiên:
+     1. Header `Accept-Language` trên HTTP Request (`vi`, `vi-VN`, `en`, `en-US`).
+     2. Cài đặt ngôn ngữ của User đăng nhập (`language` trong JWT Token & trường `language` của bảng `auth_schema.users`).
+     3. Fallback mặc định: `en` (Tiếng Anh).
+4. **Ném ngoại lệ & Phản hồi API**:
+   - Ném ngoại lệ bằng message key: `throw new CustomBusinessException(ErrorCodes.XXX, "module.error_key", args...)`.
+   - Trả về response bằng message key: `return ok(res, "module.success_key")` hoặc `created(res, "module.created_key")`. `BaseController` và `GlobalExceptionHandler` sẽ tự động tra cứu file JSON và trả về thông điệp bản địa hóa chuẩn xác.

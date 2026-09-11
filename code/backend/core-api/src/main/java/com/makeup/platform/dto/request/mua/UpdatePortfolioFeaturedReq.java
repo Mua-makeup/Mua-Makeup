@@ -14,6 +14,6 @@ import lombok.Setter;
 @Builder
 public class UpdatePortfolioFeaturedReq {
 
-    @NotNull(message = "Trạng thái tiêu biểu không được để trống")
+    @NotNull(message = "{validation.featured_required}")
     private Boolean isFeatured;
 }
