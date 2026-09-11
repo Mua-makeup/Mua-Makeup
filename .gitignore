@@ -84,4 +84,5 @@ Thumbs.db
 Desktop.ini
 .idea/
 .idea/workspace.xml
+.ai/**
 postman
