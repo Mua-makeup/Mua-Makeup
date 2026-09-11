@@ -46,6 +46,13 @@ public class JwtUtils {
     public String generateAccessToken(Long userId, String phoneNumber, String fullName,
                                       Long agencyId, Long muaId,
                                       List<String> roles, List<String> permissions) {
+        return generateAccessToken(userId, phoneNumber, fullName, agencyId, muaId, roles, permissions, "en");
+    }
+
+    public String generateAccessToken(Long userId, String phoneNumber, String fullName,
+                                      Long agencyId, Long muaId,
+                                      List<String> roles, List<String> permissions,
+                                      String language) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpirationMs);
 
@@ -55,6 +62,7 @@ public class JwtUtils {
                 .claim("full_name", fullName)
                 .claim("agency_id", agencyId)
                 .claim("mua_id", muaId)
+                .claim("language", language != null ? language : "en")
                 .claim("roles", roles)
                 .claim("permissions", permissions)
                 .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
@@ -95,27 +103,27 @@ public class JwtUtils {
         } catch (ExpiredJwtException e) {
             log.warn("Invalid JWT token - Expired: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_EXPIRED,
-                    "Token đã hết hạn. Vui lòng làm mới token hoặc đăng nhập lại.",
+                    "ERR_TOKEN_EXPIRED",
                     HttpStatus.UNAUTHORIZED);
         } catch (SecurityException e) {
             log.warn("Invalid JWT token - Signature invalid: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID_SIGNATURE,
-                    "Chữ ký token không hợp lệ hoặc đã bị chỉnh sửa.",
+                    "ERR_TOKEN_INVALID_SIGNATURE",
                     HttpStatus.UNAUTHORIZED);
         } catch (MalformedJwtException e) {
             log.warn("Invalid JWT token - Malformed: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_MALFORMED,
-                    "Cấu trúc token không đúng định dạng.",
+                    "ERR_TOKEN_MALFORMED",
                     HttpStatus.UNAUTHORIZED);
         } catch (UnsupportedJwtException e) {
             log.warn("Invalid JWT token - Unsupported: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_UNSUPPORTED,
-                    "Token không được hỗ trợ bởi hệ thống.",
+                    "ERR_TOKEN_UNSUPPORTED",
                     HttpStatus.UNAUTHORIZED);
         } catch (IllegalArgumentException e) {
             log.warn("Invalid JWT token - Empty or illegal claims: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
-                    "Chuỗi token không hợp lệ hoặc rỗng.",
+                    "ERR_TOKEN_INVALID",
                     HttpStatus.UNAUTHORIZED);
         }
     }
@@ -163,5 +171,11 @@ public class JwtUtils {
     public List<String> getPermissions(String token) {
         Claims claims = getClaimsFromToken(token);
         return (List<String>) claims.get("permissions");
+    }
+
+    public String getLanguage(String token) {
+        Claims claims = getClaimsFromToken(token);
+        String lang = claims.get("language", String.class);
+        return lang != null ? lang : "en";
     }
 }

@@ -1,0 +1,31 @@
+package com.makeup.platform.dto.response.catalog;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PackageSummaryRes {
+
+    private Long id;
+    private Integer masterCategoryId;
+    private String categoryName;
+    private Long agencyId;
+    private String agencyName;
+    private Long muaId;
+    private String muaName;
+    private String packageName;
+    private BigDecimal price;
+    private Integer estimatedDurationMinutes;
+    private Boolean isAvailable;
+    private List<MakeupStyleRes> styles;
+}

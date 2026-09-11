@@ -4,6 +4,7 @@ import com.makeup.platform.security.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -71,6 +72,13 @@ public class SecurityConfig {
                                 "/actuator/**",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/packages/my").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/packages/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/master-categories/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/makeup-styles/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/portfolios").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )

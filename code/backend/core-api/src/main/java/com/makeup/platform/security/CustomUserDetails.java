@@ -28,6 +28,7 @@ public class CustomUserDetails implements UserDetails {
     private Boolean isActive;
     private Long agencyId;
     private Long muaId;
+    private String language;
     private List<GrantedAuthority> authorities;
 
     public static CustomUserDetails build(UserEntity user,
@@ -51,6 +52,7 @@ public class CustomUserDetails implements UserDetails {
                 .isActive(user.getIsActive())
                 .agencyId(agencyId)
                 .muaId(muaId)
+                .language(user.getLanguage() != null ? user.getLanguage() : "en")
                 .authorities(authorities)
                 .build();
     }

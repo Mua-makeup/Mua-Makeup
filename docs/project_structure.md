@@ -180,134 +180,141 @@ code/frontend/
 
 ---
 
-## III. Backend Java (Modular Monolith - Layered Architecture)
+## III. Backend Java (Layered Architecture Monolith with Domain Sub-packages)
 
-Được thiết kế theo kiến trúc **Modular Monolith kết hợp Layered Architecture (Kiến trúc phân tầng)**. Toàn bộ hệ thống chạy chung một tiến trình Spring Boot (Port `8080`), giao tiếp giữa các module thông qua **Spring EventBus (`ApplicationEventPublisher`)** và **Service Interface** trực tiếp, không qua độ trễ mạng:
+Được thiết kế theo kiến trúc **Layered Architecture Monolith (Kiến trúc phân tầng kết hợp nhóm sub-package theo Domain nghiệp vụ)**. Toàn bộ hệ thống chạy chung một tiến trình Spring Boot (Port `8080`), giao tiếp giữa các module thông qua **Service Interface trực tiếp** và **Spring EventBus (`ApplicationEventPublisher`)** trong cùng JVM, không qua độ trễ mạng:
 
 ```text
 code/backend/core-api/
 ├── src/main/java/com/makeup/platform/
-│   ├── MakeupPlatformApplication.java  # Class khởi động chính của Spring Boot 3.3.x
+│   ├── Application.java                # Class khởi động chính của Spring Boot 3.3.x
 │   │
 │   ├── common/                         # TẦNG DÙNG CHUNG TOÀN HỆ THỐNG (Cross-cutting Concerns)
 │   │   ├── base/                       # Các lớp trừu tượng nền tảng
-│   │   │   ├── BaseEntity.java         # @MappedSuperclass chứa id (UUID), created_at, updated_at
-│   │   │   ├── BaseController.java     # Chuẩn hóa ResponseWrapper<T> (code, message, data, timestamp)
+│   │   │   ├── BaseEntity.java         # @MappedSuperclass chứa id (Long IDENTITY), created_at, updated_at
+│   │   │   ├── BaseController.java     # Chuẩn hóa ApiResponse<T> (success, code, message, data, timestamp)
+│   │   │   ├── ApiResponse.java        # Cấu trúc Wrapper response API chuẩn toàn sàn
 │   │   │   ├── BaseService.java        # Interface CRUD Generics <T, ID>
 │   │   │   └── BaseServiceImpl.java    # Xử lý CRUD cơ bản dùng chung
 │   │   ├── constants/                  # Hằng số hệ thống
 │   │   │   ├── SecurityConstants.java  # Token prefix, Header name, Expiration time
-│   │   │   ├── ErrorCode.java          # Bộ mã lỗi (USER_NOT_FOUND, BOOKING_RACE_CONDITION...)
-│   │   │   └── RegexConstants.java     # Biểu thức chính quy cho Số điện thoại VN, Email, CCCD
+│   │   │   └── ErrorCodes.java         # Bộ mã định danh lỗi toàn hệ thống (ERR_USER_NOT_FOUND, ERR_PACKAGE_NOT_FOUND...)
 │   │   ├── exception/                  # Xử lý lỗi tập trung toàn hệ thống
 │   │   │   ├── GlobalExceptionHandler.java  # @RestControllerAdvice bắt lỗi validation & nghiệp vụ
-│   │   │   ├── BusinessException.java  # Lỗi vi phạm logic nghiệp vụ trả về HTTP 400/409
-│   │   │   ├── ResourceNotFoundException.java # Trả về HTTP 404
-│   │   │   └── UnauthorizedException.java   # Trả về HTTP 401/403
+│   │   │   └── CustomBusinessException.java # Ngoại lệ nghiệp vụ tùy biến (errorCode, HttpStatus)
 │   │   └── utils/                      # Tiện ích bổ trợ
 │   │       ├── JwtUtils.java           # Sinh và giải mã Access Token & Refresh Token
-│   │       ├── GeoSpatialUtils.java    # Tính khoảng cách phẳng Harversine dự phòng
+│   │       ├── CookieUtils.java        # Đọc / ghi HttpOnly Cookie cho Refresh Token
+│   │       ├── HolidayUtils.java       # Tra cứu lịch nghỉ lễ quốc gia & Tết Nguyên Đán Việt Nam
 │   │       └── DateUtils.java          # Định dạng múi giờ Asia/Ho_Chi_Minh
 │   │
 │   ├── config/                         # CẤU HÌNH FRAMEWORK & HẠ TẦNG
-│   │   ├── SecurityConfig.java         # Spring Security 6, JWT Filter, CORS config, Whitelist URLs
-│   │   ├── OpenApiConfig.java          # Cấu hình Swagger/OpenAPI v3 docs tại /swagger-ui.html
-│   │   ├── DatabaseConfig.java         # HikariCP Pool kết nối PostgreSQL 16 & PostGIS Extension
-│   │   ├── RedisConfig.java            # Cấu hình RedisTemplate cho Redis GEO và TTL Caching
-│   │   ├── RedissonConfig.java         # Cấu hình Redisson Client xử lý Khóa phân tán (Distributed Lock)
-│   │   └── WebSocketConfig.java        # Đăng ký STOMP Endpoint WSS `/ws-makeup` và MessageBroker
+│   │   ├── SecurityConfig.java         # Spring Security 6, JWT Filter, Method Security, Whitelist URLs
+│   │   ├── JwtAuthenticationFilter.java# Bộ lọc kiểm tra JWT Access Token & Redis Token Blacklist
+│   │   ├── JwtAuthenticationEntryPoint.java
+│   │   ├── CustomAccessDeniedHandler.java
+│   │   └── RedisConfig.java            # Cấu hình RedisTemplate cho Redis GEO, Caching & Token Blacklist
 │   │
-│   └── modules/                        # TỔ CHỨC CÁC BOUNDED CONTEXTS THEO LAYERED ARCHITECTURE
+│   ├── security/                       # BẢO MẬT & USER PRINCIPAL
+│   │   ├── CustomUserDetails.java      # Wrapper UserPrincipal tích hợp roles & permissions
+│   │   └── CustomUserDetailsService.java
+│   │
+│   ├── controller/                     # TẦNG REST CONTROLLERS (Nhóm theo Domain Nghiệp vụ)
+│   │   ├── auth/                       # AuthController (/api/v1/auth)
+│   │   ├── customer/                   # CustomerProfileController (/api/v1/customer)
+│   │   ├── catalog/                    # ServicePackageController, PackageItemController, SurchargeController, MasterTaxonomyController
+│   │   ├── booking/                    # BookingController, DispatchController (/api/v1/bookings)
+│   │   ├── telemetry/                  # LocationStreamController (/api/v1/telemetry/location)
+│   │   ├── wallet/                     # WalletController, PayoutController (/api/v1/wallets)
+│   │   └── review/                     # ReviewController, DisputeTicketController (/api/v1/reviews)
+│   │
+│   ├── dto/                            # DATA TRANSFER OBJECTS (Request & Response theo Domain)
+│   │   ├── request/
+│   │   │   ├── auth/                   # RegisterReq, LoginReq, RefreshTokenReq, ChangePasswordReq, UpdateProfileReq
+│   │   │   ├── catalog/                # CreatePackageReq, UpdatePackageReq, CreatePackageItemReq, ConfigureSurchargeReq, CalculateSurchargeReq
+│   │   │   ├── booking/                # CreateBookingReq, AcceptBookingReq
+│   │   │   └── wallet/                 # TopUpWalletReq, WithdrawalReq
+│   │   └── response/
+│   │       ├── auth/                   # AuthRes, UserInfoRes, UserRegisterRes
+│   │       ├── catalog/                # PackageDetailRes, PackageSummaryRes, PackageItemRes, SurchargeDetailRes, SurchargeCalculationRes, MasterCategoryRes, MakeupStyleRes
+│   │       ├── booking/                # BookingDetailRes, BookingTimelineRes
+│   │       └── wallet/                 # WalletBalanceRes, TransactionHistoryRes
+│   │
+│   ├── entity/                         # JPA ENTITIES (Phân bổ theo PostgreSQL Schemas)
+│   │   ├── auth/                       # UserEntity, RoleEntity, RolePermissionEntity (auth_schema)
+│   │   ├── agency/                     # AgencyProfileEntity, AgencyStaffEntity, WorkShiftEntity (agency_schema)
+│   │   ├── mua/                        # MuaProfileEntity, MuaStyleEntity, MuaCertificateEntity (mua_schema)
+│   │   ├── catalog/                    # MasterCategoryEntity, MakeupStyleEntity, ServicePackageEntity, PackageItemEntity, SurchargeEntity (catalog_schema)
+│   │   ├── booking/                    # BookingOrderEntity, BookingTimelineEntity, BookingAssignmentEntity (booking_schema)
+│   │   └── wallet/                     # WalletEntity, TransactionEntity, LedgerEntryEntity, PayoutEntity (wallet_schema)
+│   │
+│   ├── repository/                     # SPRING DATA JPA REPOSITORIES (Nhóm theo Domain)
+│   │   ├── auth/ (hoặc root):          # UserRepository, RoleRepository, RolePermissionRepository
+│   │   ├── agency:                     # AgencyProfileRepository, AgencyStaffRepository
+│   │   ├── mua:                        # MuaProfileRepository
+│   │   ├── catalog/                    # MasterCategoryRepository, MakeupStyleRepository, ServicePackageRepository, PackageItemRepository, SurchargeRepository
+│   │   ├── booking/                    # BookingOrderRepository, BookingTimelineRepository
+│   │   └── wallet/                     # WalletRepository, LedgerEntryRepository
+│   │
+│   └── service/                        # TẦNG BUSINESS LOGIC (Nhóm sub-package theo Domain Nghiệp vụ)
+│       ├── auth/                       # Nghiệp vụ Xác thực, Quản lý tài khoản & Token
+│       │   ├── AuthService.java
+│       │   ├── UserService.java
+│       │   ├── RedisTokenService.java
+│       │   └── impl/
+│       │       ├── AuthServiceImpl.java
+│       │       ├── UserServiceImpl.java
+│       │       └── RedisTokenServiceImpl.java
 │       │
-│       ├── auth/                       # MODULE 1: AUTHENTICATION, USERS & PHÂN QUYỀN RBAC (4 Bảng)
-│       │   ├── controller/             # AuthController (/api/v1/auth), UserController, RoleController
-│       │   ├── dto/                    # LoginReq, RegisterReq, TokenRes, UserProfileRes
-│       │   ├── entity/                 # UserEntity, RoleEntity, UserRoleEntity, RolePermissionEntity
-│       │   ├── repository/             # UserRepository, RoleRepository, PermissionRepository
-│       │   └── service/                # AuthService (Interface), UserServiceImpl, RbacServiceImpl
+│       ├── catalog/                    # Nghiệp vụ Danh mục Gói dịch vụ & Bộ tính Phụ phí
+│       │   ├── MasterTaxonomyService.java
+│       │   ├── ServicePackageService.java
+│       │   ├── PackageItemService.java
+│       │   ├── SurchargeService.java
+│       │   ├── helper/
+│       │   │   └── CatalogOwnerHelper.java # Kiểm tra phân quyền chủ sở hữu Studio vs MUA (Chống IDOR)
+│       │   └── impl/
+│       │       ├── MasterTaxonomyServiceImpl.java
+│       │       ├── ServicePackageServiceImpl.java
+│       │       ├── PackageItemServiceImpl.java
+│       │       └── SurchargeServiceImpl.java
 │       │
-│       ├── agency/                     # MODULE 2: AGENCY OPERATIONS & QUẢN LÝ THỢ STUDIO
-│       │   ├── controller/             # AgencyStaffController, WorkShiftController
-│       │   ├── dto/                    # InviteStaffReq, AssignStyleReq, ShiftScheduleReq
-│       │   ├── entity/                 # AgencyProfileEntity, AgencyStaffEntity, WorkShiftEntity
-│       │   ├── repository/             # AgencyStaffRepository, WorkShiftRepository
-│       │   └── service/                # AgencyStaffServiceImpl, ShiftSchedulingServiceImpl
+│       ├── booking/                    # Nghiệp vụ Booking State Machine & Dispatching
+│       │   ├── BookingService.java
+│       │   ├── DispatchingService.java
+│       │   └── impl/
 │       │
-│       ├── catalog/                    # MODULE 3: SERVICE CATALOG, STYLES & ALBUM PORTFOLIO
-│       │   ├── controller/             # PackageController, StyleCategoryController, PortfolioController
-│       │   ├── dto/                    # CreatePackageReq, SurchargeConfigReq, PortfolioUploadReq
-│       │   ├── entity/                 # ServicePackageEntity, StyleEntity, PortfolioShowcaseEntity
-│       │   ├── repository/             # ServicePackageRepository, PortfolioRepository
-│       │   └── service/                # CatalogServiceImpl, PortfolioServiceImpl
+│       ├── telemetry/                  # Nghiệp vụ GPS Telemetry & Redis GEO Tracking
+│       │   ├── LocationTrackingService.java
+│       │   └── impl/
 │       │
-│       ├── booking/                    # MODULE 4: BOOKING ENGINE & DISPATCHING (State Machine + Redlock)
-│       │   ├── controller/             # BookingController (/api/v1/bookings), DispatchController
-│       │   ├── dto/                    # CreateBookingReq, AcceptBookingReq, BookingDetailRes
-│       │   ├── entity/                 # BookingOrderEntity, BookingTimelineEntity, BookingAssignmentEntity
-│       │   ├── event/                  # BookingCreatedEvent, BookingMatchedEvent, BookingCancelledEvent
-│       │   ├── repository/             # BookingOrderRepository, BookingTimelineRepository
-│       │   └── service/                # BookingStateMachineService, DispatchingServiceImpl
+│       ├── wallet/                     # Nghiệp vụ Ví điện tử & Sổ cái kế toán đúp (Double-entry)
+│       │   ├── WalletService.java
+│       │   ├── LedgerService.java
+│       │   └── impl/
 │       │
-│       ├── telemetry/                  # MODULE 5: GPS TELEMETRY & REDIS GEO INDEX
-│       │   ├── controller/             # LocationStreamController (/api/v1/telemetry/location)
-│       │   ├── dto/                    # LocationUpdateReq (lat, lng, bearing, speed, status)
-│       │   ├── repository/             # RedisGeoRepository (GEOADD thợ rảnh vào key 'mua:geo:active')
-│       │   └── service/                # LocationTrackingServiceImpl, GeoQueryServiceImpl
-│       │
-│       ├── pricing/                    # MODULE 6: DYNAMIC PRICING ENGINE & TÍNH PHỤ PHÍ
-│       │   ├── controller/             # PricingEstimateController (/api/v1/pricing/estimate)
-│       │   ├── dto/                    # PriceEstimateReq, InvoicePreviewRes (Chi tiết phụ phí + km)
-│       │   ├── entity/                 # SurchargeRuleEntity, DistancePricingTierEntity
-│       │   └── service/                # DynamicPricingCalculatorService, SurchargeEngineServiceImpl
-│       │
-│       ├── wallet/                     # MODULE 7: VÍ ĐIỆN TỬ & SỔ CÁI KẾ TOÁN ĐÚP (7 Bảng Double-entry)
-│       │   ├── controller/             # WalletController, PayoutController, PaymentWebhookController
-│       │   ├── dto/                    # TopUpWalletReq, WithdrawalReq, EscrowReleaseReq
-│       │   ├── entity/                 # WalletEntity, TransactionEntity, LedgerEntryEntity, PayoutEntity
-│       │   ├── repository/             # WalletRepository, LedgerEntryRepository
-│       │   └── service/                # DoubleEntryLedgerService, EscrowServiceImpl, PayoutServiceImpl
-│       │
-│       ├── notification/               # MODULE 8: IN-APP REALTIME TOAST & PUSH NOTIFICATION
-│       │   ├── listener/               # BookingEventListener (@EventListener bắt sự kiện in-memory)
-│       │   ├── dto/                    # NotificationPayloadDto, PushNotificationReq
-│       │   └── service/                # InAppNotificationService, FcmPushNotificationServiceImpl
-│       │
-│       ├── websocket/                  # MODULE 9: EMBEDDED WSS GATEWAY CONNECTION HANDLER
-│       │   ├── handler/                # StompChannelInterceptor (Bảo mật JWT trên handshake STOMP)
-│       │   ├── controller/             # ChatSocketController, LocationSocketController
-│       │   └── service/                # WebSocketBroadcastService (Bắn countdown 30s đến thợ)
-│       │
-│       └── review/                     # MODULE 10: RATINGS, REVIEWS, TIPS & KHIẾU NẠI (Disputes)
-│           ├── controller/             # ReviewController, TipController, DisputeTicketController
-│           ├── dto/                    # SubmitReviewReq, CreateTipReq, OpenDisputeReq
-│           ├── entity/                 # ReviewEntity, TipEntity, DisputeTicketEntity
-│           ├── repository/             # ReviewRepository, DisputeTicketRepository
-│           └── service/                # ReviewServiceImpl, DisputeResolutionServiceImpl
+│       └── notification/               # Nghiệp vụ Realtime STOMP & Push Notification
+│           ├── NotificationService.java
+│           └── impl/
 │
-├── unitest/                            # Bộ mã kiểm thử tự động (Unit Tests & Integration Tests)
-│   ├── java/com/makeup/platform/
-│   │   ├── auth/AuthServiceTest.java
-│   │   ├── booking/BookingRaceConditionTest.java # Kiểm thử tranh chấp đơn ca khẩn bằng Redisson
-│   │   └── wallet/DoubleEntryLedgerTest.java     # Kiểm tra tính toàn vẹn số dư Nợ/Có (Debit = Credit)
-│
-├── sonarLint/                          # Bộ quy tắc quản lý nợ kỹ thuật và phân tích tĩnh SonarQube
-│   └── sonar-rules.xml
+├── src/test/java/com/makeup/platform/  # BỘ MÃ KIỂM THỬ TỰ ĐỘNG (Unit Tests & Integration Tests)
+│   ├── config/JwtAuthenticationFilterTest.java
+│   └── service/
+│       ├── AuthServiceTest.java
+│       ├── ServicePackageServiceImplTest.java
+│       └── SurchargeServiceImplTest.java
 │
 ├── Dockerfile                          # Multi-stage build Dockerfile (Eclipse Temurin 21 Alpine JRE)
 ├── .dockerignore
-├── build.gradle                        # Quản lý dependencies (Spring Boot 3.3.x, Flyway, Postgres, Redisson)
+├── build.gradle                        # Quản lý dependencies (Spring Boot 3.3.x, Flyway, Postgres, Redis)
 └── src/main/resources/
     ├── application.yaml                # Cấu hình chính (Datasource, Redis, JWT Secrets, Business Tiers)
     ├── application-dev.yaml            # Cấu hình môi trường Local/Development
     ├── application-prod.yaml           # Cấu hình môi trường Production
-    ├── text/                           # Thư mục i18n ResourceBundle (Không hardcode text tiếng Việt)
-    │   ├── messages_vi.properties      # Thông báo lỗi tiếng Việt thân thiện người dùng
-    │   └── messages_en.properties      # Thông báo tiếng Anh chuẩn hóa
     └── db/migration/                   # Phiên bản hóa CSDL tự động bằng Flyway
-        ├── V1__Init_Tables_Auth_RBAC.sql
-        ├── V2__Init_Agency_And_Catalog.sql
-        ├── V3__Init_Booking_And_Location_PostGIS.sql
-        └── V4__Init_Wallet_7_Tables_Double_Entry.sql
+        ├── V1__Create_Schemas_And_Extensions.sql
+        ├── V2__Init_Auth_And_Profiles.sql
+        └── V3__Init_Catalog_And_Surcharges.sql
 ```
 
 ---

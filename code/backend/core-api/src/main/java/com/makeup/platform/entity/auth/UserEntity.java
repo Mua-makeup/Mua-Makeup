@@ -49,6 +49,10 @@ public class UserEntity extends BaseEntity {
     @Builder.Default
     private Boolean isVerified = false;
 
+    @Column(name = "language", nullable = false, length = 10)
+    @Builder.Default
+    private String language = "en";
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",

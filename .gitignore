@@ -17,6 +17,8 @@
 
 # 2. IDE & Editor Files
 .idea/
+.idea/**
+.idea/workspace.xml
 .vscode/
 *.iml
 *.ipr

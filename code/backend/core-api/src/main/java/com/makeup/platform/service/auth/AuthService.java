@@ -22,4 +22,6 @@ public interface AuthService {
     void changePassword(Long userId, ChangePasswordReq req);
 
     UserInfoRes getCurrentUser(Long userId);
+
+    UserInfoRes updateLanguage(Long userId, com.makeup.platform.dto.request.auth.UpdateLanguageReq req);
 }
