@@ -76,8 +76,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/packages/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/master-categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/makeup-styles/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/portfolios").permitAll()
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
+
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

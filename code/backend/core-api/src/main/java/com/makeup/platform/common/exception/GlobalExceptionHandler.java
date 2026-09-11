@@ -2,6 +2,7 @@ package com.makeup.platform.common.exception;
 
 import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.constants.ErrorCodes;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -56,6 +58,31 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCodes.ERR_FORBIDDEN, "Truy cập bị từ chối: Bạn không có quyền thực hiện hành động này."));
     }
 
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex) {
+        log.warn("File size exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorCodes.ERR_FILE_SIZE_EXCEEDED, "Dung lượng tệp tải lên vượt quá giới hạn tối đa cho phép."));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleConstraintViolationException(ConstraintViolationException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getConstraintViolations().forEach(cv -> {
+            String property = cv.getPropertyPath().toString();
+            errors.put(property, cv.getMessage());
+        });
+        log.warn("Constraint violation: {}", errors);
+        ApiResponse<Map<String, String>> response = ApiResponse.<Map<String, String>>builder()
+                .success(false)
+                .errorCode(ErrorCodes.ERR_VALIDATION)
+                .message("Tham số truy vấn không hợp lệ.")
+                .data(errors)
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
         log.error("Internal server error: ", ex);
@@ -63,3 +90,4 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCodes.ERR_INTERNAL, "Hệ thống đang gặp sự cố. Vui lòng thử lại sau."));
     }
 }
+
