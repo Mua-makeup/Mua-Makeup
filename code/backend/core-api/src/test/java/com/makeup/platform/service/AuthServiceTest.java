@@ -76,6 +76,9 @@ class AuthServiceTest {
     @Mock
     private AuthenticationManager authenticationManager;
 
+    @org.mockito.Spy
+    private com.makeup.platform.mapper.auth.AuthMapper authMapper = new com.makeup.platform.mapper.auth.AuthMapper();
+
     @InjectMocks
     private AuthServiceImpl authService;
 
@@ -153,7 +156,7 @@ class AuthServiceTest {
         when(userRepository.findById(100L)).thenReturn(Optional.of(user));
         when(rolePermissionRepository.findPermissionCodesByRoleId(anyInt()))
                 .thenReturn(List.of("booking:create", "booking:view_my_jobs"));
-        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList()))
+        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList(), any()))
                 .thenReturn("mocked.jwt.token");
         when(jwtUtils.generateRefreshToken(anyLong()))
                 .thenReturn("mocked.refresh.token");
@@ -189,7 +192,7 @@ class AuthServiceTest {
         when(jwtUtils.isRefreshToken("valid.refresh.jwt")).thenReturn(true);
         when(redisTokenService.getUserIdByRefreshToken("valid.refresh.jwt")).thenReturn(100L);
         when(userRepository.findById(100L)).thenReturn(Optional.of(user));
-        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList()))
+        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList(), any()))
                 .thenReturn("new.access.token");
         when(jwtUtils.generateRefreshToken(100L)).thenReturn("new.refresh.token");
 
@@ -224,7 +227,7 @@ class AuthServiceTest {
         when(redisTokenService.getUserIdByRefreshToken("valid.refresh.jwt")).thenReturn(100L);
         when(userRepository.findById(100L)).thenReturn(Optional.of(user));
         when(jwtUtils.getRemainingExpirationMs("old.access.token")).thenReturn(50000L);
-        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList()))
+        when(jwtUtils.generateAccessToken(anyLong(), anyString(), anyString(), any(), any(), anyList(), anyList(), any()))
                 .thenReturn("new.access.token");
         when(jwtUtils.generateRefreshToken(100L)).thenReturn("new.refresh.token");
 
@@ -236,5 +239,44 @@ class AuthServiceTest {
         verify(redisTokenService).blacklistAccessToken("old.access.token", 50000L);
         verify(redisTokenService).deleteRefreshToken("valid.refresh.jwt");
         verify(redisTokenService).saveRefreshToken("new.refresh.token", 100L, 30L);
+    }
+
+    @Test
+    @DisplayName("Đăng ký tài khoản SUPER_ADMIN thành công và gán ROLE_SUPER_ADMIN")
+    void registerSuperAdmin_Success() {
+        RegisterReq req = RegisterReq.builder()
+                .phoneNumber("0900000001")
+                .email("superadmin@makeup.com")
+                .password("Admin@123456")
+                .fullName("Platform Super Admin")
+                .accountType(AccountType.SUPER_ADMIN)
+                .build();
+
+        RoleEntity adminRole = RoleEntity.builder().id(5).name(SecurityConstants.ROLE_SUPER_ADMIN).build();
+
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(roleRepository.findByName(SecurityConstants.ROLE_SUPER_ADMIN)).thenReturn(Optional.of(adminRole));
+        when(passwordEncoder.encode(anyString())).thenReturn("hashedAdminPassword");
+
+        UserEntity savedUser = UserEntity.builder()
+                .phoneNumber(req.getPhoneNumber())
+                .email(req.getEmail())
+                .passwordHash("hashedAdminPassword")
+                .fullName(req.getFullName())
+                .role(adminRole)
+                .build();
+        savedUser.setId(1L);
+
+        when(userRepository.save(any(UserEntity.class))).thenReturn(savedUser);
+
+        UserRegisterRes res = authService.register(req);
+
+        assertNotNull(res);
+        assertEquals(1L, res.getUserId());
+        assertEquals("0900000001", res.getPhoneNumber());
+        assertEquals("SUPER_ADMIN", res.getAccountType());
+        assertTrue(res.getRoles().contains(SecurityConstants.ROLE_SUPER_ADMIN));
+        verify(userRepository).save(any(UserEntity.class));
     }
 }

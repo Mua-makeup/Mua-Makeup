@@ -55,6 +55,12 @@ class ServicePackageServiceImplTest {
     @Mock
     private CatalogOwnerHelper ownerHelper;
 
+    @org.mockito.Spy
+    private com.makeup.platform.mapper.catalog.ServicePackageMapper packageMapper = new com.makeup.platform.mapper.catalog.ServicePackageMapper(
+            new com.makeup.platform.mapper.catalog.MasterTaxonomyMapper(),
+            new com.makeup.platform.mapper.catalog.PackageItemMapper()
+    );
+
     @InjectMocks
     private ServicePackageServiceImpl packageService;
 

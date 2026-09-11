@@ -2,6 +2,7 @@ package com.makeup.platform.service.catalog.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.common.utils.HolidayUtils;
 import com.makeup.platform.dto.request.catalog.CalculateSurchargeReq;
 import com.makeup.platform.dto.request.catalog.ConfigureSurchargeReq;
@@ -10,6 +11,7 @@ import com.makeup.platform.dto.response.catalog.SurchargeDetailRes;
 import com.makeup.platform.entity.catalog.SurchargeEntity;
 import com.makeup.platform.entity.catalog.SurchargeType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.mapper.catalog.SurchargeMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.catalog.SurchargeRepository;
 import com.makeup.platform.service.catalog.SurchargeService;
@@ -35,6 +37,7 @@ public class SurchargeServiceImpl implements SurchargeService {
     private final SurchargeRepository surchargeRepository;
     private final MuaProfileRepository muaProfileRepository;
     private final CatalogOwnerHelper ownerHelper;
+    private final SurchargeMapper surchargeMapper;
 
     private static final LocalTime EARLY_MORNING_START = LocalTime.of(3, 0);
     private static final LocalTime EARLY_MORNING_END = LocalTime.of(5, 0);
@@ -45,7 +48,7 @@ public class SurchargeServiceImpl implements SurchargeService {
     public SurchargeDetailRes configureSurcharge(Long userId, ConfigureSurchargeReq req) {
         if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_AMOUNT,
-                    "Mức phụ phí không được nhỏ hơn 0 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_SURCHARGE_AMOUNT", HttpStatus.BAD_REQUEST);
         }
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
@@ -72,7 +75,7 @@ public class SurchargeServiceImpl implements SurchargeService {
         }
 
         SurchargeEntity saved = surchargeRepository.save(surcharge);
-        return mapToRes(saved);
+        return surchargeMapper.toRes(saved);
     }
 
     @Override
@@ -81,7 +84,7 @@ public class SurchargeServiceImpl implements SurchargeService {
 
         if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_AMOUNT,
-                    "Mức phụ phí không được nhỏ hơn 0 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_SURCHARGE_AMOUNT", HttpStatus.BAD_REQUEST);
         }
 
         surcharge.setSurchargeName(req.getSurchargeName().trim());
@@ -92,7 +95,7 @@ public class SurchargeServiceImpl implements SurchargeService {
         }
 
         SurchargeEntity saved = surchargeRepository.save(surcharge);
-        return mapToRes(saved);
+        return surchargeMapper.toRes(saved);
     }
 
     @Override
@@ -111,18 +114,16 @@ public class SurchargeServiceImpl implements SurchargeService {
         } else {
             list = surchargeRepository.findByMuaId(owner.getMua().getId());
         }
-        return list.stream().map(this::mapToRes).toList();
+        return surchargeMapper.toResList(list);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SurchargeDetailRes> listSurchargesByOwner(Long agencyId, Long muaId) {
         if (agencyId != null) {
-            return surchargeRepository.findByAgencyIdAndIsActiveTrue(agencyId).stream()
-                    .map(this::mapToRes).toList();
+            return surchargeMapper.toResList(surchargeRepository.findByAgencyIdAndIsActiveTrue(agencyId));
         } else if (muaId != null) {
-            return surchargeRepository.findByMuaIdAndIsActiveTrue(muaId).stream()
-                    .map(this::mapToRes).toList();
+            return surchargeMapper.toResList(surchargeRepository.findByMuaIdAndIsActiveTrue(muaId));
         }
         return List.of();
     }
@@ -135,7 +136,7 @@ public class SurchargeServiceImpl implements SurchargeService {
 
         if ((hasAgency && hasMua) || (!hasAgency && !hasMua)) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_CALCULATION,
-                    "Yêu cầu phải chỉ định chính xác một trong hai: agencyId hoặc muaId", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_SURCHARGE_CALCULATION", HttpStatus.BAD_REQUEST);
         }
 
         List<SurchargeEntity> surcharges = hasAgency
@@ -207,8 +208,8 @@ public class SurchargeServiceImpl implements SurchargeService {
 
     private SurchargeEntity checkSurchargeOwnership(Long userId, Long surchargeId) {
         SurchargeEntity surcharge = surchargeRepository.findById(surchargeId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_SURCHARGE_NOT_FOUND,
-                        "Không tìm thấy phụ phí với ID: " + surchargeId, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_SURCHARGE_NOT_FOUND,
+                        "ERR_SURCHARGE_NOT_FOUND", surchargeId));
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 
@@ -221,21 +222,9 @@ public class SurchargeServiceImpl implements SurchargeService {
 
         if (!isAgencyOwner && !isMuaOwner) {
             throw new CustomBusinessException(ErrorCodes.ERR_SURCHARGE_ACCESS_DENIED,
-                    "Bạn không có quyền quản lý phụ phí này", HttpStatus.FORBIDDEN);
+                    "ERR_SURCHARGE_ACCESS_DENIED", HttpStatus.FORBIDDEN);
         }
 
         return surcharge;
-    }
-
-    private SurchargeDetailRes mapToRes(SurchargeEntity entity) {
-        return SurchargeDetailRes.builder()
-                .id(entity.getId())
-                .agencyId(entity.getAgency() != null ? entity.getAgency().getId() : null)
-                .muaId(entity.getMua() != null ? entity.getMua().getId() : null)
-                .surchargeName(entity.getSurchargeName())
-                .surchargeType(entity.getSurchargeType())
-                .amount(entity.getAmount())
-                .isActive(entity.getIsActive())
-                .build();
     }
 }

@@ -2,6 +2,7 @@ package com.makeup.platform.service.catalog.impl;
 
 import com.makeup.platform.dto.response.catalog.MakeupStyleRes;
 import com.makeup.platform.dto.response.catalog.MasterCategoryRes;
+import com.makeup.platform.mapper.catalog.MasterTaxonomyMapper;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.MasterCategoryRepository;
 import com.makeup.platform.service.catalog.MasterTaxonomyService;
@@ -18,31 +19,19 @@ public class MasterTaxonomyServiceImpl implements MasterTaxonomyService {
 
     private final MasterCategoryRepository masterCategoryRepository;
     private final MakeupStyleRepository makeupStyleRepository;
+    private final MasterTaxonomyMapper taxonomyMapper;
 
     @Override
     public List<MasterCategoryRes> getActiveCategories() {
-        return masterCategoryRepository.findAllByIsActiveTrueOrderByCategoryNameAsc().stream()
-                .map(cat -> MasterCategoryRes.builder()
-                        .id(cat.getId())
-                        .categoryCode(cat.getCategoryCode())
-                        .categoryName(cat.getCategoryName())
-                        .description(cat.getDescription())
-                        .iconUrl(cat.getIconUrl())
-                        .isActive(cat.getIsActive())
-                        .build())
-                .toList();
+        return taxonomyMapper.toCategoryResList(
+                masterCategoryRepository.findAllByIsActiveTrueOrderByCategoryNameAsc()
+        );
     }
 
     @Override
     public List<MakeupStyleRes> getActiveStyles() {
-        return makeupStyleRepository.findAllByIsActiveTrueOrderByStyleNameAsc().stream()
-                .map(s -> MakeupStyleRes.builder()
-                        .id(s.getId())
-                        .styleCode(s.getStyleCode())
-                        .styleName(s.getStyleName())
-                        .description(s.getDescription())
-                        .isActive(s.getIsActive())
-                        .build())
-                .toList();
+        return taxonomyMapper.toStyleResList(
+                makeupStyleRepository.findAllByIsActiveTrueOrderByStyleNameAsc()
+        );
     }
 }

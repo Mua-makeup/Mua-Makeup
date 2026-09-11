@@ -2,10 +2,12 @@ package com.makeup.platform.service.catalog.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.dto.request.catalog.CreatePackageItemReq;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.mapper.catalog.PackageItemMapper;
 import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.catalog.PackageItemService;
@@ -26,6 +28,7 @@ public class PackageItemServiceImpl implements PackageItemService {
     private final PackageItemRepository packageItemRepository;
     private final ServicePackageRepository packageRepository;
     private final CatalogOwnerHelper ownerHelper;
+    private final PackageItemMapper packageItemMapper;
 
     @Override
     public PackageItemRes addItem(Long userId, Long packageId, CreatePackageItemReq req) {
@@ -33,7 +36,7 @@ public class PackageItemServiceImpl implements PackageItemService {
 
         if (req.getItemPrice() != null && req.getItemPrice().compareTo(BigDecimal.ZERO) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_ITEM_PRICE,
-                    "Giá thành phần không được nhỏ hơn 0 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_ITEM_PRICE", HttpStatus.BAD_REQUEST);
         }
 
         PackageItemEntity item = PackageItemEntity.builder()
@@ -47,7 +50,7 @@ public class PackageItemServiceImpl implements PackageItemService {
                 .build();
 
         PackageItemEntity saved = packageItemRepository.save(item);
-        return mapToRes(saved);
+        return packageItemMapper.toRes(saved);
     }
 
     @Override
@@ -55,12 +58,12 @@ public class PackageItemServiceImpl implements PackageItemService {
         checkPackageOwnership(userId, packageId);
 
         PackageItemEntity item = packageItemRepository.findByIdAndServicePackageId(itemId, packageId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
-                        "Không tìm thấy mục chi tiết với ID: " + itemId, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                        "ERR_PACKAGE_NOT_FOUND", itemId));
 
         if (req.getItemPrice() != null && req.getItemPrice().compareTo(BigDecimal.ZERO) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_ITEM_PRICE,
-                    "Giá thành phần không được nhỏ hơn 0 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_ITEM_PRICE", HttpStatus.BAD_REQUEST);
         }
 
         item.setItemType(req.getItemType());
@@ -75,7 +78,7 @@ public class PackageItemServiceImpl implements PackageItemService {
         }
 
         PackageItemEntity saved = packageItemRepository.save(item);
-        return mapToRes(saved);
+        return packageItemMapper.toRes(saved);
     }
 
     @Override
@@ -83,8 +86,8 @@ public class PackageItemServiceImpl implements PackageItemService {
         checkPackageOwnership(userId, packageId);
 
         PackageItemEntity item = packageItemRepository.findByIdAndServicePackageId(itemId, packageId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
-                        "Không tìm thấy mục chi tiết với ID: " + itemId, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                        "ERR_PACKAGE_NOT_FOUND", itemId));
 
         packageItemRepository.delete(item);
     }
@@ -92,15 +95,15 @@ public class PackageItemServiceImpl implements PackageItemService {
     @Override
     @Transactional(readOnly = true)
     public List<PackageItemRes> getItemsByPackageId(Long packageId) {
-        return packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId).stream()
-                .map(this::mapToRes)
-                .toList();
+        return packageItemMapper.toResList(
+                packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId)
+        );
     }
 
     private ServicePackageEntity checkPackageOwnership(Long userId, Long packageId) {
         ServicePackageEntity pkg = packageRepository.findById(packageId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
-                        "Không tìm thấy gói dịch vụ với ID: " + packageId, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                        "ERR_PACKAGE_NOT_FOUND", packageId));
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 
@@ -113,21 +116,9 @@ public class PackageItemServiceImpl implements PackageItemService {
 
         if (!isAgencyOwner && !isMuaOwner) {
             throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_ACCESS_DENIED,
-                    "Bạn không có quyền thao tác trên các thành phần gói dịch vụ này", HttpStatus.FORBIDDEN);
+                    "ERR_PACKAGE_ACCESS_DENIED", HttpStatus.FORBIDDEN);
         }
 
         return pkg;
-    }
-
-    private PackageItemRes mapToRes(PackageItemEntity entity) {
-        return PackageItemRes.builder()
-                .id(entity.getId())
-                .itemType(entity.getItemType())
-                .itemName(entity.getItemName())
-                .stepOrder(entity.getStepOrder())
-                .itemPrice(entity.getItemPrice())
-                .isRequired(entity.getIsRequired())
-                .isActive(entity.getIsActive())
-                .build();
     }
 }

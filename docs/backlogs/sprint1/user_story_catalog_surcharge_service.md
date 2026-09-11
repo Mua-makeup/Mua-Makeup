@@ -11,11 +11,12 @@
   * `ISSUE-13.1`: Quản lý Danh mục Dịch vụ Gốc (`master_service_categories`) & Phong cách Make-up chuẩn sàn (`makeup_styles`).
   * `ISSUE-13.2`: CRUD Gói Dịch vụ Agency Catalog vs Freelancer Catalog (`service_packages`, `package_styles`).
   * `ISSUE-13.3`: Chi tiết các bước thực hiện mặc định & Tuỳ chọn mua thêm Add-on (`package_items`).
+  * `ISSUE-13.4`: Gán Kỹ năng Gói Dịch vụ Studio cho thợ trực thuộc phụ trách (`agency_staff_services`).
   * `ISSUE-13.5`: Cấu hình Phụ phí linh hoạt (`surcharges`): Làm sớm (3h-5h sáng), di chuyển ngoài bán kính & ngày Lễ/Tết.
 * **Mô hình Kiến trúc:** Spring Boot 3.3.x Layered Architecture Monolith (`core-api: 8080`).
-* **Cơ sở Dữ liệu Phụ trách:** PostgreSQL 16 (`makeup_platform_db`, schema: `catalog_schema`).
+* **Cơ sở Dữ liệu Phụ trách:** PostgreSQL 16 (`makeup_platform_db`, schema: `catalog_schema` & bảng liên kết `agency_schema.agency_staff_services`).
 * **Đối tượng Sử dụng (Personas):**
-  1. **Agency Owner / Studio Admin (Chủ Studio / Đại lý):** Tạo, quản lý và niêm yết bảng giá các Gói dịch vụ của Studio (`agency_id` NOT NULL, `mua_id` = NULL), thiết lập các bước quy trình, cấu hình chính sách phụ phí làm sớm/đi tỉnh của Studio.
+  1. **Agency Owner / Studio Admin (Chủ Studio / Đại lý):** Tạo, quản lý và niêm yết bảng giá các Gói dịch vụ của Studio (`agency_id` NOT NULL, `mua_id` = NULL), thiết lập các bước quy trình, phân quyền gói dịch vụ cho thợ trực thuộc phụ trách (`agency_staff_services`), cấu hình chính sách phụ phí làm sớm/đi tỉnh của Studio.
   2. **Freelance MUA (Thợ trang điểm tự do):** Tạo và quản lý Gói dịch vụ cá nhân (`mua_id` NOT NULL, `agency_id` = NULL), tùy biến add-on mua thêm, cấu hình phụ phí di chuyển theo km và phụ phí làm sớm.
   3. **Super Admin (Quản trị viên Hệ thống):** Quản lý Danh mục Gốc (Cưới hỏi, Tiệc, Kỷ yếu...) và gắn cờ kiểm duyệt gói dịch vụ vi phạm.
   4. **Customer (Khách hàng):** Xem danh mục gói dịch vụ, lọc theo mức giá/phong cách, chọn add-on mua thêm và xem bảng tính phụ phí tự động (Preview Hóa đơn) minh bạch trước khi bấm đặt lịch.
@@ -53,6 +54,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── MasterCategoryController.java      # /api/v1/master/categories (Danh mục gốc Admin)
 │       ├── ServicePackageController.java      # /api/v1/packages (CRUD gói Agency vs Freelancer)
 │       ├── PackageItemController.java         # /api/v1/packages/{packageId}/items (Add-ons & quy trình)
+│       ├── AgencyStaffPackageController.java  # /api/v1/packages/staff-assignments (Gán gói dịch vụ cho thợ Studio)
 │       └── SurchargeController.java           # /api/v1/surcharges (Cấu hình & Calculate phụ phí)
 │
 ├── dto/
@@ -60,11 +62,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   │   ├── CreatePackageReq.java              # @NotBlank name, @DecimalMin price, duration, styleIds
 │   │   ├── UpdatePackageReq.java              # Cập nhật thông tin gói
 │   │   ├── CreatePackageItemReq.java          # @NotBlank itemName, @NotNull itemType, itemPrice
+│   │   ├── AssignStaffPackagesReq.java        # staffId, packageAssignments (packageId, proficiencyLevel)
 │   │   ├── ConfigureSurchargeReq.java         # @NotNull surchargeType, @DecimalMin amount
 │   │   └── CalculateSurchargeReq.java         # providerType, providerId, bookingTime, customerLat, customerLng
 │   └── response/catalog/
 │       ├── PackageDetailRes.java              # Chi tiết gói, danh sách styles, danh sách items add-on
 │       ├── PackageSummaryRes.java             # Dùng trong danh sách tìm kiếm (gọn nhẹ, tối ưu)
+│       ├── StaffPackageAssignmentRes.java     # Danh sách các gói Studio giao cho thợ phụ trách
 │       ├── SurchargeDetailRes.java            # Chi tiết cấu hình phụ phí của Thợ / Studio
 │       └── SurchargeCalculationRes.java       # Bóc tách từng loại phụ phí tính cho đơn hàng
 │
@@ -74,6 +78,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── ServicePackageEntity.java          # table: service_packages (CHECK constraint owner)
 │       ├── PackageItemEntity.java             # table: package_items (COMPONENT / ADD_ON)
 │       ├── PackageStyleEntity.java            # table: package_styles (Composite Key)
+│       ├── AgencyStaffServiceEntity.java      # table: agency_schema.agency_staff_services (Composite PK)
 │       └── SurchargeEntity.java               # table: surcharges
 │
 ├── repository/
@@ -82,9 +87,11 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── ServicePackageRepository.java      # findByAgencyId, findByMuaId, findActiveById
 │       ├── PackageItemRepository.java         # findByPackageIdOrderByStepOrderAsc
 │       ├── PackageStyleRepository.java
+│       ├── AgencyStaffServiceRepository.java  # findByStaffId, findByPackageId, deleteByStaffId
 │       └── SurchargeRepository.java           # findByAgencyId, findByMuaId, findActiveByType
 │
 └── service/
+<<<<<<< Updated upstream
     └── catalog/
         ├── MasterTaxonomyService.java
         ├── ServicePackageService.java             # Logic CRUD gói, kiểm tra sở hữu, validate giá
@@ -97,6 +104,19 @@ code/backend/core-api/src/main/java/com/makeup/platform/
             ├── ServicePackageServiceImpl.java
             ├── PackageItemServiceImpl.java
             └── SurchargeServiceImpl.java
+=======
+    ├── MasterCategoryService.java
+    ├── ServicePackageService.java             # Logic CRUD gói, kiểm tra sở hữu, validate giá
+    ├── PackageItemService.java                # Logic thêm/sửa add-on, bước quy trình
+    ├── AgencyStaffPackageService.java         # Logic gán gói dịch vụ cho thợ Studio, validate sở hữu
+    ├── SurchargeService.java                  # Cấu hình phụ phí & Engine tính toán phụ phí realtime
+    └── impl/
+        ├── MasterCategoryServiceImpl.java
+        ├── ServicePackageServiceImpl.java
+        ├── PackageItemServiceImpl.java
+        ├── AgencyStaffPackageServiceImpl.java
+        └── SurchargeServiceImpl.java
+>>>>>>> Stashed changes
 ```
 
 ---
@@ -175,6 +195,45 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 * **Scenario 03: Thất bại do Add-on có giá âm**
   * **When** Người dùng nhập `item_price = -50000.00`.
   * **Then** Bean Validation chặn lại và trả về HTTP `400 Bad Request` với mã lỗi `INVALID_ITEM_PRICE`.
+
+---
+
+### **US-CAT-03: Gán Kỹ năng Gói Dịch vụ cho Thợ Studio (`ISSUE-13.4`)**
+> **As a** Chủ Studio / Đại lý (`ROLE_AGENCY_ADMIN`),  
+> **I want to** phân công danh sách các Gói Dịch vụ của Studio cho từng thợ trực thuộc phụ trách và thiết lập vai trò (Thợ chính `PRIMARY_MUA` / Thợ phụ `ASSISTANT_MUA`),  
+> **So that** thuật toán điều phối đơn hàng chỉ phân công các ca make-up cho thợ có đủ năng lực thực hiện gói đó, đảm bảo chất lượng dịch vụ cho khách hàng.
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+
+* **Scenario 01: Gán danh sách Gói dịch vụ cho thợ thành công (Happy Path)**
+  * **Given** Chủ Studio (`agency_id = 1`) đã đăng nhập.
+  * **And** Thợ `staff_id = 101` là nhân viên đang hoạt động (`is_active = true`) của Studio 1.
+  * **When** Gửi request `PUT /api/v1/packages/staff-assignments`:
+    ```json
+    {
+      "staff_id": 101,
+      "package_assignments": [
+        { "package_id": 1, "proficiency_level": "PRIMARY_MUA", "is_qualified": true },
+        { "package_id": 2, "proficiency_level": "PRIMARY_MUA", "is_qualified": true },
+        { "package_id": 5, "proficiency_level": "ASSISTANT_MUA", "is_qualified": true }
+      ]
+    }
+    ```
+  * **Then** Backend xác thực gói 1, 2, 5 đều thuộc sở hữu của Studio 1 (`agency_id = 1`).
+  * **And** Xóa mapping cũ của `staff_id = 101` và lưu danh sách mới vào bảng `agency_schema.agency_staff_services`.
+  * **And** Trả về HTTP `200 OK` kèm danh sách chi tiết các gói vừa được phân công.
+
+* **Scenario 02: Chặn gán Gói dịch vụ không thuộc sở hữu của Studio**
+  * **Given** Gói `package_id = 99` thuộc sở hữu của Studio khác (`agency_id = 2`) hoặc thuộc Thợ tự do (`mua_id = 45`).
+  * **When** Chủ Studio 1 gửi gán `package_id = 99` cho thợ của mình.
+  * **Then** Backend phát hiện gói 99 không thuộc Studio 1.
+  * **And** Ném `CustomBusinessException` với mã lỗi `ERR_PACKAGE_NOT_OWNED_BY_AGENCY`, HTTP `400 BAD_REQUEST`.
+
+* **Scenario 03: Chặn gán gói cho thợ không thuộc Studio hiện tại (IDOR Protection)**
+  * **Given** Thợ `staff_id = 205` thuộc Studio khác (`agency_id = 3`).
+  * **When** Chủ Studio 1 gửi gán gói cho `staff_id = 205`.
+  * **Then** Backend kiểm tra thấy `staff.agency_id != current_agency_id`.
+  * **And** Ném `AccessDeniedException` với mã lỗi `ERR_STAFF_NOT_IN_AGENCY`, HTTP `403 FORBIDDEN`.
 
 ---
 
@@ -273,11 +332,13 @@ Tất cả các lỗi nghiệp vụ và lỗi xác thực dữ liệu đều đ�
 | **`400 BAD_REQUEST`** | `INVALID_PACKAGE_PRICE` | Giá gói dịch vụ nhỏ hơn mức sàn tối thiểu của hệ thống (50,000 VND). | Báo lỗi yêu cầu nhập giá gói hợp lệ. |
 | **`400 BAD_REQUEST`** | `INVALID_ITEM_PRICE` | Giá Add-on âm (`item_price < 0`). | Ném ngoại lệ validation, chặn ghi database. |
 | **`400 BAD_REQUEST`** | `INVALID_SURCHARGE_AMOUNT` | Mức phụ phí cấu hình nhỏ hơn 0 hoặc vượt quá mức trần quy định. | Báo lỗi giá trị phụ phí không hợp lệ. |
-| **`400 BAD_REQUEST`** | `INVALID_OWNER_MAPPING` | Vi phạm ràng buộc CHECK: Không xác định được gói thuộc về Studio hay Thợ tự do. | Kiểm tra `(agency_id != null ^ mua_id != null)`. |
+| **`400 BAD_REQUEST`** | `ERR_PACKAGE_NOT_OWNED_BY_AGENCY` | Gán gói dịch vụ cho thợ nhưng gói đó không thuộc quyền sở hữu của Studio. | Kiểm tra `package.agency_id == current_agency_id`. |
 | **`401 UNAUTHORIZED`** | `UNAUTHORIZED` | Token JWT thiếu, hết hạn hoặc không hợp lệ khi gọi các API quản trị gói. | Spring Security chặn ở tầng Filter trước khi vào Controller. |
 | **`403 FORBIDDEN`** | `PACKAGE_ACCESS_DENIED` | Thợ A cố tình sửa hoặc xóa gói dịch vụ của Thợ B hoặc Studio khác (Lỗ hổng IDOR). | Đối chiếu quyền sở hữu: `current_user.mua_id != package.mua_id`. |
+| **`403 FORBIDDEN`** | `ERR_STAFF_NOT_IN_AGENCY` | Studio cố tình gán gói cho nhân sự không thuộc quyền quản lý của mình. | Đối chiếu `staff.agency_id == current_agency_id`. |
 | **`403 FORBIDDEN`** | `SURCHARGE_ACCESS_DENIED` | Người dùng cố tình sửa cấu hình phụ phí của đơn vị khác. | Kiểm tra quyền sở hữu bản ghi phụ phí trong bảng `surcharges`. |
 | **`404 NOT_FOUND`** | `PACKAGE_NOT_FOUND` | `package_id` không tồn tại trong DB hoặc đã bị xóa mềm. | Ném `ResourceNotFoundException("Gói dịch vụ không tồn tại")`. |
+| **`404 NOT_FOUND`** | `ERR_STAFF_NOT_FOUND` | `staff_id` truyền vào không tìm thấy trong hệ thống nhân sự Studio. | Ném `ResourceNotFoundException("Nhân viên không tồn tại trong Studio")`. |
 | **`404 NOT_FOUND`** | `PACKAGE_ITEM_NOT_FOUND` | `item_id` của bước thực hiện/add-on không tìm thấy trong gói. | Ném `ResourceNotFoundException("Dịch vụ bổ trợ không tồn tại")`. |
 | **`404 NOT_FOUND`** | `MASTER_CATEGORY_NOT_FOUND` | `master_category_id` truyền vào không có trong danh mục gốc sàn. | Ném `ResourceNotFoundException("Danh mục dịch vụ gốc không tồn tại")`. |
 | **`404 NOT_FOUND`** | `SURCHARGE_NOT_FOUND` | `surcharge_id` không tồn tại trong hệ thống. | Ném `ResourceNotFoundException("Cấu hình phụ phí không tồn tại")`. |
@@ -479,6 +540,67 @@ public class CreatePackageReq {
 
 ---
 
+### 5.5. `PUT /api/v1/packages/staff-assignments` (Gán Gói Dịch Vụ Cho Thợ Studio - ISSUE-13.4)
+* **Quyền truy cập:** `ROLE_AGENCY_ADMIN`.
+* **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: application/json`
+* **Request Body:**
+```json
+{
+  "staff_id": 101,
+  "package_assignments": [
+    {
+      "package_id": 1,
+      "proficiency_level": "PRIMARY_MUA",
+      "is_qualified": true
+    },
+    {
+      "package_id": 2,
+      "proficiency_level": "PRIMARY_MUA",
+      "is_qualified": true
+    },
+    {
+      "package_id": 5,
+      "proficiency_level": "ASSISTANT_MUA",
+      "is_qualified": true
+    }
+  ]
+}
+```
+* **Response `200 OK`:**
+```json
+{
+  "success": true,
+  "code": "STAFF_PACKAGES_ASSIGNED",
+  "message": "Phân công gói dịch vụ cho thợ thành công!",
+  "data": {
+    "staff_id": 101,
+    "assigned_packages": [
+      {
+        "package_id": 1,
+        "package_name": "Gói Trang điểm Cô Dâu VIP",
+        "proficiency_level": "PRIMARY_MUA",
+        "is_qualified": true
+      },
+      {
+        "package_id": 2,
+        "package_name": "Gói Make-up Tiệc Luxury",
+        "proficiency_level": "PRIMARY_MUA",
+        "is_qualified": true
+      },
+      {
+        "package_id": 5,
+        "package_name": "Gói Chụp Ảnh Kỷ Yếu",
+        "proficiency_level": "ASSISTANT_MUA",
+        "is_qualified": true
+      }
+    ]
+  },
+  "timestamp": "2026-09-11T15:42:00Z"
+}
+```
+
+---
+
 ## 🗄️ 6. CƠ SỞ DỮ LIỆU ĐỒNG BỘ (DDL POSTGRESQL 16)
 
 ```sql
@@ -548,11 +670,22 @@ CREATE TABLE IF NOT EXISTS catalog_schema.surcharges (
     )
 );
 
+-- 6. BẢNG GÁN KỸ NĂNG GÓI DỊCH VỤ CỦA STUDIO CHO THỢ (AGENCY STAFF SERVICES - ISSUE-13.4)
+CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_services (
+    staff_id BIGINT NOT NULL REFERENCES agency_schema.agency_staff(id) ON DELETE CASCADE,
+    package_id BIGINT NOT NULL REFERENCES catalog_schema.service_packages(id) ON DELETE CASCADE,
+    proficiency_level VARCHAR(30) DEFAULT 'PRIMARY_MUA' NOT NULL, -- PRIMARY_MUA, ASSISTANT_MUA
+    is_qualified BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (staff_id, package_id)
+);
+
 -- CHỈ MỤC TỐI ƯU TRUY VẤN
 CREATE INDEX IF NOT EXISTS idx_packages_agency ON catalog_schema.service_packages(agency_id, is_available);
 CREATE INDEX IF NOT EXISTS idx_packages_mua ON catalog_schema.service_packages(mua_id, is_available);
 CREATE INDEX IF NOT EXISTS idx_package_items ON catalog_schema.package_items(package_id, is_active, step_order);
 CREATE INDEX IF NOT EXISTS idx_surcharges_owner ON catalog_schema.surcharges(agency_id, mua_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_agency_staff_services_pkg ON agency_schema.agency_staff_services(package_id);
 ```
 
 ---

@@ -41,7 +41,7 @@ public class CatalogOwnerHelper {
 
     public OwnerContext resolveOwner(Long userId) {
         if (userId == null) {
-            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED, "Người dùng chưa xác thực", HttpStatus.UNAUTHORIZED);
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED, "ERR_UNAUTHORIZED", HttpStatus.UNAUTHORIZED);
         }
 
         Optional<AgencyProfileEntity> agencyOpt = agencyProfileRepository.findByOwnerId(userId);
@@ -56,7 +56,7 @@ public class CatalogOwnerHelper {
 
         throw new CustomBusinessException(
                 ErrorCodes.ERR_PROFILE_NOT_FOUND,
-                "Không tìm thấy hồ sơ Studio hoặc Freelancer liên kết với tài khoản này. Vui lòng hoàn tất hồ sơ trước khi quản lý danh mục.",
+                "ERR_PROFILE_NOT_FOUND",
                 HttpStatus.FORBIDDEN
         );
     }

@@ -11,6 +11,7 @@ import com.makeup.platform.dto.request.auth.LoginReq;
 import com.makeup.platform.dto.request.auth.LogoutReq;
 import com.makeup.platform.dto.request.auth.RefreshTokenReq;
 import com.makeup.platform.dto.request.auth.RegisterReq;
+import com.makeup.platform.dto.request.auth.UpdateLanguageReq;
 import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
 import com.makeup.platform.dto.response.auth.UserRegisterRes;
@@ -25,6 +26,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,7 +43,7 @@ public class AuthController extends BaseController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserRegisterRes>> register(@Valid @RequestBody RegisterReq req) {
         UserRegisterRes res = authService.register(req);
-        return created(res, "Đăng ký tài khoản thành công!");
+        return created(res, "auth.register_success");
     }
 
     @PostMapping("/login")
@@ -50,7 +52,7 @@ public class AuthController extends BaseController {
             HttpServletResponse response) {
         AuthRes res = authService.login(req);
         cookieUtils.setRefreshTokenCookie(response, res.getRefreshToken());
-        return ok(res, "Đăng nhập thành công!");
+        return ok(res, "auth.login_success");
     }
 
     @PostMapping("/refresh-token")
@@ -66,7 +68,7 @@ public class AuthController extends BaseController {
 
         if (!StringUtils.hasText(refreshToken)) {
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
-                    "Refresh Token không được để trống (qua Cookie hoặc Body).", HttpStatus.BAD_REQUEST);
+                    "ERR_TOKEN_INVALID", HttpStatus.BAD_REQUEST);
         }
 
         RefreshTokenReq finalReq = RefreshTokenReq.builder()
@@ -75,7 +77,7 @@ public class AuthController extends BaseController {
 
         AuthRes res = authService.refreshToken(finalReq, bearerToken);
         cookieUtils.setRefreshTokenCookie(response, res.getRefreshToken());
-        return ok(res, "Cấp mới token thành công!");
+        return ok(res, "auth.refresh_token_success");
     }
 
     @PostMapping("/logout")
@@ -95,7 +97,7 @@ public class AuthController extends BaseController {
 
         authService.logout(finalReq, bearerToken);
         cookieUtils.deleteRefreshTokenCookie(response);
-        return ok(null, "Đăng xuất thành công! Token đã được thu hồi an toàn.");
+        return ok(null, "auth.logout_success");
     }
 
     @PostMapping("/change-password")
@@ -103,12 +105,20 @@ public class AuthController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody ChangePasswordReq req) {
         authService.changePassword(userId, req);
-        return ok(null, "Đổi mật khẩu thành công. Vui lòng sử dụng mật khẩu mới cho các lần đăng nhập tiếp theo.");
+        return ok(null, "auth.change_password_success");
     }
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserInfoRes>> getCurrentUser(@AuthenticationPrincipal Long userId) {
         UserInfoRes res = authService.getCurrentUser(userId);
         return ok(res);
+    }
+
+    @PutMapping("/language")
+    public ResponseEntity<ApiResponse<UserInfoRes>> updateLanguage(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody UpdateLanguageReq req) {
+        UserInfoRes res = authService.updateLanguage(userId, req);
+        return ok(res, "auth.language_updated");
     }
 }

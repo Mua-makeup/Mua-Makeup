@@ -76,6 +76,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/packages/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/master-categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/makeup-styles/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/portfolios").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )

@@ -13,8 +13,12 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "mua_profiles", schema = "mua_schema")
@@ -58,4 +62,15 @@ public class MuaProfileEntity extends BaseEntity {
     @Column(name = "total_completed_jobs", nullable = false)
     @Builder.Default
     private Integer totalCompletedJobs = 0;
+
+    @Column(name = "total_reviews", nullable = false)
+    @Builder.Default
+    private Integer totalReviews = 0;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "certificates", columnDefinition = "jsonb")
+    @Builder.Default
+    private List<MuaCertificateItem> certificates = new ArrayList<>();
 }
+
+
