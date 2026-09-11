@@ -47,6 +47,9 @@ class SurchargeServiceImplTest {
     @Mock
     private CatalogOwnerHelper ownerHelper;
 
+    @org.mockito.Spy
+    private com.makeup.platform.mapper.catalog.SurchargeMapper surchargeMapper = new com.makeup.platform.mapper.catalog.SurchargeMapper();
+
     @InjectMocks
     private SurchargeServiceImpl surchargeService;
 

@@ -17,6 +17,7 @@ import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.PortfolioShowcaseEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.mapper.catalog.PortfolioMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.PortfolioShowcaseRepository;
@@ -49,6 +50,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     private final MakeupStyleRepository makeupStyleRepository;
     private final ServicePackageRepository servicePackageRepository;
     private final MediaStorageService mediaStorageService;
+    private final PortfolioMapper portfolioMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -116,7 +118,7 @@ public class PortfolioServiceImpl implements PortfolioService {
                     .build();
 
             PortfolioShowcaseEntity saved = portfolioRepository.save(entity);
-            return mapToDetailRes(saved);
+            return portfolioMapper.toDetailRes(saved);
 
         } catch (Exception ex) {
             log.error("Compensating transaction triggered: Error creating portfolio showcase: {}", ex.getMessage());
@@ -155,7 +157,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         showcase.setDescription(req.getDescription());
 
         PortfolioShowcaseEntity updated = portfolioRepository.save(showcase);
-        return mapToDetailRes(updated);
+        return portfolioMapper.toDetailRes(updated);
     }
 
     @Override
@@ -191,7 +193,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         }
 
         PortfolioShowcaseEntity updated = portfolioRepository.save(showcase);
-        return mapToDetailRes(updated);
+        return portfolioMapper.toDetailRes(updated);
     }
 
     @Override
@@ -209,7 +211,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         }
 
         PortfolioShowcaseEntity updated = portfolioRepository.save(showcase);
-        return mapToDetailRes(updated);
+        return portfolioMapper.toDetailRes(updated);
     }
 
     @Override
@@ -233,17 +235,7 @@ public class PortfolioServiceImpl implements PortfolioService {
                 muaId, styleId, isFeatured, pageable
         );
 
-        List<PortfolioSummaryRes> dtoList = projectedPage.getContent().stream()
-                .map(p -> PortfolioSummaryRes.builder()
-                        .id(p.getId())
-                        .title(p.getTitle())
-                        .thumbnailUrl(p.getThumbnailUrl())
-                        .imageUrl(p.getImageUrl())
-                        .styleName(p.getStyleName())
-                        .isFeatured(p.getIsFeatured())
-                        .createdAt(p.getCreatedAt())
-                        .build())
-                .toList();
+        List<PortfolioSummaryRes> dtoList = portfolioMapper.toSummaryResListFromProjections(projectedPage.getContent());
 
         return PageResponse.<PortfolioSummaryRes>builder()
                 .content(dtoList)
@@ -260,7 +252,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     public PageResponse<PortfolioDetailRes> getMyPortfolios(Long userId, Pageable pageable) {
         MuaProfileEntity mua = getMuaProfileByUserId(userId);
         Page<PortfolioShowcaseEntity> page = portfolioRepository.findAllByMuaIdOrderByCreatedAtDesc(mua.getId(), pageable);
-        List<PortfolioDetailRes> dtoList = page.getContent().stream().map(this::mapToDetailRes).toList();
+        List<PortfolioDetailRes> dtoList = page.getContent().stream().map(portfolioMapper::toDetailRes).toList();
 
         return PageResponse.<PortfolioDetailRes>builder()
                 .content(dtoList)
@@ -277,7 +269,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     public PortfolioDetailRes getPortfolioDetail(Long portfolioId) {
         PortfolioShowcaseEntity showcase = portfolioRepository.findById(portfolioId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PORTFOLIO_NOT_FOUND, "ERR_PORTFOLIO_NOT_FOUND", portfolioId));
-        return mapToDetailRes(showcase);
+        return portfolioMapper.toDetailRes(showcase);
     }
 
     private MuaProfileEntity getMuaProfileByUserId(Long userId) {
@@ -305,25 +297,5 @@ public class PortfolioServiceImpl implements PortfolioService {
         }
 
         return showcase;
-    }
-
-    private PortfolioDetailRes mapToDetailRes(PortfolioShowcaseEntity entity) {
-        return PortfolioDetailRes.builder()
-                .id(entity.getId())
-                .muaId(entity.getMua().getId())
-                .title(entity.getTitle())
-                .description(entity.getDescription())
-                .imageUrl(entity.getImageUrl())
-                .thumbnailUrl(entity.getThumbnailUrl())
-                .additionalImages(entity.getAdditionalImages())
-                .styleId(entity.getStyle() != null ? entity.getStyle().getId() : null)
-                .styleName(entity.getStyle() != null ? entity.getStyle().getStyleName() : null)
-                .packageId(entity.getServicePackage() != null ? entity.getServicePackage().getId() : null)
-                .packageName(entity.getServicePackage() != null ? entity.getServicePackage().getPackageName() : null)
-                .isFeatured(entity.getIsFeatured())
-                .isVisible(entity.getIsVisible())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
-                .build();
     }
 }

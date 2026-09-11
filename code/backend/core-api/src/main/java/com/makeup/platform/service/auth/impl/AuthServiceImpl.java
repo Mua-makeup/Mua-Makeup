@@ -61,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
+    private final com.makeup.platform.mapper.auth.AuthMapper authMapper;
 
     @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
@@ -160,17 +161,13 @@ public class AuthServiceImpl implements AuthService {
 
         List<String> roleNames = assignedRole != null ? List.of(assignedRole.getName()) : Collections.emptyList();
 
-        return UserRegisterRes.builder()
-                .userId(user.getId())
-                .phoneNumber(user.getPhoneNumber())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .accountType(req.getAccountType().name())
-                .muaCode(generatedMuaCode)
-                .agencyCode(generatedAgencyCode)
-                .roles(roleNames)
-                .createdAt(user.getCreatedAt())
-                .build();
+        return authMapper.toRegisterRes(
+                user,
+                req.getAccountType().name(),
+                generatedMuaCode,
+                generatedAgencyCode,
+                roleNames
+        );
     }
 
     @Override
@@ -309,20 +306,7 @@ public class AuthServiceImpl implements AuthService {
                 .map(MuaProfileEntity::getId)
                 .orElse(null);
 
-        return UserInfoRes.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .phoneNumber(user.getPhoneNumber())
-                .email(user.getEmail())
-                .avatarUrl(user.getAvatarUrl())
-                .gender(user.getGender())
-                .isVerified(user.getIsVerified())
-                .agencyId(agencyId)
-                .muaId(muaId)
-                .language(user.getLanguage() != null ? user.getLanguage() : "en")
-                .roles(roles)
-                .permissions(permissions)
-                .build();
+        return authMapper.toUserInfoRes(user, agencyId, muaId, roles, permissions);
     }
 
     @Override
@@ -365,27 +349,9 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = jwtUtils.generateRefreshToken(user.getId());
         redisTokenService.saveRefreshToken(refreshToken, user.getId(), refreshTokenExpirationDays);
 
-        UserInfoRes userInfo = UserInfoRes.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .phoneNumber(user.getPhoneNumber())
-                .email(user.getEmail())
-                .avatarUrl(user.getAvatarUrl())
-                .gender(user.getGender())
-                .isVerified(user.getIsVerified())
-                .agencyId(agencyId)
-                .muaId(muaId)
-                .roles(roles)
-                .permissions(permissions)
-                .build();
+        UserInfoRes userInfo = authMapper.toUserInfoRes(user, agencyId, muaId, roles, permissions);
 
-        return AuthRes.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(accessTokenExpirationMs / 1000)
-                .userInfo(userInfo)
-                .build();
+        return authMapper.toAuthRes(accessToken, refreshToken, accessTokenExpirationMs / 1000, userInfo);
     }
 
     private RoleEntity getRoleOrThrow(String roleName) {

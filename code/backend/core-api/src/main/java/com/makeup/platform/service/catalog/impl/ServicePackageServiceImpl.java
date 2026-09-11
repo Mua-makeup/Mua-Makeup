@@ -13,6 +13,7 @@ import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.MasterCategoryEntity;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.mapper.catalog.ServicePackageMapper;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.MasterCategoryRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
@@ -41,6 +42,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     private final MasterCategoryRepository masterCategoryRepository;
     private final MakeupStyleRepository makeupStyleRepository;
     private final CatalogOwnerHelper ownerHelper;
+    private final ServicePackageMapper packageMapper;
 
     private static final BigDecimal MIN_PRICE = new BigDecimal("50000.00");
 
@@ -91,7 +93,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         }
 
         ServicePackageEntity saved = packageRepository.save(pkg);
-        return mapToDetailRes(saved);
+        return packageMapper.toDetailRes(saved);
     }
 
     @Override
@@ -124,7 +126,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         }
 
         ServicePackageEntity updated = packageRepository.save(pkg);
-        return mapToDetailRes(updated);
+        return packageMapper.toDetailRes(updated);
     }
 
     @Override
@@ -139,7 +141,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "Không tìm thấy gói dịch vụ với ID: " + packageId, HttpStatus.NOT_FOUND));
-        return mapToDetailRes(pkg);
+        return packageMapper.toDetailRes(pkg);
     }
 
     @Override
@@ -164,9 +166,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return packageRepository.findAll(spec).stream()
-                .map(this::mapToSummaryRes)
-                .toList();
+        return packageMapper.toSummaryResList(packageRepository.findAll(spec));
     }
 
     @Override
@@ -179,14 +179,14 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         } else {
             list = packageRepository.findByMuaId(owner.getMua().getId());
         }
-        return list.stream().map(this::mapToSummaryRes).toList();
+        return packageMapper.toSummaryResList(list);
     }
 
     @Override
     public PackageDetailRes toggleAvailability(Long userId, Long packageId, boolean isAvailable) {
         ServicePackageEntity pkg = findPackageAndCheckOwnership(userId, packageId);
         pkg.setIsAvailable(isAvailable);
-        return mapToDetailRes(packageRepository.save(pkg));
+        return packageMapper.toDetailRes(packageRepository.save(pkg));
     }
 
     public ServicePackageEntity findPackageAndCheckOwnership(Long userId, Long packageId) {
@@ -209,69 +209,5 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         }
 
         return pkg;
-    }
-
-    private PackageDetailRes mapToDetailRes(ServicePackageEntity entity) {
-        return PackageDetailRes.builder()
-                .id(entity.getId())
-                .masterCategoryId(entity.getMasterCategory().getId())
-                .categoryName(entity.getMasterCategory().getCategoryName())
-                .agencyId(entity.getAgency() != null ? entity.getAgency().getId() : null)
-                .agencyName(entity.getAgency() != null ? entity.getAgency().getAgencyName() : null)
-                .muaId(entity.getMua() != null ? entity.getMua().getId() : null)
-                .muaName(entity.getMua() != null && entity.getMua().getUser() != null ? entity.getMua().getUser().getFullName() : null)
-                .packageName(entity.getPackageName())
-                .description(entity.getDescription())
-                .price(entity.getPrice())
-                .estimatedDurationMinutes(entity.getEstimatedDurationMinutes())
-                .isAvailable(entity.getIsAvailable())
-                .styles(entity.getStyles() != null ? entity.getStyles().stream()
-                        .map(s -> MakeupStyleRes.builder()
-                                .id(s.getId())
-                                .styleCode(s.getStyleCode())
-                                .styleName(s.getStyleName())
-                                .description(s.getDescription())
-                                .isActive(s.getIsActive())
-                                .build())
-                        .collect(Collectors.toList()) : List.of())
-                .items(entity.getPackageItems() != null ? entity.getPackageItems().stream()
-                        .map(i -> PackageItemRes.builder()
-                                .id(i.getId())
-                                .itemType(i.getItemType())
-                                .itemName(i.getItemName())
-                                .stepOrder(i.getStepOrder())
-                                .itemPrice(i.getItemPrice())
-                                .isRequired(i.getIsRequired())
-                                .isActive(i.getIsActive())
-                                .build())
-                        .collect(Collectors.toList()) : List.of())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
-                .build();
-    }
-
-    private PackageSummaryRes mapToSummaryRes(ServicePackageEntity entity) {
-        return PackageSummaryRes.builder()
-                .id(entity.getId())
-                .masterCategoryId(entity.getMasterCategory().getId())
-                .categoryName(entity.getMasterCategory().getCategoryName())
-                .agencyId(entity.getAgency() != null ? entity.getAgency().getId() : null)
-                .agencyName(entity.getAgency() != null ? entity.getAgency().getAgencyName() : null)
-                .muaId(entity.getMua() != null ? entity.getMua().getId() : null)
-                .muaName(entity.getMua() != null && entity.getMua().getUser() != null ? entity.getMua().getUser().getFullName() : null)
-                .packageName(entity.getPackageName())
-                .price(entity.getPrice())
-                .estimatedDurationMinutes(entity.getEstimatedDurationMinutes())
-                .isAvailable(entity.getIsAvailable())
-                .styles(entity.getStyles() != null ? entity.getStyles().stream()
-                        .map(s -> MakeupStyleRes.builder()
-                                .id(s.getId())
-                                .styleCode(s.getStyleCode())
-                                .styleName(s.getStyleName())
-                                .description(s.getDescription())
-                                .isActive(s.getIsActive())
-                                .build())
-                        .toList() : List.of())
-                .build();
     }
 }

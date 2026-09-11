@@ -41,7 +41,7 @@ src/main/java/com/makeup/platform/
 │   ├── exception/                     # GlobalExceptionHandler (@RestControllerAdvice), CustomBusinessException
 │   └── utils/                         # Helpers (JwtUtils, DateUtils, GeoSpatialUtils)
 ├── config/                            # SecurityConfig, OpenApiConfig, DatabaseConfig, RedisConfig, RedissonConfig, WebSocketConfig
-├── controller/                        # TẦNG API (Phân chia theo Actors/Roles):
+├── controller/                        # TẦNG API (Thin Controller - CHỈ GỌI SERVICE, KHÔNG CHỨA LOGIC NGHIỆP VỤ):
 │   ├── auth/                          # AuthController (/api/v1/auth)
 │   ├── customer/                      # CustomerBookingController, CustomerWalletController
 │   ├── agency/                        # AgencyStaffController, AgencyDispatchController
@@ -51,22 +51,33 @@ src/main/java/com/makeup/platform/
 │   ├── request/                       # Dữ liệu Client gửi lên (@Valid, @NotBlank...) theo nhóm nghiệp vụ
 │   └── response/                      # Dữ liệu trả về (AuthRes, BookingDetailRes, PaginatedRes<T>)
 ├── entity/                            # TẦNG JPA: Map với CSDL, kế thừa BaseEntity, chỉ định rõ schema
+├── mapper/                            # TẦNG CHUYỂN ĐỔI DỮ LIỆU (MANUAL MAPPER @Component):
+│   ├── auth/                          # AuthMapper (UserEntity <-> DTO)
+│   ├── catalog/                       # ServicePackageMapper, SurchargeMapper, PortfolioMapper...
+│   └── mua/                           # MuaProfileMapper, MuaStyleMapper...
 ├── repository/                        # TẦNG TRUY VẤN: JpaRepository và repository/custom/ (Native SQL, Stored Proc, PostGIS)
-└── service/                           # TẦNG NGHIỆP VỤ LÕI:
+└── service/                           # TẦNG NGHIỆP VỤ LÕI (CHỨA 100% BUSINESS LOGIC):
     ├── impl/                          # THƯ MỤC BẮT BUỘC CHỨA CODE THỰC THI THẬT
     └── <Domain>Service.java           # INTERFACE ĐỊNH NGHĨA HỢP ĐỒNG HÀNH ĐỘNG
 ```
 
 ### 2.1. Quy tắc Code & Data Flow Backend
-1. **Tuyệt đối không expose Entity ra ngoài Controller**: Luôn sử dụng Request DTO (`dto/request/`) và Response DTO (`dto/response/`). Controller luôn trả về `ResponseEntity<ApiResponse<T>>`.
-2. **Bắt buộc Bean Validation**: Mọi Request DTO phải chứa `@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Email`, `@Pattern`, `@Future`. Controller phải có `@Valid @RequestBody`.
-3. **Kế thừa Base Components**: Mọi JPA Entity phải kế thừa `BaseEntity`. Mọi Controller kế thừa `BaseController`. Mọi CRUD service cơ bản kế thừa `BaseService` & `BaseServiceImpl`.
-4. **Tách biệt Interface và Implementation**: Thư mục `service/` chỉ chứa Interface. Toàn bộ code thực thi logic nghiệp vụ nằm trong `service/impl/`.
-5. **Quản lý Ngoại lệ & i18n**: Không hardcode thông báo lỗi tiếng Việt/Anh trong code Java. Ném `CustomBusinessException` và định nghĩa thông điệp qua ResourceBundle tại `resources/text/messages.properties`.
-6. **Database Migration với Flyway**: Mọi thay đổi bảng phải viết script Flyway tập trung tại `resources/db/migration/V<N>__<Mo_ta>.sql`.
-7. **Bảo mật & Biến môi trường**: Không hardcode mật khẩu hay secret key vào code; toàn bộ đọc qua `.env` và `application.yaml` (`${DB_PASSWORD:123456}`).
-8. **1 Tài khoản - 1 Vai trò (Single Role per Account)**: Mỗi tài khoản chỉ gán 1 vai trò duy nhất (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`, `ROLE_SUPER_ADMIN`).
-9. **Quản lý Token trên Redis**: Refresh Token lưu trên Redis (`rt:{token}` $\rightarrow$ `userId`), Blacklist Access Token khi logout (`jwt:blacklist:{token}`).
+1. **Chỉ thực hiện Logic ở Tầng Service (Pure Service Logic)**: Toàn bộ quy tắc nghiệp vụ, kiểm tra ràng buộc (business validation), phân quyền dữ liệu, chuyển đổi trạng thái, quản lý giao dịch (`@Transactional`), bắn sự kiện (`ApplicationEventPublisher`) và xử lý cache (`@Cacheable`/`@CacheEvict`) BẮT BUỘC nằm 100% tại Service (`service/impl/`).
+2. **Tầng Controller mỏng (Thin Controller) - Chỉ chuyển tiếp tới Service**: Controller TUYỆT ĐỐI KHÔNG chứa business logic, không rẽ nhánh tính toán nghiệp vụ, không gọi Repository hoặc dịch vụ bên ngoài, không tự chuyển đổi/map Entity phức tạp. Controller chỉ nhận HTTP request, kích hoạt validation (`@Valid`), trích xuất thông tin người dùng (`@AuthenticationPrincipal`), ủy quyền hoàn toàn cho Service tương ứng và bọc kết quả trả về `ResponseEntity<ApiResponse<T>>`.
+3. **Chuyển đổi Dữ liệu tập trung qua Tầng Mapper (Manual Mapper @Component)**:
+   - Toàn bộ việc chuyển đổi dữ liệu giữa Entity $\leftrightarrow$ DTO (Entity sang Response DTO, Request DTO sang Entity) BẮT BUỘC phải tạo class riêng tại package `com.makeup.platform.mapper.<domain>.*Mapper`.
+   - BẮT BUỘC sử dụng **Manual Mapper** đánh dấu là Spring `@Component`, viết mã Java tường minh bằng Builder Pattern hoặc Getter/Setter.
+   - TUYỆT ĐỐI KHÔNG dùng thư viện mapping ẩn/reflection/code-gen như MapStruct hay ModelMapper. Lý do: Manual Mapper đảm bảo minh bạch 100%, kiểm soát null-safety tuyệt đối, loại bỏ rủi ro reflection runtime overhead hoặc lỗi annotation-processor, dễ debug step-by-step và viết Unit Test độc lập.
+   - Tầng Service inject các Mapper bean này qua Dependency Injection (`@RequiredArgsConstructor`) để map dữ liệu.
+4. **Tuyệt đối không expose Entity ra ngoài Controller**: Luôn sử dụng Request DTO (`dto/request/`) và Response DTO (`dto/response/`). Controller luôn trả về `ResponseEntity<ApiResponse<T>>`.
+5. **Bắt buộc Bean Validation**: Mọi Request DTO phải chứa `@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Email`, `@Pattern`, `@Future`. Controller phải có `@Valid @RequestBody`.
+6. **Kế thừa Base Components**: Mọi JPA Entity phải kế thừa `BaseEntity`. Mọi Controller kế thừa `BaseController`. Mọi CRUD service cơ bản kế thừa `BaseService` & `BaseServiceImpl`.
+7. **Tách biệt Interface và Implementation**: Thư mục `service/` chỉ chứa Interface. Toàn bộ code thực thi logic nghiệp vụ nằm trong `service/impl/`.
+8. **Quản lý Ngoại lệ & i18n**: Không hardcode thông báo lỗi tiếng Việt/Anh trong code Java. Ném `CustomBusinessException` và định nghĩa thông điệp qua ResourceBundle tại `resources/text/messages.properties` và JSON i18n (`messages_en.json`, `messages_vi.json`).
+9. **Database Migration với Flyway**: Mọi thay đổi bảng phải viết script Flyway tập trung tại `resources/db/migration/V<N>__<Mo_ta>.sql`.
+10. **Bảo mật & Biến môi trường**: Không hardcode mật khẩu hay secret key vào code; toàn bộ đọc qua `.env` và `application.yaml` (`${DB_PASSWORD:123456}`).
+11. **1 Tài khoản - 1 Vai trò (Single Role per Account)**: Mỗi tài khoản chỉ gán 1 vai trò duy nhất (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`, `ROLE_SUPER_ADMIN`).
+12. **Quản lý Token trên Redis**: Refresh Token lưu trên Redis (`rt:{token}` $\rightarrow$ `userId`), Blacklist Access Token khi logout (`jwt:blacklist:{token}`).
 
 ---
 

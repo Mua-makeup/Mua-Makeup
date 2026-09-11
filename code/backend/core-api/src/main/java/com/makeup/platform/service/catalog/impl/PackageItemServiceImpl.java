@@ -7,6 +7,7 @@ import com.makeup.platform.dto.request.catalog.CreatePackageItemReq;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.mapper.catalog.PackageItemMapper;
 import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.catalog.PackageItemService;
@@ -27,6 +28,7 @@ public class PackageItemServiceImpl implements PackageItemService {
     private final PackageItemRepository packageItemRepository;
     private final ServicePackageRepository packageRepository;
     private final CatalogOwnerHelper ownerHelper;
+    private final PackageItemMapper packageItemMapper;
 
     @Override
     public PackageItemRes addItem(Long userId, Long packageId, CreatePackageItemReq req) {
@@ -48,7 +50,7 @@ public class PackageItemServiceImpl implements PackageItemService {
                 .build();
 
         PackageItemEntity saved = packageItemRepository.save(item);
-        return mapToRes(saved);
+        return packageItemMapper.toRes(saved);
     }
 
     @Override
@@ -76,7 +78,7 @@ public class PackageItemServiceImpl implements PackageItemService {
         }
 
         PackageItemEntity saved = packageItemRepository.save(item);
-        return mapToRes(saved);
+        return packageItemMapper.toRes(saved);
     }
 
     @Override
@@ -93,9 +95,9 @@ public class PackageItemServiceImpl implements PackageItemService {
     @Override
     @Transactional(readOnly = true)
     public List<PackageItemRes> getItemsByPackageId(Long packageId) {
-        return packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId).stream()
-                .map(this::mapToRes)
-                .toList();
+        return packageItemMapper.toResList(
+                packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId)
+        );
     }
 
     private ServicePackageEntity checkPackageOwnership(Long userId, Long packageId) {
@@ -118,17 +120,5 @@ public class PackageItemServiceImpl implements PackageItemService {
         }
 
         return pkg;
-    }
-
-    private PackageItemRes mapToRes(PackageItemEntity entity) {
-        return PackageItemRes.builder()
-                .id(entity.getId())
-                .itemType(entity.getItemType())
-                .itemName(entity.getItemName())
-                .stepOrder(entity.getStepOrder())
-                .itemPrice(entity.getItemPrice())
-                .isRequired(entity.getIsRequired())
-                .isActive(entity.getIsActive())
-                .build();
     }
 }

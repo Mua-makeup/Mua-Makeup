@@ -37,13 +37,17 @@ code/backend/core-api/
 │   │   └── utils/                         # JwtUtils, DateUtils, GeoSpatialUtils
 │   │
 │   ├── config/                            # Cấu hình Framework (Security, OpenAPI, Database, Redis, Redisson, WebSocket)
-│   ├── controller/                        # TẦNG GIAO TIẾP HTTP (auth/, customer/, agency/, freelancer/, admin/)
+│   ├── controller/                        # TẦNG GIAO TIẾP HTTP (Thin Controller - auth/, customer/, agency/, freelancer/, admin/)
 │   ├── dto/                               # DATA TRANSFER OBJECT (request/ với @Valid, response/)
 │   ├── entity/                            # TẦNG MAP DATABASE (JPA Entity kế thừa BaseEntity, chỉ định schema)
+│   ├── mapper/                            # TẦNG CHUYỂN ĐỔI DỮ LIỆU (MANUAL MAPPER @Component phân theo domain)
+│   │   ├── auth/                          # AuthMapper
+│   │   ├── catalog/                       # ServicePackageMapper, SurchargeMapper, PortfolioMapper...
+│   │   └── mua/                           # MuaProfileMapper, MuaStyleMapper...
 │   ├── repository/                        # TẦNG TRUY VẤN DỮ LIỆU
 │   │   ├── custom/                        # Interface gọi Native SQL / PostGIS Spatial queries
 │   │   └── <Domain>Repository.java        # Kế thừa JpaRepository cho truy vấn cơ bản
-│   └── service/                           # TẦNG NGHIỆP VỤ LÕI
+│   └── service/                           # TẦNG NGHIỆP VỤ LÕI (100% Business Logic)
 │       ├── impl/                          # BẮT BUỘC CHỨA CODE THỰC THI THẬT
 │       └── <Domain>Service.java           # Interface định nghĩa hợp đồng hành động
 │
@@ -66,17 +70,30 @@ code/backend/core-api/
 
 ## 3. Quy chuẩn Kỹ thuật Bắt buộc
 
-### 3.1. Kế thừa Base Components
+### 3.1. Phân định Trách nhiệm Phân tầng (Controller vs Service vs Mapper)
+- **Tầng Service (Pure Business Logic Layer)**:
+  - 100% logic nghiệp vụ nằm tại Service (`service/impl/<Domain>ServiceImpl.java`).
+  - Bao gồm: kiểm tra điều kiện nghiệp vụ, kiểm tra trạng thái thực thi, tính toán số tiền/phí, điều phối transaction (`@Transactional`), kích hoạt sự kiện (`ApplicationEventPublisher`), xử lý bộ đệm (`@Cacheable`/`@CacheEvict`) và điều phối gọi `Mapper`.
+- **Tầng Controller (Thin Controller Layer)**:
+  - Controller CHỈ đóng vai trò tiếp nhận HTTP Request, giải mã `@Valid`, lấy principal từ security context (`@AuthenticationPrincipal`), ủy quyền toàn bộ cho Service và bọc kết quả trả về `ResponseEntity<ApiResponse<T>>`.
+  - TUYỆT ĐỐI KHÔNG viết logic nghiệp vụ (if/else rẽ nhánh, tính toán giá, gọi database repository) trong Controller.
+- **Tầng Mapper (Manual Mapper @Component)**:
+  - Toàn bộ chuyển đổi qua lại giữa Entity $\leftrightarrow$ DTO BẮT BUỘC thực hiện qua package `com.makeup.platform.mapper.<domain>.*Mapper`.
+  - BẮT BUỘC dùng **Manual Mapper**: Đánh dấu `@Component`, viết mã Java tường minh với Builder / Getter / Setter.
+  - CẤM sử dụng MapStruct hay ModelMapper (để đảm bảo null-safety tuyệt đối, không có reflection/annotation-processor magic, dễ debug và test).
+  - Tầng Service inject Mapper bean qua constructor injection (`@RequiredArgsConstructor`).
+
+### 3.2. Kế thừa Base Components
 - **`BaseEntity`**: Mọi Entity phải kế thừa `BaseEntity` (id, createdAt, updatedAt).
 - **`BaseController`**: Mọi Controller phải kế thừa `BaseController` và trả về `ResponseEntity<ApiResponse<T>>`.
 - **`BaseService<T, ID>` & `BaseServiceImpl<T, ID, R>`**: Đảm bảo tái sử dụng logic CRUD cơ bản.
 
-### 3.2. Data Transfer Objects (DTO) & Bean Validation
+### 3.3. Data Transfer Objects (DTO) & Bean Validation
 - **Cấm expose JPA Entity ra Controller**. Mọi payload gửi lên / trả về phải dùng DTO.
 - Mọi Request DTO bắt buộc có Bean Validation (`@NotNull`, `@NotBlank`, `@Future`, `@Size`...).
 - Controller phải đặt `@Valid @RequestBody <DTO> request`.
 
-### 3.3. Đa Ngôn Ngữ Chuẩn Hóa Toàn Hệ Thống (i18n qua JSON & Header & Database)
+### 3.4. Đa Ngôn Ngữ Chuẩn Hóa Toàn Hệ Thống (i18n qua JSON & Header & Database)
 - **Tuyệt đối KHÔNG hard-code chuỗi text**: Không hardcode tiếng Việt hay tiếng Anh trong Controller, Service, DTO hay Validator.
 - **Khai báo thông điệp JSON**: Mọi message trả về và mã lỗi phải được định nghĩa đồng thời tại cả 2 file:
   - `src/main/resources/i18n/messages_en.json` (Tiếng Anh - Mặc định)
@@ -89,9 +106,9 @@ code/backend/core-api/
   - Ném ngoại lệ nghiệp vụ: `throw new CustomBusinessException(ErrorCodes.XXX, "module.error_key", args...)`.
   - Trả về Controller: `return ok(res, "module.success_key")` hoặc `created(res, "module.created_key")`. `BaseController` và `GlobalExceptionHandler` sẽ tự động tra cứu `JsonMessageSource` theo Locale của request.
 
-### 3.4. Quản lý 1 Database + 8 Schemas
+### 3.5. Quản lý 1 Database + 8 Schemas
 - Khai báo rõ schema trong `@Table`: `@Table(name = "users", schema = "auth_schema")`.
 - Khóa ngoại xuyên schema được hỗ trợ hoàn toàn tự nhiên trong PostgreSQL.
 
-### 3.5. Distributed Locking (Redlock)
+### 3.6. Distributed Locking (Redlock)
 - Khi xử lý tranh chấp đơn hàng đếm ngược 30s giữa nhiều thợ, dùng **Redlock** (thông qua Redisson trên Redis).

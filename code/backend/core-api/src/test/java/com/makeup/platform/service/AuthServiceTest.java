@@ -76,6 +76,9 @@ class AuthServiceTest {
     @Mock
     private AuthenticationManager authenticationManager;
 
+    @org.mockito.Spy
+    private com.makeup.platform.mapper.auth.AuthMapper authMapper = new com.makeup.platform.mapper.auth.AuthMapper();
+
     @InjectMocks
     private AuthServiceImpl authService;
 

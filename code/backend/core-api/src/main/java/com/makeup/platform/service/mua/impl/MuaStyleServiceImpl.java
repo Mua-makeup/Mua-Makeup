@@ -9,6 +9,7 @@ import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.mua.MuaStyleEntity;
 import com.makeup.platform.entity.mua.MuaStyleId;
+import com.makeup.platform.mapper.mua.MuaStyleMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.mua.MuaStyleRepository;
@@ -30,6 +31,7 @@ public class MuaStyleServiceImpl implements MuaStyleService {
     private final MuaProfileRepository muaProfileRepository;
     private final MakeupStyleRepository makeupStyleRepository;
     private final MuaStyleRepository muaStyleRepository;
+    private final MuaStyleMapper muaStyleMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -62,21 +64,12 @@ public class MuaStyleServiceImpl implements MuaStyleService {
                     .build();
 
             newStyles.add(muaStyle);
-            styleResList.add(MuaStyleRes.builder()
-                    .id(style.getId())
-                    .code(style.getStyleCode())
-                    .name(style.getStyleName())
-                    .description(style.getDescription())
-                    .build());
+            styleResList.add(muaStyleMapper.toRes(style));
         }
 
         muaStyleRepository.saveAll(newStyles);
 
-        return AssignMuaStylesRes.builder()
-                .muaId(mua.getId())
-                .totalStyles(styleResList.size())
-                .styles(styleResList)
-                .build();
+        return muaStyleMapper.toAssignRes(mua.getId(), styleResList);
     }
 
     @Override
@@ -94,13 +87,6 @@ public class MuaStyleServiceImpl implements MuaStyleService {
     @Transactional(readOnly = true)
     public List<MuaStyleRes> getStylesByMuaId(Long muaId) {
         List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(muaId);
-        return styles.stream()
-                .map(s -> MuaStyleRes.builder()
-                        .id(s.getStyle().getId())
-                        .code(s.getStyle().getStyleCode())
-                        .name(s.getStyle().getStyleName())
-                        .description(s.getStyle().getDescription())
-                        .build())
-                .toList();
+        return muaStyleMapper.toResList(styles);
     }
 }

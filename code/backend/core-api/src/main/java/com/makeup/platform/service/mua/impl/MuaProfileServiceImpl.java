@@ -15,6 +15,7 @@ import com.makeup.platform.dto.response.mua.MuaStyleRes;
 import com.makeup.platform.entity.mua.MuaCertificateItem;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.mua.MuaStyleEntity;
+import com.makeup.platform.mapper.mua.MuaProfileMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.mua.MuaStyleRepository;
 import com.makeup.platform.service.media.MediaStorageService;
@@ -39,6 +40,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
     private final MuaProfileRepository muaProfileRepository;
     private final MuaStyleRepository muaStyleRepository;
     private final MediaStorageService mediaStorageService;
+    private final MuaProfileMapper muaProfileMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,14 +51,16 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                         "ERR_MUA_PROFILE_NOT_FOUND",
                         muaId
                 ));
-        return mapToProfileRes(mua);
+        List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(mua.getId());
+        return muaProfileMapper.toProfileRes(mua, styles);
     }
 
     @Override
     @Transactional(readOnly = true)
     public MuaProfileRes getMyProfile(Long userId) {
         MuaProfileEntity mua = getMuaProfileByUserId(userId);
-        return mapToProfileRes(mua);
+        List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(mua.getId());
+        return muaProfileMapper.toProfileRes(mua, styles);
     }
 
     @Override
@@ -70,7 +74,8 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         mua.setMaxServiceRadiusKm(req.getMaxServiceRadiusKm());
 
         MuaProfileEntity saved = muaProfileRepository.save(mua);
-        return mapToProfileRes(saved);
+        List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(saved.getId());
+        return muaProfileMapper.toProfileRes(saved, styles);
     }
 
     @Override
@@ -108,12 +113,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
 
             muaProfileRepository.save(mua);
 
-            return CertificateRes.builder()
-                    .certName(certificateItem.getCertName())
-                    .imageUrl(certificateItem.getImageUrl())
-                    .isVerified(false)
-                    .uploadedAt(certificateItem.getUploadedAt())
-                    .build();
+            return muaProfileMapper.toCertificateRes(certificateItem);
 
         } catch (Exception ex) {
             log.error("Compensating transaction triggered: Error saving certificate: {}", ex.getMessage());
@@ -156,12 +156,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         targetCert.setIsVerified(Boolean.TRUE.equals(req.getIsVerified()));
         muaProfileRepository.save(mua);
 
-        return CertificateRes.builder()
-                .certName(targetCert.getCertName())
-                .imageUrl(targetCert.getImageUrl())
-                .isVerified(targetCert.getIsVerified())
-                .uploadedAt(targetCert.getUploadedAt())
-                .build();
+        return muaProfileMapper.toCertificateRes(targetCert);
     }
 
     private MuaProfileEntity getMuaProfileByUserId(Long userId) {
@@ -170,48 +165,5 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                         "ERR_MUA_PROFILE_NOT_FOUND"
                 ));
-    }
-
-    private MuaProfileRes mapToProfileRes(MuaProfileEntity mua) {
-        List<CertificateRes> certResList = new ArrayList<>();
-        if (mua.getCertificates() != null) {
-            for (MuaCertificateItem cert : mua.getCertificates()) {
-                certResList.add(CertificateRes.builder()
-                        .certName(cert.getCertName())
-                        .imageUrl(cert.getImageUrl())
-                        .isVerified(cert.getIsVerified())
-                        .uploadedAt(cert.getUploadedAt())
-                        .build());
-            }
-        }
-
-        List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(mua.getId());
-        List<MuaStyleRes> styleResList = styles.stream()
-                .map(s -> MuaStyleRes.builder()
-                        .id(s.getStyle().getId())
-                        .code(s.getStyle().getStyleCode())
-                        .name(s.getStyle().getStyleName())
-                        .description(s.getStyle().getDescription())
-                        .build())
-                .toList();
-
-        String fullName = mua.getUser() != null ? mua.getUser().getFullName() : null;
-        String avatarUrl = mua.getUser() != null ? mua.getUser().getAvatarUrl() : null;
-
-        return MuaProfileRes.builder()
-                .muaId(mua.getId())
-                .muaCode(mua.getMuaCode())
-                .fullName(fullName)
-                .avatarUrl(avatarUrl)
-                .bio(mua.getBio())
-                .experienceYears(mua.getExperienceYears())
-                .maxServiceRadiusKm(mua.getMaxServiceRadiusKm())
-                .ratingAverage(mua.getRatingAvg())
-                .totalReviews(mua.getTotalReviews())
-                .totalCompletedJobs(mua.getTotalCompletedJobs())
-                .certificates(certResList)
-                .styles(styleResList)
-                .updatedAt(mua.getUpdatedAt())
-                .build();
     }
 }
