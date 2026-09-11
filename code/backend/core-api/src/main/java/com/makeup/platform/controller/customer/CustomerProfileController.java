@@ -4,7 +4,7 @@ import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.dto.request.auth.UpdateProfileReq;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
-import com.makeup.platform.service.UserService;
+import com.makeup.platform.service.auth.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

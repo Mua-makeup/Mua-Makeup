@@ -80,3 +80,6 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 Desktop.ini
+.ai/
+.idea/
+.idea/workspace.xml

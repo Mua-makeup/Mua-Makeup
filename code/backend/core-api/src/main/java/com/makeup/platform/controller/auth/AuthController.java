@@ -14,8 +14,7 @@ import com.makeup.platform.dto.request.auth.RegisterReq;
 import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
 import com.makeup.platform.dto.response.auth.UserRegisterRes;
-import com.makeup.platform.service.AuthService;
-import com.makeup.platform.service.RedisTokenService;
+import com.makeup.platform.service.auth.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -38,7 +37,6 @@ public class AuthController extends BaseController {
 
     private final AuthService authService;
     private final CookieUtils cookieUtils;
-    private final RedisTokenService redisTokenService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<UserRegisterRes>> register(@Valid @RequestBody RegisterReq req) {
@@ -62,34 +60,20 @@ public class AuthController extends BaseController {
             HttpServletRequest request,
             HttpServletResponse response) {
         String tokenFromCookie = cookieUtils.getRefreshTokenFromCookie(request).orElse(null);
-        String refreshToken = null;
-
-        // 1. Lấy giá trị refresh token từ cookie và kiểm tra có tồn tại trong Redis hay không
-        if (StringUtils.hasText(tokenFromCookie) && redisTokenService.getUserIdByRefreshToken(tokenFromCookie) != null) {
-            refreshToken = tokenFromCookie;
-        } else if (req != null && StringUtils.hasText(req.getRefreshToken())) {
-            // Nếu cookie không có hoặc không có trong Redis, fallback sang Request Body
-            refreshToken = req.getRefreshToken();
-        } else if (StringUtils.hasText(tokenFromCookie)) {
-            // Trường hợp chỉ có cookie mà không có trong Redis, vẫn truyền vào để AuthService validate và phản hồi lỗi chuẩn
-            refreshToken = tokenFromCookie;
-        }
+        String refreshToken = StringUtils.hasText(tokenFromCookie)
+                ? tokenFromCookie
+                : (req != null ? req.getRefreshToken() : null);
 
         if (!StringUtils.hasText(refreshToken)) {
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
                     "Refresh Token không được để trống (qua Cookie hoặc Body).", HttpStatus.BAD_REQUEST);
         }
 
-        String oldAccessToken = (req != null && StringUtils.hasText(req.getAccessToken()))
-                ? req.getAccessToken()
-                : bearerToken;
-
         RefreshTokenReq finalReq = RefreshTokenReq.builder()
                 .refreshToken(refreshToken)
-                .accessToken(oldAccessToken)
                 .build();
 
-        AuthRes res = authService.refreshToken(finalReq, oldAccessToken);
+        AuthRes res = authService.refreshToken(finalReq, bearerToken);
         cookieUtils.setRefreshTokenCookie(response, res.getRefreshToken());
         return ok(res, "Cấp mới token thành công!");
     }
@@ -97,19 +81,13 @@ public class AuthController extends BaseController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestBody(required = false) LogoutReq req,
-            @RequestHeader(value = SecurityConstants.HEADER_STRING) String bearerToken,
+            @RequestHeader(value = SecurityConstants.HEADER_STRING, required = false) String bearerToken,
             HttpServletRequest request,
             HttpServletResponse response) {
         String tokenFromCookie = cookieUtils.getRefreshTokenFromCookie(request).orElse(null);
-        String refreshToken = null;
-
-        if (StringUtils.hasText(tokenFromCookie) && redisTokenService.getUserIdByRefreshToken(tokenFromCookie) != null) {
-            refreshToken = tokenFromCookie;
-        } else if (req != null && StringUtils.hasText(req.getRefreshToken())) {
-            refreshToken = req.getRefreshToken();
-        } else if (StringUtils.hasText(tokenFromCookie)) {
-            refreshToken = tokenFromCookie;
-        }
+        String refreshToken = StringUtils.hasText(tokenFromCookie)
+                ? tokenFromCookie
+                : (req != null ? req.getRefreshToken() : null);
 
         LogoutReq finalReq = LogoutReq.builder()
                 .refreshToken(refreshToken)

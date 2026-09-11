@@ -16,7 +16,8 @@ import com.makeup.platform.repository.RolePermissionRepository;
 import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.security.CustomUserDetails;
-import com.makeup.platform.service.impl.AuthServiceImpl;
+import com.makeup.platform.service.auth.RedisTokenService;
+import com.makeup.platform.service.auth.impl.AuthServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -192,7 +193,7 @@ class AuthServiceTest {
                 .thenReturn("new.access.token");
         when(jwtUtils.generateRefreshToken(100L)).thenReturn("new.refresh.token");
 
-        AuthRes res = authService.refreshToken(req);
+        AuthRes res = authService.refreshToken(req, null);
 
         assertNotNull(res);
         assertEquals("new.access.token", res.getAccessToken());
@@ -206,7 +207,6 @@ class AuthServiceTest {
     void refreshToken_WithOldAccessToken_BlacklistsOldToken() {
         RefreshTokenReq req = RefreshTokenReq.builder()
                 .refreshToken("valid.refresh.jwt")
-                .accessToken("Bearer old.access.token")
                 .build();
 
         RoleEntity role = RoleEntity.builder().id(1).name(SecurityConstants.ROLE_CUSTOMER).build();

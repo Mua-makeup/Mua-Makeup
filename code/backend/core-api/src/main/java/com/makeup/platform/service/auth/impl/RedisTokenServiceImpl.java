@@ -1,7 +1,7 @@
-package com.makeup.platform.service.impl;
+package com.makeup.platform.service.auth.impl;
 
 import com.makeup.platform.common.constants.SecurityConstants;
-import com.makeup.platform.service.RedisTokenService;
+import com.makeup.platform.service.auth.RedisTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
