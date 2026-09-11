@@ -2,6 +2,7 @@ package com.makeup.platform.service.catalog.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.dto.request.catalog.CreatePackageReq;
 import com.makeup.platform.dto.request.catalog.UpdatePackageReq;
 import com.makeup.platform.dto.response.catalog.MakeupStyleRes;
@@ -47,12 +48,12 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     public PackageDetailRes createPackage(Long userId, CreatePackageReq req) {
         if (req.getPrice() != null && req.getPrice().compareTo(MIN_PRICE) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_PACKAGE_PRICE,
-                    "Giá tối thiểu của gói dịch vụ là 50,000 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_PACKAGE_PRICE", HttpStatus.BAD_REQUEST);
         }
 
         MasterCategoryEntity category = masterCategoryRepository.findById(req.getMasterCategoryId())
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MASTER_CATEGORY_NOT_FOUND,
-                        "Danh mục dịch vụ gốc không tồn tại: " + req.getMasterCategoryId(), HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_MASTER_CATEGORY_NOT_FOUND,
+                        "ERR_MASTER_CATEGORY_NOT_FOUND", req.getMasterCategoryId()));
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 
@@ -99,13 +100,13 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
         if (req.getPrice() != null && req.getPrice().compareTo(MIN_PRICE) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_PACKAGE_PRICE,
-                    "Giá tối thiểu của gói dịch vụ là 50,000 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_PACKAGE_PRICE", HttpStatus.BAD_REQUEST);
         }
 
         if (!pkg.getMasterCategory().getId().equals(req.getMasterCategoryId())) {
             MasterCategoryEntity newCat = masterCategoryRepository.findById(req.getMasterCategoryId())
-                    .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MASTER_CATEGORY_NOT_FOUND,
-                            "Danh mục dịch vụ gốc không tồn tại: " + req.getMasterCategoryId(), HttpStatus.NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_MASTER_CATEGORY_NOT_FOUND,
+                            "ERR_MASTER_CATEGORY_NOT_FOUND", req.getMasterCategoryId()));
             pkg.setMasterCategory(newCat);
         }
 
@@ -190,8 +191,8 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
     public ServicePackageEntity findPackageAndCheckOwnership(Long userId, Long packageId) {
         ServicePackageEntity pkg = packageRepository.findById(packageId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
-                        "Không tìm thấy gói dịch vụ với ID: " + packageId, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                        "ERR_PACKAGE_NOT_FOUND", packageId));
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 
@@ -204,7 +205,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
         if (!isAgencyOwner && !isMuaOwner) {
             throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_ACCESS_DENIED,
-                    "Bạn không có quyền quản lý gói dịch vụ này", HttpStatus.FORBIDDEN);
+                    "ERR_PACKAGE_ACCESS_DENIED", HttpStatus.FORBIDDEN);
         }
 
         return pkg;

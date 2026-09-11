@@ -122,4 +122,64 @@ class GlobalExceptionHandlerTest {
         assertNotNull(response);
         assertEquals("Minimum service radius is 1.0 km.", response.getBody().getData().get("maxServiceRadiusKm"));
     }
+
+    @Test
+    @DisplayName("ResourceNotFoundException: Dịch sang tiếng Anh với tham số {0}")
+    void testResourceNotFoundExceptionEnglishWithArgs() {
+        LocaleContextHolder.setLocale(Locale.ENGLISH);
+
+        ResourceNotFoundException ex = new ResourceNotFoundException(
+                "ERR_STYLE_NOT_FOUND",
+                "ERR_STYLE_NOT_FOUND",
+                33
+        );
+
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleResourceNotFoundException(ex);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("ERR_STYLE_NOT_FOUND", response.getBody().getErrorCode());
+        assertEquals("Makeup style with ID 33 does not exist in the system catalog.", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("ResourceNotFoundException: Dịch sang tiếng Việt với tham số {0}")
+    void testResourceNotFoundExceptionVietnameseWithArgs() {
+        LocaleContextHolder.setLocale(new Locale("vi"));
+
+        ResourceNotFoundException ex = new ResourceNotFoundException(
+                "ERR_STYLE_NOT_FOUND",
+                "ERR_STYLE_NOT_FOUND",
+                33
+        );
+
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleResourceNotFoundException(ex);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("ERR_STYLE_NOT_FOUND", response.getBody().getErrorCode());
+        assertEquals("Phong cách ID 33 không tồn tại trong danh mục hệ thống.", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("CustomBusinessException: Dịch mã lỗi sang tiếng Anh khi locale là EN")
+    void testCustomBusinessExceptionEnglish() {
+        LocaleContextHolder.setLocale(Locale.ENGLISH);
+
+        CustomBusinessException ex = new CustomBusinessException(
+                "ERR_INVALID_PACKAGE_PRICE",
+                "ERR_INVALID_PACKAGE_PRICE",
+                HttpStatus.BAD_REQUEST
+        );
+
+        ResponseEntity<ApiResponse<Void>> response = exceptionHandler.handleCustomBusinessException(ex);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("ERR_INVALID_PACKAGE_PRICE", response.getBody().getErrorCode());
+        assertEquals("Minimum package price is 50,000 VND.", response.getBody().getMessage());
+    }
 }

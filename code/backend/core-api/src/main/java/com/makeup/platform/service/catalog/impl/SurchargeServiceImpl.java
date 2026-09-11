@@ -2,6 +2,7 @@ package com.makeup.platform.service.catalog.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.common.utils.HolidayUtils;
 import com.makeup.platform.dto.request.catalog.CalculateSurchargeReq;
 import com.makeup.platform.dto.request.catalog.ConfigureSurchargeReq;
@@ -45,7 +46,7 @@ public class SurchargeServiceImpl implements SurchargeService {
     public SurchargeDetailRes configureSurcharge(Long userId, ConfigureSurchargeReq req) {
         if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_AMOUNT,
-                    "Mức phụ phí không được nhỏ hơn 0 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_SURCHARGE_AMOUNT", HttpStatus.BAD_REQUEST);
         }
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
@@ -81,7 +82,7 @@ public class SurchargeServiceImpl implements SurchargeService {
 
         if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_AMOUNT,
-                    "Mức phụ phí không được nhỏ hơn 0 VNĐ", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_SURCHARGE_AMOUNT", HttpStatus.BAD_REQUEST);
         }
 
         surcharge.setSurchargeName(req.getSurchargeName().trim());
@@ -135,7 +136,7 @@ public class SurchargeServiceImpl implements SurchargeService {
 
         if ((hasAgency && hasMua) || (!hasAgency && !hasMua)) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_CALCULATION,
-                    "Yêu cầu phải chỉ định chính xác một trong hai: agencyId hoặc muaId", HttpStatus.BAD_REQUEST);
+                    "ERR_INVALID_SURCHARGE_CALCULATION", HttpStatus.BAD_REQUEST);
         }
 
         List<SurchargeEntity> surcharges = hasAgency
@@ -207,8 +208,8 @@ public class SurchargeServiceImpl implements SurchargeService {
 
     private SurchargeEntity checkSurchargeOwnership(Long userId, Long surchargeId) {
         SurchargeEntity surcharge = surchargeRepository.findById(surchargeId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_SURCHARGE_NOT_FOUND,
-                        "Không tìm thấy phụ phí với ID: " + surchargeId, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_SURCHARGE_NOT_FOUND,
+                        "ERR_SURCHARGE_NOT_FOUND", surchargeId));
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 
@@ -221,7 +222,7 @@ public class SurchargeServiceImpl implements SurchargeService {
 
         if (!isAgencyOwner && !isMuaOwner) {
             throw new CustomBusinessException(ErrorCodes.ERR_SURCHARGE_ACCESS_DENIED,
-                    "Bạn không có quyền quản lý phụ phí này", HttpStatus.FORBIDDEN);
+                    "ERR_SURCHARGE_ACCESS_DENIED", HttpStatus.FORBIDDEN);
         }
 
         return surcharge;

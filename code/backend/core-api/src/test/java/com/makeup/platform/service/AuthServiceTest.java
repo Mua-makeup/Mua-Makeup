@@ -237,4 +237,43 @@ class AuthServiceTest {
         verify(redisTokenService).deleteRefreshToken("valid.refresh.jwt");
         verify(redisTokenService).saveRefreshToken("new.refresh.token", 100L, 30L);
     }
+
+    @Test
+    @DisplayName("Đăng ký tài khoản SUPER_ADMIN thành công và gán ROLE_SUPER_ADMIN")
+    void registerSuperAdmin_Success() {
+        RegisterReq req = RegisterReq.builder()
+                .phoneNumber("0900000001")
+                .email("superadmin@makeup.com")
+                .password("Admin@123456")
+                .fullName("Platform Super Admin")
+                .accountType(AccountType.SUPER_ADMIN)
+                .build();
+
+        RoleEntity adminRole = RoleEntity.builder().id(5).name(SecurityConstants.ROLE_SUPER_ADMIN).build();
+
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(roleRepository.findByName(SecurityConstants.ROLE_SUPER_ADMIN)).thenReturn(Optional.of(adminRole));
+        when(passwordEncoder.encode(anyString())).thenReturn("hashedAdminPassword");
+
+        UserEntity savedUser = UserEntity.builder()
+                .phoneNumber(req.getPhoneNumber())
+                .email(req.getEmail())
+                .passwordHash("hashedAdminPassword")
+                .fullName(req.getFullName())
+                .role(adminRole)
+                .build();
+        savedUser.setId(1L);
+
+        when(userRepository.save(any(UserEntity.class))).thenReturn(savedUser);
+
+        UserRegisterRes res = authService.register(req);
+
+        assertNotNull(res);
+        assertEquals(1L, res.getUserId());
+        assertEquals("0900000001", res.getPhoneNumber());
+        assertEquals("SUPER_ADMIN", res.getAccountType());
+        assertTrue(res.getRoles().contains(SecurityConstants.ROLE_SUPER_ADMIN));
+        verify(userRepository).save(any(UserEntity.class));
+    }
 }

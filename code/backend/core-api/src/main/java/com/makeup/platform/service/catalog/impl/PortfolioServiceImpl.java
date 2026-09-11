@@ -61,7 +61,8 @@ public class PortfolioServiceImpl implements PortfolioService {
         if (req.getAdditionalFiles() != null && req.getAdditionalFiles().size() > MediaConstants.MAX_ADDITIONAL_IMAGES_COUNT) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_TOO_MANY_ADDITIONAL_IMAGES,
-                    "Số lượng ảnh phụ không được vượt quá " + MediaConstants.MAX_ADDITIONAL_IMAGES_COUNT + " ảnh.",
+                    "ERR_TOO_MANY_ADDITIONAL_IMAGES",
+                    new Object[]{MediaConstants.MAX_ADDITIONAL_IMAGES_COUNT},
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -69,17 +70,17 @@ public class PortfolioServiceImpl implements PortfolioService {
         MakeupStyleEntity style = null;
         if (req.getStyleId() != null) {
             style = makeupStyleRepository.findById(req.getStyleId())
-                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_STYLE_NOT_FOUND, "Không tìm thấy phong cách trang điểm yêu cầu."));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_STYLE_NOT_FOUND, "ERR_STYLE_NOT_FOUND", req.getStyleId()));
         }
 
         ServicePackageEntity servicePackage = null;
         if (req.getPackageId() != null) {
             servicePackage = servicePackageRepository.findById(req.getPackageId())
-                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "Không tìm thấy gói dịch vụ yêu cầu."));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "ERR_PACKAGE_NOT_FOUND", req.getPackageId()));
             if (servicePackage.getMua() == null || !servicePackage.getMua().getId().equals(mua.getId())) {
                 throw new CustomBusinessException(
                         ErrorCodes.ERR_PACKAGE_NOT_OWNED,
-                        "Gói dịch vụ liên kết không thuộc sở hữu của bạn.",
+                        "ERR_PACKAGE_NOT_OWNED",
                         HttpStatus.FORBIDDEN
                 );
             }
@@ -133,7 +134,7 @@ public class PortfolioServiceImpl implements PortfolioService {
 
         if (req.getStyleId() != null) {
             MakeupStyleEntity style = makeupStyleRepository.findById(req.getStyleId())
-                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_STYLE_NOT_FOUND, "Không tìm thấy phong cách trang điểm yêu cầu."));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_STYLE_NOT_FOUND, "ERR_STYLE_NOT_FOUND", req.getStyleId()));
             showcase.setStyle(style);
         } else {
             showcase.setStyle(null);
@@ -141,9 +142,9 @@ public class PortfolioServiceImpl implements PortfolioService {
 
         if (req.getPackageId() != null) {
             ServicePackageEntity servicePackage = servicePackageRepository.findById(req.getPackageId())
-                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "Không tìm thấy gói dịch vụ yêu cầu."));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "ERR_PACKAGE_NOT_FOUND", req.getPackageId()));
             if (servicePackage.getMua() == null || !servicePackage.getMua().getId().equals(mua.getId())) {
-                throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_OWNED, "Gói dịch vụ không thuộc sở hữu của bạn.", HttpStatus.FORBIDDEN);
+                throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_OWNED, "ERR_PACKAGE_NOT_OWNED", HttpStatus.FORBIDDEN);
             }
             showcase.setServicePackage(servicePackage);
         } else {
@@ -168,7 +169,7 @@ public class PortfolioServiceImpl implements PortfolioService {
             if (Boolean.FALSE.equals(showcase.getIsVisible())) {
                 throw new CustomBusinessException(
                         ErrorCodes.ERR_CANNOT_FEATURE_HIDDEN_PORTFOLIO,
-                        "Không thể ghim tác phẩm đang ở trạng thái ẩn. Vui lòng bật hiển thị tác phẩm trước.",
+                        "ERR_CANNOT_FEATURE_HIDDEN_PORTFOLIO",
                         HttpStatus.BAD_REQUEST
                 );
             }
@@ -179,7 +180,8 @@ public class PortfolioServiceImpl implements PortfolioService {
             if (!alreadyFeatured && currentFeatured.size() >= MediaConstants.MAX_FEATURED_PORTFOLIO_COUNT) {
                 throw new CustomBusinessException(
                         ErrorCodes.ERR_PORTFOLIO_FEATURED_LIMIT_EXCEEDED,
-                        "Bạn chỉ được ghim tối đa " + MediaConstants.MAX_FEATURED_PORTFOLIO_COUNT + " tác phẩm tiêu biểu. Vui lòng bỏ ghim bớt tác phẩm cũ trước.",
+                        "ERR_PORTFOLIO_FEATURED_LIMIT_EXCEEDED",
+                        new Object[]{MediaConstants.MAX_FEATURED_PORTFOLIO_COUNT},
                         HttpStatus.BAD_REQUEST
                 );
             }
@@ -274,7 +276,7 @@ public class PortfolioServiceImpl implements PortfolioService {
     @Transactional(readOnly = true)
     public PortfolioDetailRes getPortfolioDetail(Long portfolioId) {
         PortfolioShowcaseEntity showcase = portfolioRepository.findById(portfolioId)
-                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PORTFOLIO_NOT_FOUND, "Tác phẩm không tồn tại trong bộ sưu tập."));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PORTFOLIO_NOT_FOUND, "ERR_PORTFOLIO_NOT_FOUND", portfolioId));
         return mapToDetailRes(showcase);
     }
 
@@ -282,7 +284,7 @@ public class PortfolioServiceImpl implements PortfolioService {
         return muaProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
-                        "Không tìm thấy hồ sơ thợ trang điểm tương ứng với tài khoản này."
+                        "ERR_MUA_PROFILE_NOT_FOUND"
                 ));
     }
 
@@ -290,13 +292,14 @@ public class PortfolioServiceImpl implements PortfolioService {
         PortfolioShowcaseEntity showcase = portfolioRepository.findById(portfolioId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_PORTFOLIO_NOT_FOUND,
-                        "Tác phẩm không tồn tại hoặc đã bị xóa khỏi bộ sưu tập."
+                        "ERR_PORTFOLIO_NOT_FOUND",
+                        portfolioId
                 ));
 
         if (!showcase.getMua().getId().equals(muaId)) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_PORTFOLIO_ACCESS_DENIED,
-                    "Truy cập bị từ chối: Bạn không có quyền thao tác trên tác phẩm của thợ khác.",
+                    "ERR_PORTFOLIO_ACCESS_DENIED",
                     HttpStatus.FORBIDDEN
             );
         }

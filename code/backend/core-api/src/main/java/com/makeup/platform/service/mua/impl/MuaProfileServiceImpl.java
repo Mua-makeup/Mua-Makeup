@@ -46,7 +46,8 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         MuaProfileEntity mua = muaProfileRepository.findById(muaId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
-                        "Không tìm thấy thông tin hồ sơ của thợ trang điểm."
+                        "ERR_MUA_PROFILE_NOT_FOUND",
+                        muaId
                 ));
         return mapToProfileRes(mua);
     }
@@ -129,12 +130,13 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         MuaProfileEntity mua = muaProfileRepository.findById(muaId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
-                        "Không tìm thấy hồ sơ thợ để duyệt bằng cấp."
+                        "ERR_MUA_PROFILE_NOT_FOUND",
+                        muaId
                 ));
 
         List<MuaCertificateItem> certificates = mua.getCertificates();
         if (certificates == null || certificates.isEmpty()) {
-            throw new ResourceNotFoundException("Thợ chưa có chứng chỉ nào để kiểm duyệt.");
+            throw new ResourceNotFoundException(ErrorCodes.ERR_PROFILE_NOT_FOUND, "mua.cert_not_found");
         }
 
         MuaCertificateItem targetCert = null;
@@ -148,7 +150,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         }
 
         if (targetCert == null) {
-            throw new ResourceNotFoundException("Không tìm thấy chứng chỉ tương ứng trong hồ sơ thợ.");
+            throw new ResourceNotFoundException(ErrorCodes.ERR_PROFILE_NOT_FOUND, "mua.cert_not_found");
         }
 
         targetCert.setIsVerified(Boolean.TRUE.equals(req.getIsVerified()));
@@ -166,7 +168,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         return muaProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
-                        "Không tìm thấy hồ sơ thợ trang điểm tương ứng."
+                        "ERR_MUA_PROFILE_NOT_FOUND"
                 ));
     }
 

@@ -17,7 +17,7 @@ public final class FileValidationUtils {
         if (file == null || file.isEmpty()) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_EMPTY_FILE_UPLOADED,
-                    "Tệp tải lên không có nội dung hoặc rỗng.",
+                    "EMPTY_FILE_UPLOADED",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -25,7 +25,8 @@ public final class FileValidationUtils {
         if (file.getSize() > maxSizeBytes) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_FILE_SIZE_EXCEEDED,
-                    "Dung lượng tệp (" + (file.getSize() / (1024 * 1024)) + "MB) vượt quá giới hạn tối đa cho phép (" + (maxSizeBytes / (1024 * 1024)) + "MB).",
+                    "FILE_SIZE_EXCEEDED",
+                    new Object[]{file.getSize() / (1024 * 1024), maxSizeBytes / (1024 * 1024)},
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -34,7 +35,7 @@ public final class FileValidationUtils {
         if (originalFilename == null || !originalFilename.contains(".")) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_INVALID_FILE_FORMAT,
-                    "Tên tệp không hợp lệ hoặc thiếu phần mở rộng.",
+                    "INVALID_FILE_FORMAT",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -43,7 +44,8 @@ public final class FileValidationUtils {
         if (!MediaConstants.ALLOWED_IMAGE_EXTENSIONS.contains(extension)) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_INVALID_FILE_FORMAT,
-                    "Định dạng tệp không được hỗ trợ. Hệ thống chỉ chấp nhận: " + MediaConstants.ALLOWED_IMAGE_EXTENSIONS,
+                    "INVALID_FILE_FORMAT",
+                    new Object[]{MediaConstants.ALLOWED_IMAGE_EXTENSIONS},
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -58,14 +60,14 @@ public final class FileValidationUtils {
             if (bytesRead < 12) {
                 throw new CustomBusinessException(
                         ErrorCodes.ERR_INVALID_FILE_MAGIC_BYTES,
-                        "Tệp bị lỗi hoặc không đủ thông tin nhận diện header.",
+                        "INVALID_FILE_MAGIC_BYTES",
                         HttpStatus.BAD_REQUEST
                 );
             }
         } catch (IOException e) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_INVALID_FILE_MAGIC_BYTES,
-                    "Không thể đọc nội dung nhị phân của tệp.",
+                    "INVALID_FILE_MAGIC_BYTES",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -83,7 +85,7 @@ public final class FileValidationUtils {
         if (!isJpeg && !isPng && !isWebp) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_INVALID_FILE_MAGIC_BYTES,
-                    "Tệp bị từ chối: Chữ ký nhị phân (Magic Bytes) không khớp với bất kỳ định dạng ảnh hợp lệ nào.",
+                    "INVALID_FILE_MAGIC_BYTES",
                     HttpStatus.BAD_REQUEST
             );
         }

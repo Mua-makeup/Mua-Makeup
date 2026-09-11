@@ -103,27 +103,27 @@ public class JwtUtils {
         } catch (ExpiredJwtException e) {
             log.warn("Invalid JWT token - Expired: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_EXPIRED,
-                    "Token đã hết hạn. Vui lòng làm mới token hoặc đăng nhập lại.",
+                    "ERR_TOKEN_EXPIRED",
                     HttpStatus.UNAUTHORIZED);
         } catch (SecurityException e) {
             log.warn("Invalid JWT token - Signature invalid: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID_SIGNATURE,
-                    "Chữ ký token không hợp lệ hoặc đã bị chỉnh sửa.",
+                    "ERR_TOKEN_INVALID_SIGNATURE",
                     HttpStatus.UNAUTHORIZED);
         } catch (MalformedJwtException e) {
             log.warn("Invalid JWT token - Malformed: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_MALFORMED,
-                    "Cấu trúc token không đúng định dạng.",
+                    "ERR_TOKEN_MALFORMED",
                     HttpStatus.UNAUTHORIZED);
         } catch (UnsupportedJwtException e) {
             log.warn("Invalid JWT token - Unsupported: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_UNSUPPORTED,
-                    "Token không được hỗ trợ bởi hệ thống.",
+                    "ERR_TOKEN_UNSUPPORTED",
                     HttpStatus.UNAUTHORIZED);
         } catch (IllegalArgumentException e) {
             log.warn("Invalid JWT token - Empty or illegal claims: {}", e.getMessage());
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
-                    "Chuỗi token không hợp lệ hoặc rỗng.",
+                    "ERR_TOKEN_INVALID",
                     HttpStatus.UNAUTHORIZED);
         }
     }

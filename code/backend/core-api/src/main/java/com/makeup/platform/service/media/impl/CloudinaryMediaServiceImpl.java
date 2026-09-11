@@ -55,10 +55,10 @@ public class CloudinaryMediaServiceImpl implements MediaStorageService {
 
         } catch (IOException e) {
             log.error("Cloudinary upload failed: {}", e.getMessage(), e);
-            throw new MediaUploadException("Lỗi xử lý file khi tải lên CDN: " + e.getMessage());
+            throw new MediaUploadException(com.makeup.platform.common.constants.ErrorCodes.ERR_MEDIA_STORAGE_FAILED, "ERR_MEDIA_STORAGE_FAILED", e.getMessage());
         } catch (Exception e) {
             log.error("Cloudinary service error: {}", e.getMessage(), e);
-            throw new MediaUploadException("Lỗi kết nối tới dịch vụ lưu trữ đám mây Cloudinary: " + e.getMessage());
+            throw new MediaUploadException(com.makeup.platform.common.constants.ErrorCodes.ERR_MEDIA_STORAGE_FAILED, "ERR_MEDIA_STORAGE_FAILED", e.getMessage());
         }
     }
 

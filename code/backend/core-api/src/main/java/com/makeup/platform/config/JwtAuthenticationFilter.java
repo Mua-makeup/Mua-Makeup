@@ -50,7 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (redisTokenService.isTokenBlacklisted(jwt)) {
                     log.warn("Access token is blacklisted in Redis: {}", jwt);
                     throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_BLACKLISTED,
-                            "Phiên đăng nhập đã bị hủy hoặc đã đăng xuất. Vui lòng đăng nhập lại.",
+                            "ERR_TOKEN_BLACKLISTED",
                             HttpStatus.UNAUTHORIZED);
                 }
 
@@ -61,7 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (!jwtUtils.isAccessToken(jwt)) {
                     log.warn("Token is not of ACCESS_TOKEN type: {}", jwtUtils.getTokenType(jwt));
                     throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_TYPE_INVALID,
-                            "Loại token không hợp lệ cho tài nguyên này.",
+                            "ERR_TOKEN_TYPE_INVALID",
                             HttpStatus.UNAUTHORIZED);
                 }
 

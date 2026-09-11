@@ -98,8 +98,12 @@ public class JsonMessageSource extends AbstractMessageSource {
         if (msg == null) {
             msg = defaultMessage != null ? defaultMessage : code;
         }
-        if (args != null && args.length > 0 && msg.contains("{0}")) {
-            return MessageFormat.format(msg, args);
+        if (args != null && args.length > 0 && msg != null && msg.contains("{")) {
+            try {
+                return MessageFormat.format(msg, args);
+            } catch (Exception e) {
+                log.debug("Message formatting failed for pattern '{}': {}", msg, e.getMessage());
+            }
         }
         return msg;
     }

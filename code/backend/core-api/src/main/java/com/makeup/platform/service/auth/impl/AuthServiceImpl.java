@@ -76,12 +76,12 @@ public class AuthServiceImpl implements AuthService {
         // 1. Kiểm tra tính duy nhất của SĐT và Email
         if (userRepository.existsByPhoneNumber(req.getPhoneNumber())) {
             throw new CustomBusinessException(ErrorCodes.ERR_PHONE_ALREADY_EXISTS,
-                    "Số điện thoại này đã được đăng ký trên hệ thống.", HttpStatus.CONFLICT);
+                    "ERR_PHONE_ALREADY_EXISTS", HttpStatus.CONFLICT);
         }
 
         if (StringUtils.hasText(req.getEmail()) && userRepository.existsByEmail(req.getEmail())) {
             throw new CustomBusinessException(ErrorCodes.ERR_EMAIL_ALREADY_EXISTS,
-                    "Email này đã được đăng ký trên hệ thống.", HttpStatus.CONFLICT);
+                    "ERR_EMAIL_ALREADY_EXISTS", HttpStatus.CONFLICT);
         }
 
         // 2. Xác định Role duy nhất cho tài khoản (1 user = 1 role)
@@ -90,6 +90,8 @@ public class AuthServiceImpl implements AuthService {
             assignedRole = getRoleOrThrow(SecurityConstants.ROLE_FREELANCE_MUA);
         } else if (req.getAccountType() == AccountType.AGENCY_ADMIN) {
             assignedRole = getRoleOrThrow(SecurityConstants.ROLE_AGENCY_ADMIN);
+        } else if (req.getAccountType() == AccountType.SUPER_ADMIN) {
+            assignedRole = getRoleOrThrow(SecurityConstants.ROLE_SUPER_ADMIN);
         } else {
             assignedRole = getRoleOrThrow(SecurityConstants.ROLE_CUSTOMER);
         }
@@ -134,7 +136,7 @@ public class AuthServiceImpl implements AuthService {
             AgencyRegisterDetails details = req.getAgencyDetails();
             if (details == null) {
                 throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_DETAILS_REQUIRED,
-                        "Vui lòng cung cấp đầy đủ thông tin Studio / Đại lý.", HttpStatus.BAD_REQUEST);
+                        "ERR_AGENCY_DETAILS_REQUIRED", HttpStatus.BAD_REQUEST);
             }
 
             String provinceCode = extractProvinceCode(details.getCity());
@@ -186,15 +188,15 @@ public class AuthServiceImpl implements AuthService {
 
             UserEntity user = userRepository.findById(userDetails.getUserId())
                     .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
-                            "Không tìm thấy thông tin người dùng.", HttpStatus.NOT_FOUND));
+                            "ERR_USER_NOT_FOUND", HttpStatus.NOT_FOUND));
 
             return generateAuthResponse(user);
         } catch (BadCredentialsException e) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_CREDENTIALS,
-                    "Thông tin đăng nhập không chính xác hoặc tài khoản đã bị vô hiệu hóa.", HttpStatus.UNAUTHORIZED);
+                    "ERR_INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED);
         } catch (DisabledException e) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_CREDENTIALS,
-                    "Tài khoản của bạn đã bị khóa hoặc vô hiệu hóa. Vui lòng liên hệ hỗ trợ.", HttpStatus.UNAUTHORIZED);
+                    "ERR_INVALID_CREDENTIALS", HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -204,14 +206,14 @@ public class AuthServiceImpl implements AuthService {
         String token = req.getRefreshToken();
         if (!jwtUtils.validateToken(token) || !jwtUtils.isRefreshToken(token)) {
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
-                    "Refresh Token không hợp lệ hoặc đã hết hạn.", HttpStatus.UNAUTHORIZED);
+                    "ERR_TOKEN_INVALID", HttpStatus.UNAUTHORIZED);
         }
 
         Long userId = redisTokenService.getUserIdByRefreshToken(token);
 
         if (userId == null) {
             throw new CustomBusinessException(ErrorCodes.ERR_TOKEN_INVALID,
-                    "Refresh Token không hợp lệ hoặc phiên đăng nhập đã hết hạn.", HttpStatus.UNAUTHORIZED);
+                    "ERR_TOKEN_INVALID", HttpStatus.UNAUTHORIZED);
         }
 
         // Refresh Token Rotation: Xóa token cũ ngay lập tức
@@ -232,11 +234,11 @@ public class AuthServiceImpl implements AuthService {
 
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
-                        "Không tìm thấy thông tin người dùng.", HttpStatus.UNAUTHORIZED));
+                        "ERR_USER_NOT_FOUND", HttpStatus.UNAUTHORIZED));
 
         if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED,
-                    "Tài khoản đã bị khóa hoặc vô hiệu hóa.", HttpStatus.UNAUTHORIZED);
+                    "ERR_UNAUTHORIZED", HttpStatus.UNAUTHORIZED);
         }
 
         return generateAuthResponse(user);
@@ -266,21 +268,21 @@ public class AuthServiceImpl implements AuthService {
     public void changePassword(Long userId, ChangePasswordReq req) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
-                        "Không tìm thấy người dùng.", HttpStatus.NOT_FOUND));
+                        "ERR_USER_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash())) {
             throw new CustomBusinessException(ErrorCodes.ERR_CURRENT_PASSWORD_INCORRECT,
-                    "Mật khẩu hiện tại không chính xác.", HttpStatus.BAD_REQUEST);
+                    "ERR_CURRENT_PASSWORD_INCORRECT", HttpStatus.BAD_REQUEST);
         }
 
         if (!req.getNewPassword().equals(req.getConfirmPassword())) {
             throw new CustomBusinessException(ErrorCodes.ERR_PASSWORD_MISMATCH,
-                    "Xác nhận mật khẩu mới không trùng khớp.", HttpStatus.BAD_REQUEST);
+                    "ERR_PASSWORD_MISMATCH", HttpStatus.BAD_REQUEST);
         }
 
         if (passwordEncoder.matches(req.getNewPassword(), user.getPasswordHash())) {
             throw new CustomBusinessException(ErrorCodes.ERR_PASSWORD_SAME_AS_OLD,
-                    "Mật khẩu mới không được trùng với mật khẩu hiện tại.", HttpStatus.BAD_REQUEST);
+                    "ERR_PASSWORD_SAME_AS_OLD", HttpStatus.BAD_REQUEST);
         }
 
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));

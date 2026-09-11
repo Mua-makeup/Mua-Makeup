@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -39,30 +40,47 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleCustomBusinessException(CustomBusinessException ex) {
         log.warn("Business exception: {} - {}", ex.getErrorCode(), ex.getMessage());
         Locale locale = LocaleContextHolder.getLocale();
-
-        String resolvedMessage = messageSource.getMessageString(ex.getMessage(), locale);
-        if (resolvedMessage != null) {
-            resolvedMessage = messageSource.getLocalizedMessage(ex.getMessage(), ex.getArgs(), ex.getMessage(), locale);
-        } else {
-            String errorCodeMsg = messageSource.getMessageString(ex.getErrorCode(), locale);
-            if (errorCodeMsg != null) {
-                resolvedMessage = messageSource.getLocalizedMessage(ex.getErrorCode(), ex.getArgs(), ex.getMessage(), locale);
-            } else {
-                resolvedMessage = ex.getMessage();
-            }
-        }
-
+        String resolvedMessage = resolveBusinessMessage(ex, locale);
         return ResponseEntity.status(ex.getStatus())
                 .body(ApiResponse.error(ex.getErrorCode(), resolvedMessage));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException ex) {
-        log.warn("Resource not found: {}", ex.getMessage());
+        log.warn("Resource not found: {} - {}", ex.getErrorCode(), ex.getMessage());
         Locale locale = LocaleContextHolder.getLocale();
-        String localizedMsg = messageSource.getLocalizedMessage(ex.getMessage(), null, ex.getMessage(), locale);
+        String localizedMsg = resolveBusinessMessage(ex, locale);
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(ex.getErrorCode() != null ? ex.getErrorCode() : "ERR_RESOURCE_NOT_FOUND", localizedMsg));
+    }
+
+    private String resolveBusinessMessage(CustomBusinessException ex, Locale locale) {
+        if (ex == null) {
+            return null;
+        }
+
+        if (StringUtils.hasText(ex.getMessage())) {
+            String msg = messageSource.getMessageString(ex.getMessage(), locale);
+            if (msg != null) {
+                return messageSource.getLocalizedMessage(ex.getMessage(), ex.getArgs(), ex.getMessage(), locale);
+            }
+        }
+
+        if (StringUtils.hasText(ex.getErrorCode())) {
+            String codeMsg = messageSource.getMessageString(ex.getErrorCode(), locale);
+            if (codeMsg != null) {
+                return messageSource.getLocalizedMessage(ex.getErrorCode(), ex.getArgs(), ex.getMessage(), locale);
+            }
+        }
+
+        if (ex.getArgs() != null && ex.getArgs().length > 0 && StringUtils.hasText(ex.getMessage()) && ex.getMessage().contains("{")) {
+            try {
+                return java.text.MessageFormat.format(ex.getMessage(), ex.getArgs());
+            } catch (Exception ignored) {
+            }
+        }
+
+        return ex.getMessage();
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

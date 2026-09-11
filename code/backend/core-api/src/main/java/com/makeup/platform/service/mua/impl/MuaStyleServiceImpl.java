@@ -38,7 +38,7 @@ public class MuaStyleServiceImpl implements MuaStyleService {
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
-                        "Không tìm thấy hồ sơ thợ tương ứng với tài khoản này."
+                        "ERR_MUA_PROFILE_NOT_FOUND"
                 ));
 
         muaStyleRepository.deleteAllByMuaId(mua.getId());
@@ -50,7 +50,8 @@ public class MuaStyleServiceImpl implements MuaStyleService {
             MakeupStyleEntity style = makeupStyleRepository.findById(styleId)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             ErrorCodes.ERR_STYLE_NOT_FOUND,
-                            "Phong cách ID " + styleId + " không tồn tại trong danh mục hệ thống."
+                            "ERR_STYLE_NOT_FOUND",
+                            styleId
                     ));
 
             MuaStyleEntity muaStyle = MuaStyleEntity.builder()
@@ -84,7 +85,7 @@ public class MuaStyleServiceImpl implements MuaStyleService {
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
-                        "Không tìm thấy hồ sơ thợ."
+                        "ERR_MUA_PROFILE_NOT_FOUND"
                 ));
         return getStylesByMuaId(mua.getId());
     }
