@@ -50,4 +50,14 @@ public final class ErrorCodes {
     public static final String ERR_MUA_PROFILE_NOT_FOUND = "MUA_PROFILE_NOT_FOUND";
     public static final String ERR_PORTFOLIO_NOT_FOUND = "PORTFOLIO_NOT_FOUND";
     public static final String ERR_MEDIA_STORAGE_FAILED = "MEDIA_STORAGE_FAILED";
+
+    // Phân hệ Agency Management
+    public static final String ERR_AGENCY_NOT_FOUND = "ERR_AGENCY_NOT_FOUND";
+    public static final String ERR_AGENCY_ACCESS_DENIED = "ERR_AGENCY_ACCESS_DENIED";
+    public static final String ERR_STAFF_NOT_FOUND = "ERR_STAFF_NOT_FOUND";
+    public static final String ERR_STAFF_ALREADY_EXISTS = "ERR_STAFF_ALREADY_EXISTS";
+    public static final String ERR_INVITATION_NOT_FOUND = "ERR_INVITATION_NOT_FOUND";
+    public static final String ERR_INVITATION_EXPIRED = "ERR_INVITATION_EXPIRED";
+    public static final String ERR_INVITATION_ALREADY_USED = "ERR_INVITATION_ALREADY_USED";
 }
+
