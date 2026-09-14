@@ -22,6 +22,7 @@ import com.makeup.platform.mapper.agency.AgencyInvitationMapper;
 import com.makeup.platform.mapper.agency.AgencyStaffMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.AgencyStaffStyleRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.service.agency.impl.AgencyStaffServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +68,9 @@ class AgencyStaffServiceImplTest {
 
     @Mock
     private AgencyStaffRepository agencyStaffRepository;
+
+    @Mock
+    private AgencyStaffStyleRepository agencyStaffStyleRepository;
 
     @Mock
     private MuaProfileRepository muaProfileRepository;
@@ -430,11 +434,13 @@ class AgencyStaffServiceImplTest {
     void getStaffDetail_Success() {
         when(agencyProfileRepository.findByOwnerId(10L)).thenReturn(Optional.of(mockAgency));
         when(agencyStaffRepository.findByIdAndAgencyIdWithMuaAndUser(101L, 1L)).thenReturn(Optional.of(mockStaff));
+        when(agencyStaffStyleRepository.findByStaffIdWithStyle(101L)).thenReturn(Collections.emptyList());
 
         AgencyStaffDetailRes res = agencyStaffService.getStaffDetail(10L, 101L);
 
         assertNotNull(res);
         assertEquals(101L, res.getId());
         assertEquals("Trần Thanh Tâm", res.getFullName());
+        assertNotNull(res.getAssignedStyles());
     }
 }

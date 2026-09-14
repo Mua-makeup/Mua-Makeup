@@ -35,4 +35,5 @@ public class AgencyStaffDetailRes {
     private LocalDateTime joinedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private java.util.List<AssignedStyleRes> assignedStyles;
 }

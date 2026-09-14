@@ -14,13 +14,16 @@ import com.makeup.platform.dto.request.agency.UpdateStaffStatusReq;
 import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
+import com.makeup.platform.dto.response.agency.AssignedStyleRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
+import com.makeup.platform.entity.agency.AgencyStaffStyleEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.mapper.agency.AgencyInvitationMapper;
 import com.makeup.platform.mapper.agency.AgencyStaffMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.AgencyStaffStyleRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.service.agency.AgencyStaffService;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +45,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -53,6 +57,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
 
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyStaffRepository agencyStaffRepository;
+    private final AgencyStaffStyleRepository agencyStaffStyleRepository;
     private final MuaProfileRepository muaProfileRepository;
     private final AgencyStaffMapper agencyStaffMapper;
     private final AgencyInvitationMapper agencyInvitationMapper;
@@ -316,7 +321,21 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                         ErrorCodes.ERR_STAFF_NOT_FOUND,
                         "ERR_STAFF_NOT_FOUND"
                 ));
-        return agencyStaffMapper.toDetailRes(staff);
+        AgencyStaffDetailRes res = agencyStaffMapper.toDetailRes(staff);
+        List<AgencyStaffStyleEntity> styles = agencyStaffStyleRepository.findByStaffIdWithStyle(staffId);
+        if (styles != null && !styles.isEmpty()) {
+            res.setAssignedStyles(styles.stream()
+                    .map(s -> AssignedStyleRes.builder()
+                            .id(s.getStyle().getId())
+                            .styleCode(s.getStyle().getStyleCode())
+                            .styleName(s.getStyle().getStyleName())
+                            .isQualified(s.getIsQualified())
+                            .build())
+                    .collect(Collectors.toList()));
+        } else {
+            res.setAssignedStyles(java.util.Collections.emptyList());
+        }
+        return res;
     }
 
     @Override

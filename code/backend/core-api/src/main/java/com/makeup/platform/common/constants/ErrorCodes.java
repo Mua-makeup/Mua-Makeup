@@ -59,5 +59,10 @@ public final class ErrorCodes {
     public static final String ERR_INVITATION_NOT_FOUND = "ERR_INVITATION_NOT_FOUND";
     public static final String ERR_INVITATION_EXPIRED = "ERR_INVITATION_EXPIRED";
     public static final String ERR_INVITATION_ALREADY_USED = "ERR_INVITATION_ALREADY_USED";
+
+    // Phân hệ Agency Shift Dispatching (ISSUE-12.5)
+    public static final String ERR_SHIFT_OVERLAPPING = "ERR_SHIFT_OVERLAPPING";
+    public static final String ERR_SHIFT_NOT_FOUND = "ERR_SHIFT_NOT_FOUND";
+    public static final String ERR_INVALID_SHIFT_TIME = "ERR_INVALID_SHIFT_TIME";
 }
 
