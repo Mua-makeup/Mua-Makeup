@@ -46,10 +46,21 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # Helper response (ok, created, error)
-│   │   └── ApiResponse.java                   # JSON envelope: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # JSON envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── TelemetryConstants.java            # REDIS_KEY_MUA_GEO, HEARTBEAT_TTL_SECONDS, MAX_RADIUS_KM
 │   │   └── ErrorCodes.java                    # ERR_LOCATION_INVALID, ERR_GEO_EMPTY, ERR_MUA_NOT_AVAILABLE
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
+│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
+│   │   └── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
 │   └── utils/
 │       ├── GeoDistanceUtils.java              # Tiện ích tính khoảng cách Haversine & Geohash
 │       └── SecurityContextUtils.java          # Trích xuất userId, muaId từ JWT Principal
@@ -77,6 +88,10 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 ├── entity/
 │   └── telemetry/
 │       └── TelemetryLogEntity.java            # table: telemetry_schema.telemetry_logs (Point 4326 PostGIS)
+│
+├── mapper/
+│   └── telemetry/
+│       └── TelemetryLogMapper.java            # MapStruct: TelemetryLogEntity <-> DTOs
 │
 ├── repository/
 │   └── telemetry/

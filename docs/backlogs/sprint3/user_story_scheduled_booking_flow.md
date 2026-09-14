@@ -40,13 +40,25 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # ok, created, error
-│   │   └── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── CalendarConstants.java             # DEFAULT_BUFFER_MINUTES (30m), MAX_FUTURE_BOOKING_DAYS (90d)
 │   │   └── ErrorCodes.java                    # ERR_SLOT_ALREADY_BOOKED, ERR_CALENDAR_OVERLAP
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
+│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
+│   │   └── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
 │   └── utils/
 │       ├── DateTimeIntervalUtils.java         # Thuật toán kiểm tra giao thoa 2 khoảng thời gian [start, end]
-│       └── HolidayCalendarUtils.java          # Nhận diện phụ phí Lễ/Tết cho các ngày đặt trong tương lai
+│       ├── HolidayCalendarUtils.java          # Nhận diện phụ phí Lễ/Tết cho các ngày đặt trong tương lai
+│       └── SecurityContextUtils.java          # Trích xuất userId, role từ SecurityContext
 │
 ├── config/
 │   └── SchedulingConfig.java                  # Cấu hình TaskScheduler đa luồng phục vụ Cron Job
@@ -71,6 +83,11 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── booking/
 │       ├── BookingEntity.java                 # table: booking_schema.bookings
 │       └── MUACalendarEntity.java             # table: booking_schema.mua_calendars
+│
+├── mapper/
+│   └── booking/
+│       ├── ScheduledBookingMapper.java        # MapStruct: BookingEntity <-> DTOs
+│       └── MUACalendarMapper.java             # MapStruct: MUACalendarEntity <-> DTOs
 │
 ├── repository/
 │   └── booking/

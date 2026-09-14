@@ -42,13 +42,25 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # ok, created, error
-│   │   └── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── PricingConstants.java              # DEFAULT_FREE_RADIUS_KM, MAX_SURGE_MULTIPLIER, ESCROW_DEPOSIT_RATIO
 │   │   └── ErrorCodes.java                    # ERR_DISTANCE_EXCEEDS_MAX, ERR_SURGE_RULE_INVALID, ERR_MAPS_TIMEOUT
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
+│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
+│   │   └── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
 │   └── utils/
 │       ├── HolidayCalendarUtils.java          # Tra cứu lịch Lễ/Tết Việt Nam (Âm lịch & Dương lịch)
-│       └── HaversineDistanceUtils.java        # Tính khoảng cách đường chim bay dự phòng (Fallback)
+│       ├── HaversineDistanceUtils.java        # Tính khoảng cách đường chim bay dự phòng (Fallback)
+│       └── SecurityContextUtils.java          # Trích xuất userId từ SecurityContext
 │
 ├── config/
 │   ├── MapsApiConfig.java                     # RestClient cấu hình Goong / Google Maps API Key, Timeout 800ms
@@ -73,6 +85,11 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── pricing/
 │       ├── SurgePricingRuleEntity.java        # table: pricing_schema.surge_pricing_rules
 │       └── DistanceTierConfigEntity.java      # table: pricing_schema.distance_fee_tiers
+│
+├── mapper/
+│   └── pricing/
+│       ├── SurgePricingRuleMapper.java        # MapStruct: SurgePricingRuleEntity <-> DTOs
+│       └── InvoicePreviewMapper.java          # Mapper tổng hợp hóa đơn DTO
 │
 ├── repository/
 │   └── pricing/

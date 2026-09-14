@@ -42,10 +42,23 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # ok, created, error
-│   │   └── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
-│   └── constants/
-│       ├── InstantBookingConstants.java       # SEARCH_TIMEOUT_SECONDS (45s), MUA_COUNTDOWN_SECONDS (30s)
-│       └── ErrorCodes.java                    # ERR_NO_MUA_IN_RADIUS, ERR_ESCROW_INSUFFICIENT_FUNDS
+│   │   ├── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
+│   ├── constants/
+│   │   ├── InstantBookingConstants.java       # SEARCH_TIMEOUT_SECONDS (45s), MUA_COUNTDOWN_SECONDS (30s)
+│   │   └── ErrorCodes.java                    # ERR_NO_MUA_IN_RADIUS, ERR_ESCROW_INSUFFICIENT_FUNDS
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
+│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
+│   │   └── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
+│   └── utils/
+│       └── SecurityContextUtils.java          # Trích xuất userId, role từ SecurityContext
 │
 ├── config/
 │   ├── WebSocketConfig.java                   # Embedded STOMP Broker (/ws-makeup)
@@ -70,6 +83,11 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── booking/
 │       ├── BookingEntity.java                 # table: booking_schema.bookings
 │       └── BookingItemEntity.java             # table: booking_schema.booking_items
+│
+├── mapper/
+│   └── booking/
+│       ├── InstantBookingMapper.java          # MapStruct: BookingEntity <-> DTOs
+│       └── BookingItemMapper.java             # MapStruct: BookingItemEntity <-> DTOs
 │
 ├── event/
 │   ├── InstantBookingCreatedEvent.java        # Bắn ra khi khách bấm tạo đơn khẩn cấp

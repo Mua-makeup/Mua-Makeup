@@ -38,17 +38,23 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # ok, created, error response helper
-│   │   └── ApiResponse.java                   # JSON envelope: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # JSON envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
-│   │   ├── ErrorCode.java                     # Bộ hằng số mã lỗi chuẩn hóa
+│   │   ├── ErrorCodes.java                    # Bộ hằng số mã lỗi chuẩn hóa
 │   │   ├── MediaConstants.java                # Giới hạn dung lượng (10MB/5MB), định dạng cho phép
 │   │   └── PaginationConstants.java           # MAX_PAGE_SIZE = 20, DEFAULT_PAGE_SIZE = 10
 │   ├── exception/
 │   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
-│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCode
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
 │   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
 │   │   ├── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
 │   │   └── MediaUploadException.java          # Lỗi upload CDN Cloudinary/S3 (400/502)
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
 │   └── utils/
 │       ├── FileValidationUtils.java           # Kiểm tra Magic Bytes nhị phân (chặn file độc hại)
 │       └── SecurityContextUtils.java          # Lấy user_id, mua_id từ JWT SecurityContext
@@ -87,6 +93,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── catalog/
 │       └── PortfolioShowcaseEntity.java       # schema = "catalog_schema", table = "portfolio_showcases"
 │
+├── mapper/
+│   ├── mua/
+│   │   ├── MuaProfileMapper.java              # MapStruct: MuaProfileEntity <-> DTOs
+│   │   └── MuaStyleMapper.java                # MapStruct: MuaStyleEntity <-> DTOs
+│   └── catalog/
+│       └── PortfolioMapper.java               # MapStruct: PortfolioShowcaseEntity <-> DTOs
+│
 ├── repository/
 │   ├── mua/
 │   │   ├── MuaProfileRepository.java          # findByUserId, findByMuaCode
@@ -102,15 +115,20 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── PortfolioCdnCleanupJob.java            # @Scheduled batch job quét các showcase is_deleted = true để dọn dẹp CDN
 │
 └── service/
-    ├── MuaProfileService.java                 # Cập nhật Bio, kinh nghiệm, upload chứng chỉ
-    ├── MuaStyleService.java                   # Đăng ký phong cách sở trường
-    ├── PortfolioService.java                  # Đăng tải showcase, nén ảnh, ghim tiêu biểu, ẩn/hiện, xóa mềm
-    ├── MediaStorageService.java               # Interface kết nối CDN Cloudinary/S3
-    └── impl/
-        ├── MuaProfileServiceImpl.java
-        ├── MuaStyleServiceImpl.java
-        ├── PortfolioServiceImpl.java
-        └── CloudinaryMediaServiceImpl.java
+    ├── mua/
+    │   ├── MuaProfileService.java             # Cập nhật Bio, kinh nghiệm, upload chứng chỉ
+    │   ├── MuaStyleService.java               # Đăng ký phong cách sở trường
+    │   └── impl/
+    │       ├── MuaProfileServiceImpl.java
+    │       └── MuaStyleServiceImpl.java
+    ├── catalog/
+    │   ├── PortfolioService.java              # Đăng tải showcase, nén ảnh, ghim tiêu biểu, ẩn/hiện, xóa mềm
+    │   └── impl/
+    │       └── PortfolioServiceImpl.java
+    └── media/
+        ├── MediaStorageService.java           # Interface kết nối CDN Cloudinary/S3
+        └── impl/
+            └── CloudinaryStorageServiceImpl.java
 ```
 
 ---

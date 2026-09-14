@@ -40,13 +40,25 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # ok, created, error
-│   │   └── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── BookingConstants.java              # REDLOCK_KEY_PREFIX, LOCK_WAIT_TIME_MS, LOCK_LEASE_TIME_MS
 │   │   └── ErrorCodes.java                    # ERR_INVALID_STATE_TRANSITION, ERR_BOOKING_ALREADY_TAKEN
-│   └── exception/
-│       ├── InvalidStateTransitionException.java # Ngoại lệ cố tình nhảy cóc trạng thái (400)
-│       └── BookingConcurrencyException.java     # Ngoại lệ tranh chấp khóa Redlock (409)
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
+│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
+│   │   ├── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   │   ├── InvalidStateTransitionException.java # Ngoại lệ cố tình nhảy cóc trạng thái (400)
+│   │   └── BookingConcurrencyException.java     # Ngoại lệ tranh chấp khóa Redlock (409)
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
+│   └── utils/
+│       └── SecurityContextUtils.java          # Trích xuất userId, role từ SecurityContext
 │
 ├── config/
 │   └── RedissonConfig.java                    # Khởi tạo RedissonClient kết nối Redis Cluster
@@ -71,6 +83,11 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── booking/
 │       ├── BookingEntity.java                 # table: booking_schema.bookings (@Version optimistic locking)
 │       └── BookingHistoryEntity.java          # table: booking_schema.booking_history
+│
+├── mapper/
+│   └── booking/
+│       ├── BookingMapper.java                 # MapStruct: BookingEntity <-> DTOs
+│       └── BookingHistoryMapper.java          # MapStruct: BookingHistoryEntity <-> DTOs
 │
 ├── repository/
 │   └── booking/

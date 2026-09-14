@@ -43,13 +43,28 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # ok, created, error
-│   │   └── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── DispatchConstants.java             # EMERGENCY_REASSIGN_BUFFER_HOURS (4h), MAX_ASSISTANTS_PER_BOOKING (2)
 │   │   └── ErrorCodes.java                    # ERR_STAFF_NOT_QUALIFIED, ERR_EMERGENCY_REASSIGNMENT_FAILED
-│   └── exception/
-│       ├── StaffQualificationException.java   # Lỗi gán thợ không đủ điều kiện chuyên môn
-│       └── DispatchException.java             # Lỗi nghiệp vụ điều phối studio
+│   ├── exception/
+│   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
+│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
+│   │   ├── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   │   ├── StaffQualificationException.java   # Lỗi gán thợ không đủ điều kiện chuyên môn
+│   │   └── DispatchException.java             # Lỗi nghiệp vụ điều phối studio
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
+│   └── utils/
+│       └── SecurityContextUtils.java          # Trích xuất userId, agencyId từ SecurityContext
+│
+├── config/
+│   └── SecurityConfig.java                    # Phân quyền Endpoint & PreAuthorize
 │
 ├── controller/
 │   └── agency/
@@ -78,6 +93,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── booking/
 │       ├── BookingEntity.java                 # table: booking_schema.bookings
 │       └── BookingStaffAssignmentEntity.java  # table: booking_schema.booking_staff_assignments
+│
+├── mapper/
+│   ├── agency/
+│   │   ├── AgencyStaffMapper.java             # MapStruct: AgencyStaffEntity <-> DTOs
+│   │   └── DispatchMatrixMapper.java          # Mapper ma trận thợ & lịch rảnh
+│   └── booking/
+│       └── BookingStaffAssignmentMapper.java  # MapStruct: BookingStaffAssignmentEntity <-> DTOs
 │
 ├── repository/
 │   ├── agency/

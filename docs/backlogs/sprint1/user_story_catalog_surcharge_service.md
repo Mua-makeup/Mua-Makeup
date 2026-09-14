@@ -31,17 +31,23 @@ Mã nguồn tại `code/backend/core-api/` được tổ chức chặt chẽ the
 code/backend/core-api/src/main/java/com/makeup/platform/
 ├── common/
 │   ├── base/
-│   │   ├── BaseEntity.java                    # id, created_at, updated_at
+│   │   ├── BaseEntity.java                    # Base Entity chứa id, created_at, updated_at
 │   │   ├── BaseController.java                # Helper response chuẩn (ok, created, error)
-│   │   └── ApiResponse.java                   # JSON envelope: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # JSON envelope: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
-│   │   ├── ErrorCode.java                     # Bộ hằng số mã lỗi nghiệp vụ
+│   │   ├── ErrorCodes.java                    # Bộ hằng số mã lỗi nghiệp vụ
 │   │   └── SurchargeType.java                 # Enum: EARLY_MORNING, OUT_OF_RADIUS, HOLIDAY, CUSTOM
 │   ├── exception/
 │   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
-│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCode
+│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
 │   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
 │   │   └── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
 │   └── utils/
 │       ├── SecurityContextUtils.java          # Tiện ích lấy user_id, agency_id, mua_id từ JWT
 │       └── HolidayUtils.java                  # Tra cứu danh sách ngày Lễ/Tết Việt Nam theo năm
@@ -81,6 +87,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── AgencyStaffServiceEntity.java      # table: agency_schema.agency_staff_services (Composite PK)
 │       └── SurchargeEntity.java               # table: surcharges
 │
+├── mapper/
+│   └── catalog/
+│       ├── MasterTaxonomyMapper.java          # MapStruct: MasterCategoryEntity <-> DTOs
+│       ├── ServicePackageMapper.java          # MapStruct: ServicePackageEntity <-> DTOs
+│       ├── PackageItemMapper.java             # MapStruct: PackageItemEntity <-> DTOs
+│       └── SurchargeMapper.java               # MapStruct: SurchargeEntity <-> DTOs
+│
 ├── repository/
 │   └── catalog/
 │       ├── MasterCategoryRepository.java
@@ -91,32 +104,18 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       └── SurchargeRepository.java           # findByAgencyId, findByMuaId, findActiveByType
 │
 └── service/
-<<<<<<< Updated upstream
     └── catalog/
         ├── MasterTaxonomyService.java
-        ├── ServicePackageService.java             # Logic CRUD gói, kiểm tra sở hữu, validate giá
-        ├── PackageItemService.java                # Logic thêm/sửa add-on, bước quy trình
-        ├── SurchargeService.java                  # Cấu hình phụ phí & Engine tính toán phụ phí realtime
+        ├── ServicePackageService.java         # Logic CRUD gói, kiểm tra sở hữu, validate giá
+        ├── PackageItemService.java            # Logic thêm/sửa add-on, bước quy trình
+        ├── SurchargeService.java              # Cấu hình phụ phí & Engine tính toán phụ phí realtime
         ├── helper/
-        │   └── CatalogOwnerHelper.java            # Phân giải danh tính Studio vs MUA, ngăn chặn IDOR
+        │   └── CatalogOwnerHelper.java        # Phân giải danh tính Studio vs MUA, ngăn chặn IDOR
         └── impl/
             ├── MasterTaxonomyServiceImpl.java
             ├── ServicePackageServiceImpl.java
             ├── PackageItemServiceImpl.java
             └── SurchargeServiceImpl.java
-=======
-    ├── MasterCategoryService.java
-    ├── ServicePackageService.java             # Logic CRUD gói, kiểm tra sở hữu, validate giá
-    ├── PackageItemService.java                # Logic thêm/sửa add-on, bước quy trình
-    ├── AgencyStaffPackageService.java         # Logic gán gói dịch vụ cho thợ Studio, validate sở hữu
-    ├── SurchargeService.java                  # Cấu hình phụ phí & Engine tính toán phụ phí realtime
-    └── impl/
-        ├── MasterCategoryServiceImpl.java
-        ├── ServicePackageServiceImpl.java
-        ├── PackageItemServiceImpl.java
-        ├── AgencyStaffPackageServiceImpl.java
-        └── SurchargeServiceImpl.java
->>>>>>> Stashed changes
 ```
 
 ---
