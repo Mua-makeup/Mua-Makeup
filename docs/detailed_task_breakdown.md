@@ -66,8 +66,9 @@ flowchart TD
 
 ---
 
-## 📌 SPRINT 1: HỒ SƠ THỢ, STUDIO/ĐẠI LÝ & DANH MỤC GÓI DỊCH VỤ (12 ISSUES)
+## 📌 SPRINT 1: HỒ SƠ THỢ, STUDIO/ĐẠI LÝ & DANH MỤC GÓI DỊCH VỤ (13 ISSUES)
 
+<<<<<<< Updated upstream
 ### Bảng Phân rã Issues & Tiền điều kiện:
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Tiền điều kiện (Depends On) | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
@@ -93,6 +94,23 @@ flowchart TD
 * **Wave 3 (Gán gói cho thợ & Portfolio ảnh):**
   * `ISSUE-13.4` (Gán Gói Studio cho Thợ phụ trách - cần cả Gói và Thợ đã tạo xong).
   * `ISSUE-11.2` $\rightarrow$ `ISSUE-11.3` (Upload ảnh Showcase hoàn thiện).
+=======
+| Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **ISSUE-11.1** | User Story | Hồ sơ Thợ Make-up (`mua_profiles`), Bio & Chứng chỉ | To Do | - | Medium | BE2, FE2 |
+| **ISSUE-11.2** | Task | Upload CDN (Cloudinary/S3) nén ảnh Portfolio chất lượng cao | To Do | - | Medium | BE2, FE2 |
+| **ISSUE-11.3** | Task | Quản lý Album Ảnh sản phẩm hoàn thiện của khách trước đó (`staff_portfolio_showcases`) | To Do | - | High | BE2, FE2 |
+| **ISSUE-12.1** | User Story | Quản lý Studio / Đại lý (`agency_profiles`), Hotline & Mã giới thiệu thợ | To Do | - | Medium | BE1, FE3 |
+| **ISSUE-12.2** | Task | Quản lý Nhân viên Studio (`agency_staff`) & Duyệt thợ gia nhập | To Do | - | Medium | BE1, FE3 |
+| **ISSUE-12.3** | Task | Cấu hình % Hoa hồng nội bộ giữa Studio và Thợ làm việc | To Do | - | Medium | BE1, FE3 |
+| **ISSUE-12.4** | Task | Quản lý Năng lực thợ Studio theo Tone Make-up (`agency_staff_styles`) | To Do | - | High | BE2 |
+| **ISSUE-12.5** | Task | Bảng ma trận Xếp ca làm việc cố định theo tuần của Thợ Studio (`agency_staff_shifts`) & Theo dõi trạng thái ca làm | To Do | - | High | BE1, FE3 |
+| **ISSUE-13.1** | User Story | CRUD Master Categories & Tone Make-up (`master_service_categories`, `makeup_styles`) | To Do | - | Medium | BE2, FE1 |
+| **ISSUE-13.2** | Task | CRUD Gói dịch vụ Studio/Freelancer (`service_packages`) | To Do | - | Medium | BE2, FE1 |
+| **ISSUE-13.3** | Task | Chi tiết các bước thực hiện mặc định & Option mua thêm (`package_items`) | To Do | - | Medium | BE2, FE1 |
+| **ISSUE-13.4** | Task | Gán Kỹ năng Gói Dịch vụ cho thợ Studio (`agency_staff_services`) | To Do | - | Medium | BE2, FE3 |
+| **ISSUE-13.5** | Task | Cấu hình Phụ phí (`surcharges`): Làm sớm 3h-5h sáng, đi tỉnh & ngày Lễ/Tết | To Do | - | Medium | BE2, FE1 |
+>>>>>>> Stashed changes
 
 ---
 
@@ -253,6 +271,7 @@ flowchart TD
 ---
 
 ### 📊 TỔNG KẾT HỆ THỐNG JIRA BACKLOG:
+<<<<<<< Updated upstream
 - **Sprint 0**: 13 Issues (Khởi tạo Nền tảng Monolith, DB 26 Bảng & Auth JWT/RBAC).
 - **Sprint 1**: 12 Issues (Profile MUA, Studio Management, Taxonomy & Gói Dịch vụ).
 - **Sprint 2**: 11 Issues (Location Telemetry GPS, Redis GEO & Dynamic Pricing Engine).
@@ -261,3 +280,13 @@ flowchart TD
 - **Sprint 5**: 11 Issues (Ví 7 Bảng Sổ cái Kế toán Đúp, Escrow, MoMo/VNPay & Payout).
 - **Sprint 6**: 13 Issues (Review & Tip, Polish UI, Testing E2E/Load, Security & Go-Live).
 - **TỔNG CỘNG HỆ THỐNG**: **84 Issues chi tiết** có liên kết phụ thuộc chặt chẽ, đảm bảo không có task nào bị tắc nghẽn (blocked) trong quá trình thực thi Sprint!
+=======
+- **Sprint 0**: 13 Issues (Sprint Khởi tạo & DDL DB).
+- **Sprint 1**: 13 Issues (Profile, Studio, Xếp ca tuần & Gói dịch vụ).
+- **Sprint 2**: 11 Issues (Telemetry GPS & Pricing Engine).
+- **Sprint 3**: 13 Issues (Booking Engine 2 luồng & Dispatching).
+- **Sprint 4**: 11 Issues (Embedded WebSocket WSS Gateway & In-App Notifications).
+- **Sprint 5**: 11 Issues (Ví 7 Bảng Sổ cái & Cổng thanh toán Payout).
+- **Sprint 6**: 13 Issues (Review, Polish UI, Testing, Security & Go-Live).
+- **TỔNG CỘNG HỆ THỐNG**: **85 Issues chi tiết** phân bổ đều trong 7 Sprints (chuẩn 10-15 Issues / Sprint).
+>>>>>>> Stashed changes

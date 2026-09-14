@@ -1,0 +1,1257 @@
+{
+  "info": {
+    "_postman_id": "mua-makeup-platform-collection-v2",
+    "name": "MUA Makeup Booking Platform - Core API",
+    "description": "Toàn bộ REST API cho Makeup Booking Platform Monolith (Auth, Customer, MUA Profile & Portfolio, Agency & Staff, Master Taxonomy, Service Packages, Package Items, Surcharges, Admin Verification).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "muaId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "agencyId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "staffId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "invitationId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "inviteCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "packageId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "itemId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "surchargeId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "portfolioId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Authentication & Users",
+      "item": [
+        {
+          "name": "Register - Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"0981234567\",\n  \"email\": \"customer@gmail.com\",\n  \"password\": \"Password@123\",\n  \"fullName\": \"Nguyễn Thùy Linh\",\n  \"gender\": \"FEMALE\",\n  \"accountType\": \"CUSTOMER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Register - Freelancer MUA",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"0987654321\",\n  \"email\": \"mua.freelance@gmail.com\",\n  \"password\": \"Password@123\",\n  \"fullName\": \"Trần Thanh Tâm\",\n  \"gender\": \"FEMALE\",\n  \"accountType\": \"FREELANCER_MUA\",\n  \"muaDetails\": {\n    \"bio\": \"Chuyên gia trang điểm cô dâu tone Thái và Hàn Quốc\",\n    \"experienceYears\": 5,\n    \"maxServiceRadiusKm\": 25.5\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Register - Agency Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"0912345678\",\n  \"email\": \"agency.owner@gmail.com\",\n  \"password\": \"Password@123\",\n  \"fullName\": \"Lê Hoàng Nam\",\n  \"gender\": \"MALE\",\n  \"accountType\": \"AGENCY_ADMIN\",\n  \"agencyDetails\": {\n    \"agencyName\": \"Glamour Bridal Studio\",\n    \"hotline\": \"02838383838\",\n    \"addressStreet\": \"123 Nguyễn Huệ, Bến Nghé\",\n    \"district\": \"Quận 1\",\n    \"city\": \"Hồ Chí Minh\",\n    \"commissionRateInternal\": 15.00\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login (Tự động lưu Access & Refresh Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.accessToken) {",
+                  "        pm.collectionVariables.set(\"accessToken\", res.data.accessToken);",
+                  "        pm.environment.set(\"accessToken\", res.data.accessToken);",
+                  "        console.log(\"Đã lưu accessToken:\", res.data.accessToken);",
+                  "    }",
+                  "    if (res.data && res.data.refreshToken) {",
+                  "        pm.collectionVariables.set(\"refreshToken\", res.data.refreshToken);",
+                  "        pm.environment.set(\"refreshToken\", res.data.refreshToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginIdentifier\": \"0987654321\",\n  \"password\": \"Password@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User Me",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update Customer / User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Trần Thanh Tâm (Cập nhật)\",\n  \"avatarUrl\": \"https://res.cloudinary.com/makeup/image/upload/v1/avatar.jpg\",\n  \"gender\": \"FEMALE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customer/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customer", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Preferred Language",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"vi\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/language",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "language"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.accessToken) {",
+                  "        pm.collectionVariables.set(\"accessToken\", res.data.accessToken);",
+                  "        pm.environment.set(\"accessToken\", res.data.accessToken);",
+                  "        console.log(\"Đã cập nhật token mới vào accessToken:\", res.data.accessToken);",
+                  "    }",
+                  "    if (res.data && res.data.refreshToken) {",
+                  "        pm.collectionVariables.set(\"refreshToken\", res.data.refreshToken);",
+                  "        pm.environment.set(\"refreshToken\", res.data.refreshToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh-token"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password@123\",\n  \"newPassword\": \"NewPassword@456\",\n  \"confirmPassword\": \"NewPassword@456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "change-password"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Master Taxonomy",
+      "item": [
+        {
+          "name": "Get Master Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/master-categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "master-categories"]
+            }
+          }
+        },
+        {
+          "name": "Get Makeup Styles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/makeup-styles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "makeup-styles"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Freelance MUA Profile & Styles",
+      "item": [
+        {
+          "name": "Get My MUA Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile"]
+            }
+          }
+        },
+        {
+          "name": "Get Public MUA Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/{{muaId}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "{{muaId}}", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update My MUA Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Chuyên gia trang điểm cô dâu tone Thái, tone Tây và trang điểm tiệc cao cấp với 6 năm kinh nghiệm.\",\n  \"experienceYears\": 6,\n  \"maxServiceRadiusKm\": 30.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile"]
+            }
+          }
+        },
+        {
+          "name": "Assign MUA Styles",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"styleIds\": [1, 2, 3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/styles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "styles"]
+            }
+          }
+        },
+        {
+          "name": "Get My MUA Styles",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/styles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "styles"]
+            }
+          }
+        },
+        {
+          "name": "Upload Certificate / Bằng cấp nghề (Multipart)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "cert_name",
+                  "value": "Chứng chỉ Makeup Artist Chuyên Nghiệp Quốc Tế Pro Academy",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/certificates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "certificates"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. MUA Portfolio & Showcase",
+      "item": [
+        {
+          "name": "Create Portfolio Showcase (Multipart)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.collectionVariables.set(\"portfolioId\", res.data.id.toString());",
+                  "        pm.environment.set(\"portfolioId\", res.data.id.toString());",
+                  "        console.log(\"Đã lưu portfolioId:\", res.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image_file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "title",
+                  "value": "Makeup Cô Dâu Tone Thái Sang Trọng - Khách Hàng Thùy Tiên",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Tone màu nâu cam ấm kết hợp gẩy sợi mày chân thực và đôi môi căng mọng tự nhiên.",
+                  "type": "text"
+                },
+                {
+                  "key": "style_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "package_id",
+                  "value": "{{packageId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "is_featured",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "additional_files",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "portfolios"]
+            }
+          }
+        },
+        {
+          "name": "Update Portfolio Showcase",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Makeup Cô Dâu Tone Thái Luxury (Cập nhật 2026)\",\n  \"description\": \"Sử dụng mỹ phẩm Dior & Chanel cao cấp, lớp nền giữ trọn 24h.\",\n  \"styleId\": 1,\n  \"packageId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}"]
+            }
+          }
+        },
+        {
+          "name": "Toggle Portfolio Featured Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isFeatured\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}/featured",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}", "featured"]
+            }
+          }
+        },
+        {
+          "name": "Toggle Portfolio Visibility Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isVisible\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}/visibility",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}", "visibility"]
+            }
+          }
+        },
+        {
+          "name": "Get My Portfolios (Phân trang)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios?page=0&size=12",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "portfolios"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "12" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Portfolio Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Public Gallery of MUA",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/{{muaId}}/portfolios?page=0&size=12&style_id=1&is_featured=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "{{muaId}}", "portfolios"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "12" },
+                { "key": "style_id", "value": "1" },
+                { "key": "is_featured", "value": "true" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Portfolio (Soft Delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Agency / Studio Profile & Management",
+      "item": [
+        {
+          "name": "Get My Agency Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Get Public Agency Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/{{agencyId}}/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "{{agencyId}}", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Agency Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agencyName\": \"Glamour Bridal Studio VIP\",\n  \"hotline\": \"02838383839\",\n  \"addressStreet\": \"125 Nguyễn Huệ, Phường Bến Nghé\",\n  \"district\": \"Quận 1\",\n  \"city\": \"Hồ Chí Minh\",\n  \"logoUrl\": \"https://res.cloudinary.com/makeup/image/upload/v1/studio-logo.png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Studio Default Commission Rate",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"commissionRateInternal\": 18.50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/commission",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "commission"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Agency Staff & Invitations",
+      "item": [
+        {
+          "name": "Create Invitation (Sinh mã mời thợ)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.inviteCode) {",
+                  "        pm.collectionVariables.set(\"inviteCode\", res.data.inviteCode);",
+                  "        pm.environment.set(\"inviteCode\", res.data.inviteCode);",
+                  "        console.log(\"Đã lưu inviteCode:\", res.data.inviteCode);",
+                  "    }",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.collectionVariables.set(\"invitationId\", res.data.id.toString());",
+                  "        pm.environment.set(\"invitationId\", res.data.id.toString());",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiresInDays\": 7,\n  \"note\": \"Mời Thợ Trang Điểm Chuyên Nghiệp tham gia chi nhánh Quận 1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "invitations"]
+            }
+          }
+        },
+        {
+          "name": "Get Studio Invitations",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "invitations"]
+            }
+          }
+        },
+        {
+          "name": "Cancel Invitation",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/invitations/{{invitationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "invitations", "{{invitationId}}"]
+            }
+          }
+        },
+        {
+          "name": "Accept Invitation (MUA gia nhập Studio)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inviteCode\": \"{{inviteCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/invitations/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "invitations", "accept"]
+            }
+          }
+        },
+        {
+          "name": "Get Studio Staff List (Phân trang)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/staff?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "staff"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Staff Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "staff", "{{staffId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Staff Status (ACTIVE / SUSPENDED / LEFT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\",\n  \"note\": \"Thợ đã hoàn thành thử việc xuất sắc, chính thức tiếp nhận ca khách\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "staff", "{{staffId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Update Staff Custom Commission Rate",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agreedCommissionRate\": 20.00\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}/commission",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "staff", "{{staffId}}", "commission"]
+            }
+          }
+        },
+        {
+          "name": "Remove Staff from Studio",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agency", "staff", "{{staffId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Service Packages",
+      "item": [
+        {
+          "name": "Create Service Package",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.collectionVariables.set(\"packageId\", res.data.id.toString());",
+                  "        pm.environment.set(\"packageId\", res.data.id.toString());",
+                  "        console.log(\"Đã lưu packageId:\", res.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"masterCategoryId\": 1,\n  \"packageName\": \"Gói Trang Điểm Cô Dâu VIP (Tone Thái Luxury)\",\n  \"description\": \"Dưỡng da chuyên sâu, nền bền chống nước 24h, kèm dặm phấn tận nơi\",\n  \"price\": 2500000.00,\n  \"estimatedDurationMinutes\": 120,\n  \"styleIds\": [1, 2],\n  \"items\": [\n    {\n      \"itemType\": \"COMPONENT\",\n      \"itemName\": \"Chăm sóc dưỡng ẩm da & đắp mask sinh học\",\n      \"stepOrder\": 1,\n      \"itemPrice\": 0.00,\n      \"isRequired\": true,\n      \"isActive\": true\n    },\n    {\n      \"itemType\": \"COMPONENT\",\n      \"itemName\": \"Makeup tone Thái sang trọng & gẩy sợi chân mày\",\n      \"stepOrder\": 2,\n      \"itemPrice\": 0.00,\n      \"isRequired\": true,\n      \"isActive\": true\n    },\n    {\n      \"itemType\": \"ADD_ON\",\n      \"itemName\": \"Trang điểm người nhà đi kèm\",\n      \"stepOrder\": 3,\n      \"itemPrice\": 500000.00,\n      \"isRequired\": false,\n      \"isActive\": true\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages"]
+            }
+          }
+        },
+        {
+          "name": "Update Service Package",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"masterCategoryId\": 1,\n  \"packageName\": \"Gói Trang Điểm Cô Dâu VIP (Cập nhật 2026)\",\n  \"description\": \"Tặng kèm son dưỡng và kit dặm nền mini\",\n  \"price\": 2800000.00,\n  \"estimatedDurationMinutes\": 150,\n  \"isAvailable\": true,\n  \"styleIds\": [1, 2, 3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}"]
+            }
+          }
+        },
+        {
+          "name": "Toggle Package Availability",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/availability?isAvailable=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}", "availability"],
+              "query": [
+                { "key": "isAvailable", "value": "true" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Packages",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/my",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "my"]
+            }
+          }
+        },
+        {
+          "name": "Get Package By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}"]
+            }
+          }
+        },
+        {
+          "name": "Filter Packages (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages?categoryId=1&availableOnly=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages"],
+              "query": [
+                { "key": "categoryId", "value": "1" },
+                { "key": "availableOnly", "value": "true" },
+                { "key": "muaId", "value": "{{muaId}}", "disabled": true },
+                { "key": "agencyId", "value": "{{agencyId}}", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Package",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Package Items & Add-ons",
+      "item": [
+        {
+          "name": "Add Item / Add-on to Package",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.collectionVariables.set(\"itemId\", res.data.id.toString());",
+                  "        pm.environment.set(\"itemId\", res.data.id.toString());",
+                  "        console.log(\"Đã lưu itemId:\", res.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemType\": \"ADD_ON\",\n  \"itemName\": \"Đính đá Swarovski mắt & môi\",\n  \"stepOrder\": 4,\n  \"itemPrice\": 150000.00,\n  \"isRequired\": false,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Update Package Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemType\": \"ADD_ON\",\n  \"itemName\": \"Đính đá Swarovski mắt cao cấp\",\n  \"stepOrder\": 4,\n  \"itemPrice\": 200000.00,\n  \"isRequired\": false,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}", "items", "{{itemId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Items of Package",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}", "items"]
+            }
+          }
+        },
+        {
+          "name": "Delete Package Item",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "packages", "{{packageId}}", "items", "{{itemId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Surcharges",
+      "item": [
+        {
+          "name": "Configure Surcharge",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.collectionVariables.set(\"surchargeId\", res.data.id.toString());",
+                  "        pm.environment.set(\"surchargeId\", res.data.id.toString());",
+                  "        console.log(\"Đã lưu surchargeId:\", res.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surchargeName\": \"Phụ phí làm sớm trước 06:00 sáng\",\n  \"surchargeType\": \"EARLY_MORNING\",\n  \"amount\": 200000.00,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/surcharges",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "surcharges"]
+            }
+          }
+        },
+        {
+          "name": "Update Surcharge",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"surchargeName\": \"Phụ phí làm sớm trước 05:30 sáng\",\n  \"surchargeType\": \"EARLY_MORNING\",\n  \"amount\": 250000.00,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/surcharges/{{surchargeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "surcharges", "{{surchargeId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get My Surcharges",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/surcharges/my",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "surcharges", "my"]
+            }
+          }
+        },
+        {
+          "name": "List Surcharges by Owner (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/surcharges?muaId={{muaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "surcharges"],
+              "query": [
+                { "key": "muaId", "value": "{{muaId}}" },
+                { "key": "agencyId", "value": "{{agencyId}}", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Calculate Surcharges (Public)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"muaId\": 1,\n  \"bookingTime\": \"2026-10-20T04:30:00\",\n  \"distanceKm\": 15.5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/surcharges/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "surcharges", "calculate"]
+            }
+          }
+        },
+        {
+          "name": "Delete Surcharge",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/surcharges/{{surchargeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "surcharges", "{{surchargeId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Admin Management",
+      "item": [
+        {
+          "name": "Verify MUA Certificate / Credential",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"certIndex\": 0,\n  \"imageUrl\": \"https://res.cloudinary.com/makeup/image/upload/v1/cert.jpg\",\n  \"isVerified\": true,\n  \"notes\": \"Bằng cấp hợp lệ, đã đối soát với đơn vị cấp chứng chỉ\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/muas/{{muaId}}/certificates/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "muas", "{{muaId}}", "certificates", "verify"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -25,9 +25,13 @@ makeup-platform/
 │   │   ├── schema.sql                  # Script DDL toàn bộ 25+ bảng CSDL PostgreSQL + PostGIS
 │   │   ├── database-design.md          # Thuyết minh chi tiết các bảng, quan hệ và kiểu dữ liệu
 │   │   └── erd-diagram.png             # Hình ảnh sơ đồ thực thể liên kết ERD
-│   └── UI/UX style guideline/          # Bộ quy chuẩn giao diện thiết kế
-│       ├── design-tokens.json          # Bảng mã màu chủ đạo, typography, spacing
-│       └── design-system.md            # Hướng dẫn component UI, Responsive guideline
+│   ├── UI/UX style guideline/          # Bộ quy chuẩn giao diện thiết kế
+│   │   ├── design-tokens.json          # Bảng mã màu chủ đạo, typography, spacing
+│   │   └── design-system.md            # Hướng dẫn component UI, Responsive guideline
+│   └── postman/                        # Bộ sưu tập Postman Collection & Environment
+│       ├── Mua_Makeup_Local.postman_environment.json
+│       ├── Mua_Makeup_Platform.postman_collection.json
+│       └── README.md
 │
 ├── code/                               # Mã nguồn thực thi của toàn bộ hệ thống
 │   ├── frontend/                       # Ứng dụng Web Client (React JS + Vite)
