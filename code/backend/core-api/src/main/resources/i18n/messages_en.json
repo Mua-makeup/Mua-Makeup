@@ -164,5 +164,20 @@
   "Tài khoản đã bị khóa hoặc vô hiệu hóa.": "Account has been locked or disabled.",
   "Mật khẩu hiện tại không chính xác.": "Current password is incorrect.",
   "Xác nhận mật khẩu mới không trùng khớp.": "New password confirmation does not match.",
-  "Mật khẩu mới không được trùng với mật khẩu hiện tại.": "New password cannot be the same as old password."
+  "Mật khẩu mới không được trùng với mật khẩu hiện tại.": "New password cannot be the same as old password.",
+  "telemetry": {
+    "availability_online_success": "Switched to available for booking.",
+    "availability_offline_success": "Switched to resting / offline.",
+    "stream_success": "GPS location updated successfully.",
+    "nearby_query_success": "Retrieved nearby artists and studios successfully.",
+    "live_track_success": "Retrieved real-time tracking information successfully.",
+    "trip_history_success": "Retrieved trip history route successfully.",
+    "trip_compress_success": "Compressed trip route successfully."
+  },
+  "ERR_LOCATION_INVALID": "Invalid GPS coordinates (Latitude: -90 to 90, Longitude: -180 to 180).",
+  "ERR_GEO_EMPTY": "No available artists or studios found within the requested radius.",
+  "ERR_MUA_NOT_AVAILABLE": "Makeup artist is currently not available.",
+  "ERR_GPS_ACCURACY_TOO_LOW": "GPS accuracy is too low (accuracy error exceeds 50m).",
+  "ERR_SPEED_ABNORMAL": "Abnormal speed detected exceeding safe threshold (120 km/h).",
+  "ERR_TRIP_NOT_FOUND": "Trip route data not found for this booking."
 }

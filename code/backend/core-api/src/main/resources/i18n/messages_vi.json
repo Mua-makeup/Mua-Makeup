@@ -122,5 +122,20 @@
   "Chỉ số trang tối thiểu là 0": "Chỉ số trang tối thiểu là 0.",
   "Kích thước trang tối thiểu là 1": "Kích thước trang tối thiểu là 1.",
   "Kích thước trang tối đa không được vượt quá 50": "Kích thước trang tối đa không được vượt quá 50.",
+  "telemetry": {
+    "availability_online_success": "Đã chuyển sang trạng thái sẵn sàng nhận việc.",
+    "availability_offline_success": "Đã chuyển sang trạng thái nghỉ ngơi / offline.",
+    "stream_success": "Cập nhật vị trí GPS thành công.",
+    "nearby_query_success": "Quét danh sách thợ và studio lân cận thành công.",
+    "live_track_success": "Lấy thông tin theo dõi di chuyển thời gian thực thành công.",
+    "trip_history_success": "Lấy lịch sử lộ trình di chuyển thành công.",
+    "trip_compress_success": "Nén lộ trình chuyến đi thành công."
+  },
+  "ERR_LOCATION_INVALID": "Tọa độ GPS không hợp lệ (Vĩ độ: -90 đến 90, Kinh độ: -180 đến 180).",
+  "ERR_GEO_EMPTY": "Không tìm thấy thợ hoặc studio nào trong bán kính yêu cầu.",
+  "ERR_MUA_NOT_AVAILABLE": "Thợ trang điểm hiện không ở trạng thái sẵn sàng.",
+  "ERR_GPS_ACCURACY_TOO_LOW": "Độ chính xác GPS quá thấp (độ lệch vượt quá 50m).",
+  "ERR_SPEED_ABNORMAL": "Vận tốc di chuyển bất thường vượt quá giới hạn an toàn (120 km/h).",
+  "ERR_TRIP_NOT_FOUND": "Không tìm thấy dữ liệu lộ trình cho chuyến đi này.",
   "Tên chứng chỉ không được để trống": "Tên chứng chỉ không được để trống."
 }

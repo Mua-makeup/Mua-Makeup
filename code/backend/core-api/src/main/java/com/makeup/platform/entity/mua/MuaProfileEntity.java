@@ -2,6 +2,7 @@ package com.makeup.platform.entity.mua;
 
 import com.makeup.platform.common.base.BaseEntity;
 import com.makeup.platform.entity.auth.UserEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -13,12 +14,19 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.makeup.platform.entity.telemetry.AvailabilityStatus;
+
+import jakarta.persistence.EnumType;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 
 @Entity
 @Table(name = "mua_profiles", schema = "mua_schema")
@@ -54,6 +62,11 @@ public class MuaProfileEntity extends BaseEntity {
     @Column(name = "is_busy", nullable = false)
     @Builder.Default
     private Boolean isBusy = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "availability_status", nullable = false, length = 20)
+    @Builder.Default
+    private AvailabilityStatus availabilityStatus = AvailabilityStatus.OFFLINE;
 
     @Column(name = "rating_avg", precision = 3, scale = 2)
     @Builder.Default
