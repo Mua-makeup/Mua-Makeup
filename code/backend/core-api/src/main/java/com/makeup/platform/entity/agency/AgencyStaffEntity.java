@@ -39,11 +39,11 @@ public class AgencyStaffEntity extends BaseEntity {
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private Boolean isActive = true;
+    private Boolean isActive = false;
 
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "ACTIVE";
+    private String status = "PENDING";
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;

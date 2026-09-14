@@ -4,6 +4,7 @@ import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.dto.request.agency.AcceptInvitationReq;
 import com.makeup.platform.dto.request.agency.CreateInvitationReq;
+import com.makeup.platform.dto.request.agency.ReviewStaffApplicationReq;
 import com.makeup.platform.dto.request.agency.UpdateStaffCommissionReq;
 import com.makeup.platform.dto.request.agency.UpdateStaffStatusReq;
 import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
@@ -26,18 +27,19 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/agency")
+@RequestMapping({"/api/v1/agencies", "/api/v1/agency"})
 @RequiredArgsConstructor
 public class AgencyStaffController extends BaseController {
 
     private final AgencyStaffService agencyStaffService;
 
-    // --- MÃ MỜI STUDIO (ISSUE-12.1, ISSUE-12.2) ---
+    // --- MÃ MỜI STUDIO QUA REDIS (ISSUE-12.1, ISSUE-12.2) ---
 
     @PostMapping("/invitations")
     @PreAuthorize("hasRole('AGENCY_ADMIN')")
@@ -56,12 +58,12 @@ public class AgencyStaffController extends BaseController {
         return ok(res, "agency.invitation_list_success");
     }
 
-    @DeleteMapping("/invitations/{id}")
+    @DeleteMapping("/invitations/{inviteCode}")
     @PreAuthorize("hasRole('AGENCY_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> cancelInvitation(
             @AuthenticationPrincipal Long userId,
-            @PathVariable Long id) {
-        agencyStaffService.cancelInvitation(userId, id);
+            @PathVariable String inviteCode) {
+        agencyStaffService.cancelInvitation(userId, inviteCode);
         return ok(null, "agency.invitation_cancel_success");
     }
 
@@ -74,24 +76,35 @@ public class AgencyStaffController extends BaseController {
         return ok(res, "agency.invitation_accept_success");
     }
 
-    // --- QUẢN LÝ NHÂN VIÊN STUDIO (ISSUE-12.2) ---
+    // --- QUẢN LÝ NHÂN VIÊN STUDIO & PHÊ DUYỆT ĐƠN (ISSUE-12.2) ---
 
     @GetMapping("/staff")
-    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    @PreAuthorize("hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')")
     public ResponseEntity<ApiResponse<Page<AgencyStaffRes>>> getStaffList(
             @AuthenticationPrincipal Long userId,
+            @RequestParam(value = "status", required = false) String status,
             @PageableDefault(size = 20, sort = "joinedAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<AgencyStaffRes> res = agencyStaffService.getStaffList(userId, pageable);
+        Page<AgencyStaffRes> res = agencyStaffService.getStaffList(userId, status, pageable);
         return ok(res, "agency.staff_list_success");
     }
 
     @GetMapping("/staff/{staffId}")
-    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    @PreAuthorize("hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')")
     public ResponseEntity<ApiResponse<AgencyStaffDetailRes>> getStaffDetail(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long staffId) {
         AgencyStaffDetailRes res = agencyStaffService.getStaffDetail(userId, staffId);
         return ok(res, "agency.staff_detail_success");
+    }
+
+    @PutMapping("/staff/{staffId}/review")
+    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    public ResponseEntity<ApiResponse<AgencyStaffRes>> reviewStaffApplication(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long staffId,
+            @Valid @RequestBody ReviewStaffApplicationReq req) {
+        AgencyStaffRes res = agencyStaffService.reviewStaffApplication(userId, staffId, req);
+        return ok(res, "agency.staff_review_success");
     }
 
     @PutMapping("/staff/{staffId}/status")

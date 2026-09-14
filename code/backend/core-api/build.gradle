@@ -39,6 +39,10 @@ dependencies {
     // Cloud Media CDN (Cloudinary SDK)
     implementation 'com.cloudinary:cloudinary-http44:1.38.0'
 
+    // QR Code Generation (ZXing)
+    implementation 'com.google.zxing:core:3.5.3'
+    implementation 'com.google.zxing:javase:3.5.3'
+
 
     // JWT (JJWT 0.11.5)
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'

@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/agency")
+@RequestMapping({"/api/v1/agencies", "/api/v1/agency"})
 @RequiredArgsConstructor
 public class AgencyProfileController extends BaseController {
 

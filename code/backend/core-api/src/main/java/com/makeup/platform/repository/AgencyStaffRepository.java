@@ -20,6 +20,8 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
 
     Page<AgencyStaffEntity> findByAgencyId(Long agencyId, Pageable pageable);
 
+    Page<AgencyStaffEntity> findByAgencyIdAndStatus(Long agencyId, String status, Pageable pageable);
+
     List<AgencyStaffEntity> findByAgencyIdAndIsActiveTrue(Long agencyId);
 
     List<AgencyStaffEntity> findByAgencyIdAndStatus(Long agencyId, String status);

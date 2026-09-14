@@ -1,10 +1,11 @@
-package com.makeup.platform.dto.response.agency;
+package com.makeup.platform.dto.agency;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AgencyInvitationRes {
+public class AgencyInvitationRedisDto implements Serializable {
 
     private String inviteCode;
     private Long agencyId;
@@ -20,8 +21,6 @@ public class AgencyInvitationRes {
     private Long invitedByUserId;
     private String note;
     private BigDecimal proposedCommissionRate;
-    private String inviteUrl;
-    private String qrCodeBase64;
-    private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
+    private LocalDateTime expiresAt;
 }
