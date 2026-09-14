@@ -13,16 +13,19 @@ Mục đích của dự án Nền tảng Đặt lịch Make-up (Makeup Booking P
   * **Luồng Đặt Ngay Realtime (Instant Booking):** Đáp ứng nhu cầu cần thợ trang điểm gấp trong vòng 30-60 phút.
   * **Luồng Đặt Lịch Hẹn Trước (Scheduled Booking):** Cho phép đặt lịch cho các sự kiện tương lai (đám cưới, kỷ yếu, sự kiện).
 * **Hệ thống Thông báo Trực tiếp trên App (In-App Realtime Notifications via In-Memory EventBus):** Đẩy thông báo tức thì (<100ms) trực tiếp trên giao diện Ứng dụng qua kết nối Embedded WebSocket & Spring In-Memory EventBus (`ApplicationEventPublisher`), hoàn toàn loại bỏ sự phụ thuộc vào Email.
-* **Đầy đủ Đặc tả Backend Monolith & Frontend Multi-platform:** Cung cấp chi tiết kiến trúc Backend Layered Architecture Monolith (`core-api`), Mô hình Phân quyền RBAC 4 Bảng, Phân vùng Ví 7 Bảng Sổ cái Kế toán Đúp, Database PostgreSQL + PostGIS 26 Bảng cốt lõi chia thành 8 Schemas độc lập và Giao diện Ứng dụng Mobile App / Web App cho cả 3 nhóm người dùng.
+* **Đầy đủ Đặc tả Backend Monolith & Frontend Phân hệ Độc lập:** Cung cấp chi tiết kiến trúc Backend Layered Architecture Monolith (`core-api`), Mô hình Phân quyền RBAC 4 Bảng, Phân vùng Ví 7 Bảng Sổ cái Kế toán Đúp, Database PostgreSQL + PostGIS 28 Bảng cốt lõi chia thành 8 Schemas độc lập; đồng thời quy định chuẩn hóa cấu trúc Frontend:
+  * **Cổng thông tin Web Quản trị (Web Portal):** Phát triển trên nền tảng **ReactJS + JavaScript (JSX)** phục vụ Quản trị viên Sàn (`ROLE_SUPER_ADMIN`) và Ban điều hành/Nhân viên Đại lý Studio (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`).
+  * **Ứng dụng Di động Đa nền tảng (Mobile App):** Phát triển trên nền tảng **React Native + TypeScript (TSX)** phục vụ Khách hàng đặt dịch vụ (`ROLE_CUSTOMER`) và Thợ Make-up nhận ca (`ROLE_FREELANCE_MUA`).
 
 ### 2. Phạm vi hệ thống (System Scope)
 * **Trong phạm vi (In-Scope):**
-  * **Phân hệ Khách hàng (Customer Mobile / Web App):** Giao diện Đặt lịch 2 luồng, Khám phá vị trí, Live Tracking GPS thợ, In-App Toast Popup, Thanh toán Ví/Thẻ, Đánh giá & Tip.
-  * **Phân hệ Thợ Make-up Tự do (Freelance MUA Mobile App):** Giao diện Popup đếm ngược 30s nhận ca, Quản lý Portfolio Album hoàn thiện, Bật/Tắt phát sóng GPS, Ví cá nhân & Rút tiền Ngân hàng.
-  * **Phân hệ Đại lý Make-up (Agency Studio Web Portal):** Dashboard quản lý thợ, Giao diện Điều phối Dispatching thợ chính/phụ, Quản lý kỹ năng phong cách thợ (`agency_staff_styles`), Ví đại lý & Payout API.
-  * **Hệ thống Backend Monolith:** Đóng gói đơn lẻ trong 1 ứng dụng Spring Boot (`core-api`: 8080) gồm 10 Domain Modules, **Embedded WebSocket Gateway** và Event-Driven Architecture nội bộ qua Spring `ApplicationEventPublisher`.
+  * **Cổng Thông tin Web Quản trị Sàn (Super Admin Web Portal - ReactJS + JavaScript):** Dashboard KPI toàn sàn, Phê duyệt chứng chỉ thợ (`/api/v1/admin/muas/{id}/certificates/verify`), Thẩm định đại lý mới, Quản trị danh mục gốc (Master Categories / Styles), Điều chỉnh Surge Pricing, Trung tâm giải quyết khiếu nại (Dispute Resolution & Escrow Refund), Quản lý Ví đối soát Sàn & Phê duyệt Payout.
+  * **Cổng Thông tin Web Quản lý Studio (Agency Admin Web Portal - ReactJS + JavaScript):** Dashboard doanh thu Studio, Quản lý hồ sơ nhân sự thợ (`agency_staff`), Ma trận xếp ca làm việc tuần (`agency_staff_shifts`), Bảng điều phối Job (Dispatching Board: Gán Thợ chính/Thợ phụ/Đổi thợ khẩn cấp), Quản trị bảng giá & phụ phí studio, Quản lý Quy chế Quá giờ & Duyệt giải trình ca làm vượt thời gian (`agency_overtime_rules`, `agency_staff_overtime_reports`), Ví Studio & Yêu cầu rút tiền.
+  * **Ứng dụng Di động Khách hàng (Customer Mobile App - React Native + TypeScript):** Radar GPS quét thợ xung quanh theo bán kính PostGIS/Redis GEO, Đặt lịch 2 luồng (Realtime khẩn cấp 30-60 phút & Scheduled hẹn trước), Live Tracking vị trí thợ di chuyển trên bản đồ qua WebSocket STOMP, Cổng thanh toán giữ cọc Escrow (MoMo, VNPay, VietQR, ZaloPay), Nghiệm thu ca làm, Đánh giá 1-5★, Tip tiền thợ.
+  * **Ứng dụng Di động Thợ Make-up (MUA Mobile App - React Native + TypeScript):** Nút công tắc chuyển đổi trạng thái Sẵn sàng/Bận, Dịch vụ chạy ngầm phát sóng tọa độ GPS Telemetry (5-10s), Popup đếm ngược 30s-45s nhận đơn khẩn cấp có âm thanh cảnh báo, Quy trình 5 chặng thực hiện ca làm việc (Bắt đầu đi $\rightarrow$ Đến nơi $\rightarrow$ Bắt đầu làm $\rightarrow$ Chụp ảnh nghiệm thu $\rightarrow$ Hoàn thành), Nộp giải trình quá giờ kèm ảnh đối chứng khi vượt thời lượng dự kiến, Lịch bận cá nhân (`mua_calendars`), Xem ca trực Studio (`agency_staff_shifts`), Quản lý Portfolio Album mẫu, Ví thợ & Yêu cầu Payout về ngân hàng cá nhân.
+  * **Hệ thống Backend Monolith:** Đóng gói đơn lẻ trong 1 ứng dụng Spring Boot (`core-api`: 8080) gồm 11 Domain Modules, **Embedded WebSocket Gateway** (`/ws-makeup`) và Event-Driven Architecture nội bộ qua Spring `ApplicationEventPublisher`.
 * **Ngoài phạm vi (Out-of-Scope):**
-  * Tích hợp máy POS phần cứng tại cửa hàng vật lý.
+  * Tích hợp máy POS quẹt thẻ phần cứng tại cửa hàng vật lý.
   * Gửi Email thông báo truyền thống (thay thế 100% bằng In-App Realtime Notifications qua Embedded WebSocket & In-Memory EventBus).
 
 ### 3. Mục tiêu hệ thống (System Objective)
@@ -146,10 +149,10 @@ Hệ thống được xây dựng trên nền tảng công nghệ hiện đại,
 | | Không gian Địa lý (GIS) | **PostGIS 3.4 Extension** | Xử lý tọa độ địa lý, chỉ mục không gian `GIST(location_point)`, tính khoảng cách cầu phẳng `ST_DistanceSphere` và quét bán kính `ST_DWithin`. |
 | | In-Memory Cache & GEO | **Redis 7.2** | Cấu trúc dữ liệu `GEOADD` / `GEORADIUS` quét thợ rảnh thời gian thực theo tọa độ GPS, lưu Session và Cache dữ liệu truy vấn cao. |
 | | Migration Công cụ | **Flyway 10.x** | Tự động hóa quản lý và đồng bộ phiên bản cấu trúc Database DDL giữa các môi trường phát triển và Production. |
-| **Frontend Clients** | Mobile App (Khách & Thợ) | **Flutter 3.22+ / Dart** (hoặc **React Native**) | Đa nền tảng (iOS & Android) từ một codebase duy nhất, render đồ họa Skia 60fps mượt mà, hỗ trợ background GPS tracking. |
-| | Web Portal (Studio & Admin)| **Next.js 14 (App Router) & React 18** | Tối ưu hóa SEO, Server-Side Rendering (SSR), quản lý trạng thái phức tạp cho Dashboard điều phối Dispatching và Ma trận xếp ca. |
-| | UI & Styling Framework | **Tailwind CSS & Shadcn UI** | Thiết kế giao diện hiện đại, chuẩn Responsive trên Desktop, Tablet và Mobile. |
-| | Bản đồ & Định vị SDK | **Google Maps SDK / Goong Maps API** | Tìm kiếm địa điểm (Autocomplete Places), tính toán ma trận khoảng cách và dẫn đường cho thợ. |
+| **Frontend Clients** | Mobile App (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`) | **React Native (0.74+) & TypeScript (TSX)** | Đa nền tảng (iOS & Android) từ một codebase duy nhất, Static Typing TypeScript an toàn, React Navigation v6, tích hợp Native Modules phát sóng GPS ngầm (Background Task) và kết nối STOMP WSS. |
+| | Web Portal (`ROLE_SUPER_ADMIN`, `ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`) | **React 18 & JavaScript (JSX) + Vite** | Tốc độ bundle siêu nhanh với Vite, SPA gọn nhẹ, tối ưu hóa giao diện quản trị dữ liệu mật độ cao (Data-Dense Dashboard, Ma trận xếp ca, Bảng điều phối Dispatching thợ). |
+| | UI & Styling Framework | **Tailwind CSS & Shadcn UI (Web) / NativeWind (Mobile)** | Thiết kế hệ thống Design Token đồng nhất (Luxury Beauty Palette: Vàng Champagne, Hồng Rose Gold, Đen Obsidian), chuẩn Responsive mượt mà. |
+| | Bản đồ & Định vị SDK | **React Native Maps / Google Maps & Goong Maps API** | Tìm kiếm địa điểm (Autocomplete Places), Geocoding, tính toán ma trận khoảng cách km và render Live Tracking thợ di chuyển. |
 | **Giao tiếp Realtime** | WebSocket Protocol | **Spring WebSocket & STOMP (WSS)** | Kênh kết nối 2 chiều mã hóa TLS/SSL phục vụ Broadcast Popup đếm ngược nhận ca và Live Tracking GPS thợ di chuyển. |
 | | WebSocket Scale Adapter | **Redis Pub/Sub** | Cho phép đồng bộ màng lưới kết nối WebSocket khi scale ngang Monolith Core qua nhiều máy chủ. |
 | **Hạ tầng & Dịch vụ Bên ngoài** | Containerization | **Docker & Docker Compose** | Đóng gói môi trường đồng nhất giữa Local, Staging và Production (PostgreSQL, PostGIS, Redis). |
@@ -204,40 +207,150 @@ Bảng quy tắc chuyển đổi trạng thái Máy trạng thái Đơn hàng (B
 
 ## III. ĐẶC TẢ CHI TIẾT GIAO DIỆN & MÀN HÌNH FRONTEND (CLIENT UI/UX SPECIFICATION)
 
-### 1. Phân hệ App Khách hàng (Customer Mobile / Web App)
+### 1. Kiến trúc Tổng thể & Phân tách Nền tảng Frontend
 
-| Tên Màn hình UI | Thành phần Giao diện (UI Components) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) |
-| :--- | :--- | :--- |
-| **Trang chủ & Khám phá<br>(Home & Discovery)** | • Bản đồ hiển thị Pin vị trí các Thợ/Studio rảnh gần nhất.<br>• Thanh tìm kiếm theo tên thợ, phong cách make-up.<br>• Tab chuyển đổi: **[Đại lý / Studio]** vs **[Thợ Tự do]**.<br>• Carousel Banner ưu đãi & Gói dịch vụ HOT. | • Gọi Telemetry API/Service quét thợ gần nhất trong bán kính $R$ km.<br>• Bộ lọc nâng cao theo Mức giá, Rating 1-5★, Khung giờ rảnh.<br>• Chuyển sang màn hình Profile khi bấm vào Pin/Card. |
-| **Profile Thợ / Studio<br>(Profile & Portfolio)** | • Ảnh đại diện, Bio phong cách, Số năm kinh nghiệm, Chứng chỉ.<br>• Điểm Rating & Danh sách Đánh giá từ khách hàng cũ.<br>• Album ảnh sản phẩm hoàn thiện của khách trước đó (`portfolio_showcases`).<br>• Danh sách Bảng giá gói dịch vụ & Phụ phí niêm yết. | • Tải danh mục gói từ Catalog Controller/Service.<br>• Tải danh sách ảnh mẫu thực tế từ `portfolio_showcases`.<br>• Nút "Đặt ngay (Realtime)" & "Đặt lịch hẹn trước (Scheduled)". |
-| **Đặt lịch 2 Luồng<br>(Booking Flow)** | • Form chọn Ngày/Giờ (Scheduled) hoặc Đặt gấp 30-60 phút (Realtime).<br>• Ô nhập Địa điểm trang điểm (Tích hợp Google Autocomplete Places).<br>• Bảng tính tiền chi tiết minh bạch: *Giá gói + Phí km + Phụ phí - Voucher*. | • Trích xuất tọa độ GPS nhà khách.<br>• Gọi Dynamic Pricing API trả về hóa đơn chi tiết realtime.<br>• Màn hình Chờ đếm ngược (Luồng Realtime) hiển thị đĩa quay tìm thợ. |
-| **Tracking Thợ Realtime<br>(Live Location Tracking)** | • Bản đồ hiển thị icon Thợ đang di chuyển Realtime về nhà khách.<br>• Khung thông tin Thợ: Tên, SĐT, Thời gian dự kiến đến (ETA).<br>• Nút bấm: Chat In-App, Gọi điện trực tiếp. | • Đăng ký kênh WebSocket `location-stream-{booking_id}`.<br>• Render vị trí thợ di chuyển mượt mà trên bản đồ từ dữ liệu GPS nhận qua WSS.<br>• Cập nhật trạng thái ca làm Realtime. |
-| **Ví Khách & Thanh toán<br>(Wallet & Payment)** | • Số dư Ví khách, Nút Nạp tiền.<br>• Danh sách Phương thức thanh toán (MoMo, VNPay, ZaloPay, Thẻ, Tiền mặt).<br>• Lịch sử giao dịch & biên lai thanh toán. | • Gọi Wallet/Payment API khởi tạo giao dịch thanh toán/nạp tiền.<br>• Mở SDK Thanh toán MoMo/VNPay/ZaloPay.<br>• Nhận Webhook xác nhận nạp tiền thành công. |
-| **Đánh giá & Tip<br>(Review & Tip)** | • Chọn số sao (1-5★), Nhập câu nhận xét.<br>• Khung chọn số tiền Tip cho thợ (20k, 50k, 100k hoặc tùy chọn).<br>• Nút Tải ảnh sản phẩm hoàn thành sau make-up. | • Gửi đánh giá về Review API/Service.<br>• Trừ tiền Tip từ Ví khách/Cổng thanh toán để chuyển trực tiếp cho Thợ. |
+Để đáp ứng tối đa tính chuyên dụng của từng nhóm đối tượng sử dụng, hệ thống giao diện Frontend được tách biệt thành 2 nền tảng công nghệ riêng biệt:
+
+```
+                                +-------------------------------------------------------+
+                                |             HỆ THỐNG GIAO DIỆN FRONTEND               |
+                                +---------------------------+---------------------------+
+                                                            |
+                            +-------------------------------+-------------------------------+
+                            |                                                               |
+            +---------------v---------------+                               +---------------v---------------+
+            |     CỔNG THÔNG TIN WEB        |                               |       ỨNG DỤNG DI ĐỘNG        |
+            |     (REACTJS + JAVASCRIPT)    |                               |  (REACT NATIVE + TYPESCRIPT)  |
+            +---------------+---------------+                               +---------------+---------------+
+                            |                                                               |
+            +---------------+---------------+                               +---------------+---------------+
+            |                               |                               |                               |
+    +-------v-------+               +-------v-------+               +-------v-------+               +-------v-------+
+    |  SUPER ADMIN  |               | AGENCY STUDIO |               |   CUSTOMER    |               | FREELANCE MUA |
+    |  Web Portal   |               |  Web Portal   |               |  Mobile App   |               |  Mobile App   |
+    | (ROLE_SUPER_  |               | (ROLE_AGENCY_ |               | (ROLE_        |               | (ROLE_        |
+    |    ADMIN)     |               | ADMIN, STAFF) |               |  CUSTOMER)    |               | FREELANCE_MUA)|
+    +---------------+               +---------------+               +---------------+               +---------------+
+```
+
+* **Cổng Thông tin Web Quản trị (Web Portal - ReactJS + JavaScript (JSX)):**
+  * **Công nghệ cốt lõi:** React 18, Vite, JavaScript (ES2023 JSX), Tailwind CSS, Shadcn UI / Radix Primitives, Lucide Icons, Axios, Zustand State Management, `@stomp/stompjs` WebSocket Client.
+  * **Đối tượng phục vụ:** `ROLE_SUPER_ADMIN` (Quản trị viên sàn toàn quốc) và `ROLE_AGENCY_ADMIN` / `ROLE_AGENCY_STAFF` (Chủ studio, quản lý và nhân viên điều phối đại lý).
+  * **Đặc tính thiết kế:** Giao diện mật độ dữ liệu cao (Data-Dense Dashboard), hiển thị bảng biểu, biểu đồ phân tích doanh thu, ma trận xếp ca tuần 7 ngày x 3 ca, bảng Kanban điều phối đơn chỉ định và trình duyệt thẩm định hồ sơ pháp lý/chứng chỉ thợ.
+
+* **Ứng dụng Di động Đa nền tảng (Mobile App - React Native + TypeScript (TSX)):**
+  * **Công nghệ cốt lõi:** React Native 0.74+, TypeScript (Static Typing), React Navigation v6 (Native Stack & Animated Bottom Tabs), NativeWind (Tailwind CSS cho React Native), React Native Maps, Expo Location & TaskManager Background Geolocation Service, Zustand Store, `@stomp/stompjs` WSS Client.
+  * **Đối tượng phục vụ:** `ROLE_CUSTOMER` (Khách hàng đặt lịch make-up lưu động hoặc tại studio) và `ROLE_FREELANCE_MUA` (Thợ trang điểm tự do & Thợ thuộc Studio nhận job di chuyển).
+  * **Đặc tính thiết kế:** Chuẩn phong cách sang trọng đẳng cấp (Luxury Beauty Design System: Vàng Champagne `#D4AF37`, Hồng Rose Gold `#B76E79`, Đen Obsidian `#1A1A1A`), cử chỉ vuốt chạm Bottom Sheet mượt mà 60fps, radar quét thợ GPS theo bán kính động, popup đếm ngược 30-45s rung haptic + âm thanh nhận ca và live stream tọa độ di chuyển.
 
 ---
 
-### 2. Phân hệ App Thợ Make-up Tự do (Freelance MUA Mobile App)
+### 2. Cổng Thông tin Web Quản trị (Web Portal - ReactJS + JavaScript)
 
-| Tên Màn hình UI | Thành phần Giao diện (UI Components) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) |
-| :--- | :--- | :--- |
-| **Trang chính & Công tắc Rảnh<br>(Dashboard & Status Toggle)** | • Công tắc gạt (Switch Button): **[Sẵn sàng nhận job / Bận / Offline]**.<br>• Danh sách Ca hẹn hôm nay theo mốc thời gian.<br>• Widget Thống kê nhanh: Thu nhập hôm nay, Số ca hoàn thành. | • Khi bật "Sẵn sàng", kích hoạt Location Task phát sóng GPS (Telemetry) mỗi 5-10s về Telemetry Controller/Service.<br>• Đăng ký kênh WebSocket `mua-channel-{mua_id}` nhận đơn. |
-| **Nhận Ca Realtime<br>(Instant Match Countdown)** | • Màn hình Popup đếm ngược **30 - 45 giây** với vòng tròn thời gian.<br>• Thông tin ca: Gói dịch vụ, Địa chỉ khách, Số tiền thực nhận.<br>• 2 Nút hành động lớn: **[CHẤP NHẬN CA]** (Màu xanh) & **[TỪ CHỐI]** (Màu đỏ). | • Phát âm thanh chuông báo có ca khẩn cấp.<br>• Khi bấm "Chấp nhận", gọi API `acceptBooking` (gửi Redlock).<br>• Nếu hết 45s không bấm, tự động đóng Popup và ghi nhận bỏ lỡ. |
-| **Quản lý Portfolio & Gói Dịch vụ** | • Giao diện Upload Album ảnh sản phẩm hoàn thiện của khách trước đó.<br>• Form tạo/sửa gói dịch vụ cá nhân: Tên gói, Giá, Thời gian hoàn thành.<br>• Cấu hình Bán kính nhận đơn tối đa (Slider chọn từ 1km - 30km). | • Nén ảnh client-side trước khi upload lên Cloudinary/S3 CDN.<br>• Cập nhật bảng giá cá nhân & album mẫu về Catalog Controller/Service. |
-| **Thực hiện Ca làm<br>(Job Execution Flow)** | • Thanh tiến trình 5 chặng:<br>  *1. Bắt đầu đi $\rightarrow$ 2. Đã đến $\rightarrow$ 3. Bắt đầu make $\rightarrow$ 4. Chụp ảnh $\rightarrow$ 5. Hoàn thành*.<br>• Nút Tải ảnh nghiệm thu khách hàng sau khi make-up xong.<br>• Nút Yêu cầu phát sinh chi phí tại chỗ. | • Kích hoạt GPS di chuyển ở Chặng 1.<br>• Gửi Event cập nhật trạng thái đơn qua WebSocket Gateway.<br>• Bắt buộc upload 1 ảnh nghiệm thu ở Chặng 4 để kích hoạt hoàn thành. |
-| **Ví Thợ & Rút tiền<br>(MUA Wallet & Payout)** | • Số dư Ví thợ khả dụng, Số tiền đang giữ cọc.<br>• Bảng kê doanh thu chi tiết từng job (đã trừ % hoa hồng sàn).<br>• Form nhập số tiền & Chọn Ngân hàng nhận tiền (Payout). | • Gọi Wallet API/Service kiểm tra hạn mức rút tiền.<br>• Gửi yêu cầu Rút tiền về Ngân hàng (`withdrawal_requests`).<br>• Nhận In-App Toast Notification khi tiền về tài khoản. |
+#### A. Phân hệ Web Quản trị Đại lý / Studio (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`)
+
+Toàn bộ phân hệ Studio Web Portal được viết bằng **ReactJS + JavaScript**, tối ưu hóa giao diện điều hành và phân quyền nghiêm ngặt giữa Chủ Studio (`ROLE_AGENCY_ADMIN`) và Nhân viên Lễ tân/Điều phối (`ROLE_AGENCY_STAFF`).
+
+| STT | Tên Màn hình Web UI & Đường dẫn (Route) | Thành phần Giao diện (UI Components) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
+| :---: | :--- | :--- | :--- | :--- |
+| **A1** | **Dashboard Tổng quan Studio**<br>`/agency/dashboard` | • Thẻ KPI số liệu: Doanh thu tháng, Số đơn hoàn tất, Số thợ đang trực, Tỷ lệ hủy.<br>• Biểu đồ Area Chart doanh thu 30 ngày gần nhất.<br>• Bảng cảnh báo Realtime: Đơn hẹn sắp tới trong 2 giờ chưa gán thợ.<br>• Widget Mini-Map vị trí thợ Studio đang di chuyển ngoài đường. | • Gọi API tải báo cáo tổng hợp theo Date Range picker.<br>• Đăng ký kênh WebSocket nhận biến động doanh thu & đơn mới.<br>• Click vào cảnh báo mở nhanh Drawer điều phối đơn. | • `GET /api/v1/agency/dashboard/stats`<br>• STOMP: `/topic/agency/{agencyId}/dashboard` |
+| **A2** | **Quản lý Nhân sự & Duyệt Thợ**<br>`/agency/staff` | • Bảng dữ liệu thợ (`agency_staff`): Họ tên, Avatar, SĐT, Số ca đã làm, Rating trung bình.<br>• Nút tạo Mã giới thiệu & Mã QR mời thợ gia nhập Studio.<br>• Modal cấu hình Tỷ lệ % Hoa hồng nội bộ (% Studio vs % Thợ).<br>• Drawer gán Kỹ năng Phong cách Make-up (`agency_staff_styles`) cho từng thợ (Douyin, Tone Thái, Cô dâu...). | • Form validation cấu hình hoa hồng (tổng 2 bên = 100%).<br>• Copy link mời hoặc tải file ảnh QR Code về máy.<br>• Toggle kích hoạt / tạm dừng hoạt động của thợ.<br>• Cập nhật danh sách Tone Make-up của thợ trực tiếp qua Checkbox group. | • `GET /api/v1/agency/staff`<br>• `POST /api/v1/agency/invitations`<br>• `PUT /api/v1/agency/staff/{staffId}/commission`<br>• `PUT /api/v1/agency/staff/{staffId}/styles` |
+| **A3** | **Ma trận Xếp ca Tuần của Thợ**<br>`/agency/shifts` | • Bảng Ma trận Tuần (Grid 7 ngày từ Thứ 2 $\rightarrow$ CN, mỗi ngày chia 3 ca: Sáng [6h-12h], Chiều [12h-18h], Tối [18h-23h]).<br>• Ô lịch hiển thị Avatar thợ trực ca, trạng thái: *Đã xếp*, *Đang làm*, *Vắng mặt* (`agency_staff_shifts`).<br>• Thanh lọc nhanh theo Tên thợ hoặc Phong cách make-up.<br>• Modal Sao chép Lịch tuần này sang Tuần sau (Copy Shift Template). | • Drag-and-drop hoặc Click vào ô ca làm để thêm/xóa thợ trực ca.<br>• Kiểm tra xung đột tự động: Cảnh báo đỏ nếu thợ đã có lịch bận cá nhân hoặc trùng ca.<br>• Xuất file Excel / In lịch làm việc của toàn bộ Studio. | • `GET /api/v1/agency/shifts?week={weekNumber}`<br>• `POST /api/v1/agency/shifts/batch-assign`<br>• `DELETE /api/v1/agency/shifts/{shiftId}`<br>• `POST /api/v1/agency/shifts/copy-week` |
+| **A4** | **Bảng Điều phối Đơn hàng (Dispatching Board)**<br>`/agency/dispatching` | • Cột Đơn Chờ Gán (`PENDING_AGENCY_DISPATCH`): Chi tiết yêu cầu gói, thời gian, địa chỉ, tone khách mong muốn.<br>• Danh sách Thợ khả dụng trong khung giờ đó kèm Đánh giá kỹ năng Tone khớp yêu cầu (Match Score %).<br>• Nút Gán Thợ chính (`primary_mua_id`) và Thợ phụ đi kèm (`assistant_mua_id`).<br>• Nút Đổi Thợ Khẩn cấp khi thợ chính báo bận đột xuất. | • Nhận Toast Notification tức thì kèm chuông báo khi có khách đặt chỉ định Studio.<br>• Dropdown chọn thợ tự động lọc những ai có ca trực rảnh trong `agency_staff_shifts`.<br>• Bấm "Xác nhận Điều phối" $\rightarrow$ Đẩy WebSocket thông báo đến App của Thợ. | • `GET /api/v1/agency/bookings/pending`<br>• `POST /api/v1/agency/bookings/{bookingId}/assign`<br>• `PUT /api/v1/agency/bookings/{bookingId}/reassign`<br>• STOMP: `/topic/agency/{agencyId}/dispatch` |
+| **A5** | **Quản lý Gói Dịch vụ & Phụ phí Studio**<br>`/agency/services` | • Danh sách Gói dịch vụ của Studio (`service_packages`): Make cô dâu, dự tiệc, chụp kỷ yếu.<br>• Modal cấu hình Chi tiết bước thực hiện mặc định và Add-on mua thêm (`package_items`).<br>• Bảng cấu hình Phụ phí Studio (`surcharges`): Phụ phí làm sớm (3h-5h sáng), phụ phí đi xa ngoại thành.<br>• Thư viện Album ảnh sản phẩm mẫu hoàn thiện chính thức của Studio. | • Form nhập thông tin gói với Rich Text Editor mô tả.<br>• Upload nhiều ảnh mẫu chất lượng cao, preview trực tiếp trước khi gửi API nén CDN.<br>• Thiết lập các mức phụ phí linh hoạt tính vào hóa đơn của khách. | • `GET /api/v1/agency/services`<br>• `POST /api/v1/agency/services`<br>• `PUT /api/v1/agency/services/{id}`<br>• `GET /api/v1/agency/surcharges`<br>• `POST /api/v1/agency/surcharges` |
+| **A6** | **Ví Studio, Sao kê & Rút tiền (Payout)**<br>`/agency/wallet` | • Card hiển thị: Số dư Ví Studio khả dụng, Số tiền đang giữ cọc Escrow, Doanh thu tạm tính.<br>• Bảng Sao kê Biến động Số dư chi tiết (`wallet_transactions`): Ngày giờ, Mã giao dịch, Phân loại (Doanh thu đơn, Cắt % Sàn, Chia % Thợ).<br>• Bảng phân bổ thu nhập nội bộ chi tiết từng thợ trong tháng.<br>• Form tạo Yêu cầu Rút tiền (`withdrawal_requests`) về Tài khoản Ngân hàng Doanh nghiệp. | • Lọc sao kê theo loại giao dịch (`CREDIT`, `DEBIT`) và khoảng ngày.<br>• Kiểm tra số dư khả dụng so với số tiền nhập rút.<br>• Xuất báo cáo tài chính dạng Excel phục vụ kế toán doanh nghiệp.<br>• Theo dõi trạng thái giải ngân (Đang xử lý $\rightarrow$ Thành công). | • `GET /api/v1/agency/wallet/balance`<br>• `GET /api/v1/agency/wallet/transactions`<br>• `GET /api/v1/agency/bank-accounts`<br>• `POST /api/v1/agency/wallet/withdrawals` |
+| **A7** | **Quản lý Quá giờ & Duyệt Giải trình Ca làm**<br>`/agency/overtime-reports` | • Bảng theo dõi giải trình vượt giờ (`agency_staff_overtime_reports`): Thợ thực hiện, Mã ca `BK-...`, Phút vượt dự kiến, Lý do thợ nộp, Ảnh chụp đối chứng tại chỗ.<br>• Modal Cấu hình Quy định Phạt Studio (`agency_overtime_rules`): Mức phạt cố định/theo phút, chế độ tự động khấu trừ hoa hồng.<br>• Bộ công cụ Phán quyết Toàn quyền Admin 4 Quyền: [Trừ theo Quy định], [Miễn phạt 100% - Khách yêu cầu/Bất khả kháng], [Phạt tùy chỉnh số tiền], [Thu thêm phụ phí quá giờ từ khách hàng]. | • Tải danh sách đơn quá giờ đang chờ duyệt (`PENDING_REVIEW`).<br>• Lightbox zoom ảnh đối chứng do thợ nộp.<br>• Khi Admin xác nhận phán quyết: Tự động hạch toán khấu trừ hoa hồng hoặc cộng thêm phụ phí vào hóa đơn/ví thợ.<br>• Đẩy thông báo WebSocket tới App Thợ và App Khách hàng. | • `GET /api/v1/agency/overtime-rules`<br>• `POST /api/v1/agency/overtime-rules`<br>• `GET /api/v1/agency/overtime-reports/pending`<br>• `PUT /api/v1/agency/overtime-reports/{id}/review`<br>• STOMP: `/topic/agency/{agencyId}/overtime` |
 
 ---
 
-### 3. Phân hệ Web App Đại lý / Studio (Agency Web Portal)
+#### B. Phân hệ Web Quản trị Toàn diện Sàn Nền tảng (`ROLE_SUPER_ADMIN`)
 
-| Tên Màn hình UI | Thành phần Giao diện (UI Components) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) |
-| :--- | :--- | :--- |
-| **Dashboard Quản lý Tổng quan<br>(Overview Dashboard)** | • Biểu đồ Doanh thu Studio theo Ngày/Tuần/Tháng.<br>• Thống kê: Tổng số thợ, Số ca đang làm, Tỷ lệ lấp đầy lịch.<br>• Bảng cảnh báo ca làm sắp đến giờ cần điều phối. | • Tải dữ liệu báo cáo thống kê từ Analytics Engine.<br>• Đăng ký WebSocket `agency-dashboard-{agency_id}` cập nhật số liệu Realtime. |
-| **Quản lý Thợ thuộc Studio<br>(Staff Management)** | • Danh sách thợ thuộc Studio (Thông tin, SĐT, Trạng thái rảnh/bận).<br>• Form Gán kỹ năng Tone Make-up cho thợ (`agency_staff_styles`).<br>• Mã QR / Mã Code mời thợ mới gia nhập Studio.<br>• Form Cấu hình % Hoa hồng nội bộ (% Studio nhận vs % Thợ nhận). | • API Mời/Duyệt thợ vào Studio.<br>• Cấu hình quy tắc gán Tone Make-up & chia hoa hồng.<br>• Khóa/Tạm dừng hoạt động của thợ trong Studio. |
-| **Tiếp nhận & Điều phối Job<br>(Agency Dispatching)** | • Màn hình Tiếp nhận đơn đặt dành cho Studio.<br>• Ma trận Lịch rảnh, Vị trí GPS & Tone Make-up của thợ thuộc Studio.<br>• Form Gán thợ chính / Thợ phụ cho đơn hàng.<br>• Bản đồ Giám sát vị trí toàn bộ thợ của Studio đang đi làm Realtime. | • Nhận In-App Toast Popup thông báo có đơn mới qua WebSocket.<br>• Gọi API Dispatching gán thợ $\rightarrow$ Đẩy notification về App Thợ.<br>• Đổi thợ dự phòng khi thợ chính báo bận đột xuất. |
-| **Quản lý Bảng giá Studio<br>(Agency Catalog)** | • Form thiết lập Danh mục Gói trang điểm của Studio (Cô dâu, Tiệc, Kỷ yếu...).<br>• Thiết lập phụ phí Studio: Phụ phí làm sớm 3h-5h sáng, phụ phí đi tỉnh.<br>• Quản lý Album ảnh sản phẩm chính thức của Studio. | • Cập nhật bảng giá dịch vụ Studio lên Catalog API/Service.<br>• Tải ảnh chất lượng cao quảng bá Studio lên CDN. |
-| **Ví Đại lý & Thu chi Studio<br>(Agency Wallet & Payout)** | • Số dư Ví Đại lý (Doanh thu đã trừ % hoa hồng Sàn).<br>• Bảng kê chi tiết phân bổ thu nhập cho từng thợ thuộc Studio.<br>• Form Yêu cầu Rút tiền về Tài khoản Ngân hàng doanh nghiệp (`withdrawal_requests`). | • Trích xuất báo cáo thu chi dạng Excel/PDF.<br>• Gọi Payout API giải ngân tiền từ Ví Đại lý về Ngân hàng doanh nghiệp. |
+Dành riêng cho Quản trị viên Sàn, viết bằng **ReactJS + JavaScript**, cung cấp các công cụ vận hành quy mô lớn, kiểm soát rủi ro gian lận và giám sát dòng tiền tài chính theo chuẩn Kế toán Đúp.
+
+| STT | Tên Màn hình Web UI & Đường dẫn (Route) | Thành phần Giao diện (UI Components) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
+| :---: | :--- | :--- | :--- | :--- |
+| **B1** | **Bảng Điều hành Toàn quốc (Platform Central Dashboard)**<br>`/admin/dashboard` | • Thước đo GMV (Tổng giá trị giao dịch toàn sàn), Doanh thu Hoa hồng thực nhận của Sàn.<br>• Tổng số dư Escrow đang đóng băng trên hệ thống.<br>• Biểu đồ phân bố đơn theo Tỉnh/Thành (Hà Nội, TP.HCM, Đà Nẵng...).<br>• Tỷ lệ hoàn thành đơn, Tỷ lệ khiếu nại (Dispute Rate %). | • Cập nhật tự động (Polling mỗi 30s hoặc nhận STOMP event).<br>• Bộ lọc phân tích theo Khung thời gian (Hôm nay, 7 ngày, Tháng này, Quý này).<br>• Thẻ cảnh báo nóng: Số lượng yêu cầu rút tiền đang chờ duyệt > 10 triệu VNĐ. | • `GET /api/v1/admin/analytics/overview`<br>• `GET /api/v1/admin/analytics/gmv-breakdown`<br>• STOMP: `/topic/admin/platform-metrics` |
+| **B2** | **Xác minh Thợ & Bằng cấp Chứng chỉ**<br>`/admin/muas/verification` | • Danh sách hồ sơ Thợ Make-up mới đăng ký hoặc cập nhật hồ sơ (`mua_profiles`).<br>• Lightbox Viewer phóng to xem rõ ảnh Chứng chỉ tay nghề, CCCD/CMND 2 mặt.<br>• Nút hành động: **[PHÊ DUYỆT XÁC MINH]** hoặc **[TỪ CHỐI (KÈM LÝ DO)]**.<br>• Huy hiệu trạng thái: `PENDING_VERIFICATION`, `VERIFIED`, `REJECTED`. | • Khi bấm Phê duyệt, gửi API cập nhật trạng thái `is_verified = true` và cấp tick xanh uy tín.<br>• Khi từ chối, modal yêu cầu nhập lý do cụ thể (ảnh mờ, chứng chỉ không hợp lệ) $\rightarrow$ Bắn In-App Notification giải thích cho thợ.<br>• Lịch sử log người duyệt và thời gian thao tác. | • `GET /api/v1/admin/muas/pending`<br>• `PUT /api/v1/admin/muas/{id}/certificates/verify`<br>• `POST /api/v1/admin/muas/{id}/certificates/reject` |
+| **B3** | **Quản lý & Thẩm định Đại lý / Studio**<br>`/admin/agencies` | • Danh sách Studio toàn quốc: Mã Studio, Tên thương hiệu, Giấy phép ĐKKD, Hotline, Địa chỉ.<br>• Xem chi tiết danh sách thợ thuộc studio và danh mục gói đang phát hành.<br>• Công tắc khóa/mở hoạt động của Studio khi phát hiện vi phạm.<br>• Cấu hình % Phí dịch vụ Sàn áp dụng riêng cho từng Studio (Default: 15-20%). | • Tìm kiếm theo Mã đại lý (`AG-HN-00182`) hoặc số điện thoại.<br>• Cập nhật tỷ lệ chiết khấu sàn cho đại lý đối tác chiến lược.<br>• Audit trail lưu nhật ký thay đổi trạng thái đối tác. | • `GET /api/v1/admin/agencies`<br>• `PUT /api/v1/admin/agencies/{id}/status`<br>• `PUT /api/v1/admin/agencies/{id}/platform-rate` |
+| **B4** | **Quản trị Danh mục & Cấu hình Dynamic Surge Pricing**<br>`/admin/catalog-pricing` | • Bảng Danh mục Make-up chuẩn sàn (`master_service_categories`).<br>• Bảng Phong cách Make-up chuẩn sàn (`makeup_styles`).<br>• Bảng cấu hình Surge Pricing tự động: Khung giờ cao điểm (7h-9h Thứ 7/CN, mùa cưới Tháng 10 - Tháng 12) $\rightarrow$ Nhân hệ số từ $1.1\times - 1.5\times$.<br>• Cấu hình Biểu phí Di chuyển Km (Distance Fee Base + Per Km). | • Thêm mới / Ẩn / Hiện các phong cách Tone trang điểm xu hướng.<br>• Thanh Slider điều chỉnh hệ số Surge Pricing và hiển thị Preview công thức tính ngay trên UI.<br>• Xác thực dữ liệu đầu vào chống cấu hình sai lệch số học. | • `GET /api/v1/admin/master-categories`<br>• `POST /api/v1/admin/master-categories`<br>• `GET /api/v1/admin/pricing-rules`<br>• `PUT /api/v1/admin/pricing-rules/surge-configs` |
+| **B5** | **Trung tâm Xử lý Tranh chấp & Khiếu nại (Dispute Center)**<br>`/admin/disputes` | • Danh sách Đơn khiếu nại (`disputes`): Mã đơn `DSP-260908-A9X2K`, Khách hàng, Thợ thực hiện, Trạng thái tiền Escrow đang phong tỏa.<br>• Khung đối chứng: Nội dung khiếu nại của khách vs Ý kiến phản hồi của thợ kèm Ảnh nghiệm thu sau make-up.<br>• Công cụ Phán quyết Tài chính: [Hoàn tiền 100% Khách], [Hoàn tiền 50% - 50%], [Bác bỏ khiếu nại - Giải ngân cho Thợ]. | • Xem ảnh nghiệm thu độ phân giải gốc để đánh giá chất lượng.<br>• Khi xác nhận phán quyết, gọi API tự động sinh bút toán Sổ cái Đúp (`ledger_entries`) hoàn/giải ngân.<br>• Đóng ticket khiếu nại và gửi In-App Toast thông báo kết quả cho cả 2 bên. | • `GET /api/v1/admin/disputes`<br>• `GET /api/v1/admin/disputes/{id}/details`<br>• `POST /api/v1/admin/disputes/{id}/resolve` |
+| **B6** | **Quản trị Dòng tiền Ví Sàn, Sổ cái & Duyệt Rút tiền**<br>`/admin/finance-ledger` | • Giám sát Ví Tổng Sàn (`SYSTEM_PLATFORM_WALLET`): Doanh thu hoa hồng tích lũy.<br>• Trình tra cứu Sổ cái Kế toán Đúp (`ledger_entries`): Đối soát Nợ (`debit`) / Có (`credit`) đảm bảo cân bằng toán học tuyệt đối.<br>• Danh sách Yêu cầu Rút tiền (`withdrawal_requests`) từ Thợ và Đại lý.<br>• Nút **[DUYỆT GIẢI NGÂN (PAYOUT)]** tự động kích hoạt API Cổng Ngân hàng. | • Lọc theo Mã giao dịch `TXN-...` hoặc Mã đơn đặt.<br>• Modal cảnh báo an toàn: Nhập mật khẩu xác thực cấp 2 (Admin PIN) trước khi bấm duyệt rút tiền lớn.<br>• Tích hợp Webhook kết nối cổng Payout chuyển khoản trực tiếp liên ngân hàng 24/7. | • `GET /api/v1/admin/ledger/entries`<br>• `GET /api/v1/admin/withdrawals/pending`<br>• `POST /api/v1/admin/withdrawals/{id}/approve`<br>• `POST /api/v1/admin/withdrawals/{id}/reject` |
+
+---
+
+### 3. Ứng dụng Di động Đa nền tảng (Mobile App - React Native + TypeScript)
+
+Ứng dụng di động được xây dựng trên một kiến trúc mã nguồn thống nhất bằng **React Native + TypeScript (TSX)**, tận dụng TypeScript Type-Definitions nghiêm ngặt, giao diện Native mượt mà và các Native Modules chuyên dụng cho GPS / STOMP.
+
+#### A. Phân hệ Ứng dụng Khách hàng (`ROLE_CUSTOMER`)
+
+| STT | Tên Màn hình Mobile UI & Component | Thành phần Giao diện & Type Definitions (TSX) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
+| :---: | :--- | :--- | :--- | :--- |
+| **C1** | **Trang chủ & Radar Khám phá Thợ**<br>`CustomerHomeScreen.tsx` | • Interactive Map (`react-native-maps`) hiển thị Vị trí người dùng (Blue Pin) và các Thợ/Studio rảnh xung quanh (Gold Pin).<br>• Switch chuyển đổi nhanh: **[Studio Chuyên Nghiệp]** $\leftrightarrow$ **[Thợ Make-up Tự Do]**.<br>• Vòng tròn Radar quét bán kính xung quanh vị trí hiện tại.<br>• Bottom Sheet trượt: Top Thợ xuất sắc nhất, Gói trang điểm HOT mùa này. | • Xin quyền định vị GPS thiết bị (`ACCESS_FINE_LOCATION`).<br>• Lấy tọa độ lat/lng hiện tại $\rightarrow$ Gọi Telemetry API quét thợ rảnh trong bán kính $R$ km.<br>• Bấm vào Pin trên bản đồ hiển thị Tooltip Card xem nhanh thông tin thợ.<br>• Chạm vào Card để điều hướng sang trang Hồ sơ chi tiết. | • `GET /api/v1/telemetry/nearby-muas?lat={lat}&lng={lng}&radius={km}`<br>• `GET /api/v1/catalog/promotions/hot` |
+| **C2** | **Bộ lọc Tìm kiếm Nâng cao**<br>`DiscoveryFilterScreen.tsx` | • Thanh tìm kiếm Search Bar tự động gợi ý từ khóa phong cách.<br>• Filter Chips chọn Tone Make-up: Tone Thái, Douyin, Hàn Quốc, Tone Tây, Tự nhiên.<br>• Slider chọn Khoảng cách tối đa (1km - 30km) và Khoảng giá (300k - 5 triệu VNĐ).<br>• Radio button chọn Đánh giá tối thiểu (4.0★, 4.5★, 5★). | • Cập nhật tham số bộ lọc vào Zustand `useCustomerFilterStore`.<br>• Gọi API tìm kiếm với cơ chế Debounce 300ms chống spam request.<br>• Hiển thị danh sách kết quả dạng FlashList 60fps tối ưu bộ nhớ. | • `GET /api/v1/catalog/search`<br>• `GET /api/v1/catalog/styles` |
+| **C3** | **Chi tiết Hồ sơ MUA / Studio & Portfolio**<br>`MuaProfileDetailScreen.tsx` | • Header Ảnh bìa & Avatar, Tên thợ, Huy hiệu Đã xác minh (Blue Tick).<br>• Thống kê: Số năm kinh nghiệm, Đánh giá trung bình, Số ca đã hoàn thành.<br>• Lightbox Album Showcase (`portfolio_showcases`): Bộ sưu tập ảnh sản phẩm hoàn thiện của khách trước đó chia theo từng phong cách.<br>• Danh sách Bảng giá Gói Dịch vụ (`service_packages`) & Bảng Phụ phí niêm yết.<br>• 2 Nút hành động cố định chân trang: **[ĐẶT KHẨN CẤP 30P]** & **[ĐẶT HẸN TRƯỚC]**. | • Xem ảnh phóng to chất lượng cao với thao tác Pinch-to-Zoom.<br>• Đọc danh sách đánh giá nhận xét thực tế từ các khách hàng trước.<br>• Chọn gói dịch vụ mong muốn $\rightarrow$ Chuyển dữ liệu sang màn hình Booking Flow. | • `GET /api/v1/muas/{id}/profile`<br>• `GET /api/v1/muas/{id}/portfolio`<br>• `GET /api/v1/muas/{id}/packages` |
+| **C4** | **Đặt lịch 2 Chế độ (Booking Flow)**<br>`BookingFlowScreen.tsx` | • Tab Luồng 1: **[Đặt Khẩn Cấp Realtime 30-60 Phút]**.<br>• Tab Luồng 2: **[Đặt Lịch Hẹn Trước Ngày/Giờ Tương Lai]**.<br>• Ô nhập Địa chỉ trang điểm tích hợp Google Places Autocomplete.<br>• Danh sách Add-on mua thêm: Làm tóc cô dâu, Dán mi giả, Chăm sóc da trước make.<br>• Hóa đơn Bóc tách Minh bạch: *Giá gốc + Phí km + Phụ phí giờ sớm/đêm - Voucher giảm giá = Tổng tiền*. | • Trích xuất tọa độ GPS từ địa chỉ nhà khách nhập.<br>• Gọi Pricing Service Preview Hóa đơn chi tiết tức thì.<br>• Đối với Luồng Realtime: Mở màn hình Radar đếm ngược 45s tìm kiếm thợ nhận ca.<br>• Khóa cọc đơn hàng vào Ví Escrow. | • `POST /api/v1/pricing/preview-invoice`<br>• `POST /api/v1/bookings/instant`<br>• `POST /api/v1/bookings/scheduled` |
+| **C5** | **Live Tracking Thợ Di chuyển Realtime**<br>`LiveTrackingMapScreen.tsx` | • Bản đồ dẫn đường toàn màn hình: Hiển thị Tuyến đường đi (Polyline) từ vị trí thợ đến nhà khách.<br>• Icon MUA Marker di chuyển mượt mà theo tọa độ GPS phát sóng.<br>• Card nổi tiến trình 5 chặng: *1. Đang đến nơi $\rightarrow$ 2. Đã có mặt $\rightarrow$ 3. Đang trang điểm $\rightarrow$ 4. Nghiệm thu $\rightarrow$ 5. Hoàn tất*.<br>• Ước tính thời gian đến (ETA) tính bằng phút.<br>• Nút Gọi điện thoại trực tiếp hoặc Mở Chat trao đổi In-App. | • Kết nối STOMP WebSocket kênh `/topic/booking/{bookingId}/location`.<br>• Giải mã dữ liệu tọa độ GPS `{ lat, lng, bearing, speed }` $\rightarrow$ Animate Marker di chuyển mượt mà trên bản đồ không giật lag.<br>• Lắng nghe sự kiện chuyển trạng thái đơn hàng để cập nhật Timeline chặng. | • STOMP Sub: `/topic/booking/{bookingId}/location`<br>• STOMP Sub: `/topic/booking/{bookingId}/status`<br>• `GET /api/v1/bookings/{id}/tracking` |
+| **C6** | **Thanh toán Cọc Escrow & Quản lý Ví**<br>`PaymentEscrowScreen.tsx` | • Thẻ Số dư Ví Khách, Nút Nạp tiền nhanh.<br>• Lựa chọn Phương thức Thanh toán: MoMo QR, VNPay Sandbox, VietQR chuyển khoản tự động, ZaloPay, Số dư Ví.<br>• Trạng thái Escrow: *Cọc được Sàn giữ an toàn 100% cho tới khi quý khách nghiệm thu hài lòng*. | • Mở Deep Link chuyển thẳng sang Ứng dụng MoMo / VNPay / Ngân hàng để quét mã QR.<br>• Lắng nghe Webhook IPN hoặc Polling trạng thái thanh toán thành công.<br>• Tự động chuyển màn hình khi tiền cọc đã được khóa an toàn vào Escrow. | • `POST /api/v1/payments/initiate`<br>• `GET /api/v1/payments/{txId}/status`<br>• `GET /api/v1/customer/wallet` |
+| **C7** | **Nghiệm thu, Đánh giá 1-5★ & Tip Thợ**<br>`ReviewTipDisputeScreen.tsx` | • Hiển thị Ảnh nghiệm thu do thợ chụp gửi lên sau khi trang điểm xong.<br>• Khung chấm điểm Rating 1 đến 5 sao & Ô nhập cảm nghĩ nhận xét.<br>• Khung chọn Tip tiền thưởng thêm cho thợ: [20.000đ], [50.000đ], [100.000đ] hoặc Số tiền tùy chọn.<br>• Nút "Gửi Khiếu Nại Dịch Vụ" nếu thợ làm không đúng yêu cầu hoặc trễ giờ nghiêm trọng. | • Gửi đánh giá sao về hệ thống.<br>• Nếu chọn Tip, tiền sẽ được trừ ngay từ Ví khách chuyển thẳng vào Ví thợ.<br>• Nếu bấm Khiếu nại, mở Form tải bằng chứng ảnh và chuyển đơn sang trạng thái `DISPUTED` (đóng băng cọc). | • `POST /api/v1/reviews`<br>• `POST /api/v1/bookings/{id}/tip`<br>• `POST /api/v1/disputes` |
+
+---
+
+#### B. Phân hệ Ứng dụng Thợ Make-up Chuyên nghiệp & Tự do (`ROLE_FREELANCE_MUA`)
+
+Dành riêng cho Thợ Make-up (bao gồm thợ tự do và thợ thuộc Studio đi làm lưu động), được viết bằng **React Native + TypeScript**, đặc biệt tích hợp công nghệ phát sóng GPS chạy ngầm (Background Telemetry) và màn hình đếm ngược phản xạ nhanh.
+
+| STT | Tên Màn hình Mobile UI & Component | Thành phần Giao diện & Type Definitions (TSX) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
+| :---: | :--- | :--- | :--- | :--- |
+| **D1** | **Bàn làm việc & Công tắc Sẵn sàng (Status Toggle)**<br>`MuaWorkstationScreen.tsx` | • Công tắc lớn (Master Switch): **[ONLINE - SẴN SÀNG NHẬN CA]** $\leftrightarrow$ **[OFFLINE - NGHỈ NGƠI]**.<br>• Widget Thống kê Hôm nay: Số đơn hoàn thành, Thu nhập thực nhận (đã trừ phí sàn), Điểm Uy tín.<br>• Danh sách Ca làm việc hôm nay xếp theo trình tự thời gian.<br>• Huy hiệu cảnh báo nhắc ca hẹn sắp tới trong 30 phút. | • Khi gạt sang "Online", kích hoạt Native Service phát sóng tọa độ GPS chạy ngầm (`Expo Location TaskManager`) chu kỳ 5-10 giây một lần.<br>• Đăng ký lắng nghe kênh WebSocket cá nhân nhận thông báo đơn mới.<br>• Khi gạt sang "Offline", tắt dịch vụ GPS và xóa tọa độ khỏi Redis GEO. | • `PUT /api/v1/mua/readiness-status`<br>• `POST /api/v1/telemetry/ping-location`<br>• STOMP Sub: `/queue/mua/{muaId}/alerts` |
+| **D2** | **Popup Đếm ngược 30-45s Nhận Ca Realtime**<br>`InstantBookingModal.tsx` | • Modal Popup toàn màn hình tự động hiển thị đè lên các ứng dụng khác khi có ca khẩn cấp.<br>• Đồng hồ Đĩa tròn đếm ngược từ 45 giây về 0 kèm hiệu ứng màu chuyển từ Xanh $\rightarrow$ Vàng $\rightarrow$ Đỏ.<br>• Thẻ Thông tin Ca: Gói dịch vụ, Địa chỉ khách, Khoảng cách km, Thu nhập thợ thực nhận sau khi trừ hoa hồng sàn.<br>• Nút hành động lớn: **[CHẤP NHẬN CA LÀM]** (Màu xanh) và **[TỪ CHỐI]** (Màu xám). | • Phát chuông âm thanh cảnh báo nhận ca liên tục và kích hoạt rung Haptic thiết bị.<br>• Khi thợ bấm "Chấp nhận", gọi API tức thì với cơ chế Redlock (Redis Distributed Lock) kiểm tra tranh chấp.<br>• Nếu thành công, chuyển thẳng vào màn hình Tiến trình Ca làm.<br>• Nếu hết 45s hoặc bấm từ chối, modal tự đóng và ghi nhận bỏ lỡ. | • `POST /api/v1/bookings/{id}/accept`<br>• STOMP Sub: `/queue/mua/{muaId}/instant-job` |
+| **D3** | **Quản lý Lịch bận Cá nhân & Ca trực Studio**<br>`MuaCalendarScheduleScreen.tsx` | • Lịch tương tác tháng & tuần (Agenda Calendar View).<br>• Tab 1: **[Lịch bận Cá nhân (`mua_calendars`)]**: Cho phép thợ tự khóa các khung giờ bận việc gia đình, học tập chống trùng ca hẹn trước.<br>• Tab 2: **[Lịch Trực Studio (`agency_staff_shifts`)]**: Hiển thị các ca trực tại studio mà quản lý đã phân công trong tuần.<br>• Đánh dấu mã màu trực quan: Xanh (Ca đã đặt), Vàng (Ca trực studio), Đỏ (Khung giờ bận). | • Thêm mới khung giờ bận cá nhân với Date-time picker.<br>• Kiểm tra hợp lệ: Không cho khóa giờ nếu khung giờ đó đã có đơn đặt hẹn trước.<br>• Đồng bộ lịch hẹn vào ứng dụng Google Calendar / Apple Calendar của máy. | • `GET /api/v1/mua/calendars`<br>• `POST /api/v1/mua/calendars/block`<br>• `DELETE /api/v1/mua/calendars/{id}`<br>• `GET /api/v1/mua/agency-shifts` |
+| **D4** | **Tiến trình Thực hiện Ca làm 5 Chặng**<br>`JobExecutionFlowScreen.tsx` | • Thanh hiển thị 5 Chặng quy chuẩn:<br>  *1. Bắt đầu di chuyển $\rightarrow$ 2. Đã có mặt tại điểm hẹn $\rightarrow$ 3. Bắt đầu make-up $\rightarrow$ 4. Chụp ảnh nghiệm thu $\rightarrow$ 5. Hoàn thành ca*.<br>• Nút Mở Google Maps dẫn đường đến nhà khách.<br>• Bộ đếm thời gian thực hiện make-up dự kiến.<br>• Trình Camera tích hợp bắt buộc chụp ảnh sản phẩm hoàn thiện của khách trước khi bấm "Hoàn thành". | • Chặng 1 kích hoạt chế độ phát sóng GPS tần suất cao (3 giây/lần).<br>• Chặng 4 mở Camera chụp trực tiếp (không cho chọn ảnh cũ từ thư viện để chống gian lận) và upload lên CDN.<br>• Chặng 5 bấm Hoàn thành $\rightarrow$ Hệ thống tự động phát sự kiện giải ngân tiền ví. | • `PUT /api/v1/bookings/{id}/step-progress`<br>• `POST /api/v1/bookings/{id}/proof-photo`<br>• `PUT /api/v1/bookings/{id}/complete` |
+| **D5** | **Quản lý Hồ sơ Tay nghề & Portfolio Mẫu**<br>`MuaPortfolioManagerScreen.tsx` | • Form thông tin cá nhân: Họ tên nghệ danh, Bio phong cách sở trường, Số năm kinh nghiệm.<br>• Slider chọn Bán kính Nhận khách tối đa (ví dụ: tối đa 15km quanh nhà).<br>• Danh mục Album Showcase (`portfolio_showcases`): Tải lên các bộ ảnh khách hàng thực tế theo từng Tone Make-up.<br>• Form thiết lập Gói dịch vụ cá nhân (`service_packages`) và giá niêm yết cho khách. | • Nén ảnh tự động trên thiết bị (Client-side Image Compressor) giảm dung lượng trước khi upload.<br>• Chọn Tone phong cách gắn thẻ cho từng bức ảnh album.<br>• Bật/tắt các gói dịch vụ tùy theo lịch rảnh và định hướng của thợ. | • `GET /api/v1/mua/profile`<br>• `PUT /api/v1/mua/profile`<br>• `POST /api/v1/mua/portfolio/upload`<br>• `POST /api/v1/mua/packages` |
+| **D6** | **Ví Thợ, Sao kê Thu nhập & Rút tiền (Payout)**<br>`MuaWalletPayoutScreen.tsx` | • Thẻ Số dư Ví Khả dụng & Số tiền Đang phong tỏa giữ cọc.<br>• Thống kê Thu nhập tuần này, tháng này (đã trừ % hoa hồng Sàn).<br>• Danh sách Tài khoản Ngân hàng chính chủ đã liên kết (`user_bank_accounts`).<br>• Form Yêu cầu Rút tiền (`withdrawal_requests`) về Tài khoản Ngân hàng (Hỗ trợ VietQR 24/7). | • Bấm liên kết số tài khoản ngân hàng mới với OTP xác thực.<br>• Kiểm tra hạn mức rút tiền tối thiểu (ví dụ: 100.000 VNĐ).<br>• Gửi yêu cầu rút tiền $\rightarrow$ Nhận thông báo Toast biến động số dư khi tiền về tài khoản ngân hàng. | • `GET /api/v1/mua/wallet`<br>• `GET /api/v1/mua/wallet/transactions`<br>• `POST /api/v1/mua/bank-accounts`<br>• `POST /api/v1/mua/withdrawals` |
+| **D7** | **Giải trình Quá giờ & Ảnh Đối chứng**<br>`OvertimeExplanationModal.tsx` | • Modal cảnh báo tự động kích hoạt khi thợ bấm hoàn thành ca làm vượt quá thời gian dự kiến (`estimated_duration_minutes`).<br>• Thẻ tóm tắt: Thời gian dự kiến vs Thực tế, Số phút vượt quá.<br>• Dropdown chọn Lý do theo Quy chế Studio niêm yết sẵn (`rule_id`).<br>• Checkbox & Input "Lý do ngoại lệ khác" (`is_custom_exception`) kèm ô nhập chi tiết giải trình.<br>• Trình Camera chụp trực tiếp ảnh đối chứng tại chỗ (khách đến muộn, yêu cầu vẽ thêm họa tiết...). | • Kiểm tra thời lượng làm việc so với gói dịch vụ.<br>• Tải danh sách quy tắc studio từ API.<br>• Bắt buộc chụp ảnh trực tiếp tại chỗ nếu chọn lý do ngoại lệ ngoài quy định.<br>• Gửi giải trình lên Agency Admin duyệt để tránh bị khấu trừ hoa hồng tự động. | • `GET /api/v1/agency/overtime-rules/public`<br>• `POST /api/v1/agency/overtime-reports` |
+
+---
+
+### 4. Quy chuẩn Trải nghiệm Người dùng, State Management & Tích hợp
+
+#### A. Ma trận Quyền hạn & Phân bổ Nền tảng (Role vs Platform Matrix)
+
+| Vai trò Người dùng (User Role) | Nền tảng Ứng dụng Phụ trách | Ngôn ngữ & Framework | Thư mục Mã nguồn | Phạm vi Chức năng Chính |
+| :--- | :--- | :--- | :--- | :--- |
+| **`ROLE_SUPER_ADMIN`** | Cổng Quản trị Sàn (Web Portal) | ReactJS 18 + JavaScript (JSX) | `code/frontend/` | Vận hành toàn diện, duyệt thợ, xử lý tranh chấp, đối soát kế toán đúp sổ cái. |
+| **`ROLE_AGENCY_ADMIN`** | Cổng Quản lý Đại lý (Web Portal) | ReactJS 18 + JavaScript (JSX) | `code/frontend/` | Điều phối đơn hàng, xếp ca nhân sự, cấu hình hoa hồng studio, rút tiền ví studio. |
+| **`ROLE_AGENCY_STAFF`** | Cổng Quản lý Đại lý (Web Portal) | ReactJS 18 + JavaScript (JSX) | `code/frontend/` | Hỗ trợ điều phối đơn hàng, xem ma trận ca trực, tiếp nhận yêu cầu khách. |
+| **`ROLE_CUSTOMER`** | Ứng dụng Di động Khách (Mobile App) | React Native 0.74+ & TypeScript | `code/mobile/` | Bản đồ quét thợ GPS, đặt lịch 2 luồng, thanh toán giữ cọc Escrow, live tracking thợ. |
+| **`ROLE_FREELANCE_MUA`** | Ứng dụng Di động Thợ (Mobile App) | React Native 0.74+ & TypeScript | `code/mobile/` | Bật/tắt phát sóng GPS, popup đếm ngược 30s nhận ca, tiến trình 5 chặng, rút tiền ví. |
+
+#### B. Cơ chế Quản lý Trạng thái Khách hàng (Client State Architecture with Zustand)
+* **Web Portal (ReactJS + JS):**
+  * `useAuthStore`: Lưu trữ JWT token, thông tin Profile Admin/Agency, danh sách quyền hạn `permissions`.
+  * `useAgencyDispatchStore`: Quản lý danh sách đơn chờ gán thợ, trạng thái thợ trực ca và bộ lọc ma trận điều phối realtime.
+  * `useShiftMatrixStore`: Lưu trữ dữ liệu lịch tuần của các thợ, hỗ trợ kéo thả và copy tuần làm việc.
+* **Mobile App (React Native + TS):**
+  * `useCustomerBookingStore`: Quản lý trạng thái đơn đang đặt, thông tin gói dịch vụ, tọa độ đón và hóa đơn tính tiền preview.
+  * `useMuaTelemetryStore`: Quản lý trạng thái Online/Offline, tọa độ GPS hiện tại và chu kỳ phát sóng ngầm.
+  * `useRealtimeTrackingStore`: Lưu trữ tọa độ thợ di chuyển stream qua WebSocket và tính toán ETA hiển thị trên bản đồ.
+
+#### C. Quy chuẩn Kết nối Realtime WebSocket STOMP Client
+* **Giao thức:** Kết nối qua giao thức an toàn `wss://{domain}/ws-makeup` sử dụng thư viện `@stomp/stompjs`.
+* **Xác thực phiên:** Gửi kèm Bearer JWT Token trong Header `CONNECT` khi khởi tạo bắt tay kết nối (Handshake).
+* **Chiến lược Tái kết nối (Auto Reconnect):**
+  * Cấu hình `reconnectDelay = 5000` (5 giây) với thuật toán Exponential Backoff tối đa 30 giây khi mạng chập chờn.
+  * Tự động đăng ký lại (Resubscribe) tất cả các topic/queue đang theo dõi ngay khi kết nối khôi phục thành công.
+* **Quy chuẩn Âm thanh & Rung:**
+  * Web Portal: Phát âm thanh thông báo Notification Chime ngắn (<1s) và hiển thị Toast góc trên bên phải màn hình khi có đơn chỉ định mới.
+  * Mobile App: Kích hoạt `react-native-sound` phát chuông cảnh báo lớn và rung liên tục theo nhịp Haptic Pattern `[0, 500, 200, 500]` khi có Popup đếm ngược nhận ca khẩn cấp.
+
+#### D. Cơ chế Định vị GPS Chạy ngầm (Background Geolocation Telemetry) trên Mobile App Thợ
+* **Nền tảng thực thi:** Sử dụng Native Task `Expo Location TaskManager` hoặc React Native Background Actions.
+* **Quyền hạn bắt buộc:** Xin quyền `ACCESS_FINE_LOCATION` và `ACCESS_BACKGROUND_LOCATION` (Android), `NSLocationAlwaysAndWhenInUseUsageDescription` (iOS).
+* **Chu kỳ phát sóng:**
+  * Trạng thái Chờ việc (Online Standby): Phát sóng tọa độ lat/lng mỗi **10 giây/lần** hoặc khi di chuyển vượt quá **15 mét** để tiết kiệm pin.
+  * Trạng thái Đang di chuyển đến nhà khách (`ON_THE_WAY`): Phát sóng mỗi **3-5 giây/lần** để khách hàng quan sát Marker di chuyển mượt mà trên bản đồ.
+  * Khi pin dưới 15%: Tự động giảm tần suất xuống 15 giây/lần kèm cảnh báo cho thợ.
 
 ---
 
@@ -245,7 +358,7 @@ Bảng quy tắc chuyển đổi trạng thái Máy trạng thái Đơn hàng (B
 
 Cơ sở dữ liệu hệ thống áp dụng mô hình **PostgreSQL 16 + PostGIS Extension** chuẩn hóa 3NF kết hợp Phân quyền RBAC 4 Bảng và Phân vùng Ví 7 Bảng Sổ cái Kế toán Đúp:
 
-### **Danh sách 26 Bảng Dữ liệu Cốt lõi:**
+### **Danh sách 28 Bảng Dữ liệu Cốt lõi:**
 1. **`users`**: Quản lý tài khoản đăng nhập (Khách, Thợ tự do, Chủ Studio, Nhân viên Studio) với khóa chính `BIGINT Identity`.
 2. **`roles`**, **`user_roles`** & **`role_permissions`**: Mô hình phân quyền RBAC 4 Bảng đầy đủ (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`) và danh sách `permission_code` chi tiết.
 3. **`agency_profiles`**: Hồ sơ Studio/Đại lý (Mã đại lý `AG-HN-00182`, hotline, địa chỉ, tỷ lệ % hoa hồng nội bộ studio/thợ).
@@ -272,6 +385,8 @@ Cơ sở dữ liệu hệ thống áp dụng mô hình **PostgreSQL 16 + PostGIS
 24. **`wallet_transactions`**: Nhật ký sao kê biến động số dư chi tiết của từng Ví (`balance_before`, `balance_after`, `CREDIT`, `DEBIT`, `FREEZE`, `UNFREEZE`).
 25. **`ledger_entries`**: Bảng Sổ cái Kế toán Đúp (Double-Entry General Ledger) hạch toán Nợ (`debit_wallet_id`) / Có (`credit_wallet_id`).
 26. **`in_app_notifications`**, **`reviews`** & **`disputes`**: Thông báo In-App qua In-Memory EventBus & Embedded WebSocket, Đánh giá sao 1-5★, Tip tiền & Đơn khiếu nại chất lượng dịch vụ (`DSP-260908-A9X2K`).
+27. **`agency_overtime_rules`**: Cấu hình quy chế & mức phạt quá giờ nội bộ của từng Studio (Phạt cố định hoặc theo phút, tự động khấu trừ hoa hồng thợ).
+28. **`agency_staff_overtime_reports`**: Báo cáo giải trình thợ làm quá thời gian dự kiến (`estimated_duration_minutes`) kèm ảnh đối chứng và phán quyết toàn quyền của Agency Admin (`DEDUCT_BY_RULE`, `WAIVE_PENALTY`, `CUSTOM_PENALTY`, `CHARGE_CUSTOMER`).
 
 ---
 
@@ -307,9 +422,9 @@ Cơ sở dữ liệu hệ thống áp dụng mô hình **PostgreSQL 16 + PostGIS
 
 ---
 
-## VI. BẢNG PHÂN RÃ CÔNG VIỆC CHI TIẾT TỪNG TÍNH NĂNG (45-DAY GRANULAR WBS - 84 ISSUES / 7 SPRINTS)
+## VI. BẢNG PHÂN RÃ CÔNG VIỆC CHI TIẾT TỪNG TÍNH NĂNG (45-DAY GRANULAR WBS - 86 ISSUES / 7 SPRINTS)
 
-### Danh sách 84 Jira Issues Phân bổ trong 7 Sprints (11 - 13 Issues / Sprint):
+### Danh sách 86 Jira Issues Phân bổ trong 7 Sprints (11 - 14 Issues / Sprint):
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -327,7 +442,7 @@ Cơ sở dữ liệu hệ thống áp dụng mô hình **PostgreSQL 16 + PostGIS
 | **ISSUE-9.2** | Task | Spring Security & JWT Filter Middleware trong Single App | To Do | - | Medium | BE1 |
 | **ISSUE-10.1** | User Story | Auth & Profile Module - API Đăng ký / Login & Phân hệ người dùng | To Do | - | Medium | BE1, FE1 |
 | **ISSUE-10.2** | Task | Auth & Profile Module - Tích hợp Phân quyền RBAC 4 Bảng (`users`, `roles`, `user_roles`, `role_permissions`) | To Do | - | Medium | BE1 |
-| **SPRINT 1** | **PROFILE & CATALOG** | **Sprint 1: Hồ Sơ Thợ, Studio & Gói Dịch Vụ (12 Issues)** | | | | |
+| **SPRINT 1** | **PROFILE & CATALOG** | **Sprint 1: Hồ Sơ Thợ, Studio & Gói Dịch Vụ (14 Issues)** | | | | |
 | **ISSUE-11.1** | User Story | Hồ sơ Thợ Make-up (`mua_profiles`), Bio & Chứng chỉ | To Do | - | Medium | BE2, FE2 |
 | **ISSUE-11.2** | Task | Upload CDN (Cloudinary/S3) nén ảnh Portfolio chất lượng cao | To Do | - | Medium | BE2, FE2 |
 | **ISSUE-11.3** | Task | Quản lý Album Ảnh sản phẩm hoàn thiện của khách trước đó (`staff_portfolio_showcases`) | To Do | - | High | BE2, FE2 |
@@ -335,11 +450,13 @@ Cơ sở dữ liệu hệ thống áp dụng mô hình **PostgreSQL 16 + PostGIS
 | **ISSUE-12.2** | Task | Quản lý Nhân viên Studio (`agency_staff`) & Duyệt thợ gia nhập | To Do | - | Medium | BE1, FE3 |
 | **ISSUE-12.3** | Task | Cấu hình % Hoa hồng nội bộ giữa Studio và Thợ làm việc | To Do | - | Medium | BE1, FE3 |
 | **ISSUE-12.4** | Task | Quản lý Năng lực thợ Studio theo Tone Make-up (`agency_staff_styles`) | To Do | - | High | BE2 |
+| **ISSUE-12.5** | Task | Bảng ma trận Xếp ca làm việc cố định theo tuần của Thợ Studio (`agency_staff_shifts`) & Theo dõi trạng thái ca làm | To Do | - | High | BE1, FE3 |
 | **ISSUE-13.1** | User Story | CRUD Master Categories & Tone Make-up (`master_service_categories`, `makeup_styles`) | To Do | - | Medium | BE2, FE1 |
 | **ISSUE-13.2** | Task | CRUD Gói dịch vụ Studio/Freelancer (`service_packages`) | To Do | - | Medium | BE2, FE1 |
 | **ISSUE-13.3** | Task | Chi tiết các bước thực hiện mặc định & Option mua thêm (`package_items`) | To Do | - | Medium | BE2, FE1 |
 | **ISSUE-13.4** | Task | Gán Kỹ năng Gói Dịch vụ cho thợ Studio (`agency_staff_services`) | To Do | - | Medium | BE2, FE3 |
 | **ISSUE-13.5** | Task | Cấu hình Phụ phí (`surcharges`): Làm sớm 3h-5h sáng, đi tỉnh & ngày Lễ/Tết | To Do | - | Medium | BE2, FE1 |
+| **ISSUE-13.6** | Task | Quản lý Quy định & Duyệt Giải trình Thợ làm quá giờ (`agency_overtime_rules`, `agency_staff_overtime_reports`) | To Do | - | High | BE2, FE3 |
 | **SPRINT 2** | **TELEMETRY & PRICING**| **Sprint 2: Telemetry GPS & Dynamic Pricing (11 Issues)** | | | | |
 | **ISSUE-14.1** | User Story | Location Telemetry Module - Xây dựng Module Định vị GPS & Redis GEO trong Monolith | To Do | - | Medium | BE3, DE |
 | **ISSUE-14.2** | Task | Redis GEO Spatial Index lưu tọa độ Thợ rảnh Realtime | To Do | - | High | BE3 |

@@ -34,8 +34,9 @@ makeup-platform/
 │       └── README.md
 │
 ├── code/                               # Mã nguồn thực thi của toàn bộ hệ thống
-│   ├── frontend/                       # Ứng dụng Web Client (React JS + Vite)
-│   └── backend/                        # Ứng dụng Backend Spring Boot (Modular Monolith)
+│   ├── frontend/                       # Cổng Web Quản trị (ReactJS + JavaScript + Vite - Super Admin & Agency)
+│   ├── mobile/                         # Ứng dụng Di động Đa nền tảng (React Native + TypeScript - Customer & Freelance MUA)
+│   └── backend/                        # Ứng dụng Backend Spring Boot (Layered Monolith)
 │       └── core-api/                   # Module chính chứa toàn bộ Bounded Contexts
 │
 ├── .agent/                             # Cấu hình Rules, Skills và Workflows cho AI Agent
@@ -64,9 +65,9 @@ makeup-platform/
 
 ---
 
-## II. Cấu trúc Frontend (React JS + Vite)
+## II. Cấu trúc Cổng Quản trị Web Portal (ReactJS + JavaScript + Vite)
 
-Áp dụng cho ứng dụng **Web Agency Management Portal & Web Admin**.
+Áp dụng cho ứng dụng **Web Agency Management Portal (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`) & Web Super Admin (`ROLE_SUPER_ADMIN`)**.
 
 ```text
 code/frontend/
@@ -184,7 +185,111 @@ code/frontend/
 
 ---
 
-## III. Backend Java (Layered Architecture Monolith with Domain Sub-packages)
+## III. Cấu trúc Ứng dụng Di động (Mobile App - React Native + TypeScript)
+
+Áp dụng cho ứng dụng di động **Mobile App Khách hàng (`ROLE_CUSTOMER`) & Thợ Make-up (`ROLE_FREELANCE_MUA`)** trên cả 2 nền tảng iOS & Android.
+
+```text
+code/mobile/
+├── android/                            # Cấu hình Native Android (Gradle, AndroidManifest, Permissions)
+├── ios/                                # Cấu hình Native iOS (Podfile, Info.plist, Background Modes)
+│
+├── src/
+│   ├── assets/                         # Tài nguyên đồ họa (Icons, Images, Lottie Animations, Sounds)
+│   │   ├── images/                     # Banner, Luxury Logo, Placeholder avatar
+│   │   ├── sounds/                     # countdown_alert.mp3 (Âm thanh chuông báo nhận ca khẩn cấp)
+│   │   └── fonts/                      # Font Playfair Display, Inter, Montserrat
+│   │
+│   ├── components/                     # UI Components tái sử dụng (TypeScript + NativeWind)
+│   │   ├── common/                     # Nút bấm, Ô nhập, Modal, BottomSheet, Badge
+│   │   │   ├── LuxuryButton.tsx
+│   │   │   ├── CustomInput.tsx
+│   │   │   ├── BottomSheetModal.tsx
+│   │   │   └── RatingStars.tsx
+│   │   ├── customer/                   # Component đặc thù Khách hàng
+│   │   │   ├── MuaRadarMap.tsx         # Bản đồ radar quét thợ rảnh gần nhất (React Native Maps)
+│   │   │   ├── StyleChipFilter.tsx     # Chip chọn phong cách trang điểm
+│   │   │   ├── InvoiceBreakdown.tsx    # Bảng chi tiết hóa đơn (Gói + Km + Phụ phí - Voucher)
+│   │   │   └── LiveTrackingView.tsx    # Bản đồ bám đuổi thợ di chuyển realtime (WSS)
+│   │   └── mua/                        # Component đặc thù Thợ Make-up
+│   │       ├── ReadinessToggle.tsx     # Công tắc Online/Offline phát sóng GPS
+│   │       ├── CountdownModal.tsx      # Đĩa quay đếm ngược 45s rung haptic nhận đơn
+│   │       ├── ProofCameraCapture.tsx  # Trình chụp ảnh nghiệm thu trước khi bấm hoàn thành
+│   │       └── StepProgressTracker.tsx # Thanh theo dõi 5 chặng thực hiện ca làm
+│   │
+│   ├── navigation/                     # Điều hướng ứng dụng (React Navigation v6)
+│   │   ├── RootNavigator.tsx           # Điều hướng cấp cao nhất (Auth vs App)
+│   │   ├── CustomerTabNavigator.tsx    # 4 Tabs chính của Khách: Khám phá, Đặt lịch, Lịch sử, Ví
+│   │   ├── MuaTabNavigator.tsx         # 4 Tabs chính của Thợ: Bàn làm việc, Lịch ca, Portfolio, Ví
+│   │   └── AppStack.tsx                # Stack màn hình chi tiết (Booking, Profile, Tracking, Review)
+│   │
+│   ├── screens/                        # Màn hình giao diện (Screens TSX)
+│   │   ├── auth/                       # Đăng ký / Đăng nhập OTP, Chọn vai trò
+│   │   │   ├── LoginScreen.tsx
+│   │   │   ├── OtpVerificationScreen.tsx
+│   │   │   └── RoleSelectionScreen.tsx
+│   │   ├── customer/                   # Phân hệ Khách hàng (ROLE_CUSTOMER)
+│   │   │   ├── CustomerHomeScreen.tsx
+│   │   │   ├── DiscoveryFilterScreen.tsx
+│   │   │   ├── MuaProfileDetailScreen.tsx
+│   │   │   ├── BookingFlowScreen.tsx
+│   │   │   ├── LiveTrackingMapScreen.tsx
+│   │   │   ├── PaymentEscrowScreen.tsx
+│   │   │   └── ReviewTipDisputeScreen.tsx
+│   │   └── mua/                        # Phân hệ Thợ Make-up (ROLE_FREELANCE_MUA)
+│   │       ├── MuaWorkstationScreen.tsx
+│   │       ├── MuaCalendarScheduleScreen.tsx
+│   │       ├── JobExecutionFlowScreen.tsx
+│   │       ├── MuaPortfolioManagerScreen.tsx
+│   │       └── MuaWalletPayoutScreen.tsx
+│   │
+│   ├── services/                       # Tầng giao tiếp REST API & WebSocket
+│   │   ├── api/                        # Axios Client với JWT Bearer & Refresh Token Interceptors
+│   │   │   ├── apiClient.ts
+│   │   │   ├── authApi.ts
+│   │   │   ├── bookingApi.ts
+│   │   │   ├── telemetryApi.ts
+│   │   │   └── walletApi.ts
+│   │   ├── realtime/                   # Kết nối WebSocket STOMP
+│   │   │   ├── stompClient.ts
+│   │   │   └── socketSubscriptions.ts
+│   │   └── background/                 # Dịch vụ phát sóng GPS chạy ngầm (Native Task)
+│   │       └── locationTaskManager.ts  # Expo TaskManager chu kỳ 5-10s ping tọa độ về Redis GEO
+│   │
+│   ├── store/                          # Quản trị State toàn cục bằng Zustand
+│   │   ├── useAuthStore.ts             # Lưu User profile, Tokens, Role
+│   │   ├── useCustomerBookingStore.ts  # Dữ liệu luồng đặt lịch và tính tiền preview
+│   │   ├── useMuaTelemetryStore.ts     # Trạng thái Online/Offline và tọa độ phát sóng
+│   │   └── useRealtimeTrackingStore.ts # Tọa độ thợ di chuyển và ETA
+│   │
+│   ├── types/                          # TypeScript Interfaces & Types định nghĩa dữ liệu
+│   │   ├── user.types.ts
+│   │   ├── booking.types.ts
+│   │   ├── telemetry.types.ts
+│   │   ├── catalog.types.ts
+│   │   └── wallet.types.ts
+│   │
+│   ├── hooks/                          # Custom Hooks
+│   │   ├── useLocationPermission.ts    # Xin quyền GPS Fine/Background
+│   │   ├── useCountdownTimer.ts        # Đếm ngược 45s nhận đơn khẩn cấp
+│   │   └── useSoundAlert.ts            # Phát âm thanh chuông báo động
+│   │
+│   └── utils/                          # Tiện ích tính toán, format
+│       ├── currencyFormatter.ts
+│       ├── distanceCalculator.ts
+│       └── hapticFeedback.ts
+│
+├── app.json                            # Cấu hình Expo / React Native App Config
+├── babel.config.js
+├── tailwind.config.js                  # Cấu hình NativeWind Tailwind Tokens
+├── tsconfig.json                       # Cấu hình TypeScript Strict Mode
+├── package.json                        # Dependencies (react-native, typescript, nativewind, zustand, @stomp/stompjs)
+└── .env.example
+```
+
+---
+
+## IV. Backend Java (Layered Architecture Monolith with Domain Sub-packages)
 
 Được thiết kế theo kiến trúc **Layered Architecture Monolith (Kiến trúc phân tầng kết hợp nhóm sub-package theo Domain nghiệp vụ)**. Toàn bộ hệ thống chạy chung một tiến trình Spring Boot (Port `8080`), giao tiếp giữa các module thông qua **Service Interface trực tiếp**, **Spring EventBus (`ApplicationEventPublisher`)** trong cùng JVM, và chuyển đổi dữ liệu thông qua **Tầng Mapper (Spring `@Component` / MapStruct)**:
 

@@ -12,23 +12,24 @@
   * `ISSUE-13.2`: CRUD Gói Dịch vụ Agency Catalog vs Freelancer Catalog (`service_packages`, `package_styles`).
   * `ISSUE-13.3`: Chi tiết các bước thực hiện mặc định & Tuỳ chọn mua thêm Add-on (`package_items`).
   * `ISSUE-13.4`: Gán Kỹ năng Gói Dịch vụ Studio cho thợ trực thuộc phụ trách (`agency_staff_services`).
-  * `ISSUE-13.4`: Gán Kỹ năng Gói Dịch vụ Studio cho thợ trực thuộc phụ trách (`agency_staff_services`).
   * `ISSUE-13.5`: Cấu hình Phụ phí linh hoạt (`surcharges`): Làm sớm (3h-5h sáng), di chuyển ngoài bán kính & ngày Lễ/Tết.
-* **Mô hình Kiến trúc:** Spring Boot 3.3.x Layered Architecture Monolith (`core-api: 8080`).
-* **Cơ sở Dữ liệu Phụ trách:** PostgreSQL 16 (`makeup_platform_db`, schema: `catalog_schema` & bảng liên kết `agency_schema.agency_staff_services`).
-* **Cơ sở Dữ liệu Phụ trách:** PostgreSQL 16 (`makeup_platform_db`, schema: `catalog_schema` & bảng liên kết `agency_schema.agency_staff_services`).
+  * `ISSUE-13.6`: Xử lý Quá giờ Ca làm & Quy chế Phạt / Phụ phí Studio (`agency_overtime_rules`, `agency_staff_overtime_reports`).
+* **Mô hình Kiến trúc Hệ thống:**
+  * **Backend Core:** Spring Boot 3.3.x Layered Architecture Monolith (`core-api: 8080`), Java 21 LTS, JPA/Hibernate.
+  * **Frontend Web Portal (Admin & Studio):** React 18 + JavaScript (JSX) + Vite + Tailwind CSS + Zustand + Zod (`code/frontend/`).
+  * **Frontend Mobile App (Khách & Thợ):** React Native 0.74+ + TypeScript (TSX) + NativeWind + Zustand (`code/mobile/`).
+* **Cơ sở Dữ liệu Phụ trách:** PostgreSQL 16 (`makeup_platform_db`, schema: `catalog_schema` & bảng liên kết `agency_schema.agency_staff_services`, `agency_schema.agency_overtime_rules`, `agency_schema.agency_staff_overtime_reports`).
 * **Đối tượng Sử dụng (Personas):**
-  1. **Agency Owner / Studio Admin (Chủ Studio / Đại lý):** Tạo, quản lý và niêm yết bảng giá các Gói dịch vụ của Studio (`agency_id` NOT NULL, `mua_id` = NULL), thiết lập các bước quy trình, phân quyền gói dịch vụ cho thợ trực thuộc phụ trách (`agency_staff_services`), cấu hình chính sách phụ phí làm sớm/đi tỉnh của Studio.
-  1. **Agency Owner / Studio Admin (Chủ Studio / Đại lý):** Tạo, quản lý và niêm yết bảng giá các Gói dịch vụ của Studio (`agency_id` NOT NULL, `mua_id` = NULL), thiết lập các bước quy trình, phân quyền gói dịch vụ cho thợ trực thuộc phụ trách (`agency_staff_services`), cấu hình chính sách phụ phí làm sớm/đi tỉnh của Studio.
-  2. **Freelance MUA (Thợ trang điểm tự do):** Tạo và quản lý Gói dịch vụ cá nhân (`mua_id` NOT NULL, `agency_id` = NULL), tùy biến add-on mua thêm, cấu hình phụ phí di chuyển theo km và phụ phí làm sớm.
-  3. **Super Admin (Quản trị viên Hệ thống):** Quản lý Danh mục Gốc (Cưới hỏi, Tiệc, Kỷ yếu...) và gắn cờ kiểm duyệt gói dịch vụ vi phạm.
-  4. **Customer (Khách hàng):** Xem danh mục gói dịch vụ, lọc theo mức giá/phong cách, chọn add-on mua thêm và xem bảng tính phụ phí tự động (Preview Hóa đơn) minh bạch trước khi bấm đặt lịch.
+  1. **Agency Owner / Studio Admin (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`):** Tạo, quản lý và niêm yết bảng giá các Gói dịch vụ của Studio (`agency_id` NOT NULL, `mua_id` = NULL) trên Web Portal (ReactJS + JS), phân quyền gói dịch vụ cho thợ trực thuộc (`agency_staff_services`), cấu hình chính sách phụ phí làm sớm/đi tỉnh của Studio, thiết lập Quy chế Quá giờ (`agency_overtime_rules`), duyệt giải trình lố giờ của thợ và toàn quyền phán quyết (miễn phạt, phạt theo quy chế hoặc chuyển thành phụ phí thu thêm từ khách).
+  2. **Freelance MUA (`ROLE_FREELANCE_MUA`):** Tạo và quản lý Gói dịch vụ cá nhân (`mua_id` NOT NULL, `agency_id` = NULL) trên Mobile App (React Native + TS), tùy biến add-on mua thêm, cấu hình phụ phí di chuyển theo km và phụ phí làm sớm; gửi giải trình quá giờ kèm lý do/ảnh chụp khi ca làm bị kéo dài.
+  3. **Super Admin (`ROLE_SUPER_ADMIN`):** Quản lý Danh mục Gốc (Cưới hỏi, Tiệc, Kỷ yếu...) và Tone Make-up trên Web Portal Quản trị Sàn.
+  4. **Customer (`ROLE_CUSTOMER`):** Khám phá danh mục gói trên Mobile App (React Native + TS), lọc theo mức giá/phong cách, chọn add-on mua thêm và xem bảng tính phụ phí tự động (Preview Hóa đơn) minh bạch trước khi bấm đặt lịch; nhận cảnh báo và phản hồi khi ca làm bị kéo dài quá giờ.
 
 ---
 
 ## 🏗️ 2. KIẾN TRÚC PHÂN TẦNG BACK-END (LAYERED ARCHITECTURE BACKEND)
 
-Mã nguồn tại `code/backend/core-api/` được tổ chức chặt chẽ theo chuẩn Layered Monolith cho phân hệ Catalog & Surcharge:
+Mã nguồn tại `code/backend/core-api/` được tổ chức chặt chẽ theo chuẩn Layered Monolith cho phân hệ Catalog, Surcharge & Overtime Management:
 
 ```text
 code/backend/core-api/src/main/java/com/makeup/platform/
@@ -42,7 +43,8 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── ErrorCodes.java                    # Bộ hằng số mã lỗi nghiệp vụ
-│   │   └── SurchargeType.java                 # Enum: EARLY_MORNING, OUT_OF_RADIUS, HOLIDAY, CUSTOM
+│   │   ├── SurchargeType.java                 # Enum: EARLY_MORNING, OUT_OF_RADIUS, HOLIDAY, CUSTOM
+│   │   └── OvertimeReviewAction.java          # Enum: DEDUCT_BY_RULE, WAIVE_PENALTY, CUSTOM_PENALTY, CHARGE_CUSTOMER
 │   ├── exception/
 │   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
 │   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
@@ -64,8 +66,8 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── ServicePackageController.java      # /api/v1/packages (CRUD gói Agency vs Freelancer)
 │       ├── PackageItemController.java         # /api/v1/packages/{packageId}/items (Add-ons & quy trình)
 │       ├── AgencyStaffPackageController.java  # /api/v1/packages/staff-assignments (Gán gói dịch vụ cho thợ Studio)
-│       ├── AgencyStaffPackageController.java  # /api/v1/packages/staff-assignments (Gán gói dịch vụ cho thợ Studio)
-│       └── SurchargeController.java           # /api/v1/surcharges (Cấu hình & Calculate phụ phí)
+│       ├── SurchargeController.java           # /api/v1/surcharges (Cấu hình & Calculate phụ phí)
+│       └── AgencyOvertimeController.java      # /api/v1/agency/overtime-rules & overtime-reports (Quản lý quá giờ)
 │
 ├── dto/
 │   ├── request/catalog/
@@ -73,16 +75,19 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   │   ├── UpdatePackageReq.java              # Cập nhật thông tin gói
 │   │   ├── CreatePackageItemReq.java          # @NotBlank itemName, @NotNull itemType, itemPrice
 │   │   ├── AssignStaffPackagesReq.java        # staffId, packageAssignments (packageId, proficiencyLevel)
-│   │   ├── AssignStaffPackagesReq.java        # staffId, packageAssignments (packageId, proficiencyLevel)
 │   │   ├── ConfigureSurchargeReq.java         # @NotNull surchargeType, @DecimalMin amount
-│   │   └── CalculateSurchargeReq.java         # providerType, providerId, bookingTime, customerLat, customerLng
+│   │   ├── CalculateSurchargeReq.java         # providerType, providerId, bookingTime, customerLat, customerLng
+│   │   ├── ConfigureOvertimeRuleReq.java      # Cấu hình quy chế quá giờ của Studio
+│   │   ├── SubmitOvertimeExplanationReq.java  # Thợ gửi giải trình quá giờ kèm ảnh
+│   │   └── ReviewOvertimeReportReq.java       # Admin Studio phán quyết duyệt/phạt/chuyển phụ phí
 │   └── response/catalog/
 │       ├── PackageDetailRes.java              # Chi tiết gói, danh sách styles, danh sách items add-on
 │       ├── PackageSummaryRes.java             # Dùng trong danh sách tìm kiếm (gọn nhẹ, tối ưu)
 │       ├── StaffPackageAssignmentRes.java     # Danh sách các gói Studio giao cho thợ phụ trách
-│       ├── StaffPackageAssignmentRes.java     # Danh sách các gói Studio giao cho thợ phụ trách
 │       ├── SurchargeDetailRes.java            # Chi tiết cấu hình phụ phí của Thợ / Studio
-│       └── SurchargeCalculationRes.java       # Bóc tách từng loại phụ phí tính cho đơn hàng
+│       ├── SurchargeCalculationRes.java       # Bóc tách từng loại phụ phí tính cho đơn hàng
+│       ├── OvertimeRuleRes.java               # Chi tiết quy tắc quá giờ nội bộ của Studio
+│       └── OvertimeReportDetailRes.java       # Chi tiết báo cáo giải trình và kết quả xử lý
 │
 ├── entity/
 │   └── catalog/
@@ -91,15 +96,17 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── PackageItemEntity.java             # table: package_items (COMPONENT / ADD_ON)
 │       ├── PackageStyleEntity.java            # table: package_styles (Composite Key)
 │       ├── AgencyStaffServiceEntity.java      # table: agency_schema.agency_staff_services (Composite PK)
-│       ├── AgencyStaffServiceEntity.java      # table: agency_schema.agency_staff_services (Composite PK)
-│       └── SurchargeEntity.java               # table: surcharges
+│       ├── SurchargeEntity.java               # table: surcharges
+│       ├── AgencyOvertimeRuleEntity.java      # table: agency_schema.agency_overtime_rules
+│       └── AgencyStaffOvertimeReportEntity.java # table: agency_schema.agency_staff_overtime_reports
 │
 ├── mapper/
 │   └── catalog/
 │       ├── MasterTaxonomyMapper.java          # MapStruct: MasterCategoryEntity <-> DTOs
 │       ├── ServicePackageMapper.java          # MapStruct: ServicePackageEntity <-> DTOs
 │       ├── PackageItemMapper.java             # MapStruct: PackageItemEntity <-> DTOs
-│       └── SurchargeMapper.java               # MapStruct: SurchargeEntity <-> DTOs
+│       ├── SurchargeMapper.java               # MapStruct: SurchargeEntity <-> DTOs
+│       └── AgencyOvertimeMapper.java          # MapStruct: OvertimeRule & Report <-> DTOs
 │
 ├── repository/
 │   └── catalog/
@@ -108,8 +115,9 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── PackageItemRepository.java         # findByPackageIdOrderByStepOrderAsc
 │       ├── PackageStyleRepository.java
 │       ├── AgencyStaffServiceRepository.java  # findByStaffId, findByPackageId, deleteByStaffId
-│       ├── AgencyStaffServiceRepository.java  # findByStaffId, findByPackageId, deleteByStaffId
-│       └── SurchargeRepository.java           # findByAgencyId, findByMuaId, findActiveByType
+│       ├── SurchargeRepository.java           # findByAgencyId, findByMuaId, findActiveByType
+│       ├── AgencyOvertimeRuleRepository.java  # findByAgencyIdAndIsActiveTrue
+│       └── AgencyStaffOvertimeReportRepository.java # findByAgencyIdAndStatus, findByBookingId
 │
 └── service/
     └── catalog/
@@ -117,13 +125,15 @@ code/backend/core-api/src/main/java/com/makeup/platform/
         ├── ServicePackageService.java         # Logic CRUD gói, kiểm tra sở hữu, validate giá
         ├── PackageItemService.java            # Logic thêm/sửa add-on, bước quy trình
         ├── SurchargeService.java              # Cấu hình phụ phí & Engine tính toán phụ phí realtime
+        ├── AgencyOvertimeService.java          # Cấu hình quy chế & Phán quyết giải trình quá giờ
         ├── helper/
         │   └── CatalogOwnerHelper.java        # Phân giải danh tính Studio vs MUA, ngăn chặn IDOR
         └── impl/
             ├── MasterTaxonomyServiceImpl.java
             ├── ServicePackageServiceImpl.java
             ├── PackageItemServiceImpl.java
-            └── SurchargeServiceImpl.java
+            ├── SurchargeServiceImpl.java
+            └── AgencyOvertimeServiceImpl.java
 ```
 
 ---
@@ -244,45 +254,6 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### **US-CAT-03: Gán Kỹ năng Gói Dịch vụ cho Thợ Studio (`ISSUE-13.4`)**
-> **As a** Chủ Studio / Đại lý (`ROLE_AGENCY_ADMIN`),  
-> **I want to** phân công danh sách các Gói Dịch vụ của Studio cho từng thợ trực thuộc phụ trách và thiết lập vai trò (Thợ chính `PRIMARY_MUA` / Thợ phụ `ASSISTANT_MUA`),  
-> **So that** thuật toán điều phối đơn hàng chỉ phân công các ca make-up cho thợ có đủ năng lực thực hiện gói đó, đảm bảo chất lượng dịch vụ cho khách hàng.
-
-#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-
-* **Scenario 01: Gán danh sách Gói dịch vụ cho thợ thành công (Happy Path)**
-  * **Given** Chủ Studio (`agency_id = 1`) đã đăng nhập.
-  * **And** Thợ `staff_id = 101` là nhân viên đang hoạt động (`is_active = true`) của Studio 1.
-  * **When** Gửi request `PUT /api/v1/packages/staff-assignments`:
-    ```json
-    {
-      "staff_id": 101,
-      "package_assignments": [
-        { "package_id": 1, "proficiency_level": "PRIMARY_MUA", "is_qualified": true },
-        { "package_id": 2, "proficiency_level": "PRIMARY_MUA", "is_qualified": true },
-        { "package_id": 5, "proficiency_level": "ASSISTANT_MUA", "is_qualified": true }
-      ]
-    }
-    ```
-  * **Then** Backend xác thực gói 1, 2, 5 đều thuộc sở hữu của Studio 1 (`agency_id = 1`).
-  * **And** Xóa mapping cũ của `staff_id = 101` và lưu danh sách mới vào bảng `agency_schema.agency_staff_services`.
-  * **And** Trả về HTTP `200 OK` kèm danh sách chi tiết các gói vừa được phân công.
-
-* **Scenario 02: Chặn gán Gói dịch vụ không thuộc sở hữu của Studio**
-  * **Given** Gói `package_id = 99` thuộc sở hữu của Studio khác (`agency_id = 2`) hoặc thuộc Thợ tự do (`mua_id = 45`).
-  * **When** Chủ Studio 1 gửi gán `package_id = 99` cho thợ của mình.
-  * **Then** Backend phát hiện gói 99 không thuộc Studio 1.
-  * **And** Ném `CustomBusinessException` với mã lỗi `ERR_PACKAGE_NOT_OWNED_BY_AGENCY`, HTTP `400 BAD_REQUEST`.
-
-* **Scenario 03: Chặn gán gói cho thợ không thuộc Studio hiện tại (IDOR Protection)**
-  * **Given** Thợ `staff_id = 205` thuộc Studio khác (`agency_id = 3`).
-  * **When** Chủ Studio 1 gửi gán gói cho `staff_id = 205`.
-  * **Then** Backend kiểm tra thấy `staff.agency_id != current_agency_id`.
-  * **And** Ném `AccessDeniedException` với mã lỗi `ERR_STAFF_NOT_IN_AGENCY`, HTTP `403 FORBIDDEN`.
-
----
-
 ### **US-SUR-01: Cấu hình Phụ phí Linh hoạt (Flexible Surcharge Configuration)**
 > **As a** Chủ Studio hoặc Thợ Tự do,  
 > **I want to** thiết lập mức phụ phí làm sớm (3h - 5h sáng), phụ phí di chuyển ngoài bán kính và phụ phí ngày Lễ/Tết,  
@@ -343,16 +314,285 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### **US-UI-01: Trải nghiệm Khách hàng Chọn Gói & Phụ phí trên Ứng dụng (Customer Selection Flow)**
-> **As a** Khách hàng (Customer),  
-> **I want to** xem danh sách gói dịch vụ, tích chọn các option add-on và xem hóa đơn tạm tính kèm phụ phí nhảy realtime,  
-> **So that** tôi chủ động ngân sách và nắm rõ 100% chi phí trước khi bấm Đặt ca.
+### **US-CAT-04: Xử lý Quá giờ Ca làm & Quy chế Phán quyết của Admin Studio (Overtime Report & Agency Discretionary Review)**
+> **As a** Thợ Make-up trực thuộc Studio và Chủ/Quản lý Studio (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`),  
+> **I want** thợ có thể nộp báo cáo giải trình khi ca làm bị kéo dài quá thời lượng ước tính của gói (`estimated_duration_minutes` + 15 phút đệm), và Quản lý Studio có thể thẩm tra phán quyết theo quy chế nội bộ hoặc toàn quyền xử lý trường hợp đặc biệt,  
+> **So that** studio đảm bảo kỷ luật tiến độ, không xử phạt oan thợ khi khách hàng phát sinh việc riêng, và có căn cứ thu thêm phụ phí chờ đợi nếu lỗi kéo dài thời gian xuất phát từ khách.
 
 #### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-* **AC-01**: Khách bấm vào Profile Thợ/Studio $\rightarrow$ Màn hình hiển thị Tab "Gói Dịch Vụ".
-* **AC-02**: Khi nhấp vào 1 Gói $\rightarrow$ Mở rộng danh sách "Bước thực hiện (Đã bao gồm)" và danh sách checkbox "Dịch vụ mua thêm (Add-on)".
-* **AC-03**: Khi khách tích/bỏ tích Add-on $\rightarrow$ Tổng tiền tạm tính ở góc dưới màn hình tự động cập nhật mượt mà (<16ms).
-* **AC-04**: Khi chọn giờ đặt lịch (VD: 4h sáng) hoặc nhập địa chỉ $\rightarrow$ Khung "Chi tiết Phụ phí" tự động hiển thị dòng: `Phụ phí làm sớm: +150,000đ`, `Phụ phí di chuyển (4.5km): +67,500đ`.
+
+* **Scenario 01: Chủ Studio cấu hình Khung Quy chế Quá giờ Nội bộ (`agency_overtime_rules`)**
+  * **Given** Chủ Studio (`agency_id = 1`) truy cập cấu hình quy chế nội bộ.
+  * **When** Gửi request `POST /api/v1/agency/overtime-rules` với thông tin:
+    ```json
+    {
+      "rule_name": "Quá giờ do thao tác chậm hoặc đi trễ (30 - 60 phút)",
+      "min_overtime_minutes": 30,
+      "max_overtime_minutes": 60,
+      "penalty_type": "PERCENT_COMMISSION",
+      "penalty_value": 15.00,
+      "is_active": true
+    }
+    ```
+  * **Then** Hệ thống lưu vào bảng `agency_schema.agency_overtime_rules`.
+  * **And** Trả về HTTP `201 Created` kèm `rule_id`.
+
+* **Scenario 02: Thợ nộp Giải trình Quá giờ theo Quy chế Studio (Preset Rule)**
+  * **Given** Ca làm `booking_id = 10025` có `estimated_duration_minutes = 60`, thợ bắt đầu lúc 08:00 và hiện tại là 09:35 (quá 20 phút sau khi trừ 15 phút đệm).
+  * **When** Thợ gửi request `POST /api/v1/agency/overtime-reports`:
+    ```json
+    {
+      "booking_id": 10025,
+      "overtime_minutes": 20,
+      "reason_type": "PRESET_RULE",
+      "rule_id": 1,
+      "explanation_text": "Thời tiết mưa to đường ngập làm bắt đầu muộn 15 phút",
+      "proof_image_url": "https://cdn.makeup.com/proofs/traffic_rain.jpg"
+    }
+    ```
+  * **Then** Bản ghi được lưu vào `agency_schema.agency_staff_overtime_reports` ở trạng thái `PENDING_AGENCY_REVIEW`.
+  * **And** WebSocket Gateway đẩy thông báo khẩn Toast Popup về Web Portal của Studio: *"Thợ [Tên] vừa nộp giải trình quá giờ ca BK-10025 (+20 phút)"*.
+
+* **Scenario 03: Thợ nộp Giải trình với "Lý do khác ngoài quy chế" (Custom Exception)**
+  * **When** Thợ gửi giải trình chọn `reason_type = "OTHER_CUSTOM_REASON"` kèm lời giải thích: *"Khách bận tiếp họ hàng và thay đổi 3 bộ áo dài nên phải chờ 45 phút mới makeup xong"* kèm ảnh chụp.
+  * **Then** Hệ thống ghi nhận báo cáo đặc biệt và gắn cờ `requires_admin_discretion = true`.
+
+* **Scenario 04: Admin Studio phán quyết Áp dụng theo Khung quy chế (Deduct by Policy)**
+  * **Given** Admin Studio xem báo cáo giải trình của thợ và xác định thợ làm chậm tay do lỗi chủ quan.
+  * **When** Gửi request `POST /api/v1/agency/overtime-reports/{reportId}/review`:
+    ```json
+    {
+      "action": "DEDUCT_BY_RULE",
+      "admin_notes": "Xác nhận thợ thao tác chậm, áp dụng trừ 15% hoa hồng theo quy chế số 1"
+    }
+    ```
+  * **Then** Trạng thái chuyển thành `PENALIZED`. Hệ thống tự động tính số tiền phạt và khấu trừ vào khoản thanh toán hoa hồng của thợ ở ca làm này.
+
+* **Scenario 05: Admin Studio phán quyết Miễn phạt 100% (Waive Penalty)**
+  * **Given** Admin Studio thẩm tra thấy lý do kẹt xe/mưa bão là chính đáng.
+  * **When** Admin chọn `action = "WAIVE_PENALTY"` kèm ghi chú *"Lý do khách quan hợp lý, duyệt miễn phạt"*.
+  * **Then** Trạng thái chuyển thành `APPROVED_WAIVED`. Thợ được giải ngân 100% hoa hồng như bình thường, không bị trừ điểm uy tín.
+
+* **Scenario 06: Admin Studio toàn quyền quyết định mức phạt Tùy chỉnh (Custom Penalty)**
+  * **When** Admin chọn `action = "CUSTOM_PENALTY"`, `custom_penalty_amount = 50000.00` (50,000 VND nhắc nhở).
+  * **Then** Hệ thống áp dụng trừ chính xác 50,000 VND thay vì tính theo %.
+
+* **Scenario 07: Admin Studio phán quyết Chuyển thành Phụ phí thu thêm từ Khách (Charge Customer)**
+  * **Given** Admin Studio xác nhận khách hàng là nguyên nhân chính khiến ca làm bị kéo dài (bắt thợ chờ quá lâu).
+  * **When** Admin chọn `action = "CHARGE_CUSTOMER"`, `surcharge_amount = 100000.00`, `charge_reason = "Phụ phí chờ đợi khách phát sinh 45 phút"`.
+  * **Then** Trạng thái chuyển thành `CHARGED_CUSTOMER`.
+  * **And** Hệ thống tự động tạo hóa đơn phụ phí bổ sung gửi tới App Khách hàng qua WebSocket thông báo: *"Studio phụ thu 100,000đ phí chờ đợi phát sinh"*. Khách bấm xác nhận thanh toán để giải ngân cho Studio và Thợ.
+
+---
+
+### **US-FE-01: Quản lý Gói Dịch vụ & Phụ phí Studio trên Web Portal (ReactJS + JavaScript)**
+> **As a** Chủ Studio / Quản lý Đại lý (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`),  
+> **I want to** quản lý danh mục Gói dịch vụ (`ServiceCatalogPage.jsx`) và cấu hình Phụ phí Studio (`SurchargeConfigPage.jsx`) trên giao diện Web ReactJS,  
+> **So that** studio của tôi niêm yết bảng giá chuyên nghiệp, thiết lập quy trình thực hiện chuẩn và tự động hóa tính phụ phí cho khách hàng.
+
+* **Vị trí Mã nguồn Frontend:**
+  * Component: `code/frontend/src/pages/catalog/ServiceCatalogPage.jsx` & `SurchargeConfigPage.jsx`
+  * Validation Schema: `code/frontend/src/schemas/catalog.schema.js` & `surcharge.schema.js` (Sử dụng Zod)
+  * State Store: `code/frontend/src/store/useCatalogStore.js` (Zustand)
+  * Service API: `code/frontend/src/services/catalogService.js` (Axios Client)
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Hiển thị Danh sách Gói dịch vụ dạng Bảng dữ liệu có phân trang & lọc**
+  * **Given** Quản lý Studio truy cập route `/agency/services`.
+  * **When** Trang web tải xong.
+  * **Then** Hiển thị `BaseTable` liệt kê toàn bộ gói dịch vụ của Studio: Tên gói, Danh mục, Giá niêm yết (VND), Thời gian làm (phút), Trạng thái (`Đang nhận khách` / `Tạm ngưng`).
+  * **And** Cung cấp ô tìm kiếm theo tên gói và bộ lọc dropdown theo Danh mục gốc.
+
+* **Scenario 02: Mở Modal Tạo mới Gói dịch vụ & Validate với Zod**
+  * **When** Bấm nút "+ Thêm Gói Dịch Vụ".
+  * **Then** Mở `BaseModal` chứa form:
+    * Select `master_category_id` (Cưới, Tiệc, Kỷ yếu...).
+    * Input `package_name` (5 - 150 ký tự).
+    * Input `price` (Tối thiểu 50,000 VND).
+    * Input `estimated_duration_minutes` (Tối thiểu 30 phút).
+    * Multi-select Checkbox `style_ids` (Douyin, Tone Thái, Tone Tây, Tự nhiên...).
+    * Dynamic Form thêm các Bước thực hiện mặc định (`COMPONENT`) và Dịch vụ mua thêm (`ADD_ON`) kèm giá.
+  * **And** Nếu người dùng nhập thiếu hoặc sai định dạng $\rightarrow$ Hiển thị thông báo lỗi đỏ dưới từng trường do Zod schema trả về trước khi gọi API.
+
+* **Scenario 03: Cấu hình Bảng Phụ phí Studio**
+  * **When** Chuyển sang Tab "Cấu hình Phụ phí" (`/agency/surcharges`).
+  * **Then** Hiển thị danh sách các phụ phí hiện có:
+    * Phụ phí làm sớm (03:00 - 05:00 sáng): Input số tiền (VD: 200,000đ).
+    * Phụ phí di chuyển ngoài bán kính: Input số tiền mỗi km (VD: 20,000đ/km).
+    * Phụ phí ngày Lễ/Tết: Input số tiền (VD: 300,000đ).
+  * **And** Switch Button bật/tắt kích hoạt từng loại phụ phí nhanh không cần reload trang.
+
+---
+
+### **US-FE-02: Gán Kỹ năng Gói Dịch vụ cho Thợ Studio trên Web Portal (ReactJS + JavaScript)**
+> **As a** Chủ Studio (`ROLE_AGENCY_ADMIN`),  
+> **I want to** phân công danh sách các Gói dịch vụ của Studio cho từng thợ trực thuộc trên giao diện Web (`StaffManagementPage.jsx`),  
+> **So that** tôi chỉ định rõ thợ nào đủ điều kiện làm Thợ chính (`PRIMARY_MUA`) hoặc Thợ phụ (`ASSISTANT_MUA`) cho từng gói.
+
+* **Vị trí Mã nguồn Frontend:**
+  * Component: `code/frontend/src/pages/agency/StaffManagementPage.jsx`
+  * Modal Component: `code/frontend/src/components/features/dispatch/StaffPackageAssignModal.jsx`
+  * API Service: `code/frontend/src/services/agencyService.js` $\rightarrow$ `PUT /api/v1/packages/staff-assignments`
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Mở Drawer/Modal phân công gói dịch vụ cho thợ**
+  * **Given** Chủ studio đang ở trang Quản lý Nhân sự (`/agency/staff`).
+  * **When** Bấm nút "Phân công gói" trên dòng của thợ `Nguyễn Văn A`.
+  * **Then** Mở Modal hiển thị toàn bộ danh sách gói dịch vụ hiện có của Studio.
+  * **And** Mỗi gói có 1 Checkbox "Đủ điều kiện (`is_qualified`)" và 1 Selectbox chọn vai trò: `[Thợ chính (PRIMARY_MUA)]` hoặc `[Thợ phụ (ASSISTANT_MUA)]`.
+
+* **Scenario 02: Lưu phân công thành công**
+  * **When** Chủ studio tích chọn 3 gói và bấm "Lưu Phân Công".
+  * **Then** Client gửi request `PUT /api/v1/packages/staff-assignments`.
+  * **And** Hiển thị Toast Notification thành công màu xanh lá: "Đã cập nhật kỹ năng gói dịch vụ cho thợ".
+  * **And** Cập nhật ngay số lượng gói thợ phụ trách trên bảng nhân sự.
+
+---
+
+### **US-FE-03: Quản trị Danh mục Gốc & Phụ phí Sàn trên Web Admin (ReactJS + JavaScript)**
+> **As a** Quản trị viên Sàn (`ROLE_SUPER_ADMIN`),  
+> **I want to** quản lý danh mục dịch vụ gốc (`master_service_categories`) và danh mục phong cách make-up (`makeup_styles`) trên Web Portal Quản trị,  
+> **So that** nền tảng có bộ phân loại chuẩn thống nhất cho toàn bộ thị trường.
+
+* **Vị trí Mã nguồn Frontend:**
+  * Component: `code/frontend/src/pages/admin/MasterCatalogPage.jsx`
+  * Route: `/admin/catalog-pricing`
+  * API Service: `code/frontend/src/services/catalogService.js` (`/api/v1/master/categories`, `/api/v1/admin/pricing-rules`)
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: CRUD Master Categories trên Web Admin**
+  * **When** Admin truy cập trang `/admin/catalog-pricing`.
+  * **Then** Hiển thị bảng Danh mục Gốc: Mã danh mục (`category_code`), Tên hiển thị, Mô tả, Icon đại diện và Toggle Kích hoạt/Tạm khóa.
+  * **And** Admin có thể thêm mới danh mục (VD: "Make-up Cô dâu", "Make-up Tiệc", "Make-up Kỷ yếu", "Make-up Hóa trang").
+
+---
+
+### **US-FE-04: Quản lý Gói & Phụ phí Cá nhân trên Mobile App Thợ (React Native + TypeScript)**
+> **As a** Thợ Make-up Tự do (`ROLE_FREELANCE_MUA`),  
+> **I want to** tạo, sửa gói dịch vụ và thiết lập phụ phí cá nhân trực tiếp trên Ứng dụng Di động,  
+> **So that** tôi có thể chủ động bảng giá và chi phí của mình mọi lúc mọi nơi từ điện thoại.
+
+* **Vị trí Mã nguồn Mobile App:**
+  * Screen: `code/mobile/src/screens/mua/MuaPortfolioManagerScreen.tsx`
+  * Component: `code/mobile/src/components/mua/PackageEditBottomSheet.tsx`
+  * TypeScript Interface: `code/mobile/src/types/catalog.types.ts` (`ServicePackage`, `PackageItem`, `Surcharge`)
+  * Store: `code/mobile/src/store/useMuaCatalogStore.ts` (Zustand)
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Thợ xem danh sách gói dịch vụ cá nhân**
+  * **Given** Thợ mở App và vào Tab "Hồ sơ & Gói làm việc".
+  * **When** Chọn mục "Gói Dịch Vụ của Tôi".
+  * **Then** Danh sách hiển thị dạng Card sang trọng (Luxury Cards): Tên gói, Giá tiền nổi bật với màu Vàng Champagne, Thời gian ước tính và danh sách Tags Tone Make-up.
+  * **And** Mỗi Card có nút Toggle nhanh "Bật/Tắt nhận khách".
+
+* **Scenario 02: Thêm mới / Chỉnh sửa Gói dịch vụ qua BottomSheet**
+  * **When** Thợ bấm nút nổi Floating Action Button "+ Gói Mới".
+  * **Then** Trượt lên `BottomSheetModal` chứa form nhập liệu mượt mà:
+    * Picker chọn Master Category.
+    * Ô nhập Tên gói và Mô tả.
+    * Ô nhập Giá tiền (Hỗ trợ format tự động `500,000 đ`).
+    * Chip Selector chọn Tone Make-up sở trường.
+    * Nút "+ Thêm Dịch vụ đi kèm (Add-on)" (VD: Làm tóc uốn +100k).
+  * **And** Bấm "Lưu Gói" $\rightarrow$ Hiển thị Toast thông báo và cập nhật danh sách ngay lập tức.
+
+* **Scenario 03: Cấu hình Phụ phí Cá nhân (Làm sớm & Vượt bán kính)**
+  * **When** Thợ chuyển sang màn hình "Cài đặt Phụ phí".
+  * **Then** Giao diện cung cấp:
+    * Switch "Nhận ca sáng sớm (03:00 - 05:00)" kèm ô nhập mức phụ phí (VD: 150,000đ).
+    * Slider chọn Bán kính phục vụ miễn phí (1km - 20km).
+    * Ô nhập Phụ phí di chuyển vượt bán kính (VD: 15,000đ / km).
+  * **And** Dữ liệu được lưu trực tiếp qua API `POST /api/v1/surcharges`.
+
+---
+
+### **US-FE-05: Khám phá Gói, Lọc Phong cách, Chọn Add-on & Preview Hóa đơn Realtime trên Mobile App Khách (React Native + TypeScript)**
+> **As a** Khách hàng (`ROLE_CUSTOMER`),  
+> **I want to** xem chi tiết gói dịch vụ, lựa chọn các option mua thêm và quan sát hóa đơn tự động tính phụ phí bóc tách minh bạch,  
+> **So that** tôi an tâm về giá cả và chọn đúng phong cách trang điểm yêu thích trước khi tiến hành đặt đơn.
+
+* **Vị trí Mã nguồn Mobile App:**
+  * Screen: `code/mobile/src/screens/customer/MuaProfileDetailScreen.tsx` & `BookingFlowScreen.tsx`
+  * Component: `code/mobile/src/components/customer/InvoiceBreakdown.tsx` & `StyleChipFilter.tsx`
+  * TypeScript Interface: `code/mobile/src/types/booking.types.ts` & `catalog.types.ts`
+  * API Service: `code/mobile/src/services/api/bookingApi.ts` $\rightarrow$ `POST /api/v1/pricing/preview-invoice`
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Xem chi tiết gói & Quy trình thực hiện trên màn hình Profile**
+  * **Given** Khách hàng đang xem hồ sơ của Thợ/Studio.
+  * **When** Chọn vào 1 Gói (VD: "Make-up Dạ Tiệc Douyin").
+  * **Then** Mở rộng chi tiết gói gồm:
+    * Danh sách "Bước thực hiện chuẩn" (Đã bao gồm trong giá).
+    * Danh sách Checkbox "Dịch vụ mua thêm (Add-ons)" kèm giá niêm yết rõ ràng.
+  * **And** Khi khách tích chọn thêm Add-on (VD: "Tạo kiểu tóc dạ tiệc +150,000đ") $\rightarrow$ Tổng tiền tạm tính ở Bottom Bar cập nhật tức thì (<16ms).
+
+* **Scenario 02: Tự động Tính toán và Bóc tách Phụ phí trên Hóa đơn Preview**
+  * **When** Khách hàng chuyển sang màn hình Đặt lịch, chọn thời gian **04:30 sáng** và nhập địa chỉ nhà cách thợ **12 km** (vượt 2 km).
+  * **Then** Component `InvoiceBreakdown.tsx` gọi API Preview và hiển thị bóc tách minh bạch từng dòng:
+    ```text
+    Giá gói dịch vụ:                600,000 đ
+    Dịch vụ mua thêm (Làm tóc):     +150,000 đ
+    Phụ phí làm sớm (04:30 sáng):   +150,000 đ
+    Phụ phí di chuyển (vượt 2km):   +30,000 đ
+    -------------------------------------------
+    TỔNG CỘNG:                      930,000 đ
+    (Đã bao gồm thuế và phí dịch vụ sàn)
+    ```
+  * **And** Số tiền hiển thị minh bạch 100%, không phát sinh bất kỳ khoản phí ẩn nào khi thanh toán.
+
+---
+
+### **US-FE-06: Giao diện Xử lý Quá giờ Ca làm trên Web Agency Portal (ReactJS) & Mobile App Thợ (React Native)**
+> **As a** Quản lý Studio (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`) và Thợ Make-up (`ROLE_FREELANCE_MUA`),  
+> **I want** thợ có giao diện nộp giải trình nhanh trên Mobile App kèm chụp ảnh hiện trường, và Quản lý Studio có giao diện thẩm định trực quan trên Web Portal ReactJS với các phán quyết 1-click (Áp quy chế / Miễn phạt / Phạt tùy chỉnh / Thu phụ phí khách),  
+> **So that** quy trình xử lý ca quá giờ diễn ra minh bạch, realtime và giảm thiểu tối đa tranh chấp.
+
+* **Vị trí Mã nguồn Web Portal (ReactJS + JavaScript):**
+  * Trang Quản lý Báo cáo Quá giờ: `code/frontend/src/pages/agency/OvertimeReportsPage.jsx`
+  * Trang Cấu hình Quy chế Studio: `code/frontend/src/pages/agency/OvertimePolicyConfigPage.jsx`
+  * Drawer Thẩm tra & Phán quyết: `code/frontend/src/components/features/dispatch/OvertimeReviewDrawer.jsx`
+  * API Service: `code/frontend/src/services/agencyOvertimeService.js`
+
+* **Vị trí Mã nguồn Mobile App (React Native + TypeScript):**
+  * Modal Gửi Giải trình: `code/mobile/src/components/mua/OvertimeExplanationModal.tsx`
+  * Màn hình Tiến trình Ca làm: `code/mobile/src/screens/mua/JobExecutionFlowScreen.tsx`
+  * TypeScript Interface: `code/mobile/src/types/overtime.types.ts` (`OvertimeReport`, `OvertimeRule`)
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Mobile App Thợ tự động kích hoạt Cảnh báo Quá giờ & Nút Nộp Giải trình**
+  * **Given** Thợ đang trong màn hình tiến trình ca làm `JobExecutionFlowScreen.tsx`.
+  * **When** Đồng hồ đếm thời gian vượt quá `estimated_duration_minutes + 15 phút` (hết Grace Period).
+  * **Then** Thanh trạng thái trên App chuyển sang màu Cam cảnh báo kèm nhãn: `LỐ THỜI GIAN: +18 PHÚT`.
+  * **And** Xuất hiện nút nổi bật: **[NỘP GIẢI TRÌNH LÝ DO QUÁ GIỜ]**.
+
+* **Scenario 02: Modal Thợ Nộp Giải trình với Camera chụp ảnh hiện trường**
+  * **When** Thợ nhấn nút [Nộp giải trình lý do quá giờ].
+  * **Then** Trượt lên `OvertimeExplanationModal.tsx`:
+    * Dropdown chọn: *1. Danh mục lý do theo quy chế của Studio* hoặc *2. Lý do khác ngoài quy chế*.
+    * Ô nhập Textarea: Trình bày chi tiết tình huống phát sinh (bắt buộc nhập nếu chọn lý do khác).
+    * Khung ảnh đính kèm: Hỗ trợ nút Chụp ảnh bằng Camera trực tiếp hoặc Tải ảnh từ thư viện.
+  * **And** Nhấn "Gửi Báo Cáo" $\rightarrow$ Gửi API `POST /api/v1/agency/overtime-reports` và hiển thị badge: `Đang chờ Studio duyệt`.
+
+* **Scenario 03: Web Agency Portal nhận Cảnh báo Realtime & Badge Đỏ trên Dispatch Board**
+  * **When** Có thợ nộp giải trình quá giờ.
+  * **Then** Web Portal của Studio nhận STOMP Event tức thì $\rightarrow$ Bật Toast thông báo góc phải màn hình.
+  * **And** Trên Bảng điều phối (`DispatchBoardPage.jsx`), ô ca làm việc của thợ hiển thị **Huy hiệu Cảnh báo Đỏ**: `Lố 20 phút - Chờ duyệt giải trình`.
+
+* **Scenario 04: Drawer Thẩm định & 1-Click Phán quyết của Admin Studio trên Web Portal**
+  * **When** Quản lý Studio nhấp vào ca làm quá giờ.
+  * **Then** Mở Drawer `OvertimeReviewDrawer.jsx` hiển thị:
+    * So sánh Thời gian Gói quy định (90p) vs Thời gian Thực tế (110p).
+    * Lý do thợ khai báo và Lightbox xem ảnh bằng chứng.
+    * Khung 4 nút lựa chọn phán quyết:
+      1. Radio **[Áp dụng trừ theo Quy chế Studio]**: Tự động hiển thị số tiền/tỷ lệ khấu trừ dự kiến.
+      2. Radio **[Miễn phạt 100% (Lý do chính đáng)]**: Bỏ qua vi phạm, giữ nguyên hoa hồng cho thợ.
+      3. Radio **[Phạt mức tùy chỉnh]**: Mở ô nhập số tiền phạt cụ thể (VND).
+      4. Radio **[Chuyển thành Phụ phí thu thêm Khách]**: Mở ô nhập số tiền phụ thu phát sinh kèm lý do gửi khách.
+  * **And** Admin bấm "Xác nhận Phán quyết" $\rightarrow$ Cập nhật tức thì vào sổ cái ví và bắn thông báo phản hồi cho Thợ / Khách.
+
+* **Scenario 05: Giao diện Cài đặt Quy chế Phạt Quá giờ Nội bộ của Studio trên Web**
+  * **Given** Chủ Studio vào trang Cấu hình (`OvertimePolicyConfigPage.jsx`).
+  * **When** Thiết lập bảng quy tắc: Thêm mới quy tắc, cài đặt khoảng phút lố (VD: 15-30p, 30-60p, >60p), chọn loại phạt (`% hoa hồng` hoặc `Tiền cố định`), bật/tắt kích hoạt.
+  * **Then** Bảng quy tắc được lưu vào Database để tự động áp dụng cho toàn bộ thợ thuộc Studio.
 
 ---
 
@@ -379,18 +619,18 @@ Tất cả các lỗi nghiệp vụ và lỗi xác thực dữ liệu đều đ�
 | **`400 BAD_REQUEST`** | `INVALID_ITEM_PRICE` | Giá Add-on âm (`item_price < 0`). | Ném ngoại lệ validation, chặn ghi database. |
 | **`400 BAD_REQUEST`** | `INVALID_SURCHARGE_AMOUNT` | Mức phụ phí cấu hình nhỏ hơn 0 hoặc vượt quá mức trần quy định. | Báo lỗi giá trị phụ phí không hợp lệ. |
 | **`400 BAD_REQUEST`** | `ERR_PACKAGE_NOT_OWNED_BY_AGENCY` | Gán gói dịch vụ cho thợ nhưng gói đó không thuộc quyền sở hữu của Studio. | Kiểm tra `package.agency_id == current_agency_id`. |
-| **`400 BAD_REQUEST`** | `ERR_PACKAGE_NOT_OWNED_BY_AGENCY` | Gán gói dịch vụ cho thợ nhưng gói đó không thuộc quyền sở hữu của Studio. | Kiểm tra `package.agency_id == current_agency_id`. |
 | **`401 UNAUTHORIZED`** | `UNAUTHORIZED` | Token JWT thiếu, hết hạn hoặc không hợp lệ khi gọi các API quản trị gói. | Spring Security chặn ở tầng Filter trước khi vào Controller. |
 | **`403 FORBIDDEN`** | `PACKAGE_ACCESS_DENIED` | Thợ A cố tình sửa hoặc xóa gói dịch vụ của Thợ B hoặc Studio khác (Lỗ hổng IDOR). | Đối chiếu quyền sở hữu: `current_user.mua_id != package.mua_id`. |
-| **`403 FORBIDDEN`** | `ERR_STAFF_NOT_IN_AGENCY` | Studio cố tình gán gói cho nhân sự không thuộc quyền quản lý của mình. | Đối chiếu `staff.agency_id == current_agency_id`. |
 | **`403 FORBIDDEN`** | `ERR_STAFF_NOT_IN_AGENCY` | Studio cố tình gán gói cho nhân sự không thuộc quyền quản lý của mình. | Đối chiếu `staff.agency_id == current_agency_id`. |
 | **`403 FORBIDDEN`** | `SURCHARGE_ACCESS_DENIED` | Người dùng cố tình sửa cấu hình phụ phí của đơn vị khác. | Kiểm tra quyền sở hữu bản ghi phụ phí trong bảng `surcharges`. |
 | **`404 NOT_FOUND`** | `PACKAGE_NOT_FOUND` | `package_id` không tồn tại trong DB hoặc đã bị xóa mềm. | Ném `ResourceNotFoundException("Gói dịch vụ không tồn tại")`. |
 | **`404 NOT_FOUND`** | `ERR_STAFF_NOT_FOUND` | `staff_id` truyền vào không tìm thấy trong hệ thống nhân sự Studio. | Ném `ResourceNotFoundException("Nhân viên không tồn tại trong Studio")`. |
-| **`404 NOT_FOUND`** | `ERR_STAFF_NOT_FOUND` | `staff_id` truyền vào không tìm thấy trong hệ thống nhân sự Studio. | Ném `ResourceNotFoundException("Nhân viên không tồn tại trong Studio")`. |
 | **`404 NOT_FOUND`** | `PACKAGE_ITEM_NOT_FOUND` | `item_id` của bước thực hiện/add-on không tìm thấy trong gói. | Ném `ResourceNotFoundException("Dịch vụ bổ trợ không tồn tại")`. |
 | **`404 NOT_FOUND`** | `MASTER_CATEGORY_NOT_FOUND` | `master_category_id` truyền vào không có trong danh mục gốc sàn. | Ném `ResourceNotFoundException("Danh mục dịch vụ gốc không tồn tại")`. |
 | **`404 NOT_FOUND`** | `SURCHARGE_NOT_FOUND` | `surcharge_id` không tồn tại trong hệ thống. | Ném `ResourceNotFoundException("Cấu hình phụ phí không tồn tại")`. |
+| **`404 NOT_FOUND`** | `OVERTIME_RULE_NOT_FOUND` | `rule_id` quy chế quá giờ không tìm thấy trong Studio. | Ném `ResourceNotFoundException("Quy chế quá giờ không tồn tại")`. |
+| **`404 NOT_FOUND`** | `OVERTIME_REPORT_NOT_FOUND` | `report_id` giải trình quá giờ không tồn tại. | Ném `ResourceNotFoundException("Báo cáo giải trình quá giờ không tồn tại")`. |
+| **`409 CONFLICT`** | `OVERTIME_REPORT_ALREADY_REVIEWED` | Báo cáo quá giờ này đã được Admin Studio xử lý trước đó. | Báo lỗi không thể phán quyết 2 lần trên cùng 1 báo cáo. |
 | **`409 CONFLICT`** | `CATEGORY_CODE_ALREADY_EXISTS` | Tạo mới Master Category nhưng mã `category_code` đã bị trùng. | Ném `CustomBusinessException` mã `409 Conflict`. |
 
 ---
@@ -711,6 +951,110 @@ public class CreatePackageReq {
 
 ---
 
+### 5.5. `POST /api/v1/agency/overtime-rules` (Tạo/Cập nhật Quy chế Quá giờ Studio)
+* **Quyền hạn:** `ROLE_AGENCY_ADMIN`
+* **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: application/json`
+* **Request Body:**
+```json
+{
+  "rule_name": "Quá giờ do thao tác chậm hoặc đi trễ (30 - 60 phút)",
+  "min_overtime_minutes": 30,
+  "max_overtime_minutes": 60,
+  "penalty_type": "PERCENT_COMMISSION",
+  "penalty_value": 15.00,
+  "is_active": true
+}
+```
+* **Response (HTTP 201 Created):**
+```json
+{
+  "success": true,
+  "code": "OVERTIME_RULE_CONFIGURED",
+  "message": "Cấu hình quy chế quá giờ Studio thành công!",
+  "data": {
+    "rule_id": 1,
+    "agency_id": 105,
+    "rule_name": "Quá giờ do thao tác chậm hoặc đi trễ (30 - 60 phút)",
+    "min_overtime_minutes": 30,
+    "max_overtime_minutes": 60,
+    "penalty_type": "PERCENT_COMMISSION",
+    "penalty_value": 15.00,
+    "is_active": true
+  },
+  "timestamp": "2026-09-14T16:30:00Z"
+}
+```
+
+---
+
+### 5.6. `POST /api/v1/agency/overtime-reports` (Thợ gửi Giải trình Quá giờ)
+* **Quyền hạn:** `ROLE_FREELANCE_MUA` (Thợ phụ trách ca làm).
+* **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: application/json`
+* **Request Body:**
+```json
+{
+  "booking_id": 10025,
+  "overtime_minutes": 20,
+  "reason_type": "PRESET_RULE",
+  "rule_id": 1,
+  "explanation_text": "Thời tiết mưa to đường ngập làm bắt đầu muộn 15 phút",
+  "proof_image_url": "https://cdn.makeup.com/proofs/traffic_rain.jpg"
+}
+```
+* **Response (HTTP 201 Created):**
+```json
+{
+  "success": true,
+  "code": "OVERTIME_REPORT_SUBMITTED",
+  "message": "Gửi giải trình quá giờ thành công. Đang chờ Quản lý Studio xét duyệt!",
+  "data": {
+    "report_id": 501,
+    "booking_id": 10025,
+    "staff_id": 101,
+    "overtime_minutes": 20,
+    "status": "PENDING_AGENCY_REVIEW",
+    "created_at": "2026-09-14T09:35:00Z"
+  },
+  "timestamp": "2026-09-14T09:35:01Z"
+}
+```
+
+---
+
+### 5.7. `POST /api/v1/agency/overtime-reports/{reportId}/review` (Admin Studio Phán quyết Quá giờ)
+* **Quyền hạn:** `ROLE_AGENCY_ADMIN`
+* **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: application/json`
+* **Request Body (Lựa chọn 1 trong 4 action: `DEDUCT_BY_RULE`, `WAIVE_PENALTY`, `CUSTOM_PENALTY`, `CHARGE_CUSTOMER`):**
+```json
+{
+  "action": "DEDUCT_BY_RULE",
+  "custom_penalty_amount": null,
+  "charge_customer_surcharge": null,
+  "admin_notes": "Xác nhận thợ thao tác chậm, áp dụng trừ 15% hoa hồng theo quy chế số 1"
+}
+```
+* **Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "code": "OVERTIME_REPORT_REVIEWED",
+  "message": "Đã xử lý phán quyết báo cáo quá giờ thành công!",
+  "data": {
+    "report_id": 501,
+    "booking_id": 10025,
+    "action_applied": "DEDUCT_BY_RULE",
+    "status": "PENALIZED",
+    "penalty_amount_applied": 75000.00,
+    "customer_surcharge_created": 0.00,
+    "reviewed_by": "Chủ Studio Nguyễn Văn B",
+    "reviewed_at": "2026-09-14T10:00:00Z"
+  },
+  "timestamp": "2026-09-14T10:00:01Z"
+}
+```
+
+---
+
 ## 🗄️ 6. CƠ SỞ DỮ LIỆU ĐỒNG BỘ (DDL POSTGRESQL 16)
 
 ```sql
@@ -790,14 +1134,37 @@ CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_services (
     PRIMARY KEY (staff_id, package_id)
 );
 
--- 6. BẢNG GÁN KỸ NĂNG GÓI DỊCH VỤ CỦA STUDIO CHO THỢ (AGENCY STAFF SERVICES - ISSUE-13.4)
-CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_services (
-    staff_id BIGINT NOT NULL REFERENCES agency_schema.agency_staff(id) ON DELETE CASCADE,
-    package_id BIGINT NOT NULL REFERENCES catalog_schema.service_packages(id) ON DELETE CASCADE,
-    proficiency_level VARCHAR(30) DEFAULT 'PRIMARY_MUA' NOT NULL, -- PRIMARY_MUA, ASSISTANT_MUA
-    is_qualified BOOLEAN DEFAULT TRUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    PRIMARY KEY (staff_id, package_id)
+-- 7. BẢNG QUY ĐỊNH CHÍNH SÁCH QUÁ GIỜ CỦA TỪNG STUDIO (ISSUE-13.6)
+CREATE TABLE IF NOT EXISTS agency_schema.agency_overtime_rules (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    agency_id BIGINT NOT NULL REFERENCES agency_schema.agency_profiles(id) ON DELETE CASCADE,
+    rule_name VARCHAR(150) NOT NULL,
+    min_overtime_minutes INT NOT NULL CHECK (min_overtime_minutes >= 0),
+    max_overtime_minutes INT CHECK (max_overtime_minutes > min_overtime_minutes),
+    penalty_type VARCHAR(30) NOT NULL CHECK (penalty_type IN ('PERCENT_COMMISSION', 'FIXED_AMOUNT', 'WARNING_ONLY')),
+    penalty_value DECIMAL(12, 2) DEFAULT 0.00 CHECK (penalty_value >= 0),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. BẢNG GIẢI TRÌNH QUÁ GIỜ CỦA THỢ VÀ QUYẾT ĐỊNH CỦA ADMIN STUDIO (ISSUE-13.6)
+CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_overtime_reports (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    booking_id BIGINT NOT NULL REFERENCES booking_schema.bookings(id) ON DELETE CASCADE,
+    staff_id BIGINT NOT NULL REFERENCES agency_schema.agency_staff(id),
+    agency_id BIGINT NOT NULL REFERENCES agency_schema.agency_profiles(id),
+    overtime_minutes INT NOT NULL CHECK (overtime_minutes > 0),
+    reason_type VARCHAR(50) NOT NULL CHECK (reason_type IN ('PRESET_RULE', 'OTHER_CUSTOM_REASON')),
+    rule_id BIGINT REFERENCES agency_schema.agency_overtime_rules(id),
+    explanation_text TEXT NOT NULL,
+    proof_image_url TEXT,
+    status VARCHAR(30) DEFAULT 'PENDING_AGENCY_REVIEW' NOT NULL CHECK (status IN ('PENDING_AGENCY_REVIEW', 'APPROVED_WAIVED', 'PENALIZED', 'CHARGED_CUSTOMER')),
+    penalty_amount_applied DECIMAL(12, 2) DEFAULT 0.00,
+    customer_surcharge_amount DECIMAL(12, 2) DEFAULT 0.00,
+    admin_notes TEXT,
+    reviewed_by_user_id BIGINT REFERENCES auth_schema.users(id),
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CHỈ MỤC TỐI ƯU TRUY VẤN
@@ -806,7 +1173,8 @@ CREATE INDEX IF NOT EXISTS idx_packages_mua ON catalog_schema.service_packages(m
 CREATE INDEX IF NOT EXISTS idx_package_items ON catalog_schema.package_items(package_id, is_active, step_order);
 CREATE INDEX IF NOT EXISTS idx_surcharges_owner ON catalog_schema.surcharges(agency_id, mua_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_agency_staff_services_pkg ON agency_schema.agency_staff_services(package_id);
-CREATE INDEX IF NOT EXISTS idx_agency_staff_services_pkg ON agency_schema.agency_staff_services(package_id);
+CREATE INDEX IF NOT EXISTS idx_agency_overtime_rules ON agency_schema.agency_overtime_rules(agency_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_agency_overtime_reports ON agency_schema.agency_staff_overtime_reports(agency_id, status, created_at);
 ```
 
 ---
