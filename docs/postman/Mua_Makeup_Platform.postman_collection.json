@@ -65,6 +65,21 @@
       "key": "portfolioId",
       "value": "1",
       "type": "string"
+    },
+    {
+      "key": "ruleId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "reportId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "shiftId",
+      "value": "1",
+      "type": "string"
     }
   ],
   "item": [
@@ -76,7 +91,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -84,8 +102,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
             }
           }
         },
@@ -94,7 +119,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -102,8 +130,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
             }
           }
         },
@@ -112,7 +147,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -120,8 +158,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
             }
           }
         },
@@ -152,7 +197,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -160,8 +208,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -170,12 +225,22 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "me"
+              ]
             }
           }
         },
@@ -184,8 +249,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -193,8 +264,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/customer/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "customer", "profile"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customer",
+                "profile"
+              ]
             }
           }
         },
@@ -203,8 +281,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -212,8 +296,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/language",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "language"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "language"
+              ]
             }
           }
         },
@@ -244,8 +335,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -253,8 +350,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/refresh-token",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "refresh-token"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh-token"
+              ]
             }
           }
         },
@@ -263,8 +367,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -272,8 +382,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/change-password",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "change-password"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "change-password"
+              ]
             }
           }
         },
@@ -282,8 +399,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -291,8 +414,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "logout"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
             }
           }
         }
@@ -308,8 +438,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/master-categories",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "master-categories"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "master-categories"
+              ]
             }
           }
         },
@@ -320,8 +456,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/makeup-styles",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "makeup-styles"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "makeup-styles"
+              ]
             }
           }
         }
@@ -335,12 +477,22 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile"
+              ]
             }
           }
         },
@@ -351,8 +503,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/{{muaId}}/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "{{muaId}}", "profile"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "{{muaId}}",
+                "profile"
+              ]
             }
           }
         },
@@ -361,8 +521,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -370,8 +536,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile"
+              ]
             }
           }
         },
@@ -380,8 +553,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -389,8 +568,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/styles",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "styles"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "styles"
+              ]
             }
           }
         },
@@ -399,12 +586,23 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/styles",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "styles"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "styles"
+              ]
             }
           }
         },
@@ -413,7 +611,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "formdata",
@@ -432,8 +633,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/certificates",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "certificates"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "certificates"
+              ]
             }
           }
         }
@@ -465,7 +674,10 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "formdata",
@@ -509,8 +721,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "portfolios"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "portfolios"
+              ]
             }
           }
         },
@@ -519,8 +739,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -528,8 +754,17 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "portfolios",
+                "{{portfolioId}}"
+              ]
             }
           }
         },
@@ -538,8 +773,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -547,8 +788,18 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}/featured",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}", "featured"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "portfolios",
+                "{{portfolioId}}",
+                "featured"
+              ]
             }
           }
         },
@@ -557,8 +808,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -566,8 +823,18 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}/visibility",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}", "visibility"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "portfolios",
+                "{{portfolioId}}",
+                "visibility"
+              ]
             }
           }
         },
@@ -576,15 +843,32 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios?page=0&size=12",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "portfolios"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "portfolios"
+              ],
               "query": [
-                { "key": "page", "value": "0" },
-                { "key": "size", "value": "12" }
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "12"
+                }
               ]
             }
           }
@@ -594,12 +878,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "portfolios",
+                "{{portfolioId}}"
+              ]
             }
           }
         },
@@ -610,13 +906,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/{{muaId}}/portfolios?page=0&size=12&style_id=1&is_featured=true",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "{{muaId}}", "portfolios"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "{{muaId}}",
+                "portfolios"
+              ],
               "query": [
-                { "key": "page", "value": "0" },
-                { "key": "size", "value": "12" },
-                { "key": "style_id", "value": "1" },
-                { "key": "is_featured", "value": "true" }
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "12"
+                },
+                {
+                  "key": "style_id",
+                  "value": "1"
+                },
+                {
+                  "key": "is_featured",
+                  "value": "true"
+                }
               ]
             }
           }
@@ -626,12 +942,24 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/muas/my-profile/portfolios/{{portfolioId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "muas", "my-profile", "portfolios", "{{portfolioId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "muas",
+                "my-profile",
+                "portfolios",
+                "{{portfolioId}}"
+              ]
             }
           }
         }
@@ -645,12 +973,22 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "profile"]
+              "raw": "{{baseUrl}}/api/v1/agencies/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "profile"
+              ]
             }
           }
         },
@@ -660,9 +998,17 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/{{agencyId}}/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "{{agencyId}}", "profile"]
+              "raw": "{{baseUrl}}/api/v1/agencies/{{agencyId}}/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "{{agencyId}}",
+                "profile"
+              ]
             }
           }
         },
@@ -671,17 +1017,30 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"agencyName\": \"Glamour Bridal Studio VIP\",\n  \"hotline\": \"02838383839\",\n  \"addressStreet\": \"125 Nguyễn Huệ, Phường Bến Nghé\",\n  \"district\": \"Quận 1\",\n  \"city\": \"Hồ Chí Minh\",\n  \"logoUrl\": \"https://res.cloudinary.com/makeup/image/upload/v1/studio-logo.png\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/profile",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "profile"]
+              "raw": "{{baseUrl}}/api/v1/agencies/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "profile"
+              ]
             }
           }
         },
@@ -690,17 +1049,30 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"commissionRateInternal\": 18.50\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/commission",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "commission"]
+              "raw": "{{baseUrl}}/api/v1/agencies/commission",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "commission"
+              ]
             }
           }
         }
@@ -736,17 +1108,30 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"expiresInDays\": 7,\n  \"note\": \"Mời Thợ Trang Điểm Chuyên Nghiệp tham gia chi nhánh Quận 1\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/invitations",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "invitations"]
+              "raw": "{{baseUrl}}/api/v1/agencies/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "invitations"
+              ]
             }
           }
         },
@@ -755,12 +1140,22 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/invitations",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "invitations"]
+              "raw": "{{baseUrl}}/api/v1/agencies/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "invitations"
+              ]
             }
           }
         },
@@ -769,12 +1164,23 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/invitations/{{invitationId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "invitations", "{{invitationId}}"]
+              "raw": "{{baseUrl}}/api/v1/agencies/invitations/{{inviteCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "invitations",
+                "{{inviteCode}}"
+              ]
             }
           }
         },
@@ -783,17 +1189,31 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"inviteCode\": \"{{inviteCode}}\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/invitations/accept",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "invitations", "accept"]
+              "raw": "{{baseUrl}}/api/v1/agencies/invitations/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "invitations",
+                "accept"
+              ]
             }
           }
         },
@@ -802,15 +1222,31 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/staff?page=0&size=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "staff"],
+              "raw": "{{baseUrl}}/api/v1/agencies/staff?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff"
+              ],
               "query": [
-                { "key": "page", "value": "0" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           }
@@ -820,31 +1256,98 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "staff", "{{staffId}}"]
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}"
+              ]
             }
           }
+        },
+        {
+          "name": "Review Staff Application (Approve / Reject)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"APPROVE\",\n  \"agreedCommissionRate\": 15,\n  \"note\": \"Hồ sơ đạt tiêu chuẩn chuyên môn, duyệt gia nhập agency\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}",
+                "review"
+              ]
+            },
+            "description": "Agency Admin phê duyệt (APPROVE) hoặc từ chối (REJECT) hồ sơ xin gia nhập của thợ kèm tỷ lệ hoa hồng thỏa thuận."
+          },
+          "response": []
         },
         {
           "name": "Update Staff Status (ACTIVE / SUSPENDED / LEFT)",
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"ACTIVE\",\n  \"note\": \"Thợ đã hoàn thành thử việc xuất sắc, chính thức tiếp nhận ca khách\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}/status",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "staff", "{{staffId}}", "status"]
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}",
+                "status"
+              ]
             }
           }
         },
@@ -853,17 +1356,32 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"agreedCommissionRate\": 20.00\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}/commission",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "staff", "{{staffId}}", "commission"]
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}/commission",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}",
+                "commission"
+              ]
             }
           }
         },
@@ -872,14 +1390,592 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/agency/staff/{{staffId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "agency", "staff", "{{staffId}}"]
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}"
+              ]
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "06.1. Agency Staff Styles & Service Packages",
+      "description": "Quản lý việc gán danh mục Makeup Styles sở trường và các Gói dịch vụ (Service Packages) cho từng nhân sự thợ trang điểm thuộc Agency.",
+      "item": [
+        {
+          "name": "Assign Makeup Styles to Staff",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"styleIds\": [\n    1,\n    2,\n    3\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}/styles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}",
+                "styles"
+              ]
+            },
+            "description": "Agency Admin gán các phong cách trang điểm sở trường (Makeup Styles) cho thợ."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Makeup Styles Assigned to Staff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}/styles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}",
+                "styles"
+              ]
+            },
+            "description": "Lấy danh sách các phong cách trang điểm đã gán cho nhân sự thợ."
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Service Packages & Qualification to Staff",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staffId\": 1,\n  \"packageAssignments\": [\n    {\n      \"packageId\": 1,\n      \"proficiencyLevel\": \"PRIMARY_MUA\",\n      \"isQualified\": true\n    },\n    {\n      \"packageId\": 2,\n      \"proficiencyLevel\": \"ASSISTANT_MUA\",\n      \"isQualified\": true\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}/packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}",
+                "packages"
+              ]
+            },
+            "description": "Agency Admin phân bổ các gói dịch vụ và cấp bậc trình độ chuyên môn (PRIMARY_MUA / ASSISTANT_MUA) cho thợ."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service Packages Assigned to Staff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/staff/{{staffId}}/packages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "staff",
+                "{{staffId}}",
+                "packages"
+              ]
+            },
+            "description": "Lấy danh sách các gói dịch vụ và trình độ chuyên môn của thợ trong Agency."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06.2. Agency Shifts & Working Schedules",
+      "description": "Quản trị lịch ca làm việc theo tuần (Shift Matrix) của nhân sự thuộc Agency.",
+      "item": [
+        {
+          "name": "Configure Staff Shift",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.environment.set(\"shiftId\", res.data.id);",
+                  "        pm.collectionVariables.set(\"shiftId\", res.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staffId\": 1,\n  \"dayOfWeek\": 2,\n  \"shiftName\": \"Ca sáng (Morning Shift)\",\n  \"startTime\": \"08:00:00\",\n  \"endTime\": \"12:00:00\",\n  \"isRecurring\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/shifts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "shifts"
+              ]
+            },
+            "description": "Agency Admin thiết lập ca làm việc cho thợ (dayOfWeek: 1=CN, 2=T2, ..., 7=T7)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Agency Shift Matrix",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/shifts/matrix",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "shifts",
+                "matrix"
+              ]
+            },
+            "description": "Lấy ma trận toàn bộ ca trực trong tuần của tất cả nhân sự thuộc Studio/Agency."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Shifts for Specific Staff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/shifts/staff/{{staffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "shifts",
+                "staff",
+                "{{staffId}}"
+              ]
+            },
+            "description": "Xem chi tiết các ca trực được phân công của một thợ cụ thể."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Staff Shift",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agencies/shifts/{{shiftId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agencies",
+                "shifts",
+                "{{shiftId}}"
+              ]
+            },
+            "description": "Xóa một ca làm việc của thợ."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06.3. Agency Overtime Rules & Reports",
+      "description": "Quản lý quy tắc phạt trễ ca / quá giờ (Overtime Rules) và giải quyết báo cáo sự cố ca làm việc (Overtime Incident Reports).",
+      "item": [
+        {
+          "name": "Create / Update Overtime Penalty Rule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.environment.set(\"ruleId\", res.data.id);",
+                  "        pm.collectionVariables.set(\"ruleId\", res.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ruleName\": \"Trễ ca trên 30 phút - Phạt 10% hoa hồng\",\n  \"minOvertimeMinutes\": 30,\n  \"maxOvertimeMinutes\": 60,\n  \"penaltyType\": \"PERCENT_COMMISSION\",\n  \"penaltyValue\": 10,\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/overtime-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agency",
+                "overtime-rules"
+              ]
+            },
+            "description": "Agency Admin tạo hoặc cập nhật quy tắc phạt quá giờ/trễ ca (penaltyType: PERCENT_COMMISSION, FIXED_AMOUNT, WARNING_ONLY)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Agency Overtime Rules",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/overtime-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agency",
+                "overtime-rules"
+              ]
+            },
+            "description": "Lấy danh sách tất cả quy tắc phạt quá giờ do Agency thiết lập."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Overtime Penalty Rule",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/overtime-rules/{{ruleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agency",
+                "overtime-rules",
+                "{{ruleId}}"
+              ]
+            },
+            "description": "Xóa một quy tắc phạt quá giờ."
+          },
+          "response": []
+        },
+        {
+          "name": "Staff Submits Overtime Incident Report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    var res = pm.response.json();",
+                  "    if (res.data && res.data.id) {",
+                  "        pm.environment.set(\"reportId\", res.data.id);",
+                  "        pm.collectionVariables.set(\"reportId\", res.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": 1001,\n  \"overtimeMinutes\": 45,\n  \"reasonType\": \"PRESET_RULE\",\n  \"ruleId\": 1,\n  \"explanationText\": \"Khách hàng yêu cầu đổi tông makeup cô dâu và dặm thêm tóc phát sinh ngoài gói\",\n  \"proofImageUrl\": \"https://res.cloudinary.com/demo/image/upload/v1/makeup/proof_ot.jpg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/overtime-reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agency",
+                "overtime-reports"
+              ]
+            },
+            "description": "Thợ (hoặc Agency) tạo báo cáo phát sinh quá giờ ca làm việc (reasonType: PRESET_RULE, OTHER_CUSTOM_REASON)."
+          },
+          "response": []
+        },
+        {
+          "name": "Review Overtime Report (Deduct / Waive / Charge Customer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"DEDUCT_BY_RULE\",\n  \"customPenaltyAmount\": null,\n  \"customerSurchargeAmount\": 150000,\n  \"chargeReason\": \"Phụ phí làm thêm giờ theo yêu cầu phát sinh của khách hàng\",\n  \"adminNotes\": \"Đã đối soát với khách hàng và phê duyệt tính phụ phí khách, miễn phạt thợ\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/overtime-reports/{{reportId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agency",
+                "overtime-reports",
+                "{{reportId}}",
+                "review"
+              ]
+            },
+            "description": "Agency Admin duyệt báo cáo sự cố (action: DEDUCT_BY_RULE, WAIVE_PENALTY, CUSTOM_PENALTY, CHARGE_CUSTOMER)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Overtime Reports (Paged & Filtered)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/overtime-reports?status=PENDING_REVIEW&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agency",
+                "overtime-reports"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING_REVIEW"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Lấy danh sách các báo cáo sự cố quá giờ kèm lọc theo trạng thái và phân trang."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Overtime Report Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agency/overtime-reports/{{reportId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "agency",
+                "overtime-reports",
+                "{{reportId}}"
+              ]
+            },
+            "description": "Xem chi tiết một báo cáo sự cố quá giờ kèm lịch sử giải quyết."
+          },
+          "response": []
         }
       ]
     },
@@ -909,8 +2005,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -918,8 +2020,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages"
+              ]
             }
           }
         },
@@ -928,8 +2036,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -937,8 +2051,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}"
+              ]
             }
           }
         },
@@ -947,14 +2068,28 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/availability?isAvailable=true",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}", "availability"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}",
+                "availability"
+              ],
               "query": [
-                { "key": "isAvailable", "value": "true" }
+                {
+                  "key": "isAvailable",
+                  "value": "true"
+                }
               ]
             }
           }
@@ -964,12 +2099,22 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/my",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "my"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "my"
+              ]
             }
           }
         },
@@ -980,8 +2125,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}"
+              ]
             }
           }
         },
@@ -992,13 +2144,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages?categoryId=1&availableOnly=true",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages"
+              ],
               "query": [
-                { "key": "categoryId", "value": "1" },
-                { "key": "availableOnly", "value": "true" },
-                { "key": "muaId", "value": "{{muaId}}", "disabled": true },
-                { "key": "agencyId", "value": "{{agencyId}}", "disabled": true }
+                {
+                  "key": "categoryId",
+                  "value": "1"
+                },
+                {
+                  "key": "availableOnly",
+                  "value": "true"
+                },
+                {
+                  "key": "muaId",
+                  "value": "{{muaId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "agencyId",
+                  "value": "{{agencyId}}",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -1008,12 +2180,22 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}"
+              ]
             }
           }
         }
@@ -1045,8 +2227,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -1054,8 +2242,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}", "items"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}",
+                "items"
+              ]
             }
           }
         },
@@ -1064,8 +2260,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -1073,8 +2275,17 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items/{{itemId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}", "items", "{{itemId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}",
+                "items",
+                "{{itemId}}"
+              ]
             }
           }
         },
@@ -1085,8 +2296,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}", "items"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}",
+                "items"
+              ]
             }
           }
         },
@@ -1095,12 +2314,24 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/packages/{{packageId}}/items/{{itemId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "packages", "{{packageId}}", "items", "{{itemId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "packages",
+                "{{packageId}}",
+                "items",
+                "{{itemId}}"
+              ]
             }
           }
         }
@@ -1132,8 +2363,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -1141,8 +2378,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/surcharges",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "surcharges"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "surcharges"
+              ]
             }
           }
         },
@@ -1151,8 +2394,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -1160,8 +2409,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/surcharges/{{surchargeId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "surcharges", "{{surchargeId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "surcharges",
+                "{{surchargeId}}"
+              ]
             }
           }
         },
@@ -1170,12 +2426,22 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/surcharges/my",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "surcharges", "my"]
+              "raw": "{{baseUrl}}/api/v1/surcharges/my-surcharges",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "surcharges",
+                "my-surcharges"
+              ]
             }
           }
         },
@@ -1186,11 +2452,24 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/v1/surcharges?muaId={{muaId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "surcharges"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "surcharges"
+              ],
               "query": [
-                { "key": "muaId", "value": "{{muaId}}" },
-                { "key": "agencyId", "value": "{{agencyId}}", "disabled": true }
+                {
+                  "key": "muaId",
+                  "value": "{{muaId}}"
+                },
+                {
+                  "key": "agencyId",
+                  "value": "{{agencyId}}",
+                  "disabled": true
+                }
               ]
             }
           }
@@ -1200,16 +2479,31 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"muaId\": 1,\n  \"bookingTime\": \"2026-10-20T04:30:00\",\n  \"distanceKm\": 15.5\n}"
+              "raw": "{\n  \"agencyId\": 1,\n  \"muaId\": null,\n  \"bookingTime\": \"2026-09-20T05:30:00\",\n  \"distanceKm\": 18.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/surcharges/calculate",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "surcharges", "calculate"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "surcharges",
+                "calculate"
+              ]
             }
           }
         },
@@ -1218,12 +2512,22 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/surcharges/{{surchargeId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "surcharges", "{{surchargeId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "surcharges",
+                "{{surchargeId}}"
+              ]
             }
           }
         }
@@ -1237,8 +2541,14 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
             ],
             "body": {
               "mode": "raw",
@@ -1246,8 +2556,18 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/admin/muas/{{muaId}}/certificates/verify",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "admin", "muas", "{{muaId}}", "certificates", "verify"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "muas",
+                "{{muaId}}",
+                "certificates",
+                "verify"
+              ]
             }
           }
         }

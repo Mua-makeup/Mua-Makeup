@@ -59,7 +59,7 @@ public class SurchargeController extends BaseController {
         return ok(null, "catalog.surcharge_delete_success");
     }
 
-    @GetMapping("/my")
+    @GetMapping("/my-surcharges")
     @PreAuthorize("hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<List<SurchargeDetailRes>>> listMySurcharges(
             @AuthenticationPrincipal Long userId) {
@@ -68,8 +68,8 @@ public class SurchargeController extends BaseController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<SurchargeDetailRes>>> listSurcharges(
-            @RequestParam(required = false) Long agencyId,
-            @RequestParam(required = false) Long muaId) {
+            @RequestParam(value = "agencyId", required = false) Long agencyId,
+            @RequestParam(value = "muaId", required = false) Long muaId) {
         return ok(surchargeService.listSurchargesByOwner(agencyId, muaId));
     }
 

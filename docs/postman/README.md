@@ -7,9 +7,9 @@ Thư mục này chứa bộ sưu tập Postman Collection và Environment đầy
 ## 📁 Danh sách tệp tin
 
 1. [**Mua_Makeup_Local.postman_environment.json**](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/postman/Mua_Makeup_Local.postman_environment.json):
-   - Chứa các biến môi trường cho localhost: `baseUrl`, `accessToken`, `refreshToken`, `muaId`, `agencyId`, `staffId`, `invitationId`, `inviteCode`, `packageId`, `itemId`, `surchargeId`, `portfolioId`.
+   - Chứa các biến môi trường cho localhost: `baseUrl`, `accessToken`, `refreshToken`, `muaId`, `agencyId`, `staffId`, `invitationId`, `inviteCode`, `packageId`, `itemId`, `surchargeId`, `portfolioId`, `ruleId`, `reportId`, `shiftId`.
 2. [**Mua_Makeup_Platform.postman_collection.json**](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/postman/Mua_Makeup_Platform.postman_collection.json):
-   - Chứa toàn bộ 10 nhóm Endpoint nghiệp vụ với đầy đủ Request Body JSON mẫu, Query Parameters, Headers và Postman Test Scripts tự động trích xuất token/ID.
+   - Chứa toàn bộ 13 nhóm Endpoint nghiệp vụ (73 APIs) với đầy đủ Request Body JSON mẫu, Query Parameters, Headers và Postman Test Scripts tự động trích xuất token/ID.
 
 ---
 
@@ -24,7 +24,7 @@ Thư mục này chứa bộ sưu tập Postman Collection và Environment đầy
 
 ---
 
-## 📋 Danh mục các Folder API (10 Phân hệ)
+## 📋 Danh mục các Folder API (13 Phân hệ - 73 APIs)
 
 | STT | Nhóm Thư mục | Số lượng API | Mô tả chính |
 | :--- | :--- | :--- | :--- |
@@ -32,11 +32,14 @@ Thư mục này chứa bộ sưu tập Postman Collection và Environment đầy
 | **02** | **Master Taxonomy** | 2 APIs | Danh mục gốc ngành làm đẹp (`master-categories`) & Bộ phong cách trang điểm chuẩn sàn (`makeup-styles`). |
 | **03** | **Freelance MUA Profile & Styles** | 6 APIs | Xem/cập nhật hồ sơ thợ (Bio, kinh nghiệm, bán kính hoạt động), Đăng ký phong cách sở trường, Upload bằng cấp/chứng chỉ nghề nghiệp (`multipart/form-data`). |
 | **04** | **MUA Portfolio & Showcase** | 8 APIs | Đăng tải tác phẩm kèm nén ảnh CDN (`multipart/form-data`), Sửa tác phẩm, Bật/tắt ghim tiêu biểu (`featured`), Ẩn/hiện tác phẩm (`visibility`), Xem thư viện cá nhân & công khai (có phân trang), Xóa mềm tác phẩm. |
-| **05** | **Agency / Studio Profile** | 4 APIs | Quản trị hồ sơ Studio (Tên thương hiệu, hotline, địa chỉ, logo), Xem hồ sơ công khai, Cấu hình % hoa hồng nội bộ mặc định của Studio. |
-| **06** | **Agency Staff & Invitations** | 9 APIs | Sinh mã/link mời thợ (`inviteCode`), Quản lý danh sách lời mời, Hủy lời mời, Thợ nộp đơn gia nhập qua mã mời, Danh sách nhân sự Studio (phân trang), Chi tiết thợ, Cập nhật trạng thái thợ (ACTIVE/SUSPENDED/LEFT), Điều chỉnh % hoa hồng riêng, Xóa thợ khỏi Studio. |
+| **05** | **Agency / Studio Profile & Management** | 4 APIs | Quản trị hồ sơ Studio (Tên thương hiệu, hotline, địa chỉ, logo), Xem hồ sơ công khai, Cấu hình % hoa hồng nội bộ mặc định của Studio (`/api/v1/agencies/*`). |
+| **06** | **Agency Staff & Invitations** | 10 APIs | Sinh mã/link mời thợ (`inviteCode`), Quản lý danh sách lời mời, Hủy lời mời, Thợ nộp đơn gia nhập qua mã mời, Duyệt/Từ chối hồ sơ thợ (`review`), Danh sách nhân sự Studio (phân trang), Chi tiết thợ, Cập nhật trạng thái thợ (ACTIVE/SUSPENDED/LEFT), Điều chỉnh % hoa hồng riêng, Xóa thợ khỏi Studio. |
+| **06.1** | **Agency Staff Styles & Service Packages** | 4 APIs | Phân bổ phong cách Makeup sở trường cho thợ (`styles`) và phân quyền thực hiện các gói dịch vụ (`packages`) kèm cấp bậc trình độ (`PRIMARY_MUA` / `ASSISTANT_MUA`). |
+| **06.2** | **Agency Shifts & Working Schedules** | 4 APIs | Thiết lập ca trực cho nhân viên thợ (`shifts`), Xem ma trận lịch trực cả tuần của Studio (`shifts/matrix`), Lịch trực của thợ cụ thể, Xóa ca trực. |
+| **06.3** | **Agency Overtime Rules & Reports** | 7 APIs | Thiết lập quy tắc phạt trễ ca / quá giờ (`overtime-rules`), Báo cáo sự cố phát sinh quá giờ (`overtime-reports`), Phê duyệt báo cáo sự cố (phạt theo luật / miễn phạt / tính phụ phí khách hàng `review`). |
 | **07** | **Service Packages** | 7 APIs | Tạo gói dịch vụ Studio vs Thợ tự do, Cập nhật gói, Bật/tắt nhận khách (`availability`), Lọc gói công khai (theo MUA/Studio/Category), Chi tiết gói, Xóa gói. |
 | **08** | **Package Items & Add-ons** | 4 APIs | Thêm bước quy trình (COMPONENT) và dịch vụ cộng thêm (ADD_ON), Cập nhật mục dịch vụ, Xem danh sách mục, Xóa mục. |
-| **09** | **Surcharges** | 6 APIs | Thiết lập phụ phí (sáng sớm `EARLY_MORNING`, ngoài bán kính `OUT_OF_RADIUS`), Cập nhật phụ phí, Lấy danh sách phụ phí của tôi, Tra cứu phụ phí công khai theo MUA/Studio, Tính toán phụ phí cho đơn hàng, Xóa cấu hình phụ phí. |
+| **09** | **Surcharges** | 6 APIs | Thiết lập phụ phí (sáng sớm `EARLY_MORNING`, ngoài bán kính `OUT_OF_RADIUS`), Cập nhật phụ phí, Lấy danh sách phụ phí của tôi (`/my-surcharges`), Tra cứu phụ phí công khai, Tính toán phụ phí cho đơn hàng (`calculate`), Xóa cấu hình phụ phí. |
 | **10** | **Admin Management** | 1 API | Quản trị viên Super Admin duyệt/từ chối chứng chỉ bằng cấp nghề của thợ trang điểm (`isVerified`, `notes`). |
 
 ---

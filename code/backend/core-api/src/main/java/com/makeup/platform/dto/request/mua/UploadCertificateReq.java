@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Builder
 public class UploadCertificateReq {
 
-    @NotBlank(message = "{validation.mua_cert_name_required}")
+    @NotBlank(message = "{validation.cert_name_required}")
     private String certName;
 
     private MultipartFile file;
