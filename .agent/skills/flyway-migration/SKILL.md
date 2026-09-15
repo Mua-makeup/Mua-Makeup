@@ -20,13 +20,38 @@ Hệ thống sử dụng **1 CSDL duy nhất: `makeup_platform_db`** (PostgreSQL
 
 ---
 
-## 2. Quy chuẩn Tệp tin Flyway Migrations
+## 2. Quy chuẩn Tệp tin Flyway Migrations & Quy tắc Teamwork
+
 Các file migration được đặt tại `code/backend/core-api/src/main/resources/db/migration/`:
+
+### A. Các tệp Baseline khởi tạo nền tảng (Legacy Baseline):
 - `V1__Create_Schemas_And_Extensions.sql`: Khởi tạo 8 Schemas và kích hoạt extensions `uuid-ossp`, `postgis`.
 - `V2__Init_Auth_And_Profiles.sql`: DDL các bảng `auth_schema`, `agency_schema`, `mua_schema` kèm seed roles & permissions.
-- `V3__Init_Catalog_And_Telemetry.sql`: DDL `catalog_schema` và `telemetry_schema`.
-- `V4__Init_Booking_And_Interaction.sql`: DDL `booking_schema` và `interaction_schema`.
-- `V5__Init_Wallet_Double_Entry.sql`: DDL 7 bảng kế toán đúp trong `wallet_schema`.
+- `V3__Init_Catalog_And_Surcharges.sql`: DDL `catalog_schema` và các phụ phí.
+- `V4__Init_Mua_Portfolio_Gallery.sql`: DDL thư viện ảnh và portfolio MUA.
+- `V5__Add_Language_To_Users.sql`: Bổ sung đa ngôn ngữ cho tài khoản người dùng.
+- `V6__Seed_Super_Admin_And_Permissions.sql`: Dữ liệu ban đầu Super Admin và ma trận phân quyền.
+
+### B. Quy tắc BẮT BUỘC cho các Migration mới (Timestamp-Based Versioning):
+Để chống xung đột khi làm việc nhóm song song (4+ thành viên rẽ nhiều nhánh Git độc lập):
+1. **Quy tắc đặt tên file**:
+   - Cú pháp: `V<YYYYMMDDHHmmss>__<Mo_Ta>.sql`
+   - Ví dụ: `V20260914210900__Init_Location_Telemetry_Module.sql`, `V20260914210901__Add_Updated_At_To_Booking_Trips.sql`.
+   - **Tuyệt đối CẤM sử dụng số tuần tự tự tăng** như `V7, V8, V9...`.
+2. **Cấu hình Spring Boot Flyway bắt buộc (`application.yaml`)**:
+   ```yaml
+   spring:
+     flyway:
+       enabled: true
+       baseline-on-migrate: true
+       out-of-order: true                   # Cho phép nạp migration không theo thứ tự tuần tự khi merge branch
+       ignore-migration-patterns:
+         - "*:missing"                      # Bỏ qua lỗi khi DB chứa migration từ branch khác chưa merge vào branch hiện tại
+       locations: classpath:db/migration
+   ```
+3. **Tính bất biến (Strict Migration Immutability)**:
+   - TUYỆT ĐỐI KHÔNG sửa nội dung hay định dạng (LF/CRLF, spaces) của file migration đã từng được commit hoặc apply vào database (gây lỗi `Migration checksum mismatch`).
+   - Mọi thay đổi schema (thêm cột, sửa kiểu dữ liệu, index, trigger) đều phải tạo một file migration Timestamp mới tiếp theo.
 
 ---
 
