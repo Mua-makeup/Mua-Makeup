@@ -77,8 +77,11 @@ src/main/java/com/makeup/platform/
 5. **Bắt buộc Bean Validation**: Mọi Request DTO phải chứa `@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Email`, `@Pattern`, `@Future`. Controller phải có `@Valid @RequestBody`.
 6. **Kế thừa Base Components**: Mọi JPA Entity phải kế thừa `BaseEntity`. Mọi Controller kế thừa `BaseController`. Mọi CRUD service cơ bản kế thừa `BaseService` & `BaseServiceImpl`.
 7. **Tách biệt Interface và Implementation**: Thư mục `service/` chỉ chứa Interface. Toàn bộ code thực thi logic nghiệp vụ nằm trong `service/impl/`.
-8. **Quản lý Ngoại lệ & i18n**: Không hardcode thông báo lỗi tiếng Việt/Anh trong code Java. Ném `CustomBusinessException` và định nghĩa thông điệp qua ResourceBundle tại `resources/text/messages.properties` và JSON i18n (`messages_en.json`, `messages_vi.json`).
-9. **Database Migration với Flyway**: Mọi thay đổi bảng phải viết script Flyway tập trung tại `resources/db/migration/V<N>__<Mo_ta>.sql`.
+9. **Database Migration với Flyway (Teamwork Standard - Timestamp Versioning)**:
+   - **Quy tắc đặt tên bắt buộc**: Mọi script migration mới BẮT BUỘC đặt tên theo chuẩn Timestamp: `resources/db/migration/V<YYYYMMDDHHmmss>__<Mo_ta>.sql` (Ví dụ: `V20260914210900__Init_Location_Telemetry_Module.sql`).
+   - **Tuyệt đối KHÔNG dùng số tuần tự `V<N>` (V7, V8, V9...)**: Vì khi 4+ thành viên làm việc song song trên nhiều nhánh Git khác nhau, số tuần tự sẽ dẫn đến xung đột phiên bản và lỗi `checksum mismatch` hoặc `applied migration not resolved locally`.
+   - **Cấu hình Spring Boot Flyway**: Bắt buộc kích hoạt `spring.flyway.out-of-order=true` và `spring.flyway.ignore-migration-patterns=["*:missing"]` trong `application.yaml` để đảm bảo các nhánh merge lệch thời gian hoặc chuyển nhánh không gây sập ứng dụng.
+   - **Tính bất biến (Immutability)**: Tuyệt đối KHÔNG sửa nội dung hay định dạng các file migration đã commit/apply. Mọi thay đổi DDL/DML mới phải tạo file Timestamp mới tiếp theo.
 10. **Bảo mật & Biến môi trường**: Không hardcode mật khẩu hay secret key vào code; toàn bộ đọc qua `.env` và `application.yaml` (`${DB_PASSWORD:123456}`).
 11. **1 Tài khoản - 1 Vai trò (Single Role per Account)**: Mỗi tài khoản chỉ gán 1 vai trò duy nhất (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`, `ROLE_SUPER_ADMIN`).
 12. **Quản lý Token trên Redis**: Refresh Token lưu trên Redis (`rt:{token}` $\rightarrow$ `userId`), Blacklist Access Token khi logout (`jwt:blacklist:{token}`).

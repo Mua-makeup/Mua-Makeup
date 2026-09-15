@@ -22,7 +22,7 @@
 
 ---
 
-## 📌 SPRINT 1: HỒ SƠ THỢ, STUDIO/ĐẠI LÝ & DANH MỤC GÓI DỊCH VỤ (12 ISSUES)
+## 📌 SPRINT 1: HỒ SƠ THỢ, STUDIO/ĐẠI LÝ & DANH MỤC GÓI DỊCH VỤ (14 ISSUES)
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -33,11 +33,13 @@
 | **ISSUE-12.2** | Task | Quản lý Nhân viên Studio (`agency_staff`) & Duyệt thợ gia nhập | To Do | - | Medium | BE1, FE3 |
 | **ISSUE-12.3** | Task | Cấu hình % Hoa hồng nội bộ giữa Studio và Thợ làm việc | To Do | - | Medium | BE1, FE3 |
 | **ISSUE-12.4** | Task | Quản lý Năng lực thợ Studio theo Tone Make-up (`agency_staff_styles`) | To Do | - | High | BE2 |
+| **ISSUE-12.5** | Task | Bảng ma trận Xếp ca làm việc cố định theo tuần của Thợ Studio (`agency_staff_shifts`) & Theo dõi trạng thái ca làm | To Do | - | High | BE1, FE3 |
 | **ISSUE-13.1** | User Story | CRUD Master Categories & Tone Make-up (`master_service_categories`, `makeup_styles`) | To Do | - | Medium | BE2, FE1 |
 | **ISSUE-13.2** | Task | CRUD Gói dịch vụ Studio/Freelancer (`service_packages`) | To Do | - | Medium | BE2, FE1 |
 | **ISSUE-13.3** | Task | Chi tiết các bước thực hiện mặc định & Option mua thêm (`package_items`) | To Do | - | Medium | BE2, FE1 |
 | **ISSUE-13.4** | Task | Gán Kỹ năng Gói Dịch vụ cho thợ Studio (`agency_staff_services`) | To Do | - | Medium | BE2, FE3 |
 | **ISSUE-13.5** | Task | Cấu hình Phụ phí (`surcharges`): Làm sớm 3h-5h sáng, đi tỉnh & ngày Lễ/Tết | To Do | - | Medium | BE2, FE1 |
+| **ISSUE-13.6** | Task | Quản lý Quy định & Duyệt Giải trình Thợ làm quá giờ (`agency_overtime_rules`, `agency_staff_overtime_reports`) | To Do | - | High | BE2, FE3 |
 
 ---
 
@@ -137,10 +139,10 @@
 
 ### 📊 TỔNG KẾT HỆ THỐNG JIRA BACKLOG:
 - **Sprint 0**: 13 Issues (Sprint Khởi tạo & DDL DB).
-- **Sprint 1**: 12 Issues (Profile, Studio & Gói dịch vụ).
+- **Sprint 1**: 14 Issues (Profile, Studio, Xếp ca tuần, Gói dịch vụ & Quy chế quá giờ).
 - **Sprint 2**: 11 Issues (Telemetry GPS & Pricing Engine).
 - **Sprint 3**: 13 Issues (Booking Engine 2 luồng & Dispatching).
 - **Sprint 4**: 11 Issues (Embedded WebSocket WSS Gateway & In-App Notifications).
 - **Sprint 5**: 11 Issues (Ví 7 Bảng Sổ cái & Cổng thanh toán Payout).
 - **Sprint 6**: 13 Issues (Review, Polish UI, Testing, Security & Go-Live).
-- **TỔNG CỘNG HỆ THỐNG**: **84 Issues chi tiết** phân bổ đều trong 7 Sprints (chuẩn 10-15 Issues / Sprint).
+- **TỔNG CỘNG HỆ THỐNG**: **86 Issues chi tiết** phân bổ đều trong 7 Sprints (chuẩn 10-15 Issues / Sprint).

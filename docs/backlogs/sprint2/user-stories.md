@@ -1,2 +1,13 @@
 # Sprint 2 Backlog
 - [ ] [US-03] Tích hợp JWT Authentication giữa Frontend và Gateway.
+- [ ] [ISSUE-14.1] [Location Telemetry Module - Xây dựng Module Định vị GPS & Redis GEO trong Monolith](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint2/user_story_location_telemetry_module.md)
+  - [ ] [ISSUE-14.2] Redis GEO Spatial Index lưu tọa độ Thợ rảnh Realtime (`mua:geo:active`, heartbeat, công tắc sẵn sàng).
+  - [ ] [ISSUE-14.3] GPS Telemetry Background Task trên Mobile App Thợ (Stream 5–10s, tracking lộ trình thợ đang di chuyển).
+  - [ ] [ISSUE-14.4] API Quét danh sách Thợ/Studio rảnh trong bán kính $R$ km từ vị trí khách (`/api/v1/telemetry/nearby`).
+  - [ ] [ISSUE-14.5] Bảng lưu vết Lịch sử tọa độ GPS di chuyển thợ (`telemetry_schema.telemetry_logs`, PostGIS Point 4326).
+- [ ] [ISSUE-15.1] [Dynamic Pricing Module - Xây dựng Module Tính giá động & Phụ phí](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint2/user_story_dynamic_pricing_module.md)
+  - [ ] [ISSUE-15.2] Tích hợp Maps API (Goong / Google Maps API) tính khoảng cách km & Circuit Breaker.
+  - [ ] [ISSUE-15.3] Thuật toán tính Phí di chuyển theo km (Distance Fee Calculator: miễn phí $R_{free}$, phụ thu km vượt).
+  - [ ] [ISSUE-15.4] Thuật toán Surge Pricing tự động tăng giá theo khung giờ cao điểm và tỷ lệ Cung/Cầu ($1.1\times - 1.5\times$).
+  - [ ] [ISSUE-15.5] Tự động tính toán và tổng hợp Phụ phí làm sớm/đêm (3h-5h sáng) & ngày Lễ/Tết quốc gia.
+  - [ ] [ISSUE-15.6] API Preview Hóa đơn Chi tiết Realtime trước khi Khách bấm Đặt đơn (`/api/v1/pricing/preview-invoice`).

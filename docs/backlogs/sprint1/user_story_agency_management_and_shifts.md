@@ -41,7 +41,10 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # Helper response chuẩn: ok, created, noContent
-│   │   └── ApiResponse.java                   # Envelope chuẩn: {success, code, message, data, timestamp}
+│   │   ├── ApiResponse.java                   # Envelope chuẩn: {success, code, message, data, timestamp}
+│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── BaseService.java
+│   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── ErrorCodes.java                    # ERR_VALIDATION, ERR_AGENCY_*, ERR_STAFF_*, ERR_INVITATION_*
 │   │   └── SecurityConstants.java             # Header prefix, Role constants
@@ -50,6 +53,9 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ kèm ErrorCodes và HttpStatus
 │   │   ├── ResourceNotFoundException.java     # Lỗi 404 không tìm thấy bản ghi
 │   │   └── AccessDeniedException.java         # Lỗi 403 vi phạm quyền truy cập/IDOR
+│   ├── i18n/
+│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
+│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
 │   └── utils/
 │       ├── QrCodeUtils.java                   # Tiện ích sinh ảnh QR Base64 từ Deep Link mời
 │       └── SecurityContextUtils.java          # Trích xuất userId từ JWT Principal
@@ -88,6 +94,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │       ├── AgencyStaffEntity.java             # table: agency_schema.agency_staff
 │       ├── AgencyStaffStyleEntity.java        # table: agency_schema.agency_staff_styles
 │       └── AgencyStaffShiftEntity.java        # table: agency_schema.agency_staff_shifts
+│
+├── mapper/
+│   └── agency/
+│       ├── AgencyProfileMapper.java           # MapStruct: AgencyProfileEntity <-> DTOs
+│       ├── AgencyInvitationMapper.java        # MapStruct: AgencyInvitationEntity <-> DTOs
+│       ├── AgencyStaffMapper.java             # MapStruct: AgencyStaffEntity <-> DTOs
+│       └── AgencyShiftMapper.java             # MapStruct: AgencyStaffShiftEntity <-> DTOs
 │
 ├── repository/
 │   ├── AgencyProfileRepository.java           # findByOwnerId, findByAgencyCode
