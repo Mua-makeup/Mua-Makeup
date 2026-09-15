@@ -10,7 +10,7 @@
 - **Tuyệt đối không dùng**: Magic numbers (đưa vào `src/constants/`), hard-coded color/text (sử dụng tailwind/css variables).
 - **Phân tách ranh giới module**: Kiểm soát import bằng `eslint-plugin-boundaries`.
 
-## 3. Backend Conventions (Spring Boot Microservices)
+## 3. Backend Conventions (Spring Boot )
 - **Layered Pattern**: `controller -> service (interface) -> service/impl (logic thực thi) -> repository -> database`.
 - **Base Classes**: Mọi entity kế thừa `BaseEntity` (id, created_at, updated_at). Mọi service CRUD cơ bản kế thừa `BaseService` & `BaseServiceImpl`.
 - **Data Transfer**: Luôn sử dụng DTO (`dto/request`, `dto/response`) với `@Valid` / Bean Validation, không expose Entity trực tiếp ra Controller.
