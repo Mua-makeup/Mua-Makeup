@@ -16,8 +16,8 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class UpdateStaffCommissionReq {
 
-    @NotNull(message = "Tỷ lệ hoa hồng không được để trống")
-    @DecimalMin(value = "0.00", message = "Tỷ lệ hoa hồng tối thiểu là 0%")
-    @DecimalMax(value = "100.00", message = "Tỷ lệ hoa hồng tối đa là 100%")
+    @NotNull(message = "{validation.commission_rate_required}")
+    @DecimalMin(value = "0.00", message = "{validation.commission_rate_min}")
+    @DecimalMax(value = "100.00", message = "{validation.commission_rate_max}")
     private BigDecimal agreedCommissionRate;
 }

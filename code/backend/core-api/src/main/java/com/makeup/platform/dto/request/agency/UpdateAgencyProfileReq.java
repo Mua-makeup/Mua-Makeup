@@ -13,23 +13,23 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateAgencyProfileReq {
 
-    @NotBlank(message = "Tên Studio / Đại lý không được để trống")
-    @Size(max = 150, message = "Tên Studio không được vượt quá 150 ký tự")
+    @NotBlank(message = "{validation.studio_name_required}")
+    @Size(max = 150, message = "{validation.studio_name_max}")
     private String agencyName;
 
-    @NotBlank(message = "Số hotline không được để trống")
-    @Size(max = 20, message = "Số hotline không được vượt quá 20 ký tự")
+    @NotBlank(message = "{validation.studio_hotline_required}")
+    @Size(max = 20, message = "{validation.studio_hotline_max}")
     private String hotline;
 
-    @NotBlank(message = "Địa chỉ không được để trống")
+    @NotBlank(message = "{validation.street_address_required}")
     private String addressStreet;
 
-    @NotBlank(message = "Quận/Huyện không được để trống")
-    @Size(max = 50, message = "Quận/Huyện không được vượt quá 50 ký tự")
+    @NotBlank(message = "{validation.district_required}")
+    @Size(max = 50, message = "{validation.district_max}")
     private String district;
 
-    @NotBlank(message = "Thành phố không được để trống")
-    @Size(max = 50, message = "Thành phố không được vượt quá 50 ký tự")
+    @NotBlank(message = "{validation.city_required}")
+    @Size(max = 50, message = "{validation.city_max}")
     private String city;
 
     private String logoUrl;

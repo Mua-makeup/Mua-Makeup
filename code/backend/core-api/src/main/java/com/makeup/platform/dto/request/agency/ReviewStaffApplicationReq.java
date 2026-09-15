@@ -17,12 +17,12 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ReviewStaffApplicationReq {
 
-    @NotBlank(message = "Quyết định phê duyệt không được để trống")
-    @Pattern(regexp = "APPROVE|REJECT", message = "Quyết định phê duyệt phải là: APPROVE hoặc REJECT")
+    @NotBlank(message = "{validation.approval_decision_required}")
+    @Pattern(regexp = "APPROVE|REJECT", message = "{validation.approval_decision_invalid}")
     private String decision;
 
-    @DecimalMin(value = "0.00", message = "Tỷ lệ hoa hồng tối thiểu là 0%")
-    @DecimalMax(value = "100.00", message = "Tỷ lệ hoa hồng tối đa là 100%")
+    @DecimalMin(value = "0.00", message = "{validation.commission_rate_min}")
+    @DecimalMax(value = "100.00", message = "{validation.commission_rate_max}")
     private BigDecimal agreedCommissionRate;
 
     private String note;

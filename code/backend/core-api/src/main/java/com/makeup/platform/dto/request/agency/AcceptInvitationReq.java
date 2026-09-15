@@ -12,6 +12,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AcceptInvitationReq {
 
-    @NotBlank(message = "Mã mời không được để trống")
+    @NotBlank(message = "{validation.invite_code_required}")
     private String inviteCode;
 }

@@ -19,23 +19,23 @@ import java.time.LocalTime;
 @AllArgsConstructor
 public class ConfigureShiftReq {
 
-    @NotNull(message = "staffId không được để trống")
+    @NotNull(message = "{validation.staff_id_required}")
     private Long staffId;
 
-    @NotNull(message = "dayOfWeek không được để trống")
-    @Min(value = 1, message = "dayOfWeek phải từ 1 (Chủ Nhật) đến 7 (Thứ Bảy)")
-    @Max(value = 7, message = "dayOfWeek phải từ 1 (Chủ Nhật) đến 7 (Thứ Bảy)")
+    @NotNull(message = "{validation.day_of_week_required}")
+    @Min(value = 1, message = "{validation.day_of_week_range}")
+    @Max(value = 7, message = "{validation.day_of_week_range}")
     private Integer dayOfWeek; // 1: Chủ Nhật, 2: Thứ 2, ..., 7: Thứ 7
 
-    @NotBlank(message = "shiftName không được để trống")
-    @Size(max = 100, message = "shiftName tối đa 100 ký tự")
+    @NotBlank(message = "{validation.shift_name_required}")
+    @Size(max = 100, message = "{validation.shift_name_max}")
     private String shiftName;
 
-    @NotNull(message = "startTime không được để trống")
+    @NotNull(message = "{validation.shift_start_time_required}")
     @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime startTime;
 
-    @NotNull(message = "endTime không được để trống")
+    @NotNull(message = "{validation.shift_end_time_required}")
     @JsonFormat(pattern = "HH:mm[:ss]")
     private LocalTime endTime;
 
