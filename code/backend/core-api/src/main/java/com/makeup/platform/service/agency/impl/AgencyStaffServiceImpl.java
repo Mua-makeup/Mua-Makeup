@@ -21,10 +21,15 @@ import com.makeup.platform.entity.agency.AgencyStaffStyleEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.mapper.agency.AgencyInvitationMapper;
 import com.makeup.platform.mapper.agency.AgencyStaffMapper;
+import com.makeup.platform.common.constants.SecurityConstants;
+import com.makeup.platform.entity.auth.RoleEntity;
+import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.AgencyStaffStyleRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
+import com.makeup.platform.repository.RoleRepository;
+import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.service.agency.AgencyStaffService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +64,8 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     private final AgencyStaffRepository agencyStaffRepository;
     private final AgencyStaffStyleRepository agencyStaffStyleRepository;
     private final MuaProfileRepository muaProfileRepository;
+    private final RoleRepository roleRepository;
+    private final UserRepository userRepository;
     private final AgencyStaffMapper agencyStaffMapper;
     private final AgencyInvitationMapper agencyInvitationMapper;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -274,6 +281,17 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                 staff.setAgreedCommissionRate(req.getAgreedCommissionRate());
             }
             staff.setNote(StringUtils.hasText(req.getNote()) ? req.getNote().trim() : "Đã được Studio phê duyệt");
+
+            // Nâng cấp vai trò người dùng từ ROLE_FREELANCE_MUA sang ROLE_AGENCY_STAFF
+            if (staff.getMua() != null && staff.getMua().getUser() != null) {
+                UserEntity staffUser = staff.getMua().getUser();
+                roleRepository.findByName(SecurityConstants.ROLE_AGENCY_STAFF).ifPresent(staffRole -> {
+                    staffUser.setRole(staffRole);
+                    userRepository.save(staffUser);
+                    log.info("Updated UserEntity role to ROLE_AGENCY_STAFF for userId={}", staffUser.getId());
+                });
+            }
+
             log.info("Studio APPROVED staff application: staffId={}, agencyId={}, agreedCommission={}%",
                     staffId, agency.getId(), staff.getAgreedCommissionRate());
         } else if ("REJECT".equals(decision)) {
@@ -356,6 +374,16 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             staff.setNote(req.getNote().trim());
         }
 
+        // Nếu nhân viên rời Studio hoặc bị suspended -> hoàn về ROLE_FREELANCE_MUA
+        if ("LEFT".equals(newStatus) && staff.getMua() != null && staff.getMua().getUser() != null) {
+            UserEntity staffUser = staff.getMua().getUser();
+            roleRepository.findByName(SecurityConstants.ROLE_FREELANCE_MUA).ifPresent(freelanceRole -> {
+                staffUser.setRole(freelanceRole);
+                userRepository.save(staffUser);
+                log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
+            });
+        }
+
         AgencyStaffEntity saved = agencyStaffRepository.save(staff);
         log.info("Updated staff status: staffId={}, agencyId={}, status={}", staffId, agency.getId(), newStatus);
         return agencyStaffMapper.toRes(saved);
@@ -393,6 +421,16 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         staff.setIsActive(false);
         staff.setStatus("LEFT");
         agencyStaffRepository.save(staff);
+
+        if (staff.getMua() != null && staff.getMua().getUser() != null) {
+            UserEntity staffUser = staff.getMua().getUser();
+            roleRepository.findByName(SecurityConstants.ROLE_FREELANCE_MUA).ifPresent(freelanceRole -> {
+                staffUser.setRole(freelanceRole);
+                userRepository.save(staffUser);
+                log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
+            });
+        }
+
         log.info("Removed staff from Studio: staffId={}, agencyId={}", staffId, agency.getId());
     }
 
