@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # System-Wide Architecture & Engineering Rules: Makeup Booking Platform
 
 ## 1. Triết lý Kiến trúc Toàn Hệ thống (System Architecture)

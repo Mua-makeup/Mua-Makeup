@@ -51,6 +51,20 @@ public final class ErrorCodes {
     public static final String ERR_PORTFOLIO_NOT_FOUND = "PORTFOLIO_NOT_FOUND";
     public static final String ERR_MEDIA_STORAGE_FAILED = "MEDIA_STORAGE_FAILED";
 
+    // Phân hệ Agency Management
+    public static final String ERR_AGENCY_NOT_FOUND = "ERR_AGENCY_NOT_FOUND";
+    public static final String ERR_AGENCY_ACCESS_DENIED = "ERR_AGENCY_ACCESS_DENIED";
+    public static final String ERR_STAFF_NOT_FOUND = "ERR_STAFF_NOT_FOUND";
+    public static final String ERR_STAFF_ALREADY_EXISTS = "ERR_STAFF_ALREADY_EXISTS";
+    public static final String ERR_INVITATION_NOT_FOUND = "ERR_INVITATION_NOT_FOUND";
+    public static final String ERR_INVITATION_EXPIRED = "ERR_INVITATION_EXPIRED";
+    public static final String ERR_INVITATION_ALREADY_USED = "ERR_INVITATION_ALREADY_USED";
+
+    // Phân hệ Agency Shift Dispatching (ISSUE-12.5)
+    public static final String ERR_SHIFT_OVERLAPPING = "ERR_SHIFT_OVERLAPPING";
+    public static final String ERR_SHIFT_NOT_FOUND = "ERR_SHIFT_NOT_FOUND";
+    public static final String ERR_INVALID_SHIFT_TIME = "ERR_INVALID_SHIFT_TIME";
+
     // Phân hệ Location Telemetry & Redis GEO
     public static final String ERR_LOCATION_INVALID = "ERR_LOCATION_INVALID";
     public static final String ERR_GEO_EMPTY = "ERR_GEO_EMPTY";
@@ -58,4 +72,6 @@ public final class ErrorCodes {
     public static final String ERR_GPS_ACCURACY_TOO_LOW = "ERR_GPS_ACCURACY_TOO_LOW";
     public static final String ERR_SPEED_ABNORMAL = "ERR_SPEED_ABNORMAL";
     public static final String ERR_TRIP_NOT_FOUND = "ERR_TRIP_NOT_FOUND";
+
 }
+

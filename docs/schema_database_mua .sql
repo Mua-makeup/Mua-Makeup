@@ -1,4 +1,4 @@
--- =============================================================================
+  -- =============================================================================
 -- DỰ ÁN NỀN TẢNG ĐẶT LỊCH MAKE-UP (MAKEUP BOOKING PLATFORM)
 -- SCRIPT THIẾT KẾ CƠ SỞ DỮ LIỆU CHUẨN POSTGRESQL 16 + POSTGIS EXTENSION
 -- KHOÁ CHÍNH: AUTO-INCREMENT IDENTITY (BIGINT / INT)
