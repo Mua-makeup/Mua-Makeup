@@ -64,5 +64,14 @@ public final class ErrorCodes {
     public static final String ERR_SHIFT_OVERLAPPING = "ERR_SHIFT_OVERLAPPING";
     public static final String ERR_SHIFT_NOT_FOUND = "ERR_SHIFT_NOT_FOUND";
     public static final String ERR_INVALID_SHIFT_TIME = "ERR_INVALID_SHIFT_TIME";
+
+    // Phân hệ Location Telemetry & Redis GEO
+    public static final String ERR_LOCATION_INVALID = "ERR_LOCATION_INVALID";
+    public static final String ERR_GEO_EMPTY = "ERR_GEO_EMPTY";
+    public static final String ERR_MUA_NOT_AVAILABLE = "ERR_MUA_NOT_AVAILABLE";
+    public static final String ERR_GPS_ACCURACY_TOO_LOW = "ERR_GPS_ACCURACY_TOO_LOW";
+    public static final String ERR_SPEED_ABNORMAL = "ERR_SPEED_ABNORMAL";
+    public static final String ERR_TRIP_NOT_FOUND = "ERR_TRIP_NOT_FOUND";
+
 }
 
