@@ -80,5 +80,16 @@ public final class ErrorCodes {
     public static final String ERR_OVERTIME_REPORT_NOT_FOUND = "ERR_OVERTIME_REPORT_NOT_FOUND";
     public static final String ERR_INVALID_OVERTIME_ACTION = "ERR_INVALID_OVERTIME_ACTION";
     public static final String ERR_OVERTIME_ALREADY_REVIEWED = "ERR_OVERTIME_ALREADY_REVIEWED";
+
+    // Phân hệ Booking State Machine, Audit Log & Redlock (ISSUE-16)
+    public static final String ERR_BOOKING_NOT_FOUND = "ERR_BOOKING_NOT_FOUND";
+    public static final String ERR_INVALID_STATE_TRANSITION = "ERR_INVALID_STATE_TRANSITION";
+    public static final String ERR_UNAUTHORIZED_TRANSITION = "ERR_UNAUTHORIZED_TRANSITION";
+    public static final String ERR_COMPLETION_PHOTO_REQUIRED = "ERR_COMPLETION_PHOTO_REQUIRED";
+    public static final String ERR_CANCELLATION_REASON_REQUIRED = "ERR_CANCELLATION_REASON_REQUIRED";
+    public static final String ERR_BOOKING_ALREADY_TAKEN = "ERR_BOOKING_ALREADY_TAKEN";
+    public static final String ERR_LOCK_ACQUISITION_TIMEOUT = "ERR_LOCK_ACQUISITION_TIMEOUT";
+    public static final String ERR_OPTIMISTIC_LOCK_CONFLICT = "ERR_OPTIMISTIC_LOCK_CONFLICT";
 }
+
 
