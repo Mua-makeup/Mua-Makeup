@@ -36,8 +36,8 @@ public class RegisterReq {
 
     private String gender;
 
-    @NotNull(message = "{validation.account_type_required}")
-    private AccountType accountType;
+    @Builder.Default
+    private AccountType accountType = AccountType.CUSTOMER;
 
     @Valid
     private MuaRegisterDetails muaDetails;

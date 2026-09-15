@@ -72,7 +72,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public UserRegisterRes register(RegisterReq req) {
-        log.info("Processing registration for phone: {}, type: {}", req.getPhoneNumber(), req.getAccountType());
+        AccountType accountType = req.getAccountType() != null ? req.getAccountType() : AccountType.CUSTOMER;
+        log.info("Processing registration for phone: {}, type: {}", req.getPhoneNumber(), accountType);
 
         // 1. Kiểm tra tính duy nhất của SĐT và Email
         if (userRepository.existsByPhoneNumber(req.getPhoneNumber())) {
@@ -87,11 +88,11 @@ public class AuthServiceImpl implements AuthService {
 
         // 2. Xác định Role duy nhất cho tài khoản (1 user = 1 role)
         RoleEntity assignedRole;
-        if (req.getAccountType() == AccountType.FREELANCER_MUA) {
+        if (accountType == AccountType.FREELANCER_MUA) {
             assignedRole = getRoleOrThrow(SecurityConstants.ROLE_FREELANCE_MUA);
-        } else if (req.getAccountType() == AccountType.AGENCY_ADMIN) {
+        } else if (accountType == AccountType.AGENCY_ADMIN) {
             assignedRole = getRoleOrThrow(SecurityConstants.ROLE_AGENCY_ADMIN);
-        } else if (req.getAccountType() == AccountType.SUPER_ADMIN) {
+        } else if (accountType == AccountType.SUPER_ADMIN) {
             assignedRole = getRoleOrThrow(SecurityConstants.ROLE_SUPER_ADMIN);
         } else {
             assignedRole = getRoleOrThrow(SecurityConstants.ROLE_CUSTOMER);
@@ -115,7 +116,7 @@ public class AuthServiceImpl implements AuthService {
         String generatedAgencyCode = null;
 
         // 4. Xử lý logic khởi tạo Profile theo loại tài khoản
-        if (req.getAccountType() == AccountType.FREELANCER_MUA) {
+        if (accountType == AccountType.FREELANCER_MUA) {
             MuaRegisterDetails details = req.getMuaDetails();
             int currentYear = Year.now().getValue();
             generatedMuaCode = String.format("MUA-%d-%05d", currentYear, user.getId());
@@ -133,7 +134,7 @@ public class AuthServiceImpl implements AuthService {
                     .build();
 
             muaProfileRepository.save(muaProfile);
-        } else if (req.getAccountType() == AccountType.AGENCY_ADMIN) {
+        } else if (accountType == AccountType.AGENCY_ADMIN) {
             AgencyRegisterDetails details = req.getAgencyDetails();
             if (details == null) {
                 throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_DETAILS_REQUIRED,
@@ -163,7 +164,7 @@ public class AuthServiceImpl implements AuthService {
 
         return authMapper.toRegisterRes(
                 user,
-                req.getAccountType().name(),
+                accountType.name(),
                 generatedMuaCode,
                 generatedAgencyCode,
                 roleNames
