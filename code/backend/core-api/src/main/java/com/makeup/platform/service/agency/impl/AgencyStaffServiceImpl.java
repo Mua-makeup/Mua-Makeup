@@ -92,7 +92,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             redisTemplate.opsForSet().add(String.format(REDIS_AGENCY_INVITATIONS_PREFIX, agency.getId()), inviteCode);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize invitation dto to json: code={}", inviteCode, e);
-            throw new CustomBusinessException(ErrorCodes.ERR_INTERNAL, "Không thể tạo mã mời", HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new CustomBusinessException(ErrorCodes.ERR_INTERNAL, "ERR_INTERNAL", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         log.info("Created Studio invite code in Redis: code={}, agencyId={}, ownerId={}, expireHours={}",

@@ -1,5 +1,7 @@
 package com.makeup.platform.dto.request.telemetry;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -32,7 +34,9 @@ public class LocationStreamReq {
 
     private Double accuracy; // meters
 
+    @JsonAlias({"booking_id", "bookingId"})
     private Long bookingId;
 
+    @JsonAlias({"distance_remaining_meters", "distanceRemainingMeters"})
     private Double distanceRemainingMeters; // mét tới nhà khách
 }
