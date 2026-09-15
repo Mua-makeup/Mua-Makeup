@@ -15,7 +15,7 @@ import lombok.Setter;
 @Builder
 public class UpdateLanguageReq {
 
-    @NotBlank(message = "Ngôn ngữ không được để trống")
-    @Pattern(regexp = "^(en|vi)$", message = "Ngôn ngữ chỉ được phép là 'en' hoặc 'vi'")
+    @NotBlank(message = "{validation.language_required}")
+    @Pattern(regexp = "^(en|vi)$", message = "{validation.language_pattern}")
     private String language;
 }

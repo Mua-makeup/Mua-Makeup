@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Builder
 public class UploadCertificateReq {
 
-    @NotBlank(message = "Tên chứng chỉ / bằng cấp không được để trống")
+    @NotBlank(message = "{validation.mua_cert_name_required}")
     private String certName;
 
     private MultipartFile file;

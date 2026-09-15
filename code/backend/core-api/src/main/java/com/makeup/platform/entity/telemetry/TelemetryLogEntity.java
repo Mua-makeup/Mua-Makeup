@@ -28,7 +28,13 @@ import java.time.Instant;
 public class TelemetryLogEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "telemetry_logs_seq")
+    @jakarta.persistence.SequenceGenerator(
+            name = "telemetry_logs_seq",
+            sequenceName = "telemetry_logs_seq",
+            schema = "telemetry_schema",
+            allocationSize = 1
+    )
     @Column(name = "id")
     private Long id;
 

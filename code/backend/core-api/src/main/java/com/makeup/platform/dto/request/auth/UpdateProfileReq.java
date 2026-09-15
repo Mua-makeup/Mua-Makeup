@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateProfileReq {
 
-    @Size(min = 2, max = 100, message = "Họ tên phải từ 2 đến 100 ký tự")
+    @Size(min = 2, max = 100, message = "{validation.full_name_size}")
     private String fullName;
 
     private String avatarUrl;

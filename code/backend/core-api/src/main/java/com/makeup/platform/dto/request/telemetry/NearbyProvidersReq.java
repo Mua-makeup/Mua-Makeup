@@ -18,18 +18,18 @@ import java.math.BigDecimal;
 @Builder
 public class NearbyProvidersReq {
 
-    @NotNull(message = "Vĩ độ không được để trống")
-    @DecimalMin(value = "-90.0", message = "Vĩ độ tối thiểu là -90.0")
-    @DecimalMax(value = "90.0", message = "Vĩ độ tối đa là 90.0")
+    @NotNull(message = "{validation.telemetry_latitude_required}")
+    @DecimalMin(value = "-90.0", message = "{validation.telemetry_latitude_min}")
+    @DecimalMax(value = "90.0", message = "{validation.telemetry_latitude_max}")
     private Double latitude;
 
-    @NotNull(message = "Kinh độ không được để trống")
-    @DecimalMin(value = "-180.0", message = "Kinh độ tối thiểu là -180.0")
-    @DecimalMax(value = "180.0", message = "Kinh độ tối đa là 180.0")
+    @NotNull(message = "{validation.telemetry_longitude_required}")
+    @DecimalMin(value = "-180.0", message = "{validation.telemetry_longitude_min}")
+    @DecimalMax(value = "180.0", message = "{validation.telemetry_longitude_max}")
     private Double longitude;
 
-    @DecimalMin(value = "0.5", message = "Bán kính quét tối thiểu là 0.5 km")
-    @DecimalMax(value = "30.0", message = "Bán kính quét tối đa là 30.0 km")
+    @DecimalMin(value = "0.5", message = "{validation.telemetry_radius_min}")
+    @DecimalMax(value = "30.0", message = "{validation.telemetry_radius_max}")
     private Double radiusKm;
 
     private Long masterCategoryId;

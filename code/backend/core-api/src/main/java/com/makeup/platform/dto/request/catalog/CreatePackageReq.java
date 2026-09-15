@@ -22,21 +22,21 @@ import java.util.List;
 @Builder
 public class CreatePackageReq {
 
-    @NotNull(message = "Danh mục dịch vụ gốc không được để trống")
+    @NotNull(message = "{validation.catalog_category_required}")
     private Integer masterCategoryId;
 
-    @NotBlank(message = "Tên gói dịch vụ không được để trống")
-    @Size(max = 150, message = "Tên gói dịch vụ không vượt quá 150 ký tự")
+    @NotBlank(message = "{validation.catalog_package_name_required}")
+    @Size(max = 150, message = "{validation.catalog_package_name_size}")
     private String packageName;
 
     private String description;
 
-    @NotNull(message = "Giá gói dịch vụ không được để trống")
-    @DecimalMin(value = "50000.00", message = "Giá tối thiểu của gói dịch vụ là 50,000 VNĐ")
+    @NotNull(message = "{validation.catalog_package_price_required}")
+    @DecimalMin(value = "50000.00", message = "{validation.catalog_package_price_min}")
     private BigDecimal price;
 
-    @NotNull(message = "Thời gian thực hiện dự kiến không được để trống")
-    @Min(value = 30, message = "Thời gian thực hiện tối thiểu 30 phút")
+    @NotNull(message = "{validation.catalog_package_duration_required}")
+    @Min(value = 30, message = "{validation.catalog_package_duration_min}")
     private Integer estimatedDurationMinutes;
 
     private List<Integer> styleIds;

@@ -35,7 +35,7 @@ public class PackageItemController extends BaseController {
             @PathVariable Long packageId,
             @Valid @RequestBody CreatePackageItemReq req) {
         PackageItemRes res = itemService.addItem(userId, packageId, req);
-        return created(res, "Thêm bước/mục dịch vụ thành công!");
+        return created(res, "catalog.package_item_create_success");
     }
 
     @PutMapping("/{itemId}")
@@ -46,7 +46,7 @@ public class PackageItemController extends BaseController {
             @PathVariable Long itemId,
             @Valid @RequestBody CreatePackageItemReq req) {
         PackageItemRes res = itemService.updateItem(userId, packageId, itemId, req);
-        return ok(res, "Cập nhật bước/mục dịch vụ thành công!");
+        return ok(res, "catalog.package_item_update_success");
     }
 
     @DeleteMapping("/{itemId}")
@@ -56,7 +56,7 @@ public class PackageItemController extends BaseController {
             @PathVariable Long packageId,
             @PathVariable Long itemId) {
         itemService.deleteItem(userId, packageId, itemId);
-        return ok(null, "Xóa bước/mục dịch vụ thành công!");
+        return ok(null, "catalog.package_item_delete_success");
     }
 
     @GetMapping

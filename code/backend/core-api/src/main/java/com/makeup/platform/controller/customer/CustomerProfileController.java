@@ -26,6 +26,6 @@ public class CustomerProfileController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody UpdateProfileReq req) {
         UserInfoRes res = userService.updateProfile(userId, req);
-        return ok(res, "Cập nhật hồ sơ thành công!");
+        return ok(res, "customer.profile_update_success");
     }
 }

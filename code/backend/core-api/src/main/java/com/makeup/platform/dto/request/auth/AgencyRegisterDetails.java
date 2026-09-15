@@ -16,22 +16,22 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class AgencyRegisterDetails {
 
-    @NotBlank(message = "Tên Studio không được để trống")
+    @NotBlank(message = "{validation.studio_name_required}")
     private String agencyName;
 
-    @NotBlank(message = "Hotline Studio không được để trống")
+    @NotBlank(message = "{validation.studio_hotline_required}")
     private String hotline;
 
-    @NotBlank(message = "Địa chỉ đường/phố không được để trống")
+    @NotBlank(message = "{validation.street_address_required}")
     private String addressStreet;
 
-    @NotBlank(message = "Quận/Huyện không được để trống")
+    @NotBlank(message = "{validation.district_required}")
     private String district;
 
-    @NotBlank(message = "Tỉnh/Thành phố không được để trống")
+    @NotBlank(message = "{validation.city_required}")
     private String city;
 
-    @DecimalMin(value = "0.00", message = "Tỷ lệ hoa hồng tối thiểu là 0%")
-    @DecimalMax(value = "100.00", message = "Tỷ lệ hoa hồng tối đa là 100%")
+    @DecimalMin(value = "0.00", message = "{validation.commission_rate_min}")
+    @DecimalMax(value = "100.00", message = "{validation.commission_rate_max}")
     private BigDecimal commissionRateInternal;
 }
