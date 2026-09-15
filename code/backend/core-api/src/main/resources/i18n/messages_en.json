@@ -98,6 +98,20 @@
     "trip_history_success": "Retrieved trip history route successfully.",
     "trip_compress_success": "Compressed trip route successfully."
   },
+  "booking": {
+    "transition_success": "Booking state updated successfully!",
+    "accept_success": "Congratulations! You have successfully accepted the instant booking!",
+    "history_fetch_success": "Booking status history retrieved successfully.",
+    "not_found": "Booking not found.",
+    "invalid_state_transition": "Invalid booking state transition according to workflow rules.",
+    "unauthorized_transition": "You are not authorized to perform this booking state transition.",
+    "completion_photo_required": "Completion photo URL is required when marking a booking as completed.",
+    "cancellation_reason_required": "Cancellation reason is required when cancelling a booking.",
+    "already_taken": "Sorry! This booking has just been accepted by another artist.",
+    "lock_timeout": "System is busy processing booking acceptance. Please try again in a moment.",
+    "optimistic_lock_conflict": "Booking was updated by another concurrent operation. Please reload and retry.",
+    "concurrency_interrupted": "Concurrency handling interrupted. Please try again."
+  },
   "ERR_USER_NOT_FOUND": "User not found.",
   "ERR_PHONE_ALREADY_EXISTS": "Phone number is already registered.",
   "ERR_EMAIL_ALREADY_EXISTS": "Email is already registered.",
@@ -161,6 +175,14 @@
   "ERR_OVERTIME_REPORT_NOT_FOUND": "Overtime report not found.",
   "ERR_INVALID_OVERTIME_ACTION": "Invalid overtime action.",
   "ERR_OVERTIME_ALREADY_REVIEWED": "Overtime report has already been reviewed.",
+  "ERR_BOOKING_NOT_FOUND": "Booking not found.",
+  "ERR_INVALID_STATE_TRANSITION": "Invalid booking state transition.",
+  "ERR_UNAUTHORIZED_TRANSITION": "Unauthorized booking state transition.",
+  "ERR_COMPLETION_PHOTO_REQUIRED": "Completion photo is required.",
+  "ERR_CANCELLATION_REASON_REQUIRED": "Cancellation reason is required.",
+  "ERR_BOOKING_ALREADY_TAKEN": "Booking already accepted by another artist.",
+  "ERR_LOCK_ACQUISITION_TIMEOUT": "Distributed lock acquisition timeout.",
+  "ERR_OPTIMISTIC_LOCK_CONFLICT": "Optimistic lock version conflict.",
   "validation": {
     "bio_size": "Bio cannot exceed 500 characters.",
     "experience_years_required": "Experience years cannot be blank.",
@@ -269,6 +291,9 @@
     "staff_status_invalid": "Status must be: ACTIVE, SUSPENDED or LEFT.",
     "page_min": "Page index cannot be negative.",
     "page_size_min": "Page size must be at least 1.",
-    "page_size_max": "Page size cannot exceed 50."
+    "page_size_max": "Page size cannot exceed 50.",
+    "booking_target_status_required": "Target status is required.",
+    "booking_target_status_invalid": "Target status is invalid.",
+    "booking_reason_max": "Reason must not exceed 500 characters."
   }
 }

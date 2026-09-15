@@ -98,6 +98,20 @@
     "trip_history_success": "Lấy lịch sử hành trình chuyến đi thành công.",
     "trip_compress_success": "Nén hành trình chuyến đi thành công."
   },
+  "booking": {
+    "transition_success": "Cập nhật trạng thái đơn hàng thành công!",
+    "accept_success": "Chúc mừng! Bạn đã nhận thành công ca trang điểm khẩn cấp!",
+    "history_fetch_success": "Lấy lịch sử trạng thái đơn hàng thành công.",
+    "not_found": "Không tìm thấy đơn hàng tương ứng.",
+    "invalid_state_transition": "Bước chuyển trạng thái đơn hàng không hợp lệ theo quy trình.",
+    "unauthorized_transition": "Bạn không có quyền thực hiện chuyển trạng thái đơn hàng này.",
+    "completion_photo_required": "Bắt buộc phải đính kèm ảnh sản phẩm hoàn thiện khi hoàn thành đơn.",
+    "cancellation_reason_required": "Bắt buộc phải cung cấp lý do hủy đơn hàng.",
+    "already_taken": "Rất tiếc! Đơn hàng này vừa được một thợ khác tiếp nhận.",
+    "lock_timeout": "Hệ thống đang quá tải khi xử lý nhận đơn. Vui lòng thử lại sau giây lát.",
+    "optimistic_lock_conflict": "Đơn hàng đã được cập nhật bởi một thao tác khác. Vui lòng tải lại và thử lại.",
+    "concurrency_interrupted": "Xử lý tranh chấp đơn hàng bị gián đoạn. Vui lòng thử lại."
+  },
   "ERR_USER_NOT_FOUND": "Không tìm thấy người dùng trong hệ thống.",
   "ERR_PHONE_ALREADY_EXISTS": "Số điện thoại đã được đăng ký tài khoản.",
   "ERR_EMAIL_ALREADY_EXISTS": "Email đã được đăng ký tài khoản.",
@@ -161,6 +175,14 @@
   "ERR_OVERTIME_REPORT_NOT_FOUND": "Không tìm thấy báo cáo quá giờ.",
   "ERR_INVALID_OVERTIME_ACTION": "Hành động xử lý quá giờ không hợp lệ.",
   "ERR_OVERTIME_ALREADY_REVIEWED": "Báo cáo quá giờ này đã được xử lý trước đó.",
+  "ERR_BOOKING_NOT_FOUND": "Không tìm thấy đơn hàng yêu cầu.",
+  "ERR_INVALID_STATE_TRANSITION": "Bước chuyển trạng thái đơn hàng không hợp lệ.",
+  "ERR_UNAUTHORIZED_TRANSITION": "Không có quyền thực hiện thao tác chuyển trạng thái này.",
+  "ERR_COMPLETION_PHOTO_REQUIRED": "Bắt buộc đính kèm ảnh sản phẩm hoàn thiện.",
+  "ERR_CANCELLATION_REASON_REQUIRED": "Bắt buộc cung cấp lý do hủy đơn hàng.",
+  "ERR_BOOKING_ALREADY_TAKEN": "Đơn hàng đã được thợ khác tiếp nhận trước.",
+  "ERR_LOCK_ACQUISITION_TIMEOUT": "Hết thời gian chờ giành khóa phân tán đơn hàng.",
+  "ERR_OPTIMISTIC_LOCK_CONFLICT": "Xung đột cập nhật phiên bản đơn hàng.",
   "validation": {
     "bio_size": "Tiểu sử không được vượt quá 500 ký tự.",
     "experience_years_required": "Số năm kinh nghiệm không được để trống.",
@@ -269,6 +291,9 @@
     "staff_status_invalid": "Trạng thái phải là: ACTIVE, SUSPENDED hoặc LEFT.",
     "page_min": "Chỉ số trang tối thiểu là 0.",
     "page_size_min": "Kích thước trang tối thiểu là 1.",
-    "page_size_max": "Kích thước trang tối đa không được vượt quá 50."
+    "page_size_max": "Kích thước trang tối đa không được vượt quá 50.",
+    "booking_target_status_required": "Trạng thái đích không được để trống.",
+    "booking_target_status_invalid": "Trạng thái đích không hợp lệ.",
+    "booking_reason_max": "Lý do không được vượt quá 500 ký tự."
   }
 }

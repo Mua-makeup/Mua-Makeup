@@ -12,10 +12,12 @@
   * `ISSUE-17.2`: **Task** - Bắn Event `INSTANT_BOOKING_CREATED` qua Spring `ApplicationEventPublisher`.
   * `ISSUE-17.3`: **Task** - Màn hình Popup Đếm ngược 30–45s nhận ca khẩn cấp trên Mobile App Thợ & Đĩa quay radar Khách hàng.
   * `ISSUE-17.4`: **Task** - Logic Thợ bấm 'Chấp nhận' ca $\rightarrow$ Khóa đơn duy nhất qua Redlock và phát sinh giao dịch Escrow giữ cọc.
+  * `ISSUE-17.5`: **Task** - Logic Thợ 'Từ chối / Bỏ qua' ca $\rightarrow$ Thêm vào Redis Rejection Blacklist (`Set`) & Tự động quét tái điều phối (Re-dispatch) thợ kế tiếp.
 * **Mô hình Kiến trúc:**
   * **Spring Boot 3.3.x Layered Architecture Monolith** (`code/backend/core-api`, Port `8080`).
   * **Hạ tầng Đồng bộ & Định vị Thời gian thực:**
     * **Redis GEO Cluster:** Quét tức thời các thợ đang trực tuyến trong bán kính $R$ km (`GEOSEARCH mua:geo:active`).
+    * **Redis Rejection Blacklist (`Set: booking:{id}:rejected_muas`):** Lưu danh sách thợ đã từ chối để tránh phát sóng lặp lại (TTL 90s).
     * **Spring In-Memory EventBus (`ApplicationEventPublisher`):** Bắn sự kiện bất đồng bộ nội bộ giữa các domain modules (Booking $\rightarrow$ WebSocket & Wallet) với độ trễ $< 1\text{ms}$.
     * **Embedded STOMP WebSocket Gateway (`/ws-makeup`):** Đẩy thông báo nhận ca tức thì tới các thợ rảnh trong bán kính và cập nhật kết quả cho khách.
     * **Khóa Phân tán Redlock (Redisson):** Đảm bảo duy nhất 1 thợ đầu tiên giành được đơn hàng khi nhiều thợ cùng bấm "Chấp nhận" đồng thời.
@@ -26,7 +28,8 @@
      * Xem màn hình Radar quét thợ đếm ngược 45s; được tự động hoàn cọc 100% ngay lập tức nếu hết giờ mà không có thợ nhận.
   2. **Freelance MUA & Studio Staff MUA (Thợ trang điểm đang rảnh):**
      * Đang bật công tắc "Sẵn sàng nhận việc" trên Mobile App.
-     * Nhận được Popup toàn màn hình rung chuông báo động, hiển thị cự ly di chuyển, địa chỉ, số tiền thu nhập thực nhận và đồng hồ đếm lùi 30s để bấm nhận ca.
+     * Nhận được Popup toàn màn hình rung chuông báo động, hiển thị cự ly di chuyển, địa chỉ, số tiền thu nhập thực nhận và đồng hồ đếm lùi 30s.
+     * Có thể bấm **"Chấp nhận"** để giành ca hoặc bấm **"Từ chối / Bỏ qua"** để nhường cơ hội cho đồng nghiệp khác mà không bị gọi lại đơn này.
   3. **Escrow Wallet Engine (Động cơ Ví Khóa Cọc):**
      * Tự động phong tỏa 30% giá trị đơn hàng từ Ví Khách hàng sang số dư đóng băng (`frozen_balance`) ngay khi thợ nhận ca thành công để đảm bảo khả năng thanh toán.
 
@@ -42,21 +45,15 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   ├── base/
 │   │   ├── BaseEntity.java                    # id, created_at, updated_at
 │   │   ├── BaseController.java                # ok, created, error
-│   │   ├── ApiResponse.java                   # Envelope: {success, code, message, data, timestamp}
-│   │   ├── PageResponse.java                  # Envelope phân trang chuẩn
+│   │   ├── ApiResponse.java                   # Envelope: {success, errorCode, message, data, timestamp}
 │   │   ├── BaseService.java
 │   │   └── BaseServiceImpl.java
 │   ├── constants/
 │   │   ├── InstantBookingConstants.java       # SEARCH_TIMEOUT_SECONDS (45s), MUA_COUNTDOWN_SECONDS (30s)
-│   │   └── ErrorCodes.java                    # ERR_NO_MUA_IN_RADIUS, ERR_ESCROW_INSUFFICIENT_FUNDS
+│   │   └── ErrorCodes.java                    # ERR_NO_MUA_IN_RADIUS, ERR_ALL_MUAS_REJECTED...
 │   ├── exception/
 │   │   ├── GlobalExceptionHandler.java        # @RestControllerAdvice xử lý ngoại lệ tập trung
-│   │   ├── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
-│   │   ├── ResourceNotFoundException.java     # Lỗi không tìm thấy bản ghi (404)
-│   │   └── AccessDeniedException.java         # Lỗi vi phạm phân quyền/IDOR (403)
-│   ├── i18n/
-│   │   ├── CustomLocaleResolver.java          # Đa ngôn ngữ Accept-Language
-│   │   └── JsonMessageSource.java             # Nạp file i18n JSON
+│   │   └── CustomBusinessException.java       # Lỗi nghiệp vụ có mã lỗi ErrorCodes
 │   └── utils/
 │       └── SecurityContextUtils.java          # Trích xuất userId, role từ SecurityContext
 │
@@ -67,17 +64,19 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 ├── controller/
 │   └── booking/
 │       ├── InstantBookingCustomerController.java # POST /api/v1/customer/bookings/instant & /cancel-instant
-│       └── InstantBookingMUAController.java      # POST /api/v1/freelancer/bookings/{id}/accept-instant
+│       └── InstantBookingMUAController.java      # POST /api/v1/freelancer/bookings/{id}/accept-instant & /reject-instant
 │
 ├── dto/
 │   ├── request/booking/
 │   │   ├── CreateInstantBookingReq.java       # packageId, addOnItemIds, destinationAddress, lat, lng, voucher
+│   │   ├── RejectInstantBookingReq.java       # rejectionReason (Bận đột xuất, Cự ly quá xa...)
 │   │   └── CancelInstantBookingReq.java       # cancellationReason
 │   └── response/booking/
 │       ├── InstantBookingCreatedRes.java      # bookingId, bookingCode, countdownSeconds, totalAmount, depositAmount
 │       ├── InstantBookingOfferBroadcastRes.java # Payload STOMP gửi thợ: bookingId, earnings, distanceKm, address
 │       ├── InstantBookingMatchedRes.java      # Payload STOMP gửi khách: thợ nhận, avatar, phone, etaMinutes
-│       └── InstantBookingTimeoutRes.java      # Hết thời gian tìm kiếm, trạng thái hoàn cọc
+│       ├── InstantBookingTimeoutRes.java      # Hết thời gian tìm kiếm, trạng thái hoàn cọc
+│       └── InstantBookingRejectionRes.java    # Xác nhận từ chối ca & đóng popup thợ
 │
 ├── entity/
 │   └── booking/
@@ -86,27 +85,32 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │
 ├── mapper/
 │   └── booking/
-│       ├── InstantBookingMapper.java          # MapStruct: BookingEntity <-> DTOs
-│       └── BookingItemMapper.java             # MapStruct: BookingItemEntity <-> DTOs
+│       ├── InstantBookingMapper.java          # Manual Mapper @Component (Builder Pattern - KHÔNG dùng MapStruct)
+│       └── BookingItemMapper.java             # Manual Mapper @Component (Builder Pattern)
 │
 ├── event/
-│   ├── InstantBookingCreatedEvent.java        # Bắn ra khi khách bấm tạo đơn khẩn cấp
-│   ├── InstantBookingAcceptedEvent.java       # Bắn ra khi thợ giành đơn thành công qua Redlock
-│   └── InstantBookingTimeoutEvent.java        # Bắn ra khi hết 45s không có thợ nhận
+│   └── booking/
+│       ├── InstantBookingCreatedEvent.java    # Bắn ra khi khách bấm tạo đơn khẩn cấp
+│       ├── InstantBookingAcceptedEvent.java   # Bắn ra khi thợ giành đơn thành công qua Redlock
+│       ├── InstantBookingRejectedEvent.java   # Bắn ra khi thợ từ chối ca để tái điều phối
+│       └── InstantBookingTimeoutEvent.java    # Bắn ra khi hết 45s không có thợ nhận
 │
 ├── listener/
-│   └── InstantBookingEventListener.java       # Lắng nghe Event để Broadcast STOMP & Kích hoạt Escrow
+│   └── booking/
+│       └── InstantBookingEventListener.java   # Lắng nghe Event để Broadcast STOMP, Blacklist Redis & Escrow
 │
 ├── service/
 │   └── booking/
 │       ├── InstantBookingService.java         # Tạo đơn khẩn cấp, validate cọc, tính giá realtime
-│       ├── InstantDispatchService.java        # Quét thợ Redis GEO, điều phối STOMP Broadcast
+│       ├── InstantDispatchService.java        # Quét thợ Redis GEO, quản lý Rejection Blacklist & Tái điều phối STOMP
 │       ├── InstantBookingAcceptanceService.java # Thợ nhận đơn qua Redlock, khóa đơn, trừ cọc Escrow
-│       └── InstantBookingTimeoutScheduler.java  # Quét timeout 45s tự động hủy và hoàn tiền
+│       ├── InstantBookingRejectionService.java # Xử lý thợ từ chối, add Redis Blacklist & kích hoạt Re-dispatch
+│       └── InstantBookingTimeoutScheduler.java # Quét timeout 45s tự động hủy và hoàn tiền
 │
 └── repository/
     └── booking/
-        └── BookingRepository.java             # Spring Data JPA
+        ├── BookingRepository.java             # Spring Data JPA
+        └── BookingItemRepository.java         # Spring Data JPA
 ```
 
 ---
@@ -259,6 +263,54 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
+### **US-INST-05: Thợ Từ Chối / Bỏ Qua Ca & Tái Điều Phối Qua Redis Rejection Blacklist (`ISSUE-17.5`)**
+> **As a** Động cơ Điều phối Thông minh (Smart Dispatch Engine),  
+> **I want** khi một thợ bấm "Từ chối" (hoặc hết 30s không phản hồi), hệ thống ghi nhận thợ đó vào Redis Rejection Blacklist và tự động quét thợ rảnh kế tiếp trong khu vực để phát sóng tiếp,  
+> **So that** không làm mất cơ hội tìm được thợ của khách hàng và tuyệt đối không gửi lặp lại đơn hàng gây phiền hà cho thợ đã từ chối.
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+
+* **Scenario 01: Thợ bấm từ chối nhận ca và hệ thống đưa vào Blacklist trên Redis**
+  * **Given** Đơn hàng khẩn cấp `booking_id = 901` đang được phát sóng tới Thợ A (`mua_id = 89`).
+  * **When** Thợ A bấm nút "Bỏ qua / Từ chối" $\rightarrow$ Gửi request `POST /api/v1/freelancer/bookings/901/reject-instant`:
+    ```json
+    {
+      "rejection_reason": "DISTANCE_TOO_FAR"
+    }
+    ```
+  * **Then** Hệ thống lưu `mua_id = 89` vào Redis Set: `SADD booking:901:rejected_muas 89`.
+  * **And** Đặt TTL cho Redis Set: `EXPIRE booking:901:rejected_muas 90` (tự hủy sau 90 giây).
+  * **And** Trả về HTTP `200 OK` cho Thợ A kèm chỉ thị đóng Popup và tắt chuông báo.
+
+* **Scenario 02: Tự động quét và phát sóng tiếp cho thợ rảnh tiếp theo trong khu vực (Re-dispatching)**
+  * **Given** Thợ A vừa từ chối đơn `booking_id = 901` và đơn vẫn đang ở trạng thái `REQUESTED`.
+  * **When** `InstantBookingRejectionService` kích hoạt quy trình tái điều phối (Re-dispatch).
+  * **Then** Hệ thống truy vấn lại Redis GEO: `GEOSEARCH mua:geo:active` trong bán kính $7.0\text{ km}$ từ vị trí khách.
+  * **And** Lọc bỏ tất cả các `mua_id` đã có trong Redis Set `booking:901:rejected_muas`.
+  * **And** Tìm thấy Thợ C (`mua_id = 115`, cách 2.3km, chưa từ chối).
+  * **And** Gửi gói tin STOMP tới Thợ C qua `/topic/booking-broadcast`:
+    ```json
+    {
+      "type": "INSTANT_BOOKING_OFFER",
+      "booking_id": 901,
+      "target_mua_ids": [115],
+      "distance_km": 2.30,
+      "estimated_travel_minutes": 10,
+      "mua_earnings_amount": 2184000.00,
+      "countdown_seconds": 30
+    }
+    ```
+  * **And** Đĩa quay radar trên màn hình khách hàng cập nhật số lượng thợ đang quét mà không bị ngắt quãng.
+
+* **Scenario 03: Tất cả thợ trong bán kính đều đã từ chối nhận ca**
+  * **Given** Toàn bộ 4 thợ rảnh trong bán kính $7\text{ km}$ đều đã bấm từ chối và nằm trong Redis Set `booking:901:rejected_muas`.
+  * **When** Hệ thống quét Redis GEO và sau khi lọc thấy danh sách thợ rảnh còn lại rỗng (`remaining_muas == 0`).
+  * **Then** Hệ thống kết thúc sớm chu kỳ đếm ngược (Early Timeout).
+  * **And** Chuyển trạng thái đơn sang `CANCELLED` với lý do `"ALL_NEARBY_MUAS_REJECTED"`.
+  * **And** Hoàn cọc $100\%$ ngay lập tức và bắn STOMP thông báo cho khách hàng để khách không phải chờ hết 45s vô ích.
+
+---
+
 ## ⚠️ 4. CHI TIẾT NGOẠI LỆ, VALIDATION & BẢNG MÃ LỖI BACK-END
 
 Tất cả các lỗi nghiệp vụ được xử lý tập trung qua `GlobalExceptionHandler.java`:
@@ -266,20 +318,21 @@ Tất cả các lỗi nghiệp vụ được xử lý tập trung qua `GlobalExc
 ```json
 {
   "success": false,
-  "code": "MÃ_LỖI_NGHIỆP_VỤ",
-  "message": "Mô tả lỗi thân thiện",
-  "errors": [],
-  "timestamp": "2026-09-14T09:30:00Z"
+  "errorCode": "MÃ_LỖI_NGHIỆP_VỤ",
+  "message": "Thông điệp lỗi đã được bản địa hóa qua messages_vi.json / messages_en.json",
+  "timestamp": "2026-09-14T09:30:00"
 }
 ```
 
 ### 4.1. Bảng Ma trận Mã Lỗi Phân hệ Instant Booking
 
-| HTTP Status | Mã Lỗi (`code`) | Nguyên Nhân Kích Hoạt | Giải Pháp Xử Lý Phía Server |
+| HTTP Status | Mã Lỗi (`errorCode`) | Nguyên Nhân Kích Hoạt | Giải Pháp Xử Lý Phía Server |
 | :--- | :--- | :--- | :--- |
 | **`400 BAD_REQUEST`** | `ERR_INVALID_GEO_COORDINATES` | Tọa độ điểm đến của khách hàng không hợp lệ (ngoài phạm vi Việt Nam). | Bean Validation chặn lại ngay tại tầng Controller DTO. |
 | **`400 BAD_REQUEST`** | `ERR_ESCROW_INSUFFICIENT_FUNDS` | Số dư khả dụng trong ví của khách hàng không đủ để thanh toán tiền cọc $30\%$. | Báo lỗi yêu cầu nạp thêm tiền ví hoặc liên kết thẻ thanh toán. |
+| **`400 BAD_REQUEST`** | `ERR_MUA_ALREADY_REJECTED` | Thợ cố tình gửi request từ chối lần 2 cho cùng 1 đơn hàng. | Bỏ qua hoặc báo thợ đã từ chối trước đó. |
 | **`404 NOT_FOUND`** | `ERR_NO_MUA_IN_RADIUS` | Không có bất kỳ thợ nào đang bật online rảnh việc trong bán kính quét $10\text{ km}$. | Chặn tạo đơn, gợi ý khách đặt lịch hẹn trước cho khung giờ khác. |
+| **`404 NOT_FOUND`** | `ERR_ALL_MUAS_REJECTED` | Tất cả thợ rảnh xung quanh đều đã bấm từ chối nhận ca. | Tự động kết thúc sớm tìm kiếm, hoàn cọc 100% cho khách. |
 | **`409 CONFLICT`** | `ERR_CUSTOMER_ALREADY_HAS_ACTIVE_BOOKING` | Khách hàng đang có 1 ca khẩn cấp khác đang chờ tìm thợ. | Chặn tạo đơn trùng, trả về ID đơn cũ để theo dõi tiếp. |
 | **`409 CONFLICT`** | `ERR_INSTANT_BOOKING_TAKEN` | Thợ bấm nhận đơn nhưng đơn đã bị thợ khác giành trước qua Redlock. | Đóng popup đếm ngược, thông báo đơn đã có người nhận. |
 | **`410 GONE`** | `ERR_BOOKING_SEARCH_TIMEOUT` | Thợ bấm nhận đơn nhưng đơn đã hết hạn 45s và hệ thống đã tự động hủy. | Trả về thông báo đơn đã hết hạn tìm kiếm. |
@@ -307,14 +360,49 @@ import java.util.List;
 @AllArgsConstructor
 public class CreateInstantBookingReq {
 
-    @NotNull(message = "{booking.package_id.required}")
+    @NotNull(message = "{validation.instant_booking_package_id_required}")
     private Long packageId;
 
     private List<Long> addOnItemIds; // Danh sách ID các option mua thêm
 
-    @NotBlank(message = "{booking.destination_address.required}")
-    @Size(max = 255, message = "{booking.destination_address.too_long}")
+    @NotBlank(message = "{validation.instant_booking_destination_address_required}")
+    @Size(max = 255, message = "{validation.instant_booking_destination_address_max}")
     private String destinationAddress;
+
+    @NotNull(message = "{validation.instant_booking_latitude_required}")
+    @DecimalMin(value = "8.0", message = "{validation.instant_booking_latitude_invalid}")
+    @DecimalMax(value = "24.0", message = "{validation.instant_booking_latitude_invalid}")
+    private BigDecimal destinationLatitude;
+
+    @NotNull(message = "{validation.instant_booking_longitude_required}")
+    @DecimalMin(value = "102.0", message = "{validation.instant_booking_longitude_invalid}")
+    @DecimalMax(value = "110.0", message = "{validation.instant_booking_longitude_invalid}")
+    private BigDecimal destinationLongitude;
+
+    private String voucherCode; // Mã giảm giá (nếu có)
+}
+```
+
+#### DTO Thợ Từ Chối Ca Khẩn Cấp: `RejectInstantBookingReq.java`
+```java
+package com.makeup.platform.dto.request.booking;
+
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class RejectInstantBookingReq {
+
+    @Size(max = 255, message = "{validation.instant_booking_rejection_reason_max}")
+    private String rejectionReason; // DISTANCE_TOO_FAR, BUSY_UNEXPECTED, PRICE_TOO_LOW, OTHER
+}
+```
 
     @NotNull(message = "{booking.latitude.required}")
     @DecimalMin(value = "8.0", message = "{booking.latitude.out_of_vietnam}")
@@ -380,33 +468,59 @@ public class CreateInstantBookingReq {
 ```json
 {
   "success": true,
-  "code": "INSTANT_BOOKING_ACCEPTED",
   "message": "Chúc mừng! Bạn đã nhận thành công ca trang điểm khẩn cấp!",
   "data": {
-    "booking_id": 901,
-    "booking_code": "BK-260914-FAST901",
+    "bookingId": 901,
+    "bookingCode": "BK-260914-FAST901",
     "status": "ACCEPTED",
-    "assigned_mua_id": 89,
-    "customer_info": {
-      "full_name": "Nguyễn Hoàng Mai",
-      "phone_number": "0912345678",
+    "assignedMuaId": 89,
+    "customerInfo": {
+      "fullName": "Nguyễn Hoàng Mai",
+      "phoneNumber": "0912345678",
       "address": "Chung cư Sunrise City, Q.7, TP.HCM"
     },
     "destination": {
       "latitude": 10.755800,
       "longitude": 106.702200
     },
-    "service_name": "Gói Trang điểm Cô Dâu Luxury 2026",
-    "mua_net_earnings": 2184000.00,
-    "accepted_at": "2026-09-14T09:30:12Z"
+    "serviceName": "Gói Trang điểm Cô Dâu Luxury 2026",
+    "muaNetEarnings": 2184000.00,
+    "acceptedAt": "2026-09-14T09:30:12"
   },
-  "timestamp": "2026-09-14T09:30:12Z"
+  "timestamp": "2026-09-14T09:30:12"
 }
 ```
 
 ---
 
-### 5.3. Giao thức STOMP WebSocket Messages
+### 5.3. `POST /api/v1/freelancer/bookings/{bookingId}/reject-instant` (Thợ Từ Chối / Bỏ Qua Ca - Redis Blacklist)
+* **Quyền truy cập:** `ROLE_FREELANCE_MUA` hoặc `ROLE_AGENCY_STAFF`.
+* **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: application/json`
+* **Request Body:**
+```json
+{
+  "rejection_reason": "DISTANCE_TOO_FAR"
+}
+```
+* **Response `200 OK`:**
+```json
+{
+  "success": true,
+  "message": "Đã từ chối ca khẩn cấp thành công. Hệ thống sẽ điều phối cho thợ khác.",
+  "data": {
+    "bookingId": 901,
+    "muaId": 89,
+    "isBlacklisted": true,
+    "redisBlacklistTtlSeconds": 90,
+    "rejectedAt": "2026-09-14T09:30:08"
+  },
+  "timestamp": "2026-09-14T09:30:08"
+}
+```
+
+---
+
+### 5.4. Giao thức STOMP WebSocket Messages
 
 #### 1. Server Broadcast tới Thợ (Đẩy Popup Đếm Ngược 30s):
 * **STOMP Topic:** `/topic/booking-broadcast`
@@ -448,7 +562,7 @@ public class CreateInstantBookingReq {
 
 ---
 
-## ⚡ 6. SƠ ĐỒ TUẦN TỰ KHÉP KÍN (END-TO-END SEQUENCE DIAGRAM)
+## ⚡ 6. SƠ ĐỒ TUẦN TỰ KHÉP KÍN (END-TO-END SEQUENCE DIAGRAM CẢ CHẤP NHẬN & TỪ CHỐI)
 
 ```mermaid
 sequenceDiagram
@@ -456,6 +570,7 @@ sequenceDiagram
     actor C as Khách Hàng (App)
     participant API as Booking Controller
     participant GEO as Redis GEO (mua:geo:active)
+    participant R_SET as Redis Set (rejected_muas)
     participant BUS as Spring EventBus
     participant WS as STOMP WebSocket Gateway
     actor M1 as Thợ A (Rảnh - 1.8km)
@@ -468,30 +583,33 @@ sequenceDiagram
     GEO-->>API: Trả về [Thợ A (89), Thợ B (102)]
     API->>API: Tạo đơn REQUESTED & set Redis Timer (45s)
     API->>BUS: publishEvent(InstantBookingCreatedEvent)
-    API-->>C: 201 Created (Kích hoạt Đĩa quay 45s)
+    API-->>C: 201 Created (Kích hoạt Đĩa quay Radar 45s)
 
     BUS->>WS: Lắng nghe Event & Trigger Broadcast
-    par Phát sóng đồng loạt
-        WS->>M1: STOMP: Popup chuông đếm lùi 30s (Earnings: 2.18M)
-        WS->>M2: STOMP: Popup chuông đếm lùi 30s (Earnings: 2.18M)
+    WS->>M1: STOMP: Popup đếm lùi 30s tới Thợ A (Thu nhập: 2.18M)
+
+    alt Nhánh 1: Thợ A Bấm Từ Chối / Bỏ Qua (Re-dispatching)
+        M1->>API: POST /reject-instant (Thợ A từ chối)
+        API->>R_SET: SADD booking:901:rejected_muas 89 (TTL 90s)
+        API-->>M1: 200 OK (Đóng Popup Thợ A)
+        API->>GEO: GEOSEARCH lại (loại bỏ mua_id = 89)
+        GEO-->>API: Còn Thợ B (102 - cách 3.2km)
+        API->>WS: STOMP: Gửi Popup đếm lùi 30s tới Thợ B!
     end
 
-    Note over M1,M2: Thợ A bấm "Nhận ca" trước Thợ B 50ms!
-    M1->>API: POST /accept-instant (Thợ A)
-    API->>RL: tryLock("lock:booking:instant:901", 2s, 5s)
-    RL-->>API: Lock SUCCESS (Thợ A giữ khóa)
-    API->>API: Chuyển đơn -> ACCEPTED (assigned_mua_id = 89)
-    API->>WAL: lockDeposit(819,000đ từ ví khách)
-    API-->>M1: 200 OK (Nhận đơn thành công)
-    RL-->>API: Unlock an toàn
+    alt Nhánh 2: Thợ B Bấm Nhận Ca (Redlock Single Winner)
+        M2->>API: POST /accept-instant (Thợ B nhận ca)
+        API->>RL: tryLock("lock:booking:accept:901", 2s, 5s)
+        RL-->>API: Lock SUCCESS (Thợ B giữ khóa)
+        API->>API: Chuyển đơn -> ACCEPTED (assigned_mua_id = 102)
+        API->>WAL: lockDeposit(819,000đ từ ví khách)
+        API-->>M2: 200 OK (Nhận đơn thành công)
+        RL-->>API: Unlock an toàn sau khi commit DB
 
-    par Bắn thông báo kết quả
-        WS->>C: STOMP /booking-matched/901: Thợ A đã nhận! (Live Map)
-        WS->>M2: STOMP: Ca làm đã được người khác nhận (Dismiss Popup)
+        par Bắn thông báo kết quả
+            WS->>C: STOMP /booking-matched/901: Thợ B đã nhận! (Live Map)
+        end
     end
-
-    M2->>API: POST /accept-instant (Thợ B đến sau)
-    API-->>M2: 409 CONFLICT (ERR_INSTANT_BOOKING_TAKEN)
 ```
 
 ---
@@ -502,9 +620,10 @@ sequenceDiagram
 
 | Tên Khóa (Key Pattern) | Kiểu Dữ liệu | Mục đích | Cơ chế Hết hạn (TTL) |
 | :--- | :--- | :--- | :--- |
-| `booking:instant:timer:{bookingId}` | `String` | Đồng hồ đếm ngược tìm kiếm đơn khẩn cấp. Nếu hết hạn mà đơn vẫn `REQUESTED` $\rightarrow$ Kích hoạt huỷ tự động. | `TTL = 45s` |
-| `lock:booking:instant:{bookingId}` | `Redlock (String)` | Khóa phân tán bảo vệ thao tác bấm nhận đơn giữa các thợ. | `Wait: 2s, Lease: 5s` |
-| `customer:active_instant:{customerId}` | `String` | Đánh dấu khách đang có 1 đơn tìm kiếm khẩn cấp để chống spam đặt nhiều đơn. | `TTL = 50s` (hoặc xóa khi có thợ nhận) |
+| `booking:instant:timer:{bookingId}` | `String` | Đồng hồ đếm ngược tìm kiếm đơn khẩn cấp (45s). Nếu hết hạn mà đơn vẫn `REQUESTED` $\rightarrow$ Kích hoạt huỷ tự động & hoàn cọc. | `TTL = 45s` |
+| `booking:{bookingId}:rejected_muas` | `Set (Long)` | Lưu danh sách các `muaId` đã từ chối nhận ca này để tuyệt đối không gửi lại đơn lặp lại khi tái điều phối. | `TTL = 90s` |
+| `lock:booking:accept:{bookingId}` | `Redlock (String)` | Khóa phân tán bảo vệ thao tác bấm nhận đơn giữa các thợ. | `Wait: 2s, Lease: 5s` |
+| `customer:active_instant:{customerId}` | `String` | Đánh dấu khách đang có 1 đơn tìm kiếm khẩn cấp để chống spam đặt nhiều đơn cùng lúc. | `TTL = 50s` (hoặc xóa khi có thợ nhận) |
 
 ---
 
@@ -514,5 +633,7 @@ sequenceDiagram
    - Từ khi khách bấm nút tạo đơn khẩn cấp đến khi chuông trên máy của các thợ rảnh rung lên không được vượt quá **$50\text{ms}$** trong mạng $4G/Wi-Fi$ tiêu chuẩn.
 2. **Khả Năng Chống Xung Đột Tranh Chấp Tuyệt Đối (Zero Race Condition):**
    - Đảm bảo $100\%$ không bao giờ xảy ra tình trạng 2 thợ cùng nhận một đơn hàng khẩn cấp nhờ lớp bảo vệ **Redlock Distributed Lock**.
-3. **Độ Tin Cậy Hoàn Cọc Tự Động (Auto-Refund Reliability):**
-   - Trường hợp sau 45 giây không có thợ nào nhận đơn, tiến trình hoàn cọc tự động qua Escrow phải hoàn tất trong vòng **$< 100\text{ms}$**, trả lại tiền nguyên vẹn cho khách hàng mà không cần hỗ trợ thủ công từ CSKH.
+3. **Hiệu Quả Tái Điều Phối Thông Minh (Re-dispatching Efficiency):**
+   - Thao tác thợ từ chối ca, lưu blacklist trên Redis và phát sóng tới thợ tiếp theo hoàn tất trong **$< 30\text{ms}$**.
+4. **Độ Tin Cậy Hoàn Cọc Tự Động (Auto-Refund Reliability):**
+   - Trường hợp sau 45 giây không có thợ nào nhận đơn hoặc tất cả thợ rảnh đều từ chối, tiến trình hoàn cọc tự động qua Escrow phải hoàn tất trong vòng **$< 100\text{ms}$**, trả lại tiền nguyên vẹn cho khách hàng mà không cần hỗ trợ thủ công từ CSKH.
