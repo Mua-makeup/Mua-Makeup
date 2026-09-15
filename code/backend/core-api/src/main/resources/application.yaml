@@ -26,6 +26,8 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    out-of-order: true
+    validate-on-migrate: false
     locations: classpath:db/migration
   data:
     redis:
