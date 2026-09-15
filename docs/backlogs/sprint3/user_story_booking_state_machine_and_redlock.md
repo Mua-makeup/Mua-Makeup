@@ -86,8 +86,8 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │
 ├── mapper/
 │   └── booking/
-│       ├── BookingMapper.java                 # MapStruct: BookingEntity <-> DTOs
-│       └── BookingHistoryMapper.java          # MapStruct: BookingHistoryEntity <-> DTOs
+│       ├── BookingMapper.java                 # Manual Mapper @Component: BookingEntity <-> DTOs (Builder Pattern)
+│       └── BookingHistoryMapper.java          # Manual Mapper @Component: BookingHistoryEntity <-> DTOs
 │
 ├── repository/
 │   └── booking/
@@ -233,41 +233,39 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ## ⚠️ 4. CHI TIẾT NGOẠI LỆ, VALIDATION & BẢNG MÃ LỖI BACK-END
 
-Tất cả các lỗi nghiệp vụ và lỗi xung đột khóa phân tán đều được xử lý qua `GlobalExceptionHandler.java`:
+Tất cả các lỗi nghiệp vụ và lỗi xung đột khóa phân tán đều được xử lý qua `GlobalExceptionHandler.java` kế thừa chuẩn `ApiResponse<T>`:
 
 ```json
 {
   "success": false,
-  "code": "MÃ_LỖI_NGHIỆP_VỤ",
-  "message": "Thông điệp lỗi thân thiện cho client",
-  "errors": [],
-  "timestamp": "2026-09-14T09:00:00Z"
+  "errorCode": "MÃ_LỖI_NGHIỆP_VỤ",
+  "message": "Thông điệp lỗi đã được bản địa hóa qua messages_vi.json / messages_en.json",
+  "timestamp": "2026-09-14T09:00:00"
 }
 ```
 
 ### 4.1. Bảng Ma trận Mã Lỗi Phân hệ Booking State Machine & Redlock
 
-| HTTP Status | Mã Lỗi (`code`) | Nguyên Nhân Kích Hoạt | Giải Pháp Xử Lý Phía Server |
+| HTTP Status | Mã Lỗi (`errorCode`) | Nguyên Nhân Kích Hoạt | Giải Pháp Xử Lý Phía Server |
 | :--- | :--- | :--- | :--- |
 | **`400 BAD_REQUEST`** | `ERR_INVALID_STATE_TRANSITION` | Cố tình chuyển đổi trạng thái không nằm trong ma trận chuyển đổi hợp lệ (ví dụ `REQUESTED` $\rightarrow$ `COMPLETED`). | Chặn đứng thao tác, giữ nguyên trạng thái cũ của đơn hàng. |
 | **`400 BAD_REQUEST`** | `ERR_COMPLETION_PHOTO_REQUIRED` | Thợ chuyển đơn sang `COMPLETED` nhưng không đính kèm URL ảnh sản phẩm hoàn thiện. | Yêu cầu upload ảnh chứng minh hoàn thành dịch vụ. |
-| **`400 BAD_REQUEST`** | `ERR_CANCELLATION_REASON_REQUIRED` | Hủy đơn hàng nhưng không cung cấp lý do hủy cụ thể. | Bean Validation bắt buộc trường `cancellation_reason`. |
+| **`400 BAD_REQUEST`** | `ERR_CANCELLATION_REASON_REQUIRED` | Hủy đơn hàng nhưng không cung cấp lý do hủy cụ thể. | Bean Validation bắt buộc trường `reason`. |
 | **`403 FORBIDDEN`** | `ERR_UNAUTHORIZED_TRANSITION` | Thợ A cố tình đổi trạng thái đơn hàng của Thợ B hoặc Khách hàng khác. | Kiểm tra quyền sở hữu IDOR: `current_user == booking.assigned_mua_id`. |
-| **`404 NOT_FOUND`** | `ERR_BOOKING_NOT_FOUND` | `booking_id` truyền lên không tồn tại trong hệ thống. | Ném `ResourceNotFoundException("Đơn hàng không tồn tại")`. |
+| **`404 NOT_FOUND`** | `ERR_BOOKING_NOT_FOUND` | `booking_id` truyền lên không tồn tại trong hệ thống. | Ném `CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND)`. |
 | **`409 CONFLICT`** | `ERR_BOOKING_ALREADY_TAKEN` | Thợ bấm nhận đơn nhưng đơn đã được thợ khác giành trước qua Redlock. | Trả về HTTP 409, yêu cầu App đóng popup đếm ngược. |
 | **`409 CONFLICT`** | `ERR_LOCK_ACQUISITION_TIMEOUT` | Hệ thống quá tải khiến việc xin khóa phân tán Redis vượt quá thời gian chờ (2s). | Báo bận hệ thống, yêu cầu thử lại sau giây lát. |
 | **`409 CONFLICT`** | `ERR_OPTIMISTIC_LOCK_CONFLICT` | Xung đột phiên bản `@Version` khi 2 tác nhân cập nhật cùng lúc bản ghi `bookings`. | Tự động retry tối đa 3 lần trước khi báo lỗi. |
 
 ---
 
-### 4.2. Mã nguồn Validation DTO Mẫu (Bean Validation)
+### 4.2. Mã nguồn Validation DTO Mẫu (Bean Validation chuẩn i18n)
 
 #### DTO Chuyển đổi Trạng thái: `TransitionBookingStateReq.java`
 ```java
 package com.makeup.platform.dto.request.booking;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -281,14 +279,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TransitionBookingStateReq {
 
-    @NotBlank(message = "{booking.target_status.required}")
+    @NotBlank(message = "{validation.booking_target_status_required}")
     @Pattern(
         regexp = "^(ACCEPTED|PENDING_AGENCY_DISPATCH|AGENCY_ASSIGNED|ON_THE_WAY|ARRIVED|IN_PROGRESS|COMPLETED|CANCELLED|DISPUTED)$",
-        message = "{booking.target_status.invalid}"
+        message = "{validation.booking_target_status_invalid}"
     )
     private String targetStatus;
 
-    @Size(max = 500, message = "{booking.reason.max_length}")
+    @Size(max = 500, message = "{validation.booking_reason_max}")
     private String reason; // Lý do chuyển đổi trạng thái (VD: lý do hủy, ghi chú)
 
     private String completionPhotoUrl; // Bắt buộc khi targetStatus = COMPLETED
@@ -317,17 +315,16 @@ public class TransitionBookingStateReq {
 ```json
 {
   "success": true,
-  "code": "BOOKING_STATE_TRANSITIONED",
   "message": "Cập nhật trạng thái đơn hàng thành công!",
   "data": {
-    "booking_id": 501,
-    "booking_code": "BK-260914-X8K9L",
-    "previous_status": "ACCEPTED",
-    "current_status": "ON_THE_WAY",
-    "updated_by_user_id": 89,
-    "transitioned_at": "2026-09-14T09:05:00Z"
+    "bookingId": 501,
+    "bookingCode": "BK-260914-X8K9L",
+    "previousStatus": "ACCEPTED",
+    "currentStatus": "ON_THE_WAY",
+    "updatedByUserId": 89,
+    "transitionedAt": "2026-09-14T09:05:00Z"
   },
-  "timestamp": "2026-09-14T09:05:00Z"
+  "timestamp": "2026-09-14T09:05:00"
 }
 ```
 
@@ -341,33 +338,31 @@ public class TransitionBookingStateReq {
 ```json
 {
   "success": true,
-  "code": "BOOKING_ACCEPTED_SUCCESSFULLY",
   "message": "Chúc mừng! Bạn đã nhận thành công ca trang điểm khẩn cấp!",
   "data": {
-    "booking_id": 777,
-    "booking_code": "BK-260914-FAST1",
+    "bookingId": 777,
+    "bookingCode": "BK-260914-FAST1",
     "status": "ACCEPTED",
-    "assigned_mua_id": 89,
-    "destination_address": "Căn hộ 12.04 Tòa Landmark 81, Q.Bình Thạnh, TP.HCM",
-    "service_total_amount": 1850000.00,
-    "escrow_deposit_locked": 555000.00,
-    "customer_info": {
-      "full_name": "Nguyễn Hoàng Mai",
-      "phone_number": "0912***789"
+    "assignedMuaId": 89,
+    "destinationAddress": "Căn hộ 12.04 Tòa Landmark 81, Q.Bình Thạnh, TP.HCM",
+    "serviceTotalAmount": 1850000.00,
+    "escrowDepositLocked": 555000.00,
+    "customerInfo": {
+      "fullName": "Nguyễn Hoàng Mai",
+      "phoneNumber": "0912***789"
     },
-    "accepted_at": "2026-09-14T09:06:12Z"
+    "acceptedAt": "2026-09-14T09:06:12Z"
   },
-  "timestamp": "2026-09-14T09:06:12Z"
+  "timestamp": "2026-09-14T09:06:12"
 }
 ```
 * **Response `409 CONFLICT` (Thất bại - Đã có thợ khác nhận trước):**
 ```json
 {
   "success": false,
-  "code": "ERR_BOOKING_ALREADY_TAKEN",
+  "errorCode": "ERR_BOOKING_ALREADY_TAKEN",
   "message": "Rất tiếc! Đơn hàng này vừa được một thợ khác tiếp nhận",
-  "errors": [],
-  "timestamp": "2026-09-14T09:06:12Z"
+  "timestamp": "2026-09-14T09:06:12"
 }
 ```
 
@@ -379,64 +374,63 @@ public class TransitionBookingStateReq {
 ```json
 {
   "success": true,
-  "code": "BOOKING_HISTORY_RETRIEVED",
   "message": "Lấy lịch sử trạng thái đơn hàng thành công",
   "data": {
-    "booking_id": 501,
-    "booking_code": "BK-260914-X8K9L",
-    "current_status": "COMPLETED",
-    "history_logs": [
+    "bookingId": 501,
+    "bookingCode": "BK-260914-X8K9L",
+    "currentStatus": "COMPLETED",
+    "historyLogs": [
       {
         "id": 1,
-        "from_status": null,
-        "to_status": "REQUESTED",
-        "changed_by": "Khách hàng (Nguyễn Thu Trang)",
+        "fromStatus": null,
+        "toStatus": "REQUESTED",
+        "changedBy": "Khách hàng (Nguyễn Thu Trang)",
         "note": "Khởi tạo đơn hàng trang điểm tiệc cưới",
-        "created_at": "2026-09-14T08:30:00Z"
+        "createdAt": "2026-09-14T08:30:00Z"
       },
       {
         "id": 2,
-        "from_status": "REQUESTED",
-        "to_status": "ACCEPTED",
-        "changed_by": "Thợ trang điểm (Lê Bảo Ngọc)",
+        "fromStatus": "REQUESTED",
+        "toStatus": "ACCEPTED",
+        "changedBy": "Thợ trang điểm (Lê Bảo Ngọc)",
         "note": "Thợ chấp nhận ca hẹn",
-        "created_at": "2026-09-14T08:31:15Z"
+        "createdAt": "2026-09-14T08:31:15Z"
       },
       {
         "id": 3,
-        "from_status": "ACCEPTED",
-        "to_status": "ON_THE_WAY",
-        "changed_by": "Thợ trang điểm (Lê Bảo Ngọc)",
+        "fromStatus": "ACCEPTED",
+        "toStatus": "ON_THE_WAY",
+        "changedBy": "Thợ trang điểm (Lê Bảo Ngọc)",
         "note": "Bắt đầu di chuyển bằng xe máy",
-        "created_at": "2026-09-14T09:00:00Z"
+        "createdAt": "2026-09-14T09:00:00Z"
       },
       {
         "id": 4,
-        "from_status": "ON_THE_WAY",
-        "to_status": "ARRIVED",
-        "changed_by": "Thợ trang điểm (Lê Bảo Ngọc)",
+        "fromStatus": "ON_THE_WAY",
+        "toStatus": "ARRIVED",
+        "changedBy": "Thợ trang điểm (Lê Bảo Ngọc)",
         "note": "Đã có mặt tại sảnh chung cư",
-        "created_at": "2026-09-14T09:22:00Z"
+        "createdAt": "2026-09-14T09:22:00Z"
       },
       {
         "id": 5,
-        "from_status": "ARRIVED",
-        "to_status": "IN_PROGRESS",
-        "changed_by": "Thợ trang điểm (Lê Bảo Ngọc)",
+        "fromStatus": "ARRIVED",
+        "toStatus": "IN_PROGRESS",
+        "changedBy": "Thợ trang điểm (Lê Bảo Ngọc)",
         "note": "Bắt đầu dưỡng da và dán mi",
-        "created_at": "2026-09-14T09:30:00Z"
+        "createdAt": "2026-09-14T09:30:00Z"
       },
       {
         "id": 6,
-        "from_status": "IN_PROGRESS",
-        "to_status": "COMPLETED",
-        "changed_by": "Thợ trang điểm (Lê Bảo Ngọc)",
+        "fromStatus": "IN_PROGRESS",
+        "toStatus": "COMPLETED",
+        "changedBy": "Thợ trang điểm (Lê Bảo Ngọc)",
         "note": "Hoàn thiện phong cách makeup Douyin",
-        "created_at": "2026-09-14T11:00:00Z"
+        "createdAt": "2026-09-14T11:00:00Z"
       }
     ]
   },
-  "timestamp": "2026-09-14T11:00:01Z"
+  "timestamp": "2026-09-14T11:00:01"
 }
 ```
 
@@ -445,6 +439,7 @@ public class TransitionBookingStateReq {
 ## 🗄️ 6. CƠ SỞ DỮ LIỆU ĐỒNG BỘ (DDL POSTGRESQL 16 & THIẾT KẾ REDLOCK)
 
 ### 6.1. DDL PostgreSQL 16 (`booking_schema`)
+* **Quy tắc đặt tên file migration Flyway**: `code/backend/core-api/src/main/resources/db/migration/V<YYYYMMDDHHmmss>__Create_Booking_And_History_Tables.sql` (Tuân thủ chuẩn Timestamp, tuyệt đối không dùng `V<N>`).
 
 ```sql
 -- 1. BẢNG ĐƠN HÀNG CHÍNH (BOOKINGS)
@@ -504,6 +499,10 @@ CREATE INDEX IF NOT EXISTS idx_booking_history_order ON booking_schema.booking_h
 ---
 
 ### 6.2. Thiết kế Khóa Phân tán Redlock (Redisson Configuration)
+* **Thư viện bắt buộc trong `build.gradle`**:
+  ```groovy
+  implementation 'org.redisson:redisson-spring-boot-starter:3.34.1'
+  ```
 
 ```text
 Khóa phân tán (Distributed Lock Key): lock:booking:accept:{booking_id}
@@ -512,51 +511,75 @@ Thời gian tối đa chờ giành khóa (Wait Time): 2,000 ms (2 giây)
 Thời gian tự động giải phóng khóa (Lease Time / TTL): 5,000 ms (5 giây)
 ```
 
-#### Mã nguồn Mẫu Xử lý Redlock An toàn:
+#### 🛡️ Nguyên tắc Vàng: Giải quyết Lỗ hổng "Transaction Commit vs Lock Release"
+> [!IMPORTANT]
+> **Quy tắc Bắt buộc**: Phải giải phóng khóa `lock.unlock()` **SAU KHI** Transaction cơ sở dữ liệu đã `COMMIT` 100% xuống PostgreSQL. Nếu giải phóng lock trong khối `finally` trước khi transaction commit, thợ khác sẽ giành lock và đọc phải dữ liệu cũ chưa commit (Race Condition Double-Booking).
+
+#### Mã nguồn Mẫu Xử lý Redlock An toàn (Wrap TransactionTemplate):
 ```java
-public BookingAcceptanceRes acceptBooking(Long bookingId, Long muaId) {
-    String lockKey = "lock:booking:accept:" + bookingId;
-    RLock lock = redissonClient.getLock(lockKey);
+@Service
+@RequiredArgsConstructor
+public class DistributedLockServiceImpl implements DistributedLockService {
 
-    boolean isLocked = false;
-    try {
-        // Cố gắng lấy khóa trong 2 giây, tự hủy khóa sau 5 giây nếu crash
-        isLocked = lock.tryLock(2000, 5000, TimeUnit.MILLISECONDS);
-        if (!isLocked) {
-            throw new BookingConcurrencyException("ERR_LOCK_ACQUISITION_TIMEOUT", "Hệ thống đang bận, vui lòng thử lại");
-        }
+    private final RedissonClient redissonClient;
+    private final TransactionTemplate transactionTemplate;
+    private final BookingRepository bookingRepository;
+    private final BookingAuditService bookingAuditService;
+    private final ApplicationEventPublisher eventPublisher;
 
-        // 1. Kiểm tra trạng thái hiện tại trong Database
-        BookingEntity booking = bookingRepository.findById(bookingId)
-            .orElseThrow(() -> new ResourceNotFoundException("Đơn hàng không tồn tại"));
+    @Override
+    public BookingAcceptanceRes acceptBookingWithLock(Long bookingId, Long muaId) {
+        String lockKey = "lock:booking:accept:" + bookingId;
+        RLock lock = redissonClient.getLock(lockKey);
 
-        if (!"REQUESTED".equals(booking.getStatus())) {
-            throw new BookingConcurrencyException("ERR_BOOKING_ALREADY_TAKEN", "Đơn hàng đã được thợ khác tiếp nhận");
-        }
+        boolean isLocked = false;
+        try {
+            // Cố gắng lấy khóa phân tán trong 2 giây, tự hủy khóa sau 5 giây nếu sự cố
+            isLocked = lock.tryLock(2000, 5000, TimeUnit.MILLISECONDS);
+            if (!isLocked) {
+                throw new CustomBusinessException(ErrorCodes.ERR_LOCK_ACQUISITION_TIMEOUT,
+                        "booking.lock_timeout", HttpStatus.CONFLICT);
+            }
 
-        // 2. Chuyển trạng thái sang ACCEPTED
-        booking.setStatus("ACCEPTED");
-        booking.setMuaId(muaId);
-        bookingRepository.save(booking);
+            // Thực thi CSDL và commit TRONG VÒNG KHÓA (Commit xong mới nhả lock ở finally)
+            return transactionTemplate.execute(status -> {
+                // 1. Kiểm tra trạng thái hiện tại trong Database
+                BookingEntity booking = bookingRepository.findById(bookingId)
+                    .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                            "booking.not_found", HttpStatus.NOT_FOUND));
 
-        // 3. Ghi log Audit
-        bookingAuditService.logTransition(bookingId, "REQUESTED", "ACCEPTED", muaId, "Thợ nhận đơn qua Redlock");
+                if (!"REQUESTED".equals(booking.getStatus())) {
+                    throw new CustomBusinessException(ErrorCodes.ERR_BOOKING_ALREADY_TAKEN,
+                            "booking.already_taken", HttpStatus.CONFLICT);
+                }
 
-        // 4. Bắn Event sang Ví Escrow & WebSocket
-        eventPublisher.publishEvent(new InstantBookingAcceptedEvent(this, bookingId, muaId));
+                // 2. Chuyển trạng thái sang ACCEPTED
+                booking.setStatus("ACCEPTED");
+                booking.setMuaId(muaId);
+                BookingEntity saved = bookingRepository.save(booking);
 
-        return BookingAcceptanceRes.builder()
-            .bookingId(bookingId)
-            .status("ACCEPTED")
-            .assignedMuaId(muaId)
-            .build();
+                // 3. Ghi log Audit trong cùng Transaction
+                bookingAuditService.logTransition(bookingId, "REQUESTED", "ACCEPTED", muaId, "Thợ nhận đơn qua Redlock");
 
-    } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new BookingConcurrencyException("ERR_CONCURRENCY_INTERRUPTED", "Xử lý bị gián đoạn");
-    } finally {
-        if (isLocked && lock.isHeldByCurrentThread()) {
-            lock.unlock(); // Luôn giải phóng khóa an toàn
+                // 4. Bắn Event sang Ví Escrow & WebSocket
+                eventPublisher.publishEvent(new InstantBookingAcceptedEvent(this, bookingId, muaId));
+
+                return BookingAcceptanceRes.builder()
+                    .bookingId(saved.getId())
+                    .bookingCode(saved.getBookingCode())
+                    .status("ACCEPTED")
+                    .assignedMuaId(muaId)
+                    .build();
+            });
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CustomBusinessException(ErrorCodes.ERR_INTERNAL, "booking.concurrency_interrupted", HttpStatus.INTERNAL_SERVER_ERROR);
+        } finally {
+            // Chỉ giải phóng khóa khi transactionTemplate đã commit CSDL thành công
+            if (isLocked && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
     }
 }
