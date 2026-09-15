@@ -8,7 +8,7 @@ version: 3.0.0
 
 ## Phase 1: Database Migration & Schema Allocation
 1. Xác định PostgreSQL Schema cho nghiệp vụ (`auth_schema`, `agency_schema`, `mua_schema`, `catalog_schema`, `booking_schema`, `wallet_schema`...).
-2. Viết file Flyway migration mới tại `src/main/resources/db/migration/V<N>__<Ten_Migration>.sql`.
+2. Viết file Flyway migration mới theo chuẩn Timestamp tại `src/main/resources/db/migration/V<YYYYMMDDHHmmss>__<Ten_Migration>.sql` (Ví dụ: `V20260915083000__Init_Payment_Wallet_Module.sql`). Tuyệt đối KHÔNG dùng số thứ tự `V<N>` để tránh xung đột giữa các thành viên trong nhóm.
 
 ## Phase 2: Entity & Repository Layer
 1. Tạo Entity kế thừa `BaseEntity`:

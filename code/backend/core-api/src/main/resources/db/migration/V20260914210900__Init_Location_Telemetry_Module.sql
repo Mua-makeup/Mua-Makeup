@@ -1,5 +1,5 @@
 -- =============================================================================
--- V7__Init_Location_Telemetry_Module.sql
+-- V20260914210900__Init_Location_Telemetry_Module.sql
 -- NỀN TẢNG ĐẶT LỊCH MAKE-UP (MAKEUP BOOKING PLATFORM)
 -- PHÂN HỆ: ĐỊNH VỊ GPS TELEMETRY & CHỈ MỤC KHÔNG GIAN REDIS GEO
 -- =============================================================================

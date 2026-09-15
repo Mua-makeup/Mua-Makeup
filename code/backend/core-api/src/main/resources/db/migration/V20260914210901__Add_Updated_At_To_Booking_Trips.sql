@@ -1,5 +1,5 @@
 -- =============================================================================
--- V8__Add_Updated_At_To_Booking_Trips.sql
+-- V20260914210901__Add_Updated_At_To_Booking_Trips.sql
 -- NỀN TẢNG ĐẶT LỊCH MAKE-UP (MAKEUP BOOKING PLATFORM)
 -- BỔ SUNG CỘT updated_at CHO BẢNG telemetry_schema.booking_trips (ĐỒNG BỘ BaseEntity)
 -- =============================================================================
