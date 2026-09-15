@@ -37,7 +37,7 @@ public class SurchargeController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody ConfigureSurchargeReq req) {
         SurchargeDetailRes res = surchargeService.configureSurcharge(userId, req);
-        return created(res, "Thiết lập phụ phí thành công!");
+        return created(res, "catalog.surcharge_create_success");
     }
 
     @PutMapping("/{id}")
@@ -47,7 +47,7 @@ public class SurchargeController extends BaseController {
             @PathVariable Long id,
             @Valid @RequestBody ConfigureSurchargeReq req) {
         SurchargeDetailRes res = surchargeService.updateSurcharge(userId, id, req);
-        return ok(res, "Cập nhật phụ phí thành công!");
+        return ok(res, "catalog.surcharge_update_success");
     }
 
     @DeleteMapping("/{id}")
@@ -56,10 +56,10 @@ public class SurchargeController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long id) {
         surchargeService.deleteSurcharge(userId, id);
-        return ok(null, "Xóa cấu hình phụ phí thành công!");
+        return ok(null, "catalog.surcharge_delete_success");
     }
 
-    @GetMapping("/my")
+    @GetMapping("/my-surcharges")
     @PreAuthorize("hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<List<SurchargeDetailRes>>> listMySurcharges(
             @AuthenticationPrincipal Long userId) {
@@ -68,8 +68,8 @@ public class SurchargeController extends BaseController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<SurchargeDetailRes>>> listSurcharges(
-            @RequestParam(required = false) Long agencyId,
-            @RequestParam(required = false) Long muaId) {
+            @RequestParam(value = "agencyId", required = false) Long agencyId,
+            @RequestParam(value = "muaId", required = false) Long muaId) {
         return ok(surchargeService.listSurchargesByOwner(agencyId, muaId));
     }
 
@@ -77,6 +77,6 @@ public class SurchargeController extends BaseController {
     public ResponseEntity<ApiResponse<SurchargeCalculationRes>> calculateSurcharges(
             @Valid @RequestBody CalculateSurchargeReq req) {
         SurchargeCalculationRes res = surchargeService.calculateSurcharges(req);
-        return ok(res, "Tính toán phụ phí thành công!");
+        return ok(res, "catalog.surcharge_calculate_success");
     }
 }

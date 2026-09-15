@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping({"/api/v1/customer/profile", "/api/v1/users/profile"})
+@RequestMapping("/api/v1/customer/profile")
 @RequiredArgsConstructor
 public class CustomerProfileController extends BaseController {
 
@@ -26,6 +26,6 @@ public class CustomerProfileController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody UpdateProfileReq req) {
         UserInfoRes res = userService.updateProfile(userId, req);
-        return ok(res, "Cập nhật hồ sơ thành công!");
+        return ok(res, "customer.profile_update_success");
     }
 }

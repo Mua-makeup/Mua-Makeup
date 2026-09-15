@@ -18,7 +18,7 @@ public class VerifyCertificateReq {
 
     private String imageUrl;
 
-    @NotNull(message = "Trạng thái phê duyệt không được để trống")
+    @NotNull(message = "{validation.approval_status_required}")
     private Boolean isVerified;
 
     private String notes;

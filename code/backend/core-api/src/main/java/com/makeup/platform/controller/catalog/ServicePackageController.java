@@ -38,7 +38,7 @@ public class ServicePackageController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody CreatePackageReq req) {
         PackageDetailRes res = packageService.createPackage(userId, req);
-        return created(res, "Tạo gói dịch vụ thành công!");
+        return created(res, "catalog.package_create_success");
     }
 
     @PutMapping("/{id}")
@@ -48,7 +48,7 @@ public class ServicePackageController extends BaseController {
             @PathVariable Long id,
             @Valid @RequestBody UpdatePackageReq req) {
         PackageDetailRes res = packageService.updatePackage(userId, id, req);
-        return ok(res, "Cập nhật gói dịch vụ thành công!");
+        return ok(res, "catalog.package_update_success");
     }
 
     @DeleteMapping("/{id}")
@@ -57,7 +57,7 @@ public class ServicePackageController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long id) {
         packageService.deletePackage(userId, id);
-        return ok(null, "Xóa gói dịch vụ thành công!");
+        return ok(null, "catalog.package_delete_success");
     }
 
     @PatchMapping("/{id}/availability")
@@ -67,7 +67,7 @@ public class ServicePackageController extends BaseController {
             @PathVariable Long id,
             @RequestParam boolean isAvailable) {
         PackageDetailRes res = packageService.toggleAvailability(userId, id, isAvailable);
-        return ok(res, isAvailable ? "Gói dịch vụ đã được kích hoạt" : "Gói dịch vụ đã tạm ngưng nhận lịch");
+        return ok(res, isAvailable ? "catalog.package_activated" : "catalog.package_deactivated");
     }
 
     @GetMapping("/my")

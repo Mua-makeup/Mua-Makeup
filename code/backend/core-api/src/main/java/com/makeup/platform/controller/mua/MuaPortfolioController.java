@@ -114,10 +114,10 @@ public class MuaPortfolioController extends BaseController {
             @PathVariable Long muaId,
             @RequestParam(value = "style_id", required = false) Integer styleId,
             @RequestParam(value = "is_featured", required = false) Boolean isFeatured,
-            @RequestParam(value = "page", defaultValue = "0") @Min(value = 0, message = "Chỉ số trang tối thiểu là 0") int page,
+            @RequestParam(value = "page", defaultValue = "0") @Min(value = 0, message = "{validation.page_min}") int page,
             @RequestParam(value = "size", defaultValue = "12")
-            @Min(value = 1, message = "Kích thước trang tối thiểu là 1")
-            @Max(value = 50, message = "Kích thước trang tối đa không được vượt quá 50") int size) {
+            @Min(value = 1, message = "{validation.page_size_min}")
+            @Max(value = 50, message = "{validation.page_size_max}") int size) {
 
         PageResponse<PortfolioSummaryRes> res = portfolioService.getPublicGallery(
                 muaId, styleId, isFeatured, PageRequest.of(page, size)
@@ -130,10 +130,10 @@ public class MuaPortfolioController extends BaseController {
     @PreAuthorize("hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<PageResponse<PortfolioDetailRes>>> getMyPortfolios(
             @AuthenticationPrincipal Long userId,
-            @RequestParam(value = "page", defaultValue = "0") @Min(value = 0, message = "Chỉ số trang tối thiểu là 0") int page,
+            @RequestParam(value = "page", defaultValue = "0") @Min(value = 0, message = "{validation.page_min}") int page,
             @RequestParam(value = "size", defaultValue = "12")
-            @Min(value = 1, message = "Kích thước trang tối thiểu là 1")
-            @Max(value = 50, message = "Kích thước trang tối đa không được vượt quá 50") int size) {
+            @Min(value = 1, message = "{validation.page_size_min}")
+            @Max(value = 50, message = "{validation.page_size_max}") int size) {
 
         PageResponse<PortfolioDetailRes> res = portfolioService.getMyPortfolios(userId, PageRequest.of(page, size));
         return ok(res, "mua.portfolios_list_success");

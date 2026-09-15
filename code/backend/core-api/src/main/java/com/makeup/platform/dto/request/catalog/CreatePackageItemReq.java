@@ -21,19 +21,19 @@ import java.math.BigDecimal;
 @Builder
 public class CreatePackageItemReq {
 
-    @NotNull(message = "Loại mục quy trình/add-on không được để trống")
+    @NotNull(message = "{validation.catalog_item_type_required}")
     private PackageItemType itemType;
 
-    @NotBlank(message = "Tên bước/dịch vụ mua thêm không được để trống")
-    @Size(max = 150, message = "Tên không được vượt quá 150 ký tự")
+    @NotBlank(message = "{validation.catalog_item_name_required}")
+    @Size(max = 150, message = "{validation.catalog_item_name_size}")
     private String itemName;
 
-    @NotNull(message = "Thứ tự bước không được để trống")
-    @Min(value = 1, message = "Thứ tự bước phải lớn hơn hoặc bằng 1")
+    @NotNull(message = "{validation.catalog_item_step_order_required}")
+    @Min(value = 1, message = "{validation.catalog_item_step_order_min}")
     private Integer stepOrder;
 
-    @NotNull(message = "Giá không được để trống")
-    @DecimalMin(value = "0.00", message = "Giá không được nhỏ hơn 0 VNĐ")
+    @NotNull(message = "{validation.catalog_item_price_required}")
+    @DecimalMin(value = "0.00", message = "{validation.catalog_item_price_min}")
     private BigDecimal itemPrice;
 
     @Builder.Default

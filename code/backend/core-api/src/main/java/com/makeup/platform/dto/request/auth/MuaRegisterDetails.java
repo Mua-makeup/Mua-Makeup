@@ -17,11 +17,11 @@ public class MuaRegisterDetails {
 
     private String bio;
 
-    @Min(value = 0, message = "Số năm kinh nghiệm không thể âm")
-    @Max(value = 50, message = "Số năm kinh nghiệm không hợp lệ")
+    @Min(value = 0, message = "{validation.experience_years_min}")
+    @Max(value = 50, message = "{validation.experience_years_max}")
     private Integer experienceYears;
 
-    @Min(value = 1, message = "Bán kính tối thiểu là 1km")
-    @Max(value = 100, message = "Bán kính tối đa là 100km")
+    @Min(value = 1, message = "{validation.radius_min}")
+    @Max(value = 100, message = "{validation.radius_max}")
     private BigDecimal maxServiceRadiusKm;
 }

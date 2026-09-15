@@ -98,20 +98,20 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Validation Error Fallback: Dịch cả chuỗi tiếng Việt thô sang tiếng Anh nếu DTO chưa đổi key")
-    void testValidationExceptionLegacyVietnameseStringFallback() {
+    @DisplayName("Validation Error Fallback: Trả về chuỗi mặc định nếu không tìm thấy key trong từ điển i18n")
+    void testValidationExceptionFallbackWhenKeyNotFound() {
         LocaleContextHolder.setLocale(Locale.ENGLISH);
 
         MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         BindingResult bindingResult = mock(BindingResult.class);
         FieldError fieldError = new FieldError(
                 "updateMuaProfileReq",
-                "maxServiceRadiusKm",
+                "customField",
                 null,
                 false,
                 null,
                 null,
-                "Bán kính phục vụ tối thiểu là 1.0 km"
+                "Custom default validation message"
         );
 
         when(bindingResult.getFieldErrors()).thenReturn(Collections.singletonList(fieldError));
@@ -120,7 +120,7 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ApiResponse<Map<String, String>>> response = exceptionHandler.handleValidationException(ex);
 
         assertNotNull(response);
-        assertEquals("Minimum service radius is 1.0 km.", response.getBody().getData().get("maxServiceRadiusKm"));
+        assertEquals("Custom default validation message", response.getBody().getData().get("customField"));
     }
 
     @Test

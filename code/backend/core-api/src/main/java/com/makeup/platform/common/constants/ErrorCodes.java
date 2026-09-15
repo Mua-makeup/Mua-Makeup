@@ -73,5 +73,12 @@ public final class ErrorCodes {
     public static final String ERR_SPEED_ABNORMAL = "ERR_SPEED_ABNORMAL";
     public static final String ERR_TRIP_NOT_FOUND = "ERR_TRIP_NOT_FOUND";
 
+    // Phân hệ Agency Staff Services & Overtime Rules (ISSUE-13.4, ISSUE-13.6)
+    public static final String ERR_PACKAGE_NOT_OWNED_BY_AGENCY = "ERR_PACKAGE_NOT_OWNED_BY_AGENCY";
+    public static final String ERR_STAFF_NOT_IN_AGENCY = "ERR_STAFF_NOT_IN_AGENCY";
+    public static final String ERR_OVERTIME_RULE_NOT_FOUND = "ERR_OVERTIME_RULE_NOT_FOUND";
+    public static final String ERR_OVERTIME_REPORT_NOT_FOUND = "ERR_OVERTIME_REPORT_NOT_FOUND";
+    public static final String ERR_INVALID_OVERTIME_ACTION = "ERR_INVALID_OVERTIME_ACTION";
+    public static final String ERR_OVERTIME_ALREADY_REVIEWED = "ERR_OVERTIME_ALREADY_REVIEWED";
 }
 

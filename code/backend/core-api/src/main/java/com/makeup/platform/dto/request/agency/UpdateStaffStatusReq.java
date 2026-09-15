@@ -13,8 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateStaffStatusReq {
 
-    @NotBlank(message = "Trạng thái không được để trống")
-    @Pattern(regexp = "ACTIVE|SUSPENDED|LEFT", message = "Trạng thái phải là: ACTIVE, SUSPENDED hoặc LEFT")
+    @NotBlank(message = "{validation.staff_status_required}")
+    @Pattern(regexp = "ACTIVE|SUSPENDED|LEFT", message = "{validation.staff_status_invalid}")
     private String status;
 
     private String note;
