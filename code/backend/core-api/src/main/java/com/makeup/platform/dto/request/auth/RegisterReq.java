@@ -17,26 +17,26 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class RegisterReq {
 
-    @NotBlank(message = "Số điện thoại không được để trống")
-    @Pattern(regexp = "^(0|\\+84)(\\d{9})$", message = "Số điện thoại không đúng định dạng Việt Nam")
+    @NotBlank(message = "{validation.phone_required}")
+    @Pattern(regexp = "^(0|\\+84)(\\d{9})$", message = "{validation.phone_pattern}")
     private String phoneNumber;
 
-    @Email(message = "Email không đúng định dạng")
+    @Email(message = "{validation.email_invalid}")
     private String email;
 
-    @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 8, max = 50, message = "Mật khẩu phải có độ dài từ 8 đến 50 ký tự")
+    @NotBlank(message = "{validation.password_required}")
+    @Size(min = 8, max = 50, message = "{validation.password_size}")
     @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!._-]).*$",
-            message = "Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt")
+            message = "{validation.password_pattern}")
     private String password;
 
-    @NotBlank(message = "Họ và tên không được để trống")
-    @Size(min = 2, max = 100, message = "Họ tên phải từ 2 đến 100 ký tự")
+    @NotBlank(message = "{validation.full_name_required}")
+    @Size(min = 2, max = 100, message = "{validation.full_name_size}")
     private String fullName;
 
     private String gender;
 
-    @NotNull(message = "Loại tài khoản không được để trống")
+    @NotNull(message = "{validation.account_type_required}")
     private AccountType accountType;
 
     @Valid

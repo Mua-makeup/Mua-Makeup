@@ -22,10 +22,10 @@ public class CalculateSurchargeReq {
 
     private Long muaId;
 
-    @NotNull(message = "Thời gian đặt lịch không được để trống")
+    @NotNull(message = "{validation.catalog_booking_time_required}")
     private LocalDateTime bookingTime;
 
-    @DecimalMin(value = "0.00", message = "Khoảng cách di chuyển không được âm")
+    @DecimalMin(value = "0.00", message = "{validation.catalog_distance_min}")
     @Builder.Default
     private BigDecimal distanceKm = BigDecimal.ZERO;
 }

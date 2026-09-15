@@ -16,14 +16,14 @@ import lombok.Setter;
 @Builder
 public class ToggleAvailabilityReq {
 
-    @NotNull(message = "Trạng thái sẵn sàng không được để trống")
+    @NotNull(message = "{validation.telemetry_is_available_required}")
     private Boolean isAvailable;
 
-    @DecimalMin(value = "-90.0", message = "Vĩ độ tối thiểu là -90.0")
-    @DecimalMax(value = "90.0", message = "Vĩ độ tối đa là 90.0")
+    @DecimalMin(value = "-90.0", message = "{validation.telemetry_latitude_min}")
+    @DecimalMax(value = "90.0", message = "{validation.telemetry_latitude_max}")
     private Double latitude;
 
-    @DecimalMin(value = "-180.0", message = "Kinh độ tối thiểu là -180.0")
-    @DecimalMax(value = "180.0", message = "Kinh độ tối đa là 180.0")
+    @DecimalMin(value = "-180.0", message = "{validation.telemetry_longitude_min}")
+    @DecimalMax(value = "180.0", message = "{validation.telemetry_longitude_max}")
     private Double longitude;
 }

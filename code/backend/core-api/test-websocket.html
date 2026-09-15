@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MUA Telemetry - Realtime GPS WebSocket Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; padding: 24px; min-height: 100vh; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid #334155; padding-bottom: 16px; }
+    .title { font-size: 22px; font-weight: 700; color: #f43f5e; }
+    .badge { padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+    .badge-disconnected { background: #7f1d1d; color: #fecaca; }
+    .badge-connected { background: #064e3b; color: #a7f3d0; }
+    .badge-connecting { background: #78350f; color: #fde68a; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .row { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 240px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
+    input { width: 100%; background: #0f172a; border: 1px solid #475569; border-radius: 8px; color: #fff; padding: 10px 14px; font-size: 14px; outline: none; }
+    input:focus { border-color: #f43f5e; }
+    .btn { background: #e11d48; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 14px; }
+    .btn:hover { background: #be123c; }
+    .btn-secondary { background: #334155; color: #cbd5e1; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-disabled { opacity: 0.5; cursor: not-allowed; }
+    .feed-container { max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+    .feed-item { background: #0f172a; border: 1px solid #334155; border-left: 4px solid #f43f5e; border-radius: 8px; padding: 14px 16px; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .feed-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .feed-time { font-size: 12px; color: #94a3b8; }
+    .feed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; font-size: 13px; }
+    .feed-col { display: flex; flex-direction: column; }
+    .feed-label { color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 2px; }
+    .feed-val { font-weight: 600; color: #f1f5f9; }
+    .mode-moving { color: #38bdf8; }
+    .mode-stopped { color: #fbbf24; }
+    .mode-approaching { color: #34d399; }
+    .empty-state { text-align: center; padding: 40px 20px; color: #64748b; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="title">MUA Platform - GPS Telemetry Monitor</div>
+        <div style="font-size: 13px; color: #94a3b8; margin-top: 4px;">Realtime STOMP WebSocket Live Tracker</div>
+      </div>
+      <div id="statusBadge" class="badge badge-disconnected">Chưa kết nối</div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div class="form-group" style="flex: 2;">
+          <label>WebSocket STOMP URL</label>
+          <input id="wsUrl" type="text" value="ws://localhost:8080/ws-makeup" placeholder="ws://localhost:8080/ws-makeup" />
+        </div>
+        <div class="form-group">
+          <label>Topic Subscribe</label>
+          <input id="topic" type="text" value="/topic/gps-stream/1" placeholder="/topic/gps-stream/{bookingId}" />
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button id="btnConnect" class="btn" onclick="toggleConnect()">1. Kết nối (Connect)</button>
+        <button id="btnSubscribe" class="btn btn-secondary btn-disabled" onclick="subscribeTopic()" disabled>2. Đăng ký Topic (Subscribe)</button>
+        <button class="btn btn-secondary" onclick="clearLogs()" style="margin-left: auto;">Xóa log</button>
+      </div>
+    </div>
+
+    <!-- PHẦN TEST CASE 4.2: THỢ GỬI TRỰC TIẾP QUA STOMP -->
+    <div class="card" style="border-left: 4px solid #38bdf8;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div>
+          <div style="font-weight: 700; font-size: 15px; color: #38bdf8;">Case 4.2: Mô phỏng Thợ gửi vị trí trực tiếp qua STOMP (/app/telemetry/location)</div>
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">Không cần qua HTTP POST - gửi thẳng qua WebSocket STOMP</div>
+        </div>
+        <span class="badge" style="background: #0369a1; color: #bae6fd;">Case 4.2</span>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Booking ID</label>
+          <input id="sendBookingId" type="number" value="1" />
+        </div>
+        <div class="form-group">
+          <label>Latitude</label>
+          <input id="sendLat" type="number" step="0.0001" value="10.7820" />
+        </div>
+        <div class="form-group">
+          <label>Longitude</label>
+          <input id="sendLng" type="number" step="0.0001" value="106.7010" />
+        </div>
+        <div class="form-group">
+          <label>Speed (km/h)</label>
+          <input id="sendSpeed" type="number" step="0.1" value="40.0" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="form-group">
+          <label>Heading (°)</label>
+          <input id="sendHeading" type="number" step="1" value="120.0" />
+        </div>
+        <div class="form-group">
+          <label>Accuracy (m)</label>
+          <input id="sendAccuracy" type="number" step="0.5" value="5.0" />
+        </div>
+        <div class="form-group">
+          <label>Distance Remaining (m)</label>
+          <input id="sendDist" type="number" step="1" value="800.0" />
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px;">
+        <button id="btnSendStomp" class="btn" style="background: #0284c7;" onclick="sendStompLocation()">🚀 Gửi tọa độ qua STOMP</button>
+        <span id="sendResultText" style="font-size: 13px; color: #94a3b8;">Nhấn "Kết nối" ở trên trước khi gửi</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="font-weight: 600; font-size: 15px; color: #e2e8f0;">Dòng dữ liệu GPS Realtime từ Server (<span id="count">0</span> gói tin)</div>
+        <div style="font-size: 12px; color: #64748b;">Tự động nhận khi gửi qua Postman hoặc nút gửi STOMP ở trên</div>
+      </div>
+      <div id="feedList" class="feed-container">
+        <div class="empty-state">Chưa nhận được tọa độ nào. Hãy bấm "Kết nối" -> "Đăng ký Topic", sau đó gửi request từ Postman hoặc Form ở trên.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let stompClient = null;
+    let currentSubscription = null;
+    let messageCount = 0;
+
+    function sendStompLocation() {
+      if (!stompClient || !stompClient.connected) {
+        alert('Vui lòng bấm nút "1. Kết nối (Connect)" trước khi gửi STOMP!');
+        return;
+      }
+
+      const payload = {
+        latitude: parseFloat(document.getElementById('sendLat').value),
+        longitude: parseFloat(document.getElementById('sendLng').value),
+        speed: parseFloat(document.getElementById('sendSpeed').value),
+        heading: parseFloat(document.getElementById('sendHeading').value),
+        accuracy: parseFloat(document.getElementById('sendAccuracy').value),
+        bookingId: parseInt(document.getElementById('sendBookingId').value),
+        distance_remaining_meters: parseFloat(document.getElementById('sendDist').value)
+      };
+
+      try {
+        stompClient.publish({
+          destination: '/app/telemetry/location',
+          body: JSON.stringify(payload)
+        });
+        const resultText = document.getElementById('sendResultText');
+        resultText.innerText = '✅ Đã gửi gói tin tới /app/telemetry/location lúc ' + new Date().toLocaleTimeString('vi-VN');
+        resultText.style.color = '#38bdf8';
+      } catch (err) {
+        console.error('Error sending STOMP frame:', err);
+        alert('Lỗi khi gửi STOMP: ' + err.message);
+      }
+    }
+
+    function setStatus(status, text) {
+      const badge = document.getElementById('statusBadge');
+      badge.className = 'badge badge-' + status;
+      badge.innerText = text;
+    }
+
+    function toggleConnect() {
+      if (stompClient && stompClient.connected) {
+        disconnect();
+      } else {
+        connect();
+      }
+    }
+
+    function connect() {
+      const url = document.getElementById('wsUrl').value.trim();
+      setStatus('connecting', 'Đang kết nối...');
+      document.getElementById('btnConnect').innerText = 'Đang kết nối...';
+
+      stompClient = new StompJs.Client({
+        brokerURL: url,
+        reconnectDelay: 5000,
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
+        onConnect: () => {
+          setStatus('connected', 'Đã kết nối STOMP');
+          document.getElementById('btnConnect').innerText = 'Ngắt kết nối';
+          document.getElementById('btnSubscribe').classList.remove('btn-disabled');
+          document.getElementById('btnSubscribe').disabled = false;
+          subscribeTopic();
+        },
+        onStompError: (frame) => {
+          console.error('STOMP Error:', frame);
+          setStatus('disconnected', 'Lỗi STOMP');
+          document.getElementById('btnConnect').innerText = 'Kết nối lại';
+        },
+        onWebSocketClose: () => {
+          setStatus('disconnected', 'Đã ngắt kết nối');
+          document.getElementById('btnConnect').innerText = 'Kết nối';
+          document.getElementById('btnSubscribe').classList.add('btn-disabled');
+          document.getElementById('btnSubscribe').disabled = true;
+        }
+      });
+
+      stompClient.activate();
+    }
+
+    function disconnect() {
+      if (stompClient) {
+        stompClient.deactivate();
+        stompClient = null;
+      }
+      setStatus('disconnected', 'Chưa kết nối');
+      document.getElementById('btnConnect').innerText = '1. Kết nối (Connect)';
+      document.getElementById('btnSubscribe').classList.add('btn-disabled');
+      document.getElementById('btnSubscribe').disabled = true;
+    }
+
+    function subscribeTopic() {
+      if (!stompClient || !stompClient.connected) return;
+      const topic = document.getElementById('topic').value.trim();
+      if (currentSubscription) {
+        currentSubscription.unsubscribe();
+      }
+
+      currentSubscription = stompClient.subscribe(topic, (message) => {
+        try {
+          const data = JSON.parse(message.body);
+          appendFeedItem(data);
+        } catch (e) {
+          console.error('Error parsing message body:', e);
+        }
+      });
+
+      document.getElementById('btnSubscribe').innerText = 'Đã subscribe: ' + topic;
+    }
+
+    function appendFeedItem(item) {
+      messageCount++;
+      document.getElementById('count').innerText = messageCount;
+      const list = document.getElementById('feedList');
+      if (messageCount === 1) list.innerHTML = '';
+
+      const modeClass = item.streamMode === 'MOVING' ? 'mode-moving' : (item.streamMode === 'STOPPED' ? 'mode-stopped' : 'mode-approaching');
+
+      const el = document.createElement('div');
+      el.className = 'feed-item';
+      el.innerHTML = `
+        <div class="feed-header">
+          <span style="font-weight: 700; color: #f43f5e;">Booking #${item.bookingId || 'N/A'} (MUA #${item.muaId || 'N/A'})</span>
+          <span class="feed-time">${new Date().toLocaleTimeString('vi-VN')}</span>
+        </div>
+        <div class="feed-grid">
+          <div class="feed-col"><span class="feed-label">Tọa độ</span><span class="feed-val">${item.currentLat?.toFixed(6)}, ${item.currentLng?.toFixed(6)}</span></div>
+          <div class="feed-col"><span class="feed-label">Vận tốc</span><span class="feed-val">${item.speed ?? 0} km/h</span></div>
+          <div class="feed-col"><span class="feed-label">Hướng</span><span class="feed-val">${item.heading ?? 0}°</span></div>
+          <div class="feed-col"><span class="feed-label">Độ chính xác</span><span class="feed-val">±${item.accuracy ?? 0}m</span></div>
+          <div class="feed-col"><span class="feed-label">Chế độ phát</span><span class="feed-val ${modeClass}">[${item.streamMode || 'UNKNOWN'}]</span></div>
+          <div class="feed-col"><span class="feed-label">Khoảng cách còn</span><span class="feed-val">${item.distanceRemainingMeters != null ? item.distanceRemainingMeters + ' m' : 'N/A'}</span></div>
+          <div class="feed-col"><span class="feed-label">ETA dự kiến</span><span class="feed-val">${item.etaMinutes != null ? item.etaMinutes + ' phút' : 'N/A'}</span></div>
+        </div>
+      `;
+      list.prepend(el);
+    }
+
+    function clearLogs() {
+      messageCount = 0;
+      document.getElementById('count').innerText = 0;
+      document.getElementById('feedList').innerHTML = '<div class="empty-state">Đã xóa sạch log. Sẵn sàng nhận tọa độ mới.</div>';
+    }
+  </script>
+</body>
+</html>

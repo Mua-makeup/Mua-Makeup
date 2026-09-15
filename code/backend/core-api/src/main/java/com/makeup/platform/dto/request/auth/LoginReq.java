@@ -12,9 +12,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginReq {
 
-    @NotBlank(message = "Số điện thoại hoặc Email không được để trống")
+    @NotBlank(message = "{validation.phone_or_email_required}")
     private String loginIdentifier;
 
-    @NotBlank(message = "Mật khẩu không được để trống")
+    @NotBlank(message = "{validation.password_required}")
     private String password;
 }

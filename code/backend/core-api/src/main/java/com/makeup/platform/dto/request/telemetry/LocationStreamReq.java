@@ -1,5 +1,7 @@
 package com.makeup.platform.dto.request.telemetry;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -16,14 +18,14 @@ import lombok.Setter;
 @Builder
 public class LocationStreamReq {
 
-    @NotNull(message = "Vĩ độ không được để trống")
-    @DecimalMin(value = "-90.0", message = "Vĩ độ tối thiểu là -90.0")
-    @DecimalMax(value = "90.0", message = "Vĩ độ tối đa là 90.0")
+    @NotNull(message = "{validation.telemetry_latitude_required}")
+    @DecimalMin(value = "-90.0", message = "{validation.telemetry_latitude_min}")
+    @DecimalMax(value = "90.0", message = "{validation.telemetry_latitude_max}")
     private Double latitude;
 
-    @NotNull(message = "Kinh độ không được để trống")
-    @DecimalMin(value = "-180.0", message = "Kinh độ tối thiểu là -180.0")
-    @DecimalMax(value = "180.0", message = "Kinh độ tối đa là 180.0")
+    @NotNull(message = "{validation.telemetry_longitude_required}")
+    @DecimalMin(value = "-180.0", message = "{validation.telemetry_longitude_min}")
+    @DecimalMax(value = "180.0", message = "{validation.telemetry_longitude_max}")
     private Double longitude;
 
     private Double speed; // km/h
@@ -32,7 +34,9 @@ public class LocationStreamReq {
 
     private Double accuracy; // meters
 
+    @JsonAlias({"booking_id", "bookingId"})
     private Long bookingId;
 
+    @JsonAlias({"distance_remaining_meters", "distanceRemainingMeters"})
     private Double distanceRemainingMeters; // mét tới nhà khách
 }

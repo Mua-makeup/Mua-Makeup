@@ -20,15 +20,15 @@ import java.math.BigDecimal;
 @Builder
 public class ConfigureSurchargeReq {
 
-    @NotBlank(message = "Tên phụ phí không được để trống")
-    @Size(max = 100, message = "Tên phụ phí không được vượt quá 100 ký tự")
+    @NotBlank(message = "{validation.catalog_surcharge_name_required}")
+    @Size(max = 100, message = "{validation.catalog_surcharge_name_size}")
     private String surchargeName;
 
-    @NotNull(message = "Loại phụ phí không được để trống")
+    @NotNull(message = "{validation.catalog_surcharge_type_required}")
     private SurchargeType surchargeType;
 
-    @NotNull(message = "Mức phụ phí không được để trống")
-    @DecimalMin(value = "0.00", message = "Mức phụ phí không được nhỏ hơn 0 VNĐ")
+    @NotNull(message = "{validation.catalog_surcharge_amount_required}")
+    @DecimalMin(value = "0.00", message = "{validation.catalog_surcharge_amount_min}")
     private BigDecimal amount;
 
     @Builder.Default
