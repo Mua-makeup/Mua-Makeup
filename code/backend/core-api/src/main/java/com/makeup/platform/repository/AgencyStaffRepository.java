@@ -36,4 +36,7 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
            "WHERE s.id = :staffId AND s.agency.id = :agencyId")
     Optional<AgencyStaffEntity> findByIdAndAgencyIdWithMuaAndUser(@Param("staffId") Long staffId,
                                                                    @Param("agencyId") Long agencyId);
+
+    @Query("SELECT s FROM AgencyStaffEntity s WHERE s.mua.user.id = :userId AND s.isActive = true")
+    Optional<AgencyStaffEntity> findActiveStaffByUserId(@Param("userId") Long userId);
 }
