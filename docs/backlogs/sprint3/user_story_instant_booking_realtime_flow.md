@@ -31,9 +31,10 @@
   1. **Customer (Khách hàng có nhu cầu trang điểm gấp):**
      * Cần thợ make-up đến tận nhà ngay trong vòng 30–60 phút (dự tiệc đột xuất, thợ cũ hủy ca phút chót).
      * Xem màn hình Radar quét thợ đếm ngược 45s; theo dõi thợ trên bản đồ Live GPS; theo dõi Stepper tiến trình dịch vụ theo thời gian thực; có nút "Đặt Lại" tiện lợi.
-  2. **Freelance MUA & Agency Staff MUA (Thợ trang điểm):**
-     * Bật công tắc "Trực tuyến" để nhận ca; nhận Popup toàn màn hình rung chuông báo động hiển thị địa chỉ, thu nhập thực nhận và đồng hồ đếm lùi 20s.
+  2. **Freelance MUA (Thợ trang điểm tự do - `ROLE_FREELANCE_MUA`):**
+     * Bật công tắc "Trực tuyến" để nhận ca tự do của sàn; nhận Popup toàn màn hình rung chuông báo động hiển thị địa chỉ, thu nhập thực nhận và đồng hồ đếm lùi 20s.
      * Có thể bấm **"Chấp nhận ca"** hoặc bấm **"Bỏ qua"** để nhường đơn cho đồng nghiệp khác.
+     * *(Lưu ý: Thợ Studio `ROLE_AGENCY_STAFF` không tham gia nhận broadcast đơn tự do này mà được Chủ Studio phân công điều phối tập trung qua ISSUE-19).*
      * Chủ động ấn nút ở từng mốc phục vụ (`ON_THE_WAY`, `ARRIVED`, `IN_PROGRESS`, `COMPLETED`), tải ảnh nghiệm thu Cloudinary trước khi kết thúc ca.
 
 ---
@@ -443,7 +444,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 ---
 
 ### 4.3. `POST /api/v1/freelancer/bookings/{bookingId}/accept` (Thợ Nhận Ca - Redlock)
-* **Quyền:** `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_STAFF`
+* **Quyền:** `ROLE_FREELANCE_MUA` (Dành riêng cho Thợ tự do nhận cuốc broadcast của sàn)
 * **Response `200 OK`:**
 ```json
 {
@@ -465,7 +466,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 ---
 
 ### 4.4. `POST /api/v1/freelancer/bookings/{bookingId}/skip` (Thợ Bỏ Qua Ca)
-* **Quyền:** `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_STAFF`
+* **Quyền:** `ROLE_FREELANCE_MUA`
 * **Response `200 OK`:**
 ```json
 {
