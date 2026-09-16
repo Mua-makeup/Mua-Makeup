@@ -1,5 +1,9 @@
 package com.makeup.platform.dto.request.agency;
 
+import java.math.BigDecimal;
+
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -33,4 +37,12 @@ public class UpdateAgencyProfileReq {
     private String city;
 
     private String logoUrl;
+
+    @DecimalMin(value = "-90.0", message = "{validation.latitude_invalid}")
+    @DecimalMax (value = "90.0", message = "{validation.latitude_invalid}")
+    private BigDecimal latitude;
+
+    @DecimalMin(value = "-180.0", message = "{validation.longitude_invalid}")
+    @DecimalMax(value = "180.0", message = "{validation.longitude_invalid}")
+    private BigDecimal longitude;
 }

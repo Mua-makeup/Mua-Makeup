@@ -154,3 +154,8 @@ Nhằm đảm bảo tính toàn vẹn của mã nguồn, quyền kiểm soát t�
 3. **Mọi Câu Trả Lời Sửa Code Đều Phải Do Người Dùng Accept (Mandatory User Acceptance)**:
    - Toàn bộ các câu trả lời sửa code, tái cấu trúc file hoặc thêm chức năng BẮT BUỘC phải được trình bày minh bạch để người dùng trực tiếp kiểm duyệt và bấm **Accept / Chấp thuận**.
    - Mọi chỉnh sửa chỉ có hiệu lực và được coi là hoàn tất khi người dùng đã Accept. Nếu người dùng chưa Accept, từ chối hoặc yêu cầu điều chỉnh, AI phải tuân thủ nghiêm túc chỉ đạo của người dùng để chỉnh sửa lại cho đến khi đạt yêu cầu.
+
+4. **Tuyệt Đối Không Tự Ý Viết Unit / Integration Test (No Unit Tests Required)**:
+   - AI TUYỆT ĐỐI KHÔNG tự ý viết mới, thêm mới, sửa đổi hoặc sinh code các file kiểm thử (Unit Test, Integration Test, Mockito/JUnit test suites).
+   - Tuyệt đối không tạo hoặc can thiệp vào thư mục `src/test/` trừ khi người dùng có chỉ đạo hoặc yêu cầu trực tiếp rõ ràng.
+   - Việc xác thực chất lượng code tập trung vào việc kiểm tra cú pháp, hợp đồng kiểu dữ liệu và biên dịch thành công qua Gradle (`compileJava`).

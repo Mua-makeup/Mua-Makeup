@@ -4,6 +4,7 @@ import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.dto.request.agency.UpdateAgencyProfileReq;
 import com.makeup.platform.dto.request.agency.UpdateCommissionReq;
+import com.makeup.platform.dto.response.agency.AgencyLocationRes;
 import com.makeup.platform.dto.response.agency.AgencyProfileRes;
 import com.makeup.platform.service.agency.AgencyProfileService;
 import jakarta.validation.Valid;
@@ -56,5 +57,12 @@ public class AgencyProfileController extends BaseController {
             @Valid @RequestBody UpdateCommissionReq req) {
         AgencyProfileRes res = agencyProfileService.updateCommissionRate(userId, req);
         return ok(res, "agency.commission_update_success");
+    }
+
+    @GetMapping("/{agencyId}/location")
+    public ResponseEntity<ApiResponse<AgencyLocationRes>> getAgencyLocation(
+            @PathVariable Long agencyId) {
+        AgencyLocationRes res = agencyProfileService.getAgencyLocation(agencyId);
+        return ok(res, "agency.location_get_success");
     }
 }

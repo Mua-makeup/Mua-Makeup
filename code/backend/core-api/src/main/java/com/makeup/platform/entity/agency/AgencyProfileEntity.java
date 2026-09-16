@@ -16,6 +16,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 
+import org.locationtech.jts.geom.Point;
+
 @Entity
 @Table(name = "agency_profiles", schema = "agency_schema")
 @Getter
@@ -53,6 +55,15 @@ public class AgencyProfileEntity extends BaseEntity {
     @Column(name = "commission_rate_internal", precision = 5, scale = 2)
     @Builder.Default
     private BigDecimal commissionRateInternal = new BigDecimal("30.00");
+
+    @Column(name = "latitude", precision = 10, scale = 8)
+    private BigDecimal latitude;
+
+    @Column(name = "longitude", precision = 11, scale = 8)
+    private BigDecimal longitude;
+
+    @Column(name = "location_point", columnDefinition = "geometry(Point, 4326)")
+    private Point locationPoint;
 
     @Column(name = "is_verified", nullable = false)
     @Builder.Default
