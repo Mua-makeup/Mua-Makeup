@@ -8,6 +8,7 @@ import com.makeup.platform.common.utils.FileValidationUtils;
 import com.makeup.platform.dto.request.booking.TransitionBookingStateReq;
 import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
+import com.makeup.platform.dto.response.booking.BookingStatusDetailRes;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
@@ -23,6 +24,9 @@ import com.makeup.platform.service.booking.BookingStateMachineService;
 import com.makeup.platform.service.media.MediaStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.math.BigDecimal;
+
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -292,6 +296,13 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
         }
 
+        if (booking.getStatus() != BookingStatus.IN_PROGRESS) {
+            log.warn("[StateMachine] Cannot upload completion photo for bookingId={} because current status is {} (must be IN_PROGRESS)",
+                    bookingId, booking.getStatus());
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "booking.completion_photo_only_in_progress", HttpStatus.BAD_REQUEST);
+        }
+
         // Validate image file (size, format, magic bytes)
         FileValidationUtils.validateImageFile(file, MediaConstants.MAX_MAIN_IMAGE_SIZE);
 
@@ -306,5 +317,46 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 bookingId, uploadResult.getPublicId());
 
         return bookingMapper.toCompletionPhotoRes(savedBooking, uploadResult.getThumbnailUrl(), uploadResult.getPublicId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BookingStatusDetailRes getBookingStatusDetail(Long bookingId) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        String muaName = null;
+        String muaPhone = null;
+        String muaAvatar = null;
+        BigDecimal rating = null;
+        Long muaId = null;
+
+        if (booking.getMua() != null) {
+            muaId = booking.getMua().getId();
+            rating = booking.getMua().getRatingAvg();
+            if (booking.getMua().getUser() != null) {
+                muaName = booking.getMua().getUser().getFullName();
+                muaPhone = booking.getMua().getUser().getPhoneNumber();
+                muaAvatar = booking.getMua().getUser().getAvatarUrl();
+            }
+        }
+
+        return BookingStatusDetailRes.builder()
+                .bookingId(booking.getId())
+                .bookingCode(booking.getBookingCode())
+                .status(booking.getStatus().name())
+                .destinationAddress(booking.getDestinationAddress())
+                .destinationLatitude(booking.getDestinationLatitude())
+                .destinationLongitude(booking.getDestinationLongitude())
+                .muaId(muaId)
+                .muaName(muaName)
+                .muaPhone(muaPhone)
+                .muaAvatar(muaAvatar)
+                .rating(rating)
+                .totalAmount(booking.getTotalAmount())
+                .completionPhotoUrl(booking.getCompletionPhotoUrl())
+                .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
+                .build();
     }
 }

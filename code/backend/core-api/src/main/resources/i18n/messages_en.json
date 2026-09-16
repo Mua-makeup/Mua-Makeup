@@ -96,9 +96,12 @@
     "nearby_query_success": "Retrieved nearby artists and studios successfully.",
     "live_track_success": "Retrieved real-time tracking information successfully.",
     "trip_history_success": "Retrieved trip history route successfully.",
-    "trip_compress_success": "Compressed trip route successfully."
+    "trip_compress_success": "Compressed trip route successfully.",
+    "heartbeat_success": "Heartbeat pulse recorded successfully."
   },
   "booking": {
+    "no_mua_available_in_radius": "Currently no makeup artists are online within 10km of your location. Please try again later!",
+    "customer_has_active_instant_booking": "You already have an active instant booking in progress. Please complete or cancel it before creating a new one!",
     "transition_success": "Booking state updated successfully!",
     "accept_success": "Congratulations! You have successfully accepted the instant booking!",
     "history_fetch_success": "Booking status history retrieved successfully.",
@@ -113,7 +116,12 @@
     "concurrency_interrupted": "Concurrency handling interrupted. Please try again.",
     "mua_must_be_online": "Makeup artist must be online to accept bookings.",
     "mua_already_busy": "You are currently in another active job and cannot accept this booking.",
-    "completion_photo_upload_success": "Completion photo uploaded to Cloudinary successfully."
+    "completion_photo_upload_success": "Completion photo uploaded to Cloudinary successfully.",
+    "completion_photo_only_in_progress": "Completion photo can only be uploaded when booking is IN_PROGRESS.",
+    "create_success": "Booking created successfully!",
+    "query_success": "Booking details retrieved successfully.",
+    "skip_success": "Booking skipped, cascaded to next candidate MUA.",
+    "status_retrieved": "Booking status retrieved successfully."
   },
   "ERR_USER_NOT_FOUND": "User not found.",
   "ERR_PHONE_ALREADY_EXISTS": "Phone number is already registered.",

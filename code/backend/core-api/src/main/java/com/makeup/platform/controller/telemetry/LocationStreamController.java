@@ -35,4 +35,11 @@ public class LocationStreamController extends BaseController {
         LiveTrackingRes res = telemetryStreamService.processLocationStream(userId, req);
         return ok(res, "telemetry.stream_success");
     }
+
+    @PostMapping("/heartbeat")
+    public ResponseEntity<ApiResponse<Void>> heartbeat() {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        telemetryStreamService.recordHeartbeat(userId);
+        return ok(null, "telemetry.heartbeat_success");
+    }
 }

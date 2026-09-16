@@ -12,7 +12,7 @@ public final class TelemetryConstants {
     public static final String REDIS_KEY_AGENCY_GEO = "agency:geo:locations";
 
     // TTLs
-    public static final long HEARTBEAT_TTL_SECONDS = 60L;
+    public static final long HEARTBEAT_TTL_SECONDS = 180L;
     public static final long SUMMARY_TTL_HOURS = 24L;
     public static final long SUMMARY_TTL_SECONDS = 24 * 3600L;
     public static final long TRIP_TTL_HOURS = 4L;

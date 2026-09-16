@@ -232,6 +232,16 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         }
     }
 
+    @Override
+    public void recordHeartbeat(Long userId) {
+        MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
+        if (Boolean.TRUE.equals(mua.getIsOnline())) {
+            redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
+            log.debug("Renewed heartbeat for online MUA {} (TTL={}s)", mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
+        }
+    }
+
     private void validateCoordinates(Double lat, Double lng) {
         if (lat == null || lng == null || lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
             throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);

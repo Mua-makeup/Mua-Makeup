@@ -96,9 +96,12 @@
     "nearby_query_success": "Tìm kiếm thợ và Studio xung quanh thành công.",
     "live_track_success": "Lấy thông tin theo dõi trực tiếp thành công.",
     "trip_history_success": "Lấy lịch sử hành trình chuyến đi thành công.",
-    "trip_compress_success": "Nén hành trình chuyến đi thành công."
+    "trip_compress_success": "Nén hành trình chuyến đi thành công.",
+    "heartbeat_success": "Ghi nhận tín hiệu trực tuyến (heartbeat) thành công."
   },
   "booking": {
+    "no_mua_available_in_radius": "Hiện tại không có thợ trang điểm nào đang trực tuyến trong bán kính 10km xung quanh bạn. Vui lòng thử lại sau!",
+    "customer_has_active_instant_booking": "Bạn đang có một đơn đặt thợ tức thì chưa hoàn thành. Vui lòng hoàn tất hoặc hủy đơn hiện tại trước khi đặt đơn mới!",
     "transition_success": "Cập nhật trạng thái đơn hàng thành công!",
     "accept_success": "Chúc mừng! Bạn đã nhận thành công ca trang điểm khẩn cấp!",
     "history_fetch_success": "Lấy lịch sử trạng thái đơn hàng thành công.",
@@ -113,7 +116,12 @@
     "concurrency_interrupted": "Xử lý tranh chấp đơn hàng bị gián đoạn. Vui lòng thử lại.",
     "mua_must_be_online": "Thợ cần bật trạng thái trực tuyến (Online) để tiếp nhận đơn hàng.",
     "mua_already_busy": "Bạn đang trong ca phục vụ khác, không thể nhận thêm đơn này.",
-    "completion_photo_upload_success": "Tải ảnh hoàn thành dịch vụ lên Cloudinary thành công."
+    "completion_photo_upload_success": "Tải ảnh hoàn thành dịch vụ lên Cloudinary thành công.",
+    "completion_photo_only_in_progress": "Chỉ được tải ảnh hoàn thành khi đơn hàng đang trong quá trình thực hiện (IN_PROGRESS).",
+    "create_success": "Tạo đơn hàng đặt lịch thành công!",
+    "query_success": "Truy vấn thông tin đơn hàng thành công.",
+    "skip_success": "Đã bỏ qua ca, hệ thống chuyển tiếp cho thợ tiếp theo.",
+    "status_retrieved": "Lấy thông tin trạng thái đơn hàng thành công."
   },
   "ERR_USER_NOT_FOUND": "Không tìm thấy người dùng trong hệ thống.",
   "ERR_PHONE_ALREADY_EXISTS": "Số điện thoại đã được đăng ký tài khoản.",
