@@ -165,9 +165,25 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 * **Scenario 04: Bắt buộc đính kèm ảnh hoàn thiện khi chuyển sang `COMPLETED`**
   * **Given** Đơn hàng đang ở trạng thái `IN_PROGRESS`.
-  * **When** Thợ gửi yêu cầu chuyển sang `COMPLETED` nhưng trường `completion_photo_url` để trống `null`.
+  * **When** Thợ gửi yêu cầu chuyển sang `COMPLETED` nhưng cả trường `completion_photo_url` trong body lẫn ảnh đã upload trên đơn hàng đều rỗng `null`.
   * **Then** Tầng Service kiểm tra điều kiện nghiệm thu thất bại.
   * **And** Trả về HTTP `400 BAD_REQUEST` với mã lỗi `ERR_COMPLETION_PHOTO_REQUIRED`.
+  * **Note:** Thợ có thể truyền `completion_photo_url` qua JSON body HOẶC đã tải ảnh lên trước đó qua API `POST /api/v1/bookings/{id}/completion-photo`.
+
+* **Scenario 05: Tải ảnh hoàn thành dịch vụ trực tiếp lên Cloudinary (Cloud Media Storage)**
+  * **Given** Đơn hàng đang ở trạng thái `IN_PROGRESS` hoặc `ARRIVED`.
+  * **When** Thợ phụ trách ca gọi `POST /api/v1/bookings/501/completion-photo` dạng `multipart/form-data` kèm file ảnh hoàn thiện.
+  * **Then** Hệ thống xác thực định dạng file (JPG, PNG, WEBP), kiểm tra magic bytes và dung lượng tối đa $\le 10\text{MB}$.
+  * **And** Gọi `MediaStorageService` nén ảnh chuẩn WebP và upload lên CDN Cloudinary theo thư mục `bookings/501/completion`.
+  * **And** Tự động lưu đường dẫn `secure_url` vào trường `completion_photo_url` của bảng `bookings`.
+  * **And** Trả về HTTP `200 OK` với `BookingCompletionPhotoRes` chứa đầy đủ link ảnh HD, thumbnail và publicId.
+
+* **Scenario 06: Tự động giải phóng trạng thái Bận của Thợ khi hoàn thành hoặc hủy đơn (Auto-Release Availability)**
+  * **Given** Thợ đang phụ trách đơn hàng và có cờ `is_busy = true` (`availability_status = 'BUSY'`).
+  * **When** Đơn hàng chuyển sang trạng thái kết thúc: `COMPLETED` hoặc `CANCELLED`.
+  * **Then** State Machine tự động giải phóng cờ bận: `mua.is_busy = false`.
+  * **And** Nếu thợ vẫn đang bật Online (`is_online == true`), cập nhật `availability_status = 'AVAILABLE'` để thợ sẵn sàng đón nhận các đơn khẩn cấp mới.
+  * **And** Nếu thợ đã tắt Online, cập nhật `availability_status = 'OFFLINE'`.
 
 ---
 
@@ -206,11 +222,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 * **Scenario 01: Thợ đầu tiên bấm nhận đơn thành công qua Redlock (Happy Path)**
   * **Given** Đơn hàng khẩn cấp `booking_id = 777` đang ở trạng thái `REQUESTED`.
-  * **When** Thợ A (`mua_id = 89`) bấm nút "Nhận Đơn" $\rightarrow$ Gửi request `POST /api/v1/freelancer/bookings/777/accept`.
+  * **And** Thợ A (`mua_id = 89`) đang ở trạng thái Trực tuyến (`is_online = true`) và Rảnh (`is_busy = false`).
+  * **When** Thợ A bấm nút "Nhận Đơn" $\rightarrow$ Gửi request `POST /api/v1/freelancer/bookings/777/accept`.
   * **Then** Backend khởi tạo Redlock: `RLock lock = redissonClient.getLock("lock:booking:accept:777")`.
   * **And** Thợ A giành được lock thành công trong thời gian chờ `waitTime = 2000ms`.
   * **And** Backend kiểm tra trong DB thấy `booking.status == 'REQUESTED'`.
   * **And** Chuyển trạng thái sang `ACCEPTED`, gán `assigned_mua_id = 89`.
+  * **And** Khóa thợ A sang trạng thái bận: `mua.is_busy = true` (`availability_status = 'BUSY'`) để không nhận thêm đơn khẩn cấp khác.
   * **And** Tự động giải phóng lock an toàn trong khối `finally`.
   * **And** Bắn thông báo xác nhận thành công cho Thợ A.
 
@@ -228,6 +246,13 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   * **When** Hết thời gian thuê khóa tự động `leaseTime = 5000ms` (5 giây).
   * **Then** Redis tự động giải phóng lock `lock:booking:accept:777` nhờ cơ chế TTL.
   * **And** Ngăn chặn hoàn toàn tình trạng Deadlock đóng băng vĩnh viễn đơn hàng.
+
+* **Scenario 04: Chặn Thợ đang OFFLINE hoặc đang BẬN ca khác cố tình nhận đơn**
+  * **Given** Thợ đang ở trạng thái `is_online = false` (OFFLINE) hoặc `is_busy = true` (BUSY).
+  * **When** Thợ gửi request `POST /api/v1/freelancer/bookings/777/accept`.
+  * **Then** Nếu thợ đang OFFLINE $\rightarrow$ Ném ngoại lệ `CustomBusinessException` với mã `ERR_MUA_MUST_BE_ONLINE`, HTTP `400 BAD_REQUEST`.
+  * **And** Nếu thợ đang BUSY $\rightarrow$ Ném ngoại lệ `CustomBusinessException` với mã `ERR_MUA_ALREADY_BUSY`, HTTP `409 CONFLICT`.
+  * **And** Chặn đứng thao tác, giữ nguyên trạng thái đơn hàng.
 
 ---
 
@@ -255,6 +280,8 @@ Tất cả các lỗi nghiệp vụ và lỗi xung đột khóa phân tán đề
 | **`404 NOT_FOUND`** | `ERR_BOOKING_NOT_FOUND` | `booking_id` truyền lên không tồn tại trong hệ thống. | Ném `CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND)`. |
 | **`409 CONFLICT`** | `ERR_BOOKING_ALREADY_TAKEN` | Thợ bấm nhận đơn nhưng đơn đã được thợ khác giành trước qua Redlock. | Trả về HTTP 409, yêu cầu App đóng popup đếm ngược. |
 | **`409 CONFLICT`** | `ERR_LOCK_ACQUISITION_TIMEOUT` | Hệ thống quá tải khiến việc xin khóa phân tán Redis vượt quá thời gian chờ (2s). | Báo bận hệ thống, yêu cầu thử lại sau giây lát. |
+| **`400 BAD_REQUEST`** | `ERR_MUA_MUST_BE_ONLINE` | Thợ đang ở trạng thái OFFLINE cố tình bấm nhận đơn hàng. | Yêu cầu thợ bật trực tuyến (Online) và cho phép định vị GPS trước khi nhận đơn. |
+| **`409 CONFLICT`** | `ERR_MUA_ALREADY_BUSY` | Thợ đang trong ca phục vụ khác (`is_busy = true`) bấm nhận thêm đơn khẩn cấp. | Chặn nhận trùng đơn, yêu cầu hoàn thành đơn hiện tại. |
 | **`409 CONFLICT`** | `ERR_OPTIMISTIC_LOCK_CONFLICT` | Xung đột phiên bản `@Version` khi 2 tác nhân cập nhật cùng lúc bản ghi `bookings`. | Tự động retry tối đa 3 lần trước khi báo lỗi. |
 
 ---
@@ -365,10 +392,53 @@ public class TransitionBookingStateReq {
   "timestamp": "2026-09-14T09:06:12"
 }
 ```
+* **Response `400 BAD_REQUEST` (Thất bại - Thợ đang OFFLINE):**
+```json
+{
+  "success": false,
+  "errorCode": "ERR_MUA_MUST_BE_ONLINE",
+  "message": "Thợ cần bật trạng thái trực tuyến (Online) để tiếp nhận đơn hàng.",
+  "timestamp": "2026-09-14T09:06:12"
+}
+```
+* **Response `409 CONFLICT` (Thất bại - Thợ đang bận ca khác):**
+```json
+{
+  "success": false,
+  "errorCode": "ERR_MUA_ALREADY_BUSY",
+  "message": "Bạn đang trong ca phục vụ khác, không thể nhận thêm đơn này.",
+  "timestamp": "2026-09-14T09:06:12"
+}
+```
 
 ---
 
-### 5.3. `GET /api/v1/bookings/{bookingId}/history` (Truy vấn Lịch sử Audit Log Đơn Hàng)
+### 5.3. `POST /api/v1/bookings/{bookingId}/completion-photo` (Tải Ảnh Hoàn Thành Dịch Vụ Lên Cloudinary)
+* **Mục đích:** Thợ chụp và tải ảnh sản phẩm hoàn thiện trực tiếp lên CDN Cloudinary, tự động nén WebP và gắn URL vào đơn hàng.
+* **Quyền truy cập:** Thợ phụ trách ca (`ROLE_FREELANCE_MUA`, `ROLE_AGENCY_STAFF`) hoặc `ROLE_SUPER_ADMIN`.
+* **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: multipart/form-data`
+* **Form-Data Params:**
+  * `file`: File ảnh thực tế (JPG, PNG, WEBP, tối đa 10MB).
+* **Response `200 OK`:**
+```json
+{
+  "success": true,
+  "message": "Tải ảnh hoàn thành dịch vụ lên Cloudinary thành công.",
+  "data": {
+    "bookingId": 501,
+    "bookingCode": "BK-260914-X8K9L",
+    "completionPhotoUrl": "https://res.cloudinary.com/.../bookings/501/completion/finish_look.webp",
+    "thumbnailUrl": "https://res.cloudinary.com/.../c_fill,h_400,w_400/.../finish_look.webp",
+    "publicId": "bookings/501/completion/finish_look",
+    "uploadedAt": "2026-09-14T11:00:00"
+  },
+  "timestamp": "2026-09-14T11:00:00"
+}
+```
+
+---
+
+### 5.4. `GET /api/v1/bookings/{bookingId}/history` (Truy vấn Lịch sử Audit Log Đơn Hàng)
 * **Mục đích:** Khách hàng, Thợ, Studio hoặc CSKH xem toàn bộ dòng thời gian tiến trình đơn.
 * **Response `200 OK`:**
 ```json

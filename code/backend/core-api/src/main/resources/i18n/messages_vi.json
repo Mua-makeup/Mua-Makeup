@@ -110,7 +110,10 @@
     "already_taken": "Rất tiếc! Đơn hàng này vừa được một thợ khác tiếp nhận.",
     "lock_timeout": "Hệ thống đang quá tải khi xử lý nhận đơn. Vui lòng thử lại sau giây lát.",
     "optimistic_lock_conflict": "Đơn hàng đã được cập nhật bởi một thao tác khác. Vui lòng tải lại và thử lại.",
-    "concurrency_interrupted": "Xử lý tranh chấp đơn hàng bị gián đoạn. Vui lòng thử lại."
+    "concurrency_interrupted": "Xử lý tranh chấp đơn hàng bị gián đoạn. Vui lòng thử lại.",
+    "mua_must_be_online": "Thợ cần bật trạng thái trực tuyến (Online) để tiếp nhận đơn hàng.",
+    "mua_already_busy": "Bạn đang trong ca phục vụ khác, không thể nhận thêm đơn này.",
+    "completion_photo_upload_success": "Tải ảnh hoàn thành dịch vụ lên Cloudinary thành công."
   },
   "ERR_USER_NOT_FOUND": "Không tìm thấy người dùng trong hệ thống.",
   "ERR_PHONE_ALREADY_EXISTS": "Số điện thoại đã được đăng ký tài khoản.",
@@ -183,6 +186,8 @@
   "ERR_BOOKING_ALREADY_TAKEN": "Đơn hàng đã được thợ khác tiếp nhận trước.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Hết thời gian chờ giành khóa phân tán đơn hàng.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Xung đột cập nhật phiên bản đơn hàng.",
+  "ERR_MUA_MUST_BE_ONLINE": "Thợ cần bật trạng thái trực tuyến (Online) để tiếp nhận đơn.",
+  "ERR_MUA_ALREADY_BUSY": "Thợ đang bận trong ca làm việc khác.",
   "validation": {
     "bio_size": "Tiểu sử không được vượt quá 500 ký tự.",
     "experience_years_required": "Số năm kinh nghiệm không được để trống.",

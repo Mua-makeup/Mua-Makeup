@@ -1,6 +1,7 @@
 package com.makeup.platform.mapper.booking;
 
 import com.makeup.platform.dto.response.booking.BookingAcceptanceRes;
+import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
@@ -23,6 +24,21 @@ public class BookingMapper {
                 .currentStatus(entity.getStatus() != null ? entity.getStatus().name() : null)
                 .updatedByUserId(updatedByUserId)
                 .transitionedAt(LocalDateTime.now())
+                .build();
+    }
+
+    public BookingCompletionPhotoRes toCompletionPhotoRes(BookingEntity entity, String thumbnailUrl, String publicId) {
+        if (entity == null) {
+            return null;
+        }
+
+        return BookingCompletionPhotoRes.builder()
+                .bookingId(entity.getId())
+                .bookingCode(entity.getBookingCode())
+                .completionPhotoUrl(entity.getCompletionPhotoUrl())
+                .thumbnailUrl(thumbnailUrl)
+                .publicId(publicId)
+                .uploadedAt(LocalDateTime.now())
                 .build();
     }
 

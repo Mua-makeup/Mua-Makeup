@@ -8,6 +8,7 @@ import com.makeup.platform.dto.response.booking.BookingAcceptanceRes;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
@@ -72,9 +73,26 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                         .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                                 "mua.profile_not_found", HttpStatus.NOT_FOUND));
 
+                if (!Boolean.TRUE.equals(muaProfile.getIsOnline())) {
+                    log.warn("[Redlock] MUA id={} attempted to accept booking id={} while OFFLINE", muaProfile.getId(), bookingId);
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_MUST_BE_ONLINE,
+                            "booking.mua_must_be_online", HttpStatus.BAD_REQUEST);
+                }
+
+                if (Boolean.TRUE.equals(muaProfile.getIsBusy())) {
+                    log.warn("[Redlock] MUA id={} attempted to accept booking id={} while already BUSY", muaProfile.getId(), bookingId);
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_ALREADY_BUSY,
+                            "booking.mua_already_busy", HttpStatus.CONFLICT);
+                }
+
                 booking.setStatus(BookingStatus.ACCEPTED);
                 booking.setMua(muaProfile);
                 BookingEntity savedBooking = bookingRepository.save(booking);
+
+                // Mark MUA as busy so no other instant bookings are dispatched
+                muaProfile.setIsBusy(true);
+                muaProfile.setAvailabilityStatus(AvailabilityStatus.BUSY);
+                muaProfileRepository.save(muaProfile);
 
                 // Record Audit log inside same transaction
                 bookingAuditService.logTransition(savedBooking, BookingStatus.REQUESTED, BookingStatus.ACCEPTED,

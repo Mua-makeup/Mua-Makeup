@@ -1,7 +1,9 @@
 # Sprint 3 Backlog
-- [ ] [ISSUE-16.1] [Booking Engine - Máy trạng thái Đơn hàng (Booking State Machine), Audit Log & Redlock](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint3/user_story_booking_state_machine_and_redlock.md)
-  - [ ] [ISSUE-16.2] Nhật ký Audit Log lịch sử biến động trạng thái đơn (`booking_schema.booking_history`).
-  - [ ] [ISSUE-16.3] Tích hợp Redlock (Redis Distributed Lock) chống tranh chấp ca khẩn cấp.
+- [x] [ISSUE-16.1] [Booking Engine - Máy trạng thái Đơn hàng (Booking State Machine), Audit Log & Redlock](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint3/user_story_booking_state_machine_and_redlock.md)
+  - [x] [ISSUE-16.2] Nhật ký Audit Log lịch sử biến động trạng thái đơn (`booking_schema.booking_history`).
+  - [x] [ISSUE-16.3] Tích hợp Redlock (Redis Distributed Lock) chống tranh chấp ca khẩn cấp.
+  - [x] [ISSUE-16.4] Tải ảnh hoàn thành dịch vụ trực tiếp lên Cloudinary (`POST /api/v1/bookings/{bookingId}/completion-photo`).
+  - [x] [ISSUE-16.5] Quản lý vòng đời trạng thái Thợ (Bắt buộc Online khi nhận đơn, Auto-busy khi nhận & Auto-release khi hoàn thành/hủy).
 - [ ] [ISSUE-17.1] [Luồng 1: Đặt ca Khẩn cấp Realtime 30-60 phút & Broadcast Nhận đơn 30s](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint3/user_story_instant_booking_realtime_flow.md)
   - [ ] [ISSUE-17.2] Bắn Event `INSTANT_BOOKING_CREATED` qua Spring `ApplicationEventPublisher`.
   - [ ] [ISSUE-17.3] Màn hình Popup Đếm ngược 30-45s nhận ca khẩn cấp trên App Thợ & Đĩa quay radar Khách hàng.

@@ -3,16 +3,24 @@ package com.makeup.platform.service.booking.impl;
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.common.constants.MediaConstants;
+import com.makeup.platform.common.utils.FileValidationUtils;
 import com.makeup.platform.dto.request.booking.TransitionBookingStateReq;
+import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
+import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
+import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingStateMachineService;
+import com.makeup.platform.service.media.MediaStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -20,6 +28,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -28,9 +38,11 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
 
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final MuaProfileRepository muaProfileRepository;
     private final BookingAuditService bookingAuditService;
     private final BookingMapper bookingMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final MediaStorageService mediaStorageService;
 
     @Override
     @Transactional
@@ -65,12 +77,14 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
 
         // 3. Validate condition prerequisites
         if (targetStatus == BookingStatus.COMPLETED) {
-            if (req.getCompletionPhotoUrl() == null || req.getCompletionPhotoUrl().trim().isEmpty()) {
+            String photoUrl = req.getCompletionPhotoUrl();
+            if (StringUtils.hasText(photoUrl)) {
+                booking.setCompletionPhotoUrl(photoUrl.trim());
+            } else if (!StringUtils.hasText(booking.getCompletionPhotoUrl())) {
                 log.warn("[StateMachine] Completion photo required for bookingId={}", bookingId);
                 throw new CustomBusinessException(ErrorCodes.ERR_COMPLETION_PHOTO_REQUIRED,
                         "booking.completion_photo_required", HttpStatus.BAD_REQUEST);
             }
-            booking.setCompletionPhotoUrl(req.getCompletionPhotoUrl().trim());
         }
 
         if (targetStatus == BookingStatus.CANCELLED) {
@@ -87,11 +101,27 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             booking.setStatus(targetStatus);
             BookingEntity savedBooking = bookingRepository.save(booking);
 
-            // 5. Log audit trail in the same transaction
+            // 5. Release MUA busy status upon completion or cancellation
+            if (targetStatus == BookingStatus.COMPLETED || targetStatus == BookingStatus.CANCELLED) {
+                if (savedBooking.getMua() != null) {
+                    MuaProfileEntity mua = savedBooking.getMua();
+                    mua.setIsBusy(false);
+                    if (Boolean.TRUE.equals(mua.getIsOnline())) {
+                        mua.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+                    } else {
+                        mua.setAvailabilityStatus(AvailabilityStatus.OFFLINE);
+                    }
+                    muaProfileRepository.save(mua);
+                    log.info("[StateMachine] Released busy status for MUA id={} after bookingId={} reached {}",
+                            mua.getId(), bookingId, targetStatus);
+                }
+            }
+
+            // 6. Log audit trail in the same transaction
             String note = req.getReason() != null ? req.getReason() : "Chuyển trạng thái sang " + targetStatus.name();
             bookingAuditService.logTransition(savedBooking, currentStatus, targetStatus, userId, note);
 
-            // 6. Publish in-memory event
+            // 7. Publish in-memory event
             eventPublisher.publishEvent(new BookingStateChangedEvent(
                     this,
                     savedBooking.getId(),
@@ -237,5 +267,44 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                         "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
         }
+    }
+
+    @Override
+    @Transactional
+    public BookingCompletionPhotoRes uploadCompletionPhoto(Long bookingId, Long userId, MultipartFile file) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
+                        "auth.user_not_found", HttpStatus.NOT_FOUND));
+
+        // Authorization check: only assigned MUA or SUPER_ADMIN
+        boolean isSuperAdmin = user.getRole() != null && "ROLE_SUPER_ADMIN".equals(user.getRole().getName());
+        boolean isAssignedMua = booking.getMua() != null && booking.getMua().getUser() != null
+                && booking.getMua().getUser().getId().equals(userId);
+
+        if (!isSuperAdmin && !isAssignedMua) {
+            log.warn("[StateMachine] Unauthorized completion photo upload attempt for bookingId={} by userId={}",
+                    bookingId, userId);
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
+        }
+
+        // Validate image file (size, format, magic bytes)
+        FileValidationUtils.validateImageFile(file, MediaConstants.MAX_MAIN_IMAGE_SIZE);
+
+        // Upload to Cloudinary under folder bookings/{bookingId}/completion
+        CloudMediaUploadResult uploadResult = mediaStorageService.uploadImage(file, "bookings/" + bookingId + "/completion");
+
+        // Update booking entity with Cloudinary secure URL
+        booking.setCompletionPhotoUrl(uploadResult.getImageUrl());
+        BookingEntity savedBooking = bookingRepository.save(booking);
+
+        log.info("[StateMachine] Successfully uploaded completion photo to Cloudinary for bookingId={}, publicId={}",
+                bookingId, uploadResult.getPublicId());
+
+        return bookingMapper.toCompletionPhotoRes(savedBooking, uploadResult.getThumbnailUrl(), uploadResult.getPublicId());
     }
 }

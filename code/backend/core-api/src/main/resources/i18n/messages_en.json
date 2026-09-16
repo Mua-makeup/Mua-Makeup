@@ -110,7 +110,10 @@
     "already_taken": "Sorry! This booking has just been accepted by another artist.",
     "lock_timeout": "System is busy processing booking acceptance. Please try again in a moment.",
     "optimistic_lock_conflict": "Booking was updated by another concurrent operation. Please reload and retry.",
-    "concurrency_interrupted": "Concurrency handling interrupted. Please try again."
+    "concurrency_interrupted": "Concurrency handling interrupted. Please try again.",
+    "mua_must_be_online": "Makeup artist must be online to accept bookings.",
+    "mua_already_busy": "You are currently in another active job and cannot accept this booking.",
+    "completion_photo_upload_success": "Completion photo uploaded to Cloudinary successfully."
   },
   "ERR_USER_NOT_FOUND": "User not found.",
   "ERR_PHONE_ALREADY_EXISTS": "Phone number is already registered.",
@@ -183,6 +186,8 @@
   "ERR_BOOKING_ALREADY_TAKEN": "Booking already accepted by another artist.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Distributed lock acquisition timeout.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Optimistic lock version conflict.",
+  "ERR_MUA_MUST_BE_ONLINE": "Makeup artist must be online to accept booking.",
+  "ERR_MUA_ALREADY_BUSY": "Makeup artist is already busy with another job.",
   "validation": {
     "bio_size": "Bio cannot exceed 500 characters.",
     "experience_years_required": "Experience years cannot be blank.",
