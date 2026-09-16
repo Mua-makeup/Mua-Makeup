@@ -90,6 +90,8 @@ public final class ErrorCodes {
     public static final String ERR_BOOKING_ALREADY_TAKEN = "ERR_BOOKING_ALREADY_TAKEN";
     public static final String ERR_LOCK_ACQUISITION_TIMEOUT = "ERR_LOCK_ACQUISITION_TIMEOUT";
     public static final String ERR_OPTIMISTIC_LOCK_CONFLICT = "ERR_OPTIMISTIC_LOCK_CONFLICT";
+    public static final String ERR_MUA_MUST_BE_ONLINE = "ERR_MUA_MUST_BE_ONLINE";
+    public static final String ERR_MUA_ALREADY_BUSY = "ERR_MUA_ALREADY_BUSY";
 }
 
 
