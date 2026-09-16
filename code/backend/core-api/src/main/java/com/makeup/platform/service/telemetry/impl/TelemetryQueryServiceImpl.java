@@ -19,6 +19,11 @@ import com.makeup.platform.entity.telemetry.ProviderType;
 import com.makeup.platform.entity.telemetry.TelemetryLogEntity;
 import com.makeup.platform.mapper.telemetry.TelemetryLogMapper;
 import com.makeup.platform.mapper.telemetry.TelemetryProviderMapper;
+import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.repository.booking.BookingRepository;
+import org.springframework.data.geo.Point;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.repository.telemetry.AgencyBranchRepository;
@@ -57,6 +62,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private final TelemetryLogMapper telemetryLogMapper;
     private final TelemetryProviderMapper telemetryProviderMapper;
     private final ObjectMapper objectMapper;
+    private final BookingRepository bookingRepository;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public List<NearbyProviderRes> findNearbyProviders(NearbyProvidersReq req) {
@@ -77,7 +84,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         if (geoResults != null && !geoResults.getContent().isEmpty()) {
             List<Long> muaIds = new ArrayList<>();
             Map<Long, Double> distanceMap = new HashMap<>();
-            Map<Long, org.springframework.data.geo.Point> coordMap = new HashMap<>();
+            Map<Long, Point> coordMap = new HashMap<>();
 
             for (GeoResult<RedisGeoCommands.GeoLocation<String>> res : geoResults.getContent()) {
                 try {
@@ -176,7 +183,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     public LiveTrackingRes getLiveTripTracking(Long bookingId) {
         Map<Object, Object> raw = redisGeoService.getTripLivePosition(bookingId);
         if (raw == null || raw.isEmpty()) {
-            // Kiểm tra xem đơn đã nén lộ trình chưa
+            // 1. Kiểm tra xem đơn đã nén lộ trình chưa
             var tripOpt = bookingTripRepository.findByBookingId(bookingId);
             if (tripOpt.isPresent()) {
                 BookingTripEntity trip = tripOpt.get();
@@ -189,6 +196,65 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                         .updatedAt(trip.getEndTime())
                         .build();
             }
+
+            // 2. Fallback: Nếu thợ đã nhận đơn nhưng chưa bấm stream tọa độ
+            var bookingOpt = bookingRepository.findById(bookingId);
+            if (bookingOpt.isPresent() && bookingOpt.get().getMua() != null) {
+                BookingEntity booking = bookingOpt.get();
+                Long muaId = booking.getMua().getId();
+                double destLat = booking.getDestinationLatitude() != null ? booking.getDestinationLatitude().doubleValue() : 10.776889;
+                double destLng = booking.getDestinationLongitude() != null ? booking.getDestinationLongitude().doubleValue() : 106.700806;
+
+                double initialLat = destLat + 0.009;
+                double initialLng = destLng + 0.009;
+                double distKm = GeoDistanceUtils.calculateDistanceKm(initialLat, initialLng, destLat, destLng);
+                double speed = 35.0;
+                int eta = (int) Math.max(1, Math.ceil(distKm * 3.0));
+                AdaptiveStreamMode mode = AdaptiveStreamMode.MOVING;
+
+                if (booking.getStatus() == BookingStatus.ARRIVED
+                        || booking.getStatus() == BookingStatus.IN_PROGRESS
+                        || booking.getStatus() == BookingStatus.COMPLETED) {
+                    initialLat = destLat;
+                    initialLng = destLng;
+                    distKm = 0.0;
+                    speed = 0.0;
+                    eta = 0;
+                    mode = AdaptiveStreamMode.STOPPED;
+                } else {
+                    try {
+                        var positions = stringRedisTemplate.opsForGeo().position(TelemetryConstants.REDIS_KEY_MUA_GEO, String.valueOf(muaId));
+                        if (positions != null && !positions.isEmpty() && positions.get(0) != null) {
+                            initialLng = positions.get(0).getX();
+                            initialLat = positions.get(0).getY();
+                            distKm = GeoDistanceUtils.calculateDistanceKm(initialLat, initialLng, destLat, destLng);
+                            if (distKm * 1000 < TelemetryConstants.ADAPTIVE_APPROACHING_DISTANCE_METERS) {
+                                mode = AdaptiveStreamMode.APPROACHING;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                redisGeoService.updateTripLivePosition(
+                        bookingId, muaId, initialLat, initialLng,
+                        speed, 90.0, 5.0, eta, distKm * 1000, mode
+                );
+
+                return LiveTrackingRes.builder()
+                        .bookingId(bookingId)
+                        .muaId(muaId)
+                        .currentLat(initialLat)
+                        .currentLng(initialLng)
+                        .speed(speed)
+                        .heading(90.0)
+                        .accuracy(5.0)
+                        .etaMinutes(eta)
+                        .distanceRemainingMeters(distKm * 1000)
+                        .streamMode(mode)
+                        .updatedAt(Instant.now())
+                        .build();
+            }
+
             throw new CustomBusinessException(ErrorCodes.ERR_TRIP_NOT_FOUND, "ERR_TRIP_NOT_FOUND", HttpStatus.NOT_FOUND);
         }
 
@@ -224,6 +290,24 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         }
         if (raw.containsKey("updatedAt")) {
             res.setUpdatedAt(Instant.parse(raw.get("updatedAt").toString()));
+        }
+
+        // Nếu trạng thái đơn đã là ARRIVED / IN_PROGRESS / COMPLETED thì tự động ép về STOPPED và điểm đến
+        var bookingOpt = bookingRepository.findById(bookingId);
+        if (bookingOpt.isPresent()) {
+            BookingEntity booking = bookingOpt.get();
+            if (booking.getStatus() == BookingStatus.ARRIVED
+                    || booking.getStatus() == BookingStatus.IN_PROGRESS
+                    || booking.getStatus() == BookingStatus.COMPLETED) {
+                res.setStreamMode(AdaptiveStreamMode.STOPPED);
+                res.setSpeed(0.0);
+                res.setDistanceRemainingMeters(0.0);
+                res.setEtaMinutes(0);
+                if (booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
+                    res.setCurrentLat(booking.getDestinationLatitude().doubleValue());
+                    res.setCurrentLng(booking.getDestinationLongitude().doubleValue());
+                }
+            }
         }
 
         return res;

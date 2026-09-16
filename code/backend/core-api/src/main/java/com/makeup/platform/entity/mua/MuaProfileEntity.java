@@ -28,6 +28,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 
+import jakarta.persistence.MapsId;
+
 @Entity
 @Table(name = "mua_profiles", schema = "mua_schema")
 @Getter
@@ -38,6 +40,7 @@ import jakarta.persistence.Enumerated;
 public class MuaProfileEntity extends BaseEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private UserEntity user;
 

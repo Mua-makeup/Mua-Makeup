@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -37,6 +38,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
     private final BookingAuditService bookingAuditService;
     private final BookingMapper bookingMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     public BookingAcceptanceRes acceptBookingWithLock(Long bookingId, Long userId) {
@@ -100,6 +102,14 @@ public class DistributedLockServiceImpl implements DistributedLockService {
 
                 // Publish event to other subsystems (WebSocket, Escrow)
                 eventPublisher.publishEvent(new InstantBookingAcceptedEvent(this, bookingId, muaProfile.getId()));
+
+                // Cancel 45s countdown timer, dispatch timer, candidate queues and release dispatch lock
+                stringRedisTemplate.delete("booking:instant:expire:" + bookingId);
+                stringRedisTemplate.delete("booking:dispatch:candidates:" + bookingId);
+                stringRedisTemplate.delete("booking:dispatch:current:" + bookingId);
+                stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
+                stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + muaProfile.getId());
+                stringRedisTemplate.delete("mua:dispatch:locked:" + muaProfile.getId());
 
                 log.info("[Redlock] Booking id={} successfully accepted by muaId={}", bookingId, muaProfile.getId());
                 return bookingMapper.toAcceptanceRes(savedBooking);

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MUA Platform - Cổng Xác Thực & Điều Phối Role</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Playfair Display"', 'serif'],
+          },
+          colors: {
+            brand: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              200: '#fecdd3',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+              800: '#9f1239',
+              900: '#881337',
+            },
+            gold: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .phone-frame {
+      width: 100%;
+      max-width: 412px;
+      min-height: 840px;
+      border-radius: 40px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3), 0 0 0 10px #1e293b, 0 0 0 12px #475569;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 4px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-800 font-sans flex flex-col items-center justify-start p-4 md:p-8">
+
+  <!-- Header Banner -->
+  <header class="text-center mb-6 max-w-xl">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-semibold mb-2">
+      <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+      Backend Core-API Live Demo
+    </div>
+    <h1 class="text-3xl md:text-4xl font-serif font-bold text-white tracking-wide">
+      MUA Makeup Platform
+    </h1>
+    <p class="text-slate-400 text-sm mt-1">
+      Cổng Xác Thực, Đăng Ký & Điều Phối Role Tự Động sang Mobile UI
+    </p>
+  </header>
+
+  <!-- Mobile Simulator Mockup -->
+  <div class="phone-frame bg-white flex flex-col overflow-hidden relative border border-slate-200">
+    
+    <!-- Phone Status Bar -->
+    <div class="bg-slate-900 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs">
+      <span id="currentTime" class="font-semibold">09:41</span>
+      <div class="w-24 h-4 bg-black rounded-full mx-auto -mt-1"></div>
+      <div class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.778 8.222c-4.296-4.296-11.26-4.296-15.556 0A1 1 0 01.808 6.808c5.076-5.077 13.308-5.077 18.384 0a1 1 0 01-1.414 1.414zM14.95 11.05a7 7 0 00-9.9 0 1 1 0 01-1.414-1.414 9 9 0 0112.728 0 1 1 0 01-1.414 1.414zm-2.829 2.828a3 3 0 00-4.242 0 1 1 0 01-1.415-1.414 5 5 0 017.072 0 1 1 0 01-1.415 1.414zM9 16a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd"/></svg>
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm11 1H6v8h8V6z" clip-rule="evenodd"/></svg>
+      </div>
+    </div>
+
+    <!-- Phone App Header -->
+    <div class="bg-gradient-to-r from-rose-600 via-rose-700 to-rose-900 text-white p-5 shadow-md">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-rose-200 text-xs font-semibold tracking-wider uppercase">Authentication Portal</span>
+          <h2 class="text-xl font-serif font-bold text-amber-200">Đăng Nhập / Đăng Ký</h2>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+          <span class="text-lg">💄</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 overflow-y-auto p-5 scrollbar-thin">
+
+      <!-- Logged-in State Card -->
+      <div id="loggedInCard" class="hidden mb-5 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shadow-md">
+              <span id="userAvatarText">U</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h4 id="userNameDisplay" class="font-bold text-slate-800 text-base">Nguyen Van A</h4>
+                <span id="userRoleBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-200 text-emerald-800">ROLE_CUSTOMER</span>
+              </div>
+              <p id="userEmailDisplay" class="text-xs text-slate-500">customer@test.com</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-emerald-200/60 flex flex-col gap-2">
+          <p class="text-xs text-emerald-800 font-medium">
+            ✅ Bạn đang đăng nhập. Nhấn nút bên dưới để vào màn hình tương ứng:
+          </p>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <a id="btnGoCustomer" href="customer.html" class="px-3 py-2 text-center text-xs font-bold rounded-xl bg-rose-600 text-white shadow-sm hover:bg-rose-700 transition">
+              📱 Trang Khách Hàng
+            </a>
+            <a id="btnGoMua" href="mua.html" class="px-3 py-2 text-center text-xs font-bold rounded-xl bg-amber-500 text-slate-900 shadow-sm hover:bg-amber-400 transition">
+              🎨 Trang Thợ MUA
+            </a>
+          </div>
+          <button onclick="handleLogout()" class="mt-2 w-full py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-50 transition">
+            Đăng Xuất Khỏi Thiết Bị
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Preset Accounts (Click to Fill) -->
+      <div class="mb-5 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">⚡ Tài khoản mẫu (Bấm để điền nhanh):</span>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button onclick="fillPreset('customer')" class="text-left px-2 py-1.5 bg-white rounded-lg border border-slate-200 hover:border-rose-400 text-xs transition group">
+            <span class="font-bold text-rose-600 block group-hover:underline text-[11px]">Khách Hàng</span>
+            <span class="text-[9px] text-slate-500 font-mono">0981234567</span>
+          </button>
+          <button onclick="fillPreset('mua1')" class="text-left px-2 py-1.5 bg-white rounded-lg border border-slate-200 hover:border-amber-400 text-xs transition group">
+            <span class="font-bold text-amber-600 block group-hover:underline text-[11px]">Thợ 1 (#3)</span>
+            <span class="text-[9px] text-slate-500 font-mono">0912345678</span>
+          </button>
+          <button onclick="fillPreset('mua2')" class="text-left px-2 py-1.5 bg-white rounded-lg border border-slate-200 hover:border-amber-400 text-xs transition group">
+            <span class="font-bold text-amber-600 block group-hover:underline text-[11px]">Thợ 2 (#6)</span>
+            <span class="text-[9px] text-slate-500 font-mono">0988776655</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex rounded-xl bg-slate-100 p-1 mb-5">
+        <button id="tabLoginBtn" onclick="switchTab('login')" class="flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm text-slate-800 transition">
+          Đăng Nhập
+        </button>
+        <button id="tabRegisterBtn" onclick="switchTab('register')" class="flex-1 py-2 text-xs font-semibold text-slate-500 rounded-lg transition">
+          Đăng Ký Mới
+        </button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Email hoặc Số điện thoại</label>
+          <input id="loginIdentifier" type="text" required placeholder="name@example.com hoặc 0912345678" 
+                 class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu</label>
+          <input id="loginPassword" type="password" required placeholder="••••••••" 
+                 class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition">
+        </div>
+        <button type="submit" id="btnLoginSubmit" class="w-full py-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white font-bold text-sm rounded-xl shadow-md hover:from-rose-700 hover:to-rose-800 transition flex items-center justify-center gap-2">
+          <span>Đăng Nhập Hệ Thống</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-3.5 hidden">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Họ và tên</label>
+          <input id="regFullName" type="text" required placeholder="Nguyễn Thị Lan" 
+                 class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Email</label>
+          <input id="regEmail" type="email" required placeholder="lan.nguyen@example.com" 
+                 class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Số điện thoại</label>
+          <input id="regPhone" type="text" required placeholder="0987654321" 
+                 class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu (Tối thiểu 8 ký tự, gồm chữ hoa, thường, số & ký tự đặc biệt)</label>
+          <input id="regPassword" type="password" required placeholder="VD: Makeup@123" 
+                 class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Loại Tài Khoản (Role)</label>
+          <select id="regAccountType" class="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-rose-500 outline-none font-medium">
+            <option value="CUSTOMER">Khách Hàng (CUSTOMER)</option>
+            <option value="FREELANCER_MUA">Thợ Trang Điểm Tự Do (FREELANCER_MUA)</option>
+            <option value="AGENCY_ADMIN">Chủ Đại Lý / Agency (AGENCY_ADMIN)</option>
+          </select>
+        </div>
+        <button type="submit" id="btnRegSubmit" class="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-white font-bold text-sm rounded-xl shadow-md hover:from-amber-600 hover:to-rose-700 transition mt-2">
+          Đăng Ký Ngay
+        </button>
+      </form>
+
+      <!-- Status Toast / Alert -->
+      <div id="statusToast" class="hidden mt-4 p-3 rounded-xl text-xs font-medium border"></div>
+
+    </div>
+
+    <!-- Phone Bottom Home Bar -->
+    <div class="p-2 bg-white flex justify-center">
+      <div class="w-32 h-1 bg-slate-300 rounded-full"></div>
+    </div>
+  </div>
+
+  <!-- Realtime Request Inspector Console (Bottom Log) -->
+  <section class="mt-8 w-full max-w-4xl bg-slate-950 border border-slate-800 rounded-2xl p-4 shadow-xl text-slate-300">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">Backend API Inspector (HTTP & JSON Logs)</h3>
+      </div>
+      <button onclick="clearLogs()" class="text-xs text-slate-400 hover:text-rose-400 transition">Xóa Log</button>
+    </div>
+    <div id="consoleLogs" class="mt-3 font-mono text-xs space-y-2 max-h-48 overflow-y-auto scrollbar-thin">
+      <div class="text-slate-500 italic">// Hệ thống sẵn sàng. Mọi request gửi tới http://localhost:8080 sẽ hiển thị tại đây...</div>
+    </div>
+  </section>
+
+  <script>
+    // Luôn luôn trỏ trực tiếp tới Spring Boot Core-API chạy trên cổng 8080
+    const API_BASE = 'http://localhost:8080';
+
+    // Update Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('currentTime').textContent = 
+        String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Logger
+    function logMessage(method, endpoint, status, data) {
+      const logs = document.getElementById('consoleLogs');
+      const time = new Date().toLocaleTimeString();
+      const statusColor = status >= 200 && status < 300 ? 'text-emerald-400' : 'text-rose-400';
+
+      const entry = document.createElement('div');
+      entry.className = 'border-l-2 border-slate-700 pl-2 py-1';
+      entry.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500">[${time}]</span>
+          <span class="font-bold text-amber-400">${method}</span>
+          <span class="text-slate-300">${endpoint}</span>
+          <span class="font-bold ${statusColor}">${status}</span>
+        </div>
+        <pre class="text-[11px] text-slate-400 overflow-x-auto mt-0.5">${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}</pre>
+      `;
+      logs.prepend(entry);
+    }
+
+    function clearLogs() {
+      document.getElementById('consoleLogs').innerHTML = '<div class="text-slate-500 italic">// Đã xóa log console.</div>';
+    }
+
+    // Show Toast
+    function showToast(message, isSuccess = true) {
+      const toast = document.getElementById('statusToast');
+      toast.className = `mt-4 p-3 rounded-xl text-xs font-medium border ${
+        isSuccess ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
+      }`;
+      toast.innerHTML = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 5000);
+    }
+
+    // Tab Switcher
+    function switchTab(tab) {
+      const isLogin = tab === 'login';
+      document.getElementById('loginForm').classList.toggle('hidden', !isLogin);
+      document.getElementById('registerForm').classList.toggle('hidden', isLogin);
+      
+      const tabLogin = document.getElementById('tabLoginBtn');
+      const tabReg = document.getElementById('tabRegisterBtn');
+      
+      if (isLogin) {
+        tabLogin.className = 'flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm text-slate-800 transition';
+        tabReg.className = 'flex-1 py-2 text-xs font-semibold text-slate-500 rounded-lg transition';
+      } else {
+        tabReg.className = 'flex-1 py-2 text-xs font-bold rounded-lg bg-white shadow-sm text-slate-800 transition';
+        tabLogin.className = 'flex-1 py-2 text-xs font-semibold text-slate-500 rounded-lg transition';
+      }
+    }
+
+    // Preset filler
+    function fillPreset(role) {
+      switchTab('login');
+      if (role === 'customer') {
+        document.getElementById('loginIdentifier').value = '0981234567';
+        document.getElementById('loginPassword').value = '123456';
+      } else if (role === 'mua1') {
+        document.getElementById('loginIdentifier').value = '0912345678';
+        document.getElementById('loginPassword').value = '123456';
+      } else if (role === 'mua2') {
+        document.getElementById('loginIdentifier').value = '0988776655';
+        document.getElementById('loginPassword').value = '123456';
+      }
+    }
+
+    // Check Local Storage on Load
+    function checkCurrentSession() {
+      const token = localStorage.getItem('accessToken');
+      const userStr = localStorage.getItem('currentUser');
+      if (token && userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          document.getElementById('userNameDisplay').textContent = user.fullName || 'Người dùng';
+          document.getElementById('userEmailDisplay').textContent = user.phoneNumber || user.email || '';
+          document.getElementById('userRoleBadge').textContent = (user.roles && user.roles.length > 0) ? user.roles[0] : 'USER';
+          document.getElementById('userAvatarText').textContent = (user.fullName || 'U').charAt(0).toUpperCase();
+          document.getElementById('loggedInCard').classList.remove('hidden');
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        document.getElementById('loggedInCard').classList.add('hidden');
+      }
+    }
+
+    // Handle Login
+    async function handleLogin(e) {
+      e.preventDefault();
+      const identifier = document.getElementById('loginIdentifier').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ loginIdentifier: identifier, password: password })
+        });
+        const data = await res.json();
+        logMessage('POST', '/api/v1/auth/login', res.status, data);
+
+        if (res.ok && data.success) {
+          const payload = data.data; // AuthRes
+          const userInfo = payload.userInfo || {};
+          localStorage.setItem('accessToken', payload.accessToken);
+          localStorage.setItem('refreshToken', payload.refreshToken);
+          localStorage.setItem('currentUser', JSON.stringify(userInfo));
+
+          showToast(`Đăng nhập thành công! Chào mừng <b>${userInfo.fullName || 'bạn'}</b>`, true);
+          checkCurrentSession();
+
+          // Auto-route based on roles list
+          const roles = userInfo.roles || [];
+          setTimeout(() => {
+            if (roles.includes('ROLE_CUSTOMER')) {
+              window.location.href = 'customer.html';
+            } else if (roles.some(r => ['ROLE_FREELANCE_MUA', 'ROLE_AGENCY_STAFF', 'ROLE_AGENCY_ADMIN'].includes(r))) {
+              window.location.href = 'mua.html';
+            } else {
+              window.location.href = 'customer.html';
+            }
+          }, 1000);
+
+        } else {
+          showToast(`Lỗi: ${data.message || (data.data ? JSON.stringify(data.data) : 'Đăng nhập thất bại')}`, false);
+        }
+      } catch (err) {
+        logMessage('POST', '/api/v1/auth/login', 500, err.message);
+        showToast(`Lỗi kết nối máy chủ backend: ${err.message}`, false);
+      }
+    }
+
+    // Handle Register
+    async function handleRegister(e) {
+      e.preventDefault();
+      const fullName = document.getElementById('regFullName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const phoneNumber = document.getElementById('regPhone').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const accountType = document.getElementById('regAccountType').value;
+
+      const body = {
+        fullName,
+        phoneNumber,
+        password,
+        gender: 'FEMALE',
+        accountType
+      };
+      if (email) body.email = email;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        logMessage('POST', '/api/v1/auth/register', res.status, data);
+
+        if (res.ok && data.success) {
+          showToast(`Đăng ký thành công tài khoản <b>${accountType}</b>! Mời bạn đăng nhập.`, true);
+          switchTab('login');
+          document.getElementById('loginIdentifier').value = phoneNumber;
+          document.getElementById('loginPassword').value = password;
+        } else {
+          showToast(`Lỗi đăng ký: ${data.message || (data.data ? JSON.stringify(data.data) : 'Thất bại')}`, false);
+        }
+      } catch (err) {
+        logMessage('POST', '/api/v1/auth/register', 500, err.message);
+        showToast(`Lỗi kết nối: ${err.message}`, false);
+      }
+    }
+
+    // Handle Logout
+    async function handleLogout() {
+      const token = localStorage.getItem('accessToken');
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/auth/logout`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ refreshToken: refreshToken || null })
+          });
+          const data = await res.json();
+          logMessage('POST', '/api/v1/auth/logout', res.status, data);
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('currentUser');
+      showToast('Đã đăng xuất thành công!', true);
+      checkCurrentSession();
+    }
+
+    window.onload = checkCurrentSession;
+  </script>
+</body>
+</html>

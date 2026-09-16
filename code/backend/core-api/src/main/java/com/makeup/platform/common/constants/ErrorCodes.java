@@ -93,6 +93,7 @@ public final class ErrorCodes {
     public static final String ERR_OPTIMISTIC_LOCK_CONFLICT = "ERR_OPTIMISTIC_LOCK_CONFLICT";
     public static final String ERR_MUA_MUST_BE_ONLINE = "ERR_MUA_MUST_BE_ONLINE";
     public static final String ERR_MUA_ALREADY_BUSY = "ERR_MUA_ALREADY_BUSY";
+    public static final String ERR_BOOKING_ALREADY_EXISTS = "ERR_BOOKING_ALREADY_EXISTS";
 }
 
 

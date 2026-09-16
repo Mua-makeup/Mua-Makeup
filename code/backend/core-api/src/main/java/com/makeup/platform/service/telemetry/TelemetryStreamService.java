@@ -9,4 +9,5 @@ public interface TelemetryStreamService {
     String toggleAvailability(Long userId, ToggleAvailabilityReq req);
 
     LiveTrackingRes processLocationStream(Long userId, LocationStreamReq req);
+    void recordHeartbeat(Long userId);
 }

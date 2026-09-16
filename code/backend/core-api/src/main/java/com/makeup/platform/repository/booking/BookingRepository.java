@@ -2,6 +2,8 @@ package com.makeup.platform.repository.booking;
 
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.booking.BookingType;
+
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -9,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,4 +31,10 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     List<BookingEntity> findByAgencyIdOrderByCreatedAtDesc(Long agencyId);
 
     List<BookingEntity> findByStatus(BookingStatus status);
+
+    boolean existsByCustomerIdAndBookingTypeAndStatusIn(
+            Long customerId,
+            BookingType bookingType,
+            Collection<BookingStatus> statuses
+    );
 }
