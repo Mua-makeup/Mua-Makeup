@@ -1,6 +1,8 @@
 package com.makeup.platform.mapper.auth;
 
+import com.makeup.platform.dto.response.admin.AdminUserRes;
 import com.makeup.platform.dto.response.auth.AuthRes;
+
 import com.makeup.platform.dto.response.auth.UserInfoRes;
 import com.makeup.platform.dto.response.auth.UserRegisterRes;
 import com.makeup.platform.entity.auth.UserEntity;
@@ -57,4 +59,28 @@ public class AuthMapper {
                 .userInfo(userInfo)
                 .build();
     }
+
+    public AdminUserRes toAdminUserRes(UserEntity user) {
+        if (user == null) {
+            return null;
+        }
+        String roleName = null;
+        if (user.getRole() != null) {
+            roleName = user.getRole().getName();
+        }
+        return AdminUserRes.builder()
+                .id(user.getId())
+                .phoneNumber(user.getPhoneNumber())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .avatarUrl(user.getAvatarUrl())
+                .gender(user.getGender())
+                .isActive(user.getIsActive())
+                .isVerified(user.getIsVerified())
+                .language(user.getLanguage())
+                .role(roleName)
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
 }
+

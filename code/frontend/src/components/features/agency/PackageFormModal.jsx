@@ -8,8 +8,10 @@ import { Textarea } from '../../base/Textarea';
 import { agencyService } from '../../../services/agency.service';
 import { superAdminService } from '../../../services/super-admin.service';
 import { servicePackageSchema } from '../../../schemas/agency.schema';
+import { useI18nStore } from '../../../store/useI18nStore';
 
 export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess }) => {
+  const { t } = useI18nStore();
   const [packageName, setPackageName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -41,8 +43,8 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
         setPackageName(editingPackage.packageName || '');
         setDescription(editingPackage.description || '');
         setPrice(editingPackage.price || '');
-        setDurationMinutes(editingPackage.durationMinutes || 60);
-        setCategoryId(editingPackage.categoryId || editingPackage.category?.id || '');
+        setDurationMinutes(editingPackage.durationMinutes ?? editingPackage.estimatedDurationMinutes ?? 60);
+        setCategoryId(editingPackage.masterCategoryId || editingPackage.categoryId || editingPackage.category?.id || '');
         setSelectedStyleIds(
           editingPackage.styleIds ||
             editingPackage.styles?.map((s) => s.id || s) ||
@@ -110,7 +112,7 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
         detailErr ||
           err.response?.data?.message ||
           err.message ||
-          'Lỗi khi lưu gói dịch vụ, vui lòng thử lại'
+          t('error_general')
       );
     } finally {
       setIsLoading(false);
@@ -127,24 +129,24 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div className="flex items-center gap-2 text-slate-900">
-          <Package className="w-5 h-5 text-rose-600" />
-          <span>{editingPackage ? 'Chỉnh Sửa Gói Dịch Vụ' : 'Tạo Gói Dịch Vụ Mới'}</span>
+        <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+          <Package className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <span>{editingPackage ? t('pkg_modal_edit_title') : t('pkg_modal_create_title')}</span>
         </div>
       }
       maxWidth="max-w-xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {serverError && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-700 rounded-lg">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 rounded-lg">
             {serverError}
           </div>
         )}
 
         <Input
-          label="Tên Gói Dịch Vụ"
+          label={t('pkg_field_name')}
           required
-          placeholder="VD: Make-up Cô Dâu VIP Tone Hàn..."
+          placeholder={t('pkg_field_name_placeholder')}
           value={packageName}
           onChange={(e) => setPackageName(e.target.value)}
           error={errors.packageName}
@@ -152,17 +154,17 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
-            label="Danh Mục Dịch Vụ Gốc"
+            label={t('pkg_field_category')}
             required
             options={categoryOptions}
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             error={errors.categoryId}
-            placeholder="-- Chọn danh mục sàn --"
+            placeholder={t('pkg_field_category_placeholder')}
           />
 
           <Input
-            label="Thời Lượng Thực Hiện (Phút)"
+            label={t('pkg_field_duration')}
             type="number"
             min="15"
             max="480"
@@ -175,7 +177,7 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
         </div>
 
         <Input
-          label="Giá Niêm Yết (VNĐ)"
+          label={t('pkg_field_price')}
           type="number"
           min="10000"
           step="10000"
@@ -184,15 +186,15 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           error={errors.price}
-          helperText="Giá cơ bản áp dụng cho gói make-up tiêu chuẩn"
+          helperText={t('pkg_field_price_helper')}
         />
 
         {/* Tone Styles Multi-select */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Tone Phong Cách Áp Dụng <span className="text-rose-500">*</span>
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+            {t('pkg_field_styles')} <span className="text-rose-500">*</span>
           </label>
-          <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-2 border border-slate-200 rounded-xl bg-slate-50">
+          <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/60">
             {styles.map((s) => {
               const isChecked = selectedStyleIds.includes(s.id);
               return (
@@ -202,8 +204,8 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
                   onClick={() => toggleStyle(s.id)}
                   className={`p-2 rounded-lg border text-left text-xs font-medium transition-all ${
                     isChecked
-                      ? 'bg-rose-50 border-rose-300 text-rose-800'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                      ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-600 text-rose-800 dark:text-rose-200 shadow-sm'
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                   }`}
                 >
                   {s.styleName}
@@ -217,19 +219,19 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
         </div>
 
         <Textarea
-          label="Mô Tả Chi Tiết Gói"
-          placeholder="Mô tả kỹ thuật trang điểm, các loại mỹ phẩm cao cấp sử dụng..."
+          label={t('pkg_field_desc')}
+          placeholder={t('pkg_field_desc_placeholder')}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
         />
 
-        <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+        <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Hủy
+            {t('cancel')}
           </Button>
           <Button type="submit" variant="primary" isLoading={isLoading}>
-            {editingPackage ? 'Cập Nhật Gói' : 'Tạo Gói Dịch Vụ'}
+            {editingPackage ? t('pkg_btn_save_edit') : t('pkg_btn_save_create')}
           </Button>
         </div>
       </form>

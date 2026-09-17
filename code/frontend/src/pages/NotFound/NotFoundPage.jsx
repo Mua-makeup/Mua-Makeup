@@ -2,22 +2,24 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Home, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { useI18nStore } from '../../store/useI18nStore';
 import { USER_ROLES } from '../../constants/roles.constant';
 
 export const NotFoundPage = () => {
   const { isAuthenticated, role } = useAuth();
+  const { t } = useI18nStore();
 
   const getBackDestination = () => {
     if (!isAuthenticated) {
-      return { path: '/', label: 'Quay Về Trang Chủ' };
+      return { path: '/', label: t('btn_back_home') };
     }
     if (role === USER_ROLES.SUPER_ADMIN) {
-      return { path: '/admin/dashboard', label: 'Quay Về Bảng Điều Khiển Super Admin' };
+      return { path: '/admin/dashboard', label: t('btn_back_admin_dashboard') };
     }
     if (role === USER_ROLES.AGENCY_ADMIN) {
-      return { path: '/agency/dashboard', label: 'Quay Về Bảng Điều Khiển Studio' };
+      return { path: '/agency/dashboard', label: t('btn_back_agency_dashboard') };
     }
-    return { path: '/', label: 'Quay Về Trang Chủ' };
+    return { path: '/', label: t('btn_back_home') };
   };
 
   const dest = getBackDestination();
@@ -29,15 +31,15 @@ export const NotFoundPage = () => {
       </div>
 
       <p className="text-sm font-bold text-rose-600 tracking-wider uppercase">
-        Lỗi 404 - Không Tìm Thấy Trang
+        {t('error_404_title')}
       </p>
 
       <h1 className="mt-2 text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-        Đường Dẫn Không Tồn Tại
+        404
       </h1>
 
       <p className="mt-3 text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-        Trang bạn đang tìm kiếm có thể đã bị di chuyển, xóa bỏ hoặc bạn chưa được phân quyền truy cập hợp lệ.
+        {t('error_404_desc')}
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -53,7 +55,7 @@ export const NotFoundPage = () => {
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold text-sm border border-slate-200 shadow-xs transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Quay Lại Trang Trước</span>
+          <span>{t('dt_prev_page')}</span>
         </button>
       </div>
     </div>

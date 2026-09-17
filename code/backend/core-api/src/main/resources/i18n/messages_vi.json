@@ -22,7 +22,10 @@
     "token_expired": "Token đã hết hạn. Vui lòng đăng nhập lại.",
     "token_invalid": "Token không hợp lệ.",
     "token_signature_invalid": "Chữ ký token không hợp lệ.",
-    "language_updated": "Cập nhật ngôn ngữ ưa thích thành công."
+    "language_updated": "Cập nhật ngôn ngữ ưa thích thành công.",
+    "user_not_found": "Không tìm thấy người dùng.",
+    "access_denied": "Truy cập bị từ chối: Bạn không có quyền thực hiện hành động này.",
+    "unauthorized_token": "Yêu cầu cần xác thực. Vui lòng đăng nhập hoặc cung cấp token hợp lệ."
   },
   "customer": {
     "profile_update_success": "Cập nhật hồ sơ khách hàng thành công!"
@@ -78,9 +81,15 @@
     "overtime_rule_required_for_preset": "Vui lòng chọn quy chế khi áp dụng chế tài theo mẫu.",
     "overtime_already_reviewed": "Báo cáo quá giờ này đã được xử lý trước đó.",
     "invalid_overtime_action": "Hành động xử lý quá giờ không hợp lệ.",
-    "staff_not_found_or_inactive": "Không tìm thấy thợ hoặc thợ chưa kích hoạt trong Studio."
+    "staff_not_found_or_inactive": "Không tìm thấy thợ hoặc thợ chưa kích hoạt trong Studio.",
+    "invalid_decision": "Quyết định không hợp lệ. Chỉ chấp nhận APPROVE hoặc REJECT.",
+    "staff_not_active": "Nhân viên chưa kích hoạt hoặc không thể xếp ca.",
+    "shift_time_invalid": "Thời gian kết thúc ca làm phải sau thời gian bắt đầu.",
+    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày."
   },
   "catalog": {
+    "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",
+    "package_not_found": "Không tìm thấy gói dịch vụ với ID: {0}",
     "package_create_success": "Tạo gói dịch vụ thành công!",
     "package_update_success": "Cập nhật gói dịch vụ thành công!",
     "package_delete_success": "Xóa gói dịch vụ thành công!",
@@ -239,6 +248,7 @@
     "catalog_item_step_order_min": "Thứ tự bước phải lớn hơn hoặc bằng 1.",
     "catalog_item_price_required": "Giá không được để trống.",
     "catalog_item_price_min": "Giá không được nhỏ hơn 0 VNĐ.",
+    "catalog_item_duration_min": "Thời lượng không được nhỏ hơn 0 phút.",
     "catalog_category_required": "Danh mục dịch vụ gốc không được để trống.",
     "catalog_package_name_required": "Tên gói dịch vụ không được để trống.",
     "catalog_package_name_size": "Tên gói dịch vụ không vượt quá 150 ký tự.",
@@ -257,6 +267,10 @@
     "city_max": "Thành phố không được vượt quá 50 ký tự.",
     "latitude_invalid": "Vĩ độ không hợp lệ (phải từ -90.0 đến 90.0).",
     "longitude_invalid": "Kinh độ không hợp lệ (phải từ -180.0 đến 180.0).",
+    "booking_destination_address_required": "Địa chỉ điểm đến không được để trống.",
+    "booking_destination_address_size": "Địa chỉ điểm đến không được vượt quá 500 ký tự.",
+    "booking_latitude_required": "Vĩ độ điểm đến không được để trống.",
+    "booking_longitude_required": "Kinh độ điểm đến không được để trống.",
     "commission_rate_required": "Tỷ lệ hoa hồng không được để trống.",
     "commission_rate_min": "Tỷ lệ hoa hồng tối thiểu là 0%.",
     "commission_rate_max": "Tỷ lệ hoa hồng tối đa là 100%.",
@@ -317,6 +331,35 @@
     "booking_reason_max": "Lý do không được vượt quá 500 ký tự."
   },
   "admin": {
-    "agency_verify_success": "Cập nhật trạng thái phê duyệt Studio Agency thành công!"
+    "agency_verify_success": "Cập nhật trạng thái phê duyệt Studio Agency thành công!",
+    "bookings_fetch_success": "Lấy danh sách đơn hàng toàn sàn thành công.",
+    "booking_detail_fetch_success": "Lấy thông tin chi tiết đơn hàng thành công.",
+    "users_fetch_success": "Lấy danh sách người dùng thành công.",
+    "user_status_update_success": "Cập nhật trạng thái người dùng thành công!"
+  },
+  "category": {
+    "code_required": "Mã danh mục không được để trống.",
+    "code_max": "Mã danh mục tối đa 50 ký tự.",
+    "name_required": "Tên danh mục không được để trống.",
+    "name_max": "Tên danh mục tối đa 100 ký tự.",
+    "code_conflict": "Mã danh mục này đã tồn tại trong hệ thống.",
+    "create_success": "Tạo mới danh mục dịch vụ thành công!",
+    "update_success": "Cập nhật danh mục dịch vụ thành công!",
+    "not_found": "Không tìm thấy danh mục dịch vụ yêu cầu."
+  },
+  "style": {
+    "code_required": "Mã phong cách không được để trống.",
+    "code_max": "Mã phong cách tối đa 50 ký tự.",
+    "name_required": "Tên phong cách không được để trống.",
+    "name_max": "Tên phong cách tối đa 100 ký tự.",
+    "code_conflict": "Mã phong cách này đã tồn tại trong hệ thống.",
+    "create_success": "Tạo mới phong cách make-up thành công!",
+    "update_success": "Cập nhật phong cách make-up thành công!",
+    "not_found": "Không tìm thấy phong cách make-up yêu cầu."
+  },
+  "agency": {
+    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công."
   }
 }
+
+

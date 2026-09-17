@@ -47,14 +47,11 @@ export const AdminDashboardPage = () => {
         const aList = agencyRes?.data || agencyRes || [];
         setAgencies(Array.isArray(aList) ? aList : []);
       } catch (err) {
-        setApiError(
-          err.message ||
-            'Không thể kết nối đến Spring Boot Core API (Port 8080). Vui lòng kiểm tra backend server.'
-        );
+        setApiError(err.message || t('error_api_connection'));
       }
     };
     fetchData();
-  }, []);
+  }, [t]);
 
   const handleVerifySuccess = ({ muaId, certIndex, isVerified, status }) => {
     setPendingMuas((prev) =>
@@ -70,8 +67,8 @@ export const AdminDashboardPage = () => {
     );
     setToastMessage(
       isVerified
-        ? `Đã phê duyệt chứng chỉ cho MUA #${muaId} thành công!`
-        : `Đã từ chối hồ sơ MUA #${muaId}.`
+        ? `${t('admin_cert_approved_toast')} (#${muaId})`
+        : `${t('admin_cert_rejected_toast')} (#${muaId})`
     );
   };
 
@@ -115,7 +112,7 @@ export const AdminDashboardPage = () => {
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-rose-800 dark:text-rose-300 text-xs flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-bold text-sm">Không thể kết nối máy chủ:</p>
+            <p className="font-bold text-sm">{t('error_system_notice')}:</p>
             <p className="mt-0.5 font-mono">{apiError}</p>
           </div>
         </div>
@@ -126,13 +123,13 @@ export const AdminDashboardPage = () => {
         {/* Card 1: Chứng chỉ chờ duyệt */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('kpi_pending_certs')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{pendingCount}</p>
             <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              <span>Chờ thẩm định</span>
+              <span>{t('status_pending')}</span>
             </p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900">
@@ -144,16 +141,16 @@ export const AdminDashboardPage = () => {
         <Link to="/admin/agencies" className="block group">
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-all group-hover:border-indigo-400 dark:group-hover:border-indigo-600">
             <div>
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {t('kpi_active_studios')}
               </p>
               <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
                 {agencies.length}
               </p>
               <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
-                <span>{agencies.filter((a) => a.isVerified).length} đã duyệt</span>
+                <span>{agencies.filter((a) => a.isVerified).length} {t('status_verified')}</span>
                 <span>•</span>
-                <span className="group-hover:underline">Xem tất cả →</span>
+                <span className="group-hover:underline">{t('view_all')} →</span>
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900 group-hover:scale-110 transition-transform">
@@ -165,7 +162,7 @@ export const AdminDashboardPage = () => {
         {/* Card 3: Danh mục & Phong cách */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('kpi_taxonomy')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
@@ -180,7 +177,7 @@ export const AdminDashboardPage = () => {
         {/* Card 4: Trạng thái Hệ thống Core API */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('kpi_system_health')}
             </p>
             <p
@@ -193,7 +190,7 @@ export const AdminDashboardPage = () => {
                   apiError ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'
                 }`}
               ></span>
-              {apiError ? 'Mất Kết Nối' : 'Hoạt Động Tốt'}
+              {apiError ? t('system_offline') : t('system_online')}
             </p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-900">
@@ -207,32 +204,32 @@ export const AdminDashboardPage = () => {
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              Hồ Sơ Chứng Chỉ MUA Cần Thẩm Định
+              {t('admin_cert_queue_title')}
             </h2>
           </div>
           <Link
             to="/admin/muas/credentials"
             className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline"
           >
-            <span>Xem toàn bộ</span>
+            <span>{t('view_all')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         {pendingMuas.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs">
-            Hiện tại không có hồ sơ chứng chỉ nào đang chờ thẩm định trong cơ sở dữ liệu.
+            {t('admin_cert_queue_empty')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
                 <tr>
-                  <th className="px-6 py-3">Thợ Make-up</th>
-                  <th className="px-6 py-3">Chứng chỉ nộp</th>
-                  <th className="px-6 py-3">Kinh nghiệm</th>
-                  <th className="px-6 py-3">Trạng thái</th>
-                  <th className="px-6 py-3 text-right">Thao tác</th>
+                  <th className="px-6 py-3">{t('col_staff_name')}</th>
+                  <th className="px-6 py-3">{t('col_cert_name')}</th>
+                  <th className="px-6 py-3">{t('col_experience')}</th>
+                  <th className="px-6 py-3">{t('status')}</th>
+                  <th className="px-6 py-3 text-right">{t('col_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -255,16 +252,16 @@ export const AdminDashboardPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                        {mua.experienceYears} năm
+                        {mua.experienceYears} {t('unit_years')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       {mua.status === 'VERIFIED' || mua.isVerified === true ? (
-                        <Badge variant="active">Đã xác thực</Badge>
+                        <Badge variant="active">{t('status_verified')}</Badge>
                       ) : mua.status === 'REJECTED' ? (
-                        <Badge variant="rejected">Từ chối</Badge>
+                        <Badge variant="rejected">{t('status_rejected')}</Badge>
                       ) : (
-                        <Badge variant="pending">Chờ thẩm định</Badge>
+                        <Badge variant="pending">{t('status_pending')}</Badge>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">

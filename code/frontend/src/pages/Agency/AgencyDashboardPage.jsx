@@ -85,7 +85,7 @@ export const AgencyDashboardPage = () => {
             </p>
           </div>
           <Button variant="secondary" size="sm" onClick={loadDashboardData}>
-            Thử Lại
+            {t('retry')}
           </Button>
         </div>
       )}
@@ -95,9 +95,9 @@ export const AgencyDashboardPage = () => {
         <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-900 dark:text-amber-200 text-xs flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-bold text-sm">Tài khoản Studio đang chờ Quản Trị Viên phê duyệt</p>
+            <p className="font-bold text-sm">{t('agency_unverified_banner_title')}</p>
             <p className="mt-1 leading-relaxed">
-              Hồ sơ đối tác Studio Agency của bạn hiện đang được Super Admin kiểm tra và thẩm định. Trong thời gian chờ duyệt, các tính năng mở bán gói dịch vụ, tuyển dụng thợ và phân ca xếp lịch sẽ tạm thời bị khóa.
+              {t('agency_unverified_banner_desc')}
             </p>
           </div>
         </div>
@@ -112,20 +112,20 @@ export const AgencyDashboardPage = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-                {profile?.agencyName || 'Studio Make-up Chuyên Nghiệp'}
+                {profile?.agencyName || 'Studio Agency'}
               </h1>
               {profile?.isVerified ? (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Đã Xác Thực
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  {t('agency_status_verified')}
                 </span>
               ) : (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  Chờ Phê Duyệt
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  {t('agency_status_pending')}
                 </span>
               )}
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Hotline: <span className="font-mono text-slate-300">{profile?.hotline || 'Chưa cập nhật'}</span> • Địa chỉ: {profile?.addressStreet ? `${profile.addressStreet}, ${profile.addressDistrict || ''}, ${profile.addressCity || ''}` : 'Chưa cập nhật địa chỉ'}
+              Hotline: <span className="font-mono text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.addressDistrict || ''}, ${profile.addressCity || ''}` : 'N/A'}
             </p>
           </div>
         </div>
@@ -169,7 +169,7 @@ export const AgencyDashboardPage = () => {
         {/* Card 1: Nhân sự */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('agency_staff_count')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
@@ -179,7 +179,7 @@ export const AgencyDashboardPage = () => {
               to="/agency/staff"
               className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium hover:underline inline-flex items-center gap-1"
             >
-              <span>Quản lý thợ & tuyển dụng</span>
+              <span>{t('nav_agency_staff')}</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
@@ -191,7 +191,7 @@ export const AgencyDashboardPage = () => {
         {/* Card 2: Gói Dịch Vụ */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('agency_packages_count')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
@@ -201,7 +201,7 @@ export const AgencyDashboardPage = () => {
               to="/agency/packages"
               className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline inline-flex items-center gap-1"
             >
-              <span>Quản lý gói & Add-ons</span>
+              <span>{t('nav_agency_packages')}</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
@@ -213,7 +213,7 @@ export const AgencyDashboardPage = () => {
         {/* Card 3: Hoa hồng mặc định */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('agency_commission_default')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
@@ -223,7 +223,7 @@ export const AgencyDashboardPage = () => {
               to="/agency/profile"
               className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium hover:underline inline-flex items-center gap-1"
             >
-              <span>Thay đổi chính sách</span>
+              <span>{t('nav_agency_profile')}</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
@@ -235,7 +235,7 @@ export const AgencyDashboardPage = () => {
         {/* Card 4: Đánh giá trung bình */}
         <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
           <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('agency_rating_avg')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-1">
@@ -243,7 +243,7 @@ export const AgencyDashboardPage = () => {
               <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {profile?.totalReviews ? `Từ ${profile.totalReviews} lượt khách hàng` : 'Đang cập nhật đánh giá'}
+              {profile?.totalReviews ? `${t('agency_reviews_count_prefix')} ${profile.totalReviews} ${t('agency_reviews_count_suffix')}` : t('agency_reviews_updating')}
             </p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50">
@@ -257,17 +257,17 @@ export const AgencyDashboardPage = () => {
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              Gói Dịch Vụ Mở Bán Của Studio
+              {t('agency_packages_preview_title')}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Khách hàng có thể tìm kiếm và đặt lịch thợ của Studio qua các gói này
+              {t('agency_packages_preview_desc')}
             </p>
           </div>
           <Link
             to="/agency/packages"
             className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700"
           >
-            <span>Quản lý chi tiết</span>
+            <span>{t('view_all')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
@@ -275,7 +275,7 @@ export const AgencyDashboardPage = () => {
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           {packages.length === 0 ? (
             <div className="col-span-3 text-center py-8 text-xs text-slate-400 dark:text-slate-500">
-              Studio chưa có gói dịch vụ nào trong cơ sở dữ liệu. Hãy bấm "Tạo Gói Mới" ở góc phải để thêm dịch vụ.
+              {t('agency_packages_preview_empty')}
             </div>
           ) : (
             packages.slice(0, 3).map((pkg) => (
@@ -288,18 +288,18 @@ export const AgencyDashboardPage = () => {
                     {pkg.packageName}
                   </span>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    Đang Nhận Đơn
+                    {t('agency_package_accepting_orders')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">
-                  {pkg.description || 'Gói make-up tiêu chuẩn chuyên nghiệp của Studio'}
+                  {pkg.description || t('agency_package_default_desc')}
                 </p>
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
                   <span className="text-rose-600 dark:text-rose-400 font-bold">
                     {formatCurrency(pkg.price)}
                   </span>
                   <span className="text-slate-400 dark:text-slate-500 font-mono">
-                    {pkg.durationMinutes || 60} phút
+                    {pkg.durationMinutes ?? pkg.estimatedDurationMinutes ?? 60} {t('unit_minutes')}
                   </span>
                 </div>
               </div>

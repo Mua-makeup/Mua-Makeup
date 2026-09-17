@@ -21,6 +21,7 @@ public class PackageItemMapper {
                 .itemName(entity.getItemName())
                 .stepOrder(entity.getStepOrder())
                 .itemPrice(entity.getItemPrice())
+                .durationMinutes(entity.getDurationMinutes())
                 .isRequired(entity.getIsRequired())
                 .isActive(entity.getIsActive())
                 .build();

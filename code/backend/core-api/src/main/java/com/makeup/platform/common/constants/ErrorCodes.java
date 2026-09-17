@@ -33,6 +33,7 @@ public final class ErrorCodes {
     public static final String ERR_INVALID_SURCHARGE_AMOUNT = "ERR_INVALID_SURCHARGE_AMOUNT";
     public static final String ERR_MASTER_CATEGORY_NOT_FOUND = "ERR_MASTER_CATEGORY_NOT_FOUND";
     public static final String ERR_STYLE_NOT_FOUND = "ERR_STYLE_NOT_FOUND";
+    public static final String ERR_TAXONOMY_CODE_CONFLICT = "ERR_TAXONOMY_CODE_CONFLICT";
     public static final String ERR_INVALID_SURCHARGE_CALCULATION = "ERR_INVALID_SURCHARGE_CALCULATION";
     public static final String ERR_VALIDATION = "ERR_VALIDATION";
     public static final String ERR_INTERNAL = "ERR_INTERNAL";

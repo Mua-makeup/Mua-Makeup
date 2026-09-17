@@ -21,6 +21,7 @@ public class PackageItemRes {
     private String itemName;
     private Integer stepOrder;
     private BigDecimal itemPrice;
+    private Integer durationMinutes;
     private Boolean isRequired;
     private Boolean isActive;
 }

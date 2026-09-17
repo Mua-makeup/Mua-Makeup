@@ -47,10 +47,7 @@ export const AdminAgenciesPage = () => {
       const list = res?.data || res || [];
       setAgencies(Array.isArray(list) ? list : []);
     } catch (err) {
-      setApiError(
-        err.message ||
-          'Không thể kết nối đến Spring Boot Core API để tải danh sách Studio Agency.'
-      );
+      setApiError(err.message || t('error_api_connection'));
       setAgencies([]);
     } finally {
       setIsLoading(false);
@@ -59,7 +56,7 @@ export const AdminAgenciesPage = () => {
 
   useEffect(() => {
     fetchAgencies();
-  }, []);
+  }, [t]);
 
   const handleToggleVerify = async (agency, targetStatus) => {
     setActionLoadingId(agency.id);
@@ -168,7 +165,7 @@ export const AdminAgenciesPage = () => {
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            {t('filter_all_staff') || 'Tất Cả'} ({agencies.length})
+            {t('admin_agency_filter_all')} ({agencies.length})
           </button>
           <button
             type="button"
@@ -199,26 +196,26 @@ export const AdminAgenciesPage = () => {
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
         {isLoading ? (
           <div className="p-12 text-center text-xs text-slate-400">
-            {t('loading') || 'Đang tải danh sách Studio Agency từ máy chủ...'}
+            {t('loading')}
           </div>
         ) : filteredAgencies.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs">
             {searchQuery
-              ? 'Không tìm thấy Studio nào phù hợp với từ khóa tìm kiếm.'
-              : 'Chưa có đối tác Studio Agency nào được đăng ký trong cơ sở dữ liệu.'}
+              ? t('admin_agency_empty_search')
+              : t('admin_agency_empty_list')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
                 <tr>
-                  <th className="px-6 py-3.5">Studio / Đại Lý</th>
-                  <th className="px-6 py-3.5">Chủ Sở Hữu</th>
-                  <th className="px-6 py-3.5">Địa Bàn</th>
-                  <th className="px-6 py-3.5">Hoa Hồng</th>
-                  <th className="px-6 py-3.5">Đánh Giá</th>
-                  <th className="px-6 py-3.5">Trạng Thái</th>
-                  <th className="px-6 py-3.5 text-right">Thao Tác</th>
+                  <th className="px-6 py-3.5">{t('col_studio_agency')}</th>
+                  <th className="px-6 py-3.5">{t('col_owner')}</th>
+                  <th className="px-6 py-3.5">{t('col_region')}</th>
+                  <th className="px-6 py-3.5">{t('col_commission')}</th>
+                  <th className="px-6 py-3.5">{t('col_rating')}</th>
+                  <th className="px-6 py-3.5">{t('status')}</th>
+                  <th className="px-6 py-3.5 text-right">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -246,7 +243,7 @@ export const AdminAgenciesPage = () => {
                             {agency.agencyName}
                           </span>
                           <span className="text-[11px] text-slate-400 font-mono">
-                            Mã: {agency.agencyCode || `#AG-${agency.id}`}
+                            {agency.agencyCode || `#AG-${agency.id}`}
                           </span>
                         </div>
                       </div>
@@ -256,7 +253,7 @@ export const AdminAgenciesPage = () => {
                     <td className="px-6 py-4">
                       <div className="text-xs space-y-0.5">
                         <span className="font-semibold text-slate-800 dark:text-slate-200 block">
-                          {agency.ownerName || 'Chưa cập nhật'}
+                          {agency.ownerName || t('not_updated')}
                         </span>
                         <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-mono">
                           <Phone className="w-3 h-3" />
@@ -269,10 +266,10 @@ export const AdminAgenciesPage = () => {
                     <td className="px-6 py-4">
                       <div className="text-xs">
                         <span className="font-medium text-slate-800 dark:text-slate-200 block">
-                          {agency.city || 'Toàn quốc'}
+                          {agency.city || t('nationwide')}
                         </span>
                         <span className="text-[11px] text-slate-400">
-                          {agency.district || agency.addressStreet || 'Chưa định vị'}
+                          {agency.district || agency.addressStreet || t('unlocated')}
                         </span>
                       </div>
                     </td>
@@ -341,7 +338,7 @@ export const AdminAgenciesPage = () => {
           title={
             <div className="flex items-center gap-2 text-slate-900 dark:text-white">
               <Building2 className="w-5 h-5 text-rose-600" />
-              <span>Chi Tiết Studio: {selectedAgency.agencyName}</span>
+              <span>{t('agency_detail_title')}: {selectedAgency.agencyName}</span>
             </div>
           }
           maxWidth="max-w-2xl"
@@ -356,11 +353,11 @@ export const AdminAgenciesPage = () => {
                 }
               >
                 {selectedAgency.isVerified
-                  ? 'Thu Hồi Phê Duyệt'
-                  : 'Phê Duyệt Hoạt Động'}
+                  ? t('admin_agency_btn_revoke')
+                  : t('admin_agency_btn_verify')}
               </Button>
               <Button variant="secondary" onClick={() => setSelectedAgency(null)}>
-                Đóng
+                {t('close')}
               </Button>
             </div>
           }
@@ -385,17 +382,17 @@ export const AdminAgenciesPage = () => {
                     {selectedAgency.agencyName}
                   </h3>
                   {selectedAgency.isVerified ? (
-                    <Badge variant="active">Đã Xác Thực</Badge>
+                    <Badge variant="active">{t('status_verified')}</Badge>
                   ) : (
-                    <Badge variant="pending">Chờ Phê Duyệt</Badge>
+                    <Badge variant="pending">{t('pending_verification_badge')}</Badge>
                   )}
                 </div>
                 <p className="text-slate-500 dark:text-slate-400 font-mono">
-                  Mã định danh: {selectedAgency.agencyCode || `#AG-${selectedAgency.id}`}
+                  ID: {selectedAgency.agencyCode || `#AG-${selectedAgency.id}`}
                 </p>
                 <div className="flex items-center gap-1 text-amber-500 font-semibold pt-1">
                   <Star className="w-3.5 h-3.5 fill-current" />
-                  <span>{formatRating(selectedAgency.ratingAvg)} / 5 sao</span>
+                  <span>{formatRating(selectedAgency.ratingAvg)} / 5</span>
                 </div>
               </div>
             </div>
@@ -404,11 +401,11 @@ export const AdminAgenciesPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
                 <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Chủ Sở Hữu
+                  {t('portal_agency_admin')}
                 </span>
                 <p className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{selectedAgency.ownerName || 'Chưa có thông tin'}</span>
+                  <span>{selectedAgency.ownerName || 'N/A'}</span>
                 </p>
                 <p className="text-slate-500 font-mono flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400" />
@@ -418,7 +415,7 @@ export const AdminAgenciesPage = () => {
 
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
                 <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Hotline Liên Lạc
+                  {t('field_hotline')}
                 </span>
                 <p className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-slate-400" />
@@ -426,25 +423,25 @@ export const AdminAgenciesPage = () => {
                 </p>
                 <p className="text-slate-500 flex items-center gap-1.5">
                   <Percent className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Hoa hồng nội bộ: <strong>{Number(selectedAgency.commissionRateInternal || 30)}%</strong></span>
+                  <span>{t('agency_commission_default')}: <strong>{Number(selectedAgency.commissionRateInternal || 30)}%</strong></span>
                 </p>
               </div>
 
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 sm:col-span-2">
                 <span className="text-[11px] uppercase font-bold text-slate-400 block">
-                  Địa Chỉ Trụ Sở Chính
+                  {t('field_street')}
                 </span>
                 <p className="font-medium text-slate-800 dark:text-slate-200 flex items-start gap-1.5">
                   <MapPin className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
                   <span>
                     {[selectedAgency.addressStreet, selectedAgency.district, selectedAgency.city]
                       .filter(Boolean)
-                      .join(', ') || 'Chưa cập nhật địa chỉ'}
+                      .join(', ') || t('not_updated')}
                   </span>
                 </p>
                 {selectedAgency.latitude && selectedAgency.longitude && (
                   <p className="text-slate-400 font-mono text-[11px] pl-5">
-                    Tọa độ GPS: {selectedAgency.latitude}, {selectedAgency.longitude}
+                    {t('gps_coordinates')}: {selectedAgency.latitude}, {selectedAgency.longitude}
                   </p>
                 )}
               </div>
@@ -452,7 +449,7 @@ export const AdminAgenciesPage = () => {
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 sm:col-span-2 flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-slate-500">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Ngày tham gia hệ thống:</span>
+                  <span>{t('joined_date')}:</span>
                   <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
                     {selectedAgency.createdAt ? formatDate(selectedAgency.createdAt) : 'N/A'}
                   </span>

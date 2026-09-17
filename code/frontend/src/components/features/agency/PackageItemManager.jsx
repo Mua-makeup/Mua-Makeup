@@ -8,8 +8,10 @@ import { Badge } from '../../base/Badge';
 import { agencyService } from '../../../services/agency.service';
 import { formatCurrency } from '../../../utils/formatters';
 import { packageItemSchema } from '../../../schemas/agency.schema';
+import { useI18nStore } from '../../../store/useI18nStore';
 
 export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
+  const { t } = useI18nStore();
   const [items, setItems] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
   const [itemName, setItemName] = useState('');
@@ -59,7 +61,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
 
     const validation = packageItemSchema.safeParse(payload);
     if (!validation.success) {
-      setError(validation.error.errors[0]?.message || 'Dữ liệu không hợp lệ');
+      setError(validation.error.errors[0]?.message || t('invalid_data'));
       return;
     }
 
@@ -81,7 +83,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
         detailErr ||
           err.response?.data?.message ||
           err.message ||
-          'Lỗi khi thêm bước/dịch vụ'
+          t('pkg_item_add_error')
       );
     } finally {
       setIsLoading(false);
@@ -93,7 +95,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
       await agencyService.deletePackageItem(pkg.id, itemId);
       await loadItems();
     } catch (err) {
-      setError(err.message || 'Lỗi khi xóa bước/dịch vụ');
+      setError(err.message || t('pkg_item_delete_error'));
     }
   };
 
@@ -102,24 +104,24 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div className="flex items-center gap-2 text-slate-900">
-          <ListPlus className="w-5 h-5 text-rose-600" />
-          <span>Cấu Hình Quy Trình & Add-ons: {pkg.packageName}</span>
+        <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+          <ListPlus className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <span>{t('pkg_item_title')}: {pkg.packageName}</span>
         </div>
       }
       maxWidth="max-w-2xl"
     >
       <div className="space-y-6">
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-700 rounded-lg">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 rounded-lg">
             {error}
           </div>
         )}
 
         {/* Action Header */}
         <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">
-            Quản lý các bước make-up tiêu chuẩn (Component) và các dịch vụ mua thêm tính phí (Add-on).
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t('pkg_item_title')}
           </p>
           {!isAdding && (
             <Button
@@ -128,7 +130,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
               icon={Plus}
               onClick={() => setIsAdding(true)}
             >
-              Thêm Bước / Add-on
+              {t('pkg_item_btn_add')}
             </Button>
           )}
         </div>
@@ -137,27 +139,27 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
         {isAdding && (
           <form
             onSubmit={handleAddItem}
-            className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5"
+            className="p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3.5"
           >
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Thêm Bước / Dịch Vụ Mới
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              {t('pkg_item_btn_add')}
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
-                label="Tên Bước / Dịch Vụ"
+                label={t('pkg_item_name')}
                 required
-                placeholder="VD: Dưỡng ẩm chuyên sâu, Làm tóc cô dâu..."
+                placeholder={t('pkg_item_placeholder')}
                 value={itemName}
                 onChange={(e) => setItemName(e.target.value)}
               />
 
               <Select
-                label="Loại Dịch Vụ"
+                label={t('pkg_item_type')}
                 required
                 options={[
-                  { value: 'COMPONENT', label: 'Bước Quy Trình Tiêu Chuẩn (Bao gồm trong gói)' },
-                  { value: 'ADD_ON', label: 'Dịch Vụ Cộng Thêm / Add-on (Tính phụ phí)' },
+                  { value: 'COMPONENT', label: t('pkg_item_type_step') },
+                  { value: 'ADD_ON', label: t('pkg_item_type_addon') },
                 ]}
                 value={itemType}
                 onChange={(e) => setItemType(e.target.value)}
@@ -167,7 +169,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {itemType === 'ADD_ON' && (
                 <Input
-                  label="Giá Phụ Trội (VNĐ)"
+                  label={t('pkg_item_price')}
                   type="number"
                   min="0"
                   step="5000"
@@ -178,7 +180,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
               )}
 
               <Input
-                label="Thời Lượng (Phút)"
+                label={t('pkg_item_duration')}
                 type="number"
                 min="0"
                 step="5"
@@ -188,7 +190,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
               />
 
               <Input
-                label="Thứ Tự Sắp Xếp"
+                label={t('pkg_item_step_order')}
                 type="number"
                 min="1"
                 required
@@ -203,19 +205,19 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
                 id="isRequired"
                 checked={isRequired}
                 onChange={(e) => setIsRequired(e.target.checked)}
-                className="rounded text-rose-600 focus:ring-rose-500"
+                className="rounded text-rose-600 focus:ring-rose-500 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
               />
-              <label htmlFor="isRequired" className="text-xs text-slate-700 select-none">
-                Bước bắt buộc không thể bỏ qua trong quy trình
+              <label htmlFor="isRequired" className="text-xs text-slate-700 dark:text-slate-300 select-none">
+                {t('pkg_item_is_required')}
               </label>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
               <Button variant="secondary" size="sm" onClick={() => setIsAdding(false)}>
-                Hủy
+                {t('cancel')}
               </Button>
               <Button type="submit" variant="primary" size="sm" isLoading={isLoading}>
-                Lưu Vào Gói
+                {t('pkg_item_btn_add')}
               </Button>
             </div>
           </form>
@@ -224,22 +226,22 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
         {/* Items List */}
         <div className="space-y-2">
           {items.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-slate-500 text-xs">
-              Gói dịch vụ này chưa có bước quy trình hoặc add-on nào.
+            <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs">
+              {t('pkg_item_empty')}
             </div>
           ) : (
             items.map((item, idx) => (
               <div
                 key={item.id || idx}
-                className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between hover:border-slate-300 transition-colors"
+                className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between shadow-xs hover:border-slate-300 dark:hover:border-slate-600 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-mono text-xs font-bold text-slate-600">
+                  <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300">
                     {item.sortOrder || idx + 1}
                   </span>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">
                         {item.itemName}
                       </span>
                       {item.itemType === 'ADD_ON' ? (
@@ -248,25 +250,25 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
                         </Badge>
                       ) : (
                         <Badge variant="active" size="sm">
-                          Quy trình gốc
+                          {t('pkg_item_required_tag')}
                         </Badge>
                       )}
                       {item.isRequired && (
-                        <span className="text-[10px] font-semibold text-rose-600 uppercase">
-                          Bắt buộc
+                        <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 uppercase">
+                          {t('pkg_item_required_tag')}
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-slate-500">
-                      Thời lượng: {item.durationMinutes || 15} phút
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      {t('pkg_item_duration_label')}: {item.durationMinutes != null ? item.durationMinutes : 15} {t('unit_minutes')}
                     </span>
                   </div>
                 </div>
 
                 <button
                   onClick={() => handleDeleteItem(item.id)}
-                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Xóa bước này"
+                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+                  title={t('delete')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

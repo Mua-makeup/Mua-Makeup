@@ -4,16 +4,18 @@ import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
 import { agencyService } from '../../../services/agency.service';
-import { commissionRateSchema } from '../../../schemas/agency.schema';
+import { updateStaffCommissionSchema } from '../../../schemas/agency.schema';
+import { useI18nStore } from '../../../store/useI18nStore';
 
 export const StaffCommissionModal = ({ isOpen, onClose, staff, onSuccess }) => {
+  const { t } = useI18nStore();
   const [rate, setRate] = useState(30);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (staff) {
-      setRate(staff.commissionRateCustom ?? staff.commissionRate ?? 30);
+      setRate(staff.agreedCommissionRate ?? staff.commissionRateCustom ?? 30);
       setError('');
     }
   }, [staff]);
@@ -24,27 +26,33 @@ export const StaffCommissionModal = ({ isOpen, onClose, staff, onSuccess }) => {
     e.preventDefault();
     setError('');
 
-    const validation = commissionRateSchema.safeParse({
-      commissionRate: Number(rate),
+    const numericRate = Number(rate);
+    const validation = updateStaffCommissionSchema.safeParse({
+      agreedCommissionRate: numericRate,
+      commissionRateCustom: numericRate,
+      commissionRate: numericRate,
     });
 
     if (!validation.success) {
-      setError(validation.error.errors[0]?.message || 'Tỷ lệ hoa hồng không hợp lệ');
+      setError(validation.error.errors[0]?.message || t('validation_failed'));
       return;
     }
 
     setIsLoading(true);
     try {
       await agencyService.updateStaffCommission(staff.staffId || staff.id, {
-        commissionRateCustom: Number(rate),
+        agreedCommissionRate: numericRate,
+        commissionRateCustom: numericRate,
+        commissionRate: numericRate,
       });
-      onSuccess?.({
-        staffId: staff.staffId || staff.id,
-        commissionRate: Number(rate),
-      });
+      onSuccess?.();
       onClose();
     } catch (err) {
-      setError(err.message || 'Không thể cập nhật hoa hồng, vui lòng thử lại');
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          t('error_general')
+      );
     } finally {
       setIsLoading(false);
     }
@@ -55,31 +63,31 @@ export const StaffCommissionModal = ({ isOpen, onClose, staff, onSuccess }) => {
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div className="flex items-center gap-2 text-slate-900">
-          <Percent className="w-5 h-5 text-rose-600" />
-          <span>Đàm Phán Hoa Hồng Cá Nhân Cho Thợ</span>
+        <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+          <Percent className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <span>{t('staff_commission_title')}</span>
         </div>
       }
       maxWidth="max-w-md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-700 rounded-lg">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 rounded-lg">
             {error}
           </div>
         )}
 
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
-          <p className="font-bold text-slate-800">
-            Thợ: {staff.fullName || staff.muaName || `Thợ #${staff.staffId || staff.id}`}
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs space-y-1">
+          <p className="font-bold text-slate-800 dark:text-slate-200">
+            {t('staff_label')} {staff.fullName || staff.muaName || `#${staff.staffId || staff.id}`}
           </p>
-          <p className="text-slate-500">
-            Hoa hồng cá nhân sẽ ghi đè lên mức hoa hồng mặc định của Studio đối với các đơn hàng do thợ này hoàn thành.
+          <p className="text-slate-500 dark:text-slate-400">
+            {t('staff_commission_desc')}
           </p>
         </div>
 
         <Input
-          label="Tỷ lệ hoa hồng chi trả cho thợ (%)"
+          label={t('staff_commission_rate_field')}
           type="number"
           min="0"
           max="60"
@@ -87,15 +95,15 @@ export const StaffCommissionModal = ({ isOpen, onClose, staff, onSuccess }) => {
           required
           value={rate}
           onChange={(e) => setRate(e.target.value)}
-          helperText="Mức quy định: từ 0% đến 60%"
+          helperText="0% - 60%"
         />
 
         <div className="pt-2 flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Hủy
+            {t('cancel')}
           </Button>
           <Button type="submit" variant="primary" isLoading={isLoading}>
-            Lưu Thay Đổi
+            {t('save')}
           </Button>
         </div>
       </form>

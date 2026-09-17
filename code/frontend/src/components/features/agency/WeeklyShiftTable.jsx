@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
+import { ConfirmDialog } from '../../base/ConfirmDialog';
 import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
 import { Select } from '../../base/Select';
@@ -27,7 +28,6 @@ import { useI18nStore } from '../../../store/useI18nStore';
 const SHIFT_PERIODS = [
   {
     id: 'MORNING',
-    name: 'Ca Sáng',
     timeRange: '06:00 - 12:00',
     icon: Sun,
     badgeBg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
@@ -38,7 +38,6 @@ const SHIFT_PERIODS = [
   },
   {
     id: 'AFTERNOON',
-    name: 'Ca Chiều',
     timeRange: '12:00 - 18:00',
     icon: CloudSun,
     badgeBg: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60',
@@ -49,7 +48,6 @@ const SHIFT_PERIODS = [
   },
   {
     id: 'EVENING',
-    name: 'Ca Tối / Tăng Ca',
     timeRange: '18:00 - 23:00',
     icon: Moon,
     badgeBg: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60',
@@ -84,10 +82,14 @@ export const WeeklyShiftTable = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // Xóa ca modal alert state
+  const [deletingShift, setDeletingShift] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Form fields
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [selectedDay, setSelectedDay] = useState(2); // Mặc định Thứ 2
-  const [shiftName, setShiftName] = useState('Ca Sáng');
+  const [shiftName, setShiftName] = useState(t('preset_morning'));
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('12:00');
 
@@ -229,7 +231,7 @@ export const WeeklyShiftTable = () => {
     setFormError('');
 
     if (hasConflict) {
-      setFormError(conflictMessage || 'Khung giờ bị trùng lặp với ca trực khác!');
+      setFormError(conflictMessage || t('conflict_error_default'));
       return;
     }
 
@@ -243,7 +245,7 @@ export const WeeklyShiftTable = () => {
 
     const validation = shiftSchema.safeParse(payload);
     if (!validation.success) {
-      setFormError(validation.error.errors[0]?.message || 'Dữ liệu không hợp lệ');
+      setFormError(validation.error.errors[0]?.message || t('error_general'));
       return;
     }
 
@@ -258,25 +260,31 @@ export const WeeklyShiftTable = () => {
           dayOfWeek: Number(payload.dayOfWeek),
           staffName:
             staffList.find((s) => s.id === Number(selectedStaffId))?.fullName ||
-            `Thợ #${selectedStaffId}`,
+            `${t('staff_label')} #${selectedStaffId}`,
         },
       ]);
       setIsAddModalOpen(false);
     } catch (err) {
       setFormError(
-        err.response?.data?.message || err.message || 'Lỗi khi tạo ca trực, vui lòng thử lại'
+        err.response?.data?.message || err.message || t('shift_save_error')
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteShift = async (shiftId) => {
+  const handleConfirmDeleteShift = async () => {
+    if (!deletingShift) return;
+    setIsDeleting(true);
     try {
-      await agencyService.deleteShift(shiftId);
-      setShifts((prev) => prev.filter((s) => s.id !== shiftId));
+      await agencyService.deleteShift(deletingShift.id);
+      setShifts((prev) => prev.filter((s) => s.id !== deletingShift.id));
+      setDeletingShift(null);
     } catch {
-      setShifts((prev) => prev.filter((s) => s.id !== shiftId));
+      setShifts((prev) => prev.filter((s) => s.id !== deletingShift.id));
+      setDeletingShift(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -285,15 +293,15 @@ export const WeeklyShiftTable = () => {
     if (staffList.length > 0) setSelectedStaffId(String(staffList[0].id));
 
     if (periodId === 'MORNING') {
-      setShiftName('Ca Sáng');
+      setShiftName(t('preset_morning'));
       setStartTime('08:00');
       setEndTime('12:00');
     } else if (periodId === 'AFTERNOON') {
-      setShiftName('Ca Chiều');
+      setShiftName(t('preset_afternoon'));
       setStartTime('13:00');
       setEndTime('17:00');
     } else if (periodId === 'EVENING') {
-      setShiftName('Tăng Ca Tối');
+      setShiftName(t('preset_overtime'));
       setStartTime('18:00');
       setEndTime('21:30');
     }
@@ -312,16 +320,16 @@ export const WeeklyShiftTable = () => {
             <strong className="block font-bold text-sm">
               {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
                 ? t('error_api_connection')
-                : 'Thông Báo Hệ Thống'}
+                : t('error_system_notice')}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">{apiError}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={loadData}>
-              Thử Lại
+              {t('retry')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
-              Đóng
+              {t('close')}
             </Button>
           </div>
         </div>
@@ -412,7 +420,7 @@ export const WeeklyShiftTable = () => {
             <option value="ALL">{t('filter_all_staff')} ({staffList.length})</option>
             {staffList.map((s) => (
               <option key={s.id} value={String(s.id)}>
-                {s.fullName || `Thợ #${s.id}`}
+                {s.fullName || `${t('staff_label')} #${s.id}`}
               </option>
             ))}
           </select>
@@ -519,11 +527,12 @@ export const WeeklyShiftTable = () => {
                             >
                               <div className="flex items-start justify-between gap-1">
                                 <span className="font-bold text-slate-900 dark:text-white truncate block">
-                                  {s.staffName || `Thợ #${s.staffId}`}
+                                  {s.staffName || `${t('staff_label')} #${s.staffId}`}
                                 </span>
                                 <button
-                                  onClick={() => handleDeleteShift(s.id)}
-                                  className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                                  type="button"
+                                  onClick={() => setDeletingShift(s)}
+                                  className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-90"
                                   title={t('delete')}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -603,7 +612,7 @@ export const WeeklyShiftTable = () => {
             required
             options={staffList.map((s) => ({
               value: String(s.id),
-              label: s.fullName || `Thợ #${s.id}`,
+              label: s.fullName || `${t('staff_label')} #${s.id}`,
             }))}
             value={selectedStaffId}
             onChange={(e) => setSelectedStaffId(e.target.value)}
@@ -623,10 +632,10 @@ export const WeeklyShiftTable = () => {
                     key={d.value}
                     type="button"
                     onClick={() => setSelectedDay(Number(d.value))}
-                    className={`py-2 px-1 rounded-xl text-center border transition-all ${
+                    className={`py-2 px-1 rounded-xl text-center border transition-all active:scale-95 cursor-pointer ${
                       isSelected
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm font-bold scale-[1.02]'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-rose-300 font-medium text-xs'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm font-bold scale-[1.02] ring-2 ring-rose-500/30'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-rose-400 dark:hover:border-rose-500 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 font-medium text-xs'
                     }`}
                   >
                     <div className="text-xs font-bold">{dayInfo.shortLabel}</div>
@@ -678,18 +687,33 @@ export const WeeklyShiftTable = () => {
                 },
               ].map((preset) => {
                 const PresetIcon = preset.icon;
+                const isSelectedPreset =
+                  shiftName === preset.shiftName &&
+                  startTime === preset.startTime &&
+                  endTime === preset.endTime;
+
                 return (
                   <button
                     key={preset.label}
                     type="button"
                     onClick={() => handleApplyPreset(preset)}
-                    className={`p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-left transition-all ${preset.color} flex items-center gap-2`}
+                    className={`p-2 rounded-xl border text-left transition-all active:scale-95 cursor-pointer flex items-center gap-2 ${
+                      isSelectedPreset
+                        ? 'border-rose-600 dark:border-rose-500 bg-rose-50/80 dark:bg-rose-950/50 text-rose-900 dark:text-rose-200 ring-2 ring-rose-500/20 shadow-xs font-semibold'
+                        : `border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 ${preset.color}`
+                    }`}
                   >
-                    <div className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-300 shadow-2xs">
+                    <div
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-2xs ${
+                        isSelectedPreset
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
                       <PresetIcon className="w-3.5 h-3.5" />
                     </div>
                     <div className="overflow-hidden">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">
+                      <p className="text-xs font-bold truncate leading-tight">
                         {preset.label}
                       </p>
                       <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
@@ -706,7 +730,7 @@ export const WeeklyShiftTable = () => {
           <Input
             label={t('field_shift_name')}
             required
-            placeholder="VD: Ca Sáng Studio, Morning Shift..."
+            placeholder={t('shift_field_name_placeholder')}
             value={shiftName}
             onChange={(e) => setShiftName(e.target.value)}
           />
@@ -758,6 +782,41 @@ export const WeeklyShiftTable = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Modal Cảnh Báo Xóa Ca Làm Việc */}
+      <ConfirmDialog
+        isOpen={!!deletingShift}
+        onClose={() => setDeletingShift(null)}
+        onConfirm={handleConfirmDeleteShift}
+        title={t('modal_delete_shift_title')}
+        message={
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              {t('modal_delete_shift_desc')}
+            </p>
+            {deletingShift && (
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/70 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1.5 text-slate-700 dark:text-slate-200">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">{t('field_choose_staff')}:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{deletingShift.staffName || `${t('staff_label')} #${deletingShift.staffId}`}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">{t('field_shift_name')}:</span>
+                  <span className="font-medium">{deletingShift.shiftName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-500 dark:text-slate-400">{t('duration_label')}:</span>
+                  <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{deletingShift.startTime} - {deletingShift.endTime}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        }
+        confirmText={t('btn_confirm_delete')}
+        cancelText={t('cancel')}
+        isDangerous={true}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

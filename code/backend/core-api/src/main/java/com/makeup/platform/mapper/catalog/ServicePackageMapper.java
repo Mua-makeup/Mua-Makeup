@@ -33,6 +33,7 @@ public class ServicePackageMapper {
                 .description(entity.getDescription())
                 .price(entity.getPrice())
                 .estimatedDurationMinutes(entity.getEstimatedDurationMinutes())
+                .durationMinutes(entity.getEstimatedDurationMinutes())
                 .isAvailable(entity.getIsAvailable())
                 .styles(entity.getStyles() != null ? taxonomyMapper.toStyleResList(entity.getStyles()) : Collections.emptyList())
                 .items(entity.getPackageItems() != null ? itemMapper.toResList(entity.getPackageItems()) : Collections.emptyList())
@@ -56,6 +57,7 @@ public class ServicePackageMapper {
                 .packageName(entity.getPackageName())
                 .price(entity.getPrice())
                 .estimatedDurationMinutes(entity.getEstimatedDurationMinutes())
+                .durationMinutes(entity.getEstimatedDurationMinutes())
                 .isAvailable(entity.getIsAvailable())
                 .styles(entity.getStyles() != null ? taxonomyMapper.toStyleResList(entity.getStyles()) : Collections.emptyList())
                 .build();

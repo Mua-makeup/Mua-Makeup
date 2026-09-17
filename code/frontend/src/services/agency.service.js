@@ -70,4 +70,9 @@ export const agencyService = {
   createShift: (data) => apiClient.post('/agencies/shifts', data),
   getWeeklyShiftMatrix: () => apiClient.get('/agencies/shifts/matrix'),
   deleteShift: (shiftId) => apiClient.delete(`/agencies/shifts/${shiftId}`),
+
+  // Studio Bookings Management
+  getBookings: (params) => apiClient.get('/agency/bookings', { params }),
+  getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),
 };
+

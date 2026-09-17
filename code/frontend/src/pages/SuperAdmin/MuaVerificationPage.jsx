@@ -71,25 +71,25 @@ export const MuaVerificationPage = () => {
             {row.muaName || `MUA #${row.muaId}`}
           </span>
           <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-            Mã thợ: #{row.muaId}
+            {t('staff_label')}: #{row.muaId}
           </span>
         </div>
       ),
     },
     {
-      header: 'Liên Hệ',
+      header: t('col_contact'),
       accessor: 'phoneNumber',
       render: (row) => (
         <div className="text-xs">
           <p className="font-mono font-medium text-slate-800 dark:text-slate-200">
-            {row.phoneNumber || 'Chưa cập nhật'}
+            {row.phoneNumber || 'N/A'}
           </p>
           <p className="text-slate-500 dark:text-slate-400">{row.email || 'N/A'}</p>
         </div>
       ),
     },
     {
-      header: 'Tên Chứng Chỉ / Ảnh Đính Kèm',
+      header: t('col_cert_name'),
       accessor: 'certName',
       render: (row) => (
         <div className="flex items-center gap-2.5">
@@ -99,7 +99,7 @@ export const MuaVerificationPage = () => {
               target="_blank"
               rel="noreferrer"
               className="relative group w-10 h-10 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0"
-              title="Xem ảnh chứng chỉ gốc"
+              title={t('cert_view_original')}
             >
               <img
                 src={row.imageUrl}
@@ -117,26 +117,26 @@ export const MuaVerificationPage = () => {
           )}
           <div>
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-              {row.certName || 'Chứng chỉ kỹ thuật make-up'}
+              {row.certName || 'Makeup Certificate'}
             </span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              Kinh nghiệm: {row.experienceYears || '1+'} năm
+              {t('col_experience')}: {row.experienceYears || '1+'} {t('unit_years')}
             </span>
           </div>
         </div>
       ),
     },
     {
-      header: 'Ngày Tải Lên',
+      header: t('col_uploaded_at'),
       accessor: 'uploadedAt',
       render: (row) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-          {row.uploadedAt ? formatDate(row.uploadedAt) : 'Mới nộp'}
+          {row.uploadedAt ? formatDate(row.uploadedAt) : '—'}
         </span>
       ),
     },
     {
-      header: 'Trạng Thái',
+      header: t('status'),
       accessor: 'status',
       render: (row) => {
         if (row.status === 'VERIFIED' || row.isVerified === true) {
@@ -217,7 +217,7 @@ export const MuaVerificationPage = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-rose-500 font-medium"
           >
-            <option value={CERT_STATUS.ALL}>{t('filter_all_staff') || 'Tất Cả'}</option>
+            <option value={CERT_STATUS.ALL}>{t('admin_agency_filter_all')}</option>
             <option value={CERT_STATUS.PENDING}>{t('status_pending')}</option>
             <option value={CERT_STATUS.VERIFIED}>{t('status_verified')}</option>
           </select>

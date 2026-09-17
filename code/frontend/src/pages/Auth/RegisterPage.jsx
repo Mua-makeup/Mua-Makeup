@@ -16,9 +16,11 @@ import { authService } from '../../services/auth.service';
 import { agencyRegisterSchema } from '../../schemas/auth.schema';
 import { Input } from '../../components/base/Input';
 import { Button } from '../../components/base/Button';
+import { useI18nStore } from '../../store/useI18nStore';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18nStore();
   const [accountType, setAccountType] = useState('AGENCY_ADMIN');
 
   // Common fields
@@ -33,7 +35,7 @@ export const RegisterPage = () => {
   const [hotline, setHotline] = useState('');
   const [addressStreet, setAddressStreet] = useState('');
   const [district, setDistrict] = useState('');
-  const [city, setCity] = useState('Hồ Chí Minh');
+  const [city, setCity] = useState('');
   const [commissionRateInternal, setCommissionRateInternal] = useState(30);
 
   const [errors, setErrors] = useState({});
@@ -95,12 +97,12 @@ export const RegisterPage = () => {
       };
 
       await authService.register(registerPayload);
-      setSuccessMessage('Đăng ký tài khoản thành công! Đang chuyển về trang Đăng Nhập...');
+      setSuccessMessage(t('register_success_msg'));
       setTimeout(() => {
         navigate('/login');
       }, 2000);
     } catch (err) {
-      setServerError(err.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.');
+      setServerError(err.message || t('register_failed_msg'));
     } finally {
       setIsLoading(false);
     }
@@ -114,14 +116,14 @@ export const RegisterPage = () => {
             <Sparkles className="w-5 h-5" />
           </div>
           <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-xl">
-            MUA MAKEUP
+            {t('app_title')}
           </span>
         </Link>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-          Đăng Ký Tài Khoản Mới
+          {t('register_title_main')}
         </h2>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Gia nhập nền tảng đặt lịch make-up chuyên nghiệp hàng đầu
+          {t('register_page_sub')}
         </p>
       </div>
 
@@ -139,7 +141,7 @@ export const RegisterPage = () => {
               }`}
             >
               <Building2 className="w-4 h-4" />
-              <span>Chủ Studio Agency</span>
+              <span>{t('tab_agency_owner')}</span>
             </button>
 
             <button
@@ -152,7 +154,7 @@ export const RegisterPage = () => {
               }`}
             >
               <User className="w-4 h-4" />
-              <span>Khách Hàng / Thợ</span>
+              <span>{t('tab_customer_artist')}</span>
             </button>
           </div>
 
@@ -172,8 +174,8 @@ export const RegisterPage = () => {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Họ và Tên"
-                placeholder="Nguyễn Văn A"
+                label={t('field_fullname')}
+                placeholder={t('placeholder_fullname')}
                 required
                 icon={User}
                 value={fullName}
@@ -182,7 +184,7 @@ export const RegisterPage = () => {
               />
 
               <Input
-                label="Số Điện Thoại"
+                label={t('field_phone')}
                 placeholder="0912345678"
                 required
                 icon={Phone}
@@ -193,7 +195,7 @@ export const RegisterPage = () => {
             </div>
 
             <Input
-              label="Email Liên Hệ"
+              label={t('field_email')}
               type="email"
               placeholder="name@example.com"
               required
@@ -205,7 +207,7 @@ export const RegisterPage = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Mật Khẩu"
+                label={t('field_password')}
                 type="password"
                 placeholder="••••••••"
                 required
@@ -213,11 +215,11 @@ export const RegisterPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 error={errors.password}
-                helperText="Tối thiểu 8 ký tự, có chữ hoa, thường, số và ký tự đặc biệt"
+                helperText={t('password_rule_hint')}
               />
 
               <Input
-                label="Xác Nhận Mật Khẩu"
+                label={t('field_confirm_password')}
                 type="password"
                 placeholder="••••••••"
                 required
@@ -233,12 +235,12 @@ export const RegisterPage = () => {
               <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
                 <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-xs">
                   <Building2 className="w-4 h-4 text-rose-600" />
-                  <span>Thông Tin Studio Make-up</span>
+                  <span>{t('agency_info_heading')}</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Tên Phòng Make-up / Studio"
+                    label={t('field_agency_name')}
                     placeholder="Glamour Beauty Studio"
                     required
                     value={agencyName}
@@ -247,7 +249,7 @@ export const RegisterPage = () => {
                   />
 
                   <Input
-                    label="Hotline Studio"
+                    label={t('field_agency_hotline')}
                     placeholder="0933112233"
                     required
                     value={hotline}
@@ -257,8 +259,8 @@ export const RegisterPage = () => {
                 </div>
 
                 <Input
-                  label="Địa Chỉ Số Nhà & Tên Đường"
-                  placeholder="128 Nguyễn Huệ, Phường Bến Nghé"
+                  label={t('field_agency_street')}
+                  placeholder={t('placeholder_street')}
                   required
                   icon={MapPin}
                   value={addressStreet}
@@ -268,8 +270,8 @@ export const RegisterPage = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Quận / Huyện"
-                    placeholder="Quận 1"
+                    label={t('field_agency_district')}
+                    placeholder={t('placeholder_district')}
                     required
                     value={district}
                     onChange={(e) => setDistrict(e.target.value)}
@@ -277,8 +279,8 @@ export const RegisterPage = () => {
                   />
 
                   <Input
-                    label="Tỉnh / Thành Phố"
-                    placeholder="Hồ Chí Minh"
+                    label={t('field_agency_city')}
+                    placeholder={t('placeholder_city')}
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
@@ -287,7 +289,7 @@ export const RegisterPage = () => {
                 </div>
 
                 <Input
-                  label="Tỷ Lệ Hoa Hồng Mặc Định Giữ Lại (%)"
+                  label={t('field_agency_commission')}
                   type="number"
                   min="0"
                   max="100"
@@ -297,7 +299,7 @@ export const RegisterPage = () => {
                   value={commissionRateInternal}
                   onChange={(e) => setCommissionRateInternal(e.target.value)}
                   error={errors.commissionRateInternal}
-                  helperText="Tỷ lệ % doanh thu Studio giữ lại, còn lại chia cho thợ (mặc định 30%)"
+                  helperText={t('agency_commission_helper_register')}
                 />
               </div>
             )}
@@ -312,18 +314,18 @@ export const RegisterPage = () => {
                 iconPosition="right"
                 isLoading={isLoading}
               >
-                Đăng Ký Tài Khoản
+                {t('btn_register_submit')}
               </Button>
             </div>
           </form>
 
           <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs">
-            <span className="text-slate-500 dark:text-slate-400">Đã có tài khoản quản trị? </span>
+            <span className="text-slate-500 dark:text-slate-400">{t('already_have_admin_account')} </span>
             <Link
               to="/login"
               className="font-bold text-rose-600 dark:text-rose-400 hover:underline"
             >
-              Đăng nhập ngay
+              {t('login_here')}
             </Link>
           </div>
         </div>
@@ -333,7 +335,7 @@ export const RegisterPage = () => {
             to="/"
             className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
           >
-            ← Quay lại Trang Chủ Khám Phá 3D
+            ← {t('back_to_landing')}
           </Link>
         </div>
       </div>

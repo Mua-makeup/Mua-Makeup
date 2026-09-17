@@ -9,6 +9,8 @@ import {
   Clock,
   Users,
   CalendarDays,
+  CalendarCheck,
+  UserCheck,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -24,6 +26,16 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/admin/dashboard',
       label: t('nav_admin_dashboard'),
       icon: LayoutDashboard,
+    },
+    {
+      to: '/admin/bookings',
+      label: t('nav_admin_bookings'),
+      icon: CalendarCheck,
+    },
+    {
+      to: '/admin/users',
+      label: t('nav_admin_users'),
+      icon: UserCheck,
     },
     {
       to: '/admin/agencies',
@@ -47,6 +59,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/agency/dashboard',
       label: t('nav_agency_dashboard'),
       icon: LayoutDashboard,
+    },
+    {
+      to: '/agency/bookings',
+      label: t('nav_agency_bookings'),
+      icon: CalendarCheck,
     },
     {
       to: '/agency/profile',

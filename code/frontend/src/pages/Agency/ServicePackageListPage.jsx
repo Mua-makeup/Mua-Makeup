@@ -133,8 +133,8 @@ export const ServicePackageListPage = () => {
       header: t('col_duration'),
       accessor: 'durationMinutes',
       render: (row) => (
-        <span className="text-xs text-slate-600 dark:text-slate-400 font-mono font-medium">
-          {row.durationMinutes || 60} {t('duration_label')?.toLowerCase().replace(':', '') || 'phút'}
+        <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+          {row.durationMinutes ?? row.estimatedDurationMinutes ?? 60} {t('unit_minutes')}
         </span>
       ),
     },
@@ -199,7 +199,7 @@ export const ServicePackageListPage = () => {
             <strong className="block font-bold text-sm">
               {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
                 ? t('error_api_connection')
-                : 'Thông Báo Hệ Thống'}
+                : t('error_system_notice')}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {apiError}
@@ -207,10 +207,10 @@ export const ServicePackageListPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={loadPackages}>
-              Thử Lại
+              {t('retry')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
-              Đóng
+              {t('close')}
             </Button>
           </div>
         </div>

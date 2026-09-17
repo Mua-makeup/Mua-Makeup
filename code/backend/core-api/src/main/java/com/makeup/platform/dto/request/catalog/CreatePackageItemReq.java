@@ -39,6 +39,11 @@ public class CreatePackageItemReq {
     @JsonAlias({"extraPrice", "price", "itemPrice"})
     private BigDecimal itemPrice;
 
+    @Min(value = 0, message = "{validation.catalog_item_duration_min}")
+    @JsonAlias({"durationMinutes", "duration"})
+    @Builder.Default
+    private Integer durationMinutes = 15;
+
     @Builder.Default
     private Boolean isRequired = true;
 

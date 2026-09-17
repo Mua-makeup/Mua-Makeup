@@ -91,7 +91,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
     });
 
     if (!validation.success) {
-      setPasswordError(validation.error.errors[0]?.message || 'Dữ liệu không hợp lệ');
+      setPasswordError(validation.error.errors[0]?.message || t('invalid_data'));
       return;
     }
 
@@ -160,7 +160,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
           <button
             onClick={toggleLanguage}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold transition-colors"
-            title="Đổi ngôn ngữ (Switch Language)"
+            title={t('switch_language')}
           >
             <Globe className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
             <span>{language.toUpperCase()}</span>
@@ -170,7 +170,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            title={theme === 'dark' ? 'Chế độ Sáng (Light Mode)' : 'Chế độ Tối (Dark Mode)'}
+            title={theme === 'dark' ? t('theme_light') : t('theme_dark')}
           >
             {theme === 'dark' ? (
               <Sun className="w-4 h-4 text-amber-400" />
@@ -244,7 +244,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             </div>
           )}
           <Input
-            label="Mật khẩu hiện tại"
+            label={t('field_current_password')}
             type="password"
             required
             value={oldPassword}
@@ -252,20 +252,20 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             placeholder="••••••••"
           />
           <Input
-            label="Mật khẩu mới"
+            label={t('field_new_password')}
             type="password"
             required
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Tối thiểu 6 ký tự"
+            placeholder={t('pwd_min_chars_hint')}
           />
           <Input
-            label="Xác nhận mật khẩu mới"
+            label={t('field_confirm_new_password')}
             type="password"
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Nhập lại mật khẩu mới"
+            placeholder={t('pwd_reenter_hint')}
           />
           <div className="pt-2 flex justify-end gap-2">
             <Button

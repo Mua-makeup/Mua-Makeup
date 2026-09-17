@@ -18,6 +18,12 @@ export const commissionRateSchema = z.object({
     .max(60, 'Hoa hồng tối đa là 60%'),
 });
 
+export const updateStaffCommissionSchema = z.object({
+  agreedCommissionRate: z.number().min(0, 'Hoa hồng tối thiểu là 0%').max(60, 'Hoa hồng tối đa là 60%').optional(),
+  commissionRateCustom: z.number().min(0, 'Hoa hồng tối thiểu là 0%').max(60, 'Hoa hồng tối đa là 60%').optional(),
+  commissionRate: z.number().min(0, 'Hoa hồng tối thiểu là 0%').max(60, 'Hoa hồng tối đa là 60%').optional(),
+});
+
 export const servicePackageSchema = z.object({
   packageName: z.string().min(3, 'Tên gói dịch vụ phải có ít nhất 3 ký tự'),
   description: z.string().optional(),
