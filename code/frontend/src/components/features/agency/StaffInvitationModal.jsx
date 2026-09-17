@@ -15,8 +15,10 @@ import { Input } from '../../base/Input';
 import { agencyService } from '../../../services/agency.service';
 import { staffInvitationSchema } from '../../../schemas/agency.schema';
 import { formatDate } from '../../../utils/formatters';
+import { useI18nStore } from '../../../store/useI18nStore';
 
 export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
+  const { t } = useI18nStore();
   const [invitations, setInvitations] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [proposedCommissionRate, setProposedCommissionRate] = useState(30);
@@ -58,7 +60,7 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
     });
 
     if (!validation.success) {
-      setError(validation.error.errors[0]?.message || 'Dữ liệu không hợp lệ');
+      setError(validation.error.errors[0]?.message || t('invalid_data'));
       return;
     }
 
@@ -76,7 +78,7 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
       await loadInvitations();
       onStaffAdded?.();
     } catch (err) {
-      setError(err.message || 'Không thể tạo mã mời, vui lòng thử lại');
+      setError(err.message || t('qr_create_error'));
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +92,7 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
       }
       await loadInvitations();
     } catch (err) {
-      setError(err.message || 'Lỗi khi hủy mã mời');
+      setError(err.message || t('qr_revoke_error'));
     }
   };
 
@@ -120,16 +122,16 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div className="flex items-center gap-2 text-slate-900">
-          <QrCode className="w-5 h-5 text-rose-600" />
-          <span>Tuyển Dụng Thợ Make-up Mới (Mã Mời & QR Code 72h)</span>
+        <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+          <QrCode className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <span>{t('qr_modal_title')}</span>
         </div>
       }
       maxWidth="max-w-2xl"
     >
       <div className="space-y-6">
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-700 rounded-lg flex items-center gap-2">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -137,50 +139,50 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
 
         {/* Form Tạo mã mới nếu isCreating */}
         {isCreating ? (
-          <form onSubmit={handleCreate} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
-            <h4 className="text-sm font-bold text-slate-800">Cấu Hình Lời Mời Gia Nhập Studio</h4>
+          <form onSubmit={handleCreate} className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-4">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{t('qr_form_title')}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Hoa hồng đề xuất cho thợ (%)"
+                label={t('qr_field_commission')}
                 type="number"
                 min="0"
                 max="60"
                 value={proposedCommissionRate}
                 onChange={(e) => setProposedCommissionRate(e.target.value)}
-                helperText="Tỷ lệ % Studio chi trả cho thợ (0% - 60%)"
+                helperText={t('qr_field_commission_helper')}
                 required
               />
               <Input
-                label="Thời hạn hiệu lực mã (giờ)"
+                label={t('qr_field_expire')}
                 type="number"
                 min="1"
                 max="168"
                 value={expireHours}
                 onChange={(e) => setExpireHours(e.target.value)}
-                helperText="Mặc định: 72 giờ lưu trên Redis"
+                helperText={t('qr_field_expire_helper')}
                 required
               />
             </div>
             <Input
-              label="Ghi chú tuyển dụng (Tùy chọn)"
+              label={t('qr_field_note')}
               type="text"
-              placeholder="VD: Đợt tuyển thợ tone Douyin mùa cưới 2026..."
+              placeholder={t('qr_field_note_placeholder')}
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" size="sm" onClick={() => setIsCreating(false)}>
-                Hủy
+                {t('cancel')}
               </Button>
               <Button type="submit" variant="primary" size="sm" isLoading={isLoading}>
-                Tạo Mã Mời & Sinh Ảnh QR
+                {t('qr_btn_create')}
               </Button>
             </div>
           </form>
         ) : (
           <div className="flex justify-between items-center">
-            <p className="text-xs text-slate-500">
-              Mã mời được mã hóa bằng Google ZXing 72h, thợ có thể quét trực tiếp bằng camera điện thoại.
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {t('qr_hint_zxing')}
             </p>
             <Button
               variant="primary"
@@ -188,30 +190,30 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
               icon={Plus}
               onClick={() => setIsCreating(true)}
             >
-              Sinh Mã Mời Mới
+              {t('qr_create_new')}
             </Button>
           </div>
         )}
 
         {/* Hiển thị QR chi tiết nếu có activeInvite */}
         {activeInvite ? (
-          <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
+          <div className="p-5 bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xs grid grid-cols-1 sm:grid-cols-12 gap-6 items-center">
             {/* Cột QR Code */}
-            <div className="sm:col-span-5 flex flex-col items-center justify-center p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+            <div className="sm:col-span-5 flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
               {activeInvite.qrCodeBase64 ? (
                 <img
                   src={activeInvite.qrCodeBase64}
-                  alt="QR Tuyển Dụng"
-                  className="w-44 h-44 object-contain rounded-lg border border-slate-200 bg-white p-1.5 shadow-xs"
+                  alt={t('qr_recruitment_alt')}
+                  className="w-44 h-44 object-contain rounded-lg border border-slate-200 dark:border-slate-700 bg-white p-1.5 shadow-xs"
                 />
               ) : (
-                <div className="w-44 h-44 flex items-center justify-center bg-slate-200 rounded-lg text-slate-400">
+                <div className="w-44 h-44 flex items-center justify-center bg-slate-200 dark:bg-slate-800 rounded-lg text-slate-400">
                   <QrCode className="w-12 h-12" />
                 </div>
               )}
-              <div className="mt-3 flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
+              <div className="mt-3 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Hết hạn: {formatDate(activeInvite.expiresAt)}</span>
+                <span>{t('qr_expires_at')} {formatDate(activeInvite.expiresAt)}</span>
               </div>
             </div>
 
@@ -219,19 +221,19 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
             <div className="sm:col-span-7 space-y-3.5">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Mã Mời Tham Gia (Invite Code)
+                  {t('qr_invite_code_label')}
                 </span>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="font-mono text-lg font-extrabold text-slate-900 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+                  <span className="font-mono text-lg font-extrabold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-600">
                     {activeInvite.inviteCode}
                   </span>
                   <button
                     onClick={() => copyToClipboard(activeInvite.inviteCode, 'code')}
-                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
-                    title="Sao chép mã"
+                    className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
+                    title={t('qr_copy_code')}
                   >
                     {copiedCode === activeInvite.inviteCode ? (
-                      <Check className="w-4 h-4 text-emerald-600" />
+                      <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}
@@ -241,14 +243,14 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
 
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Đường Dẫn Đăng Ký Trực Tiếp
+                  {t('qr_direct_link_label')}
                 </span>
                 <div className="flex items-center gap-2 mt-1">
                   <input
                     type="text"
                     readOnly
                     value={`${window.location.origin}/join?code=${activeInvite.inviteCode}`}
-                    className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-600 select-all"
+                    className="w-full text-xs font-mono bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-600 dark:text-slate-300 select-all"
                   />
                   <button
                     onClick={() =>
@@ -257,18 +259,18 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                         'link'
                       )
                     }
-                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
-                    title="Sao chép link"
+                    className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
+                    title={t('qr_copy_link')}
                   >
                     {copiedLink ? (
-                      <Check className="w-4 h-4 text-emerald-600" />
+                      <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Link để gửi thợ make-up mở trên điện thoại / trình duyệt để xin gia nhập Studio (hoặc thợ nhập trực tiếp Mã Mời trên).
+                  {t('qr_link_hint')}
                 </p>
               </div>
 
@@ -281,7 +283,7 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                     downloadQrImage(activeInvite.qrCodeBase64, `QR_${activeInvite.inviteCode}.png`)
                   }
                 >
-                  Tải Ảnh QR (.png)
+                  {t('qr_btn_download')}
                 </Button>
                 <Button
                   variant="danger"
@@ -289,22 +291,22 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                   icon={Trash2}
                   onClick={() => handleCancelInvite(activeInvite.inviteCode)}
                 >
-                  Hủy Mã Mời Này
+                  {t('qr_btn_cancel_invite')}
                 </Button>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center p-8 bg-slate-50 rounded-xl border border-slate-200 text-slate-500 text-xs">
-            Chưa có mã mời nào đang hoạt động. Nhấn "Sinh Mã Mời Mới" để tạo mã tuyển thợ.
+          <div className="text-center p-8 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-xs">
+            {t('qr_empty_active')}
           </div>
         )}
 
         {/* Danh sách các mã mời đã tạo */}
         {invitations.length > 1 && (
           <div>
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Các Mã Mời Khác Đang Mở ({invitations.length})
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              {t('qr_other_invites_title')} ({invitations.length})
             </h4>
             <div className="space-y-1.5 max-h-36 overflow-y-auto">
               {invitations.map((inv) => (
@@ -313,8 +315,8 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                   onClick={() => setActiveInvite(inv)}
                   className={`p-2.5 rounded-lg border flex items-center justify-between cursor-pointer text-xs transition-colors ${
                     activeInvite?.inviteCode === inv.inviteCode
-                      ? 'border-rose-300 bg-rose-50/40 text-slate-900 font-semibold'
-                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                      ? 'border-rose-300 dark:border-rose-500 bg-rose-50/40 dark:bg-rose-950/40 text-slate-900 dark:text-white font-semibold'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -322,7 +324,7 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                     <span className="text-slate-400">({inv.proposedCommissionRate || 30}%)</span>
                   </div>
                   <span className="text-slate-400 text-[11px] font-mono">
-                    Hết hạn: {formatDate(inv.expiresAt)}
+                    {t('qr_expires_at')} {formatDate(inv.expiresAt)}
                   </span>
                 </div>
               ))}

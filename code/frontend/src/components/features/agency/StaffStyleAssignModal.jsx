@@ -4,8 +4,10 @@ import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { agencyService } from '../../../services/agency.service';
 import { superAdminService } from '../../../services/super-admin.service';
+import { useI18nStore } from '../../../store/useI18nStore';
 
 export const StaffStyleAssignModal = ({ isOpen, onClose, staff, onSuccess }) => {
+  const { t } = useI18nStore();
   const [styles, setStyles] = useState([]);
   const [selectedStyleIds, setSelectedStyleIds] = useState([]);
   const [error, setError] = useState('');
@@ -24,17 +26,15 @@ export const StaffStyleAssignModal = ({ isOpen, onClose, staff, onSuccess }) => 
           setStyles([]);
         });
 
-      // Load current styles of this staff
+      // Load currently assigned styles for this staff
       agencyService
         .getStaffStyles(staff.staffId || staff.id)
         .then((res) => {
-          const current = res.data || res || [];
-          // current may be array of styleIds or array of objects with id / styleId
-          const ids = current.map((s) => s.styleId || s.id || s);
-          setSelectedStyleIds(ids);
+          const list = res.data || res || [];
+          setSelectedStyleIds(list.map((s) => s.styleId || s.id));
         })
         .catch(() => {
-          setSelectedStyleIds(staff.styleIds || []);
+          setSelectedStyleIds([]);
         });
     }
   }, [isOpen, staff]);
@@ -48,19 +48,21 @@ export const StaffStyleAssignModal = ({ isOpen, onClose, staff, onSuccess }) => 
   };
 
   const handleSave = async () => {
-    setIsLoading(true);
-    setError('');
     try {
-      await agencyService.assignStaffStyles(staff.staffId || staff.id, {
-        styleIds: selectedStyleIds,
-      });
-      onSuccess?.({
-        staffId: staff.staffId || staff.id,
-        styleIds: selectedStyleIds,
-      });
+      setIsLoading(true);
+      setError('');
+      await agencyService.assignStaffStyles(
+        staff.staffId || staff.id,
+        selectedStyleIds.map(Number)
+      );
+      if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
-      setError(err.message || 'Lỗi khi gán tone phong cách, vui lòng thử lại');
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          t('error_general')
+      );
     } finally {
       setIsLoading(false);
     }
@@ -71,34 +73,34 @@ export const StaffStyleAssignModal = ({ isOpen, onClose, staff, onSuccess }) => 
       isOpen={isOpen}
       onClose={onClose}
       title={
-        <div className="flex items-center gap-2 text-slate-900">
-          <Sparkles className="w-5 h-5 text-rose-600" />
-          <span>Gán Tone Phong Cách Sở Trường Cho Thợ</span>
+        <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+          <Sparkles className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <span>{t('staff_style_modal_title')}</span>
         </div>
       }
       maxWidth="max-w-md"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Hủy
+            {t('cancel')}
           </Button>
           <Button variant="primary" onClick={handleSave} isLoading={isLoading}>
-            Lưu Phong Cách ({selectedStyleIds.length})
+            {t('staff_style_save_btn')} ({selectedStyleIds.length})
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-xs text-rose-700 rounded-lg">
+          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 rounded-lg">
             {error}
           </div>
         )}
 
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
-          Thợ: <strong className="text-slate-900">{staff.fullName || staff.muaName || `#${staff.staffId || staff.id}`}</strong>
-          <p className="mt-0.5 text-slate-500">
-            Chọn các Tone make-up mà thợ này có thế mạnh để tối ưu thuật toán ghép đơn thông minh.
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-600 dark:text-slate-300">
+          {t('staff_label')} <strong className="text-slate-900 dark:text-white">{staff.fullName || staff.muaName || `#${staff.staffId || staff.id}`}</strong>
+          <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+            {t('staff_style_modal_desc')}
           </p>
         </div>
 
@@ -111,14 +113,14 @@ export const StaffStyleAssignModal = ({ isOpen, onClose, staff, onSuccess }) => 
                 onClick={() => toggleStyle(st.id)}
                 className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                   isChecked
-                    ? 'bg-rose-50 border-rose-300 text-rose-900 font-semibold'
-                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                    ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-600 text-rose-900 dark:text-rose-200 font-semibold'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-300'
                 }`}
               >
                 <div>
                   <span className="text-sm block">{st.styleName}</span>
                   {st.description && (
-                    <span className="text-[11px] text-slate-500 font-normal">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal">
                       {st.description}
                     </span>
                   )}
@@ -127,7 +129,7 @@ export const StaffStyleAssignModal = ({ isOpen, onClose, staff, onSuccess }) => 
                   className={`w-5 h-5 rounded-md flex items-center justify-center border ${
                     isChecked
                       ? 'bg-rose-600 border-rose-600 text-white'
-                      : 'border-slate-300 bg-white'
+                      : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700'
                   }`}
                 >
                   {isChecked && <Check className="w-3.5 h-3.5" />}

@@ -47,6 +47,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import com.makeup.platform.entity.agency.AgencyStaffServiceEntity;
+import com.makeup.platform.repository.AgencyStaffServiceRepository;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -63,6 +67,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyStaffRepository agencyStaffRepository;
     private final AgencyStaffStyleRepository agencyStaffStyleRepository;
+    private final AgencyStaffServiceRepository agencyStaffServiceRepository;
     private final MuaProfileRepository muaProfileRepository;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -306,7 +311,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         } else {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_VALIDATION,
-                    "Quyết định không hợp lệ. Chỉ chấp nhận APPROVE hoặc REJECT",
+                    "agency.invalid_decision",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -325,7 +330,37 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         } else {
             page = agencyStaffRepository.findByAgencyId(agency.getId(), pageable);
         }
-        return page.map(agencyStaffMapper::toRes);
+
+        if (page.isEmpty()) {
+            return page.map(agencyStaffMapper::toRes);
+        }
+
+        List<Long> staffIds = page.getContent().stream().map(AgencyStaffEntity::getId).toList();
+        List<AgencyStaffStyleEntity> allStyles = agencyStaffStyleRepository.findByStaffIdInWithStyle(staffIds);
+        List<AgencyStaffServiceEntity> allPackages = agencyStaffServiceRepository.findByStaffIdInWithPackage(staffIds);
+
+        Map<Long, List<AssignedStyleRes>> styleMap = allStyles.stream()
+                .collect(Collectors.groupingBy(s -> s.getStaff().getId(),
+                        Collectors.mapping(s -> AssignedStyleRes.builder()
+                                .id(s.getStyle().getId())
+                                .styleCode(s.getStyle().getStyleCode())
+                                .styleName(s.getStyle().getStyleName())
+                                .isQualified(s.getIsQualified())
+                                .build(), Collectors.toList())));
+
+        Map<Long, List<Long>> packageMap = allPackages.stream()
+                .collect(Collectors.groupingBy(p -> p.getStaff().getId(),
+                        Collectors.mapping(p -> p.getServicePackage().getId(), Collectors.toList())));
+
+        return page.map(entity -> {
+            AgencyStaffRes res = agencyStaffMapper.toRes(entity);
+            List<AssignedStyleRes> stList = styleMap.getOrDefault(entity.getId(), Collections.emptyList());
+            List<Long> pkgList = packageMap.getOrDefault(entity.getId(), Collections.emptyList());
+            res.setStyles(stList);
+            res.setPackageCount(pkgList.size());
+            res.setPackageIds(pkgList);
+            return res;
+        });
     }
 
     @Override

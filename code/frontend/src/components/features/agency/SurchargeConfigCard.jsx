@@ -18,7 +18,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
   const [nightAmount, setNightAmount] = useState(150000);
 
   // 3. Phụ phí lễ tết
-  const [holidayName, setHolidayName] = useState('Tết Nguyên Đán & Lễ Quốc Khánh');
+  const [holidayName, setHolidayName] = useState('');
   const [holidayPercentage, setHolidayPercentage] = useState(25);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +81,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
     try {
       // Configure Distance
       await agencyService.createSurcharge({
-        surchargeName: 'Phụ phí khoảng cách di chuyển',
+        surchargeName: t('surcharge_distance_name'),
         surchargeType: 'OUT_OF_RADIUS',
         amount: Number(extraPricePerKm) || 0,
         baseDistanceKm: Number(baseDistanceKm),
@@ -91,7 +91,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
 
       // Configure Night / Early Morning
       await agencyService.createSurcharge({
-        surchargeName: 'Phụ phí làm việc sáng sớm / đêm',
+        surchargeName: t('surcharge_night_name'),
         surchargeType: 'EARLY_MORNING',
         amount: Number(nightAmount) || 0,
         startHour: startNightHour,
@@ -100,10 +100,10 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
 
       // Configure Holiday
       await agencyService.createSurcharge({
-        surchargeName: holidayName?.trim() || 'Phụ phí ngày Lễ Tết',
+        surchargeName: holidayName?.trim() || t('surcharge_holiday_default_name'),
         surchargeType: 'HOLIDAY',
         amount: Number(holidayPercentage) || 0,
-        holidayName: holidayName?.trim() || 'Lễ Tết',
+        holidayName: holidayName?.trim() || t('surcharge_holiday'),
         percentage: Number(holidayPercentage),
       });
 
@@ -127,7 +127,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
             <strong className="block font-bold text-sm">
               {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
                 ? t('error_api_connection')
-                : 'Thông Báo Hệ Thống'}
+                : t('error_system_notice')}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {apiError}
@@ -135,10 +135,10 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={loadSurcharges}>
-              Thử Lại
+              {t('retry')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
-              Đóng
+              {t('close')}
             </Button>
           </div>
         </div>
@@ -178,30 +178,30 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
 
           <div className="space-y-3 pt-2">
             <Input
-              label="Khoảng cách miễn phí tối đa (km)"
+              label={t('surcharge_distance_free_limit')}
               type="number"
               min="0"
               value={baseDistanceKm}
               onChange={(e) => setBaseDistanceKm(e.target.value)}
-              helperText="VD: Dưới 5km miễn phí di chuyển"
+              helperText={t('surcharge_distance_free_limit_helper')}
             />
             <Input
-              label="Đơn giá mỗi km vượt (VNĐ/km)"
+              label={t('surcharge_distance_unit_price')}
               type="number"
               min="1000"
               step="1000"
               value={extraPricePerKm}
               onChange={(e) => setExtraPricePerKm(e.target.value)}
-              helperText="VD: 15.000 đ cho mỗi km vượt ngoài 5km"
+              helperText={t('surcharge_distance_unit_price_helper')}
             />
             <Input
-              label="Bán kính phục vụ tối đa (km)"
+              label={t('surcharge_distance_max_radius')}
               type="number"
               min="5"
               max="100"
               value={maxDistanceKm}
               onChange={(e) => setMaxDistanceKm(e.target.value)}
-              helperText="Không nhận đơn vượt quá cự ly này"
+              helperText={t('surcharge_distance_max_radius_helper')}
             />
           </div>
         </div>
@@ -220,29 +220,29 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
 
           <div className="space-y-3 pt-2">
             <Input
-              label="Bắt đầu tính đêm muộn"
+              label={t('surcharge_night_start')}
               type="text"
               placeholder="21:00"
               value={startNightHour}
               onChange={(e) => setStartNightHour(e.target.value)}
-              helperText="Định dạng HH:mm (VD: 21:00)"
+              helperText={t('surcharge_night_start_helper')}
             />
             <Input
-              label="Kết thúc sáng sớm"
+              label={t('surcharge_night_end')}
               type="text"
               placeholder="06:00"
               value={endEarlyHour}
               onChange={(e) => setEndEarlyHour(e.target.value)}
-              helperText="Định dạng HH:mm (VD: 06:00)"
+              helperText={t('surcharge_night_end_helper')}
             />
             <Input
-              label="Mức phụ thu cố định (VNĐ)"
+              label={t('surcharge_night_fixed_amount')}
               type="number"
               min="10000"
               step="10000"
               value={nightAmount}
               onChange={(e) => setNightAmount(e.target.value)}
-              helperText="Cộng trực tiếp vào tổng bill khi khách đặt giờ này"
+              helperText={t('surcharge_night_fixed_amount_helper')}
             />
           </div>
         </div>
@@ -261,23 +261,23 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
 
           <div className="space-y-3 pt-2">
             <Input
-              label="Tên dịp lễ / Ghi chú"
+              label={t('surcharge_holiday_name')}
               type="text"
               value={holidayName}
               onChange={(e) => setHolidayName(e.target.value)}
-              helperText="Tết Âm lịch, 30/4 - 1/5, 2/9, Noel..."
+              helperText={t('surcharge_holiday_name_helper')}
             />
             <Input
-              label="Tỷ lệ phụ thu (%)"
+              label={t('surcharge_holiday_rate')}
               type="number"
               min="0"
               max="100"
               value={holidayPercentage}
               onChange={(e) => setHolidayPercentage(e.target.value)}
-              helperText="Tính theo % giá trị đơn hàng (VD: 25%)"
+              helperText={t('surcharge_holiday_rate_helper')}
             />
             <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
-              Auto surcharge applied when booking falls on recognized holidays.
+              {t('surcharge_holiday_notice')}
             </div>
           </div>
         </div>

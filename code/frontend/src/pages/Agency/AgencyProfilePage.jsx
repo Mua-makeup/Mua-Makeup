@@ -201,7 +201,7 @@ export const AgencyProfilePage = () => {
             <Input
               label={t('field_street')}
               required
-              placeholder="VD: 128 Nguyễn Huệ, Phường Bến Nghé"
+              placeholder={t('placeholder_street')}
               value={addressStreet}
               onChange={(e) => setAddressStreet(e.target.value)}
               error={profileErrors.addressStreet}
@@ -211,7 +211,7 @@ export const AgencyProfilePage = () => {
               <Input
                 label={t('field_district')}
                 required
-                placeholder="Quận 1"
+                placeholder={t('placeholder_district')}
                 value={addressDistrict}
                 onChange={(e) => setAddressDistrict(e.target.value)}
                 error={profileErrors.addressDistrict}
@@ -220,7 +220,7 @@ export const AgencyProfilePage = () => {
               <Input
                 label={t('field_city')}
                 required
-                placeholder="Hồ Chí Minh"
+                placeholder={t('placeholder_city')}
                 value={addressCity}
                 onChange={(e) => setAddressCity(e.target.value)}
                 error={profileErrors.addressCity}

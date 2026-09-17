@@ -97,7 +97,7 @@ export const OvertimeConfigCard = () => {
     });
 
     if (!validation.success) {
-      setError(validation.error.errors[0]?.message || 'Dữ liệu không hợp lệ');
+      setError(validation.error.errors[0]?.message || t('invalid_data'));
       return;
     }
 
@@ -150,7 +150,7 @@ export const OvertimeConfigCard = () => {
             <strong className="block font-bold text-sm">
               {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
                 ? t('error_api_connection')
-                : 'Thông Báo Hệ Thống'}
+                : t('error_system_notice')}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {apiError}
@@ -158,10 +158,10 @@ export const OvertimeConfigCard = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={loadData}>
-              Thử Lại
+              {t('retry')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
-              Đóng
+              {t('close')}
             </Button>
           </div>
         </div>
@@ -171,7 +171,7 @@ export const OvertimeConfigCard = () => {
       {isNotVerified && (
         <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-center gap-3 text-amber-900 dark:text-amber-200 text-xs">
           <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-          <span>Cấu hình và báo cáo tăng ca sẽ mở sau khi Studio được Super Admin phê duyệt chính thức.</span>
+          <span>{t('overtime_pending_verification_desc')}</span>
         </div>
       )}
 
@@ -204,25 +204,25 @@ export const OvertimeConfigCard = () => {
 
         <form onSubmit={handleSaveRule} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
           <Input
-            label="Đơn giá làm thêm (VNĐ / giờ)"
+            label={t('overtime_rate_per_hour')}
             type="number"
             min="10000"
             step="10000"
             required
             value={ratePerHour}
             onChange={(e) => setRatePerHour(e.target.value)}
-            helperText="VD: 100.000 đ cho mỗi 60 phút phát sinh"
+            helperText={t('overtime_rate_per_hour_helper')}
           />
 
           <Input
-            label="Giới hạn tối đa (giờ / ngày)"
+            label={t('overtime_max_hours')}
             type="number"
             min="1"
             max="12"
             required
             value={maxOvertimeHours}
             onChange={(e) => setMaxOvertimeHours(e.target.value)}
-            helperText="Tối đa giờ được tính tăng ca mỗi ca làm"
+            helperText={t('overtime_max_hours_helper')}
           />
 
           <div>
@@ -251,9 +251,9 @@ export const OvertimeConfigCard = () => {
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
               <tr>
                 <th className="px-5 py-3">{t('col_staff_name')}</th>
-                <th className="px-5 py-3">Mã Đơn / Thời Gian</th>
-                <th className="px-5 py-3">Phát Sinh</th>
-                <th className="px-5 py-3">Lý Do Chi Tiết</th>
+                <th className="px-5 py-3">{t('overtime_col_booking_time')}</th>
+                <th className="px-5 py-3">{t('overtime_col_incurred')}</th>
+                <th className="px-5 py-3">{t('overtime_col_reason')}</th>
                 <th className="px-5 py-3">{t('status')}</th>
                 <th className="px-5 py-3 text-right">{t('col_actions')}</th>
               </tr>
@@ -269,15 +269,15 @@ export const OvertimeConfigCard = () => {
                 reports.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="px-5 py-3.5">
-                      <span className="font-bold text-slate-900 dark:text-white block">{r.staffName || `Thợ #${r.staffId}`}</span>
+                      <span className="font-bold text-slate-900 dark:text-white block">{r.staffName || `${t('staff_label')} #${r.staffId}`}</span>
                       <span className="text-xs text-slate-400 font-mono">Staff ID: {r.staffId}</span>
                     </td>
                     <td className="px-5 py-3.5 text-xs">
-                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 block">Đơn #{r.bookingId}</span>
+                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 block">{t('booking_label')} #{r.bookingId}</span>
                       <span className="text-slate-400 font-mono">{formatDateTime(r.createdAt)}</span>
                     </td>
                     <td className="px-5 py-3.5 text-xs">
-                      <span className="font-bold text-slate-900 dark:text-white block">+{r.actualOvertimeMinutes} phút</span>
+                      <span className="font-bold text-slate-900 dark:text-white block">+{r.actualOvertimeMinutes} {t('unit_minutes')}</span>
                       <span className="text-rose-600 dark:text-rose-400 font-semibold">{formatCurrency(r.calculatedAmount)}</span>
                     </td>
                     <td className="px-5 py-3.5 text-xs max-w-xs">
@@ -357,17 +357,17 @@ export const OvertimeConfigCard = () => {
         <div className="space-y-4">
           <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs space-y-1">
             <p className="text-slate-700 dark:text-slate-300">
-              Thợ: <strong className="text-slate-900 dark:text-white">{selectedReport?.staffName}</strong> • Đơn: <strong className="text-slate-900 dark:text-white">#{selectedReport?.bookingId}</strong>
+              {t('staff_label')} <strong className="text-slate-900 dark:text-white">{selectedReport?.staffName}</strong> • {t('booking_label')}: <strong className="text-slate-900 dark:text-white">#{selectedReport?.bookingId}</strong>
             </p>
             <p className="text-slate-700 dark:text-slate-300">
-              Thời gian phát sinh: <strong className="text-slate-900 dark:text-white">+{selectedReport?.actualOvertimeMinutes} phút</strong> ({formatCurrency(selectedReport?.calculatedAmount)})
+              {t('overtime_incurred_label')}: <strong className="text-slate-900 dark:text-white">+{selectedReport?.actualOvertimeMinutes} {t('unit_minutes')}</strong> ({formatCurrency(selectedReport?.calculatedAmount)})
             </p>
             <p className="text-slate-500 dark:text-slate-400 italic mt-1">"{selectedReport?.reason}"</p>
           </div>
 
           <Textarea
-            label="Ghi chú thẩm định của Studio"
-            placeholder="Nhập lý do hoặc lời nhắn cho thợ..."
+            label={t('overtime_review_agency_notes')}
+            placeholder={t('overtime_review_agency_notes_placeholder')}
             value={reviewNote}
             onChange={(e) => setReviewNote(e.target.value)}
             rows={3}

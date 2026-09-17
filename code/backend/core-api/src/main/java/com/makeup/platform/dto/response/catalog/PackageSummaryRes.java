@@ -26,6 +26,7 @@ public class PackageSummaryRes {
     private String packageName;
     private BigDecimal price;
     private Integer estimatedDurationMinutes;
+    private Integer durationMinutes;
     private Boolean isAvailable;
     private List<MakeupStyleRes> styles;
 }

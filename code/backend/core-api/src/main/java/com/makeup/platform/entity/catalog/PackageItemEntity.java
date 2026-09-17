@@ -53,6 +53,10 @@ public class PackageItemEntity {
     @Builder.Default
     private BigDecimal itemPrice = BigDecimal.ZERO;
 
+    @Column(name = "duration_minutes", nullable = false)
+    @Builder.Default
+    private Integer durationMinutes = 15;
+
     @Column(name = "is_required", nullable = false)
     @Builder.Default
     private Boolean isRequired = true;

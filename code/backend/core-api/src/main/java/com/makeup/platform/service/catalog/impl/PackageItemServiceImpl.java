@@ -45,6 +45,7 @@ public class PackageItemServiceImpl implements PackageItemService {
                 .itemName(req.getItemName().trim())
                 .stepOrder(req.getStepOrder())
                 .itemPrice(req.getItemPrice() != null ? req.getItemPrice() : BigDecimal.ZERO)
+                .durationMinutes(req.getDurationMinutes() != null ? req.getDurationMinutes() : 15)
                 .isRequired(req.getIsRequired() != null ? req.getIsRequired() : true)
                 .isActive(req.getIsActive() != null ? req.getIsActive() : true)
                 .build();
@@ -70,6 +71,9 @@ public class PackageItemServiceImpl implements PackageItemService {
         item.setItemName(req.getItemName().trim());
         item.setStepOrder(req.getStepOrder());
         item.setItemPrice(req.getItemPrice());
+        if (req.getDurationMinutes() != null) {
+            item.setDurationMinutes(req.getDurationMinutes());
+        }
         if (req.getIsRequired() != null) {
             item.setIsRequired(req.getIsRequired());
         }

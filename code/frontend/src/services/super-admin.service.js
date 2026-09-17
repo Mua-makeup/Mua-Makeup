@@ -17,4 +17,20 @@ export const superAdminService = {
   // Master taxonomy
   getMasterCategories: () => apiClient.get('/master-categories'),
   getMakeupStyles: () => apiClient.get('/makeup-styles'),
+  getAllMasterCategories: () => apiClient.get('/admin/master-categories/all'),
+  createMasterCategory: (payload) => apiClient.post('/admin/master-categories', payload),
+  updateMasterCategory: (id, payload) => apiClient.put(`/admin/master-categories/${id}`, payload),
+  getAllMakeupStyles: () => apiClient.get('/admin/makeup-styles/all'),
+  createMakeupStyle: (payload) => apiClient.post('/admin/makeup-styles', payload),
+  updateMakeupStyle: (id, payload) => apiClient.put(`/admin/makeup-styles/${id}`, payload),
+
+  // Platform Bookings Monitoring
+  getBookings: (params) => apiClient.get('/admin/bookings', { params }),
+  getBookingDetail: (id) => apiClient.get(`/admin/bookings/${id}`),
+  getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),
+
+  // Platform Users Management
+  getUsers: (params) => apiClient.get('/admin/users', { params }),
+  updateUserStatus: (id, active) => apiClient.put(`/admin/users/${id}/status`, null, { params: { active } }),
 };
+

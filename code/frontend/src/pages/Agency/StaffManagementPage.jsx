@@ -150,11 +150,11 @@ export const StaffManagementPage = () => {
     },
     {
       header: t('col_commission'),
-      accessor: 'commissionRateCustom',
+      accessor: 'agreedCommissionRate',
       render: (row) => (
         <div className="flex items-center gap-2">
           <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 text-xs">
-            {row.commissionRateCustom ?? 30}%
+            {row.agreedCommissionRate ?? row.commissionRateCustom ?? 30}%
           </span>
           <button
             onClick={() => setCommissionModalStaff(row)}
@@ -308,7 +308,7 @@ export const StaffManagementPage = () => {
             <strong className="block font-bold text-sm">
               {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
                 ? t('error_api_connection')
-                : 'Thông Báo Hệ Thống'}
+                : t('error_system_notice')}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {apiError}
@@ -316,10 +316,10 @@ export const StaffManagementPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={loadStaffData}>
-              Thử Lại
+              {t('retry')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
-              Đóng
+              {t('close')}
             </Button>
           </div>
         </div>
@@ -421,13 +421,9 @@ export const StaffManagementPage = () => {
         isOpen={Boolean(commissionModalStaff)}
         onClose={() => setCommissionModalStaff(null)}
         staff={commissionModalStaff}
-        onSuccess={({ staffId, commissionRate }) => {
-          setActiveStaff((prev) =>
-            prev.map((s) =>
-              s.id === staffId ? { ...s, commissionRateCustom: commissionRate } : s
-            )
-          );
+        onSuccess={() => {
           setToastMessage(t('update_success'));
+          loadStaffData();
         }}
       />
 

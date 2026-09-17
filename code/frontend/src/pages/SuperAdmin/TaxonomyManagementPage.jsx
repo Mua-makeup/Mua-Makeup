@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Layers, Sparkles, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Layers, Sparkles, AlertTriangle, Plus, Edit2 } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { TAXONOMY_TABS } from '../../constants/super-admin.constant';
 import { Badge } from '../../components/base/Badge';
+import { Button } from '../../components/base/Button';
 import { DataTable } from '../../components/base/DataTable';
 import { useI18nStore } from '../../store/useI18nStore';
+import { CategoryModal } from '../../components/features/admin/CategoryModal';
+import { StyleModal } from '../../components/features/admin/StyleModal';
 
 export const TaxonomyManagementPage = () => {
   const { t } = useI18nStore();
@@ -14,28 +17,53 @@ export const TaxonomyManagementPage = () => {
   const [apiError, setApiError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
+  // Modals state
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+
+  const [styleModalOpen, setStyleModalOpen] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState(null);
+
+  const loadTaxonomy = useCallback(async () => {
+    setIsLoading(true);
+    setApiError('');
+    try {
+      const [catRes, styleRes] = await Promise.all([
+        superAdminService.getAllMasterCategories(),
+        superAdminService.getAllMakeupStyles(),
+      ]);
+      setCategories(catRes?.data || catRes || []);
+      setStyles(styleRes?.data || styleRes || []);
+    } catch (err) {
+      setApiError(err.message || t('error_api_connection'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
   useEffect(() => {
-    const loadTaxonomy = async () => {
-      setIsLoading(true);
-      setApiError('');
-      try {
-        const [catRes, styleRes] = await Promise.all([
-          superAdminService.getMasterCategories(),
-          superAdminService.getMakeupStyles(),
-        ]);
-        setCategories(catRes?.data || catRes || []);
-        setStyles(styleRes?.data || styleRes || []);
-      } catch (err) {
-        setApiError(
-          err.message ||
-            'Không thể kết nối hoặc tải Taxonomy từ catalog_schema. Vui lòng kiểm tra backend server.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadTaxonomy();
-  }, []);
+  }, [loadTaxonomy]);
+
+  const handleOpenCreateCategory = () => {
+    setSelectedCategory(null);
+    setCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat) => {
+    setSelectedCategory(cat);
+    setCategoryModalOpen(true);
+  };
+
+  const handleOpenCreateStyle = () => {
+    setSelectedStyle(null);
+    setStyleModalOpen(true);
+  };
+
+  const handleOpenEditStyle = (style) => {
+    setSelectedStyle(style);
+    setStyleModalOpen(true);
+  };
 
   const categoryColumns = [
     {
@@ -83,6 +111,20 @@ export const TaxonomyManagementPage = () => {
           <Badge variant="inactive">{t('status_paused')}</Badge>
         ),
     },
+    {
+      header: t('col_action'),
+      align: 'right',
+      render: (row) => (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={Edit2}
+          onClick={() => handleOpenEditCategory(row)}
+        >
+          {t('btn_edit')}
+        </Button>
+      ),
+    },
   ];
 
   const styleColumns = [
@@ -121,21 +163,59 @@ export const TaxonomyManagementPage = () => {
           <Badge variant="inactive">{t('status_paused')}</Badge>
         ),
     },
+    {
+      header: t('col_action'),
+      align: 'right',
+      render: (row) => (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={Edit2}
+          onClick={() => handleOpenEditStyle(row)}
+        >
+          {t('btn_edit')}
+        </Button>
+      ),
+    },
   ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <Layers className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            {t('admin_taxonomy_title')}
-          </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Layers className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              {t('admin_taxonomy_title')}
+            </h1>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {t('admin_taxonomy_sub')}
+          </p>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          {t('admin_taxonomy_sub')}
-        </p>
+
+        <div>
+          {activeTab === TAXONOMY_TABS.CATEGORIES ? (
+            <Button
+              variant="primary"
+              size="md"
+              icon={Plus}
+              onClick={handleOpenCreateCategory}
+            >
+              {t('btn_add_category')}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="md"
+              icon={Plus}
+              onClick={handleOpenCreateStyle}
+            >
+              {t('btn_add_style')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {apiError && (
@@ -197,6 +277,22 @@ export const TaxonomyManagementPage = () => {
           />
         </div>
       )}
+
+      {/* Category Modal */}
+      <CategoryModal
+        isOpen={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        category={selectedCategory}
+        onSuccess={loadTaxonomy}
+      />
+
+      {/* Style Modal */}
+      <StyleModal
+        isOpen={styleModalOpen}
+        onClose={() => setStyleModalOpen(false)}
+        styleItem={selectedStyle}
+        onSuccess={loadTaxonomy}
+      />
     </div>
   );
 };

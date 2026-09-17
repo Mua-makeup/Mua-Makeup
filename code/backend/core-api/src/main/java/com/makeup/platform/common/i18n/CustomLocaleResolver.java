@@ -34,9 +34,30 @@ public class CustomLocaleResolver implements LocaleResolver {
     @Override
     @NonNull
     public Locale resolveLocale(@NonNull HttpServletRequest request) {
-        // 1. Nếu người dùng ĐÃ ĐĂNG NHẬP, ưu tiên hàng đầu cài đặt trong Database của người dùng
+        // 1. Ưu tiên hàng đầu: Header Accept-Language từ HTTP Request (Phản ánh trực tiếp lựa chọn tức thì của người dùng trên UI)
+        String headerLang = request.getHeader("Accept-Language");
+        if (StringUtils.hasText(headerLang) && !"*".equals(headerLang.trim())) {
+            String primaryLang = headerLang.split(",")[0].trim().toLowerCase();
+            if (primaryLang.startsWith("vi")) {
+                return VIETNAMESE_LOCALE;
+            } else if (primaryLang.startsWith("en")) {
+                return DEFAULT_LOCALE;
+            }
+        }
+
+        // 2. Ưu tiên thứ hai: Cài đặt ngôn ngữ của User trong Token hoặc Database
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated()) {
+            // Request attribute hoặc Token
+            String reqLang = (String) request.getAttribute("USER_LANGUAGE");
+            if (StringUtils.hasText(reqLang)) {
+                if (reqLang.equalsIgnoreCase("vi")) {
+                    return VIETNAMESE_LOCALE;
+                } else if (reqLang.equalsIgnoreCase("en")) {
+                    return DEFAULT_LOCALE;
+                }
+            }
+
             Long userId = null;
             if (authentication.getPrincipal() instanceof Long uid) {
                 userId = uid;
@@ -61,30 +82,9 @@ public class CustomLocaleResolver implements LocaleResolver {
                     log.warn("Failed to read user language from DB: {}", e.getMessage());
                 }
             }
-
-            // Fallback sang thuộc tính lưu trong Token / Request Attribute
-            String reqLang = (String) request.getAttribute("USER_LANGUAGE");
-            if (StringUtils.hasText(reqLang)) {
-                if (reqLang.equalsIgnoreCase("vi")) {
-                    return VIETNAMESE_LOCALE;
-                } else if (reqLang.equalsIgnoreCase("en")) {
-                    return DEFAULT_LOCALE;
-                }
-            }
         }
 
-        // 2. Nếu là khách vãng lai hoặc chưa có thông tin DB, kiểm tra Header Accept-Language
-        String headerLang = request.getHeader("Accept-Language");
-        if (StringUtils.hasText(headerLang) && !"*".equals(headerLang.trim())) {
-            String primaryLang = headerLang.split(",")[0].trim().toLowerCase();
-            if (primaryLang.startsWith("vi")) {
-                return VIETNAMESE_LOCALE;
-            } else if (primaryLang.startsWith("en")) {
-                return DEFAULT_LOCALE;
-            }
-        }
-
-        // 3. Mặc định hệ thống là Tiếng Anh ('en')
+        // 3. Fallback mặc định hệ thống là Tiếng Anh ('en')
         return DEFAULT_LOCALE;
     }
 

@@ -15,12 +15,18 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+import com.makeup.platform.common.i18n.JsonMessageSource;
+import org.springframework.web.servlet.LocaleResolver;
+import java.util.Locale;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     private final ObjectMapper objectMapper;
+    private final JsonMessageSource messageSource;
+    private final LocaleResolver localeResolver;
 
     @Override
     public void commence(HttpServletRequest request,
@@ -33,9 +39,15 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
+            Locale locale = localeResolver.resolveLocale(request);
+            String message = messageSource.getMessageString("auth.unauthorized_token", locale);
+            if (message == null) {
+                message = "Authentication required. Please log in or provide a valid token.";
+            }
+
             ApiResponse<Void> errorResponse = ApiResponse.error(
                     ErrorCodes.ERR_UNAUTHORIZED,
-                    "Yêu cầu cần xác thực. Vui lòng đăng nhập hoặc cung cấp token hợp lệ."
+                    message
             );
 
             objectMapper.writeValue(response.getWriter(), errorResponse);

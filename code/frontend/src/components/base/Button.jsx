@@ -23,15 +23,15 @@ export const Button = ({
 
   const variantStyles = {
     primary:
-      'bg-rose-600 hover:bg-rose-700 text-white shadow-sm hover:shadow focus:ring-rose-500 border border-transparent active:bg-rose-800',
+      'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 active:scale-[0.98] text-white shadow-sm hover:shadow focus:ring-rose-500 border border-transparent',
     secondary:
-      'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-400 active:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700',
+      'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-400 active:bg-slate-100 active:scale-[0.98] dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700 dark:active:bg-slate-600',
     danger:
-      'bg-red-600 hover:bg-red-700 text-white shadow-sm focus:ring-red-500 border border-transparent active:bg-red-800',
+      'bg-red-600 hover:bg-red-700 active:bg-red-800 active:scale-[0.98] text-white shadow-sm focus:ring-red-500 border border-transparent',
     outline:
-      'bg-transparent hover:bg-rose-50 text-rose-600 border border-rose-300 focus:ring-rose-400',
+      'bg-transparent hover:bg-rose-50 active:bg-rose-100 active:scale-[0.98] text-rose-600 border border-rose-300 focus:ring-rose-400 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30',
     ghost:
-      'bg-transparent hover:bg-slate-100 text-slate-600 focus:ring-slate-400 dark:text-slate-300 dark:hover:bg-slate-800',
+      'bg-transparent hover:bg-slate-100 active:bg-slate-200 active:scale-[0.98] text-slate-600 focus:ring-slate-400 dark:text-slate-300 dark:hover:bg-slate-800 dark:active:bg-slate-700',
   };
 
   return (

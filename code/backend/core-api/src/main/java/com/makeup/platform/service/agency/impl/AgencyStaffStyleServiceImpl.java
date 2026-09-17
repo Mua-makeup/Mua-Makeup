@@ -54,7 +54,8 @@ public class AgencyStaffStyleServiceImpl implements AgencyStaffStyleService {
                 MakeupStyleEntity style = makeupStyleRepository.findById(styleId)
                         .orElseThrow(() -> new ResourceNotFoundException(
                                 ErrorCodes.ERR_STYLE_NOT_FOUND,
-                                "Không tìm thấy phong cách make-up với ID: " + styleId
+                                "catalog.style_not_found",
+                                styleId
                         ));
                 validStyles.add(style);
             }

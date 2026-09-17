@@ -42,7 +42,7 @@ export const LoginPage = () => {
         navigate('/agency/dashboard', { replace: true });
       } else {
         setServerError(
-          'Tài khoản này không có quyền truy cập Cổng Quản Trị (Yêu cầu vai trò Super Admin hoặc Agency Admin).',
+          t('login_role_unauthorized'),
         );
       }
     } catch (err) {
