@@ -1,24 +1,22 @@
 # TÀI LIỆU ĐẶC TẢ USER STORIES & THIẾT KẾ KỸ THUẬT CHI TIẾT
-## PHÂN HỆ: ĐÁNH GIÁ RATING 1-5★, TIP TIỀN THỢ & XỬ LÝ KHIẾU NẠI DỊCH VỤ (DISPUTES)
+## PHÂN HỆ: ĐÁNH GIÁ RATING 1-5★ & XỬ LÝ KHIẾU NẠI DỊCH VỤ (DISPUTES)
 ### (Spring Boot 3.3.x Layered Monolith with Domain Sub-packages `core-api` - Schema: `interaction_schema`, Port `8080`)
 
 ---
 
 ## 📌 1. TỔNG QUAN TÍNH NĂNG (FEATURE OVERVIEW)
 
-* **Tên Phân hệ Nghiệp vụ:** `Review, Tip & Dispute Resolution Management Engine`
+* **Tên Phân hệ Nghiệp vụ:** `Review & Dispute Resolution Management Engine`
 * **Mã Jira Issues phụ trách (Sprint 6 - Nhóm 1):**
-  * `ISSUE-24.1`: **User Story** - Module Đánh giá Rating 1-5★ & Nhận xét chất lượng sản phẩm (`reviews`).
-  * `ISSUE-24.2`: **Task** - Tính năng Tip tiền trực tiếp cho Thợ từ Ví Khách hàng sau khi hoàn thành ca (`tip_amount`).
-  * `ISSUE-24.3`: **Task** - Module Đơn Khiếu nại Dịch vụ (`disputes`) & Quy trình Tạm đóng băng tiền giải ngân của đơn hàng.
+  * `ISSUE-25.1`: **User Story** - Module Đánh Giá Rating 1-5★ & Xử Lý Đơn Khiếu Nại Dịch Vụ (`disputes`).
+  * `ISSUE-25.2`: **Task** - Module Đánh giá Rating 1-5★ & Nhận xét chất lượng kèm hình ảnh (`reviews`).
+  * `ISSUE-25.3`: **Task** - Module Đơn Khiếu nại Dịch vụ (`disputes`) & Quy trình Tự động Đóng băng Tiền giải ngân Escrow.
+  * `ISSUE-25.4`: **Task** - Dashboard Super Admin thụ lý, xem xét bằng chứng và phân xử khiếu nại (Hoàn cọc / Giải ngân).
 
 * **Mô hình Kiến trúc & Nguyên Tắc Vận Hành:**
   * **Đánh Giá & Xếp Hạng Thợ (Reputation Engine):**
     * Khách hàng chỉ được phép đánh giá khi đơn hàng ở trạng thái `COMPLETED` hoặc `PAID_OUT`. Mỗi đơn hàng chỉ được tạo tối đa 1 bản ghi review (`booking_id UNIQUE`).
     * Điểm số Rating ($1\text{–}5\text{★}$) tự động tính toán lại điểm trung bình (`average_rating`) và tổng số lượt đánh giá (`total_reviews`) của Thợ trong bảng `mua_schema.mua_profiles`.
-  * **Tip Tiền Trực Tiếp (Direct Tip from Customer Wallet):**
-    * Khách hàng có thể tùy chọn tip thêm tiền (ví dụ: $50,000\text{ đ}$, $100,000\text{ đ}$ hoặc số tiền tùy chỉnh) từ số dư ví khả dụng của mình.
-    * Tiền tip được chuyển $100\%$ trực tiếp vào Ví Thợ (`FREELANCER_WALLET`), **Sàn không thu bất kỳ % hoa hồng nào trên tiền tip**.
   * **Quy Trình Kháng Nghị / Khiếu Nại (Dispute Resolution Workflow):**
     * Nếu khách hàng không hài lòng hoặc thợ không đến / làm hỏng trang phục, khách có thể mở đơn khiếu nại trong vòng $24\text{ giờ}$ sau ca làm.
     * Khi khiếu nại được tạo (`status = 'OPENED'`), hệ thống **tự động tạm dừng tiến trình giải ngân (Freeze Payout)** của đơn hàng đó.
@@ -41,23 +39,23 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   │   └── ApiResponse.java
 │   └── constants/
 │       ├── ErrorCodes.java                    # ERR_BOOKING_NOT_ELIGIBLE_FOR_REVIEW, ERR_DISPUTE_ALREADY_EXISTS...
-│       └── DisputeConstants.java              # MAX_DISPUTE_HOURS (24h), Tip Presets [20k, 50k, 100k, 200k]
+│       └── DisputeConstants.java              # MAX_DISPUTE_HOURS (24h)
 │
 ├── controller/
 │   └── review/
-│       ├── ReviewCustomerController.java      # POST /api/v1/reviews (Tạo review kèm tip), GET /api/v1/reviews/mua/{id}
+│       ├── ReviewCustomerController.java      # POST /api/v1/reviews (Tạo review), GET /api/v1/reviews/mua/{id}
 │       ├── DisputeCustomerController.java     # POST /api/v1/disputes (Mở khiếu nại), GET /api/v1/disputes/my
 │       └── AdminDisputeController.java        # GET /api/v1/admin/disputes, PATCH /{id}/resolve (Phán quyết)
 │
 ├── dto/
 │   ├── request/
 │   │   └── review/
-│   │       ├── CreateReviewReq.java           # bookingId, rating (1-5), comment, reviewImages, tipAmount
+│   │       ├── CreateReviewReq.java           # bookingId, rating (1-5), comment, reviewImages
 │   │       ├── CreateDisputeReq.java          # bookingId, reason, evidenceImages
 │   │       └── ResolveDisputeReq.java         # resolution (REFUND_CUSTOMER | PAY_MUA), resolutionNote
 │   └── response/
 │       └── review/
-│           ├── ReviewDetailRes.java           # id, bookingId, rating, comment, reviewImages, tipAmount, customerName
+│           ├── ReviewDetailRes.java           # id, bookingId, rating, comment, reviewImages, customerName
 │           ├── DisputeDetailRes.java          # id, disputeCode, bookingId, status, reason, evidenceImages
 │           └── AdminDisputeSummaryRes.java    # pendingDisputesCount, totalResolvedThisMonth
 │
@@ -79,11 +77,9 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 └── service/
     └── review/
         ├── ReviewService.java                 # Interface chấm điểm, lưu ảnh review, cập nhật profile MUA
-        ├── TipService.java                    # Interface trừ ví khách -> cộng 100% ví thợ (No Platform Fee)
         ├── DisputeService.java                # Interface mở khiếu nại, đóng băng thanh toán, admin xử lý
         └── impl/
             ├── ReviewServiceImpl.java         # 100% logic nghiệp vụ đánh giá & recalculate rating
-            ├── TipServiceImpl.java            # 100% logic kế toán đúp chuyển tiền tip
             └── DisputeServiceImpl.java        # 100% logic quy trình hòa giải & hoàn tiền CSDL
 ```
 
@@ -93,7 +89,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### **US-REV-01: Đánh Giá Rating 1–5★ & Nhận Xét Kèm Ảnh Sau Khi Hoàn Thành Ca (`ISSUE-24.1`)**
+### **US-REV-01: Đánh Giá Rating 1–5★ & Nhận Xét Kèm Ảnh Sau Khi Hoàn Thành Ca (`ISSUE-25.2`)**
 > **As a** Khách hàng vừa sử dụng dịch vụ trang điểm,  
 > **I want** chấm điểm từ 1 đến 5 sao, viết nhận xét và đính kèm tối đa 5 bức ảnh chụp lớp make-up thực tế,  
 > **So that** tôi bày tỏ sự hài lòng hoặc góp ý chất lượng cho thợ, đồng thời giúp cộng đồng khách hàng khác có cơ sở chọn thợ uy tín.
@@ -111,8 +107,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
       "review_images": [
         "https://cdn.makeup.vn/reviews/r901_1.webp",
         "https://cdn.makeup.vn/reviews/r901_2.webp"
-      ],
-      "tip_amount": 0
+      ]
     }
     ```
   * **Then** Hệ thống kiểm tra:
@@ -136,30 +131,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### **US-REV-02: Tính Năng Tip Tiền Trực Tiếp Cho Thợ Từ Số Dư Ví Khách (`ISSUE-24.2`)**
-> **As a** Khách hàng rất hài lòng với tay nghề và thái độ phục vụ của Thợ,  
-> **I want** gửi tặng thêm một khoản tiền Tip trực tiếp từ Ví của mình cho Thợ,  
-> **So that** tôi khích lệ tinh thần chuyên viên mà không lo bị trừ phí trung gian nền tảng.
-
-#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
-
-* **Scenario 01: Tip tiền thành công trong cùng transaction gửi đánh giá**
-  * **Given** Khách hàng có số dư ví khả dụng `balance = 500,000 đ`.
-  * **When** Khách hàng gửi review kèm `tip_amount = 100,000 đ`.
-  * **Then** `TipService.transferTip(...)` thực thi trong 1 `@Transactional`:
-    1. Trừ $-100,000\text{ đ}$ từ `wallets.balance` của Khách hàng.
-    2. Cộng $+100,000\text{ đ}$ vào `wallets.balance` của Thợ trang điểm (Ví Sàn thu phí $0\%$).
-    3. Ghi bút toán kế toán đúp vào `wallet_schema.ledger_entries`: `debit = customerWalletId`, `credit = muaWalletId`, `amount = 100,000 đ`.
-    4. Ghi sao kê `wallet_transactions` cho cả 2 ví với mô tả: `"Tiền Tip từ khách hàng đơn #BK-260914-FAST901"`.
-  * **And** Bắn WebSocket STOMP thông báo tới Thợ: `"Bạn vừa nhận được 100,000 đ tiền Tip từ khách hàng!"`.
-
-* **Scenario 02: Từ chối khi số dư ví khách không đủ tiền Tip**
-  * **Given** Số dư ví khách `balance = 20,000 đ`, nhưng khách chọn tip $100,000\text{ đ}$.
-  * **Then** Backend từ chối giao dịch, trả về mã lỗi `ERR_WALLET_INSUFFICIENT_BALANCE` và gợi ý nạp thêm tiền ví.
-
----
-
-### **US-REV-03: Mở Khiếu Nại Dịch Vụ (`disputes`) & Tạm Khóa Tiền Giải Ngân (`ISSUE-24.3`)**
+### **US-REV-02: Mở Khiếu Nại Dịch Vụ (`disputes`) & Tạm Khóa Tiền Giải Ngân (`ISSUE-25.3`)**
 > **As a** Khách hàng gặp sự cố dịch vụ hoặc Super Admin quản trị sàn,  
 > **I want** khách hàng gửi đơn khiếu nại có bằng chứng rõ ràng và hệ thống tự động phong tỏa tiền giải ngân để Admin phân xử,  
 > **So that** quyền lợi tài chính của khách được bảo vệ tuyệt đối và thợ có trách nhiệm với chất lượng dịch vụ.

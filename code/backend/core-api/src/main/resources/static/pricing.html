@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MUA Platform - Demo Định Giá Động & Quản Trị Surge Pricing</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Playfair Display -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gold: {
+              400: '#f5e08b',
+              500: '#d4af37',
+              600: '#aa771c'
+            },
+            brand: {
+              50: '#fff1f2',
+              500: '#f43f5e',
+              600: '#e11d48'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Leaflet Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- App Custom Styles -->
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .glass-panel {
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+    .gold-gradient-text {
+      background: linear-gradient(135deg, #d4af37 0%, #f5e08b 50%, #aa771c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0c10] text-slate-100 antialiased selection:bg-amber-500/30 selection:text-amber-300">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="sticky top-0 z-50 bg-[#0f111a]/95 backdrop-blur-md border-b border-amber-500/20 px-4 md:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-yellow-300 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-amber-500/20">
+        <i class="fa-solid fa-gem"></i>
+      </div>
+      <div>
+        <h1 class="text-base md:text-lg font-extrabold tracking-tight flex items-center gap-2">
+          <span class="gold-gradient-text font-serif text-lg md:text-xl">MUA Makeup Platform</span>
+          <span class="text-emerald-400 font-bold text-[10px] md:text-xs uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+            <i class="fa-solid fa-circle text-[7px] animate-pulse mr-1"></i> Pricing Controller Real API
+          </span>
+        </h1>
+        <p class="text-[11px] text-slate-400">Bộ Điều Khiển Định Giá Động, Cự Ly Di Chuyển & Quản Trị Uber H3 Surge</p>
+      </div>
+    </div>
+
+    <!-- QUICK NAV LINKS -->
+    <div class="flex items-center gap-2 text-xs font-semibold">
+      <a href="admin.html" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition flex items-center gap-1.5">
+        <span>👑 Super Admin</span>
+      </a>
+      <a href="index.html" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-arrow-left"></i> <span>Cổng Đăng Nhập</span>
+      </a>
+      <a href="customer.html" class="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1.5">
+        <span>📱 Khách Hàng</span>
+      </a>
+      <a href="mua.html" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5">
+        <span>🎨 Thợ MUA</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
+
+    <!-- BANNER GIỚI THIỆU PHÂN HỆ CONTROLLER PRICING -->
+    <div class="glass-panel rounded-2xl p-4 md:p-5 border-amber-500/30 relative overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold border border-amber-500/40">
+            <i class="fa-solid fa-bolt"></i> 100% Backend Connected: DynamicPricingController & SurgeRuleAdminController
+          </div>
+          <h2 class="text-lg md:text-xl font-bold text-white font-serif">Tính Năng Định Giá Bổ Sung & Quản Trị Hệ Số Nhân H3</h2>
+          <p class="text-xs text-slate-400">
+            Hỗ trợ tính toán cự ly thực tế (PostGIS/Haversine), Bậc thang phụ phí di chuyển, Phụ trội giờ cao điểm, Khung giờ vàng và Quỹ cọc Escrow 30%.
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400 font-mono bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
+            Port: <b class="text-emerald-400">8080</b>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRID 2 CỘT: TRÁI LÀ FORM CHỌN & BẢN ĐỒ, PHẢI LÀ HÓA ĐƠN CHI TIẾT -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- CỘT TRÁI: THAM SỐ ĐẶT LỊCH & BẢN ĐỒ (7 Cột) -->
+      <div class="lg:col-span-7 space-y-5">
+        
+        <!-- Form Tham Số Tính Giá -->
+        <div class="glass-panel rounded-2xl p-5 border-slate-800">
+          <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2 mb-4">
+            <i class="fa-solid fa-sliders"></i>
+            <span>1. Thiết Lập Tham Số Đơn Hàng (Client Input)</span>
+          </h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 1. Gói dịch vụ từ CSDL -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex justify-between">
+                <span>Gói Dịch Vụ</span>
+                <span class="text-[10px] text-amber-400 font-mono">GET /packages</span>
+              </label>
+              <select id="pricing-select-package" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+                <option value="">Đang tải danh sách gói từ CSDL...</option>
+              </select>
+            </div>
+
+            <!-- 2. Nhà Cung Cấp (Studio / MUA) từ CSDL -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex justify-between">
+                <span>Đối Tác (Studio / MUA)</span>
+                <span class="text-[10px] text-amber-400 font-mono">GET /pricing/providers</span>
+              </label>
+              <select id="pricing-select-provider" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+                <option value="">Đang tải danh sách đối tác...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 3. Add-ons từ CSDL -->
+          <div class="mt-3.5">
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex justify-between">
+              <span>Dịch Vụ Mua Thêm (Add-ons Dành Riêng Cho Gói Đã Chọn)</span>
+              <span class="text-[10px] text-amber-400 font-mono">GET /packages/{id}/items</span>
+            </label>
+            <div id="pricing-addons-container" class="space-y-1.5 max-h-36 overflow-y-auto pr-1 bg-slate-900/50 p-2.5 rounded-xl border border-slate-800">
+              <span class="text-xs text-slate-500 italic">Vui lòng chọn gói dịch vụ ở trên để xem danh sách Add-on...</span>
+            </div>
+          </div>
+
+          <!-- 4. Thời Gian Hẹn & Preset Nhanh -->
+          <div class="mt-3.5">
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold text-slate-300">Thời Gian Đặt Hẹn</label>
+              <div class="flex gap-1.5">
+                <button type="button" id="btn-quick-early" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition">
+                  ⚡ 05:30 Sáng (Cao điểm & Phụ phí sớm)
+                </button>
+                <button type="button" id="btn-quick-normal" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition">
+                  🕒 10:00 Sáng (Bình thường)
+                </button>
+              </div>
+            </div>
+            <input type="datetime-local" id="pricing-booking-time" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+          </div>
+
+          <!-- 5. Tọa Độ Khách Hàng (Tự động cập nhật khi kéo Pin trên map) -->
+          <div class="mt-3.5 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Tọa Độ Khách (Kéo Pin vàng trên bản đồ)</label>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number" step="0.000001" id="pricing-lat" value="10.776530" readonly class="bg-slate-900/90 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono">
+                <input type="number" step="0.000001" id="pricing-lng" value="106.700980" readonly class="bg-slate-900/90 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 font-mono">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Mã Giảm Giá (Voucher)</label>
+              <input type="text" id="pricing-voucher" value="NEWYEAR2027" placeholder="VD: NEWYEAR2027" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500 uppercase">
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bản Đồ Lộ Trình & Khoảng Cách Thực Tế (POST /api/v1/pricing/calculate-distance) -->
+        <div class="glass-panel rounded-2xl p-4 border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-map-location-dot text-amber-400"></i> Bản Đồ Tuyến Đường & Khoảng Cách Thực Tế
+            </span>
+            <span class="text-[11px] text-slate-400 font-mono">POST /api/v1/pricing/calculate-distance</span>
+          </div>
+          <div id="pricing-map" class="w-full h-64 rounded-xl border border-slate-800 z-10"></div>
+          <p class="text-[11px] text-slate-400 mt-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-info text-amber-400"></i>
+            <span>Kéo biểu tượng Pin trên bản đồ để thay đổi vị trí nhà khách, hệ thống sẽ tự động tính lại cự ly và phụ phí di chuyển theo bậc thang.</span>
+          </p>
+        </div>
+
+      </div>
+
+      <!-- CỘT PHẢI: CHI TIẾT HÓA ĐƠN TẠM TÍNH TỪ BACKEND (5 Cột) -->
+      <div class="lg:col-span-5 space-y-5">
+        
+        <!-- Bảng Hóa Đơn Tạm Tính Phản Hồi Từ Core API (POST /api/v1/pricing/preview-invoice) -->
+        <div class="glass-panel rounded-2xl p-6 border-amber-500/40 relative shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+            <div>
+              <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+                <span>Hóa Đơn Tạm Tính Realtime</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5 font-mono">POST /api/v1/pricing/preview-invoice</p>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] text-slate-500 uppercase font-bold block">Quỹ Cọc Escrow</span>
+              <span class="text-amber-400 font-black text-sm">30% ACID</span>
+            </div>
+          </div>
+
+          <div class="space-y-3.5 text-xs md:text-sm">
+            <!-- 1. Gói dịch vụ & Dịch vụ cộng thêm -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <div class="flex justify-between font-bold text-slate-200">
+                <span id="inv-pkg-name">--</span>
+                <span id="inv-pkg-price" class="font-bold text-amber-300">0 đ</span>
+              </div>
+              <div id="inv-addons-list" class="mt-1.5 space-y-1"></div>
+              <div class="flex justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80 mt-2">
+                <span>Tổng tiền dịch vụ (Service Subtotal):</span>
+                <span id="inv-subtotal" class="font-bold text-slate-200">0 đ</span>
+              </div>
+            </div>
+
+            <!-- 2. Phí di chuyển theo cự ly thực tế -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <div class="flex justify-between items-center font-semibold text-slate-200">
+                <span class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-route text-sky-400"></i> Phí Di Chuyển Đến Nhà Khách
+                </span>
+                <span id="inv-distance-fee" class="font-bold text-sky-300">0 đ</span>
+              </div>
+              <div class="flex justify-between items-center text-xs text-slate-400 mt-1">
+                <span id="inv-distance-desc">Trong bán kính phục vụ</span>
+                <span id="inv-distance-km" class="font-mono text-slate-300 text-[11px]">0 km</span>
+              </div>
+            </div>
+
+            <!-- 3. Phụ trội giờ cao điểm & Hệ số Surge -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> Phụ Trội Giờ Cao Điểm
+                  </span>
+                  <span id="inv-surge-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">
+                    KIỂM TRA...
+                  </span>
+                </div>
+                <div class="text-right">
+                  <span id="inv-surge-amount" class="font-bold text-amber-400">+0 đ</span>
+                  <span id="inv-surge-multiplier" class="text-xs text-slate-400 ml-1 font-bold font-mono">(1.00x)</span>
+                </div>
+              </div>
+              <p id="inv-surge-reason" class="text-[11px] text-slate-400 mt-1">Đang đánh giá tỷ lệ Cung / Cầu ô lục giác H3...</p>
+            </div>
+
+            <!-- 4. Phụ phí thời điểm (Sáng sớm, Đêm muộn, Ngày Lễ) -->
+            <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <div class="text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-check text-rose-400"></i> Phụ Phí Sớm / Đêm / Ngày Lễ (Surcharges)
+              </div>
+              <div id="inv-surcharges-list" class="space-y-1"></div>
+            </div>
+
+            <!-- 5. Voucher giảm giá -->
+            <div id="inv-voucher-row" class="flex justify-between text-emerald-400 font-semibold text-xs py-1 px-1">
+              <span id="inv-voucher-desc">Mã ưu đãi voucher</span>
+              <span id="inv-voucher-amount">-0 đ</span>
+            </div>
+
+            <!-- 6. TỔNG HÓA ĐƠN & PHÂN BỔ ESCROW -->
+            <div class="border-t border-slate-700/80 pt-4 mt-2">
+              <div class="flex justify-between items-center text-sm md:text-base font-extrabold">
+                <span class="text-slate-100">TỔNG TIỀN THANH TOÁN:</span>
+                <span id="inv-total-amount" class="text-xl md:text-2xl gold-gradient-text font-serif font-black">0 đ</span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-800/80 text-xs">
+                <div class="bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-xl">
+                  <span class="text-slate-400 block mb-0.5">Đặt cọc giữ thợ (30% Escrow):</span>
+                  <span id="inv-deposit-amount" class="font-extrabold text-amber-300 text-sm md:text-base">0 đ</span>
+                </div>
+                <div class="bg-slate-800/60 border border-slate-700/60 p-2.5 rounded-xl">
+                  <span class="text-slate-400 block mb-0.5">Thanh toán sau hoàn thành (70%):</span>
+                  <span id="inv-remaining-amount" class="font-bold text-slate-200 text-sm md:text-base">0 đ</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- PHẦN 2: TRUNG TÂM QUẢN TRỊ QUY TẮC CAO ĐIỂM & MASTER H3 SWITCH (SurgeRuleAdminController) -->
+    <section class="glass-panel rounded-2xl p-6 border-cyan-500/30 space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <div class="flex items-center gap-3">
+            <h3 class="font-bold text-base md:text-lg text-slate-100">2. Quản Trị Hệ Số Nhân H3 Toàn Sàn (Master Switch)</h3>
+            <span id="pricing-h3-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+              UBER H3 ĐANG BẬT
+            </span>
+          </div>
+          <p id="pricing-h3-desc" class="text-xs text-slate-400 mt-1 max-w-2xl font-mono">
+            GET /api/v1/admin/pricing/surge-rules/h3-status & POST /api/v1/admin/pricing/surge-rules/toggle-h3
+          </p>
+        </div>
+        
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="pricing-h3-switch" checked class="sr-only peer">
+          <div class="w-14 h-7 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-cyan-500"></div>
+        </label>
+      </div>
+
+      <!-- Bảng danh sách quy tắc trong DB -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-clock text-amber-400"></i>
+              <span>Danh Sách Quy Tắc Khung Giờ Cao Điểm Trong CSDL Thật</span>
+            </h4>
+            <p class="text-[11px] text-slate-400 font-mono">GET /api/v1/admin/pricing/surge-rules (Bảo vệ bởi Redis Cache & Fallback PostgreSQL)</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-800 mb-5">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-900/90 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                <th class="py-3 px-4">ID</th>
+                <th class="py-3 px-4">Tên Quy Tắc</th>
+                <th class="py-3 px-4">Khung Giờ</th>
+                <th class="py-3 px-4">Ngày Áp Dụng</th>
+                <th class="py-3 px-4">Hệ Số</th>
+                <th class="py-3 px-4">Trạng Thái</th>
+                <th class="py-3 px-4 text-right">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="admin-surge-rules-body">
+              <!-- JS render -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Form Thêm Quy Tắc Mới -->
+        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+          <h5 class="font-bold text-xs text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <i class="fa-solid fa-plus-circle"></i>
+            <span>Thêm Quy Tắc Cao Điểm Mới (POST /api/v1/admin/pricing/surge-rules)</span>
+          </h5>
+          <form id="form-admin-add-rule" class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+            <div class="md:col-span-2">
+              <input type="text" id="admin-rule-name" placeholder="Tên quy tắc (VD: Giờ Dạ Hội Cuối Tuần)" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+              <input type="time" id="admin-rule-start" value="18:00" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-100">
+            </div>
+            <div>
+              <input type="time" id="admin-rule-end" value="20:30" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-100">
+            </div>
+            <div>
+              <input type="number" step="0.05" min="1.00" max="1.50" id="admin-rule-multiplier" value="1.25" placeholder="Hệ số (1.00-1.50)" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-100">
+            </div>
+            <div class="md:col-span-4">
+              <input type="text" id="admin-rule-days" value="FRIDAY,SATURDAY,SUNDAY" placeholder="Ngày áp dụng (VD: FRIDAY,SATURDAY,SUNDAY)" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100">
+            </div>
+            <div>
+              <button type="submit" class="w-full h-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg py-2 transition-colors flex items-center justify-center gap-1">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Ghi Vào CSDL</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Core Scripts -->
+  <script src="js/api.js"></script>
+  <script src="js/pricing.js"></script>
+
+  <!-- Khởi tạo Pricing Manager khi DOM load -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Khởi tạo Pricing Manager
+      window.pricingManager.init();
+
+      // Form thêm quy tắc Super Admin
+      document.getElementById('form-admin-add-rule')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const ruleName = document.getElementById('admin-rule-name')?.value;
+        const startTime = document.getElementById('admin-rule-start')?.value;
+        const endTime = document.getElementById('admin-rule-end')?.value;
+        const days = document.getElementById('admin-rule-days')?.value;
+        const multiplier = parseFloat(document.getElementById('admin-rule-multiplier')?.value || '1.25');
+
+        window.pricingManager.createSurgeRule({
+          ruleName,
+          zoneCode: 'ALL',
+          startTime,
+          endTime,
+          applicableDaysOfWeek: days,
+          surgeMultiplier: multiplier,
+          minDemandRatio: 1.00,
+          isActive: true
+        });
+      });
+    });
+  </script>
+</body>
+</html>

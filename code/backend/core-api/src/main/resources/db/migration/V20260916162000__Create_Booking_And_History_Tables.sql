@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Migration: V20260915150000__Create_Booking_And_History_Tables.sql
+-- Migration: V20260916162000__Create_Booking_And_History_Tables.sql
 -- Description: Khởi tạo bảng bookings và booking_history cho phân hệ Booking State Machine
 -- ==============================================================================
 

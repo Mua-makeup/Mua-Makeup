@@ -97,6 +97,14 @@ public final class ErrorCodes {
     public static final String ERR_MUA_MUST_BE_ONLINE = "ERR_MUA_MUST_BE_ONLINE";
     public static final String ERR_MUA_ALREADY_BUSY = "ERR_MUA_ALREADY_BUSY";
     public static final String ERR_BOOKING_ALREADY_EXISTS = "ERR_BOOKING_ALREADY_EXISTS";
+
+    // Phân hệ Dynamic Pricing, Distance Fees & Surge Rules
+    public static final String ERR_DISTANCE_EXCEEDS_MAX_RADIUS = "ERR_DISTANCE_EXCEEDS_MAX_RADIUS";
+    public static final String ERR_PROVIDER_LOCATION_MISSING = "ERR_PROVIDER_LOCATION_MISSING";
+    public static final String ERR_SURGE_RULE_INVALID = "ERR_SURGE_RULE_INVALID";
+    public static final String ERR_SURGE_RULE_NOT_FOUND = "ERR_SURGE_RULE_NOT_FOUND";
+    public static final String ERR_PACKAGE_NOT_AVAILABLE = "ERR_PACKAGE_NOT_AVAILABLE";
+    public static final String ERR_ADDON_NOT_IN_PACKAGE = "ERR_ADDON_NOT_IN_PACKAGE";
 }
 
 

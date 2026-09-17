@@ -70,6 +70,13 @@
     <p class="text-slate-400 text-sm mt-1">
       Cổng Xác Thực, Đăng Ký & Điều Phối Role Tự Động sang Mobile UI
     </p>
+    <div class="flex items-center justify-center gap-2 mt-3">
+      <a href="pricing.html" class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition shadow-sm">
+        <i class="fa-solid fa-calculator"></i>
+        <span>⚡ Demo Định Giá Động & Quản Trị H3 Surge Pricing</span>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </a>
+    </div>
   </header>
 
   <!-- Mobile Simulator Mockup -->
@@ -123,12 +130,18 @@
           <p class="text-xs text-emerald-800 font-medium">
             ✅ Bạn đang đăng nhập. Nhấn nút bên dưới để vào màn hình tương ứng:
           </p>
-          <div class="grid grid-cols-2 gap-2 mt-1">
-            <a id="btnGoCustomer" href="customer.html" class="px-3 py-2 text-center text-xs font-bold rounded-xl bg-rose-600 text-white shadow-sm hover:bg-rose-700 transition">
-              📱 Trang Khách Hàng
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-1">
+            <a id="btnGoAdmin" href="admin.html" class="px-2 py-2 text-center text-xs font-bold rounded-xl bg-slate-900 text-amber-300 shadow-sm hover:bg-slate-800 transition border border-amber-400/40">
+              👑 Super Admin
             </a>
-            <a id="btnGoMua" href="mua.html" class="px-3 py-2 text-center text-xs font-bold rounded-xl bg-amber-500 text-slate-900 shadow-sm hover:bg-amber-400 transition">
-              🎨 Trang Thợ MUA
+            <a id="btnGoCustomer" href="customer.html" class="px-2 py-2 text-center text-xs font-bold rounded-xl bg-rose-600 text-white shadow-sm hover:bg-rose-700 transition">
+              📱 Khách Hàng
+            </a>
+            <a id="btnGoMua" href="mua.html" class="px-2 py-2 text-center text-xs font-bold rounded-xl bg-amber-500 text-slate-900 shadow-sm hover:bg-amber-400 transition">
+              🎨 Thợ MUA
+            </a>
+            <a id="btnGoPricing" href="pricing.html" class="px-2 py-2 text-center text-xs font-bold rounded-xl bg-gradient-to-r from-amber-600 to-yellow-500 text-slate-950 shadow-sm hover:from-amber-500 hover:to-yellow-400 transition">
+              ⚡ Định Giá Động
             </a>
           </div>
           <button onclick="handleLogout()" class="mt-2 w-full py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-50 transition">
@@ -140,7 +153,11 @@
       <!-- Quick Preset Accounts (Click to Fill) -->
       <div class="mb-5 bg-slate-50 border border-slate-200 rounded-2xl p-3">
         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">⚡ Tài khoản mẫu (Bấm để điền nhanh):</span>
-        <div class="grid grid-cols-3 gap-1.5">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <button onclick="fillPreset('admin')" class="text-left px-2 py-1.5 bg-white rounded-lg border border-slate-200 hover:border-amber-400 text-xs transition group">
+            <span class="font-bold text-slate-900 block group-hover:underline text-[11px]">👑 Super Admin</span>
+            <span class="text-[9px] text-slate-500 font-mono">0900000001</span>
+          </button>
           <button onclick="fillPreset('customer')" class="text-left px-2 py-1.5 bg-white rounded-lg border border-slate-200 hover:border-rose-400 text-xs transition group">
             <span class="font-bold text-rose-600 block group-hover:underline text-[11px]">Khách Hàng</span>
             <span class="text-[9px] text-slate-500 font-mono">0981234567</span>
@@ -313,7 +330,10 @@
     // Preset filler
     function fillPreset(role) {
       switchTab('login');
-      if (role === 'customer') {
+      if (role === 'admin') {
+        document.getElementById('loginIdentifier').value = '0900000001';
+        document.getElementById('loginPassword').value = 'Admin@123456';
+      } else if (role === 'customer') {
         document.getElementById('loginIdentifier').value = '0981234567';
         document.getElementById('loginPassword').value = '123456';
       } else if (role === 'mua1') {
@@ -337,6 +357,17 @@
           document.getElementById('userRoleBadge').textContent = (user.roles && user.roles.length > 0) ? user.roles[0] : 'USER';
           document.getElementById('userAvatarText').textContent = (user.fullName || 'U').charAt(0).toUpperCase();
           document.getElementById('loggedInCard').classList.remove('hidden');
+
+          // Highlight admin button if user is SUPER_ADMIN
+          const roles = user.roles || [];
+          const btnAdmin = document.getElementById('btnGoAdmin');
+          if (btnAdmin) {
+            if (roles.includes('ROLE_SUPER_ADMIN')) {
+              btnAdmin.className = 'px-2 py-2 text-center text-xs font-bold rounded-xl bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300 transition';
+            } else {
+              btnAdmin.className = 'px-2 py-2 text-center text-xs font-bold rounded-xl bg-slate-900 text-amber-300 shadow-sm hover:bg-slate-800 transition border border-amber-400/40';
+            }
+          }
         } catch (e) {
           console.error(e);
         }
@@ -373,12 +404,14 @@
           // Auto-route based on roles list
           const roles = userInfo.roles || [];
           setTimeout(() => {
-            if (roles.includes('ROLE_CUSTOMER')) {
+            if (roles.includes('ROLE_SUPER_ADMIN')) {
+              window.location.href = 'admin.html';
+            } else if (roles.includes('ROLE_CUSTOMER')) {
               window.location.href = 'customer.html';
             } else if (roles.some(r => ['ROLE_FREELANCE_MUA', 'ROLE_AGENCY_STAFF', 'ROLE_AGENCY_ADMIN'].includes(r))) {
               window.location.href = 'mua.html';
             } else {
-              window.location.href = 'customer.html';
+              window.location.href = 'admin.html';
             }
           }, 1000);
 
