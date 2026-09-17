@@ -1,40 +1,23 @@
 ---
 name: api-integration
-description: Universal fullstack integration workflow connecting Backend Spring Boot REST & WebSocket APIs with Frontend React applications.
-version: 2.2.0
+description: Universal fullstack integration workflow connecting Backend Spring Boot REST & Embedded WebSocket STOMP APIs with Frontend React applications.
+version: 3.0.0
 ---
 
-# Universal Workflow: Fullstack API Integration
+# Universal Workflow: Frontend - Backend API & WebSocket Integration
 
-## Phase 1: Backend Endpoint & DTO Contract Definition
-1. Định nghĩa Request DTO (`dto/request/*Req.java`) có đầy đủ Bean Validation (`@Valid`, `@NotBlank`, `@NotNull`, `@Future`...).
-2. Định nghĩa Response DTO (`dto/response/*Res.java`) hoặc đối tượng phân trang `PaginatedRes<T>`.
-3. Khai báo endpoint trong Controller tương ứng kế thừa `BaseController` (đặt trong package role: `admin/`, `customer/`, `agency/`, `freelancer/`).
-4. Định nghĩa các mã lỗi mới trong `common/constants/ErrorCodes.java` và thông điệp tương ứng trong `resources/text/messages.properties`.
+## 1. Cấu hình Kết nối Tập trung (Centralized Connection)
+Trong kiến trúc Monolith, Frontend kết nối về duy nhất 1 host backend:
+- **REST API Base URL**: `http://localhost:8080/api/v1`
+- **WebSocket STOMP URL**: `ws://localhost:8080/ws-makeup`
 
-## Phase 2: Frontend Schema & API Service Alignment
-1. Tạo Zod Schema trong `src/schemas/<feature>.schema.js` phản ánh chính xác cấu trúc Request DTO của backend.
-2. Định nghĩa hằng số Endpoint trong `src/constants/<feature>.constant.js`.
-3. Tạo API service method trong `src/services/<feature>.service.js` sử dụng `apiClient` Axios kết nối qua API Gateway (Port: 8080).
-4. Unwrap response data và validate kiểu dữ liệu trả về.
-
-## Phase 3: Error Handling & User Feedback
-1. Cấu hình xử lý lỗi từ backend: đọc mã lỗi `code` từ response JSON và hiển thị Toast/Alert tương ứng với phong cách Luxury Beauty.
-2. Xử lý các HTTP Status Code chuẩn:
-   - `400 Bad Request`: Hiển thị thông báo validation chi tiết theo từng field input.
-   - `401 Unauthorized`: Tự động điều hướng về màn hình đăng nhập `/login` hoặc kích hoạt refresh token.
-   - `403 Forbidden`: Hiển thị Modal thông báo không đủ quyền hạn nghiệp vụ.
-   - `404 Not Found`: Hiển thị trang/component Empty State thanh lịch.
-   - `409 Conflict`: Báo lỗi tranh chấp dữ liệu (ví dụ: ca làm đã có thợ khác nhận).
-   - `500 Internal Server Error`: Báo lỗi hệ thống và tự động log sang **Sentry**.
-
-## Phase 4: WebSocket Realtime Channel Integration (Port: 8088)
-1. Kết nối kênh WebSocket thông qua `useWebSocket` hook tới `websocket-service` (Port: 8088).
-2. Đăng ký nhận message theo `type` (ví dụ: `BOOKING_BROADCAST`, `LOCATION_UPDATE`).
-3. Cập nhật state UI / Zustand store ngay khi nhận được packet dữ liệu mới.
-
-## Phase 5: End-to-End Verification
-1. Khởi động các Microservices hoặc toàn bộ hệ thống qua `docker-compose.yml`.
-2. Khởi động Frontend React trên môi trường dev.
-3. Kiểm tra tương tác form, Network Tab (Headers, Payload, CORS, WSS frames).
-4. Chạy `npm run lint` để kiểm tra 0 vi phạm ranh giới module.
+## 2. Các Bước Tích Hợp Chuẩn
+1. **Thiết lập Axios Instance (`code/frontend/src/lib/axios.js`)**:
+   - Gắn `baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'`.
+   - Request Interceptor: Đính kèm `Authorization: Bearer <accessToken>`.
+   - Response Interceptor: Tự động bắt lỗi 401 và gọi `POST /api/v1/auth/refresh-token` để lấy access token mới, lưu lại vào `authStore`.
+2. **Thiết lập STOMP Client (`code/frontend/src/lib/stomp-client.js`)**:
+   - Kết nối tới `/ws-makeup`.
+   - Đính kèm JWT vào STOMP connect headers.
+3. **Form Validation với Zod (`code/frontend/src/schemas/`)**:
+   - Đồng bộ quy tắc validation (SĐT Việt Nam, mật khẩu tối thiểu 8 ký tự, 1 role per user) tương ứng với Bean Validation của Backend.

@@ -1,56 +1,52 @@
 ---
 name: create-new-service
-description: Universal step-by-step workflow for bootstrapping ANY new Spring Boot Microservice in the Makeup Booking Platform ecosystem.
-version: 2.1.0
+description: Universal step-by-step workflow for implementing a new Business Feature Domain in the Layered Architecture Monolith (core-api).
+version: 3.0.0
 ---
 
-# Universal Workflow: Create New Backend Microservice
+# Universal Workflow: Add New Business Domain to Layered Monolith
 
-## Phase 1: Planning & Service Domain Definition
-1. Xác định tên service theo danh từ / Bounded Context (ví dụ: `review-service`, `notification-service`).
-2. Xác định cổng chạy `server.port` trong `application.yaml` (tránh xung đột với 8 service cốt lõi: 8080 Gateway, 8081 User, 8082 Agency, 8083 Catalog, 8084 Location, 8085 Booking, 8086 Pricing, 8087 Payment).
-3. Tạo thư mục tại `code/backend/<service-name>/`.
+## Phase 1: Database Migration & Schema Allocation
+1. Xác định PostgreSQL Schema cho nghiệp vụ (`auth_schema`, `agency_schema`, `mua_schema`, `catalog_schema`, `booking_schema`, `wallet_schema`...).
+2. Viết file Flyway migration mới theo chuẩn Timestamp tại `src/main/resources/db/migration/V<YYYYMMDDHHmmss>__<Ten_Migration>.sql` (Ví dụ: `V20260915083000__Init_Payment_Wallet_Module.sql`). Tuyệt đối KHÔNG dùng số thứ tự `V<N>` để tránh xung đột giữa các thành viên trong nhóm.
 
-## Phase 2: Build & Dependency Configuration
-1. Thiết lập file `code/backend/<service-name>/build.gradle`:
-   - Plugins: `java`, `org.springframework.boot`, `io.spring.dependency-management`.
-   - Toolchain: Java 17.
-   - Core Dependencies:
-     - `org.springframework.boot:spring-boot-starter-web` (hoặc `webflux`)
-     - `org.springframework.boot:spring-boot-starter-data-jpa`
-     - `org.springframework.boot:spring-boot-starter-validation`
-     - `org.springframework.boot:spring-boot-starter-actuator`
-     - `org.postgresql:postgresql`
-     - `org.flywaydb:flyway-core`, `org.flywaydb:flyway-database-postgresql`
-     - `org.springframework.kafka:spring-kafka`
-     - `org.projectlombok:lombok`
-     - `org.springframework.cloud:spring-cloud-starter-openfeign`
-     - Test dependencies (`starter-test`, `validation-test`, `data-jpa-test`).
+## Phase 2: Entity & Repository Layer
+1. Tạo Entity kế thừa `BaseEntity`:
+   - Đặt tại `src/main/java/com/makeup/platform/entity/<domain>/<Domain>Entity.java`.
+   - Khai báo rõ `@Table(name = "...", schema = "<domain>_schema")`.
+2. Tạo Repository:
+   - Đặt tại `src/main/java/com/makeup/platform/repository/<Domain>Repository.java` (kế thừa `JpaRepository`).
+   - Nếu có query Native/PostGIS phức tạp, tạo thêm `repository/custom/<Domain>CustomRepository.java`.
 
-## Phase 3: Layered Architecture Scaffolding
-Tạo toàn bộ cây thư mục mã nguồn theo chuẩn Layered Pattern:
-- `src/main/java/com/trung/<service_domain>/`:
-  - `Application.java`
-  - `common/base/`: `BaseEntity.java`, `BaseController.java`, `BaseService.java`, `BaseServiceImpl.java`
-  - `common/constants/`: `ErrorCodes.java`, `SystemConstants.java`, `RegexConstants.java`
-  - `common/exception/`: `GlobalExceptionHandler.java`, `CustomBusinessException.java`
-  - `common/utils/`: Helpers
-  - `config/`: `SecurityConfig.java`, `OpenApiConfig.java`, `DatabaseConfig.java`, `KafkaConfig.java`
-  - `controller/`: Phân chia theo role (`admin/`, `customer/`, `agency/`, `freelancer/`)
-  - `dto/request/` (với `@Valid`, `@NotNull`...) và `dto/response/`
-  - `entity/` (Kế thừa `BaseEntity`)
-  - `repository/` và `repository/custom/`
-  - `service/` (Interface) và `service/impl/` (Implementation)
+## Phase 3: DTOs & Bean Validation
+1. Tạo Request DTO tại `dto/request/<domain>/`:
+   - Bắt buộc Bean Validation: `@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Size`...
+2. Tạo Response DTO tại `dto/response/<domain>/`.
 
-## Phase 4: Resources & Database Migration
-1. Tạo `src/main/resources/application.yaml`:
-   - Cấu hình tên service: `spring.application.name: <service-name>`.
-   - Kết nối database riêng: `jdbc:postgresql://localhost:5432/<service_db>`.
-   - Kích hoạt Flyway: `spring.flyway.enabled: true`.
-2. Tạo `src/main/resources/text/messages.properties` cho chuỗi thông báo i18n (tuyệt đối không hardcode text trong code).
-3. Tạo `src/main/resources/db/migration/V1__Init_Tables.sql`.
-4. Tạo thư mục `unitest/`, `sonarLint/`, `Dockerfile`, `.dockerignore`, `docker-compose.yml`.
+## Phase 4: Data Mapping Layer (Manual Mapper)
+1. Tạo Mapper Component tại `src/main/java/com/makeup/platform/mapper/<domain>/<Domain>Mapper.java`:
+   - Đánh dấu `@Component`.
+   - **Bắt buộc dùng Manual Mapper**: Viết thuần mã Java sử dụng Builder Pattern hoặc Getter/Setter (ví dụ: `toRes(Entity entity)`, `toEntity(RequestDTO req)`).
+   - **Tuyệt đối KHÔNG sử dụng MapStruct hay ModelMapper**: Giữ mã nguồn minh bạch, kiểm soát null-safety tuyệt đối, không runtime reflection overhead.
 
-## Phase 5: Verification & Quality Gate
-1. Chạy `./gradlew compileJava` kiểm tra biên dịch thành công 100%.
-2. Cập nhật tài liệu SRS `docs/makeup_platform_srs.md` và `docs/project-structure.md`.
+## Phase 5: Service Layer (100% Business Logic) & i18n Messages
+1. Tạo Interface tại `service/<Domain>Service.java`.
+2. Tạo Implementation tại `service/impl/<Domain>ServiceImpl.java`:
+   - **Chứa 100% business logic**: Toàn bộ kiểm tra nghiệp vụ, phân quyền, luồng trạng thái, `@Transactional`, cache, event publishing thực hiện ở đây.
+   - Inject `<Domain>Mapper` qua `@RequiredArgsConstructor` để thực hiện chuyển đổi Entity sang Response DTO và ngược lại.
+   - Ném ngoại lệ nghiệp vụ qua `CustomBusinessException(ErrorCode, "module.error_key", args...)`.
+3. **BẮT BUỘC khai báo thông điệp đa ngôn ngữ (i18n)**:
+   - Thêm các message key thành công và lỗi đồng thời vào cả 2 file:
+     - `src/main/resources/i18n/messages_en.json` (Tiếng Anh)
+     - `src/main/resources/i18n/messages_vi.json` (Tiếng Việt)
+
+## Phase 6: Controller Layer (Thin Controller - Chỉ Chuyển Tiếp)
+1. Tạo Controller kế thừa `BaseController`:
+   - Đặt tại `controller/<actor>/` (`customer/`, `freelancer/`, `agency/`, `admin/`, `auth/`).
+   - **Nguyên tắc Thin Controller**: CHỈ nhận request, kiểm tra cú pháp `@Valid`, lấy principal từ security context, gọi trực tiếp tới Service tương ứng.
+   - **Tuyệt đối KHÔNG viết logic nghiệp vụ hay tự map Entity trong Controller**.
+   - Trả về `ResponseEntity<ApiResponse<ResponseDTO>>` bằng i18n message key: `return ok(res, "module.success_key")` hoặc `created(res, "module.created_key")`. BaseController tự động phân giải ngôn ngữ theo request.
+
+## Phase 7: Verification
+1. Viết Unit Test với Mockito tại `src/test/java/com/makeup/platform/service/<Domain>ServiceTest.java`.
+2. Chạy `./gradlew compileJava` và `./gradlew test` kiểm tra 100% pass.

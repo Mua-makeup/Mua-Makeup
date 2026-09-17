@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MUA Platform - Thợ Trang Điểm (Freelance MUA Mobile)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS & JS for Realtime Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- SockJS and STOMP for Realtime WebSocket -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Playfair Display"', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .phone-frame {
+      width: 100%;
+      max-width: 412px;
+      min-height: 860px;
+      border-radius: 40px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3), 0 0 0 10px #1e293b, 0 0 0 12px #475569;
+    }
+    #muaMap {
+      height: 220px;
+      min-height: 220px;
+      width: 100%;
+      border-radius: 16px;
+      z-index: 1;
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 4px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-800 font-sans flex flex-col items-center justify-start p-4 md:p-8">
+
+  <!-- Header Banner -->
+  <header class="text-center mb-6 max-w-xl">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold mb-2">
+      <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+      Freelancer MUA Viewpoint (Thợ Trang Điểm)
+    </div>
+    <h1 class="text-2xl md:text-3xl font-serif font-bold text-white tracking-wide">
+      Ứng Dụng Dành Cho Thợ MUA
+    </h1>
+    <div class="flex items-center justify-center gap-3 mt-2">
+      <a href="index.html" class="text-xs text-slate-400 hover:text-white underline">← Về Cổng Auth</a>
+      <span class="text-slate-600">|</span>
+      <a href="customer.html" class="text-xs text-rose-400 hover:text-rose-300 font-bold">Mở Màn Hình Khách Hàng →</a>
+    </div>
+  </header>
+
+  <!-- Mobile Simulator Frame -->
+  <div class="phone-frame bg-white flex flex-col overflow-hidden relative border border-slate-200">
+    
+    <!-- Phone Status Bar -->
+    <div class="bg-slate-900 text-white px-6 pt-3 pb-2 flex justify-between items-center text-xs">
+      <span id="currentTime" class="font-semibold">09:41</span>
+      <div class="w-24 h-4 bg-black rounded-full mx-auto -mt-1"></div>
+      <div class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+        <span class="text-[10px] font-bold">5G</span>
+      </div>
+    </div>
+
+    <!-- App Header -->
+    <div class="bg-gradient-to-r from-amber-600 via-amber-700 to-slate-800 text-white p-4 shadow-md flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-bold text-sm">
+          <span id="muaAvatar">M</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 id="muaNameDisplay" class="font-bold text-sm leading-tight">Thợ Trang Điểm</h3>
+            <span id="muaRoleDisplay" class="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-950/60 text-amber-200">FREELANCE_MUA</span>
+          </div>
+          <div class="flex items-center gap-2 mt-0.5">
+            <p id="muaPhoneDisplay" class="text-xs text-amber-200 font-mono">0987654321</p>
+            <span id="stompStatusBadge" class="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live STOMP
+            </span>
+          </div>
+        </div>
+      </div>
+      <button onclick="handleLogout()" title="Đăng xuất" class="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition text-white">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+      </button>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-xs pointer-events-none"></div>
+
+    <!-- Scrollable Main Viewport -->
+    <div class="flex-1 overflow-y-auto p-4 scrollbar-thin space-y-4">
+
+      <!-- CARD 1: AVAILABILITY & ONLINE STATUS -->
+      <div class="bg-gradient-to-br from-slate-50 to-amber-50/40 border border-slate-200 p-4 rounded-2xl space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Trạng thái Nhận Việc</span>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span id="statusIndicatorDot" class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+              <h4 id="statusText" class="font-bold text-slate-800 text-sm">OFFLINE</h4>
+            </div>
+          </div>
+          
+          <!-- Online/Offline Switch -->
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input id="onlineToggle" type="checkbox" onchange="handleToggleAvailability(this.checked)" class="sr-only peer">
+            <div class="w-12 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+
+        <p class="text-[11px] text-slate-500">
+          💡 Thợ bắt buộc phải <b>BẬT ONLINE</b> để tự động nhận thông báo ca khẩn cấp và xuất hiện trên radar của khách.
+        </p>
+
+        <!-- Mini Map for MUA location (Explicit Inline Height to fix Leaflet render issue) -->
+        <div id="muaMap" style="height: 220px; min-height: 220px; width: 100%;" class="border border-slate-200 shadow-sm rounded-2xl relative z-0"></div>
+
+        <!-- Coordinates Input for Mock Location -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Vĩ độ Thợ (Lat)</label>
+            <input id="muaLat" type="number" step="0.000001" value="10.777200" 
+                   class="w-full px-2 py-1.5 border border-slate-300 rounded-lg outline-none font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Kinh độ Thợ (Lng)</label>
+            <input id="muaLng" type="number" step="0.000001" value="106.701500" 
+                   class="w-full px-2 py-1.5 border border-slate-300 rounded-lg outline-none font-mono">
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 2: ACTIVE BOOKING & STATE MACHINE -->
+      <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Ca Đang Thực Hiện</span>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span id="activeBookingIdDisplay" class="font-mono font-bold text-amber-700 text-sm">Chưa có ca nào</span>
+            </div>
+          </div>
+          <span id="activeBookingStatusBadge" class="px-2.5 py-1 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">
+            IDLE
+          </span>
+        </div>
+
+        <!-- Sequential State Machine Buttons -->
+        <div class="space-y-2 pt-1 border-t border-slate-100">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tiến trình phục vụ:</p>
+
+          <button id="btnOnTheWay" onclick="handleTransition('ON_THE_WAY')" 
+                  class="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-left flex items-center justify-between transition">
+            <span>1. Bắt đầu xuất phát di chuyển</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-mono font-bold">ON_THE_WAY</span>
+          </button>
+
+          <button id="btnArrived" onclick="handleTransition('ARRIVED')" 
+                  class="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-left flex items-center justify-between transition">
+            <span>2. Thợ đã đến nơi điểm hẹn</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-mono font-bold">ARRIVED</span>
+          </button>
+
+          <button id="btnInProgress" onclick="handleTransition('IN_PROGRESS')" 
+                  class="w-full py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 text-left flex items-center justify-between transition">
+            <span>3. Bắt đầu thực hiện make-up</span>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-mono font-bold">IN_PROGRESS</span>
+          </button>
+        </div>
+
+        <!-- CLOUDINARY COMPLETION PHOTO UPLOAD (CHỈ HIỂN THỊ KHI TRẠNG THÁI LÀ IN_PROGRESS) -->
+        <div id="completionPhotoSection" class="hidden p-3.5 bg-rose-50 border-2 border-dashed border-rose-300 rounded-2xl space-y-2.5 transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+              <span>📸 Tải Ảnh Hoàn Thành Ca</span>
+            </span>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-200 text-rose-900">Bắt Buộc</span>
+          </div>
+          <p class="text-[11px] text-slate-600">
+            Bạn đang trong ca make-up (<code>IN_PROGRESS</code>). Chụp hoặc chọn ảnh tác phẩm để tải lên Cloudinary trước khi kết thúc ca.
+          </p>
+
+          <input id="completionPhotoFile" type="file" accept="image/*" 
+                 class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-rose-600 file:text-white hover:file:bg-rose-700 cursor-pointer">
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="handleUploadPhoto()" class="py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center gap-1">
+              <span>Tải Ảnh Lên Cloud</span>
+            </button>
+            <button onclick="useDemoPhoto()" class="py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center gap-1">
+              <span>📷 Ảnh Mẫu Demo</span>
+            </button>
+          </div>
+          
+          <div id="photoPreviewContainer" class="hidden pt-1 flex items-center gap-2 bg-white p-2 rounded-xl border border-rose-200">
+            <img id="photoPreviewImg" src="" alt="Thumbnail" class="w-12 h-12 rounded-lg object-cover border border-rose-300">
+            <div class="flex-1 overflow-hidden">
+              <span class="text-[10px] font-bold text-emerald-600 block">✓ Đã tải ảnh thành công!</span>
+              <span id="photoPreviewUrl" class="text-[9px] text-slate-500 truncate block">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Complete / Cancel Action Buttons -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="btnCompleteBooking" onclick="handleTransition('COMPLETED')" 
+                  class="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition">
+            🎉 Hoàn Thành Ca
+          </button>
+          <button onclick="handleTransition('CANCELLED')" 
+                  class="py-2.5 bg-slate-100 hover:bg-rose-50 text-rose-600 hover:text-rose-700 font-bold text-xs rounded-xl border border-slate-200 transition">
+            ❌ Hủy Ca
+          </button>
+        </div>
+      </div>
+
+      <!-- CARD 3: SIMULATE GPS STREAM -->
+      <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700">📡 Mô Phỏng GPS Di Chuyển</h4>
+          <span id="simModeBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-200">MOVING</span>
+        </div>
+        <p class="text-[11px] text-slate-500">Mô phỏng vị trí xe Thợ di chuyển về điểm đón khách để kiểm thử Live Tracking.</p>
+
+        <!-- Current simulation readouts -->
+        <div class="grid grid-cols-2 gap-2 text-xs bg-white p-2.5 rounded-xl border border-slate-200 font-mono">
+          <div>Cự ly: <b id="simDistDisplay" class="text-slate-800">1.20 km</b></div>
+          <div>Vận tốc: <b id="simSpeedDisplay" class="text-slate-800">35 km/h</b></div>
+        </div>
+
+        <!-- 3 Step simulation buttons -->
+        <div class="grid grid-cols-3 gap-1.5 pt-1">
+          <button onclick="simulateGpsStep('MOVING')" class="py-2 px-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px] rounded-xl border border-blue-200 transition text-center shadow-sm">
+            1️⃣ Cách 1.2km<br><span class="text-[9px] font-normal text-blue-600">MOVING</span>
+          </button>
+          <button onclick="simulateGpsStep('APPROACHING')" class="py-2 px-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] rounded-xl border border-emerald-200 transition text-center shadow-sm">
+            2️⃣ Cách 200m<br><span class="text-[9px] font-normal text-emerald-600">APPROACHING</span>
+          </button>
+          <button onclick="simulateGpsStep('STOPPED')" class="py-2 px-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-[11px] rounded-xl border border-amber-200 transition text-center shadow-sm">
+            3️⃣ Đến nơi 0m<br><span class="text-[9px] font-normal text-amber-700">STOPPED</span>
+          </button>
+        </div>
+
+        <!-- Auto Run Demo Button -->
+        <button id="btnAutoSim" onclick="handleToggleAutoSim()" class="w-full py-2.5 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5">
+          <span>▶ Chạy Thử Tự Động (Auto 2.5s / bước)</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Phone Bottom Home Bar -->
+    <div class="p-2 bg-white flex justify-center border-t border-slate-100">
+      <div class="w-32 h-1 bg-slate-300 rounded-full"></div>
+    </div>
+  </div>
+
+  <!-- INCOMING INSTANT BOOKING POPUP (30s COUNTDOWN ALERT) -->
+  <div id="offerModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-6 text-center space-y-4 shadow-2xl border-2 border-amber-400 relative">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold animate-bounce">
+        <span>⚡ CÓ CA KHẨN CẤP MỚI!</span>
+      </div>
+
+      <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+        <div class="absolute inset-0 rounded-full bg-amber-400/20 animate-ping"></div>
+        <div class="relative w-18 h-18 rounded-full bg-amber-500 text-slate-950 font-serif font-bold text-2xl flex items-center justify-center shadow-lg border-2 border-white">
+          <span id="offerCountdown">30</span><span class="text-xs ml-0.5">s</span>
+        </div>
+      </div>
+
+      <div class="text-left bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200 space-y-2 text-xs">
+        <div>
+          <span class="text-[10px] text-slate-500 block">Địa chỉ đón khách:</span>
+          <b id="offerCustomerAddress" class="text-slate-800 text-xs block leading-snug">Chung cư Sunrise City, Q.7</b>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1 border-t border-amber-200/60">
+          <div>
+            <span class="text-[10px] text-slate-500 block">Khách hàng:</span>
+            <b id="offerCustomerName" class="text-slate-800">--</b>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-500 block">Thu nhập thực nhận:</span>
+            <b id="offerEarningsAmount" class="text-amber-700 font-bold text-sm">520,000 đ</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="acceptIncomingOffer()" class="py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-1">
+          <span>⚡ Chấp Nhận Ca</span>
+        </button>
+        <button onclick="skipIncomingOffer()" class="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+          Bỏ Qua (Chuyển Thợ Khác)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Realtime Request Inspector Console (Bottom Log) -->
+  <section class="mt-8 w-full max-w-4xl bg-slate-950 border border-slate-800 rounded-2xl p-4 shadow-xl text-slate-300">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300">MUA API Inspector</h3>
+      </div>
+      <button onclick="clearLogs()" class="text-xs text-slate-400 hover:text-amber-400 transition">Xóa Log</button>
+    </div>
+    <div id="consoleLogs" class="mt-3 font-mono text-xs space-y-2 max-h-48 overflow-y-auto scrollbar-thin">
+      <div class="text-slate-500 italic">// Sẵn sàng gọi API Thợ MUA...</div>
+    </div>
+  </section>
+
+  <script>
+    const API_BASE = 'http://localhost:8080';
+    let currentMap = null;
+    let muaMarker = null;
+    let uploadedPhotoUrl = null;
+    let activeBookingId = localStorage.getItem('activeBookingId') || null;
+    let currentBookingStatus = 'IDLE';
+    let stompClient = null;
+    let offerInterval = null;
+    let pendingOfferBookingId = null;
+
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('currentTime').textContent = 
+        String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Logger
+    function logMessage(method, endpoint, status, data) {
+      const logs = document.getElementById('consoleLogs');
+      const time = new Date().toLocaleTimeString();
+      const statusColor = status >= 200 && status < 300 ? 'text-emerald-400' : 'text-rose-400';
+
+      const entry = document.createElement('div');
+      entry.className = 'border-l-2 border-slate-700 pl-2 py-1';
+      entry.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500">[${time}]</span>
+          <span class="font-bold text-amber-400">${method}</span>
+          <span class="text-slate-300">${endpoint}</span>
+          <span class="font-bold ${statusColor}">${status}</span>
+        </div>
+        <pre class="text-[11px] text-slate-400 overflow-x-auto mt-0.5">${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}</pre>
+      `;
+      logs.prepend(entry);
+    }
+
+    function clearLogs() {
+      document.getElementById('consoleLogs').innerHTML = '<div class="text-slate-500 italic">// Đã xóa log.</div>';
+    }
+
+    function getAuthToken() {
+      return localStorage.getItem('accessToken');
+    }
+
+    let myMuaId = null;
+    let myUserId = null;
+    let heartbeatInterval = null;
+    let activeBookingStatusSub = null;
+
+    // Rich Non-blocking Toast Notification
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto p-3.5 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2.5 transition-all transform duration-300 translate-y-2 opacity-0 ${
+        type === 'success' ? 'bg-emerald-600 text-white shadow-emerald-600/30' :
+        type === 'error' ? 'bg-rose-600 text-white shadow-rose-600/30' :
+        type === 'warning' ? 'bg-amber-500 text-white shadow-amber-500/30' :
+        'bg-slate-900 text-white shadow-slate-900/30'
+      }`;
+      const icon = type === 'success' ? '🎉' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+      el.innerHTML = `<span>${icon}</span><span class="flex-1 leading-snug">${message}</span>`;
+      container.appendChild(el);
+      requestAnimationFrame(() => {
+        el.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 300);
+      }, 4000);
+    }
+
+    // Subscribe to Active Booking Status (Listen to Customer Cancellation)
+    function subscribeActiveBookingStatus(bookingId) {
+      if (!stompClient || !stompClient.connected || !bookingId) return;
+      if (activeBookingStatusSub) {
+        try { activeBookingStatusSub.unsubscribe(); } catch (e) {}
+      }
+      activeBookingStatusSub = stompClient.subscribe(`/topic/booking-status/${bookingId}`, function(message) {
+        try {
+          const payload = JSON.parse(message.body);
+          logMessage('STOMP', `/topic/booking-status/${bookingId}`, 200, payload);
+          const newStatus = payload.status || payload.currentStatus;
+          if (newStatus === 'CANCELLED') {
+            showToast(`⚠️ Khách hàng đã hủy đơn #${bookingId}! Hệ thống đã giải phóng ca cho bạn.`, 'warning');
+            handleBookingCancelledByCustomer();
+          } else if (newStatus) {
+            currentBookingStatus = newStatus;
+            updateStatusBadge(newStatus);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
+
+    // Reset MUA when booking is cancelled by customer
+    function handleBookingCancelledByCustomer() {
+      if (autoSimTimer) {
+        clearInterval(autoSimTimer);
+        autoSimTimer = null;
+      }
+      activeBookingId = null;
+      localStorage.removeItem('activeBookingId');
+      currentBookingStatus = null;
+      document.getElementById('activeBookingIdDisplay').textContent = '#--';
+      updateStatusBadge('CANCELLED');
+      document.getElementById('statusIndicatorDot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+      document.getElementById('statusText').textContent = 'AVAILABLE (Đang trực tuyến)';
+      document.getElementById('statusText').className = 'font-bold text-emerald-700 text-sm';
+      const btn = document.getElementById('btnAutoSim');
+      if (btn) {
+        btn.innerHTML = '<span>▶ Chạy Thử Tự Động (Auto 2.5s / bước)</span>';
+        btn.className = 'w-full py-2.5 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5';
+      }
+    }
+
+    // Demo Photo Shortcut
+    function useDemoPhoto() {
+      uploadedPhotoUrl = 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=600&auto=format&fit=crop';
+      document.getElementById('photoPreviewContainer').classList.remove('hidden');
+      document.getElementById('photoPreviewImg').src = uploadedPhotoUrl;
+      document.getElementById('photoPreviewUrl').textContent = uploadedPhotoUrl;
+      showToast('📷 Đã nạp ảnh mẫu makeup demo! Bạn có thể bấm "Hoàn Thành Ca".', 'success');
+    }
+
+    async function sendKeepAliveHeartbeat() {
+      const isOnline = document.getElementById('onlineToggle').checked;
+      if (!isOnline) return;
+      try {
+        await fetch(`${API_BASE}/api/v1/telemetry/heartbeat`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+      } catch (err) {
+        console.warn('[Heartbeat] Ping error:', err);
+      }
+    }
+
+    // Init MUA Profile
+    async function initMuaProfile() {
+      const userStr = localStorage.getItem('currentUser');
+      const token = getAuthToken();
+      if (!token || !userStr) {
+        alert('Vui lòng đăng nhập trước!');
+        window.location.href = 'index.html';
+        return;
+      }
+      try {
+        const user = JSON.parse(userStr);
+        myUserId = user.id;
+        myMuaId = user.muaId || user.id;
+        document.getElementById('muaNameDisplay').textContent = user.fullName || 'Thợ Trang Điểm';
+        document.getElementById('muaPhoneDisplay').textContent = user.phoneNumber || user.email || '';
+        document.getElementById('muaRoleDisplay').textContent = (user.roles && user.roles.length > 0) ? user.roles[0] : 'ROLE_FREELANCE_MUA';
+        document.getElementById('muaAvatar').textContent = (user.fullName || 'M').charAt(0).toUpperCase();
+
+        // Đồng bộ trước để lấy chính xác muaId từ DB
+        try {
+          const meRes = await fetch(`${API_BASE}/api/v1/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const meData = await meRes.json();
+          if (meData.success && meData.data) {
+            myUserId = meData.data.id;
+            if (meData.data.muaId) myMuaId = meData.data.muaId;
+            localStorage.setItem('currentUser', JSON.stringify(meData.data));
+            document.getElementById('muaRoleDisplay').textContent = `${(meData.data.roles && meData.data.roles.length > 0) ? meData.data.roles[0] : 'ROLE_FREELANCE_MUA'} (MUA #${myMuaId})`;
+          }
+        } catch (err) {
+          console.warn('Sync /me error:', err);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
+      if (activeBookingId) {
+        document.getElementById('activeBookingIdDisplay').textContent = '#' + activeBookingId;
+      }
+
+      initMap();
+      connectWebSocket();
+    }
+
+    // Map Init (CartoDB Voyager: No block in VN, fast Cloudflare CDN)
+    function initMap() {
+      if (currentMap) {
+        setTimeout(() => currentMap.invalidateSize(), 300);
+        return;
+      }
+      const lat = parseFloat(document.getElementById('muaLat').value) || 10.777200;
+      const lng = parseFloat(document.getElementById('muaLng').value) || 106.701500;
+
+      const mapContainer = document.getElementById('muaMap');
+      currentMap = L.map(mapContainer).setView([lat, lng], 14);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '&copy; Esri &copy; OpenStreetMap'
+      }).addTo(currentMap);
+
+      const muaIcon = L.divIcon({
+        className: 'custom-mua-pin',
+        html: '<div style="background-color:#f59e0b; color:white; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 0 10px rgba(245,158,11,0.8); border:2px solid white;">💄</div>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      muaMarker = L.marker([lat, lng], { icon: muaIcon, draggable: true }).addTo(currentMap);
+      muaMarker.bindPopup('<b>Vị trí Thợ MUA</b><br>Kéo thả để cập nhật vị trí.').openPopup();
+
+      muaMarker.on('dragend', function (e) {
+        const pos = e.target.getLatLng();
+        document.getElementById('muaLat').value = pos.lat.toFixed(6);
+        document.getElementById('muaLng').value = pos.lng.toFixed(6);
+      });
+
+      setTimeout(() => {
+        if (currentMap) currentMap.invalidateSize();
+      }, 400);
+    }
+
+    // Connect WebSocket STOMP
+    function connectWebSocket() {
+      try {
+        const socket = new SockJS(`${API_BASE}/ws-makeup`);
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({ 'Authorization': `Bearer ${getAuthToken()}` }, function(frame) {
+          logMessage('WS', '/ws-makeup', 200, 'MUA đã kết nối STOMP thành công.');
+
+          const badge = document.getElementById('stompStatusBadge');
+          if (badge) {
+            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live STOMP';
+            badge.className = 'px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1';
+          }
+
+          // 1. Kênh nhận offer RIÊNG cho MUA này (Chỉ duy nhất thợ được chọn nhận được ca)
+          if (myMuaId) {
+            stompClient.subscribe(`/topic/mua-offer/${myMuaId}`, function(message) {
+              try {
+                const payload = JSON.parse(message.body);
+                logMessage('STOMP', `/topic/mua-offer/${myMuaId}`, 200, payload);
+                const isOnline = document.getElementById('onlineToggle').checked;
+                if (isOnline && currentBookingStatus !== 'ACCEPTED' && currentBookingStatus !== 'IN_PROGRESS' && currentBookingStatus !== 'ON_THE_WAY') {
+                  showIncomingOfferModal(payload);
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            });
+          }
+
+          // 2. Lắng nghe đóng popup khi đơn đã bị nhận bởi thợ khác hoặc khách hủy
+          stompClient.subscribe('/topic/instant-dismiss', function(message) {
+            try {
+              const payload = JSON.parse(message.body);
+              if (pendingOfferBookingId && payload.bookingId == pendingOfferBookingId) {
+                dismissIncomingOffer();
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          });
+
+          // 3. Nếu đang có active booking, lắng nghe thay đổi trạng thái (bao gồm khi khách hủy)
+          if (activeBookingId) {
+            subscribeActiveBookingStatus(activeBookingId);
+          }
+
+        }, function(error) {
+          logMessage('WS', '/ws-makeup', 500, 'Lỗi kết nối STOMP: ' + error);
+          const badge = document.getElementById('stompStatusBadge');
+          if (badge) {
+            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Mất kết nối';
+            badge.className = 'px-2 py-0.5 text-[9px] font-bold rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1';
+          }
+        });
+      } catch (err) {
+        console.warn('STOMP init error:', err);
+      }
+    }
+
+    let targetCustomerCoords = { lat: 10.776889, lng: 106.700806 };
+    let autoSimTimer = null;
+
+    function showIncomingOfferModal(offer) {
+      pendingOfferBookingId = offer.bookingId;
+      if (offer.latitude && offer.longitude) {
+        targetCustomerCoords = { lat: Number(offer.latitude), lng: Number(offer.longitude) };
+      }
+      document.getElementById('offerCustomerAddress').textContent = offer.customerAddress || 'Khu vực lân cận';
+      document.getElementById('offerCustomerName').textContent = offer.customerName || 'Khách Hàng';
+      const earnings = offer.earningsAmount ? (Number(offer.earningsAmount).toLocaleString('vi-VN') + ' đ') : '520,000 đ';
+      document.getElementById('offerEarningsAmount').textContent = earnings;
+
+      document.getElementById('offerModal').classList.remove('hidden');
+
+      if (offerInterval) clearInterval(offerInterval);
+      let count = offer.countdownSeconds || 20;
+      document.getElementById('offerCountdown').textContent = count;
+      offerInterval = setInterval(() => {
+        count--;
+        document.getElementById('offerCountdown').textContent = count;
+        if (count <= 0) {
+          skipIncomingOffer();
+        }
+      }, 1000);
+    }
+
+    function dismissIncomingOffer() {
+      if (offerInterval) clearInterval(offerInterval);
+      document.getElementById('offerModal').classList.add('hidden');
+      pendingOfferBookingId = null;
+    }
+
+    async function acceptIncomingOffer() {
+      if (!pendingOfferBookingId) return;
+      const bId = pendingOfferBookingId;
+      dismissIncomingOffer();
+      await handleAcceptBooking(bId);
+    }
+
+    async function skipIncomingOffer() {
+      if (!pendingOfferBookingId) {
+        dismissIncomingOffer();
+        return;
+      }
+      const bId = pendingOfferBookingId;
+      dismissIncomingOffer();
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/freelancer/bookings/${bId}/skip`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+        const data = await res.json();
+        logMessage('POST', `/api/v1/freelancer/bookings/${bId}/skip`, res.status, data);
+      } catch (err) {
+        console.warn('Skip booking error:', err);
+      }
+    }
+
+    // Toggle Availability
+    async function handleToggleAvailability(isOnline) {
+      const lat = parseFloat(document.getElementById('muaLat').value);
+      const lng = parseFloat(document.getElementById('muaLng').value);
+
+      const payload = {
+        isAvailable: isOnline,
+        latitude: lat,
+        longitude: lng
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/telemetry/availability`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getAuthToken()}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        logMessage('POST', '/api/v1/telemetry/availability', res.status, data);
+
+        const dot = document.getElementById('statusIndicatorDot');
+        const text = document.getElementById('statusText');
+
+        if (res.ok && data.success) {
+          if (isOnline) {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+            text.textContent = 'AVAILABLE (Trực Tuyến - Heartbeat Active)';
+            text.className = 'font-bold text-emerald-700 text-sm';
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(sendKeepAliveHeartbeat, 25000); // 25s ping keep-alive 1 lần
+          } else {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
+            text.textContent = 'OFFLINE (Ngoại Tuyến)';
+            text.className = 'font-bold text-slate-800 text-sm';
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+          }
+        } else {
+          alert(`Lỗi chuyển trạng thái: ${data.message || (data.data ? JSON.stringify(data.data) : 'Thất bại')}`);
+          document.getElementById('onlineToggle').checked = !isOnline;
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
+        }
+      } catch (err) {
+        logMessage('POST', '/api/v1/telemetry/availability', 500, err.message);
+        document.getElementById('onlineToggle').checked = !isOnline;
+      }
+    }
+
+    // Accept Booking (Redlock) - Tự Động Hóa Không Cần Nhập Tay ID
+    async function handleAcceptBooking(bookingId) {
+      const idToAccept = bookingId || activeBookingId;
+      if (!idToAccept) return showToast('Không có ID đơn hàng cần nhận!', 'warning');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/freelancer/bookings/${idToAccept}/accept`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+        const data = await res.json();
+        logMessage('POST', `/api/v1/freelancer/bookings/${idToAccept}/accept`, res.status, data);
+
+        if (res.ok && data.success) {
+          activeBookingId = idToAccept;
+          localStorage.setItem('activeBookingId', activeBookingId);
+          currentBookingStatus = 'ACCEPTED';
+
+          document.getElementById('activeBookingIdDisplay').textContent = '#' + activeBookingId;
+          updateStatusBadge('ACCEPTED');
+
+          // Cập nhật trạng thái Thợ
+          document.getElementById('statusIndicatorDot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500';
+          document.getElementById('statusText').textContent = 'BUSY (Đang làm ca)';
+          document.getElementById('statusText').className = 'font-bold text-amber-700 text-sm';
+
+          // Lắng nghe cập nhật trạng thái đơn (bao gồm khi khách hủy)
+          subscribeActiveBookingStatus(activeBookingId);
+
+          showToast(`🎉 CHÚC MỪNG! Bạn đã nhận thành công ca #${activeBookingId}! Hãy bấm "Bắt đầu di chuyển" khi xuất phát.`, 'success');
+          syncTargetCustomerCoords(activeBookingId);
+        } else {
+          showToast(`Không thể nhận đơn: ${data.message || (data.data ? JSON.stringify(data.data) : data.errorCode)}`, 'error');
+        }
+      } catch (err) {
+        logMessage('POST', `/api/v1/freelancer/bookings/${idToAccept}/accept`, 500, err.message);
+        showToast('Lỗi kết nối máy chủ khi nhận đơn.', 'error');
+      }
+    }
+
+    // State Machine Transitions
+    async function handleTransition(targetStatus) {
+      if (!activeBookingId) {
+        return showToast('Chưa có ca làm việc nào đang kích hoạt!', 'warning');
+      }
+
+      // RÀNG BUỘC CHẶT CHẼ: Nếu bấm COMPLETED mà chưa upload ảnh hoàn thành
+      if (targetStatus === 'COMPLETED' && !uploadedPhotoUrl) {
+        return showToast('⚠️ BẮT BUỘC: Bạn phải tải ảnh hoặc bấm "Ảnh Mẫu Demo" trước khi Hoàn Thành Ca!', 'warning');
+      }
+
+      const payload = {
+        targetStatus: targetStatus,
+        reason: targetStatus === 'CANCELLED' ? 'Thợ gặp sự cố cá nhân đột xuất' : null,
+        completionPhotoUrl: targetStatus === 'COMPLETED' ? uploadedPhotoUrl : null
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/bookings/${activeBookingId}/transition`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getAuthToken()}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        logMessage('POST', `/api/v1/bookings/${activeBookingId}/transition`, res.status, data);
+
+        if (res.ok && data.success) {
+          const newStatus = data.data.currentStatus;
+          currentBookingStatus = newStatus;
+          updateStatusBadge(newStatus);
+          showToast(`✓ Trạng thái ca: <b>${newStatus}</b>`, 'success');
+
+          // Tự động stream GPS khi chuyển sang ON_THE_WAY hoặc ARRIVED/IN_PROGRESS
+          if (newStatus === 'ON_THE_WAY') {
+            setTimeout(() => simulateGpsStep('MOVING'), 400);
+          } else if (newStatus === 'ARRIVED' || newStatus === 'IN_PROGRESS') {
+            setTimeout(() => simulateGpsStep('STOPPED'), 400);
+          }
+
+          // Nếu hoàn thành hoặc hủy: Nhả trạng thái bận
+          if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
+            document.getElementById('statusIndicatorDot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+            document.getElementById('statusText').textContent = 'AVAILABLE (Đã nhả bận)';
+            document.getElementById('statusText').className = 'font-bold text-emerald-700 text-sm';
+            uploadedPhotoUrl = null;
+            document.getElementById('photoPreviewContainer').classList.add('hidden');
+            if (newStatus === 'COMPLETED') {
+              showToast('🎉 CA TRANG ĐIỂM ĐÃ HOÀN TẤT THÀNH CÔNG! Thù lao đã chuyển về ví thợ.', 'success');
+            }
+          }
+        } else {
+          showToast(`Lỗi chuyển trạng thái: ${data.message || (data.data ? JSON.stringify(data.data) : data.errorCode)}`, 'error');
+        }
+      } catch (err) {
+        logMessage('POST', `/api/v1/bookings/${activeBookingId}/transition`, 500, err.message);
+        showToast('Lỗi kết nối máy chủ khi chuyển trạng thái.', 'error');
+      }
+    }
+
+    // Cập nhật Badge Trạng Thái và ẨN/HIỆN Chỗ Upload Ảnh Chỉ Khi IN_PROGRESS
+    function updateStatusBadge(status) {
+      const badge = document.getElementById('activeBookingStatusBadge');
+      badge.textContent = status;
+
+      const photoSection = document.getElementById('completionPhotoSection');
+
+      // LOGIC YÊU CẦU: CHỈ KHI TRẠNG THÁI LÀ IN_PROGRESS THÌ MỚI HIỂN THỊ CHỖ UPLOAD ẢNH
+      if (status === 'IN_PROGRESS') {
+        photoSection.classList.remove('hidden');
+      } else {
+        photoSection.classList.add('hidden');
+      }
+
+      if (status === 'ACCEPTED') {
+        badge.className = 'px-2.5 py-1 text-[10px] font-bold rounded-full bg-blue-100 text-blue-800';
+      } else if (status === 'ON_THE_WAY') {
+        badge.className = 'px-2.5 py-1 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-800';
+      } else if (status === 'ARRIVED') {
+        badge.className = 'px-2.5 py-1 text-[10px] font-bold rounded-full bg-purple-100 text-purple-800';
+      } else if (status === 'IN_PROGRESS') {
+        badge.className = 'px-2.5 py-1 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 animate-pulse';
+      } else if (status === 'COMPLETED') {
+        badge.className = 'px-2.5 py-1 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800';
+      } else if (status === 'CANCELLED') {
+        badge.className = 'px-2.5 py-1 text-[10px] font-bold rounded-full bg-rose-100 text-rose-800';
+      }
+    }
+
+    // Upload Completion Photo (CHỈ THỰC HIỆN KHI IN_PROGRESS)
+    async function handleUploadPhoto() {
+      if (!activeBookingId) return alert('Chưa có ca làm việc nào!');
+      if (currentBookingStatus !== 'IN_PROGRESS') {
+        return alert('Chỉ được tải ảnh hoàn thành khi đơn hàng đang ở trạng thái IN_PROGRESS!');
+      }
+
+      const fileInput = document.getElementById('completionPhotoFile');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        return alert('Vui lòng chọn 1 file ảnh từ máy tính!');
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/bookings/${activeBookingId}/completion-photo`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+          body: formData
+        });
+        const data = await res.json();
+        logMessage('POST', `/api/v1/bookings/${activeBookingId}/completion-photo`, res.status, data);
+
+        if (res.ok && data.success) {
+          uploadedPhotoUrl = data.data.completionPhotoUrl;
+          document.getElementById('photoPreviewContainer').classList.remove('hidden');
+          document.getElementById('photoPreviewImg').src = data.data.thumbnailUrl || uploadedPhotoUrl;
+          document.getElementById('photoPreviewUrl').textContent = uploadedPhotoUrl;
+          alert('Tải ảnh hoàn thành lên Cloudinary thành công! Bạn có thể bấm "Hoàn Thành Ca".');
+        } else {
+          alert(`Lỗi upload ảnh: ${data.message || 'Thất bại'}`);
+        }
+      } catch (err) {
+        logMessage('POST', `/api/v1/bookings/${activeBookingId}/completion-photo`, 500, err.message);
+      }
+    }
+
+    // Sync Customer Target Coordinates from Booking
+    async function syncTargetCustomerCoords(bookingId) {
+      if (!bookingId) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/bookings/${bookingId}/status`, {
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.data) {
+          if (data.data.destinationLatitude && data.data.destinationLongitude) {
+            targetCustomerCoords = {
+              lat: Number(data.data.destinationLatitude),
+              lng: Number(data.data.destinationLongitude)
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('Sync customer coords error:', e);
+      }
+    }
+
+    // Step-by-Step GPS Simulation
+    async function simulateGpsStep(stepType) {
+      if (!activeBookingId) return alert('Chưa có ca làm việc nào!');
+      await syncTargetCustomerCoords(activeBookingId);
+
+      const destLat = targetCustomerCoords.lat || 10.776889;
+      const destLng = targetCustomerCoords.lng || 106.700806;
+
+      let lat, lng, speed, distanceMeters, modeLabel;
+
+      if (stepType === 'APPROACHING') {
+        // Cách khách ~200m (< 300m threshold)
+        lat = destLat + 0.0015;
+        lng = destLng + 0.0015;
+        speed = 18.0;
+        distanceMeters = 200.0;
+        modeLabel = 'APPROACHING';
+      } else if (stepType === 'STOPPED') {
+        // Đến nơi, dừng xe tại đúng điểm hẹn của khách
+        lat = destLat;
+        lng = destLng;
+        speed = 0.0;
+        distanceMeters = 0.0;
+        modeLabel = 'STOPPED';
+      } else {
+        // MOVING: Cách khách ~1.2km
+        lat = destLat + 0.009;
+        lng = destLng + 0.009;
+        speed = 38.0;
+        distanceMeters = 1200.0;
+        modeLabel = 'MOVING';
+      }
+
+      const payload = {
+        bookingId: parseInt(activeBookingId),
+        latitude: lat,
+        longitude: lng,
+        speed: speed,
+        heading: 110.0,
+        accuracy: 5.0,
+        distanceRemainingMeters: distanceMeters
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/telemetry/stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getAuthToken()}`
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        logMessage('POST', `/api/v1/telemetry/stream (${modeLabel})`, res.status, data);
+
+        // Update UI displays on MUA page
+        const distEl = document.getElementById('simDistDisplay');
+        if (distEl) distEl.textContent = (distanceMeters / 1000).toFixed(2) + ' km';
+        const spdEl = document.getElementById('simSpeedDisplay');
+        if (spdEl) spdEl.textContent = speed.toFixed(0) + ' km/h';
+
+        const badge = document.getElementById('simModeBadge');
+        if (badge) {
+          badge.textContent = modeLabel;
+          if (modeLabel === 'APPROACHING') {
+            badge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 animate-pulse';
+          } else if (modeLabel === 'STOPPED') {
+            badge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-300';
+          } else {
+            badge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-100 text-blue-800 border border-blue-200';
+          }
+        }
+      } catch (err) {
+        logMessage('POST', '/api/v1/telemetry/stream', 500, err.message);
+      }
+    }
+
+    // Toggle Auto Simulation (Runs: MOVING -> APPROACHING -> STOPPED every 2.5s)
+    function handleToggleAutoSim() {
+      const btn = document.getElementById('btnAutoSim');
+      if (autoSimTimer) {
+        clearInterval(autoSimTimer);
+        autoSimTimer = null;
+        btn.innerHTML = '<span>▶ Chạy Thử Tự Động (Auto 2.5s / bước)</span>';
+        btn.className = 'w-full py-2.5 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5';
+        return;
+      }
+
+      if (!activeBookingId) return showToast('Chưa có ca làm việc nào đang chạy!', 'warning');
+
+      const steps = ['MOVING', 'APPROACHING', 'STOPPED'];
+      let idx = 0;
+      btn.innerHTML = '<span class="animate-spin">🔄</span><span>Đang chạy mô phỏng tự động (Bấm để dừng)...</span>';
+      btn.className = 'w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5 animate-pulse';
+
+      // Chạy bước đầu tiên ngay lập tức
+      simulateGpsStep(steps[idx++]);
+
+      autoSimTimer = setInterval(() => {
+        if (idx < steps.length) {
+          simulateGpsStep(steps[idx++]);
+        } else {
+          clearInterval(autoSimTimer);
+          autoSimTimer = null;
+          btn.innerHTML = '<span>✓ Đã Đến Nơi (0m - Dừng Xe)!</span>';
+          btn.className = 'w-full py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5';
+          showToast('📍 Thợ đã đến nơi (0m)! Hãy nhấn nút "Đã Đến Nơi" trên tiến trình.', 'info');
+          setTimeout(() => {
+            btn.innerHTML = '<span>▶ Chạy Lại Thử Tự Động (Auto 2.5s / bước)</span>';
+            btn.className = 'w-full py-2.5 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5';
+          }, 3000);
+        }
+      }, 2500);
+    }
+
+    // Stream Location Fallback
+    async function handleStreamLocation() {
+      await simulateGpsStep('MOVING');
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('activeBookingId');
+      window.location.href = 'index.html';
+    }
+
+    window.onload = initMuaProfile;
+  </script>
+</body>
+</html>

@@ -4,74 +4,10 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/agency-operations-service" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$/core-api" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$/agency-operations-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/api-gateway" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/api-gateway" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/booking-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/booking-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/catalog-media-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/catalog-media-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/location-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/location-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/payment-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/payment-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/pricing-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/pricing-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/user-agency-mua-profile-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/user-agency-mua-profile-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/websocket-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/websocket-service" />
+            <option value="$PROJECT_DIR$/core-api" />
           </set>
         </option>
       </GradleProjectSettings>

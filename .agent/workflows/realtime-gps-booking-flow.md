@@ -1,49 +1,21 @@
 ---
 name: realtime-gps-booking-flow
-description: End-to-end workflow for developing and testing the Realtime Instant Booking (30s countdown) and GPS Telemetry Tracking flow across Microservices and React Frontend.
-version: 2.0.0
+description: End-to-end workflow for developing and testing the Realtime Instant Booking (30s countdown) and GPS Telemetry Tracking flow in the Layered Monolith (core-api) and React Frontend.
+version: 3.0.0
 ---
 
-# Universal Workflow: Realtime GPS & Instant Booking Flow
+# Universal Workflow: Realtime GPS Telemetry & 30s Instant Booking
 
-## Phase 1: Redis GEO & Location Service Setup
-1. Thiết lập `location-service` (Port: 8084):
-   - Lắng nghe Kafka topic `driver-location-stream` để cập nhật tọa độ GPS thợ vào `Redis GEO DB 2` (`GEOADD available_drivers <lng> <lat> <driver_id>`).
-   - Cung cấp API / query tìm kiếm thợ rảnh trong bán kính $R$ km (`GEORADIUS / GEOSEARCH`).
-   - Lưu trữ lịch sử di chuyển vào bảng `telemetry_locations` trên `location_tracking_db` với chỉ mục PostGIS `GIST`.
+## 1. Luồng Đặt Ca Khẩn Cấp Realtime 30s (Instant Booking)
+1. **Khách hàng tạo đơn**: Client gửi `POST /api/v1/customer/bookings` (loại `REALTIME_INSTANT`).
+2. **Quét thợ rảnh**: `BookingService` gọi `RedisGeoService` quét danh sách thợ rảnh gần nhất trong bán kính $R$ km (`GEORADIUS`).
+3. **Phát sự kiện In-Memory**: `BookingService` phát `InstantBookingCreatedEvent` qua `ApplicationEventPublisher`.
+4. **Broadcast qua STOMP WebSocket**: `@EventListener` bắt sự kiện và gọi `WebSocketBroadcastService` bắn tin nhắn STOMP tới topic `/topic/booking-broadcast` kèm đồng hồ đếm ngược 30–45s trên App thợ.
+5. **Thợ chấp nhận ca**: Thợ đầu tiên bấm nhận đơn $\rightarrow$ gọi `POST /api/v1/freelancer/bookings/{id}/accept`.
+6. **Bảo vệ chống Race-Condition (Redlock)**: `RedissonClient` thực hiện Distributed Lock theo `bookingId`. Thợ đầu tiên giữ lock thành công $\rightarrow$ chuyển đơn sang `ACCEPTED`. Các thợ bấm sau nhận thông báo đơn đã có người nhận.
 
-## Phase 2: Instant Booking Broadcast & Countdown Engine
-1. Tại `booking-service` (Port: 8085):
-   - Khi Khách hàng gửi request Đặt ngay (`POST /api/v1/customer/bookings/instant`), gọi `pricing-service` (Port: 8086) tính cước và `location-service` (Port: 8084) lấy danh sách thợ gần nhất.
-   - Chuyển trạng thái đơn sang `BROADCASTING`.
-   - Publish message lên Redis Pub/Sub / Kafka topic `booking-broadcast`.
-2. Tại `websocket-service` (Port: 8088):
-   - Nhận event và broadcast WebSocket packet `BOOKING_BROADCAST` tới tất cả các thợ phù hợp.
-3. Phía Frontend Thợ Make-up (`code/frontend/`):
-   - Kích hoạt `InstantBookingCountdownModal.jsx` với bộ đếm ngược 30–45s kèm âm thanh thông báo.
-
-## Phase 3: Concurrency Control với Redlock (Chống tranh chấp ca)
-1. Khi Thợ nhấn "Chấp nhận ca làm":
-   - Gửi request `POST /api/v1/freelancer/bookings/{bookingId}/accept`.
-   - `booking-service` lấy khóa phân tán qua Redisson trên Redis DB 3: `RLock lock = redissonClient.getLock("lock:booking:" + bookingId);`
-   - Kiểm tra xem đơn đã được nhận chưa (`status == BROADCASTING`).
-   - Nếu thợ đầu tiên giành được đơn:
-     - Đổi trạng thái đơn sang `CONFIRMED / MOVING`.
-     - Gán `assigned_artist_id = currentMUAId`.
-     - Nhả lock `lock.unlock()`.
-     - Phát Kafka event `BOOKING_ACCEPTED`.
-   - Nếu thợ đến sau: Trả về lỗi `409 Conflict` (Ca làm đã được thợ khác tiếp nhận).
-
-## Phase 4: GPS Telemetry Tracking & Map Rendering
-1. Phía Thợ Make-up:
-   - Khi bắt đầu di chuyển, kích hoạt `navigator.geolocation.watchPosition` gửi tọa độ mỗi 5s qua WebSocket `websocket-service` (Port: 8088) với event `LOCATION_UPDATE`.
-2. Phía Khách hàng:
-   - Component `GpsTrackingView.jsx` nhận tọa độ từ WebSocket channel `booking:{bookingId}` và cập nhật vị trí marker của thợ trên bản đồ Realtime.
-3. Thợ cập nhật các mốc trạng thái: *Đã đến nơi $\rightarrow$ Bắt đầu làm $\rightarrow$ Tải ảnh nghiệm thu $\rightarrow$ Hoàn thành*.
-
-## Phase 5: Escrow Payout & Wallet Settlement
-1. Khi thợ tải ảnh nghiệm thu và hoàn tất ca làm:
-   - `booking-service` đổi trạng thái `COMPLETED` và phát Kafka event `BOOKING_COMPLETED`.
-   - `payment-service` (Port: 8087) lắng nghe event, tự động giải phóng tiền cọc Escrow:
-     - Trừ hoa hồng sàn (ví dụ 15%).
-     - Chuyển doanh thu vào Ví Thợ (hoặc Ví Đại lý nếu là thợ thuộc đại lý).
+## 2. Luồng GPS Telemetry Tracking Realtime
+1. **Thợ phát sóng tọa độ**: Mobile App thợ gửi tọa độ định kỳ (5–10s) qua STOMP WebSocket `/app/telemetry/location` hoặc REST endpoint.
+2. **Cập nhật vị trí tức thời**: Lưu tọa độ hiện tại vào Redis GEO (`GEOADD mua:geo:active <lng> <lat> <mua_id>`).
+3. **Stream cho Khách hàng**: `WebSocketBroadcastService` bắn trực tiếp tọa độ tới STOMP topic `/topic/gps-stream/{bookingId}` để khách xem thợ di chuyển trên bản đồ.
+4. **Lưu vết di chuyển**: Ghi bản ghi tọa độ vào bảng `telemetry_schema.telemetry_logs` (Point PostGIS 4326).

@@ -1,24 +1,23 @@
-import { useCallback } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { USER_ROLES } from '../constants/roles.constant';
 
-/**
- * Custom Hook: useAuth
- * Hỗ trợ các thao tác xác thực người dùng
- */
 export const useAuth = () => {
-  const { user, isAuthenticated, setUser, logout } = useAppStore();
+  const { user, token, role, isAuthenticated, isLoading, login, logout, checkAuth } =
+    useAuthStore();
 
-  const handleLogin = useCallback(
-    (userData) => {
-      setUser(userData);
-    },
-    [setUser],
-  );
+  const isSuperAdmin = role === USER_ROLES.SUPER_ADMIN;
+  const isAgencyAdmin = role === USER_ROLES.AGENCY_ADMIN;
 
   return {
     user,
+    token,
+    role,
     isAuthenticated,
-    login: handleLogin,
+    isLoading,
+    isSuperAdmin,
+    isAgencyAdmin,
+    login,
     logout,
+    checkAuth,
   };
 };
