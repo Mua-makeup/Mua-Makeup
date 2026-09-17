@@ -21,19 +21,19 @@ public class CreateInstantBookingReq {
 
     private Long packageId;
 
-    @NotBlank(message = "Địa chỉ điểm đến không được để trống.")
-    @Size(max = 500, message = "Địa chỉ điểm đến không được vượt quá 500 ký tự.")
+    @NotBlank(message = "{validation.booking_destination_address_required}")
+    @Size(max = 500, message = "{validation.booking_destination_address_size}")
     private String destinationAddress;
 
-    @NotNull(message = "Vĩ độ điểm đến không được để trống.")
-    @DecimalMin(value = "-90.0", message = "Vĩ độ tối thiểu là -90.0")
-    @DecimalMax(value = "90.0", message = "Vĩ độ tối đa là 90.0")
+    @NotNull(message = "{validation.booking_latitude_required}")
+    @DecimalMin(value = "-90.0", message = "{validation.latitude_invalid}")
+    @DecimalMax(value = "90.0", message = "{validation.latitude_invalid}")
     @JsonAlias({"customerLatitude", "destinationLatitude", "lat", "latitude"})
     private BigDecimal destinationLatitude;
 
-    @NotNull(message = "Kinh độ điểm đến không được để trống.")
-    @DecimalMin(value = "-180.0", message = "Kinh độ tối thiểu là -180.0")
-    @DecimalMax(value = "180.0", message = "Kinh độ tối đa là 180.0")
+    @NotNull(message = "{validation.booking_longitude_required}")
+    @DecimalMin(value = "-180.0", message = "{validation.longitude_invalid}")
+    @DecimalMax(value = "180.0", message = "{validation.longitude_invalid}")
     @JsonAlias({"customerLongitude", "destinationLongitude", "lng", "longitude"})
     private BigDecimal destinationLongitude;
 

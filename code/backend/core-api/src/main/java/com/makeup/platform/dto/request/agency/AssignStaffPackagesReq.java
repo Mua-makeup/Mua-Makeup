@@ -19,7 +19,8 @@ public class AssignStaffPackagesReq {
     @NotNull(message = "{validation.staff_id_required}")
     private Long staffId;
 
-    @NotEmpty(message = "{validation.package_assignments_required}")
     @Valid
     private List<PackageAssignmentItem> packageAssignments;
+
+    private List<Long> packageIds;
 }

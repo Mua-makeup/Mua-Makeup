@@ -22,7 +22,10 @@
     "token_expired": "Token has expired. Please login again.",
     "token_invalid": "Invalid token.",
     "token_signature_invalid": "Invalid token signature.",
-    "language_updated": "Language preference updated successfully."
+    "language_updated": "Language preference updated successfully.",
+    "user_not_found": "User not found.",
+    "access_denied": "Access denied: You do not have permission to perform this action.",
+    "unauthorized_token": "Authentication required. Please log in or provide a valid token."
   },
   "customer": {
     "profile_update_success": "Customer profile updated successfully!"
@@ -40,9 +43,12 @@
     "portfolio_delete_success": "Portfolio deleted successfully!",
     "portfolio_get_success": "Get portfolio detail successfully.",
     "portfolios_list_success": "Get portfolios list successfully.",
-    "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed)."
+    "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed).",
+    "certificate_not_verified_cannot_accept": "Makeup artist has not been certified/verified, cannot accept bookings.",
+    "certificate_not_verified_cannot_operate": "Makeup artist has not been certified/verified, cannot go online to receive bookings."
   },
   "agency": {
+    "not_verified_cannot_operate": "Studio is not verified yet by Super Admin, cannot perform this operation.",
     "profile_get_success": "Agency profile retrieved successfully.",
     "profile_update_success": "Agency profile updated successfully.",
     "profile_not_found": "Agency profile not found.",
@@ -75,9 +81,15 @@
     "overtime_rule_required_for_preset": "Rule ID is required when selecting preset overtime rule.",
     "overtime_already_reviewed": "This overtime report has already been reviewed.",
     "invalid_overtime_action": "Invalid overtime adjudication action.",
-    "staff_not_found_or_inactive": "Staff profile not found or not active in this Studio."
+    "staff_not_found_or_inactive": "Staff profile not found or not active in this Studio.",
+    "invalid_decision": "Invalid decision. Only APPROVE or REJECT is accepted.",
+    "staff_not_active": "Staff member is not active or eligible for scheduling.",
+    "shift_time_invalid": "Shift end time must be after start time.",
+    "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today."
   },
   "catalog": {
+    "style_not_found": "Makeup style not found with ID: {0}",
+    "package_not_found": "Service package not found with ID: {0}",
     "package_create_success": "Service package created successfully!",
     "package_update_success": "Service package updated successfully!",
     "package_delete_success": "Service package deleted successfully!",
@@ -236,6 +248,7 @@
     "catalog_item_step_order_min": "Step order must be greater than or equal to 1.",
     "catalog_item_price_required": "Price cannot be blank.",
     "catalog_item_price_min": "Price cannot be less than 0 VND.",
+    "catalog_item_duration_min": "Duration cannot be less than 0 minutes.",
     "catalog_category_required": "Master service category cannot be blank.",
     "catalog_package_name_required": "Service package name cannot be blank.",
     "catalog_package_name_size": "Service package name cannot exceed 150 characters.",
@@ -254,6 +267,10 @@
     "city_max": "City cannot exceed 50 characters.",
     "latitude_invalid": "Latitude must be between -90.0 and 90.0.",
     "longitude_invalid": "Longitude must be between -180.0 and 180.0.",
+    "booking_destination_address_required": "Destination address cannot be blank.",
+    "booking_destination_address_size": "Destination address cannot exceed 500 characters.",
+    "booking_latitude_required": "Destination latitude cannot be blank.",
+    "booking_longitude_required": "Destination longitude cannot be blank.",
     "commission_rate_required": "Commission rate cannot be blank.",
     "commission_rate_min": "Commission rate must be at least 0%.",
     "commission_rate_max": "Commission rate cannot exceed 100%.",
@@ -312,5 +329,37 @@
     "booking_target_status_required": "Target status is required.",
     "booking_target_status_invalid": "Target status is invalid.",
     "booking_reason_max": "Reason must not exceed 500 characters."
+  },
+  "admin": {
+    "agency_verify_success": "Updated Studio Agency approval status successfully!",
+    "bookings_fetch_success": "Retrieved platform bookings successfully.",
+    "booking_detail_fetch_success": "Retrieved booking detail successfully.",
+    "users_fetch_success": "Retrieved platform users successfully.",
+    "user_status_update_success": "Updated user status successfully!"
+  },
+  "category": {
+    "code_required": "Category code cannot be blank.",
+    "code_max": "Category code must not exceed 50 characters.",
+    "name_required": "Category name cannot be blank.",
+    "name_max": "Category name must not exceed 100 characters.",
+    "code_conflict": "This category code already exists.",
+    "create_success": "Created master service category successfully!",
+    "update_success": "Updated master service category successfully!",
+    "not_found": "Requested master service category not found."
+  },
+  "style": {
+    "code_required": "Style code cannot be blank.",
+    "code_max": "Style code must not exceed 50 characters.",
+    "name_required": "Style name cannot be blank.",
+    "name_max": "Style name must not exceed 100 characters.",
+    "code_conflict": "This style code already exists.",
+    "create_success": "Created makeup style successfully!",
+    "update_success": "Updated makeup style successfully!",
+    "not_found": "Requested makeup style not found."
+  },
+  "agency": {
+    "bookings_fetch_success": "Retrieved studio bookings successfully."
   }
 }
+
+

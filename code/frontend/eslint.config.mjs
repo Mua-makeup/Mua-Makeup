@@ -35,6 +35,8 @@ export default [
       ]
     },
     rules: {
+      "react/jsx-uses-react": "error",
+      "react/jsx-uses-vars": "error",
       "no-unused-vars": "warn",
       "unused-imports/no-unused-imports": "error",
       "no-console": ["warn", { allow: ["warn", "error"] }],

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -27,4 +28,7 @@ public class AgencyStaffRes {
     private String status;
     private String note;
     private LocalDateTime joinedAt;
+    private List<AssignedStyleRes> styles;
+    private Integer packageCount;
+    private List<Long> packageIds;
 }

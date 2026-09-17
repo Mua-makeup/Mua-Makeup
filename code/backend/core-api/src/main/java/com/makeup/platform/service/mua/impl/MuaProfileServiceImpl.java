@@ -12,6 +12,8 @@ import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.dto.response.mua.CertificateRes;
 import com.makeup.platform.dto.response.mua.MuaProfileRes;
 import com.makeup.platform.dto.response.mua.MuaStyleRes;
+import com.makeup.platform.dto.response.admin.AdminMuaCertificateRes;
+import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.mua.MuaCertificateItem;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.mua.MuaStyleEntity;
@@ -153,10 +155,69 @@ public class MuaProfileServiceImpl implements MuaProfileService {
             throw new ResourceNotFoundException(ErrorCodes.ERR_PROFILE_NOT_FOUND, "mua.cert_not_found");
         }
 
-        targetCert.setIsVerified(Boolean.TRUE.equals(req.getIsVerified()));
+        if (Boolean.TRUE.equals(req.getIsVerified())) {
+            targetCert.setIsVerified(true);
+            targetCert.setStatus("VERIFIED");
+            targetCert.setNotes(req.getNotes());
+        } else {
+            targetCert.setIsVerified(false);
+            targetCert.setStatus("REJECTED");
+            targetCert.setNotes(StringUtils.hasText(req.getNotes()) ? req.getNotes() : "Hồ sơ chứng chỉ chưa đạt tiêu chuẩn");
+        }
         muaProfileRepository.save(mua);
 
         return muaProfileMapper.toCertificateRes(targetCert);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AdminMuaCertificateRes> getAllCertificatesForAdmin(String status) {
+        List<MuaProfileEntity> profiles = muaProfileRepository.findAll();
+        List<AdminMuaCertificateRes> result = new ArrayList<>();
+
+        for (MuaProfileEntity profile : profiles) {
+            List<MuaCertificateItem> certs = profile.getCertificates();
+            if (certs == null || certs.isEmpty()) {
+                continue;
+            }
+
+            UserEntity user = profile.getUser();
+            String muaName = (user != null && StringUtils.hasText(user.getFullName()))
+                    ? user.getFullName()
+                    : "MUA #" + profile.getId();
+            String phone = user != null ? user.getPhoneNumber() : null;
+            String email = user != null ? user.getEmail() : null;
+
+            for (int i = 0; i < certs.size(); i++) {
+                MuaCertificateItem cert = certs.get(i);
+                String certStatus = cert.getStatus();
+                if (certStatus == null) {
+                    certStatus = Boolean.TRUE.equals(cert.getIsVerified()) ? "VERIFIED" : "PENDING";
+                }
+                if (status != null && !status.equalsIgnoreCase("ALL") && StringUtils.hasText(status)) {
+                    if (!status.equalsIgnoreCase(certStatus)) {
+                        continue;
+                    }
+                }
+
+                result.add(AdminMuaCertificateRes.builder()
+                        .muaId(profile.getId())
+                        .userId(user != null ? user.getId() : null)
+                        .muaName(muaName)
+                        .phoneNumber(phone)
+                        .email(email)
+                        .experienceYears(profile.getExperienceYears())
+                        .certIndex(i)
+                        .certName(cert.getCertName())
+                        .imageUrl(cert.getImageUrl())
+                        .isVerified(cert.getIsVerified())
+                        .status(certStatus)
+                        .notes(cert.getNotes())
+                        .uploadedAt(cert.getUploadedAt())
+                        .build());
+            }
+        }
+        return result;
     }
 
     private MuaProfileEntity getMuaProfileByUserId(Long userId) {

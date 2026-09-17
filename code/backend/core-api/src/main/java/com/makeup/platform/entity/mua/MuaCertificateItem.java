@@ -21,5 +21,10 @@ public class MuaCertificateItem implements Serializable {
     @Builder.Default
     private Boolean isVerified = false;
     
+    @Builder.Default
+    private String status = "PENDING";
+    
+    private String notes;
+    
     private LocalDateTime uploadedAt;
 }

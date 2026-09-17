@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.request.catalog;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -23,6 +24,7 @@ import java.util.List;
 public class CreatePackageReq {
 
     @NotNull(message = "{validation.catalog_category_required}")
+    @JsonAlias({"categoryId", "masterCategoryId"})
     private Integer masterCategoryId;
 
     @NotBlank(message = "{validation.catalog_package_name_required}")
@@ -37,6 +39,7 @@ public class CreatePackageReq {
 
     @NotNull(message = "{validation.catalog_package_duration_required}")
     @Min(value = 30, message = "{validation.catalog_package_duration_min}")
+    @JsonAlias({"durationMinutes", "estimatedDurationMinutes"})
     private Integer estimatedDurationMinutes;
 
     private List<Integer> styleIds;

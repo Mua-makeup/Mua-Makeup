@@ -16,4 +16,8 @@ public interface AgencyProfileService {
     AgencyProfileRes updateCommissionRate(Long userId, UpdateCommissionReq req);
 
     AgencyLocationRes getAgencyLocation(Long agencyId);
+
+    java.util.List<AgencyProfileRes> getAllAgenciesForAdmin(String search, Boolean isVerified);
+
+    AgencyProfileRes verifyAgency(Long agencyId, boolean isVerified);
 }

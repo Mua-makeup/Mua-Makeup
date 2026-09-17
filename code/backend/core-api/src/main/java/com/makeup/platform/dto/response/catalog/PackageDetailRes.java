@@ -28,6 +28,7 @@ public class PackageDetailRes {
     private String description;
     private BigDecimal price;
     private Integer estimatedDurationMinutes;
+    private Integer durationMinutes;
     private Boolean isAvailable;
     private List<MakeupStyleRes> styles;
     private List<PackageItemRes> items;

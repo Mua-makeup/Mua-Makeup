@@ -85,6 +85,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
                         .itemName(itemReq.getItemName().trim())
                         .stepOrder(itemReq.getStepOrder())
                         .itemPrice(itemReq.getItemPrice() != null ? itemReq.getItemPrice() : BigDecimal.ZERO)
+                        .durationMinutes(itemReq.getDurationMinutes() != null ? itemReq.getDurationMinutes() : 15)
                         .isRequired(itemReq.getIsRequired() != null ? itemReq.getIsRequired() : true)
                         .isActive(itemReq.getIsActive() != null ? itemReq.getIsActive() : true)
                         .build();
@@ -139,8 +140,8 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Transactional(readOnly = true)
     public PackageDetailRes getPackageById(Long packageId) {
         ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
-                        "Không tìm thấy gói dịch vụ với ID: " + packageId, HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                        "catalog.package_not_found", packageId));
         return packageMapper.toDetailRes(pkg);
     }
 

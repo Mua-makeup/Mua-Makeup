@@ -6,10 +6,7 @@ import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.dto.request.agency.AssignStaffPackagesReq;
 import com.makeup.platform.dto.request.agency.PackageAssignmentItem;
 import com.makeup.platform.dto.response.agency.StaffPackagesRes;
-import com.makeup.platform.entity.agency.AgencyProfileEntity;
-import com.makeup.platform.entity.agency.AgencyStaffEntity;
-import com.makeup.platform.entity.agency.AgencyStaffServiceEntity;
-import com.makeup.platform.entity.agency.AgencyStaffServiceId;
+import com.makeup.platform.entity.agency.*;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.mapper.agency.AgencyStaffPackageMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
@@ -61,7 +58,19 @@ public class AgencyStaffPackageServiceImpl implements AgencyStaffPackageService 
         agencyStaffServiceRepository.flush();
 
         List<AgencyStaffServiceEntity> newAssignments = new ArrayList<>();
-        for (PackageAssignmentItem item : req.getPackageAssignments()) {
+        List<PackageAssignmentItem> items = req.getPackageAssignments();
+        if ((items == null || items.isEmpty()) && req.getPackageIds() != null) {
+            items = req.getPackageIds().stream()
+                    .map(pid -> PackageAssignmentItem.builder()
+                            .packageId(pid)
+                            .proficiencyLevel(StaffProficiencyLevel.PRIMARY_MUA)
+                            .isQualified(true)
+                            .build())
+                    .toList();
+        }
+
+        if (items != null && !items.isEmpty()) {
+            for (PackageAssignmentItem item : items) {
             ServicePackageEntity pkg = servicePackageRepository.findById(item.getPackageId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             ErrorCodes.ERR_PACKAGE_NOT_FOUND,
@@ -85,6 +94,7 @@ public class AgencyStaffPackageServiceImpl implements AgencyStaffPackageService 
                     .build();
 
             newAssignments.add(assignment);
+        }
         }
 
         List<AgencyStaffServiceEntity> savedList = agencyStaffServiceRepository.saveAll(newAssignments);

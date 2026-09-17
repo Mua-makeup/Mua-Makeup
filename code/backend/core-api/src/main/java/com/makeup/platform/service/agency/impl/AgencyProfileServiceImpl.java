@@ -33,13 +33,16 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
     private final AgencyBranchRepository agencyBranchRepository;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AgencyProfileRes getMyAgencyProfile(Long userId) {
         AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "ERR_AGENCY_NOT_FOUND"
                 ));
+        if (StringUtils.hasText(agency.getLogoUrl()) && agency.getOwner() != null) {
+            agency.getOwner().setAvatarUrl(agency.getLogoUrl());
+        }
         return agencyProfileMapper.toRes(agency);
     }
 
@@ -79,7 +82,11 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
             agency.setCity(req.getCity().trim());
         }
         if (req.getLogoUrl() != null) {
-            agency.setLogoUrl(req.getLogoUrl().trim());
+            String logo = req.getLogoUrl().trim();
+            agency.setLogoUrl(logo);
+            if (agency.getOwner() != null) {
+                agency.getOwner().setAvatarUrl(logo);
+            }
         }
         if (req.getLatitude() != null && req.getLongitude() != null) {
             agency.setLatitude(req.getLatitude());
@@ -188,5 +195,46 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         } catch (Exception e) {
             log.warn("Failed to sync main branch location for agencyId={}: {}", agency.getId(), e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AgencyProfileRes> getAllAgenciesForAdmin(String search, Boolean isVerified) {
+        List<AgencyProfileEntity> list = agencyProfileRepository.findAll();
+        return list.stream()
+                .filter(a -> {
+                    if (isVerified != null && !isVerified.equals(a.getIsVerified())) {
+                        return false;
+                    }
+                    if (StringUtils.hasText(search)) {
+                        String q = search.trim().toLowerCase();
+                        boolean matchName = a.getAgencyName() != null && a.getAgencyName().toLowerCase().contains(q);
+                        boolean matchCode = a.getAgencyCode() != null && a.getAgencyCode().toLowerCase().contains(q);
+                        boolean matchPhone = a.getHotline() != null && a.getHotline().contains(q);
+                        boolean matchOwner = a.getOwner() != null && a.getOwner().getFullName() != null
+                                && a.getOwner().getFullName().toLowerCase().contains(q);
+                        boolean matchEmail = a.getOwner() != null && a.getOwner().getEmail() != null
+                                && a.getOwner().getEmail().toLowerCase().contains(q);
+                        return matchName || matchCode || matchPhone || matchOwner || matchEmail;
+                    }
+                    return true;
+                })
+                .map(agencyProfileMapper::toRes)
+                .toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AgencyProfileRes verifyAgency(Long agencyId, boolean isVerified) {
+        AgencyProfileEntity agency = agencyProfileRepository.findById(agencyId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_AGENCY_NOT_FOUND,
+                        "ERR_AGENCY_NOT_FOUND",
+                        agencyId
+                ));
+        agency.setIsVerified(isVerified);
+        AgencyProfileEntity saved = agencyProfileRepository.save(agency);
+        log.info("Super Admin updated verification for Agency ID {}: isVerified={}", agencyId, isVerified);
+        return agencyProfileMapper.toRes(saved);
     }
 }

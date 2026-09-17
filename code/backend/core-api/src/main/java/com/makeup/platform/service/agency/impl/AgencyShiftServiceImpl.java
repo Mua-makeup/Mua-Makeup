@@ -43,7 +43,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
         if (!req.getEndTime().isAfter(req.getStartTime())) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_INVALID_SHIFT_TIME,
-                    "Thời gian kết thúc ca làm phải sau thời gian bắt đầu",
+                    "agency.shift_time_invalid",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -54,13 +54,13 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
                 .filter(s -> s.getAgency().getId().equals(agency.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_STAFF_NOT_FOUND,
-                        "ERR_STAFF_NOT_FOUND"
+                        "agency.staff_not_in_agency"
                 ));
 
         if (!Boolean.TRUE.equals(staff.getIsActive()) || !"ACTIVE".equalsIgnoreCase(staff.getStatus())) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_STAFF_NOT_FOUND,
-                    "Nhân viên chưa kích hoạt hoặc không thể xếp ca",
+                    "agency.staff_not_active",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -76,7 +76,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
         if (!overlapping.isEmpty()) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_SHIFT_OVERLAPPING,
-                    "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày",
+                    "agency.shift_time_overlapped",
                     HttpStatus.CONFLICT
             );
         }
@@ -162,11 +162,16 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     }
 
     private AgencyProfileEntity getAgencyForManager(Long userId) {
-        return agencyProfileRepository.findByOwnerId(userId)
+        AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "ERR_AGENCY_NOT_FOUND"
                 ));
+        if (!Boolean.TRUE.equals(agency.getIsVerified())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_VERIFIED,
+                    "agency.not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+        }
+        return agency;
     }
 
     private AgencyProfileEntity resolveAgencyForUser(Long userId) {

@@ -33,6 +33,7 @@ public final class ErrorCodes {
     public static final String ERR_INVALID_SURCHARGE_AMOUNT = "ERR_INVALID_SURCHARGE_AMOUNT";
     public static final String ERR_MASTER_CATEGORY_NOT_FOUND = "ERR_MASTER_CATEGORY_NOT_FOUND";
     public static final String ERR_STYLE_NOT_FOUND = "ERR_STYLE_NOT_FOUND";
+    public static final String ERR_TAXONOMY_CODE_CONFLICT = "ERR_TAXONOMY_CODE_CONFLICT";
     public static final String ERR_INVALID_SURCHARGE_CALCULATION = "ERR_INVALID_SURCHARGE_CALCULATION";
     public static final String ERR_VALIDATION = "ERR_VALIDATION";
     public static final String ERR_INTERNAL = "ERR_INTERNAL";
@@ -53,6 +54,8 @@ public final class ErrorCodes {
 
     // Phân hệ Agency Management
     public static final String ERR_AGENCY_NOT_FOUND = "ERR_AGENCY_NOT_FOUND";
+    public static final String ERR_AGENCY_NOT_VERIFIED = "ERR_AGENCY_NOT_VERIFIED";
+    public static final String ERR_MUA_CERTIFICATE_NOT_VERIFIED = "ERR_MUA_CERTIFICATE_NOT_VERIFIED";
     public static final String ERR_AGENCY_ACCESS_DENIED = "ERR_AGENCY_ACCESS_DENIED";
     public static final String ERR_STAFF_NOT_FOUND = "ERR_STAFF_NOT_FOUND";
     public static final String ERR_STAFF_ALREADY_EXISTS = "ERR_STAFF_ALREADY_EXISTS";

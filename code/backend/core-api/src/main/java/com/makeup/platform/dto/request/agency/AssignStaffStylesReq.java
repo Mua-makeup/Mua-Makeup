@@ -14,6 +14,5 @@ import java.util.List;
 @AllArgsConstructor
 public class AssignStaffStylesReq {
 
-    @NotEmpty(message = "{validation.staff_styles_required}")
     private List<Integer> styleIds;
 }
