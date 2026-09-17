@@ -26,7 +26,7 @@ public class BookingAcceptanceController extends BaseController {
     private final CustomerInstantBookingService customerInstantBookingService;
 
     @PostMapping("/{bookingId}/accept")
-    @PreAuthorize("hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')")
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<BookingAcceptanceRes>> acceptBooking(@PathVariable Long bookingId) {
         Long userId = SecurityContextUtils.getCurrentUserId();
         BookingAcceptanceRes res = distributedLockService.acceptBookingWithLock(bookingId, userId);
@@ -34,7 +34,7 @@ public class BookingAcceptanceController extends BaseController {
     }
 
     @PostMapping("/{bookingId}/skip")
-    @PreAuthorize("hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')")
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> skipBooking(@PathVariable Long bookingId) {
         boolean nextDispatched = customerInstantBookingService.dispatchNextCandidate(bookingId);
         Map<String, Object> result = new HashMap<>();

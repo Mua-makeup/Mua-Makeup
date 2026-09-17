@@ -120,7 +120,9 @@ code/frontend/
 
 ## 5. Quy chuẩn Bắt buộc về Đa ngôn ngữ (System-Wide Internationalization - i18n)
 
-Mọi tính năng mới (Business Feature / Module) được phát triển trên Backend **BẮT BUỘC** phải tuân thủ chuẩn đa ngôn ngữ:
+Hệ thống bắt buộc tuân thủ chuẩn đa ngôn ngữ song song trên cả hai tầng **Backend (Spring Boot)** và **Frontend (React + Vite)**:
+
+### 5.1. Quy chuẩn Đa ngôn ngữ cho Backend (Core API)
 1. **Tuyệt đối KHÔNG hardcode chuỗi thông báo** bằng tiếng Việt hoặc tiếng Anh trong Controller, Service, Validator hay Exception handler.
 2. **Cấu trúc File i18n JSON**:
    - Tất cả chuỗi hiển thị thành công và thông báo lỗi phải được khai báo đồng thời tại cả 2 file:
@@ -135,6 +137,20 @@ Mọi tính năng mới (Business Feature / Module) được phát triển trên
 4. **Ném ngoại lệ & Phản hồi API**:
    - Ném ngoại lệ bằng message key: `throw new CustomBusinessException(ErrorCodes.XXX, "module.error_key", args...)`.
    - Trả về response bằng message key: `return ok(res, "module.success_key")` hoặc `created(res, "module.created_key")`. `BaseController` và `GlobalExceptionHandler` sẽ tự động tra cứu file JSON và trả về thông điệp bản địa hóa chuẩn xác.
+
+### 5.2. Quy chuẩn Bắt buộc Đa ngôn ngữ cho Frontend (React SPA)
+1. **Tuyệt đối KHÔNG hardcode văn bản UI trong JSX**:
+   - Mọi chuỗi hiển thị giao diện (tiêu đề trang, menu điều hướng, nhãn form, nút bấm, placeholder, thẻ trạng thái, hộp thoại xác nhận modal, tooltip) BẮT BUỘC phải gọi qua hook `useI18nStore` (`const { t } = useI18nStore(); {t('key')}`).
+   - Nghiêm cấm hiển thị pha trộn ngôn ngữ ("chỗ tiếng Việt, chỗ tiếng Anh").
+2. **Đồng bộ song ngữ 100% tại `src/constants/i18n.constant.js`**:
+   - Mọi key mới được khai báo trong `TRANSLATIONS.vi` BẮT BUỘC phải có bản dịch chuẩn nghĩa tiếng Anh trong `TRANSLATIONS.en`.
+   - Tổ chức key theo tiền tố module rõ ràng: `nav_*`, `btn_*`, `field_*`, `status_*`, `agency_*`, `admin_*`, `modal_*`.
+3. **Trích xuất thông báo lỗi & Toast từ Backend**:
+   - Khi thực hiện các hành động gọi API (thêm, sửa, xóa, duyệt, từ chối...), thông báo Toast thành công hoặc lỗi BẮT BUỘC phải trích xuất trực tiếp thông điệp đã bản địa hóa từ Backend (`err.response?.data?.message || err.message` hoặc `res.message`).
+   - Tầng Axios HTTP client (`api-client.js`) luôn tự động đính kèm header `Accept-Language: vi` (hoặc `en`) theo ngôn ngữ hiện tại trong `localStorage`.
+   - Khi Backend trả về lỗi validation trường dữ liệu (`err.response?.data?.data`), Frontend map trực tiếp các thông điệp này vào form helper error.
+4. **Chuyển đổi ngôn ngữ tức thời (Instant Switching)**:
+   - Khi người dùng bấm nút chuyển ngữ trên thanh Header, Zustand store cập nhật `language`, lưu `localStorage`, đồng bộ `apiClient`, và kích hoạt re-render toàn bộ giao diện mà không cần reload trang.
 
 ---
 

@@ -32,6 +32,9 @@ spring:
     validate-on-migrate: false
     locations: classpath:db/migration
   data:
+    web:
+      pageable:
+        page-serialization-mode: via-dto
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}

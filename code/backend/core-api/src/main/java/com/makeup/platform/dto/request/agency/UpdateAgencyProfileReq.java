@@ -2,6 +2,7 @@ package com.makeup.platform.dto.request.agency;
 
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -30,10 +31,12 @@ public class UpdateAgencyProfileReq {
 
     @NotBlank(message = "{validation.district_required}")
     @Size(max = 50, message = "{validation.district_max}")
+    @JsonAlias({"addressDistrict", "district"})
     private String district;
 
     @NotBlank(message = "{validation.city_required}")
     @Size(max = 50, message = "{validation.city_max}")
+    @JsonAlias({"addressCity", "city"})
     private String city;
 
     private String logoUrl;

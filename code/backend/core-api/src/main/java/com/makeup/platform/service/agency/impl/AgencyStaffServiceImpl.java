@@ -74,6 +74,10 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     @Override
     public AgencyInvitationRes createInvitation(Long userId, CreateInvitationReq req) {
         AgencyProfileEntity agency = getAgencyByOwnerId(userId);
+        if (!Boolean.TRUE.equals(agency.getIsVerified())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_VERIFIED,
+                    "agency.not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+        }
 
         int expireHours = (req.getExpireHours() != null && req.getExpireHours() > 0) ? req.getExpireHours() : 72;
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase(Locale.ROOT);

@@ -46,12 +46,24 @@ public class CatalogOwnerHelper {
 
         Optional<AgencyProfileEntity> agencyOpt = agencyProfileRepository.findByOwnerId(userId);
         if (agencyOpt.isPresent()) {
-            return new OwnerContext(agencyOpt.get(), null);
+            AgencyProfileEntity agency = agencyOpt.get();
+            if (!Boolean.TRUE.equals(agency.getIsVerified())) {
+                throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_VERIFIED,
+                        "agency.not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+            }
+            return new OwnerContext(agency, null);
         }
 
         Optional<MuaProfileEntity> muaOpt = muaProfileRepository.findByUserId(userId);
         if (muaOpt.isPresent()) {
-            return new OwnerContext(null, muaOpt.get());
+            MuaProfileEntity mua = muaOpt.get();
+            boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
+                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+            if (!hasVerifiedCert) {
+                throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                        "mua.certificate_not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+            }
+            return new OwnerContext(null, mua);
         }
 
         throw new CustomBusinessException(

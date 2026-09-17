@@ -259,10 +259,15 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long ownerId) {
-        return agencyProfileRepository.findByOwnerId(ownerId)
+        AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "ERR_AGENCY_NOT_FOUND"
                 ));
+        if (!Boolean.TRUE.equals(agency.getIsVerified())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_VERIFIED,
+                    "agency.not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+        }
+        return agency;
     }
 }

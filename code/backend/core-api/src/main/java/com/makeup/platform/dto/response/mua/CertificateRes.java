@@ -18,5 +18,7 @@ public class CertificateRes {
     private String certName;
     private String imageUrl;
     private Boolean isVerified;
+    private String status;
+    private String notes;
     private LocalDateTime uploadedAt;
 }

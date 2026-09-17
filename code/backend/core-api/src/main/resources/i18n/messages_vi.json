@@ -40,9 +40,12 @@
     "portfolio_delete_success": "Xóa tác phẩm portfolio thành công!",
     "portfolio_get_success": "Lấy chi tiết tác phẩm portfolio thành công.",
     "portfolios_list_success": "Lấy danh sách tác phẩm portfolio thành công.",
-    "portfolio_featured_limit": "MUA đã đạt tối đa 3 tác phẩm nổi bật."
+    "portfolio_featured_limit": "MUA đã đạt tối đa 3 tác phẩm nổi bật.",
+    "certificate_not_verified_cannot_accept": "Thợ trang điểm chưa được phê duyệt chứng chỉ hành nghề, không thể nhận đơn.",
+    "certificate_not_verified_cannot_operate": "Thợ trang điểm chưa được phê duyệt chứng chỉ hành nghề, không thể kích hoạt nhận đơn."
   },
   "agency": {
+    "not_verified_cannot_operate": "Studio chưa được Ban Quản Trị phê duyệt, chưa thể thực hiện thao tác này.",
     "profile_get_success": "Lấy thông tin hồ sơ Studio thành công.",
     "profile_update_success": "Cập nhật hồ sơ Studio thành công.",
     "profile_not_found": "Không tìm thấy thông tin Studio.",
@@ -312,5 +315,8 @@
     "booking_target_status_required": "Trạng thái đích không được để trống.",
     "booking_target_status_invalid": "Trạng thái đích không hợp lệ.",
     "booking_reason_max": "Lý do không được vượt quá 500 ký tự."
+  },
+  "admin": {
+    "agency_verify_success": "Cập nhật trạng thái phê duyệt Studio Agency thành công!"
   }
 }
