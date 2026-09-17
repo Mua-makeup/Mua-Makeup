@@ -129,7 +129,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                             boolean isFreelanceMUA = mua.getUser() != null
                                     && mua.getUser().getRole() != null
                                     && "ROLE_FREELANCE_MUA".equals(mua.getUser().getRole().getName());
-                            if (isFreelanceMUA && Boolean.TRUE.equals(mua.getIsOnline()) && !Boolean.TRUE.equals(mua.getIsBusy())) {
+                            boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
+                                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+                            if (isFreelanceMUA && hasVerifiedCert && Boolean.TRUE.equals(mua.getIsOnline()) && !Boolean.TRUE.equals(mua.getIsBusy())) {
                                 String lockKey = "mua:dispatch:locked:" + muaId;
                                 Boolean isLocked = stringRedisTemplate.hasKey(lockKey);
                                 if (!Boolean.TRUE.equals(isLocked)) {

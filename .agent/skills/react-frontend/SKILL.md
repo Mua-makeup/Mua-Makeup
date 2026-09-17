@@ -82,6 +82,26 @@ export const instantBookingSchema = z.object({
   - JS Helpers / Services / Schemas: `kebab-case.js` (`booking-service.js`, `agency.schema.js`).
   - Custom Hooks: `use<Name>.js` (`useGpsLocation.js`, `useCountdownTimer.js`).
 
+### 3.4. Chuẩn mực Đa ngôn ngữ (System-Wide i18n & Backend Error Extraction)
+- **100% Văn bản UI phải dùng `useI18nStore`**: Tuyệt đối không hardcode text trực tiếp trong JSX. Sử dụng hook:
+  ```javascript
+  import { useI18nStore } from '../../store/useI18nStore';
+  const { t } = useI18nStore();
+  // ...
+  <h1>{t('agency_overview_title')}</h1>
+  ```
+- **Đồng bộ song ngữ tại `src/constants/i18n.constant.js`**: Khi thêm key mới, bắt buộc phải khai báo đầy đủ cả 2 mục `TRANSLATIONS.vi` và `TRANSLATIONS.en`.
+- **Thông báo Toast & Lỗi nạp trực tiếp từ Backend**: Khi bắt lỗi trong `try/catch` hoặc thông báo kết quả API, luôn trích xuất message bản địa hóa từ Backend:
+  ```javascript
+  try {
+    const res = await agencyService.updateProfile(payload);
+    setToastMessage(res.message || t('save_success'));
+  } catch (err) {
+    setToastMessage(err.response?.data?.message || err.message || t('error_general'));
+  }
+  ```
+- **Tự động gửi Header `Accept-Language`**: `apiClient` luôn gửi `Accept-Language: vi` hoặc `en` theo cài đặt hiện tại của người dùng.
+
 ---
 
 ## 4. Quy trình triển khai một UI Feature mới

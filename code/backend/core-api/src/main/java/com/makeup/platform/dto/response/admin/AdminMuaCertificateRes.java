@@ -1,4 +1,4 @@
-package com.makeup.platform.dto.response.mua;
+package com.makeup.platform.dto.response.admin;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,8 +13,15 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CertificateRes {
+public class AdminMuaCertificateRes {
 
+    private Long muaId;
+    private Long userId;
+    private String muaName;
+    private String phoneNumber;
+    private String email;
+    private Integer experienceYears;
+    private Integer certIndex;
     private String certName;
     private String imageUrl;
     private Boolean isVerified;

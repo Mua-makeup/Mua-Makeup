@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Award, Search, Filter, AlertTriangle } from 'lucide-react';
+import { Award, Search, Filter, AlertCircle, Eye } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { CERT_STATUS } from '../../constants/super-admin.constant';
 import { Badge } from '../../components/base/Badge';
@@ -16,51 +16,54 @@ export const MuaVerificationPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCert, setSelectedCert] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
-  const [muaList, setMuaList] = useState([]);
+  const [certList, setCertList] = useState([]);
   const [apiError, setApiError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadCertificates = async () => {
+    setIsLoading(true);
+    setApiError('');
+    try {
+      const res = await superAdminService.getCertificates(
+        statusFilter === CERT_STATUS.ALL ? null : statusFilter
+      );
+      const list = res?.data || res || [];
+      const normalized = (Array.isArray(list) ? list : []).map((c) => ({
+        ...c,
+        status: c.status || (c.isVerified === true ? 'VERIFIED' : 'PENDING'),
+      }));
+      setCertList(normalized);
+    } catch (err) {
+      setApiError(err.message || t('error_api_connection'));
+      setCertList([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setApiError('');
-    setIsLoading(false);
-  }, []);
+    loadCertificates();
+  }, [statusFilter]);
 
   const filteredData = useMemo(() => {
-    return muaList.filter((item) => {
-      const matchStatus =
-        statusFilter === CERT_STATUS.ALL || item.status === statusFilter;
-      const query = searchQuery.trim().toLowerCase();
-      const matchQuery =
-        !query ||
-        item.muaName?.toLowerCase().includes(query) ||
-        item.phoneNumber?.includes(query) ||
-        item.certName?.toLowerCase().includes(query);
-      return matchStatus && matchQuery;
-    });
-  }, [muaList, statusFilter, searchQuery]);
+    if (!searchQuery.trim()) return certList;
+    const q = searchQuery.trim().toLowerCase();
+    return certList.filter(
+      (item) =>
+        item.muaName?.toLowerCase().includes(q) ||
+        item.phoneNumber?.includes(q) ||
+        item.certName?.toLowerCase().includes(q)
+    );
+  }, [certList, searchQuery]);
 
-  const handleVerifySuccess = ({ muaId, isVerified, notes }) => {
-    setMuaList((prev) =>
-      prev.map((m) =>
-        m.muaId === muaId
-          ? {
-              ...m,
-              status: isVerified ? 'VERIFIED' : 'REJECTED',
-              notes: notes || m.notes,
-            }
-          : m
-      )
-    );
-    setToastMessage(
-      isVerified
-        ? `Đã phê duyệt chứng chỉ cho MUA #${muaId} thành công!`
-        : `Đã từ chối hồ sơ MUA #${muaId}.`
-    );
+  const handleVerifySuccess = ({ isVerified, message }) => {
+    setToastMessage(message || (isVerified ? t('save_success') : t('update_success')));
+    loadCertificates();
   };
 
   const columns = [
     {
-      header: 'Thợ Make-up',
+      header: t('col_staff_name'),
       accessor: 'muaName',
       render: (row) => (
         <div>
@@ -68,7 +71,7 @@ export const MuaVerificationPage = () => {
             {row.muaName || `MUA #${row.muaId}`}
           </span>
           <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-            ID: {row.muaId}
+            Mã thợ: #{row.muaId}
           </span>
         </div>
       ),
@@ -86,49 +89,81 @@ export const MuaVerificationPage = () => {
       ),
     },
     {
-      header: 'Tên Chứng Chỉ',
+      header: 'Tên Chứng Chỉ / Ảnh Đính Kèm',
       accessor: 'certName',
       render: (row) => (
-        <div>
-          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
-            {row.certName || 'Chứng chỉ hành nghề'}
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">
-            Kinh nghiệm: {row.experienceYears || '1+'} năm
-          </span>
+        <div className="flex items-center gap-2.5">
+          {row.imageUrl ? (
+            <a
+              href={row.imageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="relative group w-10 h-10 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0"
+              title="Xem ảnh chứng chỉ gốc"
+            >
+              <img
+                src={row.imageUrl}
+                alt={row.certName}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+              />
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                <Eye className="w-3.5 h-3.5" />
+              </div>
+            </a>
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 flex-shrink-0 text-[10px]">
+              No img
+            </div>
+          )}
+          <div>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+              {row.certName || 'Chứng chỉ kỹ thuật make-up'}
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Kinh nghiệm: {row.experienceYears || '1+'} năm
+            </span>
+          </div>
         </div>
       ),
     },
     {
-      header: 'Ngày Nộp',
-      accessor: 'submittedAt',
+      header: 'Ngày Tải Lên',
+      accessor: 'uploadedAt',
       render: (row) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-          {row.submittedAt ? formatDate(row.submittedAt) : 'Mới nộp'}
+          {row.uploadedAt ? formatDate(row.uploadedAt) : 'Mới nộp'}
         </span>
       ),
     },
     {
-      header: t('status'),
+      header: 'Trạng Thái',
       accessor: 'status',
       render: (row) => {
-        if (row.status === 'PENDING')
-          return <Badge variant="pending">Chờ Thẩm Định</Badge>;
-        if (row.status === 'VERIFIED')
-          return <Badge variant="active">Đã Xác Thực</Badge>;
-        return <Badge variant="rejected">Đã Từ Chối</Badge>;
+        if (row.status === 'VERIFIED' || row.isVerified === true) {
+          return <Badge variant="active">{t('status_verified')}</Badge>;
+        }
+        if (row.status === 'REJECTED') {
+          return <Badge variant="rejected">{t('status_rejected')}</Badge>;
+        }
+        return <Badge variant="pending">{t('status_pending')}</Badge>;
       },
     },
     {
-      header: t('actions'),
+      header: t('col_actions'),
       align: 'right',
       render: (row) => (
         <Button
-          variant={row.status === 'PENDING' ? 'primary' : 'secondary'}
+          variant={
+            row.status === 'PENDING' || (!row.status && !row.isVerified)
+              ? 'primary'
+              : 'secondary'
+          }
           size="sm"
           onClick={() => setSelectedCert(row)}
         >
-          {row.status === 'PENDING' ? t('verify_action') : t('review_again')}
+          {row.status === 'PENDING' || (!row.status && !row.isVerified)
+            ? t('verify_action')
+            : t('review_again')}
         </Button>
       ),
     },
@@ -141,21 +176,24 @@ export const MuaVerificationPage = () => {
         <div className="flex items-center gap-2">
           <Award className="w-6 h-6 text-rose-600 dark:text-rose-400" />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            {t('nav_admin_credentials')}
+            {t('admin_credentials_title')}
           </h1>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Dữ liệu nạp trực tiếp từ CSDL mua_schema.mua_profiles (mảng certificates)
+          {t('admin_credentials_sub')}
         </p>
       </div>
 
       {apiError && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-rose-800 dark:text-rose-300 text-xs flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-sm">Lỗi Kết Nối CSDL:</p>
-            <p className="mt-0.5">{apiError}</p>
+          <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-bold text-sm">{t('error_system_notice')}:</p>
+            <p className="mt-0.5 font-mono">{apiError}</p>
           </div>
+          <Button variant="secondary" size="sm" onClick={loadCertificates}>
+            {t('retry')}
+          </Button>
         </div>
       )}
 
@@ -179,10 +217,9 @@ export const MuaVerificationPage = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-rose-500 font-medium"
           >
-            <option value={CERT_STATUS.ALL}>Tất Cả Trạng Thái</option>
-            <option value={CERT_STATUS.PENDING}>Chờ Thẩm Định</option>
-            <option value={CERT_STATUS.VERIFIED}>Đã Xác Thực</option>
-            <option value={CERT_STATUS.REJECTED}>Đã Từ Chối</option>
+            <option value={CERT_STATUS.ALL}>{t('filter_all_staff') || 'Tất Cả'}</option>
+            <option value={CERT_STATUS.PENDING}>{t('status_pending')}</option>
+            <option value={CERT_STATUS.VERIFIED}>{t('status_verified')}</option>
           </select>
         </div>
       </div>
@@ -192,7 +229,7 @@ export const MuaVerificationPage = () => {
         columns={columns}
         data={filteredData}
         isLoading={isLoading}
-        emptyMessage="Hiện tại chưa có chứng chỉ MUA nào được lưu trong cơ sở dữ liệu."
+        emptyMessage={t('no_data')}
       />
 
       {/* Review Modal */}

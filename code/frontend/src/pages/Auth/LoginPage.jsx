@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Sparkles, Lock, User, ArrowRight, Shield, Building2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useI18nStore } from '../../store/useI18nStore';
 import { loginSchema } from '../../schemas/auth.schema';
 import { USER_ROLES } from '../../constants/roles.constant';
 import { Input } from '../../components/base/Input';
@@ -9,6 +10,7 @@ import { Button } from '../../components/base/Button';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const { t } = useI18nStore();
   const login = useAuthStore((state) => state.login);
   const isLoading = useAuthStore((state) => state.isLoading);
 
@@ -33,7 +35,6 @@ export const LoginPage = () => {
     }
 
     try {
-      // Send exactly loginIdentifier and password as expected by backend LoginReq
       const result = await login({ loginIdentifier, password });
       if (result.role === USER_ROLES.SUPER_ADMIN) {
         navigate('/admin/dashboard', { replace: true });
@@ -41,12 +42,12 @@ export const LoginPage = () => {
         navigate('/agency/dashboard', { replace: true });
       } else {
         setServerError(
-          'Tài khoản này không có quyền quản trị sàn (Yêu cầu vai trò Super Admin hoặc Agency Admin).',
+          'Tài khoản này không có quyền truy cập Cổng Quản Trị (Yêu cầu vai trò Super Admin hoặc Agency Admin).',
         );
       }
     } catch (err) {
       setServerError(
-        err.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại số điện thoại/email và mật khẩu.',
+        err.message || t('error_general'),
       );
     }
   };
@@ -67,14 +68,14 @@ export const LoginPage = () => {
             <Sparkles className="w-6 h-6" />
           </div>
           <span className="font-extrabold text-slate-900 tracking-tight text-2xl">
-            MUA MAKEUP
+            {t('app_title')}
           </span>
         </Link>
         <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-          Cổng Quản Trị Hệ Thống
+          {t('login_title')}
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Đăng nhập dành cho Quản trị viên sàn & Chủ Studio Agency
+          {t('login_sub')}
         </p>
       </div>
 
@@ -89,9 +90,9 @@ export const LoginPage = () => {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <Input
-              label="Số Điện Thoại Hoặc Email"
+              label={t('login_identifier_label')}
               type="text"
-              placeholder="0912345678 hoặc email@makeup.vn"
+              placeholder={t('login_identifier_placeholder')}
               required
               icon={User}
               value={loginIdentifier}
@@ -100,9 +101,9 @@ export const LoginPage = () => {
             />
 
             <Input
-              label="Mật Khẩu"
+              label={t('login_password_label')}
               type="password"
-              placeholder="••••••••"
+              placeholder={t('login_password_placeholder')}
               required
               icon={Lock}
               value={password}
@@ -120,26 +121,26 @@ export const LoginPage = () => {
                 iconPosition="right"
                 isLoading={isLoading}
               >
-                Đăng Nhập Vào Hệ Thống
+                {t('btn_login')}
               </Button>
             </div>
           </form>
 
           {/* Direct Link to Register */}
           <div className="mt-5 text-center text-xs pt-4 border-t border-slate-100">
-            <span className="text-slate-500">Chưa có tài khoản quản lý Studio? </span>
+            <span className="text-slate-500">{t('dont_have_account')} </span>
             <Link
               to="/register"
               className="font-bold text-rose-600 hover:text-rose-700 hover:underline"
             >
-              Đăng ký mở Studio mới
+              {t('register_here')}
             </Link>
           </div>
 
           {/* Quick-fill testing buttons */}
           <div className="mt-6 pt-5 border-t border-slate-100">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-3">
-              Tài Khoản Thử Nghiệm Nhanh
+              Quick Test Accounts
             </p>
             <div className="grid grid-cols-2 gap-2.5">
               <button
@@ -174,7 +175,7 @@ export const LoginPage = () => {
             to="/"
             className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center gap-1"
           >
-            <span>← Quay lại Trang Chủ MUA MAKEUP</span>
+            <span>← {t('back_to_home')}</span>
           </Link>
         </div>
       </div>

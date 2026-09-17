@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layers, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Layers, Sparkles, AlertTriangle } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { TAXONOMY_TABS } from '../../constants/super-admin.constant';
 import { Badge } from '../../components/base/Badge';
@@ -39,7 +39,7 @@ export const TaxonomyManagementPage = () => {
 
   const categoryColumns = [
     {
-      header: 'Mã Danh Mục',
+      header: 'Code',
       accessor: 'categoryCode',
       render: (row) => (
         <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
@@ -48,23 +48,23 @@ export const TaxonomyManagementPage = () => {
       ),
     },
     {
-      header: 'Tên Danh Mục',
+      header: t('col_category'),
       accessor: 'categoryName',
       render: (row) => (
         <span className="font-bold text-slate-900 dark:text-white text-sm">{row.categoryName}</span>
       ),
     },
     {
-      header: 'Mô Tả Nghiệp Vụ',
+      header: 'Description',
       accessor: 'description',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400 max-w-md block truncate">
-          {row.description || 'Chưa có mô tả'}
+          {row.description || '—'}
         </span>
       ),
     },
     {
-      header: 'Thứ Tự',
+      header: 'Order',
       accessor: 'sortOrder',
       align: 'center',
       render: (row) => (
@@ -78,16 +78,16 @@ export const TaxonomyManagementPage = () => {
       accessor: 'isActive',
       render: (row) =>
         row.isActive !== false ? (
-          <Badge variant="active">Đang Áp Dụng</Badge>
+          <Badge variant="active">{t('status_active')}</Badge>
         ) : (
-          <Badge variant="inactive">Tạm Ngưng</Badge>
+          <Badge variant="inactive">{t('status_paused')}</Badge>
         ),
     },
   ];
 
   const styleColumns = [
     {
-      header: 'Mã Phong Cách',
+      header: 'Code',
       accessor: 'styleCode',
       render: (row) => (
         <span className="font-mono text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 px-2 py-1 rounded border border-rose-200 dark:border-rose-800">
@@ -96,18 +96,18 @@ export const TaxonomyManagementPage = () => {
       ),
     },
     {
-      header: 'Tên Tone Make-up',
+      header: t('col_styles'),
       accessor: 'styleName',
       render: (row) => (
         <span className="font-bold text-slate-900 dark:text-white text-sm">{row.styleName}</span>
       ),
     },
     {
-      header: 'Mô Tả Phong Cách',
+      header: 'Description',
       accessor: 'description',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400 max-w-md block truncate">
-          {row.description || 'Chưa có mô tả'}
+          {row.description || '—'}
         </span>
       ),
     },
@@ -116,9 +116,9 @@ export const TaxonomyManagementPage = () => {
       accessor: 'isActive',
       render: (row) =>
         row.isActive !== false ? (
-          <Badge variant="active">Hoạt Động</Badge>
+          <Badge variant="active">{t('status_active')}</Badge>
         ) : (
-          <Badge variant="inactive">Tạm Ngưng</Badge>
+          <Badge variant="inactive">{t('status_paused')}</Badge>
         ),
     },
   ];
@@ -130,19 +130,19 @@ export const TaxonomyManagementPage = () => {
         <div className="flex items-center gap-2">
           <Layers className="w-6 h-6 text-rose-600 dark:text-rose-400" />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            {t('nav_admin_taxonomy')}
+            {t('admin_taxonomy_title')}
           </h1>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Dữ liệu nạp trực tiếp từ CSDL PostgreSQL (bảng master_service_categories & makeup_styles)
+          {t('admin_taxonomy_sub')}
         </p>
       </div>
 
       {apiError && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-rose-800 dark:text-rose-300 text-xs flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-bold text-sm">Lỗi Tải Dữ Liệu Từ Backend:</p>
+          <div className="flex-1">
+            <p className="font-bold text-sm">{t('error_system_notice')}:</p>
             <p className="mt-0.5">{apiError}</p>
           </div>
         </div>
@@ -159,7 +159,7 @@ export const TaxonomyManagementPage = () => {
           }`}
         >
           <Layers className="w-4 h-4" />
-          <span>Danh Mục Dịch Vụ Gốc ({categories.length})</span>
+          <span>{t('col_category')} ({categories.length})</span>
         </button>
 
         <button
@@ -171,47 +171,29 @@ export const TaxonomyManagementPage = () => {
           }`}
         >
           <Sparkles className="w-4 h-4" />
-          <span>Phong Cách Make-up Chuẩn ({styles.length})</span>
+          <span>{t('col_styles')} ({styles.length})</span>
         </button>
       </div>
 
       {/* Tables based on active tab */}
       {activeTab === TAXONOMY_TABS.CATEGORIES && (
         <div className="space-y-4">
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between text-xs transition-colors">
-            <span className="text-slate-600 dark:text-slate-400">
-              Danh mục dịch vụ chuẩn toàn sàn từ bảng catalog_schema.master_service_categories
-            </span>
-            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Dữ liệu CSDL Thật</span>
-            </div>
-          </div>
           <DataTable
             columns={categoryColumns}
             data={categories}
             isLoading={isLoading}
-            emptyMessage="Chưa có danh mục dịch vụ nào trong CSDL catalog_schema.master_service_categories"
+            emptyMessage={t('no_data')}
           />
         </div>
       )}
 
       {activeTab === TAXONOMY_TABS.STYLES && (
         <div className="space-y-4">
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between text-xs transition-colors">
-            <span className="text-slate-600 dark:text-slate-400">
-              Phong cách make-up từ bảng catalog_schema.makeup_styles
-            </span>
-            <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Dữ liệu CSDL Thật</span>
-            </div>
-          </div>
           <DataTable
             columns={styleColumns}
             data={styles}
             isLoading={isLoading}
-            emptyMessage="Chưa có phong cách nào trong CSDL catalog_schema.makeup_styles"
+            emptyMessage={t('no_data')}
           />
         </div>
       )}

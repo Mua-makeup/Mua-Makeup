@@ -21,11 +21,14 @@ export const CertificateReviewModal = ({
   const handleAction = async (isVerified) => {
     setError('');
 
+    const finalNotes =
+      notes.trim() || (isVerified ? undefined : 'Hồ sơ chưa đạt tiêu chuẩn thẩm định');
+
     const payload = {
       certIndex: certificate.certIndex ?? 0,
       imageUrl: certificate.imageUrl || '',
       isVerified,
-      notes: notes.trim() || undefined,
+      notes: finalNotes,
     };
 
     const validation = verifyCertificateSchema.safeParse(payload);
@@ -39,7 +42,9 @@ export const CertificateReviewModal = ({
       await superAdminService.verifyCertificate(certificate.muaId, payload);
       onVerifySuccess?.({
         muaId: certificate.muaId,
+        certIndex: payload.certIndex,
         isVerified,
+        status: isVerified ? 'VERIFIED' : 'REJECTED',
         notes: payload.notes,
       });
       onClose();
@@ -150,7 +155,7 @@ export const CertificateReviewModal = ({
         {/* Lý do / Ghi chú */}
         <Textarea
           label="Ghi chú thẩm định / Lý do từ chối"
-          helperText="Bắt buộc nhập lý do nếu chọn 'Từ Chối Hồ Sơ' (tối thiểu 5 ký tự)."
+          helperText="Nhập lý do phản hồi cho thợ make-up (tùy chọn; mặc định sẽ gửi thông báo chưa đạt tiêu chuẩn nếu để trống)."
           placeholder="Nhập ghi chú phản hồi cho thợ make-up..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

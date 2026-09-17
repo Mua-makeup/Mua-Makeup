@@ -17,6 +17,7 @@ import { Modal } from '../components/base/Modal';
 import { Input } from '../components/base/Input';
 import { Button } from '../components/base/Button';
 import { authService } from '../services/auth.service';
+import { agencyService } from '../services/agency.service';
 import { changePasswordSchema } from '../schemas/auth.schema';
 import { useI18nStore } from '../store/useI18nStore';
 import { useThemeStore } from '../store/useThemeStore';
@@ -26,6 +27,8 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
   const { language, toggleLanguage, t } = useI18nStore();
   const { theme, toggleTheme } = useThemeStore();
 
+  const [agencyLogo, setAgencyLogo] = useState(null);
+  const [isAgencyVerified, setIsAgencyVerified] = useState(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -33,6 +36,23 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (role === USER_ROLES.AGENCY_ADMIN) {
+      agencyService
+        .getMyProfile()
+        .then((res) => {
+          const p = res?.data || res;
+          if (p?.logoUrl) {
+            setAgencyLogo(p.logoUrl);
+          }
+          if (p && typeof p.isVerified === 'boolean') {
+            setIsAgencyVerified(p.isVerified);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [role, user?.avatarUrl]);
 
   const getRoleLabel = () => {
     switch (role) {
@@ -78,7 +98,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
     setIsLoading(true);
     try {
       await authService.changePassword({ oldPassword, newPassword });
-      setPasswordSuccess(t('save') + ' OK!');
+      setPasswordSuccess(t('save_success'));
       setTimeout(() => {
         setIsPasswordModalOpen(false);
         setOldPassword('');
@@ -87,7 +107,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
         setPasswordSuccess('');
       }, 1500);
     } catch (err) {
-      setPasswordError(err.message || 'Mật khẩu cũ không đúng hoặc có lỗi xảy ra');
+      setPasswordError(err.message || t('error_general'));
     } finally {
       setIsLoading(false);
     }
@@ -121,6 +141,12 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
               >
                 {roleInfo.badge}
               </span>
+              {role === USER_ROLES.AGENCY_ADMIN && isAgencyVerified === false && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  {t('status_pending')}
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
               {roleInfo.title}
@@ -155,9 +181,9 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
 
           {/* User Capsule */}
           <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            {user?.avatarUrl ? (
+            {user?.avatarUrl || agencyLogo ? (
               <img
-                src={user.avatarUrl}
+                src={user?.avatarUrl || agencyLogo}
                 alt="Avatar"
                 className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700"
               />

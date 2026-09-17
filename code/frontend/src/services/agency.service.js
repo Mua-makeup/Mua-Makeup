@@ -5,7 +5,10 @@ export const agencyService = {
   getMyProfile: () => apiClient.get('/agencies/profile'),
   updateProfile: (data) => apiClient.put('/agencies/profile', data),
   updateDefaultCommission: (commissionRate) =>
-    apiClient.put('/agencies/commission', { commissionRate }),
+    apiClient.put('/agencies/commission', {
+      commissionRate,
+      commissionRateInternal: commissionRate,
+    }),
 
   // Gói dịch vụ
   getMyPackages: () => apiClient.get('/packages/my'),

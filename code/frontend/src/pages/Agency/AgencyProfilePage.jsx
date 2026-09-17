@@ -5,6 +5,7 @@ import { Input } from '../../components/base/Input';
 import { Button } from '../../components/base/Button';
 import { agencyProfileSchema, commissionRateSchema } from '../../schemas/agency.schema';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export const AgencyProfilePage = () => {
   const { t } = useI18nStore();
@@ -32,13 +33,19 @@ export const AgencyProfilePage = () => {
         setAgencyName(p.agencyName || '');
         setHotline(p.hotline || '');
         setAddressStreet(p.addressStreet || '');
-        setAddressDistrict(p.addressDistrict || '');
-        setAddressCity(p.addressCity || '');
+        setAddressDistrict(p.district || p.addressDistrict || '');
+        setAddressCity(p.city || p.addressCity || '');
         setLogoUrl(p.logoUrl || '');
         setCommissionRate(p.commissionRateInternal ?? 30);
+        if (p.logoUrl) {
+          const u = useAuthStore.getState().user;
+          if (u && u.avatarUrl !== p.logoUrl) {
+            useAuthStore.getState().setUser({ ...u, avatarUrl: p.logoUrl });
+          }
+        }
       }
     } catch (err) {
-      setServerError(err.message || t('error_api_connection'));
+      setServerError(err.response?.data?.message || err.message || t('error_api_connection'));
     }
   };
 
@@ -56,6 +63,8 @@ export const AgencyProfilePage = () => {
       agencyName: agencyName.trim(),
       hotline: hotline.trim(),
       addressStreet: addressStreet.trim(),
+      district: addressDistrict.trim(),
+      city: addressCity.trim(),
       addressDistrict: addressDistrict.trim(),
       addressCity: addressCity.trim(),
       logoUrl: logoUrl.trim() || undefined,
@@ -73,11 +82,17 @@ export const AgencyProfilePage = () => {
 
     setIsLoadingProfile(true);
     try {
-      await agencyService.updateProfile(payload);
-      setSuccessMessage('Đã cập nhật hồ sơ Studio thành công!');
+      const res = await agencyService.updateProfile(payload);
+      if (payload.logoUrl) {
+        const u = useAuthStore.getState().user;
+        if (u) {
+          useAuthStore.getState().setUser({ ...u, avatarUrl: payload.logoUrl });
+        }
+      }
+      setSuccessMessage(res?.message || t('save_success'));
       setTimeout(() => setSuccessMessage(''), 3500);
     } catch (err) {
-      setServerError(err.message || 'Không thể cập nhật hồ sơ Studio');
+      setServerError(err.message || t('error_general'));
     } finally {
       setIsLoadingProfile(false);
     }
@@ -92,17 +107,17 @@ export const AgencyProfilePage = () => {
       commissionRate: Number(commissionRate),
     });
     if (!validation.success) {
-      setCommissionError(validation.error.errors[0]?.message || 'Tỷ lệ hoa hồng không hợp lệ');
+      setCommissionError(validation.error.errors[0]?.message || t('error_general'));
       return;
     }
 
     setIsLoadingCommission(true);
     try {
-      await agencyService.updateDefaultCommission(Number(commissionRate));
-      setSuccessMessage('Đã cập nhật tỷ lệ hoa hồng mặc định của Studio thành công!');
+      const res = await agencyService.updateDefaultCommission(Number(commissionRate));
+      setSuccessMessage(res?.message || t('save_success'));
       setTimeout(() => setSuccessMessage(''), 3500);
     } catch (err) {
-      setServerError(err.message || 'Không thể cập nhật tỷ lệ hoa hồng');
+      setCommissionError(err.message || t('error_general'));
     } finally {
       setIsLoadingCommission(false);
     }
@@ -110,21 +125,28 @@ export const AgencyProfilePage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* Real API Error Alert */}
+      {/* API / Server Error Alert */}
       {serverError && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl flex items-start gap-3 text-rose-800 dark:text-rose-300 text-xs">
           <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <strong className="block font-bold text-sm">
-              {t('error_api_connection')}
+              {serverError.toLowerCase().includes('connect') || serverError.toLowerCase().includes('network')
+                ? t('error_api_connection')
+                : t('error_system_notice')}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {serverError}
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={loadProfile}>
-            Thử Lại
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={loadProfile}>
+              {t('reload')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setServerError('')}>
+              {t('close')}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -133,11 +155,11 @@ export const AgencyProfilePage = () => {
         <div className="flex items-center gap-2">
           <Building2 className="w-6 h-6 text-rose-600 dark:text-rose-400" />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Hồ Sơ Studio & Chính Sách Hoa Hồng
+            {t('agency_profile_title')}
           </h1>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Cập nhật thông tin nhận diện thương hiệu, địa chỉ cơ sở và tỷ lệ hoa hồng áp dụng cho toàn bộ thợ Studio
+          {t('agency_profile_sub')}
         </p>
       </div>
 
@@ -152,13 +174,13 @@ export const AgencyProfilePage = () => {
         {/* Form Hồ sơ Studio */}
         <div className="lg:col-span-8 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
-            Thông Tin Phòng Trang Điểm / Studio
+            {t('studio_info_title')}
           </h2>
 
           <form onSubmit={handleUpdateProfile} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Tên Studio / Đại Lý"
+                label={t('field_studio_name')}
                 required
                 placeholder="VD: Glamour Beauty Studio"
                 value={agencyName}
@@ -167,7 +189,7 @@ export const AgencyProfilePage = () => {
               />
 
               <Input
-                label="Hotline Liên Hệ"
+                label={t('field_hotline')}
                 required
                 placeholder="0912345678"
                 value={hotline}
@@ -177,7 +199,7 @@ export const AgencyProfilePage = () => {
             </div>
 
             <Input
-              label="Địa Chỉ Số Nhà & Tên Đường"
+              label={t('field_street')}
               required
               placeholder="VD: 128 Nguyễn Huệ, Phường Bến Nghé"
               value={addressStreet}
@@ -187,7 +209,7 @@ export const AgencyProfilePage = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Quận / Huyện"
+                label={t('field_district')}
                 required
                 placeholder="Quận 1"
                 value={addressDistrict}
@@ -196,7 +218,7 @@ export const AgencyProfilePage = () => {
               />
 
               <Input
-                label="Tỉnh / Thành Phố"
+                label={t('field_city')}
                 required
                 placeholder="Hồ Chí Minh"
                 value={addressCity}
@@ -206,7 +228,7 @@ export const AgencyProfilePage = () => {
             </div>
 
             <Input
-              label="Đường Dẫn Logo Studio (URL)"
+              label={t('field_logo_url')}
               type="url"
               placeholder="https://..."
               value={logoUrl}
@@ -221,7 +243,7 @@ export const AgencyProfilePage = () => {
                 icon={Save}
                 isLoading={isLoadingProfile}
               >
-                Lưu Thay Đổi Hồ Sơ
+                {t('btn_save_profile')}
               </Button>
             </div>
           </form>
@@ -232,16 +254,16 @@ export const AgencyProfilePage = () => {
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
             <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
               <Percent className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Hoa Hồng Mặc Định</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('commission_default_title')}</h3>
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Tỷ lệ % doanh thu Studio giữ lại từ các đơn hàng hoàn thành (quy định từ 0% đến 60%). Phần còn lại tự động giải ngân vào ví thợ.
+              {t('commission_default_desc')}
             </p>
 
             <form onSubmit={handleUpdateCommission} className="space-y-4">
               <Input
-                label="Tỷ lệ hoa hồng Studio (%)"
+                label={t('commission_label')}
                 type="number"
                 min="0"
                 max="60"
@@ -250,7 +272,7 @@ export const AgencyProfilePage = () => {
                 value={commissionRate}
                 onChange={(e) => setCommissionRate(e.target.value)}
                 error={commissionError}
-                helperText="Mặc định áp dụng cho tất cả thợ chưa có thỏa thuận riêng"
+                helperText={t('commission_helper')}
               />
 
               <Button
@@ -260,18 +282,18 @@ export const AgencyProfilePage = () => {
                 icon={Save}
                 isLoading={isLoadingCommission}
               >
-                Cập Nhật Tỷ Lệ Hoa Hồng
+                {t('btn_save_commission')}
               </Button>
             </form>
           </div>
 
           <div className="p-4 bg-slate-100 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
-            <p className="font-bold text-slate-800 dark:text-slate-200">Lưu ý nghiệp vụ:</p>
+            <p className="font-bold text-slate-800 dark:text-slate-200">{t('business_notes_title')}</p>
             <p>
-              • Bạn có thể đàm phán tỷ lệ hoa hồng riêng biệt cho từng thợ tại mục <strong>Quản Lý Thợ</strong>.
+              {t('business_note_1')}
             </p>
             <p>
-              • Khi đơn hàng hoàn thành, hệ thống sẽ tự động hạch toán vào Ví Studio và Ví Thợ thông qua Sổ cái kế toán đúp (Double-Entry Ledger).
+              {t('business_note_2')}
             </p>
           </div>
         </div>

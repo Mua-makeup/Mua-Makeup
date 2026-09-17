@@ -247,13 +247,13 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                   <input
                     type="text"
                     readOnly
-                    value={activeInvite.inviteUrl || `https://app.makeup.vn/join?code=${activeInvite.inviteCode}`}
+                    value={`${window.location.origin}/join?code=${activeInvite.inviteCode}`}
                     className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-600 select-all"
                   />
                   <button
                     onClick={() =>
                       copyToClipboard(
-                        activeInvite.inviteUrl || `https://app.makeup.vn/join?code=${activeInvite.inviteCode}`,
+                        `${window.location.origin}/join?code=${activeInvite.inviteCode}`,
                         'link'
                       )
                     }
@@ -267,6 +267,9 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                     )}
                   </button>
                 </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Link để gửi thợ make-up mở trên điện thoại / trình duyệt để xin gia nhập Studio (hoặc thợ nhập trực tiếp Mã Mời trên).
+                </p>
               </div>
 
               <div className="pt-1 flex flex-wrap items-center gap-2">

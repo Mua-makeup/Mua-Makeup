@@ -53,6 +53,14 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         if (Boolean.TRUE.equals(req.getIsAvailable())) {
+            boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
+                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+            if (!hasVerifiedCert) {
+                log.warn("MUA {} attempted to go ONLINE without verified certificates", mua.getId());
+                throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                        "mua.certificate_not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+            }
+
             if (req.getLatitude() == null || req.getLongitude() == null) {
                 throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
             }

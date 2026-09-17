@@ -40,9 +40,12 @@
     "portfolio_delete_success": "Portfolio deleted successfully!",
     "portfolio_get_success": "Get portfolio detail successfully.",
     "portfolios_list_success": "Get portfolios list successfully.",
-    "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed)."
+    "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed).",
+    "certificate_not_verified_cannot_accept": "Makeup artist has not been certified/verified, cannot accept bookings.",
+    "certificate_not_verified_cannot_operate": "Makeup artist has not been certified/verified, cannot go online to receive bookings."
   },
   "agency": {
+    "not_verified_cannot_operate": "Studio is not verified yet by Super Admin, cannot perform this operation.",
     "profile_get_success": "Agency profile retrieved successfully.",
     "profile_update_success": "Agency profile updated successfully.",
     "profile_not_found": "Agency profile not found.",
@@ -312,5 +315,8 @@
     "booking_target_status_required": "Target status is required.",
     "booking_target_status_invalid": "Target status is invalid.",
     "booking_reason_max": "Reason must not exceed 500 characters."
+  },
+  "admin": {
+    "agency_verify_success": "Updated Studio Agency approval status successfully!"
   }
 }

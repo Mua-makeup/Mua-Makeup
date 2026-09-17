@@ -49,10 +49,12 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
     const payload = {
       itemName: itemName.trim(),
       itemType,
+      itemPrice: itemType === 'ADD_ON' ? Number(extraPrice) : 0,
       extraPrice: itemType === 'ADD_ON' ? Number(extraPrice) : 0,
+      stepOrder: Number(sortOrder) || 1,
+      sortOrder: Number(sortOrder) || 1,
       durationMinutes: Number(durationMinutes),
       isRequired: Boolean(isRequired),
-      sortOrder: Number(sortOrder),
     };
 
     const validation = packageItemSchema.safeParse(payload);
@@ -70,7 +72,17 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
       setIsAdding(false);
       await loadItems();
     } catch (err) {
-      setError(err.message || 'Lỗi khi thêm bước/dịch vụ');
+      const respData = err.response?.data?.data;
+      const detailErr =
+        respData && typeof respData === 'object'
+          ? Object.values(respData).join('; ')
+          : null;
+      setError(
+        detailErr ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi thêm bước/dịch vụ'
+      );
     } finally {
       setIsLoading(false);
     }

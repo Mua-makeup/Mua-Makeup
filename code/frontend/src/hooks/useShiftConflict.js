@@ -33,7 +33,7 @@ export const useShiftConflict = (existingShifts = [], newShift = null) => {
     const staffDayShifts = existingShifts.filter(
       (s) =>
         Number(s.staffId) === Number(newShift.staffId) &&
-        s.dayOfWeek === newShift.dayOfWeek &&
+        Number(s.dayOfWeek) === Number(newShift.dayOfWeek) &&
         (!newShift.id || s.id !== newShift.id)
     );
 

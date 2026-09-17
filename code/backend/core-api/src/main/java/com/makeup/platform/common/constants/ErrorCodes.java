@@ -53,6 +53,8 @@ public final class ErrorCodes {
 
     // Phân hệ Agency Management
     public static final String ERR_AGENCY_NOT_FOUND = "ERR_AGENCY_NOT_FOUND";
+    public static final String ERR_AGENCY_NOT_VERIFIED = "ERR_AGENCY_NOT_VERIFIED";
+    public static final String ERR_MUA_CERTIFICATE_NOT_VERIFIED = "ERR_MUA_CERTIFICATE_NOT_VERIFIED";
     public static final String ERR_AGENCY_ACCESS_DENIED = "ERR_AGENCY_ACCESS_DENIED";
     public static final String ERR_STAFF_NOT_FOUND = "ERR_STAFF_NOT_FOUND";
     public static final String ERR_STAFF_ALREADY_EXISTS = "ERR_STAFF_ALREADY_EXISTS";

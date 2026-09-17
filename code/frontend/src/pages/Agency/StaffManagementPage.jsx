@@ -21,16 +21,18 @@ import { StaffInvitationModal } from '../../components/features/agency/StaffInvi
 import { StaffCommissionModal } from '../../components/features/agency/StaffCommissionModal';
 import { StaffStyleAssignModal } from '../../components/features/agency/StaffStyleAssignModal';
 import { StaffPackageAssignModal } from '../../components/features/agency/StaffPackageAssignModal';
+import { AgencyPendingVerificationNotice } from '../../components/features/agency/AgencyPendingVerificationNotice';
 import { formatDate } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
 
 export const StaffManagementPage = () => {
   const { t } = useI18nStore();
-  const [activeTab, setActiveTab] = useState('active');
+  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'pending'
   const [activeStaff, setActiveStaff] = useState([]);
   const [pendingApplications, setPendingApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
+  const [isNotVerified, setIsNotVerified] = useState(false);
 
   // Modals
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -50,6 +52,8 @@ export const StaffManagementPage = () => {
         agencyService.getStaffList('PENDING'),
       ]);
 
+      let unverifiedDetected = false;
+
       if (activeRes.status === 'fulfilled') {
         const aList =
           activeRes.value?.data?.content ||
@@ -59,7 +63,18 @@ export const StaffManagementPage = () => {
           [];
         setActiveStaff(Array.isArray(aList) ? aList : []);
       } else {
-        setApiError(activeRes.reason?.message || t('error_api_connection'));
+        const reason = activeRes.reason;
+        const errCode = reason?.response?.data?.errorCode;
+        const errMsg = reason?.response?.data?.message || reason?.message || '';
+        if (errCode === 'ERR_AGENCY_NOT_VERIFIED' || errMsg.toLowerCase().includes('not verified')) {
+          unverifiedDetected = true;
+        } else {
+          setApiError(
+            !reason?.response || reason?.code === 'ERR_NETWORK'
+              ? t('error_api_connection')
+              : errMsg
+          );
+        }
         setActiveStaff([]);
       }
 
@@ -72,7 +87,18 @@ export const StaffManagementPage = () => {
           [];
         setPendingApplications(Array.isArray(pList) ? pList : []);
       } else {
+        const reason = pendingRes.reason;
+        const errCode = reason?.response?.data?.errorCode;
+        const errMsg = reason?.response?.data?.message || '';
+        if (errCode === 'ERR_AGENCY_NOT_VERIFIED' || errMsg.toLowerCase().includes('not verified')) {
+          unverifiedDetected = true;
+        }
         setPendingApplications([]);
+      }
+
+      setIsNotVerified(unverifiedDetected);
+      if (unverifiedDetected) {
+        setApiError(null);
       }
     } finally {
       setIsLoading(false);
@@ -85,37 +111,33 @@ export const StaffManagementPage = () => {
 
   const handleReviewApplication = async (applicationId, action) => {
     try {
-      await agencyService.reviewStaffApplication(applicationId, {
+      const res = await agencyService.reviewStaffApplication(applicationId, {
         action,
-        note: action === 'APPROVE' ? 'Đã duyệt gia nhập Studio' : 'Hồ sơ chưa phù hợp',
+        note: action === 'APPROVE' ? 'Approved by Studio' : 'Application declined',
       });
-      setToastMessage(
-        action === 'APPROVE'
-          ? 'Đã duyệt thợ gia nhập Studio thành công!'
-          : 'Đã từ chối đơn xin gia nhập.'
-      );
+      setToastMessage(res?.message || (action === 'APPROVE' ? t('save_success') : t('update_success')));
       loadStaffData();
     } catch (err) {
-      setToastMessage(err.message || 'Lỗi khi xử lý đơn gia nhập');
+      setToastMessage(err.message || t('error_general'));
     }
   };
 
   const handleConfirmRemoveStaff = async () => {
     if (!removingStaff) return;
     try {
-      await agencyService.removeStaff(removingStaff.id);
+      const res = await agencyService.removeStaff(removingStaff.id);
       setActiveStaff((prev) => prev.filter((s) => s.id !== removingStaff.id));
-      setToastMessage(`Đã xóa thợ ${removingStaff.fullName} khỏi Studio.`);
+      setToastMessage(res?.message || t('delete_success'));
       setRemovingStaff(null);
     } catch (err) {
-      setToastMessage(err.message || 'Lỗi khi xóa thợ khỏi Studio');
+      setToastMessage(err.message || t('error_general'));
     }
   };
 
   // Columns for Active Staff
   const activeColumns = [
     {
-      header: 'Thợ Make-up',
+      header: t('col_staff_name'),
       accessor: 'fullName',
       render: (row) => (
         <div>
@@ -127,7 +149,7 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Hoa Hồng Riêng',
+      header: t('col_commission'),
       accessor: 'commissionRateCustom',
       render: (row) => (
         <div className="flex items-center gap-2">
@@ -137,7 +159,7 @@ export const StaffManagementPage = () => {
           <button
             onClick={() => setCommissionModalStaff(row)}
             className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1"
-            title="Đàm phán hoa hồng"
+            title={t('btn_custom_commission')}
           >
             <Percent className="w-3.5 h-3.5" />
           </button>
@@ -145,7 +167,7 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Tone Phong Cách',
+      header: t('col_styles'),
       accessor: 'styles',
       render: (row) => (
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -160,7 +182,7 @@ export const StaffManagementPage = () => {
           <button
             onClick={() => setStyleModalStaff(row)}
             className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1"
-            title="Gán tone thế mạnh"
+            title={t('btn_assign_style')}
           >
             <Sparkles className="w-3.5 h-3.5" />
           </button>
@@ -168,17 +190,17 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Gói Dịch Vụ',
+      header: t('col_packages'),
       accessor: 'packageCount',
       render: (row) => (
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-            {row.packageCount ?? 0} gói được giao
+            {row.packageCount ?? 0} {t('packages_count_suffix')}
           </span>
           <button
             onClick={() => setPackageModalStaff(row)}
             className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1"
-            title="Gán gói dịch vụ"
+            title={t('btn_assign_package')}
           >
             <Package className="w-3.5 h-3.5" />
           </button>
@@ -186,7 +208,7 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Gia Nhập',
+      header: t('status'),
       accessor: 'joinedAt',
       render: (row) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
@@ -195,13 +217,13 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Thao Tác',
+      header: t('col_actions'),
       align: 'right',
       render: (row) => (
         <button
           onClick={() => setRemovingStaff(row)}
           className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
-          title="Xóa thợ khỏi Studio"
+          title={t('btn_remove_staff')}
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -212,7 +234,7 @@ export const StaffManagementPage = () => {
   // Columns for Pending Applications
   const pendingColumns = [
     {
-      header: 'Người Nộp Đơn',
+      header: t('col_staff_name'),
       accessor: 'fullName',
       render: (row) => (
         <div>
@@ -224,7 +246,7 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Mã Mời Đã Dùng',
+      header: t('col_styles'),
       accessor: 'inviteCodeUsed',
       render: (row) => (
         <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
@@ -233,16 +255,16 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Ghi Chú Của Thợ',
+      header: t('search_placeholder'),
       accessor: 'note',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400 max-w-sm block truncate" title={row.note}>
-          {row.note || 'Không có ghi chú'}
+          {row.note || '—'}
         </span>
       ),
     },
     {
-      header: 'Thời Gian Xin Vào',
+      header: t('status'),
       accessor: 'appliedAt',
       render: (row) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
@@ -251,7 +273,7 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: 'Thao Tác',
+      header: t('col_actions'),
       align: 'right',
       render: (row) => (
         <div className="flex items-center justify-end gap-2">
@@ -261,7 +283,7 @@ export const StaffManagementPage = () => {
             icon={CheckCircle2}
             onClick={() => handleReviewApplication(row.id, 'APPROVE')}
           >
-            Chấp Nhận
+            {t('action_approve')}
           </Button>
           <Button
             variant="danger"
@@ -269,7 +291,7 @@ export const StaffManagementPage = () => {
             icon={XCircle}
             onClick={() => handleReviewApplication(row.id, 'REJECT')}
           >
-            Từ Chối
+            {t('action_reject')}
           </Button>
         </div>
       ),
@@ -279,20 +301,27 @@ export const StaffManagementPage = () => {
   return (
     <div className="space-y-6">
       {/* Real API Error Alert */}
-      {apiError && (
+      {apiError && !isNotVerified && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl flex items-start gap-3 text-rose-800 dark:text-rose-300 text-xs">
           <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <strong className="block font-bold text-sm">
-              {t('error_api_connection')}
+              {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
+                ? t('error_api_connection')
+                : 'Thông Báo Hệ Thống'}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {apiError}
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={loadStaffData}>
-            Thử Lại
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={loadStaffData}>
+              Thử Lại
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
+              Đóng
+            </Button>
+          </div>
         </div>
       )}
 
@@ -302,67 +331,83 @@ export const StaffManagementPage = () => {
           <div className="flex items-center gap-2">
             <Users className="w-6 h-6 text-rose-600 dark:text-rose-400" />
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Quản Lý Thợ Make-up & Tuyển Dụng
+              {t('staff_management_title')}
             </h1>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Quản lý đội ngũ thợ trực thuộc Studio, sinh mã mời QR 72h, phân bổ hoa hồng, tone make-up và gói dịch vụ
+            {t('staff_management_sub')}
           </p>
         </div>
 
         <Button
           variant="primary"
           icon={QrCode}
-          onClick={() => setIsInviteModalOpen(true)}
+          disabled={isNotVerified}
+          title={isNotVerified ? t('pending_tooltip_staff') : undefined}
+          onClick={() => {
+            if (isNotVerified) return;
+            setIsInviteModalOpen(true);
+          }}
         >
-          Tuyển Thợ Mới (Mã QR 72h)
+          {t('btn_recruit_qr')}
         </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
-        <button
-          onClick={() => setActiveTab('active')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
-            activeTab === 'active'
-              ? 'border-rose-600 text-rose-600 dark:text-rose-400'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <UserCheck className="w-4 h-4" />
-          <span>Thợ Đang Hoạt Động ({activeStaff.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('pending')}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
-            activeTab === 'pending'
-              ? 'border-rose-600 text-rose-600 dark:text-rose-400'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>Đơn Xin Gia Nhập Chờ Duyệt ({pendingApplications.length})</span>
-        </button>
-      </div>
-
-      {/* Tables based on active tab */}
-      {activeTab === 'active' && (
-        <DataTable
-          columns={activeColumns}
-          data={activeStaff}
+      {/* Main Content: Pending Notice vs Tabs + Data Tables */}
+      {isNotVerified ? (
+        <AgencyPendingVerificationNotice
+          featureName={t('staff_management_title')}
+          onRefresh={loadStaffData}
           isLoading={isLoading}
-          emptyMessage="Studio chưa có thợ nào trong cơ sở dữ liệu. Bấm 'Tuyển Thợ Mới' để sinh mã QR mời thợ."
         />
-      )}
+      ) : (
+        <>
+          {/* Tabs */}
+          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+                activeTab === 'active'
+                  ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>{t('tab_active_staff')} ({activeStaff.length})</span>
+            </button>
 
-      {activeTab === 'pending' && (
-        <DataTable
-          columns={pendingColumns}
-          data={pendingApplications}
-          isLoading={isLoading}
-          emptyMessage="Không có đơn xin gia nhập nào đang chờ duyệt trong cơ sở dữ liệu."
-        />
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+                activeTab === 'pending'
+                  ? 'border-rose-600 text-rose-600 dark:text-rose-400'
+                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span>{t('tab_pending_applications')} ({pendingApplications.length})</span>
+            </button>
+          </div>
+
+          {/* Tables based on active tab */}
+          {activeTab === 'active' && (
+            <DataTable
+              columns={activeColumns}
+              data={activeStaff}
+              isLoading={isLoading}
+              emptyMessage={t('empty_staff_msg')}
+            />
+          )}
+
+          {activeTab === 'pending' && (
+            <DataTable
+              columns={pendingColumns}
+              data={pendingApplications}
+              isLoading={isLoading}
+              emptyMessage={t('empty_applications_msg')}
+            />
+          )}
+        </>
       )}
 
       {/* Modals */}
@@ -382,7 +427,7 @@ export const StaffManagementPage = () => {
               s.id === staffId ? { ...s, commissionRateCustom: commissionRate } : s
             )
           );
-          setToastMessage('Đã cập nhật hoa hồng cá nhân thành công!');
+          setToastMessage(t('update_success'));
         }}
       />
 
@@ -391,7 +436,7 @@ export const StaffManagementPage = () => {
         onClose={() => setStyleModalStaff(null)}
         staff={styleModalStaff}
         onSuccess={() => {
-          setToastMessage('Đã cập nhật tone phong cách cho thợ thành công!');
+          setToastMessage(t('update_success'));
           loadStaffData();
         }}
       />
@@ -401,7 +446,7 @@ export const StaffManagementPage = () => {
         onClose={() => setPackageModalStaff(null)}
         staff={packageModalStaff}
         onSuccess={() => {
-          setToastMessage('Đã gán gói dịch vụ cho thợ thành công!');
+          setToastMessage(t('update_success'));
           loadStaffData();
         }}
       />
@@ -410,9 +455,9 @@ export const StaffManagementPage = () => {
         isOpen={Boolean(removingStaff)}
         onClose={() => setRemovingStaff(null)}
         onConfirm={handleConfirmRemoveStaff}
-        title="Xóa Thợ Khỏi Studio"
-        message={`Bạn có chắc chắn muốn xóa thợ "${removingStaff?.fullName}" khỏi danh sách Studio? Thợ sẽ không thể tiếp tục nhận các đơn hàng của Studio.`}
-        confirmText="Xác Nhận Xóa"
+        title={t('confirm_remove_staff_title')}
+        message={`${t('confirm_remove_staff_msg')} (${removingStaff?.fullName})`}
+        confirmText={t('btn_remove_staff')}
         isDangerous
       />
 

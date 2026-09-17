@@ -26,6 +26,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       icon: LayoutDashboard,
     },
     {
+      to: '/admin/agencies',
+      label: t('nav_admin_agencies'),
+      icon: Building2,
+    },
+    {
       to: '/admin/muas/credentials',
       label: t('nav_admin_credentials'),
       icon: Award,

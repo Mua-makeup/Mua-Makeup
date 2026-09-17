@@ -6,9 +6,12 @@ export const STAFF_STATUS = {
 };
 
 export const SURCHARGE_TYPES = {
-  DISTANCE: 'DISTANCE',
-  NIGHT: 'NIGHT',
+  DISTANCE: 'OUT_OF_RADIUS',
+  OUT_OF_RADIUS: 'OUT_OF_RADIUS',
+  NIGHT: 'EARLY_MORNING',
+  EARLY_MORNING: 'EARLY_MORNING',
   HOLIDAY: 'HOLIDAY',
+  CUSTOM: 'CUSTOM',
 };
 
 export const PACKAGE_ITEM_TYPES = {
@@ -17,13 +20,13 @@ export const PACKAGE_ITEM_TYPES = {
 };
 
 export const SHIFT_DAYS = [
-  { value: 'MONDAY', label: 'Thứ Hai', shortLabel: 'T2' },
-  { value: 'TUESDAY', label: 'Thứ Ba', shortLabel: 'T3' },
-  { value: 'WEDNESDAY', label: 'Thứ Tư', shortLabel: 'T4' },
-  { value: 'THURSDAY', label: 'Thứ Năm', shortLabel: 'T5' },
-  { value: 'FRIDAY', label: 'Thứ Sáu', shortLabel: 'T6' },
-  { value: 'SATURDAY', label: 'Thứ Bảy', shortLabel: 'T7' },
-  { value: 'SUNDAY', label: 'Chủ Nhật', shortLabel: 'CN' },
+  { value: 2, key: 'MONDAY', label: 'Thứ Hai', shortLabel: 'T2' },
+  { value: 3, key: 'TUESDAY', label: 'Thứ Ba', shortLabel: 'T3' },
+  { value: 4, key: 'WEDNESDAY', label: 'Thứ Tư', shortLabel: 'T4' },
+  { value: 5, key: 'THURSDAY', label: 'Thứ Năm', shortLabel: 'T5' },
+  { value: 6, key: 'FRIDAY', label: 'Thứ Sáu', shortLabel: 'T6' },
+  { value: 7, key: 'SATURDAY', label: 'Thứ Bảy', shortLabel: 'T7' },
+  { value: 1, key: 'SUNDAY', label: 'Chủ Nhật', shortLabel: 'CN' },
 ];
 
 export const OVERTIME_STATUS = {

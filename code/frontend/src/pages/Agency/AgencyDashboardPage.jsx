@@ -90,6 +90,19 @@ export const AgencyDashboardPage = () => {
         </div>
       )}
 
+      {/* Unverified Agency Notice */}
+      {profile && !profile.isVerified && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-900 dark:text-amber-200 text-xs flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-bold text-sm">Tài khoản Studio đang chờ Quản Trị Viên phê duyệt</p>
+            <p className="mt-1 leading-relaxed">
+              Hồ sơ đối tác Studio Agency của bạn hiện đang được Super Admin kiểm tra và thẩm định. Trong thời gian chờ duyệt, các tính năng mở bán gói dịch vụ, tuyển dụng thợ và phân ca xếp lịch sẽ tạm thời bị khóa.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner Studio */}
       <div className="p-6 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
@@ -101,9 +114,13 @@ export const AgencyDashboardPage = () => {
               <h1 className="text-xl sm:text-2xl font-black tracking-tight">
                 {profile?.agencyName || 'Studio Make-up Chuyên Nghiệp'}
               </h1>
-              {profile?.status && (
+              {profile?.isVerified ? (
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  {profile.status}
+                  Đã Xác Thực
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  Chờ Phê Duyệt
                 </span>
               )}
             </div>
@@ -119,6 +136,7 @@ export const AgencyDashboardPage = () => {
             variant="primary"
             size="sm"
             icon={QrCode}
+            disabled={!profile?.isVerified}
             onClick={() => setIsInviteModalOpen(true)}
           >
             {t('btn_recruit_qr')}
@@ -127,15 +145,22 @@ export const AgencyDashboardPage = () => {
             variant="secondary"
             size="sm"
             icon={Plus}
+            disabled={!profile?.isVerified}
             onClick={() => setIsPackageModalOpen(true)}
           >
             {t('btn_create_package')}
           </Button>
-          <Link to="/agency/shifts">
-            <Button variant="secondary" size="sm" icon={CalendarDays}>
+          {profile?.isVerified ? (
+            <Link to="/agency/shifts">
+              <Button variant="secondary" size="sm" icon={CalendarDays}>
+                {t('btn_weekly_shifts')}
+              </Button>
+            </Link>
+          ) : (
+            <Button variant="secondary" size="sm" icon={CalendarDays} disabled>
               {t('btn_weekly_shifts')}
             </Button>
-          </Link>
+          )}
         </div>
       </div>
 

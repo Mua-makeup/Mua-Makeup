@@ -162,11 +162,16 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     }
 
     private AgencyProfileEntity getAgencyForManager(Long userId) {
-        return agencyProfileRepository.findByOwnerId(userId)
+        AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "ERR_AGENCY_NOT_FOUND"
                 ));
+        if (!Boolean.TRUE.equals(agency.getIsVerified())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_VERIFIED,
+                    "agency.not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+        }
+        return agency;
     }
 
     private AgencyProfileEntity resolveAgencyForUser(Long userId) {

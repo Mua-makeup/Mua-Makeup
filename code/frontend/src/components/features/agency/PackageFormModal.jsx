@@ -74,8 +74,10 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
       packageName: packageName.trim(),
       description: description.trim() || undefined,
       price: Number(price),
-      durationMinutes: Number(durationMinutes),
+      masterCategoryId: Number(categoryId),
       categoryId: Number(categoryId),
+      estimatedDurationMinutes: Number(durationMinutes),
+      durationMinutes: Number(durationMinutes),
       styleIds: selectedStyleIds.map(Number),
     };
 
@@ -99,7 +101,17 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
       onSuccess?.();
       onClose();
     } catch (err) {
-      setServerError(err.message || 'Lỗi khi lưu gói dịch vụ, vui lòng thử lại');
+      const respData = err.response?.data?.data;
+      const detailErr =
+        respData && typeof respData === 'object'
+          ? Object.values(respData).join('; ')
+          : null;
+      setServerError(
+        detailErr ||
+          err.response?.data?.message ||
+          err.message ||
+          'Lỗi khi lưu gói dịch vụ, vui lòng thử lại'
+      );
     } finally {
       setIsLoading(false);
     }

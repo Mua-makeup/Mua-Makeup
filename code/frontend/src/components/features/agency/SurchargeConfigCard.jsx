@@ -25,6 +25,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
   const [apiError, setApiError] = useState(null);
+  const [isNotVerified, setIsNotVerified] = useState(false);
 
   const loadSurcharges = async () => {
     setApiError(null);
@@ -33,22 +34,38 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
       const list = res?.data || res || [];
       if (Array.isArray(list)) {
         list.forEach((s) => {
-          if (s.surchargeType === 'DISTANCE') {
+          if (s.surchargeType === 'DISTANCE' || s.surchargeType === 'OUT_OF_RADIUS') {
+            if (s.amount !== undefined) setExtraPricePerKm(s.amount);
             if (s.baseDistanceKm !== undefined) setBaseDistanceKm(s.baseDistanceKm);
             if (s.extraPricePerKm !== undefined) setExtraPricePerKm(s.extraPricePerKm);
             if (s.maxDistanceKm !== undefined) setMaxDistanceKm(s.maxDistanceKm);
-          } else if (s.surchargeType === 'NIGHT') {
+          } else if (s.surchargeType === 'NIGHT' || s.surchargeType === 'EARLY_MORNING') {
+            if (s.amount !== undefined) setNightAmount(s.amount);
             if (s.startHour) setStartNightHour(s.startHour);
             if (s.endHour) setEndEarlyHour(s.endHour);
-            if (s.amount) setNightAmount(s.amount);
           } else if (s.surchargeType === 'HOLIDAY') {
+            if (s.surchargeName) setHolidayName(s.surchargeName);
             if (s.holidayName) setHolidayName(s.holidayName);
-            if (s.percentage) setHolidayPercentage(s.percentage);
+            if (s.amount !== undefined) setHolidayPercentage(s.amount);
+            if (s.percentage !== undefined) setHolidayPercentage(s.percentage);
           }
         });
       }
+      setIsNotVerified(false);
     } catch (err) {
-      setApiError(err.message || t('error_api_connection'));
+      const errCode = err.response?.data?.errorCode;
+      const errMsg = err.response?.data?.message || err.message || '';
+      if (errCode === 'ERR_AGENCY_NOT_VERIFIED' || errMsg.toLowerCase().includes('not verified')) {
+        setIsNotVerified(true);
+        setApiError(null);
+      } else {
+        setIsNotVerified(false);
+        setApiError(
+          !err.response || err.code === 'ERR_NETWORK'
+            ? t('error_api_connection')
+            : errMsg
+        );
+      }
     }
   };
 
@@ -64,32 +81,37 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
     try {
       // Configure Distance
       await agencyService.createSurcharge({
-        surchargeType: 'DISTANCE',
+        surchargeName: 'Phụ phí khoảng cách di chuyển',
+        surchargeType: 'OUT_OF_RADIUS',
+        amount: Number(extraPricePerKm) || 0,
         baseDistanceKm: Number(baseDistanceKm),
         extraPricePerKm: Number(extraPricePerKm),
         maxDistanceKm: Number(maxDistanceKm),
       });
 
-      // Configure Night
+      // Configure Night / Early Morning
       await agencyService.createSurcharge({
-        surchargeType: 'NIGHT',
+        surchargeName: 'Phụ phí làm việc sáng sớm / đêm',
+        surchargeType: 'EARLY_MORNING',
+        amount: Number(nightAmount) || 0,
         startHour: startNightHour,
         endHour: endEarlyHour,
-        amount: Number(nightAmount),
       });
 
       // Configure Holiday
       await agencyService.createSurcharge({
+        surchargeName: holidayName?.trim() || 'Phụ phí ngày Lễ Tết',
         surchargeType: 'HOLIDAY',
-        holidayName,
+        amount: Number(holidayPercentage) || 0,
+        holidayName: holidayName?.trim() || 'Lễ Tết',
         percentage: Number(holidayPercentage),
       });
 
-      setSuccessMessage('Đã lưu cấu hình bảng phụ phí Studio thành công!');
+      setSuccessMessage(t('save_success'));
       onSaveSuccess?.();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError(err.message || 'Lỗi khi lưu phụ phí, vui lòng kiểm tra lại');
+      setError(err.message || t('error_general'));
     } finally {
       setIsLoading(false);
     }
@@ -98,20 +120,35 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
   return (
     <div className="space-y-6">
       {/* Real API Error Alert */}
-      {apiError && (
+      {apiError && !isNotVerified && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl flex items-start gap-3 text-rose-800 dark:text-rose-300 text-xs">
           <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <strong className="block font-bold text-sm">
-              {t('error_api_connection')}
+              {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
+                ? t('error_api_connection')
+                : 'Thông Báo Hệ Thống'}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {apiError}
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={loadSurcharges}>
-            Thử Lại
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={loadSurcharges}>
+              Thử Lại
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
+              Đóng
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Unverified Notice */}
+      {isNotVerified && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-center gap-3 text-amber-900 dark:text-amber-200 text-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <span>{t('pending_verification_desc')}</span>
         </div>
       )}
 
@@ -134,8 +171,8 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
               <Navigation className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Phụ Phí Cự Ly Di Chuyển</h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Tính theo km vượt ngoài bán kính</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('surcharge_distance')}</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Out-of-radius distance fee</p>
             </div>
           </div>
 
@@ -176,8 +213,8 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
               <Moon className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Phụ Phí Đêm Muộn / Sáng Sớm</h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Áp dụng cho các ca làm việc đặc thù</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('surcharge_night')}</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Early morning & late night rates</p>
             </div>
           </div>
 
@@ -217,8 +254,8 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
               <CalendarHeart className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Phụ Phí Ngày Nghỉ Lễ / Tết</h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Bù đắp công thợ trực ngày lễ cao điểm</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('surcharge_holiday')}</h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Peak holiday surcharges</p>
             </div>
           </div>
 
@@ -240,7 +277,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
               helperText="Tính theo % giá trị đơn hàng (VD: 25%)"
             />
             <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-500 dark:text-slate-400">
-              Hệ thống tự động cộng phụ phí khi khách đặt lịch hẹn vào các ngày trong danh mục lễ tết.
+              Auto surcharge applied when booking falls on recognized holidays.
             </div>
           </div>
         </div>
@@ -253,7 +290,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
           onClick={handleSaveAll}
           isLoading={isLoading}
         >
-          Lưu Tất Cả Cấu Hình Phụ Phí
+          {t('save')}
         </Button>
       </div>
     </div>

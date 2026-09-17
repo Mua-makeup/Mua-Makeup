@@ -23,10 +23,16 @@ public class MuaProfileMapper {
         if (cert == null) {
             return null;
         }
+        String status = cert.getStatus();
+        if (status == null) {
+            status = Boolean.TRUE.equals(cert.getIsVerified()) ? "VERIFIED" : "PENDING";
+        }
         return CertificateRes.builder()
                 .certName(cert.getCertName())
                 .imageUrl(cert.getImageUrl())
                 .isVerified(cert.getIsVerified())
+                .status(status)
+                .notes(cert.getNotes())
                 .uploadedAt(cert.getUploadedAt())
                 .build();
     }

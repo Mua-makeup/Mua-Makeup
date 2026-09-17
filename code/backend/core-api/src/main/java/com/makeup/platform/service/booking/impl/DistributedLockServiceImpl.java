@@ -75,6 +75,14 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                         .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                                 "mua.profile_not_found", HttpStatus.NOT_FOUND));
 
+                boolean hasVerifiedCert = muaProfile.getCertificates() != null && muaProfile.getCertificates().stream()
+                        .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+                if (!hasVerifiedCert) {
+                    log.warn("[Redlock] MUA id={} attempted to accept booking id={} without verified certificate", muaProfile.getId(), bookingId);
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                            "mua.certificate_not_verified_cannot_accept", HttpStatus.FORBIDDEN);
+                }
+
                 if (!Boolean.TRUE.equals(muaProfile.getIsOnline())) {
                     log.warn("[Redlock] MUA id={} attempted to accept booking id={} while OFFLINE", muaProfile.getId(), bookingId);
                     throw new CustomBusinessException(ErrorCodes.ERR_MUA_MUST_BE_ONLINE,

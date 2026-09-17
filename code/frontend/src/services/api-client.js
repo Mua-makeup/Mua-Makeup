@@ -38,10 +38,26 @@ apiClient.interceptors.response.use(
         window.location.href = '/login';
       }
     }
-    const apiError = error.response?.data || {
-      message: error.message || 'Lỗi kết nối máy chủ',
-      errorCode: 'ERR_NETWORK',
+    const backendData = error.response?.data;
+    const localizedMessage =
+      backendData?.message ||
+      (typeof backendData?.data === 'string' ? backendData.data : null) ||
+      error.message ||
+      'Lỗi kết nối máy chủ';
+
+    const normalizedError = {
+      message: localizedMessage,
+      errorCode: backendData?.errorCode || (error.response ? 'ERR_SERVER' : 'ERR_NETWORK'),
+      data: backendData?.data,
+      status: error.response?.status,
+      response: error.response || {
+        status: error.code === 'ERR_NETWORK' ? 0 : 500,
+        data: {
+          message: localizedMessage,
+          errorCode: 'ERR_NETWORK',
+        },
+      },
     };
-    return Promise.reject(apiError);
+    return Promise.reject(normalizedError);
   }
 );

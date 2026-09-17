@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.request.catalog;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.makeup.platform.entity.catalog.PackageItemType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -30,10 +31,12 @@ public class CreatePackageItemReq {
 
     @NotNull(message = "{validation.catalog_item_step_order_required}")
     @Min(value = 1, message = "{validation.catalog_item_step_order_min}")
+    @JsonAlias({"sortOrder", "stepOrder"})
     private Integer stepOrder;
 
     @NotNull(message = "{validation.catalog_item_price_required}")
     @DecimalMin(value = "0.00", message = "{validation.catalog_item_price_min}")
+    @JsonAlias({"extraPrice", "price", "itemPrice"})
     private BigDecimal itemPrice;
 
     @Builder.Default

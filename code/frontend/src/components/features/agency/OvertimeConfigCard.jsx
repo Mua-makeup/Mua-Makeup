@@ -22,6 +22,7 @@ export const OvertimeConfigCard = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [isNotVerified, setIsNotVerified] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -29,7 +30,14 @@ export const OvertimeConfigCard = () => {
     setApiError(null);
     try {
       // Load rules
-      const rulesRes = await agencyService.getOvertimeRules().catch(() => null);
+      const rulesRes = await agencyService.getOvertimeRules().catch((err) => {
+        const errCode = err.response?.data?.errorCode;
+        const errMsg = err.response?.data?.message || '';
+        if (errCode === 'ERR_AGENCY_NOT_VERIFIED' || errMsg.toLowerCase().includes('not verified')) {
+          setIsNotVerified(true);
+        }
+        return null;
+      });
       const rules = rulesRes?.data || rulesRes || [];
       if (Array.isArray(rules) && rules.length > 0) {
         if (rules[0].ratePerHour) setRatePerHour(rules[0].ratePerHour);
@@ -38,7 +46,17 @@ export const OvertimeConfigCard = () => {
 
       // Load reports
       const reportsRes = await agencyService.getOvertimeReports().catch((err) => {
-        setApiError(err.message || t('error_api_connection'));
+        const errCode = err.response?.data?.errorCode;
+        const errMsg = err.response?.data?.message || '';
+        if (errCode === 'ERR_AGENCY_NOT_VERIFIED' || errMsg.toLowerCase().includes('not verified')) {
+          setIsNotVerified(true);
+        } else {
+          setApiError(
+            !err.response || err.code === 'ERR_NETWORK'
+              ? t('error_api_connection')
+              : errMsg || err.message
+          );
+        }
         return null;
       });
       const repList =
@@ -49,7 +67,18 @@ export const OvertimeConfigCard = () => {
         [];
       setReports(Array.isArray(repList) ? repList : []);
     } catch (err) {
-      setApiError(err.message || t('error_api_connection'));
+      const errCode = err.response?.data?.errorCode;
+      const errMsg = err.response?.data?.message || err.message || '';
+      if (errCode === 'ERR_AGENCY_NOT_VERIFIED' || errMsg.toLowerCase().includes('not verified')) {
+        setIsNotVerified(true);
+        setApiError(null);
+      } else {
+        setApiError(
+          !err.response || err.code === 'ERR_NETWORK'
+            ? t('error_api_connection')
+            : errMsg
+        );
+      }
     }
   };
 
@@ -78,10 +107,10 @@ export const OvertimeConfigCard = () => {
         ratePerHour: Number(ratePerHour),
         maxOvertimeHours: Number(maxOvertimeHours),
       });
-      setSuccess('Đã cập nhật quy tắc phụ phí tăng ca thành công!');
+      setSuccess(t('save_success'));
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError(err.message || 'Lỗi khi lưu quy tắc tăng ca');
+      setError(err.message || t('error_general'));
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +134,7 @@ export const OvertimeConfigCard = () => {
       setIsReviewModalOpen(false);
       await loadData();
     } catch (err) {
-      setError(err.message || 'Lỗi khi duyệt báo cáo tăng ca');
+      setError(err.message || t('error_general'));
     } finally {
       setIsLoading(false);
     }
@@ -114,20 +143,35 @@ export const OvertimeConfigCard = () => {
   return (
     <div className="space-y-6">
       {/* Real API Error Alert */}
-      {apiError && (
+      {apiError && !isNotVerified && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-2xl flex items-start gap-3 text-rose-800 dark:text-rose-300 text-xs">
           <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <strong className="block font-bold text-sm">
-              {t('error_api_connection')}
+              {apiError.toLowerCase().includes('connect') || apiError.toLowerCase().includes('network')
+                ? t('error_api_connection')
+                : 'Thông Báo Hệ Thống'}
             </strong>
             <p className="mt-0.5 text-slate-600 dark:text-slate-400 font-mono">
               {apiError}
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={loadData}>
-            Thử Lại
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={loadData}>
+              Thử Lại
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setApiError(null)}>
+              Đóng
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Unverified Notice */}
+      {isNotVerified && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-center gap-3 text-amber-900 dark:text-amber-200 text-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <span>Cấu hình và báo cáo tăng ca sẽ mở sau khi Studio được Super Admin phê duyệt chính thức.</span>
         </div>
       )}
 
@@ -150,10 +194,10 @@ export const OvertimeConfigCard = () => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Quy Tắc Phụ Phí Làm Thêm Giờ (Overtime Rules)
+              {t('overtime_rules')}
             </h3>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Định mức phụ phí tính cho thợ khi ca make-up bị kéo dài do yêu cầu phát sinh từ khách hàng
+              {t('overtime_sub')}
             </p>
           </div>
         </div>
@@ -183,7 +227,7 @@ export const OvertimeConfigCard = () => {
 
           <div>
             <Button type="submit" variant="primary" className="w-full" isLoading={isLoading}>
-              Lưu Quy Tắc Tăng Ca
+              {t('save')}
             </Button>
           </div>
         </form>
@@ -194,10 +238,10 @@ export const OvertimeConfigCard = () => {
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              Báo Cáo Tăng Ca Chờ Xét Duyệt ({reports.length})
+              {t('overtime_reports')} ({reports.length})
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Thợ gửi báo cáo tăng ca sau khi hoàn thành đơn; Studio duyệt để giải ngân phụ thu
+              {t('overtime_sub')}
             </p>
           </div>
         </div>
@@ -206,19 +250,19 @@ export const OvertimeConfigCard = () => {
           <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
               <tr>
-                <th className="px-5 py-3">Thợ Báo Cáo</th>
+                <th className="px-5 py-3">{t('col_staff_name')}</th>
                 <th className="px-5 py-3">Mã Đơn / Thời Gian</th>
                 <th className="px-5 py-3">Phát Sinh</th>
                 <th className="px-5 py-3">Lý Do Chi Tiết</th>
-                <th className="px-5 py-3">Trạng Thái</th>
-                <th className="px-5 py-3 text-right">Thao Tác</th>
+                <th className="px-5 py-3">{t('status')}</th>
+                <th className="px-5 py-3 text-right">{t('col_actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {reports.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-5 py-8 text-center text-xs text-slate-400 dark:text-slate-500 italic">
-                    Chưa có báo cáo tăng ca nào trong cơ sở dữ liệu.
+                    {t('empty_reports_msg')}
                   </td>
                 </tr>
               ) : (
@@ -238,13 +282,13 @@ export const OvertimeConfigCard = () => {
                     </td>
                     <td className="px-5 py-3.5 text-xs max-w-xs">
                       <p className="text-slate-600 dark:text-slate-400 truncate" title={r.reason}>
-                        {r.reason || 'Khách yêu cầu thêm dịch vụ'}
+                        {r.reason || '—'}
                       </p>
                     </td>
                     <td className="px-5 py-3.5">
-                      {r.status === 'PENDING' && <Badge variant="pending">Chờ Duyệt</Badge>}
-                      {r.status === 'APPROVED' && <Badge variant="active">Đã Duyệt</Badge>}
-                      {r.status === 'REJECTED' && <Badge variant="rejected">Từ Chối</Badge>}
+                      {r.status === 'PENDING' && <Badge variant="pending">{t('status_pending')}</Badge>}
+                      {r.status === 'APPROVED' && <Badge variant="active">{t('status_verified')}</Badge>}
+                      {r.status === 'REJECTED' && <Badge variant="rejected">{t('status_rejected')}</Badge>}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       {r.status === 'PENDING' ? (
@@ -255,7 +299,7 @@ export const OvertimeConfigCard = () => {
                             icon={CheckCircle2}
                             onClick={() => openReview(r, 'APPROVED')}
                           >
-                            Duyệt
+                            {t('action_approve')}
                           </Button>
                           <Button
                             variant="danger"
@@ -263,11 +307,11 @@ export const OvertimeConfigCard = () => {
                             icon={XCircle}
                             onClick={() => openReview(r, 'REJECTED')}
                           >
-                            Từ Chối
+                            {t('action_reject')}
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">Đã xử lý</span>
+                        <span className="text-xs text-slate-400 italic">—</span>
                       )}
                     </td>
                   </tr>
@@ -286,7 +330,7 @@ export const OvertimeConfigCard = () => {
           <div className="flex items-center gap-2 text-slate-900 dark:text-white">
             <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             <span>
-              {reviewAction === 'APPROVED' ? 'Phê Duyệt Tăng Ca' : 'Từ Chối Báo Cáo Tăng Ca'}
+              {reviewAction === 'APPROVED' ? t('action_approve') : t('action_reject')}
             </span>
           </div>
         }
@@ -298,14 +342,14 @@ export const OvertimeConfigCard = () => {
               onClick={() => setIsReviewModalOpen(false)}
               disabled={isLoading}
             >
-              Hủy
+              {t('cancel')}
             </Button>
             <Button
               variant={reviewAction === 'APPROVED' ? 'primary' : 'danger'}
               onClick={handleConfirmReview}
               isLoading={isLoading}
             >
-              {reviewAction === 'APPROVED' ? 'Xác Nhận Phê Duyệt' : 'Xác Nhận Từ Chối'}
+              {reviewAction === 'APPROVED' ? t('action_approve') : t('action_reject')}
             </Button>
           </>
         }
