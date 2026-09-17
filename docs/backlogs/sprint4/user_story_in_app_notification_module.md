@@ -8,11 +8,10 @@
 
 * **Tên Phân hệ Nghiệp vụ:** `In-App Notification Module & Event-Driven Dispatching Engine`
 * **Mã Jira Issues phụ trách (Sprint 4):**
-  * `ISSUE-21.1`: **User Story** - In-App Notification Module - Xử lý thông báo In-App qua In-Memory EventBus.
-  * `ISSUE-21.2`: **Task** - `@EventListener` bất đồng bộ (`@Async`) lắng nghe Domain Events phát sinh từ các module lõi (`booking`, `wallet`, `catalog`, `agency`).
-  * `ISSUE-21.3`: **Task** - Xử lý chống trùng lặp thông báo Event qua `Event ID` (Idempotency Guard với Redis Cache).
-  * `ISSUE-21.4`: **Task** - In-App Toast Popup Notification Client-side (< 100ms response time qua WebSocket STOMP P2P Queue `/user/queue/notifications`).
-  * `ISSUE-21.5`: **Task** - Lưu danh sách thông báo In-App vào Bảng `interaction_schema.in_app_notifications` & Đánh dấu Đã đọc (`is_read`).
+  * `ISSUE-21.1`: **User Story** - In-App Notification Module - Xử lý thông báo qua In-Memory EventBus & STOMP Push.
+  * `ISSUE-21.2`: **Task** - `@EventListener` lắng nghe Domain Events từ EventBus nội bộ (`ApplicationEventPublisher`) & Chống trùng lặp qua `eventId`.
+  * `ISSUE-21.3`: **Task** - Lưu danh sách thông báo vào Bảng `interaction_schema.in_app_notifications` & API Đánh dấu đã đọc / Đếm tin chưa đọc.
+  * `ISSUE-21.4`: **Task** - Đẩy thông báo đích danh Client qua `SimpMessagingTemplate` (`/user/queue/notifications`) & In-App Toast Popup (<100ms).
 
 * **Mô hình Kiến trúc Toàn Hệ Thống:**
   * **Event-Driven Monolith (Spring In-Memory EventBus):** 

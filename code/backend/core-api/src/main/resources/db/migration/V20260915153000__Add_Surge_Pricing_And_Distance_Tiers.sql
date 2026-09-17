@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Migration: Add Surge Pricing Rules and Distance Fee Tiers in catalog_schema
--- Standard: Timestamp Versioning V20260915150000
+-- Standard: Timestamp Versioning V20260915153000
 -- ==============================================================================
 
 -- 1. BẢNG CẤU HÌNH QUY TẮC SURGE PRICING (CAO ĐIỂM / TỶ LỆ CUNG CẦU)

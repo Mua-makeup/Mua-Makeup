@@ -24,6 +24,8 @@ import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.AgencyStaffStyleRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
+import com.makeup.platform.repository.RoleRepository;
+import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.service.agency.impl.AgencyStaffServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -74,6 +76,12 @@ class AgencyStaffServiceImplTest {
 
     @Mock
     private MuaProfileRepository muaProfileRepository;
+
+    @Mock
+    private RoleRepository roleRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Spy
     private AgencyStaffMapper agencyStaffMapper;

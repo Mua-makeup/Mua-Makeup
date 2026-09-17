@@ -46,6 +46,9 @@ dependencies {
     implementation 'com.google.zxing:core:3.5.3'
     implementation 'com.google.zxing:javase:3.5.3'
 
+    // Spatial Indexing (Uber H3 Core 4.x)
+    implementation 'com.uber:h3:4.1.1'
+
 
     // JWT (JJWT 0.11.5)
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
