@@ -17,8 +17,11 @@ import java.util.Optional;
 @Component
 public class CookieUtils {
 
-    @Value("${jwt.cookie-secure:false}")
+    @Value("${jwt.cookie-secure:true}")
     private boolean cookieSecure;
+
+    @Value("${jwt.cookie-same-site:None}")
+    private String cookieSameSite;
 
     @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
@@ -36,10 +39,11 @@ public class CookieUtils {
                 .secure(cookieSecure)
                 .path("/")
                 .maxAge(maxAgeSeconds)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        log.debug("Set access token cookie with maxAge: {}s", maxAgeSeconds);
+
+        addCookieHeader(response, cookie);
+        log.debug("Set access token cookie with maxAge: {}s, sameSite: {}, secure: {}", maxAgeSeconds, cookieSameSite, cookieSecure);
     }
 
     /**
@@ -51,9 +55,10 @@ public class CookieUtils {
                 .secure(cookieSecure)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        addCookieHeader(response, cookie);
         log.debug("Deleted access token cookie");
     }
 
@@ -80,10 +85,11 @@ public class CookieUtils {
                 .secure(cookieSecure)
                 .path("/")
                 .maxAge(maxAgeSeconds)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        log.debug("Set refresh token cookie with maxAge: {}s", maxAgeSeconds);
+
+        addCookieHeader(response, cookie);
+        log.debug("Set refresh token cookie with maxAge: {}s, sameSite: {}, secure: {}", maxAgeSeconds, cookieSameSite, cookieSecure);
     }
 
     /**
@@ -95,10 +101,22 @@ public class CookieUtils {
                 .secure(cookieSecure)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        addCookieHeader(response, cookie);
         log.debug("Deleted refresh token cookie");
+    }
+
+    /**
+     * Đính kèm Set-Cookie header và bổ sung cờ Partitioned (CHIPS) nếu chạy ở chế độ Cross-Site HTTPS.
+     */
+    private void addCookieHeader(HttpServletResponse response, ResponseCookie cookie) {
+        String cookieString = cookie.toString();
+        if (cookieSecure && "None".equalsIgnoreCase(cookieSameSite)) {
+            cookieString += "; Partitioned";
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieString);
     }
 
     /**

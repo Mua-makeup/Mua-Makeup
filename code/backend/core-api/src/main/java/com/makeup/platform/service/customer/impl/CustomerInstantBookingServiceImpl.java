@@ -474,7 +474,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         return true;
     }
 
-    @Scheduled(fixedDelay = 3000)
+    @Scheduled(fixedDelay = 30000)
     @Transactional
     public void scanAndExpireOverdueInstantBookings() {
         LocalDateTime threshold = LocalDateTime.now().minusSeconds(45);
