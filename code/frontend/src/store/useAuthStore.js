@@ -26,6 +26,9 @@ export const useAuthStore = create((set) => ({
         isLoading: false,
       });
 
+      // Đánh dấu đã có session để App.jsx biết gọi /me khi refresh trang
+      localStorage.setItem('mua_logged_in', 'true');
+
       return { success: true, role: primaryRole };
     } catch (error) {
       set({ isLoading: false });
@@ -39,6 +42,7 @@ export const useAuthStore = create((set) => ({
     } catch {
       // Ignored if server error
     } finally {
+      localStorage.removeItem('mua_logged_in');
       set({
         user: null,
         role: null,
@@ -87,4 +91,7 @@ export const useAuthStore = create((set) => ({
     const primaryRole = user?.roles?.[0] || null;
     set({ user, role: primaryRole });
   },
+
+  // Đánh dấu kiểm tra xong mà không có session
+  setCheckingDone: () => set({ isCheckingAuth: false }),
 }));
