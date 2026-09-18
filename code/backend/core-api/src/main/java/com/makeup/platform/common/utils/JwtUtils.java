@@ -35,7 +35,7 @@ public class JwtUtils {
     @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
 
-    @Value("${jwt.refresh-token-expiration-days:30}")
+    @Value("${jwt.refresh-token-expiration-days:7}")
     private long refreshTokenExpirationDays;
 
     private Key getSigningKey() {
