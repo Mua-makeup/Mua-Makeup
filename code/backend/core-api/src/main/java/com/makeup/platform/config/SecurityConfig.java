@@ -35,10 +35,9 @@ public class SecurityConfig {
             "http://localhost:[*]",
             "http://127.0.0.1:[*]",
             "https://*.vercel.app",
-            "https://*.railway.app",
             "https://*.ngrok-free.app",
-            "https://*.loca.lt"
-    );
+            "https://*.ngrok-free.dev",
+            "https://*.loca.lt");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
@@ -85,8 +84,7 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
-                        .accessDeniedHandler(customAccessDeniedHandler)
-                )
+                        .accessDeniedHandler(customAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints & Static Demo UI
                         .requestMatchers(
@@ -107,21 +105,21 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/actuator/**",
-                                "/error"
-                        ).permitAll()
+                                "/error")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/packages/my").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/packages/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/master-categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/makeup-styles/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/profile").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/portfolios").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/agency/*/profile", "/api/v1/agencies/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agency/*/profile", "/api/v1/agencies/*/profile")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/telemetry/nearby").permitAll()
                         .requestMatchers("/api/v1/pricing/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         // All other endpoints require authentication
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
