@@ -96,6 +96,9 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
             ));
             syncMainBranchLocation(agency, req.getLatitude(), req.getLongitude());
         }
+        if (req.getIsSurgeEnabled() != null) {
+            agency.setIsSurgeEnabled(req.getIsSurgeEnabled());
+        }
 
         AgencyProfileEntity saved = agencyProfileRepository.save(agency);
         log.info("Updated Agency profile: agencyId={}, ownerId={}, lat={}, lng={}", 

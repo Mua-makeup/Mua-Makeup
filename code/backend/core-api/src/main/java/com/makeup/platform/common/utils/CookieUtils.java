@@ -20,8 +20,55 @@ public class CookieUtils {
     @Value("${jwt.cookie-secure:false}")
     private boolean cookieSecure;
 
+    @Value("${jwt.access-token-expiration-ms:86400000}")
+    private long accessTokenExpirationMs;
+
     @Value("${jwt.refresh-token-expiration-days:30}")
     private long refreshTokenExpirationDays;
+
+    /**
+     * Ghi Access Token vào HttpOnly Cookie để bảo vệ chống XSS.
+     */
+    public void setAccessTokenCookie(HttpServletResponse response, String accessToken) {
+        long maxAgeSeconds = Math.max(1, accessTokenExpirationMs / 1000);
+        ResponseCookie cookie = ResponseCookie.from(SecurityConstants.ACCESS_TOKEN_COOKIE_NAME, accessToken)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(maxAgeSeconds)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        log.debug("Set access token cookie with maxAge: {}s", maxAgeSeconds);
+    }
+
+    /**
+     * Thu hồi/xóa Access Token Cookie khi Logout.
+     */
+    public void deleteAccessTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(SecurityConstants.ACCESS_TOKEN_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        log.debug("Deleted access token cookie");
+    }
+
+    /**
+     * Trích xuất Access Token từ Cookie trong request.
+     */
+    public Optional<String> getAccessTokenFromCookie(HttpServletRequest request) {
+        if (request == null || request.getCookies() == null) {
+            return Optional.empty();
+        }
+        return Arrays.stream(request.getCookies())
+                .filter(c -> SecurityConstants.ACCESS_TOKEN_COOKIE_NAME.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst();
+    }
 
     /**
      * Ghi Refresh Token vào HttpOnly Cookie để bảo vệ chống XSS.

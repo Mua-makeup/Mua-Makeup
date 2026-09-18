@@ -71,116 +71,107 @@ makeup-platform/
 
 ```text
 code/frontend/
-├── .husky/                             # Git pre-commit hooks chặn commit lỗi
-│   └── pre-commit                      # Script chạy linter và type check trước khi commit
-│
 ├── public/                             # Tài nguyên tĩnh độc lập không qua build pipeline
 │   ├── favicon.ico
-│   ├── robots.txt
-│   └── locales/                        # Đa ngôn ngữ i18n (vi.json, en.json)
+│   └── robots.txt
 │
 ├── src/
-│   ├── assets/                         # Tài nguyên được Vite xử lý, tối ưu hóa
-│   │   ├── images/                     # Ảnh logo, placeholder thợ, banner
-│   │   ├── icons/                      # SVG icons tự custom
-│   │   └── fonts/                      # Font chữ typography nội bộ
+│   ├── assets/                         # Tài nguyên đồ họa, hình ảnh
+│   │   ├── images/                     # Logo thương hiệu, placeholder avatar
+│   │   └── icons/                      # SVG icons tùy chỉnh
 │   │
-│   ├── pages/                          # Các màn hình phân theo phân hệ & vai trò
-│   │   ├── auth/                       # Trang Đăng nhập, Đăng ký (Agency/Freelancer), Quên mật khẩu
-│   │   │   ├── LoginPage.jsx
-│   │   │   └── RegisterPage.jsx
-│   │   ├── admin/                      # Nhóm màn hình Quản trị viên (Super Admin)
-│   │   │   ├── DashboardPage.jsx       # Báo cáo tổng thể doanh thu, GMV, đơn booking
-│   │   │   ├── UserManagementPage.jsx  # Quản lý tài khoản và khóa thợ/đại lý
-│   │   │   └── DisputeResolutionPage.jsx # Giải quyết khiếu nại, hoàn tiền cọc
-│   │   ├── agency/                     # Nhóm màn hình dành cho Chủ Studio / Quản lý Đại lý
-│   │   │   ├── StaffManagementPage.jsx # Quản lý thợ nội bộ, gán style & ma trận xếp ca
-│   │   │   ├── DispatchBoardPage.jsx   # Bảng điều phối đơn ca khẩn cấp & lịch hẹn
-│   │   │   └── InternalRevenuePage.jsx # Doanh thu & bảng chia hoa hồng thợ
-│   │   ├── catalog/                    # Quản lý danh mục gói dịch vụ & cấu hình phụ phí
-│   │   │   ├── ServiceCatalogPage.jsx  # CRUD Gói dịch vụ & upload ảnh Portfolio
-│   │   │   └── SurchargeConfigPage.jsx # Cấu hình phụ phí di chuyển, phụ phí sáng sớm
-│   │   └── wallet/                     # Quản lý số dư, lịch sử giao dịch và rút tiền
-│   │       ├── WalletPage.jsx
-│   │       └── WithdrawalRequestPage.jsx
+│   ├── pages/                          # Các màn hình phân theo phân hệ & vai trò (Clean Role Boundaries)
+│   │   ├── Auth/                       # Phân hệ Xác thực & Đăng ký
+│   │   │   ├── LoginPage.jsx           # Đăng nhập bằng Email/SĐT + Mật khẩu (Cookie-based Auth)
+│   │   │   ├── RegisterAgencyPage.jsx  # Đăng ký hồ sơ đại lý / Studio mới
+│   │   │   └── RegisterFreelancerPage.jsx # Đăng ký hồ sơ chuyên viên MUA tự do
+│   │   │
+│   │   ├── SuperAdmin/                 # Phân hệ Quản trị viên Sàn (ROLE_SUPER_ADMIN)
+│   │   │   ├── AdminDashboardPage.jsx  # Tổng quan KPI sàn, trạng thái Core API & hàng chờ chứng chỉ
+│   │   │   ├── AdminAgenciesPage.jsx   # Thẩm định & duyệt/thu hồi studio (Có ConfirmDialog xác nhận)
+│   │   │   ├── AdminUsersPage.jsx      # Quản trị danh sách người dùng, khóa/mở tài khoản (ConfirmDialog)
+│   │   │   ├── AdminBookingsPage.jsx   # Giám sát đơn đặt lịch toàn hệ thống realtime
+│   │   │   ├── MuaVerificationPage.jsx # Thẩm định hồ sơ bằng cấp chuyên viên MUA
+│   │   │   ├── SurgePricingManagementPage.jsx # Quản lý bảng quy tắc giá động (Surge Pricing) & H3 Hexagon
+│   │   │   └── TaxonomyManagementPage.jsx # Quản trị Danh mục dịch vụ gốc & Tone phong cách (Toast tự tắt)
+│   │   │
+│   │   └── Agency/                     # Phân hệ Chủ Studio / Quản lý Đại lý (ROLE_AGENCY_ADMIN)
+│   │       ├── AgencyDashboardPage.jsx # Báo cáo doanh thu studio, số lượng đơn & hiệu suất thợ
+│   │       ├── StaffManagementPage.jsx # Quản lý thợ nội bộ, gán style/gói dịch vụ, xóa thợ (ConfirmDialog)
+│   │       ├── ServicePackageListPage.jsx # Quản lý gói dịch vụ, ẩn/hiện, xóa gói (ConfirmDialog)
+│   │       ├── AgencyBookingsPage.jsx  # Lịch hẹn khách đặt tại cơ sở & tận nơi
+│   │       └── AgencySettingsPage.jsx  # Cài đặt thông tin cơ sở, hoa hồng & bản đồ định vị GPS
 │   │
-│   ├── components/                     # Hệ thống Component giao diện tái sử dụng
-│   │   ├── base/                       # Component UI nguyên tử cơ bản (Shadcn UI / Custom)
-│   │   │   ├── BaseButton.jsx
-│   │   │   ├── BaseInput.jsx
-│   │   │   ├── BaseModal.jsx
-│   │   │   ├── BaseTable.jsx           # Bảng dữ liệu có phân trang, search, sorting
-│   │   │   └── BaseBadge.jsx           # Badge trạng thái đơn đặt lịch
-│   │   └── features/                   # Component gắn liền với logic nghiệp vụ
-│   │       ├── auth/                   # Form đăng nhập, bộ chọn vai trò
-│   │       ├── booking/                # Popup đếm ngược nhận đơn (Countdown 30s)
-│   │       ├── catalog/                # Thẻ hiển thị gói dịch vụ, gallery ảnh portfolio
-│   │       ├── map/                    # Bản đồ radar theo dõi vị trí thợ realtime (Leaflet/Google Map)
-│   │       └── dispatch/               # Ma trận ca làm việc nhân viên studio
+│   ├── components/                     # Hệ thống Component giao diện Luxury Beauty tái sử dụng
+│   │   ├── base/                       # Atomic Base Components chuẩn thiết kế
+│   │   │   ├── Button.jsx              # Button đa biến thể: primary, secondary, danger, success, outline, ghost
+│   │   │   ├── Input.jsx               # Input field tích hợp validation error & icon
+│   │   │   ├── Select.jsx              # Dropdown select chuẩn giao diện
+│   │   │   ├── Textarea.jsx            # Ô nhập văn bản đa dòng
+│   │   │   ├── Badge.jsx               # Tag trạng thái (active, pending, rejected, inactive)
+│   │   │   ├── Modal.jsx               # Hộp thoại popup linh hoạt với backdrop & focus trap
+│   │   │   ├── ConfirmDialog.jsx       # Modal xác nhận bắt buộc cho 100% THAO TÁC XÓA / THU HỒI / ĐĂNG XUẤT
+│   │   │   ├── DataTable.jsx           # Bảng dữ liệu có phân trang, tìm kiếm & sắp xếp
+│   │   │   └── Toast.jsx               # Thông báo nổi góc màn hình, tự động biến mất sau 3 giây
+│   │   │
+│   │   └── features/                   # Component nghiệp vụ chuyên sâu
+│   │       ├── admin/                  # Modal thẩm định chứng chỉ, danh mục, phong cách & quy tắc giá động
+│   │       │   ├── CertificateReviewModal.jsx # Xem chi tiết bằng cấp & phê duyệt/từ chối
+│   │       │   ├── CategoryModal.jsx   # Thêm/sửa danh mục dịch vụ (Có Toast thông báo)
+│   │       │   ├── StyleModal.jsx      # Thêm/sửa phong cách make-up (Có Toast thông báo)
+│   │       │   └── SurgeRuleModal.jsx  # Cấu hình khung giờ, ngày trong tuần & hệ số surge multiplier
+│   │       └── agency/                 # Component dành riêng cho quản trị studio
+│   │           ├── LocationMapPicker.jsx # Bản đồ tương tác định vị cơ sở (Goong/Leaflet, smart fallback Hà Nội, auto-geocode)
+│   │           ├── PackageItemManager.jsx # Quản lý dịch vụ con / add-on của gói (Xóa có ConfirmDialog)
+│   │           ├── ServicePackageModal.jsx # Tạo / chỉnh sửa gói dịch vụ trang điểm
+│   │           ├── StaffInvitationModal.jsx # Tạo mã QR tuyển dụng 72h (Hủy mã có ConfirmDialog)
+│   │           ├── StaffPackageAssignModal.jsx # Phân quyền gói dịch vụ cho thợ thực hiện
+│   │           ├── StaffStyleAssignModal.jsx # Gán tone phong cách sở trường cho nhân viên
+│   │           └── WeeklyShiftTable.jsx # Ma trận xếp ca làm việc tuần (Xóa ca có ConfirmDialog)
 │   │
-│   ├── routes/                         # Cấu hình điều hướng (React Router DOM v6+)
-│   │   ├── index.jsx                   # Khai báo tuyến đường tổng hợp
-│   │   ├── ProtectedRoute.jsx          # Kiểm tra JWT Token & phiên đăng nhập
-│   │   └── RoleBasedRoute.jsx          # Phân quyền truy cập theo RBAC (ADMIN, AGENCY_OWNER...)
+│   ├── layouts/                        # Khung bố cục hệ thống
+│   │   ├── AdminLayout.jsx             # Layout dành cho Super Admin (Sidebar, Header, Breadcrumbs)
+│   │   ├── AgencyLayout.jsx            # Layout dành cho Agency Admin
+│   │   └── TopRoleBanner.jsx           # Thanh Banner tài khoản (Dropdown thông tin, Đổi MK & Đăng xuất có ConfirmDialog)
 │   │
-│   ├── layouts/                        # Bộ khung giao diện chuẩn
-│   │   ├── MainLayout.jsx              # Khung Dashboard có Sidebar điều hướng, Header, Thông báo
-│   │   ├── AuthLayout.jsx              # Khung đơn giản căn giữa cho trang Login/Register
-│   │   └── components/                 # Thành phần con của layout (Header, Sidebar, UserMenu)
+│   ├── routes/                         # Định tuyến & Phân quyền bảo mật RBAC
+│   │   ├── AppRoutes.jsx               # Tuyến đường tổng hợp
+│   │   ├── ProtectedRoute.jsx          # Bảo vệ route với HttpOnly Cookie Auth, kiểm tra /auth/me
+│   │   └── RoleBasedRoute.jsx          # Chặn truy cập trái quyền theo vai trò (ROLE_SUPER_ADMIN, ROLE_AGENCY_ADMIN...)
 │   │
-│   ├── lib/                            # Cấu hình các thư viện bên ngoài
-│   │   ├── axios.js                    # Axios instance gắn Bearer Token & Refresh Token Interceptor
-│   │   ├── stomp-client.js             # Cấu hình kết nối WebSocket STOMP (WSS)
-│   │   └── utils.js                    # Format tiền tệ VND, định dạng ngày giờ Việt Nam
-│   │
-│   ├── hooks/                          # Custom React Hooks
-│   │   ├── useAuth.js                  # Hook lấy thông tin phiên người dùng và quyền hạn
-│   │   ├── useWebSocket.js             # Hook lắng nghe kênh tin nhắn WebSocket
-│   │   └── useDebounce.js              # Hook tối ưu tìm kiếm gói dịch vụ/địa điểm
+│   ├── services/                       # Tầng HTTP Client gọi Backend API
+│   │   ├── api-client.js               # Axios client: withCredentials=true (HttpOnly Cookie), Accept-Language
+│   │   ├── auth.service.js             # API đăng nhập, đăng xuất, refresh-token, lấy thông tin tài khoản
+│   │   ├── agency.service.js           # API gói dịch vụ, phụ phí, thợ, xếp ca, mã mời QR, cài đặt vị trí
+│   │   └── super-admin.service.js      # API thẩm định chứng chỉ, studio, người dùng, giá động & taxonomy
 │   │
 │   ├── store/                          # Quản lý State toàn cục bằng Zustand
-│   │   ├── useAuthStore.js             # Lưu trữ User profile, Access Token, Permissions
-│   │   ├── useBookingAlertStore.js     # Lưu trạng thái popup nhận ca khẩn cấp realtime
-│   │   └── useThemeStore.js            # Quản lý Dark/Light theme
+│   │   ├── useAuthStore.js             # In-memory auth state (Không lưu token nhạy cảm trong localStorage)
+│   │   └── useI18nStore.js             # Đa ngôn ngữ song ngữ 100% (VI & EN), chuyển đổi tức thì không reload
 │   │
-│   ├── styles/                         # Cấu hình CSS
-│   │   ├── index.css                   # Global CSS & Tailwind Directives (@tailwind)
-│   │   └── variables.css               # Biến màu sắc theo chuẩn UI/UX Style Guideline
-│   │
-│   ├── providers/                      # Bộ bọc Provider (React Query, Theme, Toast Provider)
-│   │   ├── QueryClientProvider.jsx
-│   │   └── ToastProvider.jsx
+│   ├── constants/                      # Hằng số & Từ điển hệ thống
+│   │   ├── i18n.constant.js            # Từ điển song ngữ toàn diện (VI/EN) cho toàn bộ UI, form & toast
+│   │   ├── roles.constant.js           # Định nghĩa vai trò (SUPER_ADMIN, AGENCY_ADMIN, AGENCY_STAFF, FREELANCE_MUA, CUSTOMER)
+│   │   ├── agency.constant.js          # Hằng số ca làm việc, trạng thái nhân viên
+│   │   └── super-admin.constant.js     # Tabs taxonomy, trạng thái thẩm định
 │   │
 │   ├── schemas/                        # Client-side Validation sử dụng Zod
-│   │   ├── auth.schema.js              # Validate số điện thoại, mật khẩu, CCCD/Mã số thuế
-│   │   ├── catalog.schema.js           # Validate giá gói dịch vụ, thời gian thực hiện
-│   │   └── surcharge.schema.js         # Validate mốc km, khung giờ sáng sớm
+│   │   ├── auth.schema.js              # Validate form đăng nhập, đổi mật khẩu
+│   │   ├── agency.schema.js            # Validate thông tin studio, gói dịch vụ, thợ, ca làm, vị trí GPS
+│   │   └── super-admin.schema.js       # Validate quy tắc giá động, danh mục, phong cách
 │   │
-│   ├── services/                       # Tầng gọi API Backend (gắn với Axios)
-│   │   ├── authService.js
-│   │   ├── catalogService.js
-│   │   ├── bookingService.js
-│   │   ├── agencyService.js
-│   │   └── walletService.js
+│   ├── utils/                          # Tiện ích định dạng dữ liệu
+│   │   └── formatters.js               # Định dạng tiền tệ VND, ngày giờ Việt Nam
 │   │
-│   ├── constants/                      # Hằng số giao diện và cấu hình
-│   │   ├── api-endpoints.js            # Danh sách URL API Backend
-│   │   ├── roles.js                    # Danh sách vai trò (CUSTOMER, FREELANCER, AGENCY, ADMIN)
-│   │   └── booking-status.js           # Enum trạng thái đơn đặt lịch
-│   │
-│   ├── App.jsx                         # Component Root kết nối Router & Providers
-│   └── main.jsx                        # Điểm khởi chạy chính gắn vào file index.html
+│   ├── App.jsx                         # Component Root nạp AppRoutes & kiểm tra phiên đăng nhập
+│   ├── main.jsx                        # Bootstrap React DOM
+│   └── index.css                       # Global styles với Tailwind CSS & Luxury Beauty tokens
 │
-├── index.html                          # Trang HTML chính chứa thẻ div #root
-├── eslint.config.mjs                   # Cấu hình ESLint (cấm unused-vars, ép kebab-case file name)
-├── .prettierrc                         # Định dạng mã nguồn (tabWidth 2, singleQuote true, semi true)
-├── tailwind.config.js                  # Khai báo bảng màu Pastel, khoảng cách, font chữ hệ thống
-├── vite.config.js                      # Cấu hình Vite (Alias `@/`, proxy API local `/api`)
-├── Dockerfile                          # Build Nginx Alpine phục vụ static files trên production
-├── .dockerignore
-├── package.json                        # Khai báo React 18, Vite, Tailwind, Zustand, Zod, Lucide-react
-├── .gitignore
-└── .env.example                        # Mẫu cấu hình môi trường (VITE_API_BASE_URL, VITE_WS_URL)
+├── index.html                          # HTML root
+├── eslint.config.mjs                   # ESLint với quy chuẩn nghiêm ngặt (0 warning, 0 error)
+├── tailwind.config.js                  # Cấu hình Tailwind Design Tokens
+├── vite.config.js                      # Cấu hình Vite bundler & dev server (Port 3000)
+└── package.json                        # React 18, Vite 5, Tailwind 3, Zustand, Zod, Lucide-react
 ```
 
 ---

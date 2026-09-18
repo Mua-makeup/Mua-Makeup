@@ -359,6 +359,14 @@
   },
   "agency": {
     "bookings_fetch_success": "Retrieved studio bookings successfully."
+  },
+  "pricing": {
+    "surge_rule_created_success": "Dynamic pricing surge rule created successfully!",
+    "surge_rule_updated_success": "Dynamic pricing surge rule updated successfully!",
+    "surge_rule_deleted_success": "Dynamic pricing surge rule deleted successfully!",
+    "surge_rules_get_success": "Retrieved dynamic pricing surge rules successfully.",
+    "h3_surge_status_success": "Retrieved Uber H3 algorithm status successfully.",
+    "h3_surge_toggle_success": "Updated Uber H3 algorithm status successfully."
   }
 }
 

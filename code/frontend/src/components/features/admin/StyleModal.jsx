@@ -78,7 +78,10 @@ export const StyleModal = ({ isOpen, onClose, styleItem, onSuccess }) => {
         await superAdminService.createMakeupStyle(payload);
       }
 
-      onSuccess?.();
+      const successMsg = isEdit
+        ? t('style_updated_success')
+        : t('style_created_success');
+      onSuccess?.(successMsg);
       onClose();
     } catch (err) {
       setApiError(err.response?.data?.message || err.message || t('error_general'));

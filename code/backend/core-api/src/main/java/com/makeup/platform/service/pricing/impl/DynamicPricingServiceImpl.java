@@ -111,7 +111,7 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
         boolean isAgency = "AGENCY".equalsIgnoreCase(req.getProviderType());
         BigDecimal maxServiceRadiusKm = PricingConstants.DEFAULT_MAX_SERVICE_RADIUS_KM;
         BigDecimal freeRadiusKm = PricingConstants.DEFAULT_FREE_RADIUS_KM;
-        BigDecimal pricePerKm = PricingConstants.DEFAULT_PRICE_PER_KM;
+        BigDecimal pricePerKm = null;
 
         MuaProfileEntity mua = null;
         AgencyProfileEntity agency = null;
@@ -398,7 +398,9 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
                 return new ResolvedLocation(mua.getBaseAddressLat(), mua.getBaseAddressLng(), "MUA_BASE_ADDRESS");
             }
         } else if (isAgency && agency != null) {
-            // TẦNG 3 (Đối với Agency): Lấy tọa độ chi nhánh chính đang hoạt động
+            if (agency.getLatitude() != null && agency.getLongitude() != null) {
+                return new ResolvedLocation(agency.getLatitude(), agency.getLongitude(), "AGENCY_PROFILE_LOCATION");
+            }
             List<AgencyBranchEntity> branches = agencyBranchRepository.findByAgencyIdAndIsActiveTrue(agency.getId());
             if (branches != null && !branches.isEmpty()) {
                 AgencyBranchEntity branch = branches.get(0);
@@ -408,7 +410,6 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
             }
         }
 
-        // TẦNG 4: Hard Reject - Không có bất kỳ dữ liệu vị trí nào
         log.warn("Unable to resolve location for provider type: {}, id: {}. Rejecting preview calculation.",
                 isAgency ? "AGENCY" : "MUA", providerId);
 

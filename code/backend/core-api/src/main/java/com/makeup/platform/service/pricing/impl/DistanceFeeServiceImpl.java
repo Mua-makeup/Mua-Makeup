@@ -4,6 +4,8 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.PricingConstants;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
+import com.makeup.platform.entity.pricing.DistanceFeeTierEntity;
+import com.makeup.platform.repository.pricing.DistanceFeeTierRepository;
 import com.makeup.platform.service.pricing.DistanceFeeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +19,8 @@ import java.math.RoundingMode;
 @Service
 @RequiredArgsConstructor
 public class DistanceFeeServiceImpl implements DistanceFeeService {
+
+    private final DistanceFeeTierRepository distanceFeeTierRepository;
 
     @Override
     public InvoicePreviewRes.DistanceInfo calculateDistanceFee(
@@ -41,7 +45,12 @@ public class DistanceFeeServiceImpl implements DistanceFeeService {
         }
 
         BigDecimal freeRadius = customFreeRadiusKm != null ? customFreeRadiusKm : PricingConstants.DEFAULT_FREE_RADIUS_KM;
-        BigDecimal pricePerKm = customPricePerKm != null ? customPricePerKm : PricingConstants.DEFAULT_PRICE_PER_KM;
+        BigDecimal pricePerKm = customPricePerKm;
+        if (pricePerKm == null) {
+            pricePerKm = distanceFeeTierRepository.findApplicableTier(actualDistance)
+                    .map(DistanceFeeTierEntity::getPricePerKm)
+                    .orElse(PricingConstants.DEFAULT_PRICE_PER_KM);
+        }
 
         BigDecimal excessDistanceKm;
         BigDecimal distanceFee;

@@ -21,6 +21,7 @@ import { AdminUsersPage } from '../pages/SuperAdmin/AdminUsersPage';
 import { AdminAgenciesPage } from '../pages/SuperAdmin/AdminAgenciesPage';
 import { MuaVerificationPage } from '../pages/SuperAdmin/MuaVerificationPage';
 import { TaxonomyManagementPage } from '../pages/SuperAdmin/TaxonomyManagementPage';
+import { SurgePricingManagementPage } from '../pages/SuperAdmin/SurgePricingManagementPage';
 
 // Agency Admin Pages
 import { AgencyDashboardPage } from '../pages/Agency/AgencyDashboardPage';
@@ -30,6 +31,7 @@ import { ServicePackageListPage } from '../pages/Agency/ServicePackageListPage';
 import { SurchargeConfigPage } from '../pages/Agency/SurchargeConfigPage';
 import { StaffManagementPage } from '../pages/Agency/StaffManagementPage';
 import { ShiftSchedulePage } from '../pages/Agency/ShiftSchedulePage';
+import { AgencySettingsPage } from '../pages/Agency/AgencySettingsPage';
 
 export const AppRoutes = () => {
   return (
@@ -58,6 +60,7 @@ export const AppRoutes = () => {
           <Route path="agencies" element={<AdminAgenciesPage />} />
           <Route path="muas/credentials" element={<MuaVerificationPage />} />
           <Route path="taxonomy" element={<TaxonomyManagementPage />} />
+          <Route path="pricing" element={<SurgePricingManagementPage />} />
         </Route>
 
         {/* Agency Admin Protected Routes */}
@@ -75,6 +78,7 @@ export const AppRoutes = () => {
           <Route path="dashboard" element={<AgencyDashboardPage />} />
           <Route path="bookings" element={<AgencyBookingsPage />} />
           <Route path="profile" element={<AgencyProfilePage />} />
+          <Route path="settings" element={<AgencySettingsPage />} />
           <Route path="packages" element={<ServicePackageListPage />} />
           <Route path="surcharges" element={<SurchargeConfigPage />} />
           <Route path="staff" element={<StaffManagementPage />} />
