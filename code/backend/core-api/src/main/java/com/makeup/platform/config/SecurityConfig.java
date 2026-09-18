@@ -31,6 +31,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+<<<<<<< Updated upstream
+=======
+    private static final List<String> ALLOWED_ORIGINS = List.of(
+            "http://localhost:[*]",
+            "http://127.0.0.1:[*]",
+            "https://*.vercel.app",
+            "https://*.railway.app",
+            "https://*.ngrok-free.app",
+            "https://*.ngrok-free.dev",
+            "https://*.loca.lt",
+            "*"
+    );
+
+>>>>>>> Stashed changes
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
