@@ -404,6 +404,8 @@ export const TRANSLATIONS = {
     already_have_account: 'Đã có tài khoản?',
     register_here: 'Đăng ký ngay',
     login_here: 'Đăng nhập ngay',
+    auth_required_toast: 'Bạn chưa đăng nhập hoặc không có token xác thực. Vui lòng đăng nhập để tiếp tục.',
+    auth_session_expired_toast: 'Phiên làm việc đã hết hạn hoặc không tìm thấy token. Vui lòng đăng nhập lại.',
 
     // DataTable & Common Inputs
     dt_showing: 'Hiển thị',
@@ -1274,6 +1276,8 @@ export const TRANSLATIONS = {
     already_have_account: 'Already have an account?',
     register_here: 'Register here',
     login_here: 'Sign in here',
+    auth_required_toast: 'Authentication required or token missing. Please log in to continue.',
+    auth_session_expired_toast: 'Session expired or token not found. Please log in again.',
 
     // DataTable & Common Inputs
     dt_showing: 'Showing',

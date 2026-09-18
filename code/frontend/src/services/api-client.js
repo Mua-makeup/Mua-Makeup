@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/app.constant';
 import { STORAGE_KEYS } from '../constants/roles.constant';
+import { useToastStore } from '../store/useToastStore';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -27,17 +28,36 @@ apiClient.interceptors.response.use(
     return response.data;
   },
   (error) => {
-    if (error.response?.status === 401) {
-      if (!window.location.pathname.startsWith('/login') && window.location.pathname !== '/') {
-        window.location.href = '/login';
-      }
-    }
     const backendData = error.response?.data;
+    const is401 = error.response?.status === 401;
+    const default401Msg = 'Phiên làm việc đã hết hạn hoặc không tìm thấy token xác thực. Vui lòng đăng nhập lại.';
     const localizedMessage =
       backendData?.message ||
       (typeof backendData?.data === 'string' ? backendData.data : null) ||
-      error.message ||
-      'Lỗi kết nối máy chủ';
+      (is401 ? default401Msg : error.message || 'Lỗi kết nối máy chủ');
+
+    if (is401) {
+      localStorage.removeItem('mua_logged_in');
+
+      // Luôn hiện Toast báo lỗi không có token / phiên hết hạn
+      useToastStore.getState().showToast(localizedMessage, 'error');
+
+      // Nếu đang ở ngoài màn hình login
+      if (!window.location.pathname.startsWith('/login')) {
+        // Lưu thông báo vào sessionStorage để hiển thị Toast sau khi trình duyệt chuyển trang tới /login
+        sessionStorage.setItem(
+          'auth_redirect_toast',
+          JSON.stringify({
+            message: localizedMessage,
+            type: 'error',
+          })
+        );
+
+        if (window.location.pathname !== '/') {
+          window.location.href = '/login';
+        }
+      }
+    }
 
     const normalizedError = {
       message: localizedMessage,

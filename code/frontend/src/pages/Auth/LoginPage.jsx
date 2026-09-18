@@ -1,8 +1,9 @@
-﻿import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Sparkles, Lock, User, ArrowRight, Shield, Building2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useToastStore } from '../../store/useToastStore';
 import { loginSchema } from '../../schemas/auth.schema';
 import { USER_ROLES } from '../../constants/roles.constant';
 import { Input } from '../../components/base/Input';
@@ -10,14 +11,26 @@ import { Button } from '../../components/base/Button';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useI18nStore();
   const login = useAuthStore((state) => state.login);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const showToast = useToastStore((state) => state.showToast);
 
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+
+  useEffect(() => {
+    if (location.state?.reason === 'unauthorized') {
+      const msg =
+        t('auth_required_toast') ||
+        'Bạn chưa đăng nhập hoặc không có token xác thực. Vui lòng đăng nhập để tiếp tục.';
+      setServerError(msg);
+      showToast(msg, 'error');
+    }
+  }, [location.state, showToast, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
