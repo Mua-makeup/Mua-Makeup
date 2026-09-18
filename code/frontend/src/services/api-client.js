@@ -30,11 +30,47 @@ apiClient.interceptors.response.use(
   (error) => {
     const backendData = error.response?.data;
     const is401 = error.response?.status === 401;
-    const default401Msg = 'Phiên làm việc đã hết hạn hoặc không tìm thấy token xác thực. Vui lòng đăng nhập lại.';
-    const localizedMessage =
+    const isNetworkError =
+      !error.response ||
+      error.code === 'ERR_NETWORK' ||
+      error.message === 'Network Error' ||
+      (error.request && !error.response);
+    const isTimeout =
+      error.code === 'ECONNABORTED' ||
+      error.message?.toLowerCase().includes('timeout');
+    const lang = localStorage.getItem(STORAGE_KEYS.LANGUAGE) || 'vi';
+
+    let localizedMessage =
       backendData?.message ||
-      (typeof backendData?.data === 'string' ? backendData.data : null) ||
-      (is401 ? default401Msg : error.message || 'Lỗi kết nối máy chủ');
+      (typeof backendData?.data === 'string' ? backendData.data : null);
+
+    if (!localizedMessage) {
+      if (isNetworkError) {
+        localizedMessage =
+          lang === 'en'
+            ? 'Cannot connect to the Backend server. Please verify that the backend is running.'
+            : 'Không thể kết nối đến máy chủ Backend. Vui lòng kiểm tra lại dịch vụ.';
+      } else if (isTimeout) {
+        localizedMessage =
+          lang === 'en'
+            ? 'Server request timed out. Please check your network connection.'
+            : 'Hết thời gian chờ phản hồi từ máy chủ (Timeout). Vui lòng kiểm tra kết nối mạng.';
+      } else if (is401) {
+        localizedMessage =
+          lang === 'en'
+            ? 'Session expired or token not found. Please log in again.'
+            : 'Phiên làm việc đã hết hạn hoặc không tìm thấy token xác thực. Vui lòng đăng nhập lại.';
+      } else {
+        localizedMessage =
+          error.message ||
+          (lang === 'en' ? 'Server connection error' : 'Lỗi kết nối máy chủ');
+      }
+    }
+
+    // Hiển thị Toast thông báo lỗi nếu xảy ra lỗi kết nối mạng hoặc lỗi máy chủ
+    if (isNetworkError || isTimeout) {
+      useToastStore.getState().showToast(localizedMessage, 'error');
+    }
 
     if (is401) {
       localStorage.removeItem('mua_logged_in');

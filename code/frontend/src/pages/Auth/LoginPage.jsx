@@ -57,7 +57,9 @@ export const LoginPage = () => {
         setServerError(t('login_role_unauthorized'));
       }
     } catch (err) {
-      setServerError(err.message || t('error_general'));
+      const errorMsg = err.message || t('error_general');
+      setServerError(errorMsg);
+      showToast(errorMsg, 'error');
     }
   };
 
