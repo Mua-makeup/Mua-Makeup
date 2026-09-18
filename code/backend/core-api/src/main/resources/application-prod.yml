@@ -27,6 +27,5 @@ spring:
       password: ${REDIS_PASSWORD:}
 
 jwt:
-  # Trong production (VPS / Railway): bắt buộc HTTPS và SameSite=None để Vercel nhận cookie
   cookie-secure: ${JWT_COOKIE_SECURE:true}
   cookie-same-site: ${JWT_COOKIE_SAME_SITE:None}
