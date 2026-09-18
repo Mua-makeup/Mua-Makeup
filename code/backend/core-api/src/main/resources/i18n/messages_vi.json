@@ -359,7 +359,15 @@
   },
   "agency": {
     "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công."
+  },
+  "pricing": {
+    "surge_rule_created_success": "Tạo mới quy tắc giá động thành công!",
+    "surge_rule_updated_success": "Cập nhật quy tắc giá động thành công!",
+    "surge_rule_deleted_success": "Xóa quy tắc giá động thành công!",
+    "surge_rules_get_success": "Lấy danh sách quy tắc giá động thành công.",
+    "h3_surge_status_success": "Lấy trạng thái thuật toán Uber H3 thành công.",
+    "h3_surge_toggle_success": "Cập nhật trạng thái thuật toán Uber H3 thành công."
   }
 }
 
-
+

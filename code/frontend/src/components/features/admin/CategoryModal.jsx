@@ -82,7 +82,10 @@ export const CategoryModal = ({ isOpen, onClose, category, onSuccess }) => {
         await superAdminService.createMasterCategory(payload);
       }
 
-      onSuccess?.();
+      const successMsg = isEdit
+        ? t('category_updated_success')
+        : t('category_created_success');
+      onSuccess?.(successMsg);
       onClose();
     } catch (err) {
       setApiError(err.response?.data?.message || err.message || t('error_general'));

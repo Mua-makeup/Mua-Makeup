@@ -233,8 +233,8 @@ export const AdminDashboardPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {pendingMuas.map((mua) => (
-                  <tr key={mua.muaId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                {pendingMuas.map((mua, index) => (
+                  <tr key={`${mua.muaId}-${mua.certIndex ?? index}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <div>
                         <span className="font-bold text-slate-900 dark:text-white block">

@@ -51,6 +51,7 @@ public class AuthController extends BaseController {
             @Valid @RequestBody LoginReq req,
             HttpServletResponse response) {
         AuthRes res = authService.login(req);
+        cookieUtils.setAccessTokenCookie(response, res.getAccessToken());
         cookieUtils.setRefreshTokenCookie(response, res.getRefreshToken());
         return ok(res, "auth.login_success");
     }
@@ -76,6 +77,7 @@ public class AuthController extends BaseController {
                 .build();
 
         AuthRes res = authService.refreshToken(finalReq, bearerToken);
+        cookieUtils.setAccessTokenCookie(response, res.getAccessToken());
         cookieUtils.setRefreshTokenCookie(response, res.getRefreshToken());
         return ok(res, "auth.refresh_token_success");
     }
@@ -91,11 +93,16 @@ public class AuthController extends BaseController {
                 ? tokenFromCookie
                 : (req != null ? req.getRefreshToken() : null);
 
+        String effectiveBearerToken = StringUtils.hasText(bearerToken)
+                ? bearerToken
+                : cookieUtils.getAccessTokenFromCookie(request).map(t -> SecurityConstants.TOKEN_PREFIX + t).orElse(null);
+
         LogoutReq finalReq = LogoutReq.builder()
                 .refreshToken(refreshToken)
                 .build();
 
-        authService.logout(finalReq, bearerToken);
+        authService.logout(finalReq, effectiveBearerToken);
+        cookieUtils.deleteAccessTokenCookie(response);
         cookieUtils.deleteRefreshTokenCookie(response);
         return ok(null, "auth.logout_success");
     }

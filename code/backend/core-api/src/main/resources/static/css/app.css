@@ -1,0 +1,100 @@
+/* Luxury Beauty / Glamour Dark Theme */
+:root {
+  --bg-primary: #0b0c10;
+  --bg-card: rgba(24, 27, 40, 0.85);
+  --bg-card-hover: rgba(34, 38, 56, 0.95);
+  --border-gold: rgba(212, 175, 55, 0.25);
+  --border-gold-bright: #d4af37;
+  --gold-gradient: linear-gradient(135deg, #d4af37 0%, #f5e08b 50%, #aa771c 100%);
+  --rose-gold: #e2a76f;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-gold);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 14px 36px -10px rgba(212, 175, 55, 0.12);
+}
+
+/* Gold Text Gradients */
+.gold-text {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f111a;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2e42;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
+}
+
+/* Leaflet Container */
+.leaflet-container {
+  background: #0f111a !important;
+  font-family: inherit;
+  border-radius: 14px;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #181b29 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(212, 175, 55, 0.4) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.6) !important;
+}
+
+.leaflet-popup-tip {
+  background: #181b29 !important;
+}
+
+/* Tab navigation active state */
+.nav-tab.active {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(226, 167, 111, 0.15) 100%);
+  border-color: var(--border-gold-bright);
+  color: #f5e08b;
+  font-weight: 700;
+}
+
+/* Pulse animation */
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(212, 175, 55, 0);
+  }
+}
+.pulse-badge {
+  animation: pulse-gold 2s infinite;
+}

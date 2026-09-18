@@ -87,6 +87,28 @@ public class MuaProfileEntity extends BaseEntity {
     @Column(name = "certificates", columnDefinition = "jsonb")
     @Builder.Default
     private List<MuaCertificateItem> certificates = new ArrayList<>();
+
+    @Column(name = "last_known_lat", precision = 10, scale = 8)
+    private BigDecimal lastKnownLat;
+
+    @Column(name = "last_known_lng", precision = 11, scale = 8)
+    private BigDecimal lastKnownLng;
+
+    @Column(name = "last_known_updated_at")
+    private java.time.Instant lastKnownUpdatedAt;
+
+    @Column(name = "base_address_lat", precision = 10, scale = 8)
+    private BigDecimal baseAddressLat;
+
+    @Column(name = "base_address_lng", precision = 11, scale = 8)
+    private BigDecimal baseAddressLng;
+
+    @Column(name = "base_address_text", columnDefinition = "TEXT")
+    private String baseAddressText;
+
+    @Column(name = "is_surge_enabled", nullable = false)
+    @Builder.Default
+    private Boolean isSurgeEnabled = true;
 }
 
 

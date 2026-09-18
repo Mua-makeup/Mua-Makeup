@@ -81,59 +81,61 @@
 
 ---
 
-## 📌 SPRINT 4: EMBEDDED WEBSOCKET REALTIME GATEWAY & IN-APP NOTIFICATION MODULE (11 ISSUES)
+## 📌 SPRINT 4: HỆ THỐNG THÔNG BÁO IN-APP THỜI GIAN THỰC & P2P WEBSOCKET DISPATCHING (8 ISSUES)
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-20.1** | User Story | WebSocket Realtime Gateway - Tích hợp Embedded STOMP WebSocket trong core-api | To Do | - | Medium | BE2, SA |
-| **ISSUE-20.2** | Task | Kết nối màng lưới thời gian thực mã hóa WSS (WebSocket Secure qua SSL) | To Do | - | High | BE2, DE |
-| **ISSUE-20.3** | Task | Authentication Middleware xác thực kết nối WebSocket bằng Short-lived JWT | To Do | - | High | BE2 |
-| **ISSUE-20.4** | Task | Tích hợp Redis PubSub Adapter đồng bộ kết nối WebSocket trên nhiều Gateway | To Do | - | High | BE2, DE |
-| **ISSUE-20.5** | Task | Kênh Broadcast Popup Đếm ngược 30s đồng loạt đến App các Thợ rảnh gần nhất | To Do | - | High | BE2, FE2 |
-| **ISSUE-20.6** | Task | Kênh Stream vị trí GPS Thợ di chuyển Realtime cho Khách xem trên bản đồ | To Do | - | High | BE2, FE1 |
-| **ISSUE-21.1** | User Story | In-App Notification Module - Xử lý thông báo In-App qua In-Memory EventBus | To Do | - | Medium | BE2, DE |
-| **ISSUE-21.2** | Task | @EventListener lắng nghe Event phát sinh từ các Domain Modules | To Do | - | High | BE2 |
-| **ISSUE-21.3** | Task | Xử lý chống trùng lặp thông báo Event qua Event ID | To Do | - | Medium | BE2 |
-| **ISSUE-21.4** | Task | In-App Toast Popup Notification Client-side (<100ms response time) | To Do | - | High | FE1, FE2, FE3 |
-| **ISSUE-21.5** | Task | Lưu danh sách thông báo In-App vào Bảng `in_app_notifications` & Đánh dấu Đã đọc | To Do | - | Medium | BE2 |
+| **ISSUE-20.1** | User Story | **Hạ Tầng P2P WebSocket Dispatching & Redis Cache Tối Ưu Cho Thông Báo Cá Nhân** | To Do | - | High | BE2, DE, FE1 |
+| **ISSUE-20.2** | Task | Chuẩn hóa `WebSocketConfig`: Cấu hình User Destination Prefix (`/user`), xác thực phiên cá nhân để định tuyến chính xác kênh riêng `/user/{userId}/queue/notifications` | To Do | - | High | BE2 |
+| **ISSUE-20.3** | Task | Module Redis Helper cho Thông báo: Chống gửi trùng lặp Event (`notif:dedup:{eventId}`) & Cache biến đếm tin chưa đọc (`notif:unread:{userId}`) | To Do | - | High | BE2 |
+| **ISSUE-20.4** | Task | Tích hợp Client-side STOMP Listener: Lắng nghe kênh riêng tư `/user/queue/notifications`, tự động reconnect khi rớt mạng & Render Toast Popup (<100ms) | To Do | - | High | FE1, FE2, FE3 |
+| **ISSUE-21.1** | User Story | **Phân Hệ Thông Báo In-App Bền Vững (Database, REST APIs & Event-Driven Dispatcher)** | To Do | - | High | BE2, FE1, FE2 |
+| **ISSUE-21.2** | Task | Script DDL Flyway Migration tạo bảng `interaction_schema.in_app_notifications` & JPA Entity (hỗ trợ `target_type`, `target_id`, `action_url`, Composite Index) | To Do | - | High | BE2, DE |
+| **ISSUE-21.3** | Task | Xây dựng Tầng Repository & Manual Mapper (`InAppNotificationRepository`, `InAppNotificationMapper`) hỗ trợ lọc, phân trang và đếm unread | To Do | - | Medium | BE2 |
+| **ISSUE-21.4** | Task | Xây dựng Tầng Service & Controller (`/api/v1/notifications`): API xem danh sách phân trang, đếm chưa đọc, đánh dấu 1 tin đã đọc & đánh dấu đọc tất cả | To Do | - | High | BE2 |
+| **ISSUE-21.5** | Task | Xây dựng `NotificationEventListener` với `@TransactionalEventListener(AFTER_COMMIT)`: Bắt các sự kiện Booking/Ví, lưu DB, tăng Redis count & bắn WebSocket P2P | To Do | - | High | BE2 |
+| **ISSUE-21.6** | Task | Xây dựng UI Quả chuông Thông báo (Notification Center Dropdown) trên Header Web/App: Hiển thị số đỏ live, danh sách thông báo và Deep-link click chuyển trang | To Do | - | High | FE1, FE2, FE3 |
 
 ---
 
-## 📌 SPRINT 5: VÍ 7 BẢNG SỔ CÁI KẾ TOÁN ĐÚP & TÍCH HỢP THANH TOÁN PAYOUT (11 ISSUES)
+## 📌 SPRINT 5: VÍ 7 BẢNG SỔ CÁI KẾ TOÁN ĐÚP & TÍCH HỢP THANH TOÁN PAYOUT (13 ISSUES)
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-22.1** | User Story | Phân vùng Ví 7 Bảng - Khởi tạo Schema Sổ cái Kế toán Đúp (`wallet_schema` trong core-api) | To Do | - | Medium | BE3, SA |
-| **ISSUE-22.2** | Task | Module Quản lý Số dư khả dụng & Số dư phong tỏa trong Bảng `wallets` | To Do | - | High | BE3 |
-| **ISSUE-22.3** | Task | Bảng Sổ cái Kế toán Đúp (`ledger_entries`) hạch toán Nợ (`debit`) / Có (`credit`) đối ứng | To Do | - | High | BE3 |
-| **ISSUE-22.4** | Task | Bảng Sao kê Biến động số dư từng Ví (`wallet_transactions`) CREDIT/DEBIT/FREEZE | To Do | - | High | BE3 |
-| **ISSUE-22.5** | Task | Cơ chế Escrow Tự động: Giữ cọc -> Giải ngân Ví Thợ/Studio -> Cắt % Hoa hồng Sàn | To Do | - | High | BE3 |
-| **ISSUE-23.1** | User Story | Bảng Quản lý Tài khoản Ngân hàng chính chủ đã liên kết (`user_bank_accounts`) | To Do | - | Medium | BE3, FE2 |
-| **ISSUE-23.2** | Task | Tích hợp Cổng thanh toán MoMo API (Khởi tạo QR & Webhook IPN xác nhận) | To Do | - | High | BE3, FE1 |
+| **ISSUE-22.1** | User Story | **Phân Vùng Ví 7 Bảng - Khởi tạo Schema Sổ Cái Kế Toán Đúp & Cơ Chế Escrow Tự Động** | To Do | - | High | BE3, SA |
+| **ISSUE-22.2** | Task | Module Quản lý Số dư khả dụng & Số dư phong tỏa trong Bảng `wallet_schema.wallets` | To Do | - | High | BE3 |
+| **ISSUE-22.3** | Task | Bảng Sổ cái Kế toán Đúp (`ledger_entries`) hạch toán Nợ (`DEBIT`) / Có (`CREDIT`) đối ứng cân bằng | To Do | - | High | BE3 |
+| **ISSUE-22.4** | Task | Bảng Sao kê Biến động số dư từng ví (`wallet_transactions`) lưu vết giao dịch CREDIT/DEBIT/FREEZE | To Do | - | High | BE3 |
+| **ISSUE-22.5** | Task | Cơ chế Escrow Tự động: Giữ cọc -> Giải ngân Ví Thợ/Studio -> Cắt % Hoa hồng Sàn trong 1 `@Transactional` | To Do | - | High | BE3 |
+| **ISSUE-23.1** | User Story | **Cổng Thanh Toán Đa Phương Thức (MoMo, VNPay, ZaloPay, VietQR) Nạp Tiền Vào Ví** | To Do | - | High | BE3, FE1 |
+| **ISSUE-23.2** | Task | Tích hợp Cổng thanh toán MoMo API (Khởi tạo QR & Webhook IPN xử lý giao dịch) | To Do | - | High | BE3, FE1 |
 | **ISSUE-23.3** | Task | Tích hợp Cổng thanh toán VNPay API (VNPay Sandbox Checkout & IPN Callback) | To Do | - | High | BE3, FE1 |
 | **ISSUE-23.4** | Task | Tích hợp Cổng thanh toán ZaloPay & Phương thức VietQR Nạp tiền Ví | To Do | - | Medium | BE3, FE1 |
-| **ISSUE-23.5** | Task | Bảng Yêu cầu Rút tiền (`withdrawal_requests`) & Payout API giải ngân Ngân hàng | To Do | - | High | BE3, FE2, FE3 |
-| **ISSUE-23.6** | Task | Dashboard Quản lý Duyệt Yêu cầu Rút tiền cho Admin / Studio Web Portal | To Do | - | Medium | FE3, BE3 |
+| **ISSUE-24.1** | User Story | **Quản Lý Tài Khoản Ngân Hàng & Quy Trình Giải Ngân Payout Cho Thợ / Studio** | To Do | - | Medium | BE3, FE2, FE3 |
+| **ISSUE-24.2** | Task | Bảng Quản lý Tài khoản Ngân hàng chính chủ đã liên kết (`user_bank_accounts`) | To Do | - | Medium | BE3, FE2 |
+| **ISSUE-24.3** | Task | Bảng Yêu cầu Rút tiền (`withdrawal_requests`) & Payout API giải ngân Ngân hàng | To Do | - | High | BE3, FE2 |
+| **ISSUE-24.4** | Task | Dashboard Quản lý Duyệt Yêu cầu Rút tiền cho Admin / Studio Web Portal | To Do | - | Medium | FE3, BE3 |
 
 ---
 
-## 📌 SPRINT 6: ĐÁNH GIÁ, POLISH UI, TESTING, SECURITY AUDIT & GO-LIVE PRODUCTION (13 ISSUES)
+## 📌 SPRINT 6: ĐÁNH GIÁ, POLISH UI, TESTING, SECURITY AUDIT & GO-LIVE PRODUCTION (14 ISSUES)
 
 | Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **ISSUE-24.1** | User Story | Module Đánh giá Rating 1-5★ & Nhận xét chất lượng sản phẩm (`reviews`) | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-24.2** | Task | Tính năng Tip tiền trực tiếp cho Thợ từ Ví Khách hàng sau khi hoàn thành ca | To Do | - | Medium | BE3, FE1 |
-| **ISSUE-24.3** | Task | Module Đơn Khiếu nại Dịch vụ (`disputes`) & Quy trình Tạm đóng băng tiền | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-25.1** | User Story | Hoàn thiện UI/UX App Khách hàng (Map tracking thợ, Lightbox Portfolio) | To Do | - | Medium | FE1 |
-| **ISSUE-25.2** | Task | Hoàn thiện UI/UX App Thợ (Công tắc On/Off phát sóng GPS, Đĩa đếm ngược) | To Do | - | Medium | FE2 |
-| **ISSUE-25.3** | Task | Hoàn thiện UI/UX Web Studio Portal (Dashboard Analytics, Ma trận xếp ca) | To Do | - | Medium | FE3 |
-| **ISSUE-26.1** | User Story | Viết Kịch bản Integration Test E2E: Đặt đơn -> EventBus -> WebSocket -> Ví | To Do | - | Medium | QA, BE1-3 |
-| **ISSUE-26.2** | Task | Thực thi Kiểm thử Tích hợp E2E trên Môi trường Staging | To Do | - | High | QA |
-| **ISSUE-27.1** | User Story | Load Testing Redis GEO & Embedded WSS: Giả lập 1,000 Thợ phát sóng GPS Telemetry đồng thời | To Do | - | Medium | QA, DE, SA |
-| **ISSUE-27.2** | Task | Stress Testing Booking Engine: Giả lập 500 yêu cầu Đặt ca khẩn cấp/giây | To Do | - | High | QA, DE |
-| **ISSUE-28.1** | User Story | Security Audit: Kiểm tra mã hóa TLS/WSS, Masking số dư Ví & OWASP Top 10 | To Do | - | Medium | SA, DE |
-| **ISSUE-28.2** | Task | Bug Fixing & Tối ưu hóa hiệu năng SQL Queries, B-Tree & GIST Spatial Indexes | To Do | - | High | BE1-3 |
-| **ISSUE-29.1** | User Story | Triển khai Kubernetes Cluster Production, Domain/SSL & Go-Live | To Do | - | Medium | Full Team |
+| **ISSUE-25.1** | User Story | **Module Đánh Giá Rating 1-5★ & Xử Lý Đơn Khiếu Nại Dịch Vụ (Disputes)** | To Do | - | Medium | BE1, FE1, FE3 |
+| **ISSUE-25.2** | Task | Module Đánh giá Rating 1-5★ & Nhận xét chất lượng kèm hình ảnh (`interaction_schema.reviews`) | To Do | - | Medium | BE1, FE1 |
+| **ISSUE-25.3** | Task | Module Đơn Khiếu nại Dịch vụ (`disputes`) & Quy trình Tự động Đóng băng Tiền giải ngân Escrow | To Do | - | High | BE1, FE1, BE3 |
+| **ISSUE-25.4** | Task | Dashboard Super Admin thụ lý, xem xét bằng chứng và phân xử khiếu nại (Hoàn cọc / Giải ngân) | To Do | - | Medium | BE1, FE3 |
+| **ISSUE-26.1** | User Story | **Hoàn Thiện Trải Nghiệm Giao Diện (UI/UX Polish) Cho Cả 3 Phân Hệ** | To Do | - | Medium | FE1, FE2, FE3 |
+| **ISSUE-26.2** | Task | Hoàn thiện UI/UX App Khách hàng (Map tracking thợ live trên bản đồ, Lightbox Portfolio chất lượng cao) | To Do | - | Medium | FE1 |
+| **ISSUE-26.3** | Task | Hoàn thiện UI/UX App Thợ (Công tắc On/Off phát sóng GPS, Màn hình đĩa đếm ngược 30s nhận ca) | To Do | - | Medium | FE2 |
+| **ISSUE-26.4** | Task | Hoàn thiện UI/UX Web Studio Portal & Admin Portal (Dashboard Analytics, Ma trận xếp ca làm việc tuần) | To Do | - | Medium | FE3 |
+| **ISSUE-27.1** | User Story | **Kiểm Thử Tích Hợp E2E, Kiểm Thử Tải, Security Audit & Go-Live Production** | To Do | - | High | QA, DE, SA, BE1-3 |
+| **ISSUE-27.2** | Task | Kịch bản & Thực thi Kiểm thử Tích hợp E2E trên Staging: Đặt đơn khẩn -> STOMP -> Hạch toán Ví | To Do | - | High | QA, BE1-3 |
+| **ISSUE-27.3** | Task | Load Testing Redis GEO & Embedded STOMP (Giả lập 1,000 Thợ phát sóng GPS Telemetry đồng thời) | To Do | - | Medium | QA, DE, SA |
+| **ISSUE-27.4** | Task | Stress Testing Booking Engine (Giả lập 500 yêu cầu Đặt ca khẩn cấp/giây với Redisson Lock) | To Do | - | High | QA, DE |
+| **ISSUE-27.5** | Task | Security Audit (TLS/WSS, Masking số dư ví, OWASP Top 10) & Tối ưu hóa SQL Queries, B-Tree & GiST Spatial Indexes | To Do | - | High | SA, DE, BE1-3 |
+| **ISSUE-27.6** | Task | Đóng gói Docker Monolith `core-api`, Cấu hình Domain/SSL & Triển khai Go-Live Production | To Do | - | Medium | Full Team |
 
 ---
 
@@ -142,7 +144,7 @@
 - **Sprint 1**: 14 Issues (Profile, Studio, Xếp ca tuần, Gói dịch vụ & Quy chế quá giờ).
 - **Sprint 2**: 11 Issues (Telemetry GPS & Pricing Engine).
 - **Sprint 3**: 13 Issues (Booking Engine 2 luồng & Dispatching).
-- **Sprint 4**: 11 Issues (Embedded WebSocket WSS Gateway & In-App Notifications).
-- **Sprint 5**: 11 Issues (Ví 7 Bảng Sổ cái & Cổng thanh toán Payout).
-- **Sprint 6**: 13 Issues (Review, Polish UI, Testing, Security & Go-Live).
+- **Sprint 4**: 8 Issues (2 User Stories lớn + 6 Sub-tasks: In-App Notifications & P2P STOMP Dispatching).
+- **Sprint 5**: 13 Issues (3 User Stories lớn + 10 Sub-tasks: Ví 7 Bảng Sổ Cái, Cổng Thanh Toán & Payout).
+- **Sprint 6**: 14 Issues (3 User Stories lớn + 11 Sub-tasks: Reviews/Disputes, UI/UX Polish, Testing/Go-Live - Đã bỏ Tip).
 - **TỔNG CỘNG HỆ THỐNG**: **86 Issues chi tiết** phân bổ đều trong 7 Sprints (chuẩn 10-15 Issues / Sprint).

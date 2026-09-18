@@ -1,19 +1,20 @@
 # TÀI LIỆU ĐẶC TẢ USER STORIES & THIẾT KẾ KỸ THUẬT CHI TIẾT
-## PHÂN HỆ: EMBEDDED STOMP WEBSOCKET REALTIME GATEWAY & GPS STREAMING ENGINE
+## PHÂN HỆ: EMBEDDED STOMP WEBSOCKET REALTIME & GPS STREAMING ENGINE
 ### (Spring Boot 3.3.x Layered Monolith with Domain Sub-packages `core-api` - Endpoint: `/ws-makeup`, Port `8080`)
 
 ---
 
 ## 📌 1. TỔNG QUAN TÍNH NĂNG (FEATURE OVERVIEW)
 
-* **Tên Phân hệ Nghiệp vụ:** `Embedded STOMP WebSocket Realtime Gateway & GPS Telemetry Streaming`
+* **Tên Phân hệ Nghiệp vụ:** `Embedded STOMP WebSocket Realtime & GPS Telemetry Streaming Engine`
 * **Mã Jira Issues phụ trách (Sprint 4):**
-  * `ISSUE-20.1`: **User Story** - WebSocket Realtime Gateway - Tích hợp Embedded STOMP WebSocket trong `core-api`.
-  * `ISSUE-20.2`: **Task** - Kết nối màng lưới thời gian thực mã hóa WSS (WebSocket Secure qua SSL/TLS).
-  * `ISSUE-20.3`: **Task** - Authentication Middleware xác thực kết nối WebSocket bằng Short-lived JWT qua STOMP CONNECT frame.
-  * `ISSUE-20.4`: **Task** - Tích hợp Redis PubSub Adapter đồng bộ kết nối WebSocket trên nhiều Gateway / Backend Instances.
-  * `ISSUE-20.5`: **Task** - Kênh Broadcast Popup Đếm ngược 30s đồng loạt đến App các Thợ rảnh gần nhất (`/topic/booking-broadcast`).
-  * `ISSUE-20.6`: **Task** - Kênh Stream vị trí GPS Thợ di chuyển Realtime cho Khách xem trên bản đồ (`/topic/gps-stream/{bookingId}`).
+  * `ISSUE-20.1`: **User Story** - Embedded STOMP WebSocket Realtime Engine - Tích hợp Realtime Broker trong `core-api`.
+  * `ISSUE-20.2`: **Task** - Cấu hình Embedded STOMP Message Broker tại endpoint `/ws-makeup` (`WebSocketConfig`, simple broker `/topic`, `/queue`, `/user`).
+  * `ISSUE-20.3`: **Task** - Cấu hình kết nối WSS (WebSocket Secure qua TLS/SSL) và CORS Policy an toàn cho Frontend.
+  * `ISSUE-20.4`: **Task** - Xây dựng `StompAuthChannelInterceptor` xác thực Short-lived JWT khi Client gửi lệnh STOMP `CONNECT`.
+  * `ISSUE-20.5`: **Task** - Kênh STOMP Broadcast Popup đếm ngược 30s (`/topic/booking-broadcast`) gửi đồng loạt tới Thợ rảnh.
+  * `ISSUE-20.6`: **Task** - Kênh STOMP Stream vị trí GPS Thợ di chuyển (`/topic/gps-stream/{bookingId}`) cho Khách xem live.
+
 
 * **Mô hình Kiến trúc Toàn Hệ Thống:**
   * **Backend (Modular Monolith - Layered DDD Sub-packages):** Gom toàn bộ các phân hệ về **1 ứng dụng Spring Boot duy nhất (`code/backend/core-api`)** chạy trên Port `8080`. Không tách Microservices độc lập, loại bỏ network overhead bằng cách dùng Service Interface trực tiếp và **Spring In-Memory EventBus (`ApplicationEventPublisher`)** với độ trễ nội bộ $< 1\text{ms}$.

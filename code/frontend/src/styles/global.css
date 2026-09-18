@@ -26,3 +26,26 @@
     background: #94a3b8;
   }
 }
+
+.leaflet-container {
+  font-family: inherit;
+}
+
+.leaflet-pane img,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container img {
+  max-width: none !important;
+  max-height: none !important;
+  width: auto;
+}
+
+.leaflet-tile-pane {
+  opacity: 1 !important;
+}
+
+.leaflet-tile {
+  filter: inherit;
+  visibility: inherit;
+}

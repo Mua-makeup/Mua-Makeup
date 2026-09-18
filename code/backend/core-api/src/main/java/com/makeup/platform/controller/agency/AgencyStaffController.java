@@ -2,6 +2,7 @@ package com.makeup.platform.controller.agency;
 
 import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.dto.request.agency.AcceptInvitationReq;
 import com.makeup.platform.dto.request.agency.CreateInvitationReq;
 import com.makeup.platform.dto.request.agency.ReviewStaffApplicationReq;
@@ -80,12 +81,12 @@ public class AgencyStaffController extends BaseController {
 
     @GetMapping("/staff")
     @PreAuthorize("hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')")
-    public ResponseEntity<ApiResponse<Page<AgencyStaffRes>>> getStaffList(
+    public ResponseEntity<ApiResponse<PageResponse<AgencyStaffRes>>> getStaffList(
             @AuthenticationPrincipal Long userId,
             @RequestParam(value = "status", required = false) String status,
             @PageableDefault(size = 20, sort = "joinedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<AgencyStaffRes> res = agencyStaffService.getStaffList(userId, status, pageable);
-        return ok(res, "agency.staff_list_success");
+        return ok(PageResponse.from(res), "agency.staff_list_success"); // <-- BỌC PageResponse.from(res)
     }
 
     @GetMapping("/staff/{staffId}")

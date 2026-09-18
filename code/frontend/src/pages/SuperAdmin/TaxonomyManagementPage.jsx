@@ -8,6 +8,7 @@ import { DataTable } from '../../components/base/DataTable';
 import { useI18nStore } from '../../store/useI18nStore';
 import { CategoryModal } from '../../components/features/admin/CategoryModal';
 import { StyleModal } from '../../components/features/admin/StyleModal';
+import { Toast } from '../../components/base/Toast';
 
 export const TaxonomyManagementPage = () => {
   const { t } = useI18nStore();
@@ -16,6 +17,7 @@ export const TaxonomyManagementPage = () => {
   const [styles, setStyles] = useState([]);
   const [apiError, setApiError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState('');
 
   // Modals state
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -63,6 +65,13 @@ export const TaxonomyManagementPage = () => {
   const handleOpenEditStyle = (style) => {
     setSelectedStyle(style);
     setStyleModalOpen(true);
+  };
+
+  const handleModalSuccess = (msg) => {
+    loadTaxonomy();
+    if (msg) {
+      setToastMessage(msg);
+    }
   };
 
   const categoryColumns = [
@@ -283,7 +292,7 @@ export const TaxonomyManagementPage = () => {
         isOpen={categoryModalOpen}
         onClose={() => setCategoryModalOpen(false)}
         category={selectedCategory}
-        onSuccess={loadTaxonomy}
+        onSuccess={handleModalSuccess}
       />
 
       {/* Style Modal */}
@@ -291,7 +300,14 @@ export const TaxonomyManagementPage = () => {
         isOpen={styleModalOpen}
         onClose={() => setStyleModalOpen(false)}
         styleItem={selectedStyle}
-        onSuccess={loadTaxonomy}
+        onSuccess={handleModalSuccess}
+      />
+
+      {/* Toast Notification */}
+      <Toast
+        message={toastMessage}
+        type="success"
+        onClose={() => setToastMessage('')}
       />
     </div>
   );
