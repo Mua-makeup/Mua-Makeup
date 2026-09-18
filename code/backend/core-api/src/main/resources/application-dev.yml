@@ -27,10 +27,6 @@ spring:
       password: ${REDIS_PASSWORD:}
 
 jwt:
-  # Trong dev: có thể test localhost (false/Lax) hoặc override qua .env khi test tunnel Vercel (true/None)
-  cookie-secure: ${JWT_COOKIE_SECURE:false}
-  cookie-same-site: ${JWT_COOKIE_SAME_SITE:Lax}
-
-app:
-  cors:
-    allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:http://localhost:[*],http://127.0.0.1:[*]}
+  # Hỗ trợ nhận cookie cross-site khi test qua ngrok tunnel với Vercel
+  cookie-secure: ${JWT_COOKIE_SECURE:true}
+  cookie-same-site: ${JWT_COOKIE_SAME_SITE:None}
