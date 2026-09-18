@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MUA MAKEUP - Mobile Preview (Onboarding, Auth & Home)</title>
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <style>
+    :root {
+      --rose-primary: #E11D48; /* Rose-600 */
+      --rose-hover: #BE123C;   /* Rose-700 */
+      --rose-light: #FFE4E6;   /* Rose-100 */
+      --rose-soft-border: #FECDD3; /* Rose-200 */
+      --rose-subtle: #FFF1F2;  /* Rose-50 */
+      
+      --text-heading: #0F172A; /* Slate-900 */
+      --text-body: #334155;    /* Slate-700 */
+      --text-muted: #64748B;   /* Slate-500 */
+      --text-placeholder: #94A3B8; /* Slate-400 */
+      
+      --bg-canvas: #F8FAFC;    /* Slate-50 */
+      --bg-card: #FFFFFF;
+      --border-input: #E2E8F0; /* Slate-200 */
+      
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --success: #10B981;
+      --info: #3B82F6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #F1F5F9;
+      color: var(--text-heading);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 12px 40px;
+    }
+
+    /* Top Navigation Toolbar */
+    .app-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      background: #FFFFFF;
+      padding: 8px 16px;
+      border-radius: 40px;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      z-index: 100;
+    }
+
+    .toolbar-label {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--rose-primary);
+      margin-right: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn {
+      padding: 8px 15px;
+      border-radius: 20px;
+      border: 1px solid transparent;
+      background: #F8FAFC;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: var(--rose-primary);
+      background: var(--rose-light);
+    }
+
+    .tab-btn.active {
+      background: var(--rose-primary);
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+    }
+
+    /* Mobile Device Frame (iPhone 16 Pro Style) */
+    .device-mockup {
+      width: 412px;
+      height: 855px;
+      background: #FFFFFF;
+      border-radius: 50px;
+      box-shadow: 0 25px 65px -15px rgba(15, 23, 42, 0.2), 0 0 0 8px #0F172A, 0 0 0 10px #334155;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background-color: var(--bg-canvas);
+    }
+
+    /* Top Status Bar */
+    .status-bar {
+      height: 44px;
+      padding: 12px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-heading);
+      z-index: 40;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    /* Content Area */
+    .view-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .view-content::-webkit-scrollbar {
+      display: none;
+    }
+
+    .screen-page {
+      display: none;
+      animation: fadeIn 0.25s ease-out forwards;
+      min-height: 100%;
+    }
+
+    .screen-page.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ====================================================
+       1. ONBOARDING SCREEN (ĐẦY ĐỦ 3 SLIDES TƯƠNG TÁC)
+       ==================================================== */
+    .onboarding-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 8px 20px 24px;
+      position: relative;
+    }
+
+    .onboarding-top-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 36px;
+      margin-bottom: 8px;
+    }
+
+    .skip-btn {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px 8px;
+    }
+
+    .skip-btn:hover {
+      color: var(--rose-primary);
+    }
+
+    /* Carousel Slides Wrapper */
+    .carousel-card {
+      height: 470px;
+      border-radius: 28px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 14px 35px rgba(0,0,0,0.12);
+    }
+
+    .carousel-slide {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      animation: slideIn 0.35s ease-out;
+    }
+
+    .carousel-slide.active {
+      display: block;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: scale(1.03); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .carousel-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .carousel-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(15,23,42,0.15) 0%, rgba(15,23,42,0.92) 85%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 26px 22px;
+      color: #FFFFFF;
+    }
+
+    .slide-badge {
+      align-self: flex-start;
+      background: var(--rose-primary);
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .slide-title {
+      font-size: 23px;
+      font-weight: 800;
+      line-height: 1.3;
+      margin-bottom: 8px;
+      color: #FFFFFF;
+    }
+
+    .slide-desc {
+      font-size: 13px;
+      color: #E2E8F0;
+      line-height: 1.5;
+    }
+
+    /* Dots & Slide Controls */
+    .onboarding-indicators {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin: 20px 0 16px;
+    }
+
+    .indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      background: #CBD5E1;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .indicator-dot.active {
+      width: 28px;
+      background: var(--rose-primary);
+    }
+
+    /* Actions Bottom */
+    .onboarding-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-main-action {
+      width: 100%;
+      height: 48px;
+      background: var(--rose-primary);
+      border: none;
+      border-radius: 12px;
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3);
+      transition: all 0.2s;
+    }
+
+    .btn-main-action:hover {
+      background: var(--rose-hover);
+    }
+
+    .btn-secondary-action {
+      width: 100%;
+      height: 46px;
+      background: #FFFFFF;
+      border: 1.5px solid var(--border-input);
+      border-radius: 12px;
+      color: var(--text-heading);
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary-action:hover {
+      border-color: var(--rose-primary);
+      color: var(--rose-primary);
+    }
+
+    .guest-explore-link {
+      text-align: center;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--rose-primary);
+      cursor: pointer;
+      margin-top: 2px;
+    }
+
+    /* ====================================================
+       2. MÀN HÌNH ĐĂNG NHẬP (FIGMA KHỚP 100%)
+       ==================================================== */
+    .auth-page-container {
+      padding: 12px 20px 30px;
+    }
+
+    .auth-header-figma {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 10px 0 24px;
+      text-align: center;
+    }
+
+    .brand-logo-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .brand-icon-box {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #E11D48 0%, #F43F5E 100%);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+    }
+
+    .brand-title-text {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text-heading);
+      letter-spacing: -0.5px;
+    }
+
+    .screen-title-figma {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text-heading);
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+
+    .screen-subtitle-figma {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .auth-card-figma {
+      background: var(--bg-card);
+      border: 1.5px solid var(--rose-soft-border);
+      border-radius: 28px;
+      padding: 24px 20px 20px;
+      box-shadow: 0 10px 30px -5px rgba(225, 29, 72, 0.05);
+    }
+
+    .input-field-group {
+      margin-bottom: 18px;
+    }
+
+    .input-label-figma {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-heading);
+      margin-bottom: 6px;
+    }
+
+    .required-star {
+      color: var(--danger);
+      margin-left: 2px;
+    }
+
+    .input-box-figma {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-box-figma .icon-left {
+      position: absolute;
+      left: 14px;
+      color: var(--text-placeholder);
+      font-size: 16px;
+    }
+
+    .input-box-figma input {
+      width: 100%;
+      height: 48px;
+      background: #FFFFFF;
+      border: 1px solid var(--border-input);
+      border-radius: 10px;
+      padding: 0 42px 0 42px;
+      font-size: 14px;
+      color: var(--text-heading);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .input-box-figma input:focus {
+      border-color: var(--rose-primary);
+      box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12);
+    }
+
+    .btn-eye-toggle {
+      position: absolute;
+      right: 14px;
+      background: none;
+      border: none;
+      color: var(--text-placeholder);
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .auth-bottom-switch {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin: 20px 0 24px;
+      font-weight: 500;
+    }
+
+    .link-rose-bold {
+      color: var(--rose-primary);
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    /* Quick Test Accounts for Mobile (Customer, MUA, Agency Staff) */
+    .quick-test-label {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: var(--text-placeholder);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    .quick-test-grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .quick-test-card-mini {
+      background: #FFFFFF;
+      border: 1px solid var(--border-input);
+      border-radius: 12px;
+      padding: 8px 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .quick-test-card-mini:hover {
+      border-color: var(--rose-primary);
+      background: var(--rose-subtle);
+    }
+
+    .test-role-icon {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .test-role-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-heading);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .test-role-phone {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: monospace;
+      margin-top: 2px;
+    }
+
+    .back-home-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 22px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .back-home-link:hover {
+      color: var(--rose-primary);
+    }
+
+    /* ====================================================
+       3. MÀN HÌNH ĐĂNG KÝ
+       ==================================================== */
+    .role-segmented-box {
+      display: flex;
+      background: #F1F5F9;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 20px;
+      border: 1px solid #E2E8F0;
+    }
+
+    .role-tab-item {
+      flex: 1;
+      height: 38px;
+      border-radius: 9px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .role-tab-item.active {
+      background: #FFFFFF;
+      color: var(--rose-primary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .mua-special-section {
+      display: none;
+      background: #FFF5F7;
+      border: 1px dashed var(--rose-soft-border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .mua-special-section.show {
+      display: block;
+      animation: fadeIn 0.25s ease;
+    }
+
+    /* ====================================================
+       4. TRANG CHỦ HOÀN CHỈNH (FULL HOME SCREEN)
+       ==================================================== */
+    .home-wrapper {
+      padding-bottom: 80px;
+    }
+
+    .home-top-bar {
+      padding: 12px 20px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FFFFFF;
+      border-bottom: 1px solid #F1F5F9;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .home-user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .user-avatar-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #E11D48 0%, #F43F5E 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+      font-size: 18px;
+      box-shadow: 0 4px 10px rgba(225, 29, 72, 0.25);
+    }
+
+    .location-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .loc-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .loc-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-heading);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .home-header-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn-circle {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 1px solid #E2E8F0;
+      background: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-heading);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .badge-dot {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 8px;
+      height: 8px;
+      background: var(--rose-primary);
+      border-radius: 50%;
+      border: 1.5px solid #FFFFFF;
+    }
+
+    .btn-auth-top {
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: var(--rose-primary);
+      color: #FFF;
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* VIP Hero Banner */
+    .vip-banner-card {
+      margin: 16px 20px;
+      height: 180px;
+      border-radius: 24px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 10px 25px -5px rgba(225, 29, 72, 0.2);
+    }
+
+    .vip-banner-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .vip-banner-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.4) 100%);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      color: #FFFFFF;
+      max-width: 78%;
+    }
+
+    .banner-tag-pill {
+      align-self: flex-start;
+      background: var(--rose-primary);
+      color: #FFFFFF;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .banner-heading {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .banner-desc-text {
+      font-size: 11.5px;
+      color: #E2E8F0;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .btn-banner-action {
+      align-self: flex-start;
+      padding: 6px 14px;
+      border-radius: 10px;
+      background: #FFFFFF;
+      color: var(--rose-primary);
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    /* Emergency Instant 30s CTA */
+    .instant-broadcast-box {
+      margin: 0 20px 20px;
+      background: linear-gradient(135deg, #FFF1F2 0%, #FFFFFF 100%);
+      border: 1.5px solid var(--rose-soft-border);
+      border-radius: 20px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 6px 20px rgba(225, 29, 72, 0.08);
+    }
+
+    .instant-info h4 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--rose-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .instant-info p {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .btn-pulse-countdown {
+      background: var(--rose-primary);
+      color: #FFFFFF;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      animation: pulseAlert 1.6s infinite;
+    }
+
+    @keyframes pulseAlert {
+      0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.6); }
+      70% { box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+    }
+
+    /* Categories Horizontal Scroll */
+    .section-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-heading);
+    }
+
+    .section-link {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--rose-primary);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .cat-scroll-list {
+      display: flex;
+      gap: 14px;
+      padding: 0 20px;
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+
+    .cat-scroll-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    .cat-card-item {
+      flex-shrink: 0;
+      width: 82px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .cat-avatar-frame {
+      width: 66px;
+      height: 66px;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 2px solid #FFFFFF;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      transition: all 0.2s ease;
+    }
+
+    .cat-card-item:hover .cat-avatar-frame {
+      border-color: var(--rose-primary);
+      transform: translateY(-2px);
+    }
+
+    .cat-avatar-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cat-item-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-heading);
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    /* Featured MUAs List */
+    .mua-feed-container {
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .mua-item-card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 14px;
+      display: flex;
+      gap: 14px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mua-item-card:hover {
+      border-color: var(--rose-primary);
+      transform: translateY(-2px);
+    }
+
+    .mua-photo-wrap {
+      width: 76px;
+      height: 76px;
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .mua-photo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .verified-badge-pill {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: #3B82F6;
+      color: #FFF;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      border: 2px solid #FFF;
+    }
+
+    .mua-info-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .mua-name-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .mua-artist-name {
+      font-size: 14.5px;
+      font-weight: 800;
+      color: var(--text-heading);
+    }
+
+    .mua-rating-badge {
+      font-size: 12px;
+      font-weight: 700;
+      color: #F59E0B;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .mua-tags-line {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin: 3px 0 6px;
+    }
+
+    .mua-bottom-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .mua-distance-tag {
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .mua-starting-price {
+      color: var(--rose-primary);
+      font-weight: 800;
+      font-size: 13.5px;
+    }
+
+    /* Trust Guarantee */
+    .trust-guarantee-box {
+      margin: 0 20px 20px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 16px;
+    }
+
+    .trust-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-heading);
+    }
+
+    .trust-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .trust-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--rose-light);
+      color: var(--rose-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .trust-text h5 {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-heading);
+    }
+
+    .trust-text p {
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+
+    /* Bottom App Tab Bar (Only displayed in Home) */
+    .bottom-tab-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 66px;
+      background: #FFFFFF;
+      border-top: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 10px 8px;
+      z-index: 50;
+    }
+
+    .tab-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: #94A3B8;
+      font-size: 10.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tab-nav-item.active {
+      color: var(--rose-primary);
+      font-weight: 800;
+    }
+
+    .tab-nav-item i {
+      font-size: 18px;
+    }
+
+    /* Global Toast */
+    .toast-popup {
+      position: absolute;
+      top: 52px;
+      left: 20px;
+      right: 20px;
+      background: #0F172A;
+      color: #FFFFFF;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1000;
+      transform: translateY(-80px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+
+    .toast-popup.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Toolbar -->
+  <div class="app-toolbar">
+    <div class="toolbar-label">
+      <i class="fa-solid fa-wand-magic-sparkles"></i>
+      <span>XEM MÀN HÌNH:</span>
+    </div>
+    <button class="tab-btn active" onclick="switchPage('onboarding', this)">
+      <i class="fa-regular fa-compass"></i> 1. Onboarding Screen (3 Slides)
+    </button>
+    <button class="tab-btn" onclick="switchPage('home', this)">
+      <i class="fa-solid fa-house"></i> 2. Trang Chủ Đầy Đủ
+    </button>
+    <button class="tab-btn" onclick="switchPage('login', this)">
+      <i class="fa-solid fa-right-to-bracket"></i> 3. Đăng Nhập (Chuẩn Figma)
+    </button>
+    <button class="tab-btn" onclick="switchPage('register', this)">
+      <i class="fa-solid fa-user-plus"></i> 4. Đăng Ký (Khách / MUA)
+    </button>
+  </div>
+
+  <!-- Mobile Simulator Frame -->
+  <div class="device-mockup">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span>09:41</span>
+      <div class="status-icons">
+        <i class="fa-solid fa-signal"></i>
+        <i class="fa-solid fa-wifi"></i>
+        <i class="fa-solid fa-battery-full"></i>
+      </div>
+    </div>
+
+    <!-- Toast Notification Popup -->
+    <div class="toast-popup" id="appToast">
+      <i class="fa-solid fa-circle-check" style="color: #10B981; font-size: 16px;"></i>
+      <span id="toastMessage">Thao tác thành công!</span>
+    </div>
+
+    <!-- Scrollable Screen Content Container -->
+    <div class="view-content" id="screenScroller">
+
+      <!-- ==============================================
+           1. ONBOARDING SCREEN (3 SLIDES TƯƠNG TÁC ĐẦY ĐỦ)
+           ============================================== -->
+      <div class="screen-page active" id="page-onboarding">
+        <div class="onboarding-container">
+          <!-- Top Row with Skip button -->
+          <div class="onboarding-top-nav">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div class="brand-icon-box" style="width: 28px; height: 28px; border-radius: 8px; font-size: 13px;">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <span style="font-size: 14px; font-weight: 800; color: var(--text-heading);">MUA MAKEUP</span>
+            </div>
+            <button class="skip-btn" onclick="switchPage('home')">Bỏ qua →</button>
+          </div>
+
+          <!-- Carousel Slides Card -->
+          <div class="carousel-card">
+            <!-- Slide 1: Đặt lịch 30s -->
+            <div class="carousel-slide active" id="slide-1">
+              <img src="https://images.unsplash.com/photo-1512496015851-a90fb38ba796?q=80&w=800&auto=format&fit=crop" alt="Instant Booking">
+              <div class="carousel-overlay">
+                <span class="slide-badge">ĐẶT LỊCH THẦN TỐC</span>
+                <h2 class="slide-title">Tìm Thợ Make-up Gần Bạn Trong 30 Giây</h2>
+                <p class="slide-desc">Hệ thống quét thợ rảnh qua định vị GPS thời gian thực. Thợ di chuyển đến tận nhà hoặc cơ sở theo yêu cầu.</p>
+              </div>
+            </div>
+
+            <!-- Slide 2: Đa dạng phong cách -->
+            <div class="carousel-slide" id="slide-2">
+              <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=800&auto=format&fit=crop" alt="Styles Variety">
+              <div class="carousel-overlay">
+                <span class="slide-badge">ĐA DẠNG PHONG CÁCH</span>
+                <h2 class="slide-title">Hàng Trăm Tone Make-up Chuẩn Salon</h2>
+                <p class="slide-desc">Tone Tây sắc sảo, Douyin phát sáng, Cô dâu hoàng gia đến Kỷ yếu thanh xuân. Thoải mái lựa chọn theo sở thích.</p>
+              </div>
+            </div>
+
+            <!-- Slide 3: Bảo chứng Escrow -->
+            <div class="carousel-slide" id="slide-3">
+              <img src="https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?q=80&w=800&auto=format&fit=crop" alt="Escrow Trust">
+              <div class="carousel-overlay">
+                <span class="slide-badge">AN TÂM TUYỆT ĐỐI</span>
+                <h2 class="slide-title">Quỹ Cọc Escrow & Thợ Có Chứng Chỉ</h2>
+                <p class="slide-desc">100% thợ được kiểm định tay nghề. Tiền cọc giữ trong ví an toàn, chỉ giải ngân khi bạn đã hài lòng.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dots Indicator -->
+          <div class="onboarding-indicators">
+            <div class="indicator-dot active" id="dot-1" onclick="goToSlide(1)"></div>
+            <div class="indicator-dot" id="dot-2" onclick="goToSlide(2)"></div>
+            <div class="indicator-dot" id="dot-3" onclick="goToSlide(3)"></div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="onboarding-buttons">
+            <button class="btn-main-action" id="btnNextOrStart" onclick="nextSlide()">
+              <span id="btnNextLabel">Tiếp Tục</span>
+              <i class="fa-solid fa-arrow-right" id="btnNextIcon"></i>
+            </button>
+            <button class="btn-secondary-action" onclick="switchPage('register')">
+              <span>Tạo Tài Khoản Mới</span>
+            </button>
+            <p class="guest-explore-link" onclick="switchPage('home')">
+              Khám phá trang chủ không cần tài khoản →
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================================
+           2. TRANG CHỦ HOÀN CHỈNH (FULL HOME SCREEN)
+           ============================================== -->
+      <div class="screen-page" id="page-home">
+        <div class="home-wrapper">
+          <!-- Top Header Bar -->
+          <div class="home-top-bar">
+            <div class="home-user-info">
+              <div class="user-avatar-circle">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <div class="location-box">
+                <span class="loc-label"><i class="fa-solid fa-location-dot" style="color: var(--rose-primary);"></i> Vị trí hiện tại</span>
+                <span class="loc-title">
+                  Quận 1, TP. Hồ Chí Minh <i class="fa-solid fa-chevron-down" style="font-size: 10px; color: var(--text-muted);"></i>
+                </span>
+              </div>
+            </div>
+            <div class="home-header-btns">
+              <div class="icon-btn-circle" onclick="showToast('Bạn có 2 thông báo mới')">
+                <i class="fa-regular fa-bell"></i>
+                <div class="badge-dot"></div>
+              </div>
+              <button class="btn-auth-top" onclick="switchPage('login')">
+                Đăng nhập
+              </button>
+            </div>
+          </div>
+
+          <!-- Hero Promo Banner Slider -->
+          <div class="vip-banner-card">
+            <img src="https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=800&auto=format&fit=crop" alt="Bride Makeup Special">
+            <div class="vip-banner-overlay">
+              <span class="banner-tag-pill">ƯU ĐÃI MÙA CƯỚI 2026</span>
+              <h3 class="banner-heading">Trang Điểm Cô Dâu Hoàng Gia</h3>
+              <p class="banner-desc-text">Giảm 20% đặt lịch trọn gói cùng thợ Master. Tặng kèm làm tóc dạ tiệc.</p>
+              <button class="btn-banner-action" onclick="switchPage('login')">
+                <span>Đặt Lịch Ngay</span>
+                <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Emergency 30s Instant Booking CTA -->
+          <div class="instant-broadcast-box">
+            <div class="instant-info">
+              <h4><i class="fa-solid fa-bolt"></i> Cần Make-up Gấp?</h4>
+              <p>Quét thợ rảnh gần nhất qua GPS trong 30 giây</p>
+            </div>
+            <button class="btn-pulse-countdown" onclick="showToast('Vui lòng đăng nhập để phát lệnh điều thợ khẩn cấp 30s!')">
+              <i class="fa-solid fa-stopwatch"></i>
+              <span>ĐẶT 30S</span>
+            </button>
+          </div>
+
+          <!-- Categories Section -->
+          <div class="section-bar">
+            <span class="section-title">Danh Mục Dịch Vụ</span>
+            <span class="section-link" onclick="showToast('Xem toàn bộ 12 danh mục')">Xem tất cả</span>
+          </div>
+
+          <div class="cat-scroll-list">
+            <!-- Category 1 -->
+            <div class="cat-card-item" onclick="showToast('Dịch vụ Cô dâu VIP')">
+              <div class="cat-avatar-frame">
+                <img src="https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?q=80&w=200&auto=format&fit=crop" alt="Cô dâu">
+              </div>
+              <span class="cat-item-label">Cô Dâu VIP</span>
+            </div>
+
+            <!-- Category 2 -->
+            <div class="cat-card-item" onclick="showToast('Dịch vụ Dạ tiệc Glamour')">
+              <div class="cat-avatar-frame">
+                <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=200&auto=format&fit=crop" alt="Dạ tiệc">
+              </div>
+              <span class="cat-item-label">Dạ Tiệc VIP</span>
+            </div>
+
+            <!-- Category 3 -->
+            <div class="cat-card-item" onclick="showToast('Dịch vụ Kỷ yếu & Học sinh')">
+              <div class="cat-avatar-frame">
+                <img src="https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?q=80&w=200&auto=format&fit=crop" alt="Kỷ yếu">
+              </div>
+              <span class="cat-item-label">Kỷ Yếu Nude</span>
+            </div>
+
+            <!-- Category 4 -->
+            <div class="cat-card-item" onclick="showToast('Dịch vụ Concept Douyin')">
+              <div class="cat-avatar-frame">
+                <img src="https://images.unsplash.com/photo-1503236928684-257a408759fb?q=80&w=200&auto=format&fit=crop" alt="Douyin">
+              </div>
+              <span class="cat-item-label">Tone Douyin</span>
+            </div>
+
+            <!-- Category 5 -->
+            <div class="cat-card-item" onclick="showToast('Dịch vụ Cá nhân Hàng ngày')">
+              <div class="cat-avatar-frame">
+                <img src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=200&auto=format&fit=crop" alt="Cá nhân">
+              </div>
+              <span class="cat-item-label">Daily Glow</span>
+            </div>
+          </div>
+
+          <!-- Featured Top MUAs -->
+          <div class="section-bar">
+            <span class="section-title">Thợ Make-up Yêu Thích</span>
+            <span class="section-link" onclick="showToast('Đang quét thợ gần nhất...')">Gần bạn (GPS)</span>
+          </div>
+
+          <div class="mua-feed-container">
+            <!-- MUA Card 1 -->
+            <div class="mua-item-card" onclick="showToast('Xem hồ sơ Thợ MUA Đỗ Lan Anh')">
+              <div class="mua-photo-wrap">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=300&auto=format&fit=crop" alt="Lan Anh MUA">
+                <div class="verified-badge-pill"><i class="fa-solid fa-check"></i></div>
+              </div>
+              <div class="mua-info-col">
+                <div class="mua-name-row">
+                  <span class="mua-artist-name">Đỗ Lan Anh (MUA)</span>
+                  <span class="mua-rating-badge"><i class="fa-solid fa-star"></i> 4.9 (142)</span>
+                </div>
+                <div class="mua-tags-line">Tone Tây Sang Trọng • Cô Dâu Tự Nhiên</div>
+                <div class="mua-bottom-meta">
+                  <span class="mua-distance-tag"><i class="fa-solid fa-motorcycle"></i> 1.2 km • Đến trong 15p</span>
+                  <span class="mua-starting-price">từ 450.000 đ</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- MUA Card 2 -->
+            <div class="mua-item-card" onclick="showToast('Xem hồ sơ Studio Bella Makeup')">
+              <div class="mua-photo-wrap">
+                <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?q=80&w=300&auto=format&fit=crop" alt="Bella MUA">
+                <div class="verified-badge-pill"><i class="fa-solid fa-check"></i></div>
+              </div>
+              <div class="mua-info-col">
+                <div class="mua-name-row">
+                  <span class="mua-artist-name">Bella Studio (Agency)</span>
+                  <span class="mua-rating-badge"><i class="fa-solid fa-star"></i> 5.0 (380)</span>
+                </div>
+                <div class="mua-tags-line">Tone Douyin Phát Sáng • Make-up Dự Tiệc VIP</div>
+                <div class="mua-bottom-meta">
+                  <span class="mua-distance-tag"><i class="fa-solid fa-motorcycle"></i> 2.4 km • Đến trong 20p</span>
+                  <span class="mua-starting-price">từ 650.000 đ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trust & Service Guarantee -->
+          <div class="trust-guarantee-box">
+            <div class="trust-title">
+              <i class="fa-solid fa-shield-halved" style="color: var(--rose-primary);"></i>
+              <span>Cam Kết Chất Lượng MUA MAKEUP</span>
+            </div>
+            <div class="trust-grid">
+              <div class="trust-item">
+                <div class="trust-icon"><i class="fa-solid fa-award"></i></div>
+                <div class="trust-text">
+                  <h5>100% Thợ Có Chứng Chỉ</h5>
+                  <p>Kiểm duyệt tay nghề khắt khe</p>
+                </div>
+              </div>
+              <div class="trust-item">
+                <div class="trust-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                <div class="trust-text">
+                  <h5>Ví Escrow Bảo Chứng</h5>
+                  <p>Hài lòng mới giải ngân tiền</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Fixed Tab Bar (Only for Home) -->
+        <div class="bottom-tab-bar" id="homeBottomTabs">
+          <div class="tab-nav-item active" onclick="switchPage('home')">
+            <i class="fa-solid fa-house"></i>
+            <span>Trang chủ</span>
+          </div>
+          <div class="tab-nav-item" onclick="showToast('Vui lòng đăng nhập để xem bản đồ thợ!')">
+            <i class="fa-regular fa-compass"></i>
+            <span>Khám phá</span>
+          </div>
+          <div class="tab-nav-item" onclick="showToast('Vui lòng đăng nhập để quản lý lịch đặt!')">
+            <i class="fa-regular fa-calendar-check"></i>
+            <span>Lịch hẹn</span>
+          </div>
+          <div class="tab-nav-item" onclick="switchPage('login')">
+            <i class="fa-regular fa-user"></i>
+            <span>Tài khoản</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================================
+           3. MÀN HÌNH ĐĂNG NHẬP (FIGMA KHỚP 100%)
+           ============================================== -->
+      <div class="screen-page" id="page-login">
+        <div class="auth-page-container">
+          <!-- Logo & Brand Header -->
+          <div class="auth-header-figma">
+            <div class="brand-logo-row">
+              <div class="brand-icon-box">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <span class="brand-title-text">MUA MAKEUP</span>
+            </div>
+            <h1 class="screen-title-figma">Đăng Nhập Hệ Thống</h1>
+            <p class="screen-subtitle-figma">Nền tảng Quản trị & Đặt lịch Make-up Chuyên Nghiệp</p>
+          </div>
+
+          <!-- Auth Card with Soft Rose Border -->
+          <div class="auth-card-figma">
+            <form onsubmit="handleLoginSubmit(event)">
+              <!-- Field 1: Phone / Email -->
+              <div class="input-field-group">
+                <label class="input-label-figma">
+                  Số Điện Thoại hoặc Email <span class="required-star">*</span>
+                </label>
+                <div class="input-box-figma">
+                  <i class="fa-regular fa-user icon-left"></i>
+                  <input type="text" id="loginIdentifier" placeholder="0912345678 hoặc email@domain.com" value="0912345678" required>
+                </div>
+              </div>
+
+              <!-- Field 2: Password -->
+              <div class="input-field-group">
+                <label class="input-label-figma">
+                  Mật Khẩu Đăng Nhập <span class="required-star">*</span>
+                </label>
+                <div class="input-box-figma">
+                  <i class="fa-solid fa-lock icon-left"></i>
+                  <input type="password" id="loginPassword" placeholder="••••••••" value="Password@123" required>
+                  <button type="button" class="btn-eye-toggle" onclick="togglePasswordVisibility('loginPassword', this)">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Submit Button -->
+              <button type="submit" class="btn-main-action">
+                <span>Đăng Nhập Vào Hệ Thống</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+
+              <!-- Bottom Switch Link -->
+              <div class="auth-bottom-switch">
+                <span>Chưa có tài khoản? </span>
+                <span class="link-rose-bold" onclick="switchPage('register')">Đăng ký ngay</span>
+              </div>
+
+              <!-- Quick Test Accounts Dành Riêng Cho 3 Phân Hệ Mobile -->
+              <div>
+                <div class="quick-test-label">TÀI KHOẢN DÙNG THỬ (MOBILE ROLES)</div>
+                <div class="quick-test-grid-3">
+                  <!-- Role 1: Khách Hàng -->
+                  <div class="quick-test-card-mini" onclick="fillTestAccount('0912345678', 'Khách Hàng')">
+                    <div class="test-role-icon"><i class="fa-solid fa-user" style="color: var(--rose-primary);"></i></div>
+                    <div class="test-role-name">Khách Hàng</div>
+                    <div class="test-role-phone">0912345678</div>
+                  </div>
+
+                  <!-- Role 2: Thợ MUA Tự Do -->
+                  <div class="quick-test-card-mini" onclick="fillTestAccount('0987654321', 'Thợ MUA Tự Do')">
+                    <div class="test-role-icon"><i class="fa-solid fa-paintbrush" style="color: #F59E0B;"></i></div>
+                    <div class="test-role-name">Thợ MUA</div>
+                    <div class="test-role-phone">0987654321</div>
+                  </div>
+
+                  <!-- Role 3: Nhân Viên Agency -->
+                  <div class="quick-test-card-mini" onclick="fillTestAccount('0933112233', 'Nhân Viên Agency')">
+                    <div class="test-role-icon"><i class="fa-solid fa-building-user" style="color: #3B82F6;"></i></div>
+                    <div class="test-role-name">NV Agency</div>
+                    <div class="test-role-phone">0933112233</div>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Back to Home Link -->
+          <div class="back-home-link" onclick="switchPage('home')">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Quay lại Trang Chủ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================================
+           4. MÀN HÌNH ĐĂNG KÝ
+           ============================================== -->
+      <div class="screen-page" id="page-register">
+        <div class="auth-page-container">
+          <div class="auth-header-figma">
+            <div class="brand-logo-row">
+              <div class="brand-icon-box">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <span class="brand-title-text">MUA MAKEUP</span>
+            </div>
+            <h1 class="screen-title-figma">Tạo Tài Khoản Mới</h1>
+            <p class="screen-subtitle-figma">Chọn vai trò của bạn trên nền tảng di động</p>
+          </div>
+
+          <div class="auth-card-figma">
+            <!-- Role Segmented Control -->
+            <div class="role-segmented-box">
+              <button class="role-tab-item active" id="btnRoleCust" onclick="setRoleType('cust')">
+                <i class="fa-solid fa-user"></i> Khách Hàng
+              </button>
+              <button class="role-tab-item" id="btnRoleMua" onclick="setRoleType('mua')">
+                <i class="fa-solid fa-paintbrush"></i> Thợ Make-up (MUA)
+              </button>
+            </div>
+
+            <form onsubmit="handleRegisterSubmit(event)">
+              <div class="input-field-group">
+                <label class="input-label-figma">Họ và Tên <span class="required-star">*</span></label>
+                <div class="input-box-figma">
+                  <i class="fa-regular fa-user icon-left"></i>
+                  <input type="text" placeholder="Nguyễn Thu Hà" required>
+                </div>
+              </div>
+
+              <div class="input-field-group">
+                <label class="input-label-figma">Số Điện Thoại <span class="required-star">*</span></label>
+                <div class="input-box-figma">
+                  <i class="fa-solid fa-phone icon-left"></i>
+                  <input type="tel" placeholder="0912345678" required>
+                </div>
+              </div>
+
+              <div class="input-field-group">
+                <label class="input-label-figma">Địa Chỉ Email <span class="required-star">*</span></label>
+                <div class="input-box-figma">
+                  <i class="fa-regular fa-envelope icon-left"></i>
+                  <input type="email" placeholder="thuha@gmail.com" required>
+                </div>
+              </div>
+
+              <!-- Extra Fields for Freelance MUA Onboarding -->
+              <div class="mua-special-section" id="muaOnboardingBox">
+                <div style="font-size: 12px; font-weight: 800; color: var(--rose-primary); margin-bottom: 8px;">
+                  <i class="fa-solid fa-certificate"></i> THÔNG TIN TAY NGHỀ CHUYÊN MÔN
+                </div>
+                <div class="input-field-group" style="margin-bottom: 10px;">
+                  <label class="input-label-figma">Số năm kinh nghiệm make-up</label>
+                  <div class="input-box-figma">
+                    <i class="fa-solid fa-award icon-left"></i>
+                    <input type="number" placeholder="VD: 5 năm" min="0" max="50">
+                  </div>
+                </div>
+                <div class="input-field-group" style="margin-bottom: 10px;">
+                  <label class="input-label-figma">
+                    Bán kính nhận ca: <b id="radiusBadge" style="color: var(--rose-primary);">15 km</b>
+                  </label>
+                  <input type="range" min="1" max="50" value="15" style="width: 100%; accent-color: var(--rose-primary);" oninput="document.getElementById('radiusBadge').innerText = this.value + ' km'">
+                </div>
+                <div class="input-field-group" style="margin-bottom: 0;">
+                  <label class="input-label-figma">Tiểu sử nghề nghiệp (Bio)</label>
+                  <input type="text" placeholder="Chuyên Tone Tây, Douyin, Cô dâu...">
+                </div>
+              </div>
+
+              <div class="input-field-group">
+                <label class="input-label-figma">Mật Khẩu Đăng Nhập <span class="required-star">*</span></label>
+                <div class="input-box-figma">
+                  <i class="fa-solid fa-lock icon-left"></i>
+                  <input type="password" id="regPasswordInput" placeholder="Tối thiểu 8 ký tự" required>
+                  <button type="button" class="btn-eye-toggle" onclick="togglePasswordVisibility('regPasswordInput', this)">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" class="btn-main-action">
+                <span id="regSubmitLabel">Đăng Ký Khách Hàng</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+
+              <div class="auth-bottom-switch">
+                <span>Đã có tài khoản? </span>
+                <span class="link-rose-bold" onclick="switchPage('login')">Đăng nhập</span>
+              </div>
+            </form>
+          </div>
+
+          <div class="back-home-link" onclick="switchPage('home')">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Quay lại Trang Chủ</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentSlide = 1;
+    const totalSlides = 3;
+
+    // Switch Screen Page
+    function switchPage(pageId, clickedBtn) {
+      document.querySelectorAll('.screen-page').forEach(p => p.classList.remove('active'));
+      const target = document.getElementById('page-' + pageId);
+      if (target) {
+        target.classList.add('active');
+      }
+
+      // Scroll to top
+      document.getElementById('screenScroller').scrollTop = 0;
+
+      // Update Toolbar buttons
+      if (clickedBtn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        clickedBtn.classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          if (b.getAttribute('onclick')?.includes(pageId)) {
+            b.classList.add('active');
+          } else {
+            b.classList.remove('active');
+          }
+        });
+      }
+    }
+
+    // Onboarding Carousel Slide Navigation
+    function goToSlide(slideNum) {
+      currentSlide = slideNum;
+      for (let i = 1; i <= totalSlides; i++) {
+        const slide = document.getElementById('slide-' + i);
+        const dot = document.getElementById('dot-' + i);
+        if (slide && dot) {
+          if (i === currentSlide) {
+            slide.classList.add('active');
+            dot.classList.add('active');
+          } else {
+            slide.classList.remove('active');
+            dot.classList.remove('active');
+          }
+        }
+      }
+
+      const nextLabel = document.getElementById('btnNextLabel');
+      const nextIcon = document.getElementById('btnNextIcon');
+      if (currentSlide === totalSlides) {
+        nextLabel.innerText = 'Bắt Đầu Ngay';
+        nextIcon.className = 'fa-solid fa-bolt';
+      } else {
+        nextLabel.innerText = 'Tiếp Tục';
+        nextIcon.className = 'fa-solid fa-arrow-right';
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        goToSlide(currentSlide + 1);
+      } else {
+        // Đã đến slide cuối cùng -> Chuyển sang Đăng nhập
+        switchPage('login');
+      }
+    }
+
+    // Role switcher in register
+    function setRoleType(role) {
+      const btnCust = document.getElementById('btnRoleCust');
+      const btnMua = document.getElementById('btnRoleMua');
+      const box = document.getElementById('muaOnboardingBox');
+      const label = document.getElementById('regSubmitLabel');
+
+      if (role === 'cust') {
+        btnCust.classList.add('active');
+        btnMua.classList.remove('active');
+        box.classList.remove('show');
+        label.innerText = 'Đăng Ký Khách Hàng';
+      } else {
+        btnMua.classList.add('active');
+        btnCust.classList.remove('active');
+        box.classList.remove('show');
+        label.innerText = 'Đăng Ký Thợ Make-up (MUA)';
+      }
+    }
+
+    // Toggle Password Visibility
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const icon = btn.querySelector('i');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-regular fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-regular fa-eye';
+      }
+    }
+
+    // Quick fill test accounts
+    function fillTestAccount(phone, roleName) {
+      document.getElementById('loginIdentifier').value = phone;
+      document.getElementById('loginPassword').value = 'Password@123';
+      showToast('Đã chọn vai trò: ' + roleName + ' (' + phone + ')');
+    }
+
+    // Toast Utility
+    function showToast(text) {
+      const toast = document.getElementById('appToast');
+      const msg = document.getElementById('toastMessage');
+      msg.innerText = text;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // Form Submissions
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      showToast('Đăng nhập thành công! Đang chuyển trang...');
+      setTimeout(() => {
+        switchPage('home');
+      }, 1000);
+    }
+
+    function handleRegisterSubmit(e) {
+      e.preventDefault();
+      showToast('Đăng ký tài khoản thành công! Mời bạn đăng nhập.');
+      setTimeout(() => {
+        switchPage('login');
+      }, 1200);
+    }
+  </script>
+</body>
+</html>
