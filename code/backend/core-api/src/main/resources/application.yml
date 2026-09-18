@@ -1,0 +1,37 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: core-api
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  data:
+    web:
+      pageable:
+        page-serialization-mode: via-dto
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    out-of-order: true
+    validate-on-migrate: false
+    locations: classpath:db/migration
+
+jwt:
+  secret: ${JWT_SECRET:MakeupBookingPlatformLayeredMonolithSecretKey2026MustBeSecureLongKey!}
+  access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:86400000} # 24 hours
+  refresh-token-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7} # 30 days
+  cookie-secure: ${JWT_COOKIE_SECURE:false}
+  cookie-same-site: ${JWT_COOKIE_SAME_SITE:Lax}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:demo}
+  api-key: ${CLOUDINARY_API_KEY:demo}
+  api-secret: ${CLOUDINARY_API_SECRET:demo}
+
+app:
+  maps:
+    goong:
+      api-key: ${GOONG_API_KEY:dummy_goong_key}
+      base-url: ${GOONG_BASE_URL:https://rsapi.goong.io}
+

@@ -11,6 +11,8 @@ import {
   CalendarDays,
   CalendarCheck,
   UserCheck,
+  TrendingUp,
+  MapPin,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -52,6 +54,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       label: t('nav_admin_taxonomy'),
       icon: Layers,
     },
+    {
+      to: '/admin/pricing',
+      label: t('nav_admin_surge_pricing'),
+      icon: TrendingUp,
+    },
   ];
 
   const agencyAdminNav = [
@@ -69,6 +76,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/agency/profile',
       label: t('nav_agency_profile'),
       icon: Building2,
+    },
+    {
+      to: '/agency/settings',
+      label: t('nav_agency_settings'),
+      icon: MapPin,
     },
     {
       to: '/agency/packages',

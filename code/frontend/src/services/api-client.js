@@ -14,10 +14,6 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
     const lang = localStorage.getItem(STORAGE_KEYS.LANGUAGE) || 'vi';
     config.headers['Accept-Language'] = lang;
     return config;
@@ -32,9 +28,6 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.USER_INFO);
-      localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
       if (!window.location.pathname.startsWith('/login') && window.location.pathname !== '/') {
         window.location.href = '/login';
       }

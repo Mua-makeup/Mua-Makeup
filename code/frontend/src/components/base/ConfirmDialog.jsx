@@ -12,20 +12,24 @@ export const ConfirmDialog = ({
   message,
   confirmText,
   cancelText,
+  variant,
   isDangerous = false,
   isLoading = false,
+  zIndex = 'z-[70]',
 }) => {
   const { t } = useI18nStore();
   const effectiveTitle = title || t('modal_confirm_title');
   const effectiveConfirmText = confirmText || t('modal_confirm_btn');
   const effectiveCancelText = cancelText || t('modal_cancel_btn');
+  const isDanger = isDangerous || variant === 'danger';
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      zIndex={zIndex}
       title={
         <div className="flex items-center gap-2">
-          {isDangerous && <AlertTriangle className="w-5 h-5 text-red-500" />}
+          {isDanger && <AlertTriangle className="w-5 h-5 text-red-500" />}
           <span>{effectiveTitle}</span>
         </div>
       }
@@ -36,7 +40,7 @@ export const ConfirmDialog = ({
             {effectiveCancelText}
           </Button>
           <Button
-            variant={isDangerous ? 'danger' : 'primary'}
+            variant={isDanger ? 'danger' : 'primary'}
             onClick={onConfirm}
             isLoading={isLoading}
           >
@@ -45,7 +49,7 @@ export const ConfirmDialog = ({
         </>
       }
     >
-      <div className="text-sm text-slate-600 leading-relaxed">{message}</div>
+      <div className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{message}</div>
     </Modal>
   );
 };

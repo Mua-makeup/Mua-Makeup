@@ -12,6 +12,7 @@ import {
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
+import { ConfirmDialog } from '../../base/ConfirmDialog';
 import { agencyService } from '../../../services/agency.service';
 import { staffInvitationSchema } from '../../../schemas/agency.schema';
 import { formatDate } from '../../../utils/formatters';
@@ -28,6 +29,8 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
   const [copiedCode, setCopiedCode] = useState('');
   const [copiedLink, setCopiedLink] = useState('');
   const [activeInvite, setActiveInvite] = useState(null);
+  const [cancelingInviteCode, setCancelingInviteCode] = useState(null);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadInvitations = async () => {
@@ -84,15 +87,20 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
     }
   };
 
-  const handleCancelInvite = async (inviteCode) => {
+  const handleConfirmCancelInvite = async () => {
+    if (!cancelingInviteCode) return;
+    setIsCanceling(true);
     try {
-      await agencyService.cancelInvitation(inviteCode);
-      if (activeInvite?.inviteCode === inviteCode) {
+      await agencyService.cancelInvitation(cancelingInviteCode);
+      if (activeInvite?.inviteCode === cancelingInviteCode) {
         setActiveInvite(null);
       }
+      setCancelingInviteCode(null);
       await loadInvitations();
     } catch (err) {
       setError(err.message || t('qr_revoke_error'));
+    } finally {
+      setIsCanceling(false);
     }
   };
 
@@ -118,9 +126,10 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
       title={
         <div className="flex items-center gap-2 text-slate-900 dark:text-white">
           <QrCode className="w-5 h-5 text-rose-600 dark:text-rose-400" />
@@ -289,7 +298,7 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
                   variant="danger"
                   size="sm"
                   icon={Trash2}
-                  onClick={() => handleCancelInvite(activeInvite.inviteCode)}
+                  onClick={() => setCancelingInviteCode(activeInvite.inviteCode)}
                 >
                   {t('qr_btn_cancel_invite')}
                 </Button>
@@ -333,5 +342,17 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
         )}
       </div>
     </Modal>
-  );
+
+    <ConfirmDialog
+      isOpen={Boolean(cancelingInviteCode)}
+      onClose={() => setCancelingInviteCode(null)}
+      onConfirm={handleConfirmCancelInvite}
+      isLoading={isCanceling}
+      title={t('confirm_cancel_invite_title')}
+      message={`${t('confirm_cancel_invite_msg')} (${cancelingInviteCode})`}
+      confirmText={t('qr_btn_cancel_invite')}
+      variant="danger"
+    />
+  </>
+);
 };

@@ -48,4 +48,6 @@ public class UpdateAgencyProfileReq {
     @DecimalMin(value = "-180.0", message = "{validation.longitude_invalid}")
     @DecimalMax(value = "180.0", message = "{validation.longitude_invalid}")
     private BigDecimal longitude;
+
+    private Boolean isSurgeEnabled;
 }

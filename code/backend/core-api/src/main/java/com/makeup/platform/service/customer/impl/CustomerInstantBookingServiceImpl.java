@@ -5,6 +5,7 @@ import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.booking.CreateInstantBookingReq;
 import com.makeup.platform.dto.response.booking.InstantBookingCreatedRes;
+import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingPartner;
@@ -19,6 +20,7 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.customer.CustomerInstantBookingService;
+import com.makeup.platform.service.pricing.SurgePricingService;
 import com.makeup.platform.service.telemetry.RedisGeoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +53,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
-    // private final ServicePackageRepository servicePackageRepository; // TODO: Dynamic Pricing Task
+    private final ServicePackageRepository servicePackageRepository;
+    private final SurgePricingService surgePricingService;
     private final BookingAuditService bookingAuditService;
     private final RedisGeoService redisGeoService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -92,24 +95,38 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     "booking.customer_has_active_instant_booking", HttpStatus.CONFLICT);
         }
 
-        // =========================================================================
-        // TODO: [DYNAMIC PRICING & SURGE MULTIPLIER]
-        // BigDecimal basePrice = new BigDecimal("500000.00");
-        // if (req.getPackageId() != null) {
-        //     var packageOpt = servicePackageRepository.findById(req.getPackageId());
-        //     if (packageOpt.isPresent() && packageOpt.get().getPrice() != null) {
-        //         basePrice = packageOpt.get().getPrice();
-        //     }
-        // }
-        // BigDecimal surchargeFee = new BigDecimal("150000.00"); // Phụ phí ca khẩn cấp
-        // BigDecimal totalAmount = basePrice.add(surchargeFee);
-        // BigDecimal depositAmount = totalAmount.multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
-
-        // Giá tạm thời (Static Placeholder) để luồng tạo đơn và kiểm thử hoạt động bình thường
+        // 1. Tính toán giá dịch vụ & Hệ số Surge thời gian thực (Dynamic Pricing Engine)
         BigDecimal basePrice = new BigDecimal("500000.00");
-        BigDecimal surchargeFee = new BigDecimal("150000.00");
-        BigDecimal totalAmount = basePrice.add(surchargeFee);
-        BigDecimal depositAmount = totalAmount.multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
+        if (req.getPackageId() != null) {
+            var packageOpt = servicePackageRepository.findById(req.getPackageId());
+            if (packageOpt.isPresent() && packageOpt.get().getPrice() != null) {
+                basePrice = packageOpt.get().getPrice();
+            }
+        }
+
+        InvoicePreviewRes.SurgePricingInfo surgeInfo = surgePricingService.calculateSurge(
+                basePrice,
+                LocalDateTime.now(),
+                "ALL",
+                req.getDestinationLatitude(),
+                req.getDestinationLongitude()
+        );
+
+        BigDecimal surgeMultiplier = (surgeInfo != null && surgeInfo.getMultiplier() != null)
+                ? surgeInfo.getMultiplier()
+                : BigDecimal.ONE;
+        BigDecimal surgeAmount = (surgeInfo != null && surgeInfo.getSurgeAmount() != null)
+                ? surgeInfo.getSurgeAmount()
+                : BigDecimal.ZERO;
+
+        BigDecimal emergencySurchargeFee = new BigDecimal("150000.00"); // Phụ phí ca khẩn cấp 30 phút
+        BigDecimal totalSurchargeFee = emergencySurchargeFee.add(surgeAmount);
+
+        BigDecimal totalAmount = basePrice.add(totalSurchargeFee).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal rawDeposit = totalAmount.multiply(new BigDecimal("0.30"));
+        BigDecimal depositAmount = rawDeposit.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(1000))
+                .setScale(2, RoundingMode.HALF_UP);
 
         // 2. Query potential online MUAs in Redis GEO (10km) sorted by distance ASC
         List<Long> candidateMuaIds = new ArrayList<>();
@@ -172,8 +189,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 .startTime(LocalTime.now())
                 .serviceSubtotal(basePrice)
                 .distanceFee(BigDecimal.ZERO)
-                .surchargeFee(surchargeFee)
-                .surgeMultiplier(BigDecimal.ONE)
+                .surchargeFee(totalSurchargeFee)
+                .surgeMultiplier(surgeMultiplier)
                 .discountAmount(BigDecimal.ZERO)
                 .totalAmount(totalAmount)
                 .depositAmount(depositAmount)
@@ -457,7 +474,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         return true;
     }
 
-    @Scheduled(fixedDelay = 3000)
+    @Scheduled(fixedDelay = 30000)
     @Transactional
     public void scanAndExpireOverdueInstantBookings() {
         LocalDateTime threshold = LocalDateTime.now().minusSeconds(45);

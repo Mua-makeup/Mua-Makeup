@@ -35,7 +35,7 @@ public class SurgePricingRuleEntity extends BaseEntity {
     @Column(name = "end_time")
     private LocalTime endTime;
 
-    @Column(name = "applicable_days_of_week", length = 50)
+    @Column(name = "applicable_days_of_week", length = 255)
     private String applicableDaysOfWeek; // comma-separated, e.g. "SATURDAY,SUNDAY"
 
     @Column(name = "surge_multiplier", nullable = false, precision = 3, scale = 2)

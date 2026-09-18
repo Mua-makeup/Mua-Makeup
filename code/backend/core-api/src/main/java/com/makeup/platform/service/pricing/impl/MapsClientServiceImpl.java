@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -39,7 +40,7 @@ public class MapsClientServiceImpl implements MapsClientService {
         }
 
         // Tạo cache key dạng geohash / tọa độ làm tròn 4 chữ số thập phân (~11 mét)
-        String cacheKey = String.format("pricing:distance:%.4f,%.4f:%.4f,%.4f",
+        String cacheKey = String.format(Locale.US, "pricing:distance:%.4f,%.4f:%.4f,%.4f",
                 originLat.doubleValue(), originLng.doubleValue(),
                 destinationLat.doubleValue(), destinationLng.doubleValue());
 
@@ -56,7 +57,7 @@ public class MapsClientServiceImpl implements MapsClientService {
 
         // Gọi API Goong Maps Distance Matrix
         try {
-            String url = String.format("/DistanceMatrix?origins=%f,%f&destinations=%f,%f&vehicle=bike&api_key=%s",
+            String url = String.format(Locale.US, "/DistanceMatrix?origins=%f,%f&destinations=%f,%f&vehicle=bike&api_key=%s",
                     originLat.doubleValue(), originLng.doubleValue(),
                     destinationLat.doubleValue(), destinationLng.doubleValue(),
                     mapsApiConfig.getGoongApiKey());

@@ -31,8 +31,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-<<<<<<< Updated upstream
-=======
     private static final List<String> ALLOWED_ORIGINS = List.of(
             "http://localhost:[*]",
             "http://127.0.0.1:[*]",
@@ -44,7 +42,6 @@ public class SecurityConfig {
             "*"
     );
 
->>>>>>> Stashed changes
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
@@ -71,9 +68,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowedOriginPatterns(ALLOWED_ORIGINS);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of("Set-Cookie", "Authorization", "Accept-Language"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -89,8 +87,7 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
-                        .accessDeniedHandler(customAccessDeniedHandler)
-                )
+                        .accessDeniedHandler(customAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints & Static Demo UI
                         .requestMatchers(
@@ -111,20 +108,21 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/actuator/**",
-                                "/error"
-                        ).permitAll()
+                                "/error")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/packages/my").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/packages/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/master-categories/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/makeup-styles/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/profile").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/portfolios").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/agency/*/profile", "/api/v1/agencies/*/profile").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/agency/*/profile", "/api/v1/agencies/*/profile")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/telemetry/nearby").permitAll()
+                        .requestMatchers("/api/v1/pricing/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         // All other endpoints require authentication
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

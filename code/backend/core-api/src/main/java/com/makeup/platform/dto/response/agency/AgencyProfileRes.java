@@ -31,6 +31,7 @@ public class AgencyProfileRes {
     private BigDecimal commissionRateInternal;
     private Boolean isVerified;
     private BigDecimal ratingAvg;
+    private Boolean isSurgeEnabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

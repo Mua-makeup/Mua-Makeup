@@ -17,11 +17,63 @@ import java.util.Optional;
 @Component
 public class CookieUtils {
 
-    @Value("${jwt.cookie-secure:false}")
+    @Value("${jwt.cookie-secure:true}")
     private boolean cookieSecure;
+
+    @Value("${jwt.cookie-same-site:None}")
+    private String cookieSameSite;
+
+    @Value("${jwt.access-token-expiration-ms:86400000}")
+    private long accessTokenExpirationMs;
 
     @Value("${jwt.refresh-token-expiration-days:30}")
     private long refreshTokenExpirationDays;
+
+    /**
+     * Ghi Access Token vào HttpOnly Cookie để bảo vệ chống XSS.
+     */
+    public void setAccessTokenCookie(HttpServletResponse response, String accessToken) {
+        long maxAgeSeconds = Math.max(1, accessTokenExpirationMs / 1000);
+        ResponseCookie cookie = ResponseCookie.from(SecurityConstants.ACCESS_TOKEN_COOKIE_NAME, accessToken)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(maxAgeSeconds)
+                .sameSite(cookieSameSite)
+                .build();
+
+        addCookieHeader(response, cookie);
+        log.debug("Set access token cookie with maxAge: {}s, sameSite: {}, secure: {}", maxAgeSeconds, cookieSameSite, cookieSecure);
+    }
+
+    /**
+     * Thu hồi/xóa Access Token Cookie khi Logout.
+     */
+    public void deleteAccessTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(SecurityConstants.ACCESS_TOKEN_COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(0)
+                .sameSite(cookieSameSite)
+                .build();
+
+        addCookieHeader(response, cookie);
+        log.debug("Deleted access token cookie");
+    }
+
+    /**
+     * Trích xuất Access Token từ Cookie trong request.
+     */
+    public Optional<String> getAccessTokenFromCookie(HttpServletRequest request) {
+        if (request == null || request.getCookies() == null) {
+            return Optional.empty();
+        }
+        return Arrays.stream(request.getCookies())
+                .filter(c -> SecurityConstants.ACCESS_TOKEN_COOKIE_NAME.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst();
+    }
 
     /**
      * Ghi Refresh Token vào HttpOnly Cookie để bảo vệ chống XSS.
@@ -33,10 +85,11 @@ public class CookieUtils {
                 .secure(cookieSecure)
                 .path("/")
                 .maxAge(maxAgeSeconds)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        log.debug("Set refresh token cookie with maxAge: {}s", maxAgeSeconds);
+
+        addCookieHeader(response, cookie);
+        log.debug("Set refresh token cookie with maxAge: {}s, sameSite: {}, secure: {}", maxAgeSeconds, cookieSameSite, cookieSecure);
     }
 
     /**
@@ -48,10 +101,22 @@ public class CookieUtils {
                 .secure(cookieSecure)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Lax")
+                .sameSite(cookieSameSite)
                 .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        addCookieHeader(response, cookie);
         log.debug("Deleted refresh token cookie");
+    }
+
+    /**
+     * Đính kèm Set-Cookie header và bổ sung cờ Partitioned (CHIPS) nếu chạy ở chế độ Cross-Site HTTPS.
+     */
+    private void addCookieHeader(HttpServletResponse response, ResponseCookie cookie) {
+        String cookieString = cookie.toString();
+        if (cookieSecure && "None".equalsIgnoreCase(cookieSameSite)) {
+            cookieString += "; Partitioned";
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieString);
     }
 
     /**

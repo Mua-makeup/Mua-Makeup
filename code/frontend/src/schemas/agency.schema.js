@@ -9,6 +9,9 @@ export const agencyProfileSchema = z.object({
   addressDistrict: z.string().min(2, 'Vui lòng nhập quận/huyện').optional(),
   addressCity: z.string().min(2, 'Vui lòng nhập tỉnh/thành phố').optional(),
   logoUrl: z.string().url('Đường dẫn ảnh logo không hợp lệ').optional().or(z.literal('')),
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
+  isSurgeEnabled: z.boolean().optional().default(true),
 });
 
 export const commissionRateSchema = z.object({
@@ -60,8 +63,26 @@ export const surchargeConfigSchema = z.object({
 });
 
 export const overtimeRuleSchema = z.object({
-  ratePerHour: z.number().min(1000, 'Đơn giá tăng ca tối thiểu 1.000 đ/giờ'),
-  maxOvertimeHours: z.number().min(1, 'Giờ tăng ca tối đa tối thiểu 1h').max(12, 'Tối đa 12h/ngày'),
+  id: z.number().optional().nullable(),
+  ruleName: z
+    .string({ required_error: 'Tên quy chế không được để trống' })
+    .min(1, 'Tên quy chế không được để trống')
+    .max(150, 'Tên quy chế tối đa 150 ký tự'),
+  minOvertimeMinutes: z.coerce
+    .number({ required_error: 'Số phút quá giờ tối thiểu không được để trống' })
+    .min(0, 'Số phút quá giờ tối thiểu phải từ 0 trở lên'),
+  maxOvertimeMinutes: z.coerce
+    .number()
+    .min(0, 'Giới hạn tối đa phải từ 0 trở lên')
+    .optional()
+    .nullable(),
+  penaltyType: z.enum(['FIXED_AMOUNT', 'PERCENT_COMMISSION', 'WARNING_ONLY'], {
+    required_error: 'Loại chế tài phạt không được để trống',
+  }),
+  penaltyValue: z.coerce
+    .number({ required_error: 'Mức phạt không được để trống' })
+    .min(0, 'Mức phạt phải từ 0 trở lên'),
+  isActive: z.boolean().default(true),
 });
 
 export const reviewOvertimeReportSchema = z.object({
