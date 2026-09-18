@@ -1,11 +1,31 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { useToastStore } from '../store/useToastStore';
+import { useI18nStore } from '../store/useI18nStore';
 
 export const ProtectedRoute = ({ children }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth);
+  const showToast = useToastStore((state) => state.showToast);
+  const { t } = useI18nStore();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!isCheckingAuth && !isAuthenticated) {
+      const msg =
+        t('auth_required_toast') ||
+        'Bạn chưa đăng nhập hoặc không có token xác thực. Vui lòng đăng nhập để tiếp tục.';
+      showToast(msg, 'error');
+      sessionStorage.setItem(
+        'auth_redirect_toast',
+        JSON.stringify({
+          message: msg,
+          type: 'error',
+        })
+      );
+    }
+  }, [isCheckingAuth, isAuthenticated, showToast, t]);
 
   if (isCheckingAuth) {
     return (
@@ -21,7 +41,7 @@ export const ProtectedRoute = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location, reason: 'unauthorized' }} replace />;
   }
 
   return children;
