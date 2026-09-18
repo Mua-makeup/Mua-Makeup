@@ -18,6 +18,7 @@ import { superAdminService } from '../../services/super-admin.service';
 import { Badge } from '../../components/base/Badge';
 import { Button } from '../../components/base/Button';
 import { Modal } from '../../components/base/Modal';
+import { ConfirmDialog } from '../../components/base/ConfirmDialog';
 import { Toast } from '../../components/base/Toast';
 import { formatDate } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
@@ -36,6 +37,7 @@ export const AdminAgenciesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'VERIFIED' | 'PENDING'
   const [selectedAgency, setSelectedAgency] = useState(null);
+  const [confirmRevokeTarget, setConfirmRevokeTarget] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
@@ -73,6 +75,14 @@ export const AdminAgenciesPage = () => {
       setToastMessage(err.message || t('error_general'));
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleRequestVerify = (agency, targetStatus) => {
+    if (!targetStatus) {
+      setConfirmRevokeTarget(agency);
+    } else {
+      handleToggleVerify(agency, true);
     }
   };
 
@@ -302,25 +312,27 @@ export const AdminAgenciesPage = () => {
                     </td>
 
                     {/* Actions */}
-                    <td className="px-6 py-4 text-right space-x-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={Eye}
-                        onClick={() => setSelectedAgency(agency)}
-                      >
-                        {t('actions')}
-                      </Button>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={Eye}
+                          onClick={() => setSelectedAgency(agency)}
+                        >
+                          {t('btn_view_details')}
+                        </Button>
 
-                      <Button
-                        variant={agency.isVerified ? 'danger' : 'primary'}
-                        size="sm"
-                        icon={agency.isVerified ? XCircle : CheckCircle2}
-                        isLoading={actionLoadingId === agency.id}
-                        onClick={() => handleToggleVerify(agency, !agency.isVerified)}
-                      >
-                        {agency.isVerified ? t('action_reject') : t('action_approve')}
-                      </Button>
+                        <Button
+                          variant={agency.isVerified ? 'danger' : 'success'}
+                          size="sm"
+                          icon={agency.isVerified ? XCircle : CheckCircle2}
+                          isLoading={actionLoadingId === agency.id}
+                          onClick={() => handleRequestVerify(agency, !agency.isVerified)}
+                        >
+                          {agency.isVerified ? t('action_reject') : t('action_approve')}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -345,11 +357,11 @@ export const AdminAgenciesPage = () => {
           footer={
             <div className="flex items-center justify-between w-full">
               <Button
-                variant={selectedAgency.isVerified ? 'danger' : 'primary'}
+                variant={selectedAgency.isVerified ? 'danger' : 'success'}
                 icon={selectedAgency.isVerified ? XCircle : CheckCircle2}
                 isLoading={actionLoadingId === selectedAgency.id}
                 onClick={() =>
-                  handleToggleVerify(selectedAgency, !selectedAgency.isVerified)
+                  handleRequestVerify(selectedAgency, !selectedAgency.isVerified)
                 }
               >
                 {selectedAgency.isVerified
@@ -465,6 +477,22 @@ export const AdminAgenciesPage = () => {
         message={toastMessage}
         type="success"
         onClose={() => setToastMessage('')}
+      />
+
+      {/* Confirm Revoke Verification Dialog */}
+      <ConfirmDialog
+        isOpen={Boolean(confirmRevokeTarget)}
+        onClose={() => setConfirmRevokeTarget(null)}
+        onConfirm={() => {
+          const target = confirmRevokeTarget;
+          setConfirmRevokeTarget(null);
+          handleToggleVerify(target, false);
+        }}
+        isLoading={actionLoadingId === confirmRevokeTarget?.id}
+        title={t('confirm_revoke_agency_title')}
+        message={`${t('confirm_revoke_agency_msg')} (${confirmRevokeTarget?.agencyName})`}
+        confirmText={t('action_reject')}
+        variant="danger"
       />
     </div>
   );

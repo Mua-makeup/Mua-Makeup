@@ -8,6 +8,7 @@ export const Modal = ({
   children,
   footer,
   maxWidth = 'max-w-lg',
+  zIndex = 'z-50',
 }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -28,10 +29,10 @@ export const Modal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
+    <div className={`fixed inset-0 ${zIndex} overflow-y-auto`}>
+      {/* Backdrop with rich frosted glass blur */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 

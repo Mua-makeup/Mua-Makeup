@@ -32,5 +32,14 @@ export const superAdminService = {
   // Platform Users Management
   getUsers: (params) => apiClient.get('/admin/users', { params }),
   updateUserStatus: (id, active) => apiClient.put(`/admin/users/${id}/status`, null, { params: { active } }),
+
+  // Dynamic & Surge Pricing Management
+  getSurgeRules: () => apiClient.get('/admin/pricing/surge-rules'),
+  createSurgeRule: (data) => apiClient.post('/admin/pricing/surge-rules', data),
+  updateSurgeRule: (id, data) => apiClient.put(`/admin/pricing/surge-rules/${id}`, data),
+  deleteSurgeRule: (id) => apiClient.delete(`/admin/pricing/surge-rules/${id}`),
+  deleteRule: (id) => apiClient.delete(`/admin/pricing/surge-rules/${id}`),
+  getH3SurgeStatus: () => apiClient.get('/admin/pricing/surge-rules/h3-status'),
+  toggleH3Surge: (enabled) => apiClient.post(`/admin/pricing/surge-rules/toggle-h3?enabled=${enabled}`),
 };
 

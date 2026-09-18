@@ -11,6 +11,7 @@ export const Button = ({
   className = '',
   icon: Icon,
   iconPosition = 'left',
+  ...props
 }) => {
   const baseStyles =
     'inline-flex items-center justify-center font-medium rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed select-none whitespace-nowrap';
@@ -28,6 +29,8 @@ export const Button = ({
       'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm focus:ring-slate-400 active:bg-slate-100 active:scale-[0.98] dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700 dark:active:bg-slate-600',
     danger:
       'bg-red-600 hover:bg-red-700 active:bg-red-800 active:scale-[0.98] text-white shadow-sm focus:ring-red-500 border border-transparent',
+    success:
+      'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-[0.98] text-white shadow-sm hover:shadow focus:ring-emerald-500 border border-transparent',
     outline:
       'bg-transparent hover:bg-rose-50 active:bg-rose-100 active:scale-[0.98] text-rose-600 border border-rose-300 focus:ring-rose-400 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30',
     ghost:
@@ -42,6 +45,7 @@ export const Button = ({
       className={`${baseStyles} ${sizeStyles[size] || sizeStyles.md} ${
         variantStyles[variant] || variantStyles.primary
       } ${className}`}
+      {...props}
     >
       {isLoading && (
         <svg

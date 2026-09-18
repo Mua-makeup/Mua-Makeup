@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 @Repository
-public interface DistanceFeeTierRepository extends JpaRepository<DistanceFeeTierEntity, Integer> {
+public interface DistanceFeeTierRepository extends JpaRepository<DistanceFeeTierEntity, Long> {
 
     @Query("""
         SELECT t FROM DistanceFeeTierEntity t

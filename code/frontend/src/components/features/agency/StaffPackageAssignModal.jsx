@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Check } from 'lucide-react';
+import { Package, Check, Clock } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { agencyService } from '../../../services/agency.service';
@@ -12,30 +12,46 @@ export const StaffPackageAssignModal = ({ isOpen, onClose, staff, onSuccess }) =
   const [selectedPackageIds, setSelectedPackageIds] = useState([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
     if (isOpen && staff) {
       setError('');
-      // Load agency packages
-      agencyService
-        .getMyPackages()
-        .then((res) => {
-          setPackages(res.data || res || []);
-        })
-        .catch(() => {
-          setPackages([]);
-        });
+      setIsFetching(true);
+      const staffIdentifier = staff.id || staff.staffId;
 
-      // Load currently assigned packages
-      agencyService
-        .getStaffPackages(staff.staffId || staff.id)
-        .then((res) => {
-          const current = res.data || res;
-          const ids = current.packageIds || (Array.isArray(current) ? current.map((p) => p.id || p) : []);
+      // Initial preload from staff.packageIds if available
+      if (Array.isArray(staff.packageIds)) {
+        setSelectedPackageIds(staff.packageIds.map(Number));
+      }
+
+      Promise.all([
+        agencyService.getMyPackages().catch(() => ({ data: [] })),
+        agencyService.getStaffPackages(staffIdentifier).catch(() => ({ data: null })),
+      ])
+        .then(([pkgsRes, staffPkgsRes]) => {
+          const pkgList = pkgsRes?.data || pkgsRes || [];
+          setPackages(Array.isArray(pkgList) ? pkgList : []);
+
+          const staffPkgsData = staffPkgsRes?.data || staffPkgsRes;
+          let ids = [];
+          if (Array.isArray(staffPkgsData?.assignedPackages)) {
+            ids = staffPkgsData.assignedPackages
+              .map((item) => Number(item.packageId || item.id))
+              .filter(Boolean);
+          } else if (Array.isArray(staffPkgsData?.packageIds)) {
+            ids = staffPkgsData.packageIds.map(Number);
+          } else if (Array.isArray(staffPkgsData)) {
+            ids = staffPkgsData
+              .map((item) => Number(item.packageId || item.id || item))
+              .filter(Boolean);
+          } else if (Array.isArray(staff.packageIds)) {
+            ids = staff.packageIds.map(Number);
+          }
           setSelectedPackageIds(ids);
         })
-        .catch(() => {
-          setSelectedPackageIds(staff.packageIds || []);
+        .finally(() => {
+          setIsFetching(false);
         });
     }
   }, [isOpen, staff]);
@@ -43,8 +59,9 @@ export const StaffPackageAssignModal = ({ isOpen, onClose, staff, onSuccess }) =
   if (!staff) return null;
 
   const togglePackage = (id) => {
+    const numId = Number(id);
     setSelectedPackageIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(numId) ? prev.filter((item) => item !== numId) : [...prev, numId]
     );
   };
 
@@ -52,20 +69,21 @@ export const StaffPackageAssignModal = ({ isOpen, onClose, staff, onSuccess }) =
     setIsLoading(true);
     setError('');
     try {
+      const staffIdentifier = staff.id || staff.staffId;
       const packageAssignments = (selectedPackageIds || []).map((pid) => ({
         packageId: Number(pid),
         proficiencyLevel: 'PRIMARY_MUA',
         isQualified: true,
       }));
 
-      await agencyService.assignStaffPackages(staff.staffId || staff.id, {
-        staffId: staff.staffId || staff.id,
+      await agencyService.assignStaffPackages(staffIdentifier, {
+        staffId: Number(staffIdentifier),
         packageAssignments,
         packageIds: selectedPackageIds.map(Number),
       });
       onSuccess?.({
-        staffId: staff.staffId || staff.id,
-        packageIds: selectedPackageIds,
+        staffId: staffIdentifier,
+        packageIds: selectedPackageIds.map(Number),
       });
       onClose();
     } catch (err) {
@@ -122,13 +140,18 @@ export const StaffPackageAssignModal = ({ isOpen, onClose, staff, onSuccess }) =
         </div>
 
         <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-          {packages.length === 0 ? (
+          {isFetching ? (
+            <div className="flex items-center justify-center py-8 text-slate-400 text-xs gap-2">
+              <Clock className="w-4 h-4 animate-spin text-indigo-500" />
+              <span>{t('loading')}</span>
+            </div>
+          ) : packages.length === 0 ? (
             <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">
               {t('staff_pkg_empty')}
             </p>
           ) : (
             packages.map((pkg) => {
-              const isChecked = selectedPackageIds.includes(pkg.id);
+              const isChecked = selectedPackageIds.includes(Number(pkg.id));
               return (
                 <div
                   key={pkg.id}

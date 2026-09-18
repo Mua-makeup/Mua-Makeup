@@ -1,10 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle2, XCircle, FileText, AlertCircle } from 'lucide-react';
+import {
+  Clock,
+  CheckCircle2,
+  XCircle,
+  FileText,
+  AlertCircle,
+  Plus,
+  Edit2,
+  Trash2,
+  ShieldCheck,
+} from 'lucide-react';
 import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
+import { Select } from '../../base/Select';
 import { Badge } from '../../base/Badge';
 import { Modal } from '../../base/Modal';
 import { Textarea } from '../../base/Textarea';
+import { ConfirmDialog } from '../../base/ConfirmDialog';
+import { Toast } from '../../base/Toast';
 import { agencyService } from '../../../services/agency.service';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { overtimeRuleSchema } from '../../../schemas/agency.schema';
@@ -12,22 +25,83 @@ import { useI18nStore } from '../../../store/useI18nStore';
 
 export const OvertimeConfigCard = () => {
   const { t } = useI18nStore();
-  const [ratePerHour, setRatePerHour] = useState(100000);
-  const [maxOvertimeHours, setMaxOvertimeHours] = useState(4);
+
+  // Rules State
+  const [rules, setRules] = useState([]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState(null);
+  const [ruleName, setRuleName] = useState('Quy chế làm thêm giờ tiêu chuẩn');
+  const [minOvertimeMinutes, setMinOvertimeMinutes] = useState(15);
+  const [maxOvertimeMinutes, setMaxOvertimeMinutes] = useState(240);
+  const [penaltyType, setPenaltyType] = useState('FIXED_AMOUNT');
+  const [penaltyValue, setPenaltyValue] = useState(50000);
+  const [isActive, setIsActive] = useState(true);
+
+  // Field validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Reports State
   const [reports, setReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [reviewAction, setReviewAction] = useState('APPROVED');
   const [reviewNote, setReviewNote] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
+  // Delete Rule State
+  const [ruleToDelete, setRuleToDelete] = useState(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Status & Feedback
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [isNotVerified, setIsNotVerified] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [modalError, setModalError] = useState('');
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const penaltyTypeOptions = [
+    { value: 'FIXED_AMOUNT', label: t('overtime_penalty_type_fixed') },
+    { value: 'PERCENT_COMMISSION', label: t('overtime_penalty_type_percent') },
+    { value: 'WARNING_ONLY', label: t('overtime_penalty_type_warning') },
+  ];
+
+  const handleOpenEdit = (rule) => {
+    setEditingRuleId(rule.id);
+    setRuleName(rule.ruleName || '');
+    setMinOvertimeMinutes(rule.minOvertimeMinutes ?? 15);
+    setMaxOvertimeMinutes(rule.maxOvertimeMinutes ?? '');
+    setPenaltyType(rule.penaltyType || 'FIXED_AMOUNT');
+    setPenaltyValue(rule.penaltyValue !== undefined ? Number(rule.penaltyValue) : 0);
+    setIsActive(rule.isActive ?? true);
+    setFieldErrors({});
+    setModalError('');
+    setIsFormOpen(true);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingRuleId(null);
+    setRuleName('');
+    setMinOvertimeMinutes(15);
+    setMaxOvertimeMinutes('');
+    setPenaltyType('FIXED_AMOUNT');
+    setPenaltyValue(50000);
+    setIsActive(true);
+    setFieldErrors({});
+    setModalError('');
+    setIsFormOpen(true);
+  };
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setEditingRuleId(null);
+    setFieldErrors({});
+    setModalError('');
+  };
 
   const loadData = async () => {
     setApiError(null);
+    setIsLoading(true);
     try {
       // Load rules
       const rulesRes = await agencyService.getOvertimeRules().catch((err) => {
@@ -38,11 +112,9 @@ export const OvertimeConfigCard = () => {
         }
         return null;
       });
-      const rules = rulesRes?.data || rulesRes || [];
-      if (Array.isArray(rules) && rules.length > 0) {
-        if (rules[0].ratePerHour) setRatePerHour(rules[0].ratePerHour);
-        if (rules[0].maxOvertimeHours) setMaxOvertimeHours(rules[0].maxOvertimeHours);
-      }
+      const ruleList = rulesRes?.data || rulesRes || [];
+      const parsedRules = Array.isArray(ruleList) ? ruleList : [];
+      setRules(parsedRules);
 
       // Load reports
       const reportsRes = await agencyService.getOvertimeReports().catch((err) => {
@@ -79,6 +151,8 @@ export const OvertimeConfigCard = () => {
             : errMsg
         );
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -87,32 +161,100 @@ export const OvertimeConfigCard = () => {
   }, []);
 
   const handleSaveRule = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    setModalError('');
+    setFieldErrors({});
 
-    const validation = overtimeRuleSchema.safeParse({
-      ratePerHour: Number(ratePerHour),
-      maxOvertimeHours: Number(maxOvertimeHours),
-    });
+    const payload = {
+      id: editingRuleId ? Number(editingRuleId) : undefined,
+      ruleName: ruleName.trim(),
+      minOvertimeMinutes: Number(minOvertimeMinutes),
+      maxOvertimeMinutes:
+        maxOvertimeMinutes !== '' && maxOvertimeMinutes !== null && maxOvertimeMinutes !== undefined
+          ? Number(maxOvertimeMinutes)
+          : null,
+      penaltyType,
+      penaltyValue: penaltyType === 'WARNING_ONLY' ? 0 : Number(penaltyValue),
+      isActive: Boolean(isActive),
+    };
+
+    const validation = overtimeRuleSchema.safeParse(payload);
 
     if (!validation.success) {
-      setError(validation.error.errors[0]?.message || t('invalid_data'));
+      const formattedErrors = {};
+      validation.error.issues.forEach((issue) => {
+        const fieldName = issue.path[0];
+        if (fieldName && !formattedErrors[fieldName]) {
+          formattedErrors[fieldName] = issue.message;
+        }
+      });
+      setFieldErrors(formattedErrors);
+      setModalError(validation.error.issues[0]?.message || t('invalid_data'));
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     try {
-      await agencyService.createOrUpdateOvertimeRule({
-        ratePerHour: Number(ratePerHour),
-        maxOvertimeHours: Number(maxOvertimeHours),
+      await agencyService.createOrUpdateOvertimeRule(payload);
+
+      setToastMessage({
+        text: editingRuleId ? t('update_success') : t('save_success'),
+        type: 'success',
       });
-      setSuccess(t('save_success'));
-      setTimeout(() => setSuccess(''), 3000);
+
+      // Close modal popup
+      handleCloseForm();
+
+      // Reload list
+      const rulesRes = await agencyService.getOvertimeRules();
+      const updatedList = rulesRes?.data || rulesRes || [];
+      setRules(Array.isArray(updatedList) ? updatedList : []);
     } catch (err) {
-      setError(err.message || t('error_general'));
+      const respData = err.response?.data?.data;
+      if (respData && typeof respData === 'object') {
+        setFieldErrors(respData);
+      }
+      const errMsg = err.response?.data?.message || err.message || t('error_general');
+      setModalError(errMsg);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenDelete = (rule) => {
+    setRuleToDelete(rule);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!ruleToDelete) return;
+    setIsDeleting(true);
+    try {
+      await agencyService.deleteOvertimeRule(ruleToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setToastMessage({
+        text: t('delete_success'),
+        type: 'success',
+      });
+
+      if (editingRuleId === ruleToDelete.id) {
+        handleCloseForm();
+      }
+
+      const rulesRes = await agencyService.getOvertimeRules();
+      const updatedList = rulesRes?.data || rulesRes || [];
+      setRules(Array.isArray(updatedList) ? updatedList : []);
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || t('error_general');
+      setToastMessage({
+        text: errMsg,
+        type: 'error',
+      });
+    } finally {
+      setIsDeleting(false);
+      setRuleToDelete(null);
     }
   };
 
@@ -125,19 +267,49 @@ export const OvertimeConfigCard = () => {
 
   const handleConfirmReview = async () => {
     if (!selectedReport) return;
-    setIsLoading(true);
+    setIsSaving(true);
     try {
       await agencyService.reviewOvertimeReport(selectedReport.id, {
         status: reviewAction,
         reviewNote: reviewNote.trim() || undefined,
       });
       setIsReviewModalOpen(false);
+      setToastMessage({
+        text: t('update_success'),
+        type: 'success',
+      });
       await loadData();
     } catch (err) {
-      setError(err.message || t('error_general'));
+      const errMsg = err.response?.data?.message || err.message || t('error_general');
+      setToastMessage({
+        text: errMsg,
+        type: 'error',
+      });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
+  };
+
+  const renderPenaltyDisplay = (rule) => {
+    if (rule.penaltyType === 'PERCENT_COMMISSION') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 shadow-2xs">
+          -{rule.penaltyValue}% {t('col_staff_commission')}
+        </span>
+      );
+    }
+    if (rule.penaltyType === 'FIXED_AMOUNT') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 shadow-2xs">
+          {formatCurrency(rule.penaltyValue)}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800 shadow-2xs">
+        {t('overtime_penalty_type_warning')}
+      </span>
+    );
   };
 
   return (
@@ -175,63 +347,320 @@ export const OvertimeConfigCard = () => {
         </div>
       )}
 
-      {success && (
-        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl font-medium">
-          {success}
-        </div>
-      )}
-      {error && (
-        <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs rounded-xl font-medium">
-          {error}
-        </div>
-      )}
-
-      {/* Cấu hình Quy tắc Overtime */}
-      <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs transition-colors">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50">
-            <Clock className="w-5 h-5" />
+      {/* Card Danh Sách Quy Tắc Tăng Ca */}
+      <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50 shadow-2xs">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  {t('overtime_rules')}
+                </h3>
+                <Badge variant="neutral">
+                  {rules.length} {t('items')}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {t('overtime_sub')}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-              {t('overtime_rules')}
-            </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {t('overtime_sub')}
-            </p>
-          </div>
+
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={handleOpenCreate}
+            icon={Plus}
+            className="shadow-xs"
+          >
+            {t('overtime_btn_add_new')}
+          </Button>
         </div>
 
-        <form onSubmit={handleSaveRule} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-          <Input
-            label={t('overtime_rate_per_hour')}
-            type="number"
-            min="10000"
-            step="10000"
-            required
-            value={ratePerHour}
-            onChange={(e) => setRatePerHour(e.target.value)}
-            helperText={t('overtime_rate_per_hour_helper')}
-          />
+        {/* Bảng Danh sách Quy tắc đã lưu */}
+        <div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-10 text-slate-400 text-xs gap-2">
+              <Clock className="w-4 h-4 animate-spin text-rose-500" />
+              <span>{t('loading')}</span>
+            </div>
+          ) : rules.length === 0 ? (
+            <div className="p-8 bg-slate-50/70 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-700/60 rounded-2xl text-center space-y-3">
+              <p className="text-xs text-slate-400 italic">
+                {t('overtime_empty_rules')}
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleOpenCreate}
+                icon={Plus}
+              >
+                {t('overtime_btn_add_new')}
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-xl">
+              <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold uppercase text-slate-500 dark:text-slate-400">
+                  <tr>
+                    <th className="px-5 py-3.5">{t('overtime_rule_name')}</th>
+                    <th className="px-5 py-3.5">{t('overtime_threshold_label')}</th>
+                    <th className="px-5 py-3.5">{t('overtime_penalty_label')}</th>
+                    <th className="px-5 py-3.5">{t('status')}</th>
+                    <th className="px-5 py-3.5 text-right">{t('col_actions')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {rules.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      {/* Tên quy chế */}
+                      <td className="px-5 py-3.5 font-semibold text-slate-900 dark:text-white">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                            {r.ruleName}
+                          </span>
+                        </div>
+                      </td>
 
-          <Input
-            label={t('overtime_max_hours')}
-            type="number"
-            min="1"
-            max="12"
-            required
-            value={maxOvertimeHours}
-            onChange={(e) => setMaxOvertimeHours(e.target.value)}
-            helperText={t('overtime_max_hours_helper')}
-          />
+                      {/* Cột Ngưỡng Quá Giờ Thiết Kế Tối Ưu & Đẹp Mắt */}
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-col gap-1">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50/90 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-900/50 w-fit shadow-2xs">
+                            <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="font-mono font-bold">
+                              ≥ {r.minOvertimeMinutes} {t('unit_minutes')}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                            <span className="font-medium text-slate-500 dark:text-slate-400">
+                              {t('overtime_max_limit_label')}
+                            </span>
+                            <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
+                              {r.maxOvertimeMinutes
+                                ? `${r.maxOvertimeMinutes} ${t('unit_minutes')}`
+                                : t('overtime_no_limit')}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
 
-          <div>
-            <Button type="submit" variant="primary" className="w-full" isLoading={isLoading}>
-              {t('save')}
+                      {/* Chế tài áp dụng */}
+                      <td className="px-5 py-3.5">
+                        {renderPenaltyDisplay(r)}
+                      </td>
+
+                      {/* Trạng thái */}
+                      <td className="px-5 py-3.5">
+                        {r.isActive ? (
+                          <Badge variant="active">{t('status_active')}</Badge>
+                        ) : (
+                          <Badge variant="inactive">{t('status_paused')}</Badge>
+                        )}
+                      </td>
+
+                      {/* Cột Thao tác Tối Ưu Hiện Đại */}
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(r)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
+                            title={t('btn_edit')}
+                          >
+                            <Edit2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                            <span>{t('btn_edit')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDelete(r)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200/80 dark:border-rose-900/50 transition-colors shadow-2xs"
+                            title={t('delete')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                            <span>{t('delete')}</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal Pop-up Thiết Lập / Chỉnh Sửa Quy Tắc */}
+      <Modal
+        isOpen={isFormOpen}
+        onClose={handleCloseForm}
+        maxWidth="max-w-xl"
+        title={
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50 shadow-2xs">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-900 dark:text-white text-base">
+                  {editingRuleId ? t('overtime_form_title_edit') : t('overtime_form_title_create')}
+                </span>
+                {editingRuleId && (
+                  <Badge variant="pending">
+                    {t('overtime_badge_editing')} #{editingRuleId}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">
+                {t('overtime_modal_sub')}
+              </p>
+            </div>
+          </div>
+        }
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleCloseForm}
+              disabled={isSaving}
+            >
+              {t('cancel')}
             </Button>
+            <Button
+              type="submit"
+              form="overtime-rule-form"
+              onClick={handleSaveRule}
+              variant="primary"
+              className="px-6 shadow-xs"
+              isLoading={isSaving}
+            >
+              {editingRuleId ? t('overtime_btn_update_rule') : t('overtime_btn_save_rule')}
+            </Button>
+          </>
+        }
+      >
+        <form id="overtime-rule-form" onSubmit={handleSaveRule} className="space-y-4">
+          {modalError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs rounded-xl font-medium flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span>{modalError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalError('')}
+                className="text-rose-500 hover:text-rose-700 text-xs font-semibold ml-2"
+              >
+                {t('close')}
+              </button>
+            </div>
+          )}
+
+          {/* Tên quy chế */}
+          <Input
+            label={t('overtime_rule_name')}
+            type="text"
+            required
+            placeholder={t('overtime_rule_name_ph')}
+            value={ruleName}
+            onChange={(e) => setRuleName(e.target.value)}
+            error={fieldErrors.ruleName}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Số phút quá giờ tối thiểu */}
+            <Input
+              label={t('overtime_min_minutes')}
+              type="number"
+              min="0"
+              required
+              value={minOvertimeMinutes}
+              onChange={(e) => setMinOvertimeMinutes(e.target.value)}
+              helperText={t('overtime_min_minutes_helper')}
+              error={fieldErrors.minOvertimeMinutes}
+            />
+
+            {/* Giới hạn tối đa phút */}
+            <Input
+              label={t('overtime_max_minutes')}
+              type="number"
+              min="0"
+              placeholder="VD: 240"
+              value={maxOvertimeMinutes}
+              onChange={(e) => setMaxOvertimeMinutes(e.target.value)}
+              helperText={t('overtime_max_minutes_helper')}
+              error={fieldErrors.maxOvertimeMinutes}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Hình thức chế tài */}
+            <Select
+              label={t('overtime_penalty_type')}
+              required
+              options={penaltyTypeOptions}
+              value={penaltyType}
+              onChange={(e) => {
+                setPenaltyType(e.target.value);
+                if (e.target.value === 'WARNING_ONLY') {
+                  setPenaltyValue(0);
+                }
+              }}
+              error={fieldErrors.penaltyType}
+            />
+
+            {/* Mức phạt / Trừ hoa hồng */}
+            <Input
+              label={
+                penaltyType === 'PERCENT_COMMISSION'
+                  ? `${t('overtime_penalty_value')} (%)`
+                  : `${t('overtime_penalty_value')} (VNĐ)`
+              }
+              type="number"
+              min="0"
+              max={penaltyType === 'PERCENT_COMMISSION' ? '100' : undefined}
+              step={penaltyType === 'PERCENT_COMMISSION' ? '1' : '10000'}
+              disabled={penaltyType === 'WARNING_ONLY'}
+              required={penaltyType !== 'WARNING_ONLY'}
+              value={penaltyValue}
+              onChange={(e) => setPenaltyValue(e.target.value)}
+              helperText={
+                penaltyType === 'PERCENT_COMMISSION'
+                  ? t('overtime_penalty_value_helper_percent')
+                  : penaltyType === 'WARNING_ONLY'
+                  ? t('overtime_penalty_type_warning')
+                  : t('overtime_penalty_value_helper_fixed')
+              }
+              error={fieldErrors.penaltyValue}
+            />
+          </div>
+
+          {/* Checkbox Kích hoạt */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300 select-none">
+              <input
+                type="checkbox"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+              />
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                {t('overtime_is_active')}
+              </span>
+            </label>
           </div>
         </form>
-      </div>
+      </Modal>
 
       {/* Bảng Xét Duyệt Báo Cáo Overtime Từ Thợ */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden transition-colors">
@@ -269,16 +698,24 @@ export const OvertimeConfigCard = () => {
                 reports.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="px-5 py-3.5">
-                      <span className="font-bold text-slate-900 dark:text-white block">{r.staffName || `${t('staff_label')} #${r.staffId}`}</span>
+                      <span className="font-bold text-slate-900 dark:text-white block">
+                        {r.staffName || `${t('staff_label')} #${r.staffId}`}
+                      </span>
                       <span className="text-xs text-slate-400 font-mono">Staff ID: {r.staffId}</span>
                     </td>
                     <td className="px-5 py-3.5 text-xs">
-                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 block">{t('booking_label')} #{r.bookingId}</span>
+                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 block">
+                        {t('booking_label')} #{r.bookingId}
+                      </span>
                       <span className="text-slate-400 font-mono">{formatDateTime(r.createdAt)}</span>
                     </td>
                     <td className="px-5 py-3.5 text-xs">
-                      <span className="font-bold text-slate-900 dark:text-white block">+{r.actualOvertimeMinutes} {t('unit_minutes')}</span>
-                      <span className="text-rose-600 dark:text-rose-400 font-semibold">{formatCurrency(r.calculatedAmount)}</span>
+                      <span className="font-bold text-slate-900 dark:text-white block">
+                        +{r.actualOvertimeMinutes} {t('unit_minutes')}
+                      </span>
+                      <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                        {formatCurrency(r.calculatedAmount)}
+                      </span>
                     </td>
                     <td className="px-5 py-3.5 text-xs max-w-xs">
                       <p className="text-slate-600 dark:text-slate-400 truncate" title={r.reason}>
@@ -340,14 +777,14 @@ export const OvertimeConfigCard = () => {
             <Button
               variant="secondary"
               onClick={() => setIsReviewModalOpen(false)}
-              disabled={isLoading}
+              disabled={isSaving}
             >
               {t('cancel')}
             </Button>
             <Button
               variant={reviewAction === 'APPROVED' ? 'primary' : 'danger'}
               onClick={handleConfirmReview}
-              isLoading={isLoading}
+              isLoading={isSaving}
             >
               {reviewAction === 'APPROVED' ? t('action_approve') : t('action_reject')}
             </Button>
@@ -374,6 +811,32 @@ export const OvertimeConfigCard = () => {
           />
         </div>
       </Modal>
+
+      {/* Modal Xác nhận Xóa Quy Tắc Quá Giờ */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setRuleToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title={t('overtime_delete_rule_title')}
+        message={`${t('overtime_delete_rule_msg')}${
+          ruleToDelete ? ` ("${ruleToDelete.ruleName}")` : ''
+        }`}
+        variant="danger"
+        isLoading={isDeleting}
+      />
+
+      {/* Auto-Dismiss Toast */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage.text}
+          type={toastMessage.type}
+          duration={3000}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
 import { Select } from '../../base/Select';
 import { Badge } from '../../base/Badge';
+import { ConfirmDialog } from '../../base/ConfirmDialog';
 import { agencyService } from '../../../services/agency.service';
 import { formatCurrency } from '../../../utils/formatters';
 import { packageItemSchema } from '../../../schemas/agency.schema';
@@ -23,6 +24,8 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadItems = async () => {
     if (!pkg?.id) return;
@@ -90,19 +93,25 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
     }
   };
 
-  const handleDeleteItem = async (itemId) => {
+  const handleConfirmDelete = async () => {
+    if (!deletingItem) return;
+    setIsDeleting(true);
     try {
-      await agencyService.deletePackageItem(pkg.id, itemId);
+      await agencyService.deletePackageItem(pkg.id, deletingItem.id);
+      setDeletingItem(null);
       await loadItems();
     } catch (err) {
       setError(err.message || t('pkg_item_delete_error'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
       title={
         <div className="flex items-center gap-2 text-slate-900 dark:text-white">
           <ListPlus className="w-5 h-5 text-rose-600 dark:text-rose-400" />
@@ -266,7 +275,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
                 </div>
 
                 <button
-                  onClick={() => handleDeleteItem(item.id)}
+                  onClick={() => setDeletingItem(item)}
                   className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
                   title={t('delete')}
                 >
@@ -278,5 +287,17 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
         </div>
       </div>
     </Modal>
-  );
+
+    <ConfirmDialog
+      isOpen={Boolean(deletingItem)}
+      onClose={() => setDeletingItem(null)}
+      onConfirm={handleConfirmDelete}
+      isLoading={isDeleting}
+      title={t('confirm_delete_package_item_title')}
+      message={`${t('confirm_delete_package_item_msg')} (${deletingItem?.itemName})`}
+      confirmText={t('delete')}
+      variant="danger"
+    />
+  </>
+);
 };

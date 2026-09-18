@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   LogOut,
   Key,
@@ -10,10 +10,12 @@ import {
   Globe,
   Menu,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { USER_ROLES } from '../constants/roles.constant';
 import { Modal } from '../components/base/Modal';
+import { ConfirmDialog } from '../components/base/ConfirmDialog';
 import { Input } from '../components/base/Input';
 import { Button } from '../components/base/Button';
 import { authService } from '../services/auth.service';
@@ -30,12 +32,26 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
   const [agencyLogo, setAgencyLogo] = useState(null);
   const [isAgencyVerified, setIsAgencyVerified] = useState(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   React.useEffect(() => {
     if (role === USER_ROLES.AGENCY_ADMIN) {
@@ -179,44 +195,88 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             )}
           </button>
 
-          {/* User Capsule */}
-          <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            {user?.avatarUrl || agencyLogo ? (
-              <img
-                src={user?.avatarUrl || agencyLogo}
-                alt="Avatar"
-                className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+          {/* User Profile Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen((prev) => !prev)}
+              className="flex items-center gap-2.5 p-1.5 md:px-3 md:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+            >
+              {user?.avatarUrl || agencyLogo ? (
+                <img
+                  src={user?.avatarUrl || agencyLogo}
+                  alt="Avatar"
+                  className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xs shrink-0">
+                  <User className="w-4 h-4" />
+                </div>
+              )}
+              <div className="text-left hidden md:block">
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
+                  {user?.fullName || user?.email || 'Admin'}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  {user?.phoneNumber || user?.email}
+                </p>
+              </div>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 hidden md:block ${
+                  isDropdownOpen ? 'rotate-180 text-rose-500' : ''
+                }`}
               />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300">
-                <User className="w-4 h-4" />
+            </button>
+
+            {/* Dropdown Menu Popover */}
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                {/* User Info Header */}
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {user?.fullName || 'Admin User'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate mt-0.5">
+                    {user?.email || user?.phoneNumber}
+                  </p>
+                  <div className="mt-2">
+                    <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">
+                      {roleInfo.badge}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Dropdown Actions */}
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      setIsPasswordModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors text-left"
+                  >
+                    <Key className="w-4 h-4 text-slate-400" />
+                    <span>{t('change_password')}</span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      setIsLogoutConfirmOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors text-left"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{t('logout')}</span>
+                  </button>
+                </div>
               </div>
             )}
-            <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                {user?.fullName || user?.email || 'Admin'}
-              </p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                {user?.phoneNumber || user?.email}
-              </p>
-            </div>
           </div>
-
-          <button
-            onClick={() => setIsPasswordModalOpen(true)}
-            className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-            title={t('change_password')}
-          >
-            <Key className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={logout}
-            className="p-2 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors"
-            title={t('logout')}
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
       </header>
 
@@ -281,6 +341,22 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
           </div>
         </form>
       </Modal>
+
+      {/* Confirm Logout Dialog */}
+      <ConfirmDialog
+        isOpen={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={() => {
+          setIsLogoutConfirmOpen(false);
+          logout();
+        }}
+        title={t('logout_confirm_title')}
+        message={t('logout_confirm_desc')}
+        confirmText={t('logout')}
+        cancelText={t('cancel')}
+        isDangerous={true}
+        variant="danger"
+      />
     </>
   );
 };

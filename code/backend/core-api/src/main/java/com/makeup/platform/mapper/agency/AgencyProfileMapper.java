@@ -43,6 +43,7 @@ public class AgencyProfileMapper {
                 .commissionRateInternal(entity.getCommissionRateInternal())
                 .isVerified(entity.getIsVerified())
                 .ratingAvg(entity.getRatingAvg())
+                .isSurgeEnabled(entity.getIsSurgeEnabled() == null || entity.getIsSurgeEnabled())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

@@ -51,3 +51,9 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY:demo}
   api-secret: ${CLOUDINARY_API_SECRET:demo}
 
+app:
+  maps:
+    goong:
+      api-key: ${GOONG_API_KEY:dummy_goong_key}
+      base-url: ${GOONG_BASE_URL:https://rsapi.goong.io}
+
