@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Sparkles, Lock, User, ArrowRight, Shield, Building2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -41,14 +41,10 @@ export const LoginPage = () => {
       } else if (result.role === USER_ROLES.AGENCY_ADMIN) {
         navigate('/agency/dashboard', { replace: true });
       } else {
-        setServerError(
-          t('login_role_unauthorized'),
-        );
+        setServerError(t('login_role_unauthorized'));
       }
     } catch (err) {
-      setServerError(
-        err.message || t('error_general'),
-      );
+      setServerError(err.message || t('error_general'));
     }
   };
 
@@ -60,30 +56,28 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-white to-pink-50/40 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      {/* Brand Header */}
+    <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-white to-pink-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/" className="inline-flex items-center gap-2.5 group mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 via-rose-500 to-amber-400 flex items-center justify-center text-white shadow-md shadow-rose-500/20 group-hover:scale-105 transition-transform">
             <Sparkles className="w-6 h-6" />
           </div>
-          <span className="font-extrabold text-slate-900 tracking-tight text-2xl">
+          <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-2xl">
             {t('app_title')}
           </span>
         </Link>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
           {t('login_title')}
         </h2>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
           {t('login_sub')}
         </p>
       </div>
 
-      {/* Main Login Card */}
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white/95 backdrop-blur-md py-8 px-6 shadow-xl shadow-slate-200/50 rounded-3xl border border-rose-100 sm:px-10">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md py-8 px-6 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50 rounded-3xl border border-rose-100 dark:border-slate-700 sm:px-10 transition-colors duration-300">
           {serverError && (
-            <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium leading-relaxed">
+            <div className="mb-5 p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-xs text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
               {serverError}
             </div>
           )}
@@ -99,7 +93,6 @@ export const LoginPage = () => {
               onChange={(e) => setLoginIdentifier(e.target.value)}
               error={errors.loginIdentifier}
             />
-
             <Input
               label={t('login_password_label')}
               type="password"
@@ -110,7 +103,6 @@ export const LoginPage = () => {
               onChange={(e) => setPassword(e.target.value)}
               error={errors.password}
             />
-
             <div className="pt-2">
               <Button
                 type="submit"
@@ -126,45 +118,42 @@ export const LoginPage = () => {
             </div>
           </form>
 
-          {/* Direct Link to Register */}
-          <div className="mt-5 text-center text-xs pt-4 border-t border-slate-100">
-            <span className="text-slate-500">{t('dont_have_account')} </span>
+          <div className="mt-5 text-center text-xs pt-4 border-t border-slate-100 dark:border-slate-700">
+            <span className="text-slate-500 dark:text-slate-400">{t('dont_have_account')} </span>
             <Link
               to="/register"
-              className="font-bold text-rose-600 hover:text-rose-700 hover:underline"
+              className="font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:underline"
             >
               {t('register_here')}
             </Link>
           </div>
 
-          {/* Quick-fill testing buttons */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-3">
+          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-700">
+            <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center mb-3">
               Quick Test Accounts
             </p>
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => handleQuickFill('0900000001', 'Admin@123')}
-                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-rose-50/50 hover:border-rose-200 text-left transition-all text-xs group"
+                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-700/60 hover:bg-rose-50/50 dark:hover:bg-rose-950/30 hover:border-rose-200 dark:hover:border-rose-700 text-left transition-all text-xs group"
               >
-                <div className="flex items-center gap-1.5 font-bold text-slate-800 group-hover:text-rose-600">
-                  <Shield className="w-3.5 h-3.5 text-rose-600" />
+                <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400">
+                  <Shield className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>Super Admin</span>
                 </div>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">0900000001</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">0900000001</p>
               </button>
-
               <button
                 type="button"
                 onClick={() => handleQuickFill('0933112233', 'Agency@123')}
-                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-indigo-50/50 hover:border-indigo-200 text-left transition-all text-xs group"
+                className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-700/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 hover:border-indigo-200 dark:hover:border-indigo-700 text-left transition-all text-xs group"
               >
-                <div className="flex items-center gap-1.5 font-bold text-slate-800 group-hover:text-indigo-600">
-                  <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Agency Admin</span>
                 </div>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">0933112233</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">0933112233</p>
               </button>
             </div>
           </div>
@@ -173,7 +162,7 @@ export const LoginPage = () => {
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center gap-1"
+            className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors inline-flex items-center gap-1"
           >
             <span>← {t('back_to_home')}</span>
           </Link>

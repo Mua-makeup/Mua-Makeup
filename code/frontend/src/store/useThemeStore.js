@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 
 const getInitialTheme = () => {
+  // Luôn mặc định là 'light' nếu người dùng chưa chọn theme trước đó
   const saved = localStorage.getItem('mua_theme');
-  if (saved) return saved;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return saved || 'light';
 };
 
 export const useThemeStore = create((set, get) => ({
