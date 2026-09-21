@@ -8,13 +8,17 @@ import {
   Clock,
   Layers,
   AlertTriangle,
+  Shield,
+  Eye,
 } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { Badge } from '../../components/base/Badge';
 import { Button } from '../../components/base/Button';
+import { DataTable } from '../../components/base/DataTable';
 import { CertificateReviewModal } from '../../components/features/admin/CertificateReviewModal';
 import { Toast } from '../../components/base/Toast';
 import { useI18nStore } from '../../store/useI18nStore';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const AdminDashboardPage = () => {
   const { t } = useI18nStore();
@@ -26,6 +30,9 @@ export const AdminDashboardPage = () => {
   const [selectedCert, setSelectedCert] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
 
+  const [certPage, setCertPage] = useState(0);
+  const [certPageSize, setCertPageSize] = useState(getSavedPageSize(10));
+
   useEffect(() => {
     const fetchData = async () => {
       setApiError('');
@@ -33,19 +40,23 @@ export const AdminDashboardPage = () => {
         const [catRes, styleRes, certRes, agencyRes] = await Promise.all([
           superAdminService.getMasterCategories().catch(() => ({ data: [] })),
           superAdminService.getMakeupStyles().catch(() => ({ data: [] })),
-          superAdminService.getCertificates().catch(() => ({ data: [] })),
-          superAdminService.getAgencies().catch(() => ({ data: [] })),
+          superAdminService.getCertificates({ size: 100 }).catch(() => ({ data: [] })),
+          superAdminService.getAgencies({ size: 100 }).catch(() => ({ data: [] })),
         ]);
         setCategories(catRes?.data || catRes || []);
         setStyles(styleRes?.data || styleRes || []);
-        const cList = certRes?.data || certRes || [];
-        const normalized = (Array.isArray(cList) ? cList : []).map((c) => ({
+
+        const cData = certRes?.data || certRes;
+        const cList = cData?.content || (Array.isArray(cData) ? cData : []);
+        const normalized = cList.map((c) => ({
           ...c,
           status: c.status || (c.isVerified === true ? 'VERIFIED' : 'PENDING'),
         }));
         setPendingMuas(normalized);
-        const aList = agencyRes?.data || agencyRes || [];
-        setAgencies(Array.isArray(aList) ? aList : []);
+
+        const aData = agencyRes?.data || agencyRes;
+        const aList = aData?.content || (Array.isArray(aData) ? aData : []);
+        setAgencies(aList);
       } catch (err) {
         setApiError(err.message || t('error_api_connection'));
       }
@@ -78,17 +89,29 @@ export const AdminDashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            {t('admin_overview_title')}
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {t('admin_overview_sub')}
-          </p>
+      {/* Top Banner Admin */}
+      <div className="p-6 bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:to-indigo-950 text-slate-900 dark:text-white rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors w-full">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
+            <Shield className="w-7 h-7" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                {t('admin_overview_title')}
+              </h1>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/30 shrink-0">
+                {t('role_super_admin')}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {t('admin_overview_sub')}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Quick Action Buttons */}
+        <div className="flex flex-wrap items-center justify-start md:justify-end gap-2.5 shrink-0 md:ml-auto">
           <Link to="/admin/agencies">
             <Button variant="secondary" size="sm" icon={Building2}>
               {t('nav_admin_agencies')} ({agencies.length})
@@ -216,75 +239,86 @@ export const AdminDashboardPage = () => {
           </Link>
         </div>
 
-        {pendingMuas.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-xs">
-            {t('admin_cert_queue_empty')}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
-                <tr>
-                  <th className="px-6 py-3">{t('col_staff_name')}</th>
-                  <th className="px-6 py-3">{t('col_cert_name')}</th>
-                  <th className="px-6 py-3">{t('col_experience')}</th>
-                  <th className="px-6 py-3">{t('status')}</th>
-                  <th className="px-6 py-3 text-right">{t('col_actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {pendingMuas.map((mua, index) => (
-                  <tr key={`${mua.muaId}-${mua.certIndex ?? index}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div>
-                        <span className="font-bold text-slate-900 dark:text-white block">
-                          {mua.muaName}
-                        </span>
-                        <span className="text-xs text-slate-400 font-mono">
-                          {mua.phoneNumber} • {mua.email}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                        {mua.certName}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                        {mua.experienceYears} {t('unit_years')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {mua.status === 'VERIFIED' || mua.isVerified === true ? (
-                        <Badge variant="active">{t('status_verified')}</Badge>
-                      ) : mua.status === 'REJECTED' ? (
-                        <Badge variant="rejected">{t('status_rejected')}</Badge>
-                      ) : (
-                        <Badge variant="pending">{t('status_pending')}</Badge>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Button
-                        variant={
-                          mua.status === 'PENDING' || (!mua.status && !mua.isVerified)
-                            ? 'primary'
-                            : 'secondary'
-                        }
-                        size="sm"
-                        onClick={() => setSelectedCert(mua)}
-                      >
-                        {mua.status === 'PENDING' || (!mua.status && !mua.isVerified)
-                          ? t('verify_action')
-                          : t('review_again')}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={[
+            {
+              header: t('col_staff_name'),
+              accessor: 'muaName',
+              render: (mua) => (
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block">
+                    {mua.muaName}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {mua.phoneNumber} {mua.email ? `• ${mua.email}` : ''}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              header: t('col_cert_name'),
+              accessor: 'certName',
+              render: (mua) => (
+                <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                  {mua.certName}
+                </span>
+              ),
+            },
+            {
+              header: t('col_experience'),
+              accessor: 'experienceYears',
+              render: (mua) => (
+                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  {mua.experienceYears} {t('unit_years')}
+                </span>
+              ),
+            },
+            {
+              header: t('status'),
+              accessor: 'status',
+              render: (mua) =>
+                mua.status === 'VERIFIED' || mua.isVerified === true ? (
+                  <Badge variant="active">{t('status_verified')}</Badge>
+                ) : mua.status === 'REJECTED' ? (
+                  <Badge variant="rejected">{t('status_rejected')}</Badge>
+                ) : (
+                  <Badge variant="pending">{t('status_pending')}</Badge>
+                ),
+            },
+            {
+              header: t('actions'),
+              align: 'right',
+              render: (mua) => (
+                <button
+                  onClick={() => setSelectedCert(mua)}
+                  className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 transition-colors cursor-pointer"
+                  title={
+                    mua.status === 'PENDING' || (!mua.status && !mua.isVerified)
+                      ? t('verify_action')
+                      : t('review_again')
+                  }
+                >
+                  <Eye className="w-4 h-4" />
+                </button>
+              ),
+            },
+          ]}
+          data={pendingMuas.slice(certPage * certPageSize, (certPage + 1) * certPageSize)}
+          isLoading={false}
+          emptyMessage={t('admin_cert_queue_empty')}
+          pagination={{
+            page: certPage,
+            size: certPageSize,
+            totalElements: pendingMuas.length,
+            totalPages: Math.max(Math.ceil(pendingMuas.length / certPageSize), 1),
+            onPageChange: (newPage1Indexed) => setCertPage(newPage1Indexed - 1),
+            onPageSizeChange: (newSize) => {
+              savePageSize(newSize);
+              setCertPageSize(newSize);
+              setCertPage(0);
+            },
+          }}
+        />
       </div>
 
       {/* Review Modal */}

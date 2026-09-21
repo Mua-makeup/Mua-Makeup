@@ -2,6 +2,7 @@ package com.makeup.platform.controller.catalog;
 
 import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.dto.request.catalog.CreatePackageReq;
 import com.makeup.platform.dto.request.catalog.UpdatePackageReq;
 import com.makeup.platform.dto.response.catalog.PackageDetailRes;
@@ -9,6 +10,9 @@ import com.makeup.platform.dto.response.catalog.PackageSummaryRes;
 import com.makeup.platform.service.catalog.ServicePackageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/packages")
@@ -60,21 +65,24 @@ public class ServicePackageController extends BaseController {
         return ok(null, "catalog.package_delete_success");
     }
 
-    @PatchMapping("/{id}/availability")
+    @PatchMapping({"/{id}/availability", "/{id}/status"})
     @PreAuthorize("hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')")
-    public ResponseEntity<ApiResponse<PackageDetailRes>> toggleAvailability(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> toggleAvailability(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long id,
-            @RequestParam boolean isAvailable) {
-        PackageDetailRes res = packageService.toggleAvailability(userId, id, isAvailable);
-        return ok(res, isAvailable ? "catalog.package_activated" : "catalog.package_deactivated");
+            @RequestParam(required = false) Boolean isAvailable,
+            @RequestParam(required = false) Boolean isActive) {
+        boolean status = isAvailable != null ? isAvailable : (isActive != null ? isActive : true);
+        packageService.toggleAvailability(userId, id, status);
+        return ok(Map.of("id", id, "isAvailable", status, "isActive", status), status ? "catalog.package_activated" : "catalog.package_deactivated");
     }
 
     @GetMapping("/my")
     @PreAuthorize("hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')")
-    public ResponseEntity<ApiResponse<List<PackageSummaryRes>>> listMyPackages(
-            @AuthenticationPrincipal Long userId) {
-        return ok(packageService.listMyPackages(userId));
+    public ResponseEntity<ApiResponse<PageResponse<PackageSummaryRes>>> listMyPackages(
+            @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ok(packageService.listMyPackages(userId, pageable));
     }
 
     @GetMapping("/{id}")

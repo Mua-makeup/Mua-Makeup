@@ -79,7 +79,8 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
           {getStatusBadge(booking.bookingStatus)}
         </div>
       }
-      maxWidth="max-w-2xl"
+      maxWidth="max-w-4xl"
+      minHeight="min-h-[65vh]"
       footer={
         <Button variant="secondary" onClick={onClose}>
           {t('modal_close_btn')}

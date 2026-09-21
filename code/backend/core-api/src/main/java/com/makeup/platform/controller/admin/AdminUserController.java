@@ -16,6 +16,16 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+import com.makeup.platform.common.base.PageResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+
+import com.makeup.platform.dto.request.admin.AdminCreateUserReq;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 @RestController
 @RequestMapping("/api/v1/admin/users")
 @RequiredArgsConstructor
@@ -24,12 +34,21 @@ public class AdminUserController extends BaseController {
 
     private final AdminUserService adminUserService;
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<AdminUserRes>>> getAllUsers(
-            @RequestParam(required = false) String role,
-            @RequestParam(required = false) String keyword
+    @PostMapping
+    public ResponseEntity<ApiResponse<AdminUserRes>> createUser(
+            @Valid @RequestBody AdminCreateUserReq req
     ) {
-        List<AdminUserRes> users = adminUserService.getAllUsers(role, keyword);
+        AdminUserRes created = adminUserService.createUser(req);
+        return created(created, "admin.user_create_success");
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<AdminUserRes>>> getAllUsers(
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        PageResponse<AdminUserRes> users = adminUserService.getAllUsers(role, keyword, pageable);
         return ok(users, "admin.users_fetch_success");
     }
 

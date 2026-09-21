@@ -15,6 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+import com.makeup.platform.common.base.PageResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+
 @RestController
 @RequestMapping("/api/v1/admin/bookings")
 @RequiredArgsConstructor
@@ -24,11 +29,12 @@ public class AdminBookingController extends BaseController {
     private final AdminBookingService adminBookingService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<AdminBookingRes>>> getAllBookings(
+    public ResponseEntity<ApiResponse<PageResponse<AdminBookingRes>>> getAllBookings(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        List<AdminBookingRes> bookings = adminBookingService.getAllBookings(status, keyword);
+        PageResponse<AdminBookingRes> bookings = adminBookingService.getAllBookings(status, keyword, pageable);
         return ok(bookings, "admin.bookings_fetch_success");
     }
 

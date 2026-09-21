@@ -9,6 +9,7 @@ import { CertificateReviewModal } from '../../components/features/admin/Certific
 import { Toast } from '../../components/base/Toast';
 import { formatDate } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const MuaVerificationPage = () => {
   const { t } = useI18nStore();
@@ -20,15 +21,40 @@ export const MuaVerificationPage = () => {
   const [apiError, setApiError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadCertificates = async () => {
+  const [pageInfo, setPageInfo] = useState({
+    page: 0,
+    size: getSavedPageSize(10),
+    totalElements: 0,
+    totalPages: 1,
+  });
+
+  const loadCertificates = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
     setApiError('');
     try {
-      const res = await superAdminService.getCertificates(
-        statusFilter === CERT_STATUS.ALL ? null : statusFilter
-      );
-      const list = res?.data || res || [];
-      const normalized = (Array.isArray(list) ? list : []).map((c) => ({
+      const res = await superAdminService.getCertificates({
+        status: statusFilter === CERT_STATUS.ALL ? undefined : statusFilter,
+        page,
+        size,
+      });
+      const data = res?.data || res || {};
+      let list = [];
+      if (Array.isArray(data)) {
+        list = data;
+        setPageInfo({ page: 0, size: data.length, totalElements: data.length, totalPages: 1 });
+      } else {
+        list = data.content || [];
+        const total = data.totalElements ?? data.total_elements ?? (data.content?.length || 0);
+        const pSize = data.size ?? size ?? 10;
+        const totalP = data.totalPages ?? data.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
+        setPageInfo({
+          page: data.page ?? page,
+          size: pSize,
+          totalElements: total,
+          totalPages: totalP,
+        });
+      }
+      const normalized = list.map((c) => ({
         ...c,
         status: c.status || (c.isVerified === true ? 'VERIFIED' : 'PENDING'),
       }));
@@ -42,7 +68,7 @@ export const MuaVerificationPage = () => {
   };
 
   useEffect(() => {
-    loadCertificates();
+    loadCertificates(0);
   }, [statusFilter]);
 
   const filteredData = useMemo(() => {
@@ -149,22 +175,16 @@ export const MuaVerificationPage = () => {
       },
     },
     {
-      header: t('col_actions'),
+      header: t('actions'),
       align: 'right',
       render: (row) => (
-        <Button
-          variant={
-            row.status === 'PENDING' || (!row.status && !row.isVerified)
-              ? 'primary'
-              : 'secondary'
-          }
-          size="sm"
+        <button
           onClick={() => setSelectedCert(row)}
+          className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+          title={row.status === 'PENDING' || (!row.status && !row.isVerified) ? t('verify_action') : t('review_again')}
         >
-          {row.status === 'PENDING' || (!row.status && !row.isVerified)
-            ? t('verify_action')
-            : t('review_again')}
-        </Button>
+          <Eye className="w-4 h-4" />
+        </button>
       ),
     },
   ];
@@ -191,7 +211,7 @@ export const MuaVerificationPage = () => {
             <p className="font-bold text-sm">{t('error_system_notice')}:</p>
             <p className="mt-0.5 font-mono">{apiError}</p>
           </div>
-          <Button variant="secondary" size="sm" onClick={loadCertificates}>
+          <Button variant="secondary" size="sm" onClick={() => loadCertificates(0)}>
             {t('retry')}
           </Button>
         </div>
@@ -230,6 +250,18 @@ export const MuaVerificationPage = () => {
         data={filteredData}
         isLoading={isLoading}
         emptyMessage={t('no_data')}
+        pagination={{
+          page: pageInfo.page,
+          size: pageInfo.size,
+          totalElements: pageInfo.totalElements,
+          totalPages: pageInfo.totalPages,
+          onPageChange: (newPage1Indexed) => loadCertificates(newPage1Indexed - 1, pageInfo.size),
+          onPageSizeChange: (newSize) => {
+            savePageSize(newSize);
+            setPageInfo((prev) => ({ ...prev, size: newSize, page: 0 }));
+            loadCertificates(0, newSize);
+          },
+        }}
       />
 
       {/* Review Modal */}

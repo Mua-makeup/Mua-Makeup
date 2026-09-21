@@ -11,12 +11,14 @@ export const agencyService = {
     }),
 
   // Gói dịch vụ
-  getMyPackages: () => apiClient.get('/packages/my'),
+  getMyPackages: (params) => apiClient.get('/packages/my', { params }),
   createPackage: (data) => apiClient.post('/packages', data),
   updatePackage: (id, data) => apiClient.put(`/packages/${id}`, data),
   deletePackage: (id) => apiClient.delete(`/packages/${id}`),
   togglePackageAvailability: (id, isAvailable) =>
     apiClient.patch(`/packages/${id}/availability?isAvailable=${isAvailable}`),
+  togglePackageStatus: (id, isActive) =>
+    apiClient.patch(`/packages/${id}/status?isActive=${isActive}`),
 
   // Quy trình & Add-ons
   getPackageItems: (packageId) => apiClient.get(`/packages/${packageId}/items`),
@@ -36,6 +38,8 @@ export const agencyService = {
   getOvertimeRules: () => apiClient.get('/agency/overtime-rules'),
   createOrUpdateOvertimeRule: (data) => apiClient.post('/agency/overtime-rules', data),
   deleteOvertimeRule: (ruleId) => apiClient.delete(`/agency/overtime-rules/${ruleId}`),
+  toggleOvertimeRuleStatus: (ruleId, isActive) =>
+    apiClient.patch(`/agency/overtime-rules/${ruleId}/status?isActive=${isActive}`),
   getOvertimeReports: (status, page = 0, size = 20) =>
     apiClient.get('/agency/overtime-reports', { params: { status, page, size } }),
   reviewOvertimeReport: (reportId, data) =>

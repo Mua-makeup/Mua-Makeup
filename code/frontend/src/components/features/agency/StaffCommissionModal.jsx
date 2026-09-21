@@ -98,11 +98,11 @@ export const StaffCommissionModal = ({ isOpen, onClose, staff, onSuccess }) => {
           helperText="0% - 60%"
         />
 
-        <div className="pt-2 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+        <div className="pt-3 grid grid-cols-3 gap-3">
+          <Button variant="secondary" onClick={onClose} disabled={isLoading} className="col-span-1 w-full">
             {t('cancel')}
           </Button>
-          <Button type="submit" variant="primary" isLoading={isLoading}>
+          <Button type="submit" variant="primary" isLoading={isLoading} className="col-span-2 w-full">
             {t('save')}
           </Button>
         </div>

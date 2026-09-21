@@ -14,6 +14,7 @@ import { Badge } from '../../components/base/Badge';
 import { Button } from '../../components/base/Button';
 import { useI18nStore } from '../../store/useI18nStore';
 import { AgencyBookingDetailModal } from '../../components/features/agency/AgencyBookingDetailModal';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const AgencyBookingsPage = () => {
   const { t } = useI18nStore();
@@ -25,22 +26,55 @@ export const AgencyBookingsPage = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
-  const fetchBookings = useCallback(async () => {
+  const [pageInfo, setPageInfo] = useState({
+    page: 0,
+    size: getSavedPageSize(10),
+    totalElements: 0,
+    totalPages: 1,
+  });
+
+  const fetchBookings = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
     setApiError('');
     try {
-      const res = await agencyService.getBookings();
-      setBookings(res?.data || res || []);
+      const res = await agencyService.getBookings({
+        status: selectedStatus === 'ALL' ? undefined : selectedStatus,
+        keyword: searchQuery.trim() || undefined,
+        page,
+        size,
+      });
+      const data = res?.data || res || {};
+      if (Array.isArray(data)) {
+        setBookings(data);
+        setPageInfo({ page: 0, size: data.length, totalElements: data.length, totalPages: 1 });
+      } else {
+        const total = data.totalElements ?? data.total_elements ?? (data.content?.length || 0);
+        const pSize = data.size ?? size ?? 10;
+        const totalP = data.totalPages ?? data.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
+        setBookings(data.content || []);
+        setPageInfo({
+          page: data.page ?? page,
+          size: pSize,
+          totalElements: total,
+          totalPages: totalP,
+        });
+      }
     } catch (err) {
       setApiError(err.message || t('error_api_connection'));
+      setBookings([]);
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  };
 
   useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+    fetchBookings(0);
+  }, [selectedStatus]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchBookings(0);
+  };
 
   const statusTabs = [
     { key: 'ALL', label: t('tab_all') },
@@ -199,17 +233,16 @@ export const AgencyBookingsPage = () => {
       render: (row) => getStatusBadge(row.bookingStatus),
     },
     {
-      header: t('col_action'),
+      header: t('actions'),
       align: 'right',
       render: (row) => (
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={Eye}
+        <button
           onClick={() => handleOpenDetail(row)}
+          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          title={t('btn_view_details')}
         >
-          {t('btn_view_details')}
-        </Button>
+          <Eye className="w-4 h-4" />
+        </button>
       ),
     },
   ];
@@ -328,6 +361,18 @@ export const AgencyBookingsPage = () => {
         data={filteredBookings}
         isLoading={isLoading}
         emptyMessage={t('no_data')}
+        pagination={{
+          page: pageInfo.page,
+          size: pageInfo.size,
+          totalElements: pageInfo.totalElements,
+          totalPages: pageInfo.totalPages,
+          onPageChange: (newPage1Indexed) => fetchBookings(newPage1Indexed - 1, pageInfo.size),
+          onPageSizeChange: (newSize) => {
+            savePageSize(newSize);
+            setPageInfo((prev) => ({ ...prev, size: newSize, page: 0 }));
+            fetchBookings(0, newSize);
+          },
+        }}
       />
 
       {/* Booking Detail Modal */}

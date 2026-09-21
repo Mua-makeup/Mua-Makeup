@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, isValidElement } from 'react';
 import { X } from 'lucide-react';
 
 export const Modal = ({
@@ -7,7 +7,8 @@ export const Modal = ({
   title,
   children,
   footer,
-  maxWidth = 'max-w-lg',
+  maxWidth = 'max-w-2xl',
+  minHeight = '',
   zIndex = 'z-50',
 }) => {
   useEffect(() => {
@@ -28,6 +29,39 @@ export const Modal = ({
 
   if (!isOpen) return null;
 
+  const renderFooterContent = () => {
+    if (!footer) return null;
+
+    let childrenArray = [];
+    if (isValidElement(footer) && footer.type === React.Fragment) {
+      childrenArray = React.Children.toArray(footer.props.children);
+    } else if (Array.isArray(footer)) {
+      childrenArray = footer;
+    } else {
+      childrenArray = React.Children.toArray(footer);
+    }
+
+    // Nếu footer có 2 nút: Nút Hủy chiếm 1/3 (col-span-1), Nút Tạo Mới / Lưu chiếm 2/3 (col-span-2)
+    if (childrenArray.length === 2) {
+      return (
+        <div className="grid grid-cols-3 gap-3 w-full items-center">
+          <div className="col-span-1 flex [&>*]:w-full">
+            {childrenArray[0]}
+          </div>
+          <div className="col-span-2 flex [&>*]:w-full">
+            {childrenArray[1]}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center justify-end gap-3 w-full">
+        {footer}
+      </div>
+    );
+  };
+
   return (
     <div className={`fixed inset-0 ${zIndex} overflow-y-auto`}>
       {/* Backdrop with rich frosted glass blur */}
@@ -39,11 +73,11 @@ export const Modal = ({
       {/* Modal Dialog */}
       <div className="flex min-h-full items-center justify-center p-4 text-center">
         <div
-          className={`w-full ${maxWidth} transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left align-middle shadow-xl transition-all border border-slate-200 dark:border-slate-800`}
+          className={`w-full ${maxWidth} ${minHeight} flex flex-col justify-between transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left align-middle shadow-xl transition-all border border-slate-200 dark:border-slate-800`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 shrink-0">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">{title}</h3>
             <button
               onClick={onClose}
@@ -54,14 +88,14 @@ export const Modal = ({
           </div>
 
           {/* Body */}
-          <div className="px-6 py-5 max-h-[calc(100vh-220px)] overflow-y-auto text-slate-700 dark:text-slate-300">
+          <div className="px-6 py-5 flex-1 max-h-[calc(100vh-180px)] overflow-y-auto text-slate-700 dark:text-slate-300">
             {children}
           </div>
 
           {/* Footer */}
           {footer && (
-            <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-end gap-3">
-              {footer}
+            <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 shrink-0 w-full flex items-center">
+              {renderFooterContent()}
             </div>
           )}
         </div>

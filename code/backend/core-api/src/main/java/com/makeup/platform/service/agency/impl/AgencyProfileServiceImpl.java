@@ -1,21 +1,34 @@
 package com.makeup.platform.service.agency.impl;
 
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.exception.ResourceNotFoundException;
+import com.makeup.platform.common.constants.SecurityConstants;
 import com.makeup.platform.common.utils.GeoDistanceUtils;
+import com.makeup.platform.dto.request.admin.AdminCreateAgencyReq;
 import com.makeup.platform.dto.request.agency.UpdateAgencyProfileReq;
 import com.makeup.platform.dto.request.agency.UpdateCommissionReq;
 import com.makeup.platform.dto.response.agency.AgencyLocationRes;
 import com.makeup.platform.dto.response.agency.AgencyProfileRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.auth.RoleEntity;
+import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.telemetry.AgencyBranchEntity;
 import com.makeup.platform.mapper.agency.AgencyProfileMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
+import com.makeup.platform.repository.RoleRepository;
+import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.telemetry.AgencyBranchRepository;
 import com.makeup.platform.service.agency.AgencyProfileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.time.Year;
+
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -31,6 +44,9 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyProfileMapper agencyProfileMapper;
     private final AgencyBranchRepository agencyBranchRepository;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -202,9 +218,10 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AgencyProfileRes> getAllAgenciesForAdmin(String search, Boolean isVerified) {
+    public PageResponse<AgencyProfileRes> getAllAgenciesForAdmin(
+            String search, Boolean isVerified, Pageable pageable) {
         List<AgencyProfileEntity> list = agencyProfileRepository.findAll();
-        return list.stream()
+        List<AgencyProfileRes> filtered = list.stream()
                 .filter(a -> {
                     if (isVerified != null && !isVerified.equals(a.getIsVerified())) {
                         return false;
@@ -224,6 +241,24 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 })
                 .map(agencyProfileMapper::toRes)
                 .toList();
+
+        if (pageable == null || pageable.isUnpaged()) {
+            return com.makeup.platform.common.base.PageResponse.<AgencyProfileRes>builder()
+                    .content(filtered)
+                    .page(0)
+                    .size(filtered.size())
+                    .totalElements(filtered.size())
+                    .totalPages(filtered.isEmpty() ? 0 : 1)
+                    .last(true)
+                    .build();
+        }
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filtered.size());
+        List<AgencyProfileRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
+        org.springframework.data.domain.Page<AgencyProfileRes> page =
+                new org.springframework.data.domain.PageImpl<>(pagedList, pageable, filtered.size());
+        return PageResponse.from(page);
     }
 
     @Override
@@ -239,5 +274,68 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         AgencyProfileEntity saved = agencyProfileRepository.save(agency);
         log.info("Super Admin updated verification for Agency ID {}: isVerified={}", agencyId, isVerified);
         return agencyProfileMapper.toRes(saved);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AgencyProfileRes createAgencyByAdmin(AdminCreateAgencyReq req) {
+        // 1. Kiểm tra trùng số điện thoại chủ sở hữu
+        if (userRepository.existsByPhoneNumber(req.getOwnerPhone())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_PHONE_ALREADY_EXISTS,
+                    "auth.phone_already_exists", HttpStatus.CONFLICT);
+        }
+
+        // 2. Kiểm tra trùng email chủ sở hữu
+        if (StringUtils.hasText(req.getOwnerEmail()) && userRepository.existsByEmail(req.getOwnerEmail())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_EMAIL_ALREADY_EXISTS,
+                    "auth.email_already_exists", HttpStatus.CONFLICT);
+        }
+
+        // 3. Lấy Role AGENCY_ADMIN
+        RoleEntity agencyRole = roleRepository.findByName(SecurityConstants.ROLE_AGENCY_ADMIN)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ROLE_NOT_FOUND,
+                        "auth.role_not_found", HttpStatus.NOT_FOUND));
+
+        // 4. Tạo UserEntity cho chủ sở hữu với đầy đủ thông tin cá nhân
+        UserEntity owner = UserEntity.builder()
+                .fullName(req.getOwnerFullName().trim())
+                .phoneNumber(req.getOwnerPhone().trim())
+                .email(req.getOwnerEmail().trim())
+                .gender(StringUtils.hasText(req.getOwnerGender()) ? req.getOwnerGender().trim() : null)
+                .passwordHash(passwordEncoder.encode(req.getOwnerPassword()))
+                .isActive(true)
+                .isVerified(true)
+                .language("vi")
+                .role(agencyRole)
+                .build();
+
+        owner = userRepository.save(owner);
+
+        // 5. Sinh mã Agency Code
+        int currentYear = Year.now().getValue();
+        String generatedAgencyCode = String.format("AGN-%d-%05d", currentYear, owner.getId());
+
+        // 6. Tạo AgencyProfileEntity
+        AgencyProfileEntity agency = AgencyProfileEntity.builder()
+                .owner(owner)
+                .agencyCode(generatedAgencyCode)
+                .agencyName(req.getAgencyName().trim())
+                .hotline(req.getHotline().trim())
+                .addressStreet(req.getAddressStreet().trim())
+                .district(req.getDistrict().trim())
+                .city(req.getCity().trim())
+                .commissionRateInternal(req.getCommissionRateInternal() != null
+                        ? req.getCommissionRateInternal()
+                        : new BigDecimal("30.00"))
+                .ratingAvg(null)
+                .isVerified(true) 
+                .build();
+
+        AgencyProfileEntity savedAgency = agencyProfileRepository.save(agency);
+
+        log.info("Super Admin created new agency: id={}, code={}, ownerPhone={}",
+                savedAgency.getId(), savedAgency.getAgencyCode(), owner.getPhoneNumber());
+
+        return agencyProfileMapper.toRes(savedAgency);
     }
 }

@@ -20,14 +20,19 @@ public class PageResponse<T> {
     private List<T> content;
     private int page;
     private int size;
+    private long totalElements;
+    private int totalPages;
+    private boolean last;
 
     @JsonProperty("total_elements")
-    private long totalElements;
+    public long getTotalElementsSnake() {
+        return totalElements;
+    }
 
     @JsonProperty("total_pages")
-    private int totalPages;
-
-    private boolean last;
+    public int getTotalPagesSnake() {
+        return totalPages;
+    }
 
     public static <T> PageResponse<T> from(Page<T> page) {
         return PageResponse.<T>builder()

@@ -767,8 +767,8 @@ export const WeeklyShiftTable = () => {
             )}
           </div>
 
-          <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
-            <Button variant="secondary" onClick={() => setIsAddModalOpen(false)} disabled={isLoading}>
+          <div className="pt-3 grid grid-cols-3 gap-3 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="secondary" onClick={() => setIsAddModalOpen(false)} disabled={isLoading} className="col-span-1 w-full">
               {t('cancel')}
             </Button>
             <Button
@@ -776,6 +776,7 @@ export const WeeklyShiftTable = () => {
               variant="primary"
               disabled={hasConflict || !selectedStaffId}
               isLoading={isLoading}
+              className="col-span-2 w-full"
             >
               {t('save')}
             </Button>

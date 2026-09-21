@@ -1,12 +1,12 @@
 package com.makeup.platform.service.booking;
 
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.dto.response.admin.AdminBookingRes;
-
-import java.util.List;
+import org.springframework.data.domain.Pageable;
 
 public interface AdminBookingService {
 
-    List<AdminBookingRes> getAllBookings(String status, String keyword);
+    PageResponse<AdminBookingRes> getAllBookings(String status, String keyword, Pageable pageable);
 
     AdminBookingRes getBookingDetail(Long id);
 }

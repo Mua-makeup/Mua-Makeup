@@ -221,11 +221,11 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
               </label>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-              <Button variant="secondary" size="sm" onClick={() => setIsAdding(false)}>
+            <div className="pt-2.5 grid grid-cols-3 gap-3 border-t border-slate-200 dark:border-slate-700">
+              <Button variant="secondary" size="sm" onClick={() => setIsAdding(false)} className="col-span-1 w-full">
                 {t('cancel')}
               </Button>
-              <Button type="submit" variant="primary" size="sm" isLoading={isLoading}>
+              <Button type="submit" variant="primary" size="sm" isLoading={isLoading} className="col-span-2 w-full">
                 {t('pkg_item_btn_add')}
               </Button>
             </div>

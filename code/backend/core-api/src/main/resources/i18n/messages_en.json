@@ -71,6 +71,8 @@
     "overtime_rule_created_success": "Studio overtime policy configured successfully.",
     "overtime_rules_get_success": "Studio overtime rules retrieved successfully.",
     "overtime_rule_deleted_success": "Studio overtime rule deleted successfully.",
+    "overtime_rule_activated": "Studio overtime rule activated successfully.",
+    "overtime_rule_deactivated": "Studio overtime rule deactivated successfully.",
     "overtime_report_submitted_success": "Overtime report submitted successfully. Awaiting studio review.",
     "overtime_report_reviewed_success": "Overtime report reviewed and adjudicated successfully.",
     "overtime_reports_get_success": "Overtime reports retrieved successfully.",
@@ -345,6 +347,7 @@
     "code_conflict": "This category code already exists.",
     "create_success": "Created master service category successfully!",
     "update_success": "Updated master service category successfully!",
+    "status_update_success": "Updated master service category status successfully!",
     "not_found": "Requested master service category not found."
   },
   "style": {
@@ -355,6 +358,7 @@
     "code_conflict": "This style code already exists.",
     "create_success": "Created makeup style successfully!",
     "update_success": "Updated makeup style successfully!",
+    "status_update_success": "Updated makeup style status successfully!",
     "not_found": "Requested makeup style not found."
   },
   "agency": {
@@ -363,6 +367,7 @@
   "pricing": {
     "surge_rule_created_success": "Dynamic pricing surge rule created successfully!",
     "surge_rule_updated_success": "Dynamic pricing surge rule updated successfully!",
+    "surge_rule_status_updated_success": "Updated dynamic pricing surge rule status successfully!",
     "surge_rule_deleted_success": "Dynamic pricing surge rule deleted successfully!",
     "surge_rules_get_success": "Retrieved dynamic pricing surge rules successfully.",
     "h3_surge_status_success": "Retrieved Uber H3 algorithm status successfully.",

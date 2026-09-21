@@ -18,6 +18,8 @@ public interface AgencyOvertimeService {
 
     void deleteRule(Long userId, Long ruleId);
 
+    OvertimeRuleRes toggleRuleStatus(Long userId, Long ruleId, boolean isActive);
+
     OvertimeReportRes submitOvertimeReport(Long userId, SubmitOvertimeReportReq req);
 
     OvertimeReportRes reviewOvertimeReport(Long userId, Long reportId, ReviewOvertimeReportReq req);

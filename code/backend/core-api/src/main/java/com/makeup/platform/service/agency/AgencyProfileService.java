@@ -1,9 +1,14 @@
 package com.makeup.platform.service.agency;
 
+
+import org.springframework.data.domain.Pageable;
+
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.dto.request.agency.UpdateAgencyProfileReq;
 import com.makeup.platform.dto.request.agency.UpdateCommissionReq;
 import com.makeup.platform.dto.response.agency.AgencyLocationRes;
 import com.makeup.platform.dto.response.agency.AgencyProfileRes;
+import com.makeup.platform.dto.request.admin.AdminCreateAgencyReq;
 
 public interface AgencyProfileService {
 
@@ -17,7 +22,9 @@ public interface AgencyProfileService {
 
     AgencyLocationRes getAgencyLocation(Long agencyId);
 
-    java.util.List<AgencyProfileRes> getAllAgenciesForAdmin(String search, Boolean isVerified);
+    PageResponse<AgencyProfileRes> getAllAgenciesForAdmin(String search, Boolean isVerified, Pageable pageable);
 
     AgencyProfileRes verifyAgency(Long agencyId, boolean isVerified);
+
+    AgencyProfileRes createAgencyByAdmin(AdminCreateAgencyReq req);
 }

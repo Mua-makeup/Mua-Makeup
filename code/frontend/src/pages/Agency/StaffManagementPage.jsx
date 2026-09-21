@@ -24,6 +24,7 @@ import { StaffPackageAssignModal } from '../../components/features/agency/StaffP
 import { AgencyPendingVerificationNotice } from '../../components/features/agency/AgencyPendingVerificationNotice';
 import { formatDate } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const StaffManagementPage = () => {
   const { t } = useI18nStore();
@@ -43,25 +44,41 @@ export const StaffManagementPage = () => {
 
   const [toastMessage, setToastMessage] = useState('');
 
-  const loadStaffData = async () => {
+  const [pageInfo, setPageInfo] = useState({
+    page: 0,
+    size: getSavedPageSize(10),
+    totalElements: 0,
+    totalPages: 1,
+  });
+
+  const loadStaffData = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
     setApiError(null);
     try {
       const [activeRes, pendingRes] = await Promise.allSettled([
-        agencyService.getStaffList('ACTIVE'),
-        agencyService.getStaffList('PENDING'),
+        agencyService.getStaffList('ACTIVE', page, size),
+        agencyService.getStaffList('PENDING', 0, 50),
       ]);
 
       let unverifiedDetected = false;
 
       if (activeRes.status === 'fulfilled') {
-        const aList =
-          activeRes.value?.data?.content ||
-          activeRes.value?.data ||
-          activeRes.value?.content ||
-          activeRes.value ||
-          [];
-        setActiveStaff(Array.isArray(aList) ? aList : []);
+        const d = activeRes.value?.data || activeRes.value || {};
+        if (Array.isArray(d)) {
+          setActiveStaff(d);
+          setPageInfo({ page: 0, size: d.length, totalElements: d.length, totalPages: 1 });
+        } else {
+          const total = d.totalElements ?? d.total_elements ?? (d.content?.length || 0);
+          const pSize = d.size ?? size ?? 10;
+          const totalP = d.totalPages ?? d.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
+          setActiveStaff(d.content || []);
+          setPageInfo({
+            page: d.page ?? page,
+            size: pSize,
+            totalElements: total,
+            totalPages: totalP,
+          });
+        }
       } else {
         const reason = activeRes.reason;
         const errCode = reason?.response?.data?.errorCode;
@@ -79,13 +96,9 @@ export const StaffManagementPage = () => {
       }
 
       if (pendingRes.status === 'fulfilled') {
-        const pList =
-          pendingRes.value?.data?.content ||
-          pendingRes.value?.data ||
-          pendingRes.value?.content ||
-          pendingRes.value ||
-          [];
-        setPendingApplications(Array.isArray(pList) ? pList : []);
+        const val = pendingRes.value?.data || pendingRes.value || {};
+        const pList = val?.content || (Array.isArray(val) ? val : []);
+        setPendingApplications(pList);
       } else {
         const reason = pendingRes.reason;
         const errCode = reason?.response?.data?.errorCode;
@@ -97,16 +110,15 @@ export const StaffManagementPage = () => {
       }
 
       setIsNotVerified(unverifiedDetected);
-      if (unverifiedDetected) {
-        setApiError(null);
-      }
+    } catch (err) {
+      setApiError(err.message || t('error_general'));
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadStaffData();
+    loadStaffData(0);
   }, []);
 
   const handleReviewApplication = async (applicationId, action) => {
@@ -217,12 +229,12 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: t('col_actions'),
+      header: t('actions'),
       align: 'right',
       render: (row) => (
         <button
           onClick={() => setRemovingStaff(row)}
-          className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+          className="p-1.5 text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
           title={t('btn_remove_staff')}
         >
           <Trash2 className="w-4 h-4" />
@@ -246,7 +258,7 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: t('col_styles'),
+      header: 'Mã Mời',
       accessor: 'inviteCodeUsed',
       render: (row) => (
         <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
@@ -255,7 +267,7 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: t('search_placeholder'),
+      header: 'Ghi Chú',
       accessor: 'note',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400 max-w-sm block truncate" title={row.note}>
@@ -273,26 +285,24 @@ export const StaffManagementPage = () => {
       ),
     },
     {
-      header: t('col_actions'),
+      header: t('actions'),
       align: 'right',
       render: (row) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            icon={CheckCircle2}
+        <div className="flex items-center justify-end gap-1.5">
+          <button
             onClick={() => handleReviewApplication(row.id, 'APPROVE')}
+            className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors cursor-pointer"
+            title={t('action_approve')}
           >
-            {t('action_approve')}
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            icon={XCircle}
+            <CheckCircle2 className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => handleReviewApplication(row.id, 'REJECT')}
+            className="p-1.5 text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+            title={t('action_reject')}
           >
-            {t('action_reject')}
-          </Button>
+            <XCircle className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -396,6 +406,18 @@ export const StaffManagementPage = () => {
               data={activeStaff}
               isLoading={isLoading}
               emptyMessage={t('empty_staff_msg')}
+              pagination={{
+                page: pageInfo.page,
+                size: pageInfo.size,
+                totalElements: pageInfo.totalElements,
+                totalPages: pageInfo.totalPages,
+                onPageChange: (newPage1Indexed) => loadStaffData(newPage1Indexed - 1, pageInfo.size),
+                onPageSizeChange: (newSize) => {
+                  savePageSize(newSize);
+                  setPageInfo((prev) => ({ ...prev, size: newSize, page: 0 }));
+                  loadStaffData(0, newSize);
+                },
+              }}
             />
           )}
 
@@ -405,6 +427,13 @@ export const StaffManagementPage = () => {
               data={pendingApplications}
               isLoading={isLoading}
               emptyMessage={t('empty_applications_msg')}
+              pagination={{
+                page: 0,
+                size: 10,
+                totalElements: pendingApplications.length,
+                totalPages: Math.max(Math.ceil(pendingApplications.length / 10), 1),
+                onPageChange: () => {},
+              }}
             />
           )}
         </>

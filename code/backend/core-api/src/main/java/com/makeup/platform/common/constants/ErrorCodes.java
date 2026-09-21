@@ -5,6 +5,7 @@ public final class ErrorCodes {
     private ErrorCodes() {}
 
     public static final String ERR_USER_NOT_FOUND = "ERR_USER_NOT_FOUND";
+    public static final String ERR_ROLE_NOT_FOUND = "ERR_ROLE_NOT_FOUND";
     public static final String ERR_PHONE_ALREADY_EXISTS = "ERR_PHONE_ALREADY_EXISTS";
     public static final String ERR_EMAIL_ALREADY_EXISTS = "ERR_EMAIL_ALREADY_EXISTS";
     public static final String ERR_INVALID_CREDENTIALS = "ERR_INVALID_CREDENTIALS";

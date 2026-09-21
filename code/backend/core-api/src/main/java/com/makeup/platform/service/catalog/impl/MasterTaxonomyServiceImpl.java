@@ -133,6 +133,30 @@ public class MasterTaxonomyServiceImpl implements MasterTaxonomyService {
 
         return taxonomyMapper.toStyleRes(makeupStyleRepository.save(entity));
     }
+
+    @Override
+    @Transactional
+    public MasterCategoryRes toggleCategoryStatus(Integer id, boolean isActive) {
+        MasterCategoryEntity entity = masterCategoryRepository.findById(id)
+                .orElseThrow(() -> new CustomBusinessException(
+                        ErrorCodes.ERR_MASTER_CATEGORY_NOT_FOUND,
+                        "category.not_found", HttpStatus.NOT_FOUND));
+
+        entity.setIsActive(isActive);
+        return taxonomyMapper.toCategoryRes(masterCategoryRepository.save(entity));
+    }
+
+    @Override
+    @Transactional
+    public MakeupStyleRes toggleStyleStatus(Integer id, boolean isActive) {
+        MakeupStyleEntity entity = makeupStyleRepository.findById(id)
+                .orElseThrow(() -> new CustomBusinessException(
+                        ErrorCodes.ERR_STYLE_NOT_FOUND,
+                        "style.not_found", HttpStatus.NOT_FOUND));
+
+        entity.setIsActive(isActive);
+        return taxonomyMapper.toStyleRes(makeupStyleRepository.save(entity));
+    }
 }
 
 
