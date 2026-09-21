@@ -66,6 +66,9 @@
     "invitation_accept_success": "Successfully joined Studio.",
     "staff_list_success": "Staff list retrieved successfully.",
     "staff_detail_success": "Staff detail retrieved successfully.",
+    "staff_review_success": "Staff application reviewed successfully.",
+    "staff_review_approved": "Staff application approved successfully!",
+    "staff_review_rejected": "Staff application declined successfully.",
     "staff_status_update_success": "Staff status updated successfully.",
     "staff_commission_update_success": "Staff commission updated successfully.",
     "staff_remove_success": "Staff removed from Studio successfully.",
@@ -92,7 +95,10 @@
     "invalid_decision": "Invalid decision. Only APPROVE or REJECT is accepted.",
     "staff_not_active": "Staff member is not active or eligible for scheduling.",
     "shift_time_invalid": "Shift end time must be after start time.",
-    "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today."
+    "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today.",
+    "shift_created_success": "Shift created successfully!",
+    "shift_updated_success": "Shift updated successfully!",
+    "shift_deleted_success": "Shift deleted successfully!"
   },
   "catalog": {
     "style_not_found": "Makeup style not found with ID: {0}",

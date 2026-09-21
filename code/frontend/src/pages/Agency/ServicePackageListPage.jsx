@@ -132,9 +132,11 @@ export const ServicePackageListPage = () => {
           <span className="font-bold text-slate-900 dark:text-white text-sm">
             {row.packageName}
           </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-            {row.description || '—'}
-          </span>
+          {row.description && (
+            <span className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+              {row.description}
+            </span>
+          )}
         </div>
       ),
     },
@@ -189,11 +191,11 @@ export const ServicePackageListPage = () => {
       header: t('actions'),
       align: 'right',
       render: (row) => (
-        <div className="flex items-center justify-end gap-1.5">
+        <div className="flex items-center justify-end gap-2">
           <button
             onClick={() => setManagingPackage(row)}
-            className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors cursor-pointer"
-            title="Add-ons & Quy trình"
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-50/80 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700 border border-indigo-200/70 hover:border-indigo-300 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-400 dark:border-indigo-800/60 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95"
+            title={t('btn_items_addons')}
           >
             <ListPlus className="w-4 h-4" />
           </button>
@@ -202,14 +204,14 @@ export const ServicePackageListPage = () => {
               setEditingPackage(row);
               setIsFormOpen(true);
             }}
-            className="p-1.5 text-amber-500 hover:text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-50/80 hover:bg-amber-100 text-amber-600 hover:text-amber-700 border border-amber-200/70 hover:border-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 dark:text-amber-400 dark:border-amber-800/60 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95"
             title={t('btn_edit')}
           >
             <Edit2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => setDeletingPackage(row)}
-            className="p-1.5 text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-rose-50/80 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200/70 hover:border-rose-300 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-400 dark:border-rose-800/60 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95"
             title={t('delete')}
           >
             <Trash2 className="w-4 h-4" />

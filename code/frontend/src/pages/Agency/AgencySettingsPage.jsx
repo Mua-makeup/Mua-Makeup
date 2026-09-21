@@ -220,7 +220,7 @@ export const AgencySettingsPage = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              {[formData.addressStreet || profile?.addressStreet, formData.district || profile?.district, formData.city || profile?.city].filter(Boolean).join(', ') || 'Chưa thiết lập địa chỉ'}
+              {[formData.addressStreet || profile?.addressStreet, formData.district || profile?.district, formData.city || profile?.city].filter(Boolean).join(', ') || t('agency_address_not_set')}
             </p>
           </div>
         </div>
@@ -234,7 +234,7 @@ export const AgencySettingsPage = () => {
             onClick={() => setIsContactModalOpen(true)}
             className="shadow-xs"
           >
-            <span>{t('view_detail') || 'Xem Chi Tiết'} & Sửa</span>
+            <span>{t('btn_view_and_edit')}</span>
           </Button>
         </div>
       </div>
@@ -311,7 +311,7 @@ export const AgencySettingsPage = () => {
               type="button"
               onClick={() => setIsContactModalOpen(true)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Xem chi tiết & Chỉnh sửa thông tin địa chỉ"
+              title={t('btn_view_and_edit')}
             >
               <Eye className="w-4 h-4" />
             </button>

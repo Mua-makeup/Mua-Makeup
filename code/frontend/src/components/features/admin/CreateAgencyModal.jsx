@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Building2, User, ShieldAlert, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, Building2, User, ShieldAlert } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Input } from '../../base/Input';
 import { Button } from '../../base/Button';

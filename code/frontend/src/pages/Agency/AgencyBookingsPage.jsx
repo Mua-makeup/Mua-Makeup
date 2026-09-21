@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   CalendarDays,
   Search,
@@ -11,7 +11,6 @@ import {
 import { agencyService } from '../../services/agency.service';
 import { DataTable } from '../../components/base/DataTable';
 import { Badge } from '../../components/base/Badge';
-import { Button } from '../../components/base/Button';
 import { useI18nStore } from '../../store/useI18nStore';
 import { AgencyBookingDetailModal } from '../../components/features/agency/AgencyBookingDetailModal';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
@@ -70,11 +69,6 @@ export const AgencyBookingsPage = () => {
   useEffect(() => {
     fetchBookings(0);
   }, [selectedStatus]);
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchBookings(0);
-  };
 
   const statusTabs = [
     { key: 'ALL', label: t('tab_all') },

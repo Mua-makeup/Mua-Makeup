@@ -66,6 +66,9 @@
     "invitation_accept_success": "Gia nhập Studio thành công.",
     "staff_list_success": "Lấy danh sách nhân viên thành công.",
     "staff_detail_success": "Lấy chi tiết thông tin nhân viên thành công.",
+    "staff_review_success": "Xử lý đơn xin gia nhập Studio thành công.",
+    "staff_review_approved": "Phê duyệt đơn xin gia nhập của thợ thành công!",
+    "staff_review_rejected": "Đã từ chối đơn xin gia nhập của thợ.",
     "staff_status_update_success": "Cập nhật trạng thái nhân viên thành công.",
     "staff_commission_update_success": "Cập nhật tỷ lệ hoa hồng nhân viên thành công.",
     "staff_remove_success": "Xóa nhân viên khỏi Studio thành công.",
@@ -92,7 +95,10 @@
     "invalid_decision": "Quyết định không hợp lệ. Chỉ chấp nhận APPROVE hoặc REJECT.",
     "staff_not_active": "Nhân viên chưa kích hoạt hoặc không thể xếp ca.",
     "shift_time_invalid": "Thời gian kết thúc ca làm phải sau thời gian bắt đầu.",
-    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày."
+    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
+    "shift_created_success": "Tạo ca làm việc thành công!",
+    "shift_updated_success": "Cập nhật ca làm việc thành công!",
+    "shift_deleted_success": "Xóa ca làm việc thành công!"
   },
   "catalog": {
     "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",

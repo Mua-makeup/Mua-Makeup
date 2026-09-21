@@ -81,7 +81,7 @@ export const DataTable = ({
               {columns.map((col, idx) => (
                 <th
                   key={idx}
-                  className={`px-5 py-3.5 ${
+                  className={`px-5 py-3.5 whitespace-nowrap ${
                     col.align === 'right'
                       ? 'text-right'
                       : col.align === 'center'

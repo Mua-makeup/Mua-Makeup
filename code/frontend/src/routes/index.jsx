@@ -30,6 +30,7 @@ import { AgencyProfilePage } from '../pages/Agency/AgencyProfilePage';
 import { ServicePackageListPage } from '../pages/Agency/ServicePackageListPage';
 import { SurchargeConfigPage } from '../pages/Agency/SurchargeConfigPage';
 import { StaffManagementPage } from '../pages/Agency/StaffManagementPage';
+import { StaffDetailPage } from '../pages/Agency/StaffDetailPage';
 import { ShiftSchedulePage } from '../pages/Agency/ShiftSchedulePage';
 import { AgencySettingsPage } from '../pages/Agency/AgencySettingsPage';
 
@@ -82,6 +83,7 @@ export const AppRoutes = () => {
           <Route path="packages" element={<ServicePackageListPage />} />
           <Route path="surcharges" element={<SurchargeConfigPage />} />
           <Route path="staff" element={<StaffManagementPage />} />
+          <Route path="staff/:staffId" element={<StaffDetailPage />} />
           <Route path="shifts" element={<ShiftSchedulePage />} />
         </Route>
 

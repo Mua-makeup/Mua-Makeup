@@ -12,12 +12,14 @@ import {
   Users,
   Filter,
   Sparkles,
+  GripVertical,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { ConfirmDialog } from '../../base/ConfirmDialog';
 import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
 import { Select } from '../../base/Select';
+import { Toast } from '../../base/Toast';
 import { agencyService } from '../../../services/agency.service';
 import { SHIFT_DAYS } from '../../../constants/agency.constant';
 import { useShiftConflict } from '../../../hooks/useShiftConflict';
@@ -85,6 +87,12 @@ export const WeeklyShiftTable = () => {
   // Xóa ca modal alert state
   const [deletingShift, setDeletingShift] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Drag & drop state
+  const [draggedShift, setDraggedShift] = useState(null);
+  const [dragOverCell, setDragOverCell] = useState(null); // { periodId, dayValue }
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
 
   // Form fields
   const [selectedStaffId, setSelectedStaffId] = useState('');
@@ -310,6 +318,131 @@ export const WeeklyShiftTable = () => {
     setIsAddModalOpen(true);
   };
 
+  // Drag and Drop event handlers
+  const handleDragStart = (e, shift) => {
+    setDraggedShift(shift);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(shift.id));
+  };
+
+  const handleDragEnd = () => {
+    setDraggedShift(null);
+    setDragOverCell(null);
+  };
+
+  const handleDragOver = (e, periodId, dayValue) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragOverCell || dragOverCell.periodId !== periodId || dragOverCell.dayValue !== dayValue) {
+      setDragOverCell({ periodId, dayValue });
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverCell(null);
+    }
+  };
+
+  const handleDropOnCell = async (targetPeriodId, targetDayValue) => {
+    setDragOverCell(null);
+    if (!draggedShift) return;
+
+    const targetDay = Number(targetDayValue);
+    const currentPeriod = getPeriodId(draggedShift.startTime);
+    const isSameDay = Number(draggedShift.dayOfWeek) === targetDay;
+    const isSamePeriod = currentPeriod === targetPeriodId;
+
+    if (isSameDay && isSamePeriod) {
+      setDraggedShift(null);
+      return;
+    }
+
+    // Determine new times based on target period
+    let newStartTime = draggedShift.startTime;
+    let newEndTime = draggedShift.endTime;
+    let newShiftName = draggedShift.shiftName;
+
+    if (!isSamePeriod) {
+      if (targetPeriodId === 'MORNING') {
+        newStartTime = '08:00';
+        newEndTime = '12:00';
+        newShiftName = t('preset_morning');
+      } else if (targetPeriodId === 'AFTERNOON') {
+        newStartTime = '13:00';
+        newEndTime = '17:00';
+        newShiftName = t('preset_afternoon');
+      } else if (targetPeriodId === 'EVENING') {
+        newStartTime = '18:00';
+        newEndTime = '21:30';
+        newShiftName = t('preset_overtime');
+      }
+    }
+
+    // Client-side conflict check before calling API
+    const parseMinutes = (timeStr) => {
+      if (!timeStr) return 0;
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const newStartM = parseMinutes(newStartTime);
+    const newEndM = parseMinutes(newEndTime);
+
+    const hasOverlap = shifts.some((s) => {
+      if (s.id === draggedShift.id) return false;
+      if (String(s.staffId) !== String(draggedShift.staffId)) return false;
+      if (Number(s.dayOfWeek) !== targetDay) return false;
+      const sStart = parseMinutes(s.startTime);
+      const sEnd = parseMinutes(s.endTime);
+      return sStart < newEndM && sEnd > newStartM;
+    });
+
+    if (hasOverlap) {
+      setToastType('error');
+      setToastMessage(t('shift_drag_conflict_error'));
+      setDraggedShift(null);
+      return;
+    }
+
+    // Optimistic UI update
+    const previousShifts = [...shifts];
+    setShifts((prev) =>
+      prev.map((s) =>
+        s.id === draggedShift.id
+          ? {
+              ...s,
+              dayOfWeek: targetDay,
+              startTime: newStartTime,
+              endTime: newEndTime,
+              shiftName: newShiftName,
+            }
+          : s
+      )
+    );
+
+    try {
+      await agencyService.updateShift(draggedShift.id, {
+        staffId: draggedShift.staffId,
+        dayOfWeek: targetDay,
+        shiftName: newShiftName,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        isRecurring: draggedShift.isRecurring ?? true,
+      });
+      setToastType('success');
+      setToastMessage(t('shift_drag_success'));
+    } catch (err) {
+      // Rollback on error
+      setShifts(previousShifts);
+      setToastType('error');
+      setToastMessage(
+        err.response?.data?.message || err.message || t('shift_drag_conflict_error')
+      );
+    } finally {
+      setDraggedShift(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Real API Error Alert */}
@@ -444,6 +577,12 @@ export const WeeklyShiftTable = () => {
         </Button>
       </div>
 
+      {/* Hướng Dẫn Kéo Thả Ca Trực */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 rounded-2xl text-xs text-rose-700 dark:text-rose-300">
+        <Sparkles className="w-4 h-4 text-rose-500 shrink-0" />
+        <span>{t('shift_drag_instruction')}</span>
+      </div>
+
       {/* Thời Khóa Biểu 7 Ngày Chia Theo Buổi (Sáng - Chiều - Tối) */}
       <div className="space-y-4">
         {SHIFT_PERIODS.map((period) => {
@@ -495,11 +634,24 @@ export const WeeklyShiftTable = () => {
                       Number(s.dayOfWeek) === Number(d.value) &&
                       getPeriodId(s.startTime) === period.id
                   );
+                  const isCellDragOver =
+                    dragOverCell?.periodId === period.id &&
+                    Number(dragOverCell?.dayValue) === Number(d.value);
 
                   return (
                     <div
                       key={`${period.id}-${d.value}`}
-                      className="p-2.5 flex flex-col justify-between hover:bg-slate-50/40 dark:hover:bg-slate-800/20 transition-colors"
+                      onDragOver={(e) => handleDragOver(e, period.id, d.value)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDropOnCell(period.id, d.value);
+                      }}
+                      className={`p-2.5 flex flex-col justify-between transition-all duration-200 ${
+                        isCellDragOver
+                          ? 'bg-rose-50/90 dark:bg-rose-950/50 ring-2 ring-rose-500/80 ring-inset rounded-xl shadow-inner'
+                          : 'hover:bg-slate-50/40 dark:hover:bg-slate-800/20'
+                      }`}
                     >
                       {/* Tiêu đề thứ cho từng cột */}
                       <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100 dark:border-slate-800/60">
@@ -516,43 +668,65 @@ export const WeeklyShiftTable = () => {
                       {/* Danh sách ca trực trong buổi */}
                       <div className="space-y-2 flex-1">
                         {dayShifts.length === 0 ? (
-                          <div className="h-14 flex items-center justify-center text-slate-300 dark:text-slate-600 text-[11px] italic">
-                            {t('empty_shifts_slot')}
+                          <div
+                            className={`h-14 flex items-center justify-center text-[11px] italic transition-all rounded-lg ${
+                              isCellDragOver
+                                ? 'text-rose-600 dark:text-rose-400 font-bold border-2 border-dashed border-rose-400 dark:border-rose-600 bg-white/80 dark:bg-slate-800/80'
+                                : 'text-slate-300 dark:text-slate-600'
+                            }`}
+                          >
+                            {isCellDragOver ? t('shift_drop_hint') : t('empty_shifts_slot')}
                           </div>
                         ) : (
-                          dayShifts.map((s) => (
-                            <div
-                              key={s.id}
-                              className={`p-2 rounded-xl border ${period.cardBorder} ${period.cardBg} text-xs relative group transition-all shadow-2xs`}
-                            >
-                              <div className="flex items-start justify-between gap-1">
-                                <span className="font-bold text-slate-900 dark:text-white truncate block">
-                                  {s.staffName || `${t('staff_label')} #${s.staffId}`}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeletingShift(s)}
-                                  className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-90"
-                                  title={t('delete')}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-
-                              <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5">
-                                {s.shiftName}
-                              </p>
-
+                          dayShifts.map((s) => {
+                            const isThisDragging = draggedShift?.id === s.id;
+                            return (
                               <div
-                                className={`mt-1 flex items-center gap-1 text-[10px] font-mono font-bold ${period.timeColor}`}
+                                key={s.id}
+                                draggable={true}
+                                onDragStart={(e) => handleDragStart(e, s)}
+                                onDragEnd={handleDragEnd}
+                                className={`p-2 rounded-xl border ${period.cardBorder} ${period.cardBg} text-xs relative group transition-all shadow-2xs cursor-grab active:cursor-grabbing hover:shadow-md select-none ${
+                                  isThisDragging
+                                    ? 'opacity-30 scale-95 border-dashed border-rose-400'
+                                    : ''
+                                }`}
                               >
-                                <Clock className="w-3 h-3" />
-                                <span>
-                                  {s.startTime} - {s.endTime}
-                                </span>
+                                <div className="flex items-start justify-between gap-1">
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    <GripVertical className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 shrink-0" />
+                                    <span className="font-bold text-slate-900 dark:text-white truncate block">
+                                      {s.staffName || `${t('staff_label')} #${s.staffId}`}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeletingShift(s);
+                                    }}
+                                    className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-90"
+                                    title={t('delete')}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5 pl-4.5">
+                                  {s.shiftName}
+                                </p>
+
+                                <div
+                                  className={`mt-1 flex items-center gap-1 text-[10px] font-mono font-bold ${period.timeColor} pl-4.5`}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  <span>
+                                    {s.startTime} - {s.endTime}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
 
@@ -817,6 +991,13 @@ export const WeeklyShiftTable = () => {
         cancelText={t('cancel')}
         isDangerous={true}
         isLoading={isDeleting}
+      />
+
+      {/* Global Notification Toast */}
+      <Toast
+        message={toastMessage}
+        type={toastType}
+        onClose={() => setToastMessage('')}
       />
     </div>
   );

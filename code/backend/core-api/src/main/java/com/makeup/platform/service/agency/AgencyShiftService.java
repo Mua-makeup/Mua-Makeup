@@ -12,6 +12,8 @@ public interface AgencyShiftService {
 
     WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId);
 
+    ShiftDetailRes updateShift(Long userId, Long shiftId, ConfigureShiftReq req);
+
     List<ShiftDetailRes> getStaffShifts(Long userId, Long staffId);
 
     void deleteShift(Long userId, Long shiftId);

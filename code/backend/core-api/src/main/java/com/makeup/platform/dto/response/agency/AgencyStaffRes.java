@@ -27,8 +27,11 @@ public class AgencyStaffRes {
     private Boolean isActive;
     private String status;
     private String note;
+    private String inviteCodeUsed;
     private LocalDateTime joinedAt;
     private List<AssignedStyleRes> styles;
     private Integer packageCount;
     private List<Long> packageIds;
+    private Integer experienceYears;
+    private BigDecimal ratingAvg;
 }
