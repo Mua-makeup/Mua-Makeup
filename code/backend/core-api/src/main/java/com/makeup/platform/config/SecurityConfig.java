@@ -35,9 +35,12 @@ public class SecurityConfig {
             "http://localhost:[*]",
             "http://127.0.0.1:[*]",
             "https://*.vercel.app",
+            "https://*.railway.app",
             "https://*.ngrok-free.app",
             "https://*.ngrok-free.dev",
-            "https://*.loca.lt");
+            "https://*.loca.lt",
+            "*"
+    );
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;

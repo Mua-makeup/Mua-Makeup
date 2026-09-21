@@ -29,5 +29,10 @@ public class MuaProfileRes {
     private Integer totalCompletedJobs;
     private List<CertificateRes> certificates;
     private List<MuaStyleRes> styles;
+    private List<String> portfolioImages;
+    private String baseAddressText;
+    private BigDecimal baseAddressLat;
+    private BigDecimal baseAddressLng;
+    private Boolean isSurgeEnabled;
     private LocalDateTime updatedAt;
 }

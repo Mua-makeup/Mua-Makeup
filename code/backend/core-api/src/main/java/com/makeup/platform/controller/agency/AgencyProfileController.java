@@ -9,15 +9,19 @@ import com.makeup.platform.dto.response.agency.AgencyProfileRes;
 import com.makeup.platform.service.agency.AgencyProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/agencies")
@@ -64,5 +68,14 @@ public class AgencyProfileController extends BaseController {
             @PathVariable Long agencyId) {
         AgencyLocationRes res = agencyProfileService.getAgencyLocation(agencyId);
         return ok(res, "agency.location_get_success");
+    }
+
+    @PostMapping(value = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    public ResponseEntity<ApiResponse<AgencyProfileRes>> uploadLogo(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam("file") MultipartFile file) {
+        AgencyProfileRes res = agencyProfileService.uploadLogo(userId, file);
+        return ok(res, "agency.logo_upload_success");
     }
 }

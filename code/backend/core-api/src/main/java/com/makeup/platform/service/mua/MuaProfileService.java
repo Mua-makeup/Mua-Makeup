@@ -9,6 +9,8 @@ import com.makeup.platform.dto.response.mua.CertificateRes;
 import com.makeup.platform.dto.response.mua.MuaProfileRes;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 public interface MuaProfileService {
 
     MuaProfileRes getPublicProfile(Long muaId);
@@ -22,4 +24,9 @@ public interface MuaProfileService {
     CertificateRes verifyCertificate(Long muaId, VerifyCertificateReq req);
 
     PageResponse<AdminMuaCertificateRes> getAllCertificatesForAdmin(String status, Pageable pageable);
+    List<AdminMuaCertificateRes> getAllCertificatesForAdmin(String status);
+
+    List<String> uploadPortfolioImages(Long userId, List<org.springframework.web.multipart.MultipartFile> files);
+
+    List<String> deletePortfolioImage(Long userId, String imageUrl);
 }

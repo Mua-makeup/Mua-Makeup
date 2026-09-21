@@ -2,15 +2,18 @@ package com.makeup.platform.service.agency.impl;
 
 import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.common.constants.ErrorCodes;
+import com.makeup.platform.common.constants.MediaConstants;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.common.constants.SecurityConstants;
+import com.makeup.platform.common.utils.FileValidationUtils;
 import com.makeup.platform.common.utils.GeoDistanceUtils;
 import com.makeup.platform.dto.request.admin.AdminCreateAgencyReq;
 import com.makeup.platform.dto.request.agency.UpdateAgencyProfileReq;
 import com.makeup.platform.dto.request.agency.UpdateCommissionReq;
 import com.makeup.platform.dto.response.agency.AgencyLocationRes;
 import com.makeup.platform.dto.response.agency.AgencyProfileRes;
+import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.RoleEntity;
 import com.makeup.platform.entity.auth.UserEntity;
@@ -21,6 +24,7 @@ import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.telemetry.AgencyBranchRepository;
 import com.makeup.platform.service.agency.AgencyProfileService;
+import com.makeup.platform.service.media.MediaStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -32,6 +36,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -47,9 +52,10 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MediaStorageService mediaStorageService;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public AgencyProfileRes getMyAgencyProfile(Long userId) {
         AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -98,11 +104,7 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
             agency.setCity(req.getCity().trim());
         }
         if (req.getLogoUrl() != null) {
-            String logo = req.getLogoUrl().trim();
-            agency.setLogoUrl(logo);
-            if (agency.getOwner() != null) {
-                agency.getOwner().setAvatarUrl(logo);
-            }
+            agency.setLogoUrl(req.getLogoUrl().trim());
         }
         if (req.getLatitude() != null && req.getLongitude() != null) {
             agency.setLatitude(req.getLatitude());
@@ -278,6 +280,25 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public AgencyProfileRes uploadLogo(Long userId, MultipartFile file) {
+        AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_AGENCY_NOT_FOUND,
+                        "ERR_AGENCY_NOT_FOUND"
+                ));
+
+        FileValidationUtils.validateImageFile(file, MediaConstants.MAX_LOGO_IMAGE_SIZE);
+
+        CloudMediaUploadResult result = mediaStorageService.uploadImage(file, "agencies/" + agency.getId() + "/logo");
+        agency.setLogoUrl(result.getImageUrl());
+        AgencyProfileEntity saved = agencyProfileRepository.save(agency);
+        log.info("Studio Logo uploaded to Cloudinary for agencyId={}", saved.getId());
+
+        return agencyProfileMapper.toRes(saved);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public AgencyProfileRes createAgencyByAdmin(AdminCreateAgencyReq req) {
         // 1. Kiểm tra trùng số điện thoại chủ sở hữu
         if (userRepository.existsByPhoneNumber(req.getOwnerPhone())) {
@@ -328,7 +349,7 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                         ? req.getCommissionRateInternal()
                         : new BigDecimal("30.00"))
                 .ratingAvg(null)
-                .isVerified(true) 
+                .isVerified(true)
                 .build();
 
         AgencyProfileEntity savedAgency = agencyProfileRepository.save(agency);

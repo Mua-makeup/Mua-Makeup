@@ -26,5 +26,8 @@ public interface AgencyProfileService {
 
     AgencyProfileRes verifyAgency(Long agencyId, boolean isVerified);
 
+    AgencyProfileRes uploadLogo(Long userId, org.springframework.web.multipart.MultipartFile file);
+
     AgencyProfileRes createAgencyByAdmin(AdminCreateAgencyReq req);
 }
+

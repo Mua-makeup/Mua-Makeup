@@ -45,7 +45,12 @@
     "portfolios_list_success": "Lấy danh sách tác phẩm portfolio thành công.",
     "portfolio_featured_limit": "MUA đã đạt tối đa 3 tác phẩm nổi bật.",
     "certificate_not_verified_cannot_accept": "Thợ trang điểm chưa được phê duyệt chứng chỉ hành nghề, không thể nhận đơn.",
-    "certificate_not_verified_cannot_operate": "Thợ trang điểm chưa được phê duyệt chứng chỉ hành nghề, không thể kích hoạt nhận đơn."
+    "certificate_not_verified_cannot_operate": "Thợ trang điểm chưa được phê duyệt chứng chỉ hành nghề, không thể kích hoạt nhận đơn.",
+    "portfolio_files_empty": "Vui lòng chọn ít nhất một tệp ảnh để tải lên.",
+    "portfolio_max_exceeded": "Số lượng ảnh trong bộ sưu tập portfolio không được vượt quá 30 ảnh.",
+    "image_url_required": "Đường dẫn ảnh cần xóa không được để trống.",
+    "portfolio_images_upload_success": "Tải lên ảnh bộ sưu tập portfolio thành công!",
+    "portfolio_image_delete_success": "Xóa ảnh bộ sưu tập portfolio thành công!"
   },
   "agency": {
     "not_verified_cannot_operate": "Studio chưa được Ban Quản Trị phê duyệt, chưa thể thực hiện thao tác này.",
@@ -362,7 +367,12 @@
     "not_found": "Không tìm thấy phong cách make-up yêu cầu."
   },
   "agency": {
-    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công."
+    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
+    "logo_upload_success": "Tải lên logo của Studio thành công."
+  },
+  "user": {
+    "avatar_upload_success": "Tải lên ảnh đại diện thành công.",
+    "profile_update_success": "Cập nhật hồ sơ thành công."
   },
   "pricing": {
     "surge_rule_created_success": "Tạo mới quy tắc giá động thành công!",

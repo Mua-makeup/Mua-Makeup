@@ -473,6 +473,31 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         log.info("Removed staff from Studio: staffId={}, agencyId={}", staffId, agency.getId());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public AgencyStaffDetailRes getMyStaffProfile(Long userId) {
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_STAFF_NOT_FOUND,
+                        "ERR_STAFF_NOT_FOUND"
+                ));
+        AgencyStaffDetailRes res = agencyStaffMapper.toDetailRes(staff);
+        List<AgencyStaffStyleEntity> styles = agencyStaffStyleRepository.findByStaffIdWithStyle(staff.getId());
+        if (styles != null && !styles.isEmpty()) {
+            res.setAssignedStyles(styles.stream()
+                    .map(s -> AssignedStyleRes.builder()
+                            .id(s.getStyle().getId())
+                            .styleCode(s.getStyle().getStyleCode())
+                            .styleName(s.getStyle().getStyleName())
+                            .isQualified(s.getIsQualified())
+                            .build())
+                    .collect(Collectors.toList()));
+        } else {
+            res.setAssignedStyles(java.util.Collections.emptyList());
+        }
+        return res;
+    }
+
     private AgencyProfileEntity getAgencyByOwnerId(Long userId) {
         return agencyProfileRepository.findByOwnerId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(

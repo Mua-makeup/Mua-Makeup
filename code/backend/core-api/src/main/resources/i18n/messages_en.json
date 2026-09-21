@@ -45,7 +45,12 @@
     "portfolios_list_success": "Get portfolios list successfully.",
     "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed).",
     "certificate_not_verified_cannot_accept": "Makeup artist has not been certified/verified, cannot accept bookings.",
-    "certificate_not_verified_cannot_operate": "Makeup artist has not been certified/verified, cannot go online to receive bookings."
+    "certificate_not_verified_cannot_operate": "Makeup artist has not been certified/verified, cannot go online to receive bookings.",
+    "portfolio_files_empty": "Please select at least one image file to upload.",
+    "portfolio_max_exceeded": "Maximum 30 portfolio images allowed.",
+    "image_url_required": "Image URL to delete cannot be empty.",
+    "portfolio_images_upload_success": "Portfolio images uploaded successfully!",
+    "portfolio_image_delete_success": "Portfolio image deleted successfully!"
   },
   "agency": {
     "not_verified_cannot_operate": "Studio is not verified yet by Super Admin, cannot perform this operation.",
@@ -362,7 +367,12 @@
     "not_found": "Requested makeup style not found."
   },
   "agency": {
-    "bookings_fetch_success": "Retrieved studio bookings successfully."
+    "bookings_fetch_success": "Retrieved studio bookings successfully.",
+    "logo_upload_success": "Studio logo uploaded successfully."
+  },
+  "user": {
+    "avatar_upload_success": "Avatar uploaded successfully.",
+    "profile_update_success": "Profile updated successfully."
   },
   "pricing": {
     "surge_rule_created_success": "Dynamic pricing surge rule created successfully!",

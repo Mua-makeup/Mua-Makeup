@@ -89,6 +89,14 @@ public class AgencyStaffController extends BaseController {
         return ok(PageResponse.from(res), "agency.staff_list_success"); // <-- BỌC PageResponse.from(res)
     }
 
+    @GetMapping("/staff/me")
+    @PreAuthorize("hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<AgencyStaffDetailRes>> getMyStaffProfile(
+            @AuthenticationPrincipal Long userId) {
+        AgencyStaffDetailRes res = agencyStaffService.getMyStaffProfile(userId);
+        return ok(res, "agency.staff_detail_success");
+    }
+
     @GetMapping("/staff/{staffId}")
     @PreAuthorize("hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')")
     public ResponseEntity<ApiResponse<AgencyStaffDetailRes>> getStaffDetail(

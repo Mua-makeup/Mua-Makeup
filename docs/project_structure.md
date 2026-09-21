@@ -176,107 +176,91 @@ code/frontend/
 
 ---
 
-## III. Cấu trúc Ứng dụng Di động (Mobile App - React Native + TypeScript)
+## III. Cấu trúc Ứng dụng Di động (Mobile App - Expo SDK 57 + Expo Router + TypeScript)
 
-Áp dụng cho ứng dụng di động **Mobile App Khách hàng (`ROLE_CUSTOMER`) & Thợ Make-up (`ROLE_FREELANCE_MUA`)** trên cả 2 nền tảng iOS & Android.
+Áp dụng cho ứng dụng di động **Mobile App** phục vụ đúng **3 đối tượng người dùng**:
+1. **Khách Hàng (`ROLE_CUSTOMER`)**: Tìm kiếm dịch vụ, đặt lịch hẹn, kích hoạt radar tìm thợ khẩn cấp 30s, theo dõi GPS thợ thời gian thực.
+2. **Thợ Make-up Tự Do (`ROLE_FREELANCE_MUA`)**: Bật/tắt trạng thái trực tuyến (GPS Radar ON), nhận ca khẩn cấp 30s, theo dõi lịch hẹn và thu nhập.
+3. **Nhân Viên Agency (`ROLE_AGENCY_STAFF`)**: Theo dõi lịch điều phối ca làm việc và trạng thái trực tuyến.
+*(Super Admin & Agency Admin sử dụng cổng Web Admin Portal riêng).*
 
 ```text
-code/mobile/
-├── android/                            # Cấu hình Native Android (Gradle, AndroidManifest, Permissions)
-├── ios/                                # Cấu hình Native iOS (Podfile, Info.plist, Background Modes)
+code/app/
+├── assets/                             # Tài nguyên đồ họa (Images, Splash, App Icons)
+│   └── images/                         # Logo, Icons, Placeholder
 │
 ├── src/
-│   ├── assets/                         # Tài nguyên đồ họa (Icons, Images, Lottie Animations, Sounds)
-│   │   ├── images/                     # Banner, Luxury Logo, Placeholder avatar
-│   │   ├── sounds/                     # countdown_alert.mp3 (Âm thanh chuông báo nhận ca khẩn cấp)
-│   │   └── fonts/                      # Font Playfair Display, Inter, Montserrat
+│   ├── app/                            # File-based Routing (Expo Router / Expo SDK 57)
+│   │   ├── _layout.tsx                 # Root Layout: Theme, Splash, Auth bootstrap từ SecureStore
+│   │   ├── index.tsx                   # Trang chủ hoàn chỉnh: Header GPS, Radar 30s, Top MUA, Bottom Nav
+│   │   ├── explore.tsx                 # Màn hình khám phá / tìm kiếm phong cách
+│   │   └── (auth)/                     # Phân hệ Xác thực tài khoản
+│   │       ├── _layout.tsx             # Auth Stack Layout (slide animation)
+│   │       ├── onboarding.tsx          # 3 màn hình Onboarding Carousel giới thiệu giá trị cốt lõi
+│   │       ├── login.tsx               # Màn hình Đăng nhập chuẩn 100% Figma Rose Ruby & Deep Slate
+│   │       └── register.tsx            # Màn hình Đăng ký tài khoản (Khách hàng & Thợ MUA)
 │   │
-│   ├── components/                     # UI Components tái sử dụng (TypeScript + NativeWind)
-│   │   ├── common/                     # Nút bấm, Ô nhập, Modal, BottomSheet, Badge
-│   │   │   ├── LuxuryButton.tsx
-│   │   │   ├── CustomInput.tsx
-│   │   │   ├── BottomSheetModal.tsx
-│   │   │   └── RatingStars.tsx
-│   │   ├── customer/                   # Component đặc thù Khách hàng
-│   │   │   ├── MuaRadarMap.tsx         # Bản đồ radar quét thợ rảnh gần nhất (React Native Maps)
-│   │   │   ├── StyleChipFilter.tsx     # Chip chọn phong cách trang điểm
-│   │   │   ├── InvoiceBreakdown.tsx    # Bảng chi tiết hóa đơn (Gói + Km + Phụ phí - Voucher)
-│   │   │   └── LiveTrackingView.tsx    # Bản đồ bám đuổi thợ di chuyển realtime (WSS)
-│   │   └── mua/                        # Component đặc thù Thợ Make-up
-│   │       ├── ReadinessToggle.tsx     # Công tắc Online/Offline phát sóng GPS
-│   │       ├── CountdownModal.tsx      # Đĩa quay đếm ngược 45s rung haptic nhận đơn
-│   │       ├── ProofCameraCapture.tsx  # Trình chụp ảnh nghiệm thu trước khi bấm hoàn thành
-│   │       └── StepProgressTracker.tsx # Thanh theo dõi 5 chặng thực hiện ca làm
+│   ├── components/                     # UI Components tái sử dụng
+│   │   ├── auth/                       # Component phục vụ xác thực
+│   │   │   ├── BrandLogo.tsx           # Logo nhận diện thương hiệu MUA MAKEUP ✨
+│   │   │   ├── RoleSegmentedControl.tsx# Tab chuyển đổi vai trò (CUSTOMER vs FREELANCER_MUA)
+│   │   │   └── QuickTestAccounts.tsx   # Phím tắt chọn nhanh tài khoản test (3 vai trò)
+│   │   ├── base/                       # Atomic Base Components
+│   │   │   ├── BaseButton.tsx          # Nút bấm Rose Ruby (#E11D48) có mũi tên → & loading spinner
+│   │   │   ├── BaseInput.tsx           # Ô nhập liệu có icon, label *, hiển thị lỗi, mắt toggle password
+│   │   │   └── BaseModal.tsx           # Hộp thoại modal dùng chung
+│   │   ├── customer/                   # Component nghiệp vụ Khách hàng
+│   │   │   ├── EmergencyBookingCard.tsx# Thẻ đặt thợ khẩn cấp 30s phát sáng Rose
+│   │   │   ├── StyleChipFilter.tsx     # Chip cuộn phong cách (Cô dâu, Dạ tiệc, Douyin...)
+│   │   │   ├── MuaArtistCard.tsx       # Thẻ thông tin thợ MUA (Avatar, sao, km, giá, nút Đặt lịch)
+│   │   │   └── LiveGpsTrackerView.tsx  # Bản đồ bám đuổi thợ di chuyển thời gian thực
+│   │   └── mua/                        # Component nghiệp vụ Thợ MUA & Staff
+│   │       ├── WorkstationStatusCard.tsx # Thẻ trạng thái Online/Offline GPS radar & thu nhập
+│   │       ├── UrgentJobBroadcastModal.tsx# Modal đĩa quay 30s đếm ngược nhận đơn khẩn cấp
+│   │       └── ProofPhotoCapture.tsx   # Chụp ảnh nghiệm thu hoàn tất dịch vụ
 │   │
-│   ├── navigation/                     # Điều hướng ứng dụng (React Navigation v6)
-│   │   ├── RootNavigator.tsx           # Điều hướng cấp cao nhất (Auth vs App)
-│   │   ├── CustomerTabNavigator.tsx    # 4 Tabs chính của Khách: Khám phá, Đặt lịch, Lịch sử, Ví
-│   │   ├── MuaTabNavigator.tsx         # 4 Tabs chính của Thợ: Bàn làm việc, Lịch ca, Portfolio, Ví
-│   │   └── AppStack.tsx                # Stack màn hình chi tiết (Booking, Profile, Tracking, Review)
-│   │
-│   ├── screens/                        # Màn hình giao diện (Screens TSX)
-│   │   ├── auth/                       # Đăng ký / Đăng nhập OTP, Chọn vai trò
-│   │   │   ├── LoginScreen.tsx
-│   │   │   ├── OtpVerificationScreen.tsx
-│   │   │   └── RoleSelectionScreen.tsx
-│   │   ├── customer/                   # Phân hệ Khách hàng (ROLE_CUSTOMER)
-│   │   │   ├── CustomerHomeScreen.tsx
-│   │   │   ├── DiscoveryFilterScreen.tsx
-│   │   │   ├── MuaProfileDetailScreen.tsx
-│   │   │   ├── BookingFlowScreen.tsx
-│   │   │   ├── LiveTrackingMapScreen.tsx
-│   │   │   ├── PaymentEscrowScreen.tsx
-│   │   │   └── ReviewTipDisputeScreen.tsx
-│   │   └── mua/                        # Phân hệ Thợ Make-up (ROLE_FREELANCE_MUA)
-│   │       ├── MuaWorkstationScreen.tsx
-│   │       ├── MuaCalendarScheduleScreen.tsx
-│   │       ├── JobExecutionFlowScreen.tsx
-│   │       ├── MuaPortfolioManagerScreen.tsx
-│   │       └── MuaWalletPayoutScreen.tsx
+│   ├── constants/                      # Hằng số hệ thống & Bảng màu Design Tokens
+│   │   ├── theme.ts                    # BrandColors (Rose Ruby #E11D48, Deep Slate #0F172A), Colors, Spacing
+│   │   └── config.ts                   # Cấu hình timeout, hằng số phân trang
 │   │
 │   ├── services/                       # Tầng giao tiếp REST API & WebSocket
-│   │   ├── api/                        # Axios Client với JWT Bearer & Refresh Token Interceptors
-│   │   │   ├── apiClient.ts
-│   │   │   ├── authApi.ts
-│   │   │   ├── bookingApi.ts
-│   │   │   ├── telemetryApi.ts
-│   │   │   └── walletApi.ts
-│   │   ├── realtime/                   # Kết nối WebSocket STOMP
-│   │   │   ├── stompClient.ts
-│   │   │   └── socketSubscriptions.ts
-│   │   └── background/                 # Dịch vụ phát sóng GPS chạy ngầm (Native Task)
-│   │       └── locationTaskManager.ts  # Expo TaskManager chu kỳ 5-10s ping tọa độ về Redis GEO
+│   │   ├── api.ts                      # Axios Client (LAN IP 192.168.0.229:8080), Bearer Interceptor, Silent Refresh
+│   │   ├── auth.service.ts             # Dịch vụ Auth (login, register, getCurrentUser, logout)
+│   │   ├── booking.service.ts          # Dịch vụ Đặt lịch & Tính phụ phí
+│   │   ├── telemetry.service.ts        # Dịch vụ GPS Telemetry & kết nối STOMP WebSocket (/ws-makeup)
+│   │   └── wallet.service.ts           # Dịch vụ Quản lý ví & Cọc Escrow
 │   │
-│   ├── store/                          # Quản trị State toàn cục bằng Zustand
-│   │   ├── useAuthStore.ts             # Lưu User profile, Tokens, Role
-│   │   ├── useCustomerBookingStore.ts  # Dữ liệu luồng đặt lịch và tính tiền preview
-│   │   ├── useMuaTelemetryStore.ts     # Trạng thái Online/Offline và tọa độ phát sóng
-│   │   └── useRealtimeTrackingStore.ts # Tọa độ thợ di chuyển và ETA
+│   ├── store/                          # Quản trị State toàn cục (Zustand)
+│   │   ├── auth.store.ts               # Quản lý phiên làm việc, User profile, Role, Token
+│   │   ├── booking.store.ts            # Quản lý giỏ dịch vụ, địa chỉ trang điểm, voucher
+│   │   └── telemetry.store.ts          # Quản lý tọa độ thợ di chuyển & luồng radar 30s
 │   │
-│   ├── types/                          # TypeScript Interfaces & Types định nghĩa dữ liệu
-│   │   ├── user.types.ts
-│   │   ├── booking.types.ts
-│   │   ├── telemetry.types.ts
-│   │   ├── catalog.types.ts
-│   │   └── wallet.types.ts
+│   ├── utils/                          # Tiện ích dùng chung
+│   │   ├── storage.ts                  # Lưu trữ phần cứng qua expo-secure-store (Keychain / Keystore)
+│   │   ├── currency.ts                 # Format tiền tệ VNĐ (ví dụ: 350.000đ)
+│   │   ├── distance.ts                 # Tính khoảng cách tọa độ Haversine
+│   │   └── dateTime.ts                 # Format ngày giờ đặt lịch
 │   │
-│   ├── hooks/                          # Custom Hooks
-│   │   ├── useLocationPermission.ts    # Xin quyền GPS Fine/Background
-│   │   ├── useCountdownTimer.ts        # Đếm ngược 45s nhận đơn khẩn cấp
-│   │   └── useSoundAlert.ts            # Phát âm thanh chuông báo động
-│   │
-│   └── utils/                          # Tiện ích tính toán, format
-│       ├── currencyFormatter.ts
-│       ├── distanceCalculator.ts
-│       └── hapticFeedback.ts
+│   └── hooks/                          # Custom React Hooks
+│       ├── useLocation.ts              # Lấy tọa độ GPS thiết bị (expo-location)
+│       └── useCountdown.ts             # Bộ đếm ngược 30s nhận đơn khẩn cấp
 │
-├── app.json                            # Cấu hình Expo / React Native App Config
-├── babel.config.js
-├── tailwind.config.js                  # Cấu hình NativeWind Tailwind Tokens
-├── tsconfig.json                       # Cấu hình TypeScript Strict Mode
-├── package.json                        # Dependencies (react-native, typescript, nativewind, zustand, @stomp/stompjs)
-└── .env.example
+├── app.json                            # Cấu hình Expo Project (Bundle ID, Permissions, Scheme)
+├── tsconfig.json                       # Cấu hình TypeScript Strict Mode & Path Aliases (@/*)
+├── package.json                        # Dependencies (expo, expo-router, expo-secure-store, axios, zustand)
+└── .env.example                        # Mẫu biến môi trường (EXPO_PUBLIC_API_URL, EXPO_PUBLIC_WS_URL)
 ```
+
+### Nguyên Tắc Kiến Trúc & Thiết Kế Bắt Buộc cho Mobile App:
+1. **Lưu trữ & Bảo mật Phần cứng**:
+   - Không sử dụng Cookie; lưu trữ JWT Access Token và Refresh Token trong phần cứng bảo mật qua `expo-secure-store` (iOS Keychain và Android Keystore).
+   - Tự động gắn Bearer Token qua Axios Request Interceptor và cơ chế Silent Token Refresh khi gặp mã 401.
+2. **Mạng cục bộ khi phát triển (Local Area Network)**:
+   - Cấu hình `BASE_URL = __DEV__ ? 'http://192.168.0.229:8080/api/v1' : 'https://api.makeup-platform.com/api/v1'` để thiết bị thật hoặc máy ảo kết nối trực tiếp với backend trong cùng mạng Wi-Fi.
+3. **Quy chuẩn Nhận diện Figma Rose Ruby & Typography**:
+   - **Màu chủ đạo**: **Rose Ruby `#E11D48`** (`rose-600`), hover `#BE123C`, light `#FFE4E6`, viền mềm `#FECDD3`.
+   - **Tiêu đề & Nền**: **Deep Slate `#0F172A`** (`slate-900`), Subtitle `#64748B`.
+   - **Typography**: **Plus Jakarta Sans / Inter** (Sans-serif hiện đại). Nghiêm cấm sử dụng font có chân Serif (Playfair Display) và màu vàng Champagne cũ.
 
 ---
 

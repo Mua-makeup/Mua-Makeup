@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -79,5 +80,23 @@ public class MuaProfileController extends BaseController {
                 .build();
         CertificateRes res = muaProfileService.uploadCertificate(userId, req);
         return created(res, "mua.cert_upload_success");
+    }
+
+    @PostMapping(value = "/my-profile/portfolio-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> uploadPortfolioImages(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam("files") java.util.List<MultipartFile> files) {
+        java.util.List<String> imageUrls = muaProfileService.uploadPortfolioImages(userId, files);
+        return ok(imageUrls, "mua.portfolio_images_upload_success");
+    }
+
+    @DeleteMapping("/my-profile/portfolio-images")
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> deletePortfolioImage(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam("imageUrl") String imageUrl) {
+        java.util.List<String> imageUrls = muaProfileService.deletePortfolioImage(userId, imageUrl);
+        return ok(imageUrls, "mua.portfolio_image_delete_success");
     }
 }
