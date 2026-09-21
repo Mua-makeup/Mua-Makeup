@@ -1,9 +1,54 @@
+import Constants from 'expo-constants';
+import { Platform, NativeModules } from 'react-native';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/utils/storage';
 
+/**
+ * Tự động trích xuất động địa chỉ IP của máy tính host đang chạy Backend / Metro:
+ * 1. Trên Web Browser (Laptop): Dùng đúng hostname của trình duyệt (localhost hoặc IP Wi-Fi hiện tại)
+ * 2. Trên Điện thoại thật (Expo Go): Đọc hostUri từ Metro bundler đang kết nối Wi-Fi
+ * 3. Trên React Native Native Client: Đọc scriptURL của bundle đang tải
+ * 4. Tránh hoàn toàn việc hardcode IP tĩnh khi đổi mạng Wi-Fi
+ */
+const getDevApiBaseUrl = () => {
+  // 1. Trình duyệt Web (laptop hoặc mobile browser)
+  if (Platform.OS === 'web') {
+    const webHost = typeof window !== 'undefined' && window.location?.hostname
+      ? window.location.hostname
+      : 'localhost';
+    return `http://${webHost}:8080/api/v1`;
+  }
+
+  // 2. Thiết bị chạy qua Expo Metro Bundler (tự động cập nhật theo Wi-Fi hiện tại)
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  if (hostUri) {
+    const hostIp = hostUri.split(':')[0];
+    if (hostIp) {
+      return `http://${hostIp}:8080/api/v1`;
+    }
+  }
+
+  // 3. React Native NativeModules bundle scriptURL
+  const scriptURL = NativeModules.SourceCode?.scriptURL;
+  if (scriptURL) {
+    const match = scriptURL.match(/https?:\/\/([^/:]+)/);
+    if (match && match[1]) {
+      return `http://${match[1]}:8080/api/v1`;
+    }
+  }
+
+  // 4. Máy ảo Android Emulator kết nối ngược lại máy tính host
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:8080/api/v1';
+  }
+
+  // 5. Fallback mặc định cho iOS Simulator hoặc local
+  return 'http://localhost:8080/api/v1';
+};
+
 // Cấu hình URL kết nối máy tính qua Wi-Fi khi dev hoặc domain production
 export const BASE_URL = __DEV__
-  ? 'http://192.168.0.229:8080/api/v1'
+  ? getDevApiBaseUrl()
   : 'https://api.makeup-platform.com/api/v1';
 
 export const apiClient = axios.create({

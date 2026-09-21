@@ -68,6 +68,11 @@ public class MuaProfileMapper {
                 .totalCompletedJobs(mua.getTotalCompletedJobs())
                 .certificates(certResList)
                 .styles(styleResList)
+                .portfolioImages(mua.getPortfolioImages())
+                .baseAddressText(mua.getBaseAddressText())
+                .baseAddressLat(mua.getBaseAddressLat())
+                .baseAddressLng(mua.getBaseAddressLng())
+                .isSurgeEnabled(mua.getIsSurgeEnabled())
                 .updatedAt(mua.getUpdatedAt())
                 .build();
     }

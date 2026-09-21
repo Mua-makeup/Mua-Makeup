@@ -47,4 +47,7 @@ public interface AgencyStaffService {
 
     // Studio Admin: Xóa nhân viên khỏi Studio
     void removeStaff(Long userId, Long staffId);
+
+    // Staff/MUA: Lấy thông tin hồ sơ nhân viên trực thuộc Studio của tài khoản hiện tại
+    AgencyStaffDetailRes getMyStaffProfile(Long userId);
 }

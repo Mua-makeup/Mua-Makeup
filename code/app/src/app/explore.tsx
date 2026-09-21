@@ -1,180 +1,473 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { BrandColors } from '@/constants/theme';
+import { useExploreStore } from '@/store/explore.store';
+import { CategoryFilterBar } from '@/components/customer/CategoryFilterBar';
+import { ServicePackageCard } from '@/components/customer/ServicePackageCard';
+import { PackageSummary } from '@/services/package.service';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+const RADIUS_OPTIONS = [
+  { label: '1 km', value: 1 },
+  { label: '3 km', value: 3 },
+  { label: '5 km', value: 5 },
+  { label: '10 km', value: 10 },
+  { label: 'Tất cả', value: null },
+];
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+export default function ExploreScreen() {
+  const {
+    keyword,
+    selectedCategoryId,
+    selectedStyleId,
+    selectedRadiusKm,
+    minPrice,
+    maxPrice,
+    categories,
+    styles: availableStyles,
+    packages,
+    isLoading,
+    isRefreshing,
+    setKeyword,
+    setSelectedCategory,
+    setSelectedStyle,
+    setSelectedRadius,
+    setPriceRange,
+    initExplore,
+    fetchPackages,
+    resetFilters,
+  } = useExploreStore();
+
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [tempRadius, setTempRadius] = useState<number | null>(selectedRadiusKm);
+  const [tempMinPrice, setTempMinPrice] = useState(minPrice);
+  const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice);
+
+  useEffect(() => {
+    initExplore();
+  }, [initExplore]);
+
+  const handleSearchSubmit = () => {
+    fetchPackages(true);
   };
-  const theme = useTheme();
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+  const handleApplyFilters = () => {
+    setSelectedRadius(tempRadius);
+    setPriceRange(tempMinPrice, tempMaxPrice);
+    setIsFilterModalVisible(false);
+  };
+
+  const handleCardPress = (item: PackageSummary) => {
+    // Ưu tiên muaId, fallback id
+    const targetId = item.muaId || item.id || 1;
+    router.push({
+      pathname: '/mua-detail/[id]',
+      params: { id: targetId.toString() },
+    });
+  };
+
+  const renderItem = ({ item }: { item: PackageSummary }) => (
+    <ServicePackageCard item={item} onPress={() => handleCardPress(item)} />
+  );
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {/* HEADER TÌM KIẾM */}
+      <View style={styles.header}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={20} color="#94A3B8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm dịch vụ, phong cách make-up..."
+            placeholderTextColor="#94A3B8"
+            value={keyword}
+            onChangeText={setKeyword}
+            onSubmitEditing={handleSearchSubmit}
+            returnKeyType="search"
+          />
+          {keyword.length > 0 && (
+            <TouchableOpacity onPress={() => setKeyword('')}>
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+        {/* NÚT BỘ LỌC GPS & GIÁ */}
+        <TouchableOpacity
+          style={[
+            styles.filterBtn,
+            (selectedRadiusKm !== null || minPrice > 200000) && styles.filterBtnActive,
+          ]}
+          onPress={() => {
+            setTempRadius(selectedRadiusKm);
+            setTempMinPrice(minPrice);
+            setTempMaxPrice(maxPrice);
+            setIsFilterModalVisible(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="options-outline"
+            size={20}
+            color={
+              selectedRadiusKm !== null || minPrice > 200000
+                ? '#FFFFFF'
+                : BrandColors.slateHeading
+            }
+          />
+        </TouchableOpacity>
+      </View>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      {/* THANH CUỘN LỌC DANH MỤC & PHONG CÁCH 2 TẦNG */}
+      <CategoryFilterBar
+        categories={categories}
+        makeupStyles={availableStyles}
+        selectedCategoryId={selectedCategoryId}
+        selectedStyleId={selectedStyleId}
+        onSelectCategory={setSelectedCategory}
+        onSelectStyle={setSelectedStyle}
+      />
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+      {/* DANH SÁCH GÓI DỊCH VỤ */}
+      {isLoading && packages.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={BrandColors.primary} />
+          <Text style={styles.loadingText}>Đang quét các gói làm đẹp xung quanh bạn...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={packages}
+          keyExtractor={(item) => `pkg-${item.id}`}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => fetchPackages(true)}
+              colors={[BrandColors.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="sparkles-outline" size={48} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>Không tìm thấy gói dịch vụ phù hợp</Text>
+              <Text style={styles.emptySubtitle}>
+                Thử thay đổi danh mục hoặc nới rộng bán kính tìm kiếm GPS của bạn.
+              </Text>
+              <TouchableOpacity style={styles.resetBtn} onPress={resetFilters}>
+                <Text style={styles.resetBtnText}>Đặt lại bộ lọc</Text>
+              </TouchableOpacity>
+            </View>
+          }
+        />
+      )}
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      {/* MODAL BỘ LỌC GPS & KHOẢNG GIÁ */}
+      <Modal
+        visible={isFilterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsFilterModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Bộ Lọc Nâng Cao</Text>
+              <TouchableOpacity onPress={() => setIsFilterModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+            {/* BÁN KÍNH GPS */}
+            <View style={styles.filterSection}>
+              <Text style={styles.sectionTitle}>Bán kính GPS xung quanh</Text>
+              <View style={styles.radiusRow}>
+                {RADIUS_OPTIONS.map((opt) => {
+                  const isSelected = tempRadius === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={`rad-${opt.label}`}
+                      style={[styles.radiusChip, isSelected && styles.radiusChipActive]}
+                      onPress={() => setTempRadius(opt.value)}
+                    >
+                      <Text
+                        style={[
+                          styles.radiusChipText,
+                          isSelected && styles.radiusChipTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+            {/* KHOẢNG GIÁ */}
+            <View style={styles.filterSection}>
+              <Text style={styles.sectionTitle}>Khoảng giá ngân sách</Text>
+              <View style={styles.priceChipsRow}>
+                {[
+                  { label: 'Dưới 500k', min: 200000, max: 500000 },
+                  { label: '500k - 1.5tr', min: 500000, max: 1500000 },
+                  { label: '1.5tr - 3tr', min: 1500000, max: 3000000 },
+                  { label: 'Trên 3tr (VIP)', min: 3000000, max: 10000000 },
+                ].map((p, idx) => {
+                  const isMatch = tempMinPrice === p.min && tempMaxPrice === p.max;
+                  return (
+                    <TouchableOpacity
+                      key={`p-range-${idx}`}
+                      style={[styles.priceChip, isMatch && styles.priceChipActive]}
+                      onPress={() => {
+                        setTempMinPrice(p.min);
+                        setTempMaxPrice(p.max);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.priceChipText,
+                          isMatch && styles.priceChipTextActive,
+                        ]}
+                      >
+                        {p.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* ACTION BUTTONS */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalResetBtn}
+                onPress={() => {
+                  setTempRadius(5);
+                  setTempMinPrice(200000);
+                  setTempMaxPrice(5000000);
+                }}
+              >
+                <Text style={styles.modalResetText}>Mặc định</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalApplyBtn}
+                onPress={handleApplyFilters}
+              >
+                <Text style={styles.modalApplyText}>Áp dụng bộ lọc</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  safeArea: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  contentContainer: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
   },
-  centerText: {
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  filterBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBtnActive: {
+    backgroundColor: BrandColors.primary,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  emptyContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
     textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
   },
-  pressed: {
-    opacity: 0.7,
+  resetBtn: {
+    marginTop: 16,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
-  linkButton: {
+  resetBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  modalHeader: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  filterSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 10,
+  },
+  radiusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  radiusChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+  },
+  radiusChipActive: {
+    backgroundColor: BrandColors.primary,
+  },
+  radiusChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  radiusChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  priceChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  priceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  priceChipActive: {
+    backgroundColor: '#FFF1F2',
+    borderColor: BrandColors.primary,
+  },
+  priceChipText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  priceChipTextActive: {
+    color: BrandColors.primary,
+    fontWeight: '700',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+  },
+  modalResetBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
   },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+  modalResetText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
   },
-  collapsibleContent: {
+  modalApplyBtn: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: BrandColors.primary,
     alignItems: 'center',
   },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  modalApplyText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

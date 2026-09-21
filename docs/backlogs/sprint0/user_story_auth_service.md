@@ -221,8 +221,13 @@
   * **Then** Hệ thống trả về đầy đủ thông tin: `user_id`, `phone_number`, `email`, `full_name`, `avatar_url`, `gender`, `roles`, `permissions`, cùng thông tin liên kết (`agency_id`, `mua_id`).
 
 * **Scenario 02: Cập nhật thông tin cá nhân thành công**
-  * **When** Gửi `PUT /api/v1/users/profile` với `full_name`, `avatar_url`, `gender`.
+  * **When** Gửi `PUT /api/v1/users/profile` với `full_name`, `gender`.
   * **Then** Hệ thống cập nhật bảng `users`, trả về `200 OK` kèm dữ liệu đã được cập nhật.
+
+* **Scenario 03: Tải lên ảnh đại diện Avatar lên Cloudinary (Dùng chung cho mọi Role)**
+  * **Given** Người dùng thuộc bất kỳ vai trò nào (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_STAFF`, `ROLE_AGENCY_ADMIN`, `ROLE_SUPER_ADMIN`) đã đăng nhập.
+  * **When** Gửi `POST /api/v1/users/avatar` kèm file ảnh (`multipart/form-data: file`).
+  * **Then** Hệ thống validate định dạng (JPEG, PNG, WEBP), nén và upload lên Cloudinary thư mục `avatars/{userId}`, cập nhật `avatar_url` trong `auth_schema.users` và trả về `UserInfoRes`.
 
 ---
 
@@ -455,6 +460,35 @@
     "avatar_url": "https://res.cloudinary.com/makeup/image/upload/v2/new_avatar.jpg",
     "gender": "FEMALE",
     "updated_at": "2026-09-09T10:45:00Z"
+  }
+}
+```
+
+---
+
+### 8. `POST /api/v1/users/avatar` (Tải lên ảnh đại diện Avatar lên Cloudinary - Dùng chung mọi Role)
+* **Headers:** `Authorization: Bearer <access_token>`, `Content-Type: multipart/form-data`
+* **Form Data:**
+  * `file`: File ảnh (JPEG, PNG, WEBP, tối đa 5MB)
+* **Xử lý:** Backend validate magic bytes, nén ảnh sang chuẩn WebP, upload lên Cloudinary thư mục `avatars/{userId}`, cập nhật `avatar_url` trong `auth_schema.users`.
+* **Response `200 OK`:**
+```json
+{
+  "success": true,
+  "message": "Tải lên ảnh đại diện thành công.",
+  "data": {
+    "id": 1024,
+    "fullName": "Hương Ly Makeup Artist",
+    "phoneNumber": "0981234567",
+    "email": "huongly.makeup@gmail.com",
+    "avatarUrl": "https://res.cloudinary.com/makeup/image/upload/v1726912345/avatars/1024/avatar.webp",
+    "gender": "FEMALE",
+    "isVerified": true,
+    "agencyId": null,
+    "muaId": 89,
+    "language": "vi",
+    "roles": ["ROLE_FREELANCE_MUA"],
+    "permissions": ["booking:create", "portfolio:upload"]
   }
 }
 ```

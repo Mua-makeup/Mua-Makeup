@@ -1,24 +1,29 @@
 package com.makeup.platform.service.agency.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
+import com.makeup.platform.common.constants.MediaConstants;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.exception.ResourceNotFoundException;
+import com.makeup.platform.common.utils.FileValidationUtils;
 import com.makeup.platform.common.utils.GeoDistanceUtils;
 import com.makeup.platform.dto.request.agency.UpdateAgencyProfileReq;
 import com.makeup.platform.dto.request.agency.UpdateCommissionReq;
 import com.makeup.platform.dto.response.agency.AgencyLocationRes;
 import com.makeup.platform.dto.response.agency.AgencyProfileRes;
+import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.telemetry.AgencyBranchEntity;
 import com.makeup.platform.mapper.agency.AgencyProfileMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.telemetry.AgencyBranchRepository;
 import com.makeup.platform.service.agency.AgencyProfileService;
+import com.makeup.platform.service.media.MediaStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -31,18 +36,16 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyProfileMapper agencyProfileMapper;
     private final AgencyBranchRepository agencyBranchRepository;
+    private final MediaStorageService mediaStorageService;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public AgencyProfileRes getMyAgencyProfile(Long userId) {
         AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "ERR_AGENCY_NOT_FOUND"
                 ));
-        if (StringUtils.hasText(agency.getLogoUrl()) && agency.getOwner() != null) {
-            agency.getOwner().setAvatarUrl(agency.getLogoUrl());
-        }
         return agencyProfileMapper.toRes(agency);
     }
 
@@ -82,11 +85,7 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
             agency.setCity(req.getCity().trim());
         }
         if (req.getLogoUrl() != null) {
-            String logo = req.getLogoUrl().trim();
-            agency.setLogoUrl(logo);
-            if (agency.getOwner() != null) {
-                agency.getOwner().setAvatarUrl(logo);
-            }
+            agency.setLogoUrl(req.getLogoUrl().trim());
         }
         if (req.getLatitude() != null && req.getLongitude() != null) {
             agency.setLatitude(req.getLatitude());
@@ -238,6 +237,25 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         agency.setIsVerified(isVerified);
         AgencyProfileEntity saved = agencyProfileRepository.save(agency);
         log.info("Super Admin updated verification for Agency ID {}: isVerified={}", agencyId, isVerified);
+        return agencyProfileMapper.toRes(saved);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AgencyProfileRes uploadLogo(Long userId, MultipartFile file) {
+        AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_AGENCY_NOT_FOUND,
+                        "ERR_AGENCY_NOT_FOUND"
+                ));
+
+        FileValidationUtils.validateImageFile(file, MediaConstants.MAX_LOGO_IMAGE_SIZE);
+
+        CloudMediaUploadResult result = mediaStorageService.uploadImage(file, "agencies/" + agency.getId() + "/logo");
+        agency.setLogoUrl(result.getImageUrl());
+        AgencyProfileEntity saved = agencyProfileRepository.save(agency);
+        log.info("Studio Logo uploaded to Cloudinary for agencyId={}", saved.getId());
+
         return agencyProfileMapper.toRes(saved);
     }
 }

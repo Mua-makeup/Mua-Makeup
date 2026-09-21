@@ -32,38 +32,26 @@ interface MuaArtist {
 const FEATURED_MUAS: MuaArtist[] = [
   {
     id: 1,
-    name: 'MUA Lê Thảo',
+    name: 'MUA Nguyễn Hương Ly',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    category: 'Cô Dâu Luxury • Tone Tây',
-    rating: 4.95,
+    category: 'Cô Dâu Luxury • Tone Thái VIP',
+    rating: 5.0,
     reviewsCount: 142,
     distanceKm: 1.2,
-    startingPrice: '850.000đ',
-    badges: ['Top 1 Quận 1', 'Đã xác thực'],
+    startingPrice: '2.500.000đ',
+    badges: ['Top 1 Quận 1', 'Đã xác thực', 'Mỹ phẩm Chanel'],
     isAvailable: true,
   },
   {
-    id: 2,
-    name: 'MUA Hoàng Nam',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+    id: 4,
+    name: 'MUA Trần Thanh Tâm',
+    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
     category: 'Dạ Tiệc • Douyin Hot Trend',
-    rating: 4.88,
+    rating: 4.95,
     reviewsCount: 98,
     distanceKm: 2.5,
-    startingPrice: '450.000đ',
+    startingPrice: '2.500.000đ',
     badges: ['Nhiệt tình', 'Mỹ phẩm Dior'],
-    isAvailable: true,
-  },
-  {
-    id: 3,
-    name: 'Bella Studio Art',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
-    category: 'Kỷ Yếu • Lookbook Chụp Ảnh',
-    rating: 4.92,
-    reviewsCount: 215,
-    distanceKm: 3.1,
-    startingPrice: '350.000đ',
-    badges: ['Agency VIP', 'Đội ngũ 10+'],
     isAvailable: true,
   },
 ];
@@ -89,21 +77,10 @@ export default function HomeScreen() {
   const isCustomer = userInfo?.roles?.includes('ROLE_CUSTOMER') || (!isMUA && !isAgencyStaff);
 
   const handleBookingPress = (mua: MuaArtist) => {
-    if (!isAuthenticated) {
-      Alert.alert(
-        'Yêu Cầu Đăng Nhập',
-        'Vui lòng đăng nhập để xem chi tiết lịch hẹn và đặt dịch vụ cùng MUA.',
-        [
-          { text: 'Để Sau', style: 'cancel' },
-          { text: 'Đăng Nhập Ngay', onPress: () => router.push('/(auth)/login') },
-        ]
-      );
-      return;
-    }
-    Alert.alert(
-      'Đặt Lịch Dịch Vụ',
-      `Bạn đang chọn đặt lịch với ${mua.name} (${mua.category}). Hệ thống sẽ chuyển tiếp sang bước chọn gói dịch vụ.`
-    );
+    router.push({
+      pathname: '/mua-detail/[id]',
+      params: { id: mua.id },
+    });
   };
 
   const handleEmergencyBooking = () => {
@@ -190,7 +167,7 @@ export default function HomeScreen() {
           { paddingBottom: 70 + (insets.bottom > 0 ? insets.bottom : 16) },
         ]}
         showsVerticalScrollIndicator={false}>
-        
+
         {/* User Greeting Bar */}
         {isAuthenticated && (
           <View style={styles.greetingBar}>
@@ -199,15 +176,15 @@ export default function HomeScreen() {
                 {isMUA
                   ? `Chào MUA, ${userInfo?.fullName}! 🎨`
                   : isAgencyStaff
-                  ? `Chào Staff, ${userInfo?.fullName}! 🏢`
-                  : `Xin chào, ${userInfo?.fullName}! ✨`}
+                    ? `Chào Staff, ${userInfo?.fullName}! 🏢`
+                    : `Xin chào, ${userInfo?.fullName}! ✨`}
               </Text>
               <Text style={styles.greetingSubtitle}>
                 {isMUA
                   ? 'Chúc bạn một ngày làm việc tràn đầy sáng tạo'
                   : isAgencyStaff
-                  ? 'Điều phối nhân sự & theo dõi đơn hàng đại lý'
-                  : 'Hôm nay bạn muốn tỏa sáng theo phong cách nào?'}
+                    ? 'Điều phối nhân sự & theo dõi đơn hàng đại lý'
+                    : 'Hôm nay bạn muốn tỏa sáng theo phong cách nào?'}
               </Text>
             </View>
             <View
@@ -216,8 +193,8 @@ export default function HomeScreen() {
                 isMUA
                   ? styles.roleBadgeMua
                   : isAgencyStaff
-                  ? styles.roleBadgeAgency
-                  : styles.roleBadgeCustomer,
+                    ? styles.roleBadgeAgency
+                    : styles.roleBadgeCustomer,
               ]}>
               <Text style={styles.roleBadgeText}>
                 {isMUA ? 'Thợ MUA' : isAgencyStaff ? 'Agency Staff' : 'Khách Hàng'}
@@ -292,6 +269,22 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* CUSTOMER SECTION: Quick Search Bar to Explore Screen */}
+        {isCustomer && (
+          <TouchableOpacity
+            style={styles.searchBarBox}
+            onPress={() => router.push('/explore')}
+            activeOpacity={0.85}>
+            <Ionicons name="search" size={18} color={BrandColors.slateMuted} />
+            <Text style={styles.searchBarPlaceholder}>
+              Tìm kiếm gói dịch vụ, thợ trang điểm...
+            </Text>
+            <View style={styles.searchFilterPill}>
+              <Ionicons name="options-outline" size={14} color={BrandColors.primary} />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* CUSTOMER SECTION: VIP Promo Banner */}
         {isCustomer && (
           <View style={styles.promoBanner}>
@@ -306,7 +299,7 @@ export default function HomeScreen() {
               </Text>
               <TouchableOpacity
                 style={styles.promoButton}
-                onPress={() => Alert.alert('Ưu Đãi', 'Mã voucher WEDDING2026 đã được áp dụng vào ví của bạn!')}
+                onPress={() => router.push('/explore')}
                 activeOpacity={0.8}>
                 <Text style={styles.promoButtonText}>Khám Phá Ngay</Text>
                 <Ionicons name="arrow-forward" size={14} color={BrandColors.primary} />
@@ -333,7 +326,7 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              <Text style={styles.emergencyTitle}>Bạn Cần Trang Điểm Gấp Trong 30-60 Phút?</Text>
+              <Text style={styles.emergencyTitle}>Bạn Cần Trang Điểm Gấp?</Text>
               <Text style={styles.emergencyDesc}>
                 Hệ thống quét thợ MUA rảnh quanh bạn qua GPS • Thợ nhận ca tức thì trong 30s
               </Text>
@@ -349,7 +342,7 @@ export default function HomeScreen() {
         {/* Categories Chips */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Phong Cách Nổi Bật</Text>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/explore')}>
             <Text style={styles.viewAllText}>Xem tất cả</Text>
           </TouchableOpacity>
         </View>
@@ -364,7 +357,10 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={cat.id}
                 style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                onPress={() => setSelectedCategory(cat.id)}
+                onPress={() => {
+                  setSelectedCategory(cat.id);
+                  router.push('/explore');
+                }}
                 activeOpacity={0.8}>
                 <Ionicons
                   name={cat.icon}
@@ -392,7 +388,11 @@ export default function HomeScreen() {
 
         <View style={styles.muaListContainer}>
           {FEATURED_MUAS.map((mua) => (
-            <View key={mua.id} style={styles.muaCard}>
+            <TouchableOpacity
+              key={mua.id}
+              style={styles.muaCard}
+              onPress={() => handleBookingPress(mua)}
+              activeOpacity={0.85}>
               {/* Avatar + Info */}
               <View style={styles.muaCardTop}>
                 <Image source={{ uri: mua.avatar }} style={styles.muaAvatar} />
@@ -434,15 +434,12 @@ export default function HomeScreen() {
                   <Text style={styles.priceValue}>{mua.startingPrice}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.bookNowButton}
-                  onPress={() => handleBookingPress(mua)}
-                  activeOpacity={0.8}>
+                <View style={styles.bookNowButton}>
                   <Text style={styles.bookNowButtonText}>Đặt Lịch</Text>
                   <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
-                </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -482,7 +479,7 @@ export default function HomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            
+
             <View style={styles.modalHeader}>
               <View style={styles.modalAvatarBox}>
                 <Text style={styles.modalAvatarText}>
@@ -496,25 +493,78 @@ export default function HomeScreen() {
                   {isMUA
                     ? 'Thợ Make-up Tự Do'
                     : isAgencyStaff
-                    ? 'Nhân Viên Agency'
-                    : 'Khách Hàng Thân Thiết'}
+                      ? 'Nhân Viên Agency'
+                      : 'Khách Hàng Thân Thiết'}
                 </Text>
               </View>
             </View>
 
             <View style={styles.modalDivider} />
 
+            {/* 1. Thông Tin Cá Nhân (Chung cho TẤT CẢ mọi Role) */}
             <TouchableOpacity
               style={styles.modalActionRow}
               onPress={() => {
                 setShowProfileModal(false);
-                Alert.alert('Chức Năng', 'Trang chỉnh sửa thông tin cá nhân đang phát triển.');
+                router.push('/profile/edit');
               }}
               activeOpacity={0.7}>
               <Ionicons name="person-circle-outline" size={22} color={BrandColors.slateHeading} />
-              <Text style={styles.modalActionText}>Hồ Sơ Cá Nhân</Text>
+              <Text style={styles.modalActionText}>Thông Tin Cá Nhân</Text>
               <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
             </TouchableOpacity>
+
+            {/* 2. Hồ Sơ Nghề Nghiệp Thợ MUA (Chỉ dành cho MUA) */}
+            {isMUA && (
+              <TouchableOpacity
+                style={styles.modalActionRow}
+                onPress={() => {
+                  setShowProfileModal(false);
+                  router.push('/profile/mua-profile');
+                }}
+                activeOpacity={0.7}>
+                <Ionicons name="color-wand-outline" size={22} color={BrandColors.primary} />
+                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
+                  Hồ Sơ Nghề Nghiệp MUA
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
+              </TouchableOpacity>
+            )}
+
+            {/* 3. Trang Cá Nhân Công Khai (Chỉ dành cho MUA) */}
+            {isMUA && (
+              <TouchableOpacity
+                style={styles.modalActionRow}
+                onPress={() => {
+                  setShowProfileModal(false);
+                  router.push({
+                    pathname: '/mua-detail/[id]',
+                    params: { id: userInfo?.muaId || 4 },
+                  });
+                }}
+                activeOpacity={0.7}>
+                <Ionicons name="globe-outline" size={22} color={BrandColors.slateHeading} />
+                <Text style={styles.modalActionText}>Trang Cá Nhân Công Khai</Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
+              </TouchableOpacity>
+            )}
+
+            {/* 4. Hồ Sơ Nhân Sự Studio (Chỉ dành cho Agency Staff) */}
+            {isAgencyStaff && (
+              <TouchableOpacity
+                style={styles.modalActionRow}
+                onPress={() => {
+                  setShowProfileModal(false);
+                  router.push('/profile/staff-profile');
+                }}
+                activeOpacity={0.7}>
+                <Ionicons name="business-outline" size={22} color={BrandColors.primary} />
+                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
+                  Hồ Sơ Nhân Sự Studio
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.modalActionRow}
@@ -574,6 +624,14 @@ export default function HomeScreen() {
         <TouchableOpacity style={styles.bottomNavItem} activeOpacity={0.8}>
           <Ionicons name="home" size={22} color={BrandColors.primary} />
           <Text style={[styles.bottomNavLabel, styles.bottomNavLabelActive]}>Trang Chủ</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.bottomNavItem}
+          onPress={() => router.push('/explore')}
+          activeOpacity={0.8}>
+          <Ionicons name="compass-outline" size={22} color={BrandColors.slateMuted} />
+          <Text style={styles.bottomNavLabel}>Khám Phá</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1355,5 +1413,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: BrandColors.slateHeading,
+  },
+  searchBarBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 14,
+    gap: 10,
+  },
+  searchBarPlaceholder: {
+    flex: 1,
+    fontSize: 13.5,
+    color: BrandColors.slateMuted,
+    fontWeight: '400',
+  },
+  searchFilterPill: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
 });

@@ -8,6 +8,13 @@ import { useAuthStore } from '@/store/auth.store';
 
 SplashScreen.preventAutoHideAsync();
 
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
+import { setupAlertPolyfill } from '@/store/popup.store';
+
+// Kích hoạt hệ thống Luxury Popup tự động cho toàn bộ Alert.alert trong app
+setupAlertPolyfill();
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
@@ -19,13 +26,22 @@ export default function RootLayout() {
   }, [initializeAuth]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
-        <Stack.Screen name="explore" />
-      </Stack>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AnimatedSplashOverlay />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="explore" />
+          <Stack.Screen name="mua-detail/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/mua-profile" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/staff-profile" options={{ presentation: 'card' }} />
+        </Stack>
+        {/* Modal Popup toàn cục hiển thị đẹp mắt trên cả Web Laptop & Điện thoại */}
+        <GlobalPopupModal />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
+

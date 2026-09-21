@@ -20,4 +20,7 @@ public interface AgencyProfileService {
     java.util.List<AgencyProfileRes> getAllAgenciesForAdmin(String search, Boolean isVerified);
 
     AgencyProfileRes verifyAgency(Long agencyId, boolean isVerified);
+
+    AgencyProfileRes uploadLogo(Long userId, org.springframework.web.multipart.MultipartFile file);
 }
+

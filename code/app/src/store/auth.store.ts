@@ -61,12 +61,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   /**
-   * Xử lý Đăng nhập
+   * Xử lý Đăng nhập - Giới hạn nghiêm ngặt 3 vai trò: Khách hàng, Thợ MUA, Agency Staff
    */
   login: async (credentials: LoginReq) => {
     set({ isLoading: true });
     try {
       const res = await authService.login(credentials);
+      const roles = res.userInfo?.roles || [];
+      const isAdminRole = roles.includes('ROLE_SUPER_ADMIN') || roles.includes('ROLE_AGENCY_ADMIN');
+      if (isAdminRole) {
+        throw new Error(
+          'Tài khoản Quản trị viên không hỗ trợ trên ứng dụng di động. Vui lòng đăng nhập tại Cổng Quản Trị Web Portal trên máy tính!'
+        );
+      }
+
       await saveTokens(res.accessToken, res.refreshToken);
       set({
         accessToken: res.accessToken,
