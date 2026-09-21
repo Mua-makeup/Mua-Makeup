@@ -117,6 +117,23 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
 
     @Override
     @Transactional
+    public OvertimeRuleRes toggleRuleStatus(Long userId, Long ruleId, boolean isActive) {
+        AgencyProfileEntity agency = getAgencyByOwnerId(userId);
+
+        AgencyOvertimeRuleEntity rule = agencyOvertimeRuleRepository.findByIdAndAgencyId(ruleId, agency.getId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_OVERTIME_RULE_NOT_FOUND,
+                        "agency.overtime_rule_not_found"
+                ));
+
+        rule.setIsActive(isActive);
+        AgencyOvertimeRuleEntity saved = agencyOvertimeRuleRepository.save(rule);
+        log.info("Đã cập nhật trạng thái isActive={} cho quy chế overtime ruleId={}", isActive, ruleId);
+        return agencyOvertimeMapper.toRuleRes(saved);
+    }
+
+    @Override
+    @Transactional
     public OvertimeReportRes submitOvertimeReport(Long userId, SubmitOvertimeReportReq req) {
         // Tìm nhân viên thợ trực thuộc theo userId
         AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)

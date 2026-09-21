@@ -8,12 +8,11 @@ import {
   Plus,
   Edit2,
   Trash2,
-  ShieldCheck,
+  Badge,
 } from 'lucide-react';
 import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
 import { Select } from '../../base/Select';
-import { Badge } from '../../base/Badge';
 import { Modal } from '../../base/Modal';
 import { Textarea } from '../../base/Textarea';
 import { ConfirmDialog } from '../../base/ConfirmDialog';
@@ -51,6 +50,7 @@ export const OvertimeConfigCard = () => {
   const [ruleToDelete, setRuleToDelete] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingRuleId, setTogglingRuleId] = useState(null);
 
   // Status & Feedback
   const [isLoading, setIsLoading] = useState(false);
@@ -77,6 +77,32 @@ export const OvertimeConfigCard = () => {
     setFieldErrors({});
     setModalError('');
     setIsFormOpen(true);
+  };
+
+  const handleToggleRuleStatus = async (rule) => {
+    const nextStatus = !rule.isActive;
+    setTogglingRuleId(rule.id);
+    try {
+      await agencyService.toggleOvertimeRuleStatus(rule.id, nextStatus);
+      setRules((prev) =>
+        prev.map((item) =>
+          item.id === rule.id ? { ...item, isActive: nextStatus } : item
+        )
+      );
+      setToastMessage({
+        type: 'success',
+        text: nextStatus
+          ? `${rule.ruleName}: ${t('status_active')}`
+          : `${rule.ruleName}: ${t('status_paused')}`,
+      });
+    } catch (err) {
+      setToastMessage({
+        type: 'error',
+        text: err.response?.data?.message || err.message || t('error_general'),
+      });
+    } finally {
+      setTogglingRuleId(null);
+    }
   };
 
   const handleOpenCreate = () => {
@@ -406,7 +432,7 @@ export const OvertimeConfigCard = () => {
           ) : (
             <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-xl">
               <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold uppercase text-slate-500 dark:text-slate-400">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold text-slate-600 dark:text-slate-300">
                   <tr>
                     <th className="px-5 py-3.5">{t('overtime_rule_name')}</th>
                     <th className="px-5 py-3.5">{t('overtime_threshold_label')}</th>
@@ -457,35 +483,38 @@ export const OvertimeConfigCard = () => {
                         {renderPenaltyDisplay(r)}
                       </td>
 
-                      {/* Trạng thái */}
+                      {/* Trạng thái Toggle Switch */}
                       <td className="px-5 py-3.5">
-                        {r.isActive ? (
-                          <Badge variant="active">{t('status_active')}</Badge>
-                        ) : (
-                          <Badge variant="inactive">{t('status_paused')}</Badge>
-                        )}
+                        <label className="relative inline-flex items-center cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={r.isActive !== false}
+                            disabled={togglingRuleId === r.id}
+                            onChange={() => handleToggleRuleStatus(r)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-xs"></div>
+                        </label>
                       </td>
 
                       {/* Cột Thao tác Tối Ưu Hiện Đại */}
                       <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(r)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors shadow-2xs"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-amber-500 hover:text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors cursor-pointer"
                             title={t('btn_edit')}
                           >
-                            <Edit2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                            <span>{t('btn_edit')}</span>
+                            <Edit2 className="w-4 h-4 shrink-0" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleOpenDelete(r)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200/80 dark:border-rose-900/50 transition-colors shadow-2xs"
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
                             title={t('delete')}
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                            <span>{t('delete')}</span>
+                            <Trash2 className="w-4 h-4 shrink-0" />
                           </button>
                         </div>
                       </td>
@@ -513,11 +542,6 @@ export const OvertimeConfigCard = () => {
                 <span className="font-bold text-slate-900 dark:text-white text-base">
                   {editingRuleId ? t('overtime_form_title_edit') : t('overtime_form_title_create')}
                 </span>
-                {editingRuleId && (
-                  <Badge variant="pending">
-                    {t('overtime_badge_editing')} #{editingRuleId}
-                  </Badge>
-                )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">
                 {t('overtime_modal_sub')}
@@ -643,22 +667,6 @@ export const OvertimeConfigCard = () => {
               error={fieldErrors.penaltyValue}
             />
           </div>
-
-          {/* Checkbox Kích hoạt */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300 select-none">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-700 dark:bg-slate-800"
-              />
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                {t('overtime_is_active')}
-              </span>
-            </label>
-          </div>
         </form>
       </Modal>
 
@@ -677,7 +685,7 @@ export const OvertimeConfigCard = () => {
 
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold text-slate-600 dark:text-slate-300">
               <tr>
                 <th className="px-5 py-3">{t('col_staff_name')}</th>
                 <th className="px-5 py-3">{t('overtime_col_booking_time')}</th>

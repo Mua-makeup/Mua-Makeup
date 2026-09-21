@@ -152,6 +152,40 @@ Hệ thống bắt buộc tuân thủ chuẩn đa ngôn ngữ song song trên c�
 4. **Chuyển đổi ngôn ngữ tức thời (Instant Switching)**:
    - Khi người dùng bấm nút chuyển ngữ trên thanh Header, Zustand store cập nhật `language`, lưu `localStorage`, đồng bộ `apiClient`, và kích hoạt re-render toàn bộ giao diện mà không cần reload trang.
 
+### 5.3. Quy Chuẩn Bắt Buộc Về Xử Lý & Trích Xuất Lỗi API Toàn Hệ Thống (Client Error Handling Standard)
+Hệ thống Frontend (React Web SPA) và Mobile App (React Native / Expo) BẮT BUỘC tuân thủ hợp đồng lỗi chuẩn từ Spring Boot Backend (`ApiResponse<T>`):
+
+1. **Cấu trúc Dữ liệu Lỗi Backend Chuẩn**:
+   - Khi xảy ra lỗi Validation (`errorCode: "ERR_VALIDATION"`):
+     ```json
+     {
+       "success": false,
+       "message": "Dữ liệu đầu vào không hợp lệ.",
+       "errorCode": "ERR_VALIDATION",
+       "data": {
+         "password": "Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt.",
+         "phoneNumber": "Số điện thoại không đúng định dạng."
+       },
+       "timestamp": "2026-09-18T07:31:00.164Z"
+     }
+     ```
+   - Khi xảy ra lỗi Nghiệp vụ (`CustomBusinessException`):
+     ```json
+     {
+       "success": false,
+       "message": "Số điện thoại này đã được sử dụng.",
+       "errorCode": "ERR_PHONE_ALREADY_EXISTS",
+       "data": null,
+       "timestamp": "2026-09-18T07:31:00.164Z"
+     }
+     ```
+
+2. **4 Quy Tắc Xử Lý Lỗi Bắt Buộc Phía Client (Strict Client Rules)**:
+   - **Quy tắc 1: CẤM chỉ hiển thị câu tóm tắt chung chung**: Khi `errorCode === 'ERR_VALIDATION'`, TUYỆT ĐỐI KHÔNG CHỈ hiển thị mỗi câu tóm tắt `res.message` (*"Dữ liệu đầu vào không hợp lệ"*). Phải ưu tiên trích xuất trực tiếp thông điệp lỗi chi tiết của từng trường trong `res.data` (ví dụ: *"Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt"*).
+   - **Quy tắc 2: BẮT BUỘC map vào Form Helper Error**: Toàn bộ danh sách lỗi trong `res.data` (`{ [fieldName]: errorMessage }`) BẮT BUỘC phải được map trực tiếp vào state lỗi của form (`errors[field]`) để hiển thị dòng chữ cảnh báo màu đỏ ngay dưới chân ô nhập liệu tương ứng.
+   - **Quy tắc 3: BẮT BUỘC dùng hàm chuẩn hóa `parseApiError(err)`**: Mọi module gọi API (cả Web React SPA và React Native Mobile) đều phải bọc qua hàm tiện ích chuẩn hóa `parseApiError(err)` tại `src/utils/error.ts` (hoặc `src/utils/error.js`) để bóc tách `{ message, fieldErrors, errorCode }`. Nghiêm cấm viết rải rác `catch (err) { alert(err.message) }` hoặc tự ý bỏ qua trường `data`.
+   - **Quy tắc 4: Đồng bộ Validation Client ↔ Backend**: Quy tắc validation ở Client (Zod Schema trên Web, validation trên Mobile) BẮT BUỘC phải khớp hoàn toàn với Bean Validation của Backend (Ví dụ: mật khẩu từ 8-50 ký tự, ít nhất 1 hoa, 1 thường, 1 số, 1 ký tự đặc biệt), tránh trường hợp Client kiểm tra lỏng lẻo để lọt dữ liệu lên Backend rồi bị từ chối.
+
 ---
 
 ## 6. Quy chuẩn Quyền hạn & Giới hạn Tác vụ của AI (AI Boundaries & User Authority)

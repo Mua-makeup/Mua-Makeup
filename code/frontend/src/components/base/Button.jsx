@@ -71,7 +71,7 @@ export const Button = ({
       {!isLoading && Icon && iconPosition === 'left' && (
         <Icon className="w-4 h-4 flex-shrink-0" />
       )}
-      <span className="truncate">{children}</span>
+      <span className="inline-flex items-center justify-center gap-1.5 truncate">{children}</span>
       {!isLoading && Icon && iconPosition === 'right' && (
         <Icon className="w-4 h-4 flex-shrink-0" />
       )}

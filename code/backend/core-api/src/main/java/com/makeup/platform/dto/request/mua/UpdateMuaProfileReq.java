@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -24,6 +25,8 @@ public class UpdateMuaProfileReq {
     @NotNull(message = "{validation.experience_years_required}")
     @Min(value = 0, message = "{validation.experience_years_min}")
     private Integer experienceYears;
+
+    private String baseAddressText;
 
     @NotNull(message = "{validation.radius_required}")
     @DecimalMin(value = "1.0", message = "{validation.radius_min}")

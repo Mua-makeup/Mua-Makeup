@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import com.makeup.platform.entity.mua.MuaCertificateItem;
 
 @Data
 @Builder
@@ -35,5 +37,9 @@ public class AgencyStaffDetailRes {
     private LocalDateTime joinedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private java.util.List<AssignedStyleRes> assignedStyles;
+    private List<AssignedStyleRes> assignedStyles;
+    private List<MuaCertificateItem> certificates;
+    private List<String> portfolioImages;
+    private Integer totalCompletedJobs;
+    private Integer totalReviews;
 }

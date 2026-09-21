@@ -54,20 +54,18 @@ export const LocationMapPicker = ({
   const currentLat = latitude && !isNaN(Number(latitude)) ? Number(latitude) : defaultLat;
   const currentLng = longitude && !isNaN(Number(longitude)) ? Number(longitude) : defaultLng;
 
-  // Pre-fill search query ONLY ONCE when initial address props arrive
+  // Pre-fill / sync search query when address props arrive or change externally
+  const prevAddressPropsRef = useRef('');
   useEffect(() => {
-    if (!hasInitializedInputRef.current && (addressStreet || district || city)) {
-      const full = [addressStreet, district, city].filter(Boolean).join(', ');
-      if (full) {
+    const full = [addressStreet, district, city].filter(Boolean).join(', ');
+    if (full && full !== prevAddressPropsRef.current) {
+      prevAddressPropsRef.current = full;
+      if (!isTypingRef.current) {
         setSearchQuery(full);
-        hasInitializedInputRef.current = true;
-        // If studio has no saved coordinates yet, automatically search and center on address!
-        if (!latitude || !longitude) {
-          handleSearchLocation(full);
-        }
       }
+      hasInitializedInputRef.current = true;
     }
-  }, [addressStreet, district, city, latitude, longitude]);
+  }, [addressStreet, district, city]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -168,7 +166,7 @@ export const LocationMapPicker = ({
       const marker = markerRef.current;
       if (map && marker) {
         marker.setLatLng([currentLat, currentLng]);
-        map.panTo([currentLat, currentLng]);
+        map.flyTo([currentLat, currentLng], 16, { duration: 1.2 });
         map.invalidateSize();
       }
     }

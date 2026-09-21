@@ -179,11 +179,11 @@ export const StaffInvitationModal = ({ isOpen, onClose, onStaffAdded }) => {
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="secondary" size="sm" onClick={() => setIsCreating(false)}>
+            <div className="pt-2 grid grid-cols-3 gap-3">
+              <Button variant="secondary" size="sm" onClick={() => setIsCreating(false)} className="col-span-1 w-full">
                 {t('cancel')}
               </Button>
-              <Button type="submit" variant="primary" size="sm" isLoading={isLoading}>
+              <Button type="submit" variant="primary" size="sm" isLoading={isLoading} className="col-span-2 w-full">
                 {t('qr_btn_create')}
               </Button>
             </div>

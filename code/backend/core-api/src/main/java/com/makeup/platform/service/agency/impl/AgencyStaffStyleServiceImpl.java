@@ -63,6 +63,7 @@ public class AgencyStaffStyleServiceImpl implements AgencyStaffStyleService {
 
         // Xóa mapping cũ và cập nhật danh sách phong cách mới
         agencyStaffStyleRepository.deleteByStaffId(staffId);
+        agencyStaffStyleRepository.flush();
 
         List<AgencyStaffStyleEntity> entities = validStyles.stream()
                 .map(style -> AgencyStaffStyleEntity.builder()

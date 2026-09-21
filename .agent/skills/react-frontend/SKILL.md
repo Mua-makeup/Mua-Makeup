@@ -91,13 +91,19 @@ export const instantBookingSchema = z.object({
   <h1>{t('agency_overview_title')}</h1>
   ```
 - **Đồng bộ song ngữ tại `src/constants/i18n.constant.js`**: Khi thêm key mới, bắt buộc phải khai báo đầy đủ cả 2 mục `TRANSLATIONS.vi` và `TRANSLATIONS.en`.
-- **Thông báo Toast & Lỗi nạp trực tiếp từ Backend**: Khi bắt lỗi trong `try/catch` hoặc thông báo kết quả API, luôn trích xuất message bản địa hóa từ Backend:
+- **Thông báo Toast & Bóc tách Lỗi Toàn Diện qua `parseApiError`**: Khi bắt lỗi trong `try/catch` hoặc thông báo kết quả API, BẮT BUỘC dùng hàm chuẩn hóa `parseApiError(err)` để trích xuất thông điệp chi tiết và map lỗi trường dữ liệu (`fieldErrors`) vào form:
   ```javascript
+  import { parseApiError } from '@/utils/error';
+
   try {
     const res = await agencyService.updateProfile(payload);
     setToastMessage(res.message || t('save_success'));
   } catch (err) {
-    setToastMessage(err.response?.data?.message || err.message || t('error_general'));
+    const parsed = parseApiError(err);
+    if (parsed.fieldErrors) {
+      setFormErrors(parsed.fieldErrors); // Map thẳng lỗi trường dữ liệu vào helper error bên dưới input
+    }
+    setToastMessage(parsed.message); // Ưu tiên thông điệp chi tiết của trường (ví dụ: "Mật khẩu phải chứa...") thay vì câu chung chung
   }
   ```
 - **Tự động gửi Header `Accept-Language`**: `apiClient` luôn gửi `Accept-Language: vi` hoặc `en` theo cài đặt hiện tại của người dùng.

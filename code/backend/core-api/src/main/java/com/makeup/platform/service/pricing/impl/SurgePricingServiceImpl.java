@@ -181,6 +181,20 @@ public class SurgePricingServiceImpl implements SurgePricingService {
 
     @Override
     @CacheEvict(value = {"surge_pricing_rules", "surge_rule_list"}, allEntries = true)
+    public SurgeRuleRes toggleRuleStatus(Long id, boolean isActive) {
+        SurgePricingRuleEntity rule = surgePricingRuleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_SURGE_RULE_INVALID,
+                        "ERR_SURGE_RULE_INVALID",
+                        id
+                ));
+        rule.setIsActive(isActive);
+        SurgePricingRuleEntity saved = surgePricingRuleRepository.save(rule);
+        return surgePricingRuleMapper.toRes(saved);
+    }
+
+    @Override
+    @CacheEvict(value = {"surge_pricing_rules", "surge_rule_list"}, allEntries = true)
     public void deleteRule(Long id) {
         SurgePricingRuleEntity rule = surgePricingRuleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(

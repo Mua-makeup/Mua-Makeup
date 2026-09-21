@@ -5,6 +5,7 @@ import { useI18nStore } from '../../store/useI18nStore';
 import { Badge } from '../../components/base/Badge';
 import { DataTable } from '../../components/base/DataTable';
 import { BookingDetailModal } from '../../components/features/admin/BookingDetailModal';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const AdminBookingsPage = () => {
   const { t } = useI18nStore();
@@ -16,15 +17,39 @@ export const AdminBookingsPage = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const fetchBookings = async () => {
+  const [pageInfo, setPageInfo] = useState({
+    page: 0,
+    size: getSavedPageSize(10),
+    totalElements: 0,
+    totalPages: 1,
+  });
+
+  const fetchBookings = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
     setApiError('');
     try {
       const res = await superAdminService.getBookings({
         status: statusFilter === 'ALL' ? undefined : statusFilter,
         keyword: keyword.trim() || undefined,
+        page,
+        size,
       });
-      setBookings(res?.data || res || []);
+      const data = res?.data || res || {};
+      if (Array.isArray(data)) {
+        setBookings(data);
+        setPageInfo({ page: 0, size: data.length, totalElements: data.length, totalPages: 1 });
+      } else {
+        const total = data.totalElements ?? data.total_elements ?? (data.content?.length || 0);
+        const pSize = data.size ?? size ?? 10;
+        const totalP = data.totalPages ?? data.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
+        setBookings(data.content || []);
+        setPageInfo({
+          page: data.page ?? page,
+          size: pSize,
+          totalElements: total,
+          totalPages: totalP,
+        });
+      }
     } catch (err) {
       setApiError(err.message || t('error_api_connection'));
       setBookings([]);
@@ -34,12 +59,12 @@ export const AdminBookingsPage = () => {
   };
 
   useEffect(() => {
-    fetchBookings();
+    fetchBookings(0);
   }, [statusFilter]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchBookings();
+    fetchBookings(0);
   };
 
   const getStatusVariant = (status) => {
@@ -247,6 +272,18 @@ export const AdminBookingsPage = () => {
           data={bookings}
           isLoading={isLoading}
           emptyMessage={t('no_bookings_found') || 'Chưa có đơn hàng nào trong danh mục này'}
+          pagination={{
+            page: pageInfo.page,
+            size: pageInfo.size,
+            totalElements: pageInfo.totalElements,
+            totalPages: pageInfo.totalPages,
+            onPageChange: (newPage1Indexed) => fetchBookings(newPage1Indexed - 1, pageInfo.size),
+            onPageSizeChange: (newSize) => {
+              savePageSize(newSize);
+              setPageInfo((prev) => ({ ...prev, size: newSize, page: 0 }));
+              fetchBookings(0, newSize);
+            },
+          }}
         />
       </div>
 

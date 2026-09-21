@@ -1,18 +1,47 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { useAuthStore } from '@/store/auth.store';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
+import { setupAlertPolyfill } from '@/store/popup.store';
+
+// Kích hoạt hệ thống Luxury Popup tự động cho toàn bộ Alert.alert trong app
+setupAlertPolyfill();
+
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const initializeAuth = useAuthStore((s) => s.initializeAuth);
+
+  useEffect(() => {
+    initializeAuth().finally(() => {
+      SplashScreen.hideAsync();
+    });
+  }, [initializeAuth]);
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AnimatedSplashOverlay />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="explore" />
+          <Stack.Screen name="mua-detail/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/mua-profile" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/staff-profile" options={{ presentation: 'card' }} />
+        </Stack>
+        {/* Modal Popup toàn cục hiển thị đẹp mắt trên cả Web Laptop & Điện thoại */}
+        <GlobalPopupModal />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
+

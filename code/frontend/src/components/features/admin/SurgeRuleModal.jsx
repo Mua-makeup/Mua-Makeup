@@ -132,14 +132,28 @@ export const SurgeRuleModal = ({
           required
         />
 
-        {/* Zone Code */}
-        <Input
-          label={t('surge_modal_field_zone')}
-          value={formData.zoneCode}
-          onChange={(e) => setFormData((prev) => ({ ...prev, zoneCode: e.target.value }))}
-          placeholder={t('surge_modal_field_zone_ph')}
-          error={errors.zoneCode}
-        />
+        {/* Zone Code & Min Demand Ratio */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label={t('surge_modal_field_zone')}
+            value={formData.zoneCode}
+            onChange={(e) => setFormData((prev) => ({ ...prev, zoneCode: e.target.value }))}
+            placeholder={t('surge_modal_field_zone_ph')}
+            error={errors.zoneCode}
+          />
+          <Input
+            type="number"
+            step="0.1"
+            min="0.5"
+            max="5.0"
+            label={t('surge_modal_field_min_demand')}
+            value={formData.minDemandRatio}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, minDemandRatio: parseFloat(e.target.value) || 1.0 }))
+            }
+            error={errors.minDemandRatio}
+          />
+        </div>
 
         {/* Start Time & End Time */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -216,50 +230,30 @@ export const SurgeRuleModal = ({
           )}
         </div>
 
-        {/* Min Demand Ratio */}
-        <Input
-          type="number"
-          step="0.1"
-          min="0.5"
-          max="5.0"
-          label={t('surge_modal_field_min_demand')}
-          value={formData.minDemandRatio}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, minDemandRatio: parseFloat(e.target.value) || 1.0 }))
-          }
-          error={errors.minDemandRatio}
-        />
-
-        {/* Active Toggle */}
-        <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800">
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-            {t('surge_modal_field_active')}
-          </span>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.isActive}
-              onChange={(e) => setFormData((prev) => ({ ...prev, isActive: e.target.checked }))}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-600"></div>
-          </label>
-        </div>
-
         {/* Modal Action Buttons */}
-        <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
-            {t('cancel')}
-          </Button>
-          <Button
-            type="submit"
-            icon={Save}
-            isLoading={isLoading}
-            disabled={isLoading}
-            className="px-6"
-          >
-            {t('surge_modal_btn_submit')}
-          </Button>
+        <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="w-1/3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {t('cancel')}
+            </Button>
+          </div>
+          <div className="w-2/3">
+            <Button
+              type="submit"
+              icon={Save}
+              isLoading={isLoading}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {t('surge_modal_btn_submit')}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>

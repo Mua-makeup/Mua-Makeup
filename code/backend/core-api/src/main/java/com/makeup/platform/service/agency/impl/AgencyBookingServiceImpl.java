@@ -34,14 +34,15 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AgencyBookingRes> getAgencyBookings(Long ownerUserId, String status, String keyword) {
+    public com.makeup.platform.common.base.PageResponse<AgencyBookingRes> getAgencyBookings(
+            Long ownerUserId, String status, String keyword, org.springframework.data.domain.Pageable pageable) {
         AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(ownerUserId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "agency.not_found", HttpStatus.NOT_FOUND));
 
         List<BookingEntity> bookings = bookingRepository.findByAgencyIdOrderByCreatedAtDesc(agency.getId());
 
-        return bookings.stream()
+        List<AgencyBookingRes> filtered = bookings.stream()
                 .filter(b -> {
                     // Filter status
                     if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
@@ -72,6 +73,24 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
                 })
                 .map(b -> mapToAgencyBookingRes(b, agency))
                 .collect(Collectors.toList());
+
+        if (pageable == null || pageable.isUnpaged()) {
+            return com.makeup.platform.common.base.PageResponse.<AgencyBookingRes>builder()
+                    .content(filtered)
+                    .page(0)
+                    .size(filtered.size())
+                    .totalElements(filtered.size())
+                    .totalPages(filtered.isEmpty() ? 0 : 1)
+                    .last(true)
+                    .build();
+        }
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filtered.size());
+        List<AgencyBookingRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
+        org.springframework.data.domain.Page<AgencyBookingRes> page =
+                new org.springframework.data.domain.PageImpl<>(pagedList, pageable, filtered.size());
+        return com.makeup.platform.common.base.PageResponse.from(page);
     }
 
     private AgencyBookingRes mapToAgencyBookingRes(BookingEntity b, AgencyProfileEntity agency) {
