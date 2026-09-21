@@ -14,4 +14,10 @@
   - [ ] [ISSUE-27.4] Stress Testing Booking Engine (Giả lập 500 yêu cầu Đặt ca khẩn cấp/giây với Redisson Lock).
   - [ ] [ISSUE-27.5] Security Audit (TLS/WSS, Masking số dư ví, OWASP Top 10) & Tối ưu hóa SQL Queries, B-Tree & GiST Spatial Indexes.
   - [ ] [ISSUE-27.6] Đóng gói Docker Monolith `core-api`, Cấu hình Domain/SSL & Triển khai Go-Live Production.
+- [ ] [SPRINT-M1] [Khám Phá Dịch Vụ & Hồ Sơ Chi Tiết Thợ MUA (ROLE_CUSTOMER)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/user_story_mobile_explore_and_mua_profile.md)
+  - [ ] [APP-CUST-01] Màn hình Khám Phá & Bộ Lọc Đa Tiêu Chí (`explore.tsx`, `CategoryFilterBar.tsx`, `ServicePackageCard.tsx`).
+  - [ ] [APP-CUST-02] Màn hình Chi Tiết Hồ Sơ Thợ MUA & Dịch Vụ Đi Kèm Ảnh Mẫu (`mua-detail/[id].tsx`, `ServiceSampleGallery.tsx`).
+  - [ ] [APP-CUST-03] Trình Xem Ảnh Mẫu Cận Cảnh Của Dịch Vụ Đang Chọn (`ShowcaseGalleryModal.tsx`, `PhotoZoomViewer.tsx`).
+  - [ ] [APP-CUST-04] Màn hình Cập Nhật Hồ Sơ Cá Nhân Khách Hàng (`profile/edit.tsx`, `SavedAddressModal.tsx`).
+
 

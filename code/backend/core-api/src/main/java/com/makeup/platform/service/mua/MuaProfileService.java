@@ -22,4 +22,8 @@ public interface MuaProfileService {
     CertificateRes verifyCertificate(Long muaId, VerifyCertificateReq req);
 
     List<AdminMuaCertificateRes> getAllCertificatesForAdmin(String status);
+
+    List<String> uploadPortfolioImages(Long userId, List<org.springframework.web.multipart.MultipartFile> files);
+
+    List<String> deletePortfolioImage(Long userId, String imageUrl);
 }

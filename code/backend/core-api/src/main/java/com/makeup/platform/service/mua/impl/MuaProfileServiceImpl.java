@@ -51,8 +51,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                         "ERR_MUA_PROFILE_NOT_FOUND",
-                        muaId
-                ));
+                        muaId));
         List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(mua.getId());
         return muaProfileMapper.toProfileRes(mua, styles);
     }
@@ -75,6 +74,10 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         mua.setExperienceYears(req.getExperienceYears());
         mua.setMaxServiceRadiusKm(req.getMaxServiceRadiusKm());
 
+        if (req.getBaseAddressText() != null) {
+            mua.setBaseAddressText(req.getBaseAddressText().trim());
+        }
+
         MuaProfileEntity saved = muaProfileRepository.save(mua);
         List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(saved.getId());
         return muaProfileMapper.toProfileRes(saved, styles);
@@ -96,8 +99,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         try {
             CloudMediaUploadResult uploadResult = mediaStorageService.uploadImage(
                     req.getFile(),
-                    "mua_credentials/" + mua.getId()
-            );
+                    "mua_credentials/" + mua.getId());
             uploadedPublicId = uploadResult.getPublicId();
 
             MuaCertificateItem certificateItem = MuaCertificateItem.builder()
@@ -133,8 +135,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                         "ERR_MUA_PROFILE_NOT_FOUND",
-                        muaId
-                ));
+                        muaId));
 
         List<MuaCertificateItem> certificates = mua.getCertificates();
         if (certificates == null || certificates.isEmpty()) {
@@ -162,7 +163,8 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         } else {
             targetCert.setIsVerified(false);
             targetCert.setStatus("REJECTED");
-            targetCert.setNotes(StringUtils.hasText(req.getNotes()) ? req.getNotes() : "Hồ sơ chứng chỉ chưa đạt tiêu chuẩn");
+            targetCert.setNotes(
+                    StringUtils.hasText(req.getNotes()) ? req.getNotes() : "Hồ sơ chứng chỉ chưa đạt tiêu chuẩn");
         }
         muaProfileRepository.save(mua);
 
@@ -220,11 +222,82 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         return result;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "mua_portfolios", allEntries = true)
+    public List<String> uploadPortfolioImages(Long userId,
+            List<org.springframework.web.multipart.MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                    "mua.portfolio_files_empty", HttpStatus.BAD_REQUEST);
+        }
+
+        MuaProfileEntity mua = getMuaProfileByUserId(userId);
+        List<String> existingImages = mua.getPortfolioImages();
+        if (existingImages == null) {
+            existingImages = new ArrayList<>();
+        } else {
+            existingImages = new ArrayList<>(existingImages);
+        }
+
+        if (existingImages.size() + files.size() > 30) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                    "mua.portfolio_max_exceeded", HttpStatus.BAD_REQUEST);
+        }
+
+        List<String> newlyUploadedCloudIds = new ArrayList<>();
+        try {
+            for (org.springframework.web.multipart.MultipartFile file : files) {
+                if (file == null || file.isEmpty()) {
+                    continue;
+                }
+                FileValidationUtils.validateImageFile(file, MediaConstants.MAX_MAIN_IMAGE_SIZE);
+                CloudMediaUploadResult result = mediaStorageService.uploadImage(file,
+                        "muas/" + mua.getId() + "/portfolios");
+                newlyUploadedCloudIds.add(result.getPublicId());
+                existingImages.add(result.getImageUrl());
+            }
+        } catch (Exception e) {
+            if (!newlyUploadedCloudIds.isEmpty()) {
+                mediaStorageService.deleteMediaBatchAsync(newlyUploadedCloudIds);
+            }
+            throw e;
+        }
+
+        mua.setPortfolioImages(existingImages);
+        muaProfileRepository.save(mua);
+        log.info("Uploaded {} portfolio images for muaId={}", newlyUploadedCloudIds.size(), mua.getId());
+
+        return existingImages;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "mua_portfolios", allEntries = true)
+    public List<String> deletePortfolioImage(Long userId, String imageUrl) {
+        if (!StringUtils.hasText(imageUrl)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                    "mua.image_url_required", HttpStatus.BAD_REQUEST);
+        }
+
+        MuaProfileEntity mua = getMuaProfileByUserId(userId);
+        List<String> existingImages = mua.getPortfolioImages();
+        if (existingImages != null) {
+            existingImages = new ArrayList<>(existingImages);
+            boolean removed = existingImages.remove(imageUrl.trim());
+            if (removed) {
+                mua.setPortfolioImages(existingImages);
+                muaProfileRepository.save(mua);
+                log.info("Deleted portfolio image {} for muaId={}", imageUrl, mua.getId());
+            }
+        }
+        return existingImages != null ? existingImages : java.util.Collections.emptyList();
+    }
+
     private MuaProfileEntity getMuaProfileByUserId(Long userId) {
         return muaProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
-                        "ERR_MUA_PROFILE_NOT_FOUND"
-                ));
+                        "ERR_MUA_PROFILE_NOT_FOUND"));
     }
 }

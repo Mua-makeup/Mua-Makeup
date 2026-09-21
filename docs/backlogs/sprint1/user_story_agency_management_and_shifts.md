@@ -171,6 +171,12 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   * **Then** Spring Security chặn ở tầng `@PreAuthorize("hasRole('AGENCY_ADMIN')")`.
   * **And** Trả về HTTP `403 FORBIDDEN`.
 
+* **Scenario 05: Tải lên Logo nhận diện Studio lên Cloudinary (`POST /api/v1/agencies/logo`)**
+  * **Given** Chủ Studio (`ROLE_AGENCY_ADMIN`) đã đăng nhập.
+  * **When** Gửi `POST /api/v1/agencies/logo` kèm file ảnh (`multipart/form-data: file`).
+  * **Then** Hệ thống upload lên Cloudinary thư mục `agencies/{agencyId}/logo`, cập nhật `logo_url` trong `agency_schema.agency_profiles`.
+  * **Note**: `agency_profiles.logo_url` (Logo Studio) tách biệt hoàn toàn với `auth_schema.users.avatar_url` (Ảnh chân dung cá nhân của Chủ tiệm). Việc cập nhật Logo Studio không được phép can thiệp hay ghi đè lên Avatar người dùng.
+
 ---
 
 ### **US-AGC-02: Tạo Mã Mời & Sinh Mã QR Mời Thợ Gia Nhập Lưu Trực Tiếp Vào Redis (`ISSUE-12.1`, `ISSUE-12.2`)**

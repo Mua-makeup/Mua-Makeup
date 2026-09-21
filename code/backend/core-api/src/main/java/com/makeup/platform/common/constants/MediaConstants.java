@@ -8,6 +8,8 @@ public final class MediaConstants {
 
     public static final long MAX_MAIN_IMAGE_SIZE = 10L * 1024 * 1024; // 10MB
     public static final long MAX_ADDITIONAL_IMAGE_SIZE = 5L * 1024 * 1024; // 5MB
+    public static final long MAX_AVATAR_IMAGE_SIZE = 5L * 1024 * 1024; // 5MB
+    public static final long MAX_LOGO_IMAGE_SIZE = 5L * 1024 * 1024; // 5MB
     public static final int MAX_ADDITIONAL_IMAGES_COUNT = 5;
     public static final int MAX_FEATURED_PORTFOLIO_COUNT = 6;
 

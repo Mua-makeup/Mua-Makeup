@@ -7,20 +7,42 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+export const BrandColors = {
+  primary: '#E11D48',      // Rose-600
+  hover: '#BE123C',        // Rose-700
+  light: '#FFE4E6',        // Rose-100
+  softBorder: '#FECDD3',   // Rose-200
+  subtle: '#FFF1F2',       // Rose-50
+  slateHeading: '#0F172A', // Slate-900
+  slateBody: '#334155',    // Slate-700
+  slateMuted: '#64748B',   // Slate-500
+  slatePlaceholder: '#94A3B8', // Slate-400
+  borderInput: '#E2E8F0',  // Slate-200
+  canvasBg: '#F8FAFC',     // Slate-50
+  danger: '#EF4444',
+  warning: '#F59E0B',
+  success: '#10B981',
+  info: '#3B82F6',
+} as const;
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#0F172A',
+    background: '#F8FAFC',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#FFE4E6',
+    textSecondary: '#64748B',
+    primary: '#E11D48',
+    border: '#E2E8F0',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#F8FAFC',
+    background: '#0F172A',
+    backgroundElement: '#1E293B',
+    backgroundSelected: '#334155',
+    textSecondary: '#94A3B8',
+    primary: '#E11D48',
+    border: '#334155',
   },
 } as const;
 

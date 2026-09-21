@@ -88,6 +88,11 @@ public class MuaProfileEntity extends BaseEntity {
     @Builder.Default
     private List<MuaCertificateItem> certificates = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "portfolio_images", columnDefinition = "jsonb")
+    @Builder.Default
+    private List<String> portfolioImages = new ArrayList<>();
+
     @Column(name = "last_known_lat", precision = 10, scale = 8)
     private BigDecimal lastKnownLat;
 
