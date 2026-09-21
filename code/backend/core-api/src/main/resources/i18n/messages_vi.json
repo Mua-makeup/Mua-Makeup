@@ -66,6 +66,9 @@
     "invitation_accept_success": "Gia nhập Studio thành công.",
     "staff_list_success": "Lấy danh sách nhân viên thành công.",
     "staff_detail_success": "Lấy chi tiết thông tin nhân viên thành công.",
+    "staff_review_success": "Xử lý đơn xin gia nhập Studio thành công.",
+    "staff_review_approved": "Phê duyệt đơn xin gia nhập của thợ thành công!",
+    "staff_review_rejected": "Đã từ chối đơn xin gia nhập của thợ.",
     "staff_status_update_success": "Cập nhật trạng thái nhân viên thành công.",
     "staff_commission_update_success": "Cập nhật tỷ lệ hoa hồng nhân viên thành công.",
     "staff_remove_success": "Xóa nhân viên khỏi Studio thành công.",
@@ -76,6 +79,8 @@
     "overtime_rule_created_success": "Thiết lập quy chế quá giờ Studio thành công.",
     "overtime_rules_get_success": "Lấy danh sách quy chế quá giờ của Studio thành công.",
     "overtime_rule_deleted_success": "Xóa quy chế quá giờ Studio thành công.",
+    "overtime_rule_activated": "Quy chế làm thêm giờ đã được kích hoạt thành công.",
+    "overtime_rule_deactivated": "Quy chế làm thêm giờ đã được tạm dừng.",
     "overtime_report_submitted_success": "Gửi báo cáo quá giờ thành công. Chờ Studio xem xét.",
     "overtime_report_reviewed_success": "Xử lý phán quyết báo cáo quá giờ thành công.",
     "overtime_reports_get_success": "Lấy danh sách báo cáo quá giờ thành công.",
@@ -90,7 +95,10 @@
     "invalid_decision": "Quyết định không hợp lệ. Chỉ chấp nhận APPROVE hoặc REJECT.",
     "staff_not_active": "Nhân viên chưa kích hoạt hoặc không thể xếp ca.",
     "shift_time_invalid": "Thời gian kết thúc ca làm phải sau thời gian bắt đầu.",
-    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày."
+    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
+    "shift_created_success": "Tạo ca làm việc thành công!",
+    "shift_updated_success": "Cập nhật ca làm việc thành công!",
+    "shift_deleted_success": "Xóa ca làm việc thành công!"
   },
   "catalog": {
     "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",
@@ -350,6 +358,7 @@
     "code_conflict": "Mã danh mục này đã tồn tại trong hệ thống.",
     "create_success": "Tạo mới danh mục dịch vụ thành công!",
     "update_success": "Cập nhật danh mục dịch vụ thành công!",
+    "status_update_success": "Cập nhật trạng thái danh mục dịch vụ thành công!",
     "not_found": "Không tìm thấy danh mục dịch vụ yêu cầu."
   },
   "style": {
@@ -360,6 +369,7 @@
     "code_conflict": "Mã phong cách này đã tồn tại trong hệ thống.",
     "create_success": "Tạo mới phong cách make-up thành công!",
     "update_success": "Cập nhật phong cách make-up thành công!",
+    "status_update_success": "Cập nhật trạng thái phong cách make-up thành công!",
     "not_found": "Không tìm thấy phong cách make-up yêu cầu."
   },
   "agency": {
@@ -373,6 +383,7 @@
   "pricing": {
     "surge_rule_created_success": "Tạo mới quy tắc giá động thành công!",
     "surge_rule_updated_success": "Cập nhật quy tắc giá động thành công!",
+    "surge_rule_status_updated_success": "Cập nhật trạng thái quy tắc giá động thành công!",
     "surge_rule_deleted_success": "Xóa quy tắc giá động thành công!",
     "surge_rules_get_success": "Lấy danh sách quy tắc giá động thành công.",
     "h3_surge_status_success": "Lấy trạng thái thuật toán Uber H3 thành công.",

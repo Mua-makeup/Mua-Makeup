@@ -1,5 +1,6 @@
 package com.makeup.platform.service.catalog.impl;
 
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.exception.ResourceNotFoundException;
@@ -21,6 +22,8 @@ import com.makeup.platform.service.catalog.ServicePackageService;
 import com.makeup.platform.service.catalog.helper.CatalogOwnerHelper;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -172,15 +175,15 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PackageSummaryRes> listMyPackages(Long userId) {
+    public PageResponse<PackageSummaryRes> listMyPackages(Long userId, Pageable pageable) {
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
-        List<ServicePackageEntity> list;
+        Page<ServicePackageEntity> page;
         if (owner.isAgency()) {
-            list = packageRepository.findByAgencyId(owner.getAgency().getId());
+            page = packageRepository.findByAgencyId(owner.getAgency().getId(), pageable);
         } else {
-            list = packageRepository.findByMuaId(owner.getMua().getId());
+            page = packageRepository.findByMuaId(owner.getMua().getId(), pageable);
         }
-        return packageMapper.toSummaryResList(list);
+        return PageResponse.from(page.map(packageMapper::toSummaryRes));
     }
 
     @Override

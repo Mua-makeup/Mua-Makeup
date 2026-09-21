@@ -1,5 +1,6 @@
 package com.makeup.platform.service.mua.impl;
 
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.MediaConstants;
 import com.makeup.platform.common.exception.CustomBusinessException;
@@ -25,6 +26,9 @@ import com.makeup.platform.service.mua.MuaProfileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +36,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -173,7 +178,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AdminMuaCertificateRes> getAllCertificatesForAdmin(String status) {
+    public PageResponse<AdminMuaCertificateRes> getAllCertificatesForAdmin(String status, Pageable pageable) {
         List<MuaProfileEntity> profiles = muaProfileRepository.findAll();
         List<AdminMuaCertificateRes> result = new ArrayList<>();
 
@@ -219,7 +224,15 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                         .build());
             }
         }
-        return result;
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), result.size());
+        List<AdminMuaCertificateRes> pageContent = (start <= end && start < result.size())
+                ? result.subList(start, end)
+                : Collections.emptyList();
+
+        Page<AdminMuaCertificateRes> page = new PageImpl<>(pageContent, pageable, result.size());
+        return PageResponse.from(page);
     }
 
     @Override

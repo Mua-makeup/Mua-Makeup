@@ -226,11 +226,11 @@ export const PackageFormModal = ({ isOpen, onClose, editingPackage, onSuccess })
           rows={3}
         />
 
-        <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+        <div className="pt-3 grid grid-cols-3 gap-3 border-t border-slate-100 dark:border-slate-800">
+          <Button variant="secondary" onClick={onClose} disabled={isLoading} className="col-span-1 w-full">
             {t('cancel')}
           </Button>
-          <Button type="submit" variant="primary" isLoading={isLoading}>
+          <Button type="submit" variant="primary" isLoading={isLoading} className="col-span-2 w-full">
             {editingPackage ? t('pkg_btn_save_edit') : t('pkg_btn_save_create')}
           </Button>
         </div>

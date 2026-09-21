@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   QrCode,
   CheckCircle2,
   XCircle,
-  Percent,
-  Sparkles,
-  Package,
   Trash2,
   Clock,
   UserCheck,
-  AlertCircle,
+  SlidersHorizontal,
+  Eye,
+  Briefcase,
+  Star,
 } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
 import { Button } from '../../components/base/Button';
@@ -18,15 +19,13 @@ import { DataTable } from '../../components/base/DataTable';
 import { ConfirmDialog } from '../../components/base/ConfirmDialog';
 import { Toast } from '../../components/base/Toast';
 import { StaffInvitationModal } from '../../components/features/agency/StaffInvitationModal';
-import { StaffCommissionModal } from '../../components/features/agency/StaffCommissionModal';
-import { StaffStyleAssignModal } from '../../components/features/agency/StaffStyleAssignModal';
-import { StaffPackageAssignModal } from '../../components/features/agency/StaffPackageAssignModal';
 import { AgencyPendingVerificationNotice } from '../../components/features/agency/AgencyPendingVerificationNotice';
-import { formatDate } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const StaffManagementPage = () => {
   const { t } = useI18nStore();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'pending'
   const [activeStaff, setActiveStaff] = useState([]);
   const [pendingApplications, setPendingApplications] = useState([]);
@@ -36,32 +35,47 @@ export const StaffManagementPage = () => {
 
   // Modals
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [commissionModalStaff, setCommissionModalStaff] = useState(null);
-  const [styleModalStaff, setStyleModalStaff] = useState(null);
-  const [packageModalStaff, setPackageModalStaff] = useState(null);
   const [removingStaff, setRemovingStaff] = useState(null);
+  const [reviewingStaffApp, setReviewingStaffApp] = useState(null);
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
 
   const [toastMessage, setToastMessage] = useState('');
 
-  const loadStaffData = async () => {
+  const [pageInfo, setPageInfo] = useState({
+    page: 0,
+    size: getSavedPageSize(10),
+    totalElements: 0,
+    totalPages: 1,
+  });
+
+  const loadStaffData = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
     setApiError(null);
     try {
       const [activeRes, pendingRes] = await Promise.allSettled([
-        agencyService.getStaffList('ACTIVE'),
-        agencyService.getStaffList('PENDING'),
+        agencyService.getStaffList('ACTIVE', page, size),
+        agencyService.getStaffList('PENDING', 0, 50),
       ]);
 
       let unverifiedDetected = false;
 
       if (activeRes.status === 'fulfilled') {
-        const aList =
-          activeRes.value?.data?.content ||
-          activeRes.value?.data ||
-          activeRes.value?.content ||
-          activeRes.value ||
-          [];
-        setActiveStaff(Array.isArray(aList) ? aList : []);
+        const d = activeRes.value?.data || activeRes.value || {};
+        if (Array.isArray(d)) {
+          setActiveStaff(d);
+          setPageInfo({ page: 0, size: d.length, totalElements: d.length, totalPages: 1 });
+        } else {
+          const total = d.totalElements ?? d.total_elements ?? (d.content?.length || 0);
+          const pSize = d.size ?? size ?? 10;
+          const totalP = d.totalPages ?? d.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
+          setActiveStaff(d.content || []);
+          setPageInfo({
+            page: d.page ?? page,
+            size: pSize,
+            totalElements: total,
+            totalPages: totalP,
+          });
+        }
       } else {
         const reason = activeRes.reason;
         const errCode = reason?.response?.data?.errorCode;
@@ -79,13 +93,9 @@ export const StaffManagementPage = () => {
       }
 
       if (pendingRes.status === 'fulfilled') {
-        const pList =
-          pendingRes.value?.data?.content ||
-          pendingRes.value?.data ||
-          pendingRes.value?.content ||
-          pendingRes.value ||
-          [];
-        setPendingApplications(Array.isArray(pList) ? pList : []);
+        const val = pendingRes.value?.data || pendingRes.value || {};
+        const pList = val?.content || (Array.isArray(val) ? val : []);
+        setPendingApplications(pList);
       } else {
         const reason = pendingRes.reason;
         const errCode = reason?.response?.data?.errorCode;
@@ -97,28 +107,40 @@ export const StaffManagementPage = () => {
       }
 
       setIsNotVerified(unverifiedDetected);
-      if (unverifiedDetected) {
-        setApiError(null);
-      }
+    } catch (err) {
+      setApiError(err.message || t('error_general'));
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadStaffData();
+    loadStaffData(0);
   }, []);
 
-  const handleReviewApplication = async (applicationId, action) => {
+  const handleConfirmReviewApplication = async () => {
+    if (!reviewingStaffApp) return;
+    setIsReviewSubmitting(true);
     try {
-      const res = await agencyService.reviewStaffApplication(applicationId, {
-        action,
+      const { app, action } = reviewingStaffApp;
+      const res = await agencyService.reviewStaffApplication(app.id, {
+        decision: action,
+        agreedCommissionRate: 30,
         note: action === 'APPROVE' ? 'Approved by Studio' : 'Application declined',
       });
-      setToastMessage(res?.message || (action === 'APPROVE' ? t('save_success') : t('update_success')));
+      const defaultMsg = action === 'APPROVE'
+        ? t('agency_staff_review_approved')
+        : t('agency_staff_review_rejected');
+      const msg = res?.message && !res.message.startsWith('agency.')
+        ? res.message
+        : (t(res?.message) !== res?.message ? t(res?.message) : defaultMsg);
+      setToastMessage(msg);
+      setReviewingStaffApp(null);
       loadStaffData();
     } catch (err) {
       setToastMessage(err.message || t('error_general'));
+    } finally {
+      setIsReviewSubmitting(false);
     }
   };
 
@@ -140,10 +162,41 @@ export const StaffManagementPage = () => {
       header: t('col_staff_name'),
       accessor: 'fullName',
       render: (row) => (
-        <div>
-          <span className="font-bold text-slate-900 dark:text-white block">{row.fullName}</span>
-          <span className="text-xs text-slate-400 font-mono">
+        <div
+          onClick={() => navigate(`/agency/staff/${row.id}`)}
+          className="cursor-pointer group whitespace-nowrap"
+        >
+          <span className="font-bold text-slate-900 dark:text-white block group-hover:text-rose-600 transition-colors whitespace-nowrap">
+            {row.fullName}
+          </span>
+          <span className="text-xs text-slate-400 font-mono whitespace-nowrap">
             {row.phoneNumber || 'N/A'} • {row.email || 'N/A'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: t('col_staff_code'),
+      accessor: 'muaCode',
+      render: (row) => (
+        <span className="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md border border-slate-200/80 dark:border-slate-700 whitespace-nowrap">
+          {row.muaCode || '—'}
+        </span>
+      ),
+    },
+    {
+      header: t('col_experience_rating'),
+      accessor: 'experienceYears',
+      render: (row) => (
+        <div className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            {row.experienceYears || 1} {t('unit_years')}
+          </span>
+          <span className="text-slate-300 dark:text-slate-600">•</span>
+          <span className="flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+            {row.ratingAvg ? Number(row.ratingAvg).toFixed(1) : '5.0'}
           </span>
         </div>
       ),
@@ -152,81 +205,41 @@ export const StaffManagementPage = () => {
       header: t('col_commission'),
       accessor: 'agreedCommissionRate',
       render: (row) => (
-        <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 text-xs">
-            {row.agreedCommissionRate ?? row.commissionRateCustom ?? 30}%
-          </span>
-          <button
-            onClick={() => setCommissionModalStaff(row)}
-            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1"
-            title={t('btn_custom_commission')}
-          >
-            <Percent className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
-    },
-    {
-      header: t('col_styles'),
-      accessor: 'styles',
-      render: (row) => (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {(row.styles || []).map((st, i) => (
-            <span
-              key={i}
-              className="text-[10px] font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-800"
-            >
-              {st.styleName || st}
-            </span>
-          ))}
-          <button
-            onClick={() => setStyleModalStaff(row)}
-            className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1"
-            title={t('btn_assign_style')}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
-    },
-    {
-      header: t('col_packages'),
-      accessor: 'packageCount',
-      render: (row) => (
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
-            {row.packageCount ?? 0} {t('packages_count_suffix')}
-          </span>
-          <button
-            onClick={() => setPackageModalStaff(row)}
-            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1"
-            title={t('btn_assign_package')}
-          >
-            <Package className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
-    },
-    {
-      header: t('status'),
-      accessor: 'joinedAt',
-      render: (row) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-          {row.joinedAt ? formatDate(row.joinedAt) : 'N/A'}
+        <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-md border border-indigo-200 dark:border-indigo-800 text-xs whitespace-nowrap">
+          {row.agreedCommissionRate ?? row.commissionRateCustom ?? 30}%
         </span>
       ),
     },
     {
-      header: t('col_actions'),
+      header: t('status'),
+      accessor: 'status',
+      render: () => (
+        <span className="inline-flex items-center w-fit px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 shrink-0"></span>
+          {t('status_active')}
+        </span>
+      ),
+    },
+    {
+      header: t('actions'),
       align: 'right',
       render: (row) => (
-        <button
-          onClick={() => setRemovingStaff(row)}
-          className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
-          title={t('btn_remove_staff')}
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+          <button
+            onClick={() => navigate(`/agency/staff/${row.id}`)}
+            className="w-8 h-8 rounded-xl flex items-center justify-center bg-white hover:bg-slate-50 text-slate-700 hover:text-rose-600 border border-slate-200 hover:border-rose-300 dark:bg-slate-800 dark:hover:bg-slate-750 dark:text-slate-200 dark:hover:text-rose-400 dark:border-slate-700 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
+            title={t('staff_edit_details')}
+          >
+            <SlidersHorizontal className="w-4 h-4 text-rose-500" />
+          </button>
+          <button
+            onClick={() => setRemovingStaff(row)}
+            className="w-8 h-8 rounded-xl flex items-center justify-center bg-rose-50/80 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200/70 hover:border-rose-300 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-400 dark:border-rose-800/60 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
+            title={t('btn_remove_staff')}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -237,62 +250,76 @@ export const StaffManagementPage = () => {
       header: t('col_staff_name'),
       accessor: 'fullName',
       render: (row) => (
-        <div>
-          <span className="font-bold text-slate-900 dark:text-white block">{row.fullName}</span>
-          <span className="text-xs text-slate-400 font-mono">
+        <div
+          onClick={() => navigate(`/agency/staff/${row.id}`)}
+          className="cursor-pointer group whitespace-nowrap"
+        >
+          <span className="font-bold text-slate-900 dark:text-white block group-hover:text-rose-600 transition-colors whitespace-nowrap">
+            {row.fullName}
+          </span>
+          <span className="text-xs text-slate-400 font-mono whitespace-nowrap">
             {row.phoneNumber || 'N/A'} • {row.email || 'N/A'}
           </span>
         </div>
       ),
     },
     {
-      header: t('col_styles'),
+      header: t('col_invite_code'),
       accessor: 'inviteCodeUsed',
-      render: (row) => (
-        <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-          {row.inviteCodeUsed || 'N/A'}
-        </span>
-      ),
+      render: (row) => {
+        const code = row.inviteCodeUsed || row.inviteCode || (row.note?.match(/(INV-[A-Za-z0-9_-]+)/)?.[1]);
+        return (
+          <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded whitespace-nowrap">
+            {code || 'N/A'}
+          </span>
+        );
+      },
     },
     {
-      header: t('search_placeholder'),
+      header: t('col_notes'),
       accessor: 'note',
       render: (row) => (
-        <span className="text-xs text-slate-600 dark:text-slate-400 max-w-sm block truncate" title={row.note}>
+        <span className="text-xs text-slate-600 dark:text-slate-400 max-w-sm block truncate whitespace-nowrap" title={row.note}>
           {row.note || '—'}
         </span>
       ),
     },
     {
       header: t('status'),
-      accessor: 'appliedAt',
-      render: (row) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-          {row.appliedAt ? formatDate(row.appliedAt) : 'N/A'}
+      accessor: 'status',
+      render: () => (
+        <span className="inline-flex items-center w-fit px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/60 whitespace-nowrap">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse shrink-0"></span>
+          {t('status_pending')}
         </span>
       ),
     },
     {
-      header: t('col_actions'),
+      header: t('actions'),
       align: 'right',
       render: (row) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            icon={CheckCircle2}
-            onClick={() => handleReviewApplication(row.id, 'APPROVE')}
+        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+          <button
+            onClick={() => navigate(`/agency/staff/${row.id}`)}
+            className="w-8 h-8 rounded-xl flex items-center justify-center bg-white hover:bg-slate-50 text-slate-700 hover:text-indigo-600 border border-slate-200 hover:border-indigo-300 dark:bg-slate-800 dark:hover:bg-slate-750 dark:text-slate-200 dark:hover:text-indigo-400 dark:border-slate-700 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 shrink-0"
+            title={t('btn_view_details') || 'Chi Tiết'}
           >
-            {t('action_approve')}
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            icon={XCircle}
-            onClick={() => handleReviewApplication(row.id, 'REJECT')}
+            <Eye className="w-4 h-4 text-indigo-500" />
+          </button>
+          <button
+            onClick={() => setReviewingStaffApp({ app: row, action: 'APPROVE' })}
+            className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-50/80 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700 border border-emerald-200/70 hover:border-emerald-300 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 dark:border-emerald-800/60 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+            title={t('action_approve')}
           >
-            {t('action_reject')}
-          </Button>
+            <CheckCircle2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setReviewingStaffApp({ app: row, action: 'REJECT' })}
+            className="w-8 h-8 rounded-xl flex items-center justify-center bg-rose-50/80 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200/70 hover:border-rose-300 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-400 dark:border-rose-800/60 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+            title={t('action_reject')}
+          >
+            <XCircle className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -396,6 +423,18 @@ export const StaffManagementPage = () => {
               data={activeStaff}
               isLoading={isLoading}
               emptyMessage={t('empty_staff_msg')}
+              pagination={{
+                page: pageInfo.page,
+                size: pageInfo.size,
+                totalElements: pageInfo.totalElements,
+                totalPages: pageInfo.totalPages,
+                onPageChange: (newPage1Indexed) => loadStaffData(newPage1Indexed - 1, pageInfo.size),
+                onPageSizeChange: (newSize) => {
+                  savePageSize(newSize);
+                  setPageInfo((prev) => ({ ...prev, size: newSize, page: 0 }));
+                  loadStaffData(0, newSize);
+                },
+              }}
             />
           )}
 
@@ -405,6 +444,13 @@ export const StaffManagementPage = () => {
               data={pendingApplications}
               isLoading={isLoading}
               emptyMessage={t('empty_applications_msg')}
+              pagination={{
+                page: 0,
+                size: 10,
+                totalElements: pendingApplications.length,
+                totalPages: Math.max(Math.ceil(pendingApplications.length / 10), 1),
+                onPageChange: () => {},
+              }}
             />
           )}
         </>
@@ -417,35 +463,6 @@ export const StaffManagementPage = () => {
         onStaffAdded={loadStaffData}
       />
 
-      <StaffCommissionModal
-        isOpen={Boolean(commissionModalStaff)}
-        onClose={() => setCommissionModalStaff(null)}
-        staff={commissionModalStaff}
-        onSuccess={() => {
-          setToastMessage(t('update_success'));
-          loadStaffData();
-        }}
-      />
-
-      <StaffStyleAssignModal
-        isOpen={Boolean(styleModalStaff)}
-        onClose={() => setStyleModalStaff(null)}
-        staff={styleModalStaff}
-        onSuccess={() => {
-          setToastMessage(t('update_success'));
-          loadStaffData();
-        }}
-      />
-
-      <StaffPackageAssignModal
-        isOpen={Boolean(packageModalStaff)}
-        onClose={() => setPackageModalStaff(null)}
-        staff={packageModalStaff}
-        onSuccess={() => {
-          setToastMessage(t('update_success'));
-          loadStaffData();
-        }}
-      />
 
       <ConfirmDialog
         isOpen={Boolean(removingStaff)}
@@ -455,6 +472,30 @@ export const StaffManagementPage = () => {
         message={`${t('confirm_remove_staff_msg')} (${removingStaff?.fullName})`}
         confirmText={t('btn_remove_staff')}
         isDangerous
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(reviewingStaffApp)}
+        onClose={() => setReviewingStaffApp(null)}
+        onConfirm={handleConfirmReviewApplication}
+        title={
+          reviewingStaffApp?.action === 'APPROVE'
+            ? t('confirm_approve_staff_title')
+            : t('confirm_reject_staff_title')
+        }
+        message={
+          reviewingStaffApp?.action === 'APPROVE'
+            ? t('confirm_approve_staff_msg').replace('{name}', reviewingStaffApp?.app?.fullName || '')
+            : t('confirm_reject_staff_msg').replace('{name}', reviewingStaffApp?.app?.fullName || '')
+        }
+        confirmText={
+          reviewingStaffApp?.action === 'APPROVE'
+            ? t('action_approve')
+            : t('action_reject')
+        }
+        variant={reviewingStaffApp?.action === 'APPROVE' ? 'primary' : 'danger'}
+        isDangerous={reviewingStaffApp?.action === 'REJECT'}
+        isLoading={isReviewSubmitting}
       />
 
       <Toast

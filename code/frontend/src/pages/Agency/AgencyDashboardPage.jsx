@@ -24,6 +24,7 @@ export const AgencyDashboardPage = () => {
   const [profile, setProfile] = useState(null);
   const [staffCount, setStaffCount] = useState(0);
   const [packages, setPackages] = useState([]);
+  const [packageTotalCount, setPackageTotalCount] = useState(0);
   const [apiError, setApiError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,7 +38,7 @@ export const AgencyDashboardPage = () => {
     try {
       const [profileRes, packageRes, staffRes] = await Promise.allSettled([
         agencyService.getMyProfile(),
-        agencyService.getMyPackages(),
+        agencyService.getMyPackages({ page: 0, size: 50 }),
         agencyService.getStaffList('ACTIVE'),
       ]);
 
@@ -48,8 +49,15 @@ export const AgencyDashboardPage = () => {
       }
 
       if (packageRes.status === 'fulfilled') {
-        const list = packageRes.value?.data || packageRes.value || [];
-        setPackages(Array.isArray(list) ? list : []);
+        const pData = packageRes.value?.data || packageRes.value || {};
+        const list = Array.isArray(pData)
+          ? pData
+          : (Array.isArray(pData.content) ? pData.content : []);
+        const total = Array.isArray(pData)
+          ? pData.length
+          : (pData.totalElements ?? pData.total_elements ?? list.length);
+        setPackages(list);
+        setPackageTotalCount(total);
       }
 
       if (staffRes.status === 'fulfilled') {
@@ -104,34 +112,34 @@ export const AgencyDashboardPage = () => {
       )}
 
       {/* Top Banner Studio */}
-      <div className="p-6 bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl border border-slate-800 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center font-bold text-xl">
+      <div className="p-6 bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:to-indigo-950 text-slate-900 dark:text-white rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors w-full">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
             <Building2 className="w-7 h-7" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                 {profile?.agencyName || 'Studio Agency'}
               </h1>
               {profile?.isVerified ? (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30 shrink-0">
                   {t('agency_status_verified')}
                 </span>
               ) : (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 shrink-0">
                   {t('agency_status_pending')}
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Hotline: <span className="font-mono text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.addressDistrict || ''}, ${profile.addressCity || ''}` : 'N/A'}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Hotline: <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.addressDistrict || ''}, ${profile.addressCity || ''}` : 'N/A'}
             </p>
           </div>
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center justify-start md:justify-end gap-2.5 shrink-0 md:ml-auto">
           <Button
             variant="primary"
             size="sm"
@@ -195,7 +203,7 @@ export const AgencyDashboardPage = () => {
               {t('agency_packages_count')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {isLoading ? '...' : packages.length}
+              {isLoading ? '...' : (packageTotalCount || packages.length)}
             </p>
             <Link
               to="/agency/packages"
@@ -239,8 +247,12 @@ export const AgencyDashboardPage = () => {
               {t('agency_rating_avg')}
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-1">
-              <span>{profile?.ratingAvg ?? '5.0'}</span>
-              <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+              <span>
+                {profile?.ratingAvg && Number(profile.ratingAvg) > 0
+                  ? Number(profile.ratingAvg).toFixed(1)
+                  : 'N/A'}
+              </span>
+              <Star className={`w-5 h-5 ${profile?.ratingAvg && Number(profile.ratingAvg) > 0 ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-slate-600'}`} />
             </p>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {profile?.totalReviews ? `${t('agency_reviews_count_prefix')} ${profile.totalReviews} ${t('agency_reviews_count_suffix')}` : t('agency_reviews_updating')}
@@ -287,8 +299,14 @@ export const AgencyDashboardPage = () => {
                   <span className="font-bold text-sm text-slate-900 dark:text-white block truncate">
                     {pkg.packageName}
                   </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    {t('agency_package_accepting_orders')}
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                      pkg.isAvailable !== false
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    {pkg.isAvailable !== false ? t('status_active') : t('status_paused')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">
@@ -319,10 +337,7 @@ export const AgencyDashboardPage = () => {
         isOpen={isPackageModalOpen}
         onClose={() => setIsPackageModalOpen(false)}
         onSuccess={() => {
-          agencyService.getMyPackages().then((res) => {
-            const list = res?.data || res || [];
-            setPackages(Array.isArray(list) ? list : []);
-          });
+          loadDashboardData();
         }}
       />
     </div>

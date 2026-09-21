@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Package, Plus, Search, Edit2, Trash2, ListPlus, AlertCircle } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
 import { Button } from '../../components/base/Button';
-import { Badge } from '../../components/base/Badge';
 import { DataTable } from '../../components/base/DataTable';
 import { ConfirmDialog } from '../../components/base/ConfirmDialog';
 import { Toast } from '../../components/base/Toast';
@@ -11,6 +10,7 @@ import { PackageItemManager } from '../../components/features/agency/PackageItem
 import { AgencyPendingVerificationNotice } from '../../components/features/agency/AgencyPendingVerificationNotice';
 import { formatCurrency } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const ServicePackageListPage = () => {
   const { t } = useI18nStore();
@@ -25,16 +25,38 @@ export const ServicePackageListPage = () => {
   const [editingPackage, setEditingPackage] = useState(null);
   const [managingPackage, setManagingPackage] = useState(null);
   const [deletingPackage, setDeletingPackage] = useState(null);
+  const [togglingPackageId, setTogglingPackageId] = useState(null);
 
   const [toastMessage, setToastMessage] = useState('');
 
-  const loadPackages = async () => {
+  const [pageInfo, setPageInfo] = useState({
+    page: 0,
+    size: getSavedPageSize(10),
+    totalElements: 0,
+    totalPages: 1,
+  });
+
+  const loadPackages = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
     setApiError(null);
     try {
-      const res = await agencyService.getMyPackages();
-      const list = res?.data || res || [];
-      setPackages(Array.isArray(list) ? list : []);
+      const res = await agencyService.getMyPackages({ page, size });
+      const data = res?.data || res || {};
+      if (Array.isArray(data)) {
+        setPackages(data);
+        setPageInfo({ page: 0, size: data.length, totalElements: data.length, totalPages: 1 });
+      } else {
+        const total = data.totalElements ?? data.total_elements ?? (data.content?.length || 0);
+        const pSize = data.size ?? size ?? 10;
+        const totalP = data.totalPages ?? data.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
+        setPackages(data.content || []);
+        setPageInfo({
+          page: data.page ?? page,
+          size: pSize,
+          totalElements: total,
+          totalPages: totalP,
+        });
+      }
       setIsNotVerified(false);
     } catch (err) {
       const errCode = err.response?.data?.errorCode;
@@ -57,19 +79,24 @@ export const ServicePackageListPage = () => {
   };
 
   useEffect(() => {
-    loadPackages();
+    loadPackages(0);
   }, []);
 
   const handleToggleAvailability = async (pkg) => {
-    const newStatus = !pkg.isAvailable;
+    const newStatus = pkg.isAvailable === false ? true : false;
+    setTogglingPackageId(pkg.id);
     try {
       const res = await agencyService.togglePackageAvailability(pkg.id, newStatus);
       setPackages((prev) =>
         prev.map((p) => (p.id === pkg.id ? { ...p, isAvailable: newStatus } : p))
       );
-      setToastMessage(res?.message || t('update_success'));
+      setToastMessage(
+        res?.message || (newStatus ? t('status_active') : t('status_paused'))
+      );
     } catch (err) {
-      setToastMessage(err.message || t('error_general'));
+      setToastMessage(err.response?.data?.message || err.message || t('error_general'));
+    } finally {
+      setTogglingPackageId(null);
     }
   };
 
@@ -105,9 +132,11 @@ export const ServicePackageListPage = () => {
           <span className="font-bold text-slate-900 dark:text-white text-sm">
             {row.packageName}
           </span>
-          <span className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
-            {row.description || '—'}
-          </span>
+          {row.description && (
+            <span className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+              {row.description}
+            </span>
+          )}
         </div>
       ),
     },
@@ -141,46 +170,49 @@ export const ServicePackageListPage = () => {
     {
       header: t('col_status'),
       accessor: 'isAvailable',
-      render: (row) => (
-        <button
-          onClick={() => handleToggleAvailability(row)}
-          className="focus:outline-none"
-        >
-          {row.isAvailable !== false ? (
-            <Badge variant="active">{t('status_active')}</Badge>
-          ) : (
-            <Badge variant="inactive">{t('status_paused')}</Badge>
-          )}
-        </button>
-      ),
+      render: (row) => {
+        const isChecked = row.isAvailable !== false;
+        const isToggling = togglingPackageId === row.id;
+        return (
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isChecked}
+              disabled={isToggling}
+              onChange={() => handleToggleAvailability(row)}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 shadow-xs"></div>
+          </label>
+        );
+      },
     },
     {
-      header: t('col_actions'),
+      header: t('actions'),
       align: 'right',
       render: (row) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={ListPlus}
+        <div className="flex items-center justify-end gap-2">
+          <button
             onClick={() => setManagingPackage(row)}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-50/80 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700 border border-indigo-200/70 hover:border-indigo-300 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-400 dark:border-indigo-800/60 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95"
+            title={t('btn_items_addons')}
           >
-            Add-ons
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={Edit2}
+            <ListPlus className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => {
               setEditingPackage(row);
               setIsFormOpen(true);
             }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-50/80 hover:bg-amber-100 text-amber-600 hover:text-amber-700 border border-amber-200/70 hover:border-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 dark:text-amber-400 dark:border-amber-800/60 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95"
+            title={t('btn_edit')}
           >
-            {t('btn_edit')}
-          </Button>
+            <Edit2 className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setDeletingPackage(row)}
-            className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+            className="w-8 h-8 rounded-lg flex items-center justify-center bg-rose-50/80 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200/70 hover:border-rose-300 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-400 dark:border-rose-800/60 shadow-2xs hover:shadow-xs transition-all duration-150 cursor-pointer active:scale-95"
+            title={t('delete')}
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -277,6 +309,18 @@ export const ServicePackageListPage = () => {
             data={filteredPackages}
             isLoading={isLoading}
             emptyMessage={t('empty_packages_msg')}
+            pagination={{
+              page: pageInfo.page,
+              size: pageInfo.size,
+              totalElements: pageInfo.totalElements,
+              totalPages: pageInfo.totalPages,
+              onPageChange: (newPage1Indexed) => loadPackages(newPage1Indexed - 1, pageInfo.size),
+              onPageSizeChange: (newSize) => {
+                savePageSize(newSize);
+                setPageInfo((prev) => ({ ...prev, size: newSize, page: 0 }));
+                loadPackages(0, newSize);
+              },
+            }}
           />
         </>
       )}

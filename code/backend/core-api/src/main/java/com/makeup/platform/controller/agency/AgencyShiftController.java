@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,6 +36,16 @@ public class AgencyShiftController extends BaseController {
             @Valid @RequestBody ConfigureShiftReq req) {
         ShiftDetailRes res = agencyShiftService.createShift(userId, req);
         return created(res, "agency.shift_created_success");
+    }
+
+    @PutMapping("/shifts/{shiftId}")
+    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    public ResponseEntity<ApiResponse<ShiftDetailRes>> updateShift(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long shiftId,
+            @Valid @RequestBody ConfigureShiftReq req) {
+        ShiftDetailRes res = agencyShiftService.updateShift(userId, shiftId, req);
+        return ok(res, "agency.shift_updated_success");
     }
 
     @GetMapping("/shifts/matrix")

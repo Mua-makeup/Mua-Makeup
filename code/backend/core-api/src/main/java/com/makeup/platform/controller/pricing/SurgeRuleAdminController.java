@@ -11,14 +11,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin/pricing/surge-rules")
@@ -46,6 +49,16 @@ public class SurgeRuleAdminController extends BaseController {
         return ok(res, "pricing.surge_rule_updated_success");
     }
 
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> toggleRuleStatus(
+            @PathVariable Long id,
+            @RequestParam boolean isActive
+    ) {
+        surgePricingService.toggleRuleStatus(id, isActive);
+        return ok(java.util.Map.of("id", id, "isActive", isActive), "pricing.surge_rule_status_updated_success");
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteRule(@PathVariable Long id) {
@@ -69,10 +82,10 @@ public class SurgeRuleAdminController extends BaseController {
 
     @PostMapping("/toggle-h3")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Boolean>>> toggleH3Surge(
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "true") boolean enabled
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> toggleH3Surge(
+            @RequestParam(defaultValue = "true") boolean enabled
     ) {
         boolean result = surgePricingService.toggleH3Surge(enabled);
-        return ok(java.util.Map.of("isH3SurgeEnabled", result), "pricing.h3_surge_toggle_success");
+        return ok(Map.of("isH3SurgeEnabled", result), "pricing.h3_surge_toggle_success");
     }
 }

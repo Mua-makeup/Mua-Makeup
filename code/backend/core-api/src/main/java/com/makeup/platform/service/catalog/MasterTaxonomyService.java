@@ -22,8 +22,12 @@ public interface MasterTaxonomyService {
 
     MasterCategoryRes updateCategory(Integer id, MasterCategoryReq req);
 
+    MasterCategoryRes toggleCategoryStatus(Integer id, boolean isActive);
+
     MakeupStyleRes createStyle(MakeupStyleReq req);
 
     MakeupStyleRes updateStyle(Integer id, MakeupStyleReq req);
+
+    MakeupStyleRes toggleStyleStatus(Integer id, boolean isActive);
 }
 

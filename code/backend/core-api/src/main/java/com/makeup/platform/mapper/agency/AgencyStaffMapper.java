@@ -4,7 +4,9 @@ import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.entity.mua.MuaCertificateItem;
 import org.springframework.stereotype.Component;
+import java.util.List;
 
 @Component
 public class AgencyStaffMapper {
@@ -22,14 +24,27 @@ public class AgencyStaffMapper {
         String muaCode = null;
         Long muaId = null;
 
+        Integer experienceYears = null;
+        java.math.BigDecimal ratingAvg = null;
+
         if (mua != null) {
             muaId = mua.getId();
             muaCode = mua.getMuaCode();
+            experienceYears = mua.getExperienceYears();
+            ratingAvg = mua.getRatingAvg();
             if (mua.getUser() != null) {
                 fullName = mua.getUser().getFullName();
                 email = mua.getUser().getEmail();
                 phoneNumber = mua.getUser().getPhoneNumber();
                 avatarUrl = mua.getUser().getAvatarUrl();
+            }
+        }
+
+        String inviteCodeUsed = null;
+        if (entity.getNote() != null && entity.getNote().contains("INV-")) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(INV-[A-Za-z0-9_-]+)").matcher(entity.getNote());
+            if (m.find()) {
+                inviteCodeUsed = m.group(1);
             }
         }
 
@@ -46,7 +61,10 @@ public class AgencyStaffMapper {
                 .isActive(entity.getIsActive())
                 .status(entity.getStatus())
                 .note(entity.getNote())
+                .inviteCodeUsed(inviteCodeUsed)
                 .joinedAt(entity.getJoinedAt())
+                .experienceYears(experienceYears)
+                .ratingAvg(ratingAvg)
                 .build();
     }
 
@@ -68,6 +86,11 @@ public class AgencyStaffMapper {
         Boolean isBusy = null;
         Long muaId = null;
 
+        List<MuaCertificateItem> certificates = null;
+        List<String> portfolioImages = null;
+        Integer totalCompletedJobs = null;
+        Integer totalReviews = null;
+
         if (mua != null) {
             muaId = mua.getId();
             muaCode = mua.getMuaCode();
@@ -76,6 +99,18 @@ public class AgencyStaffMapper {
             ratingAvg = mua.getRatingAvg();
             isOnline = mua.getIsOnline();
             isBusy = mua.getIsBusy();
+            totalCompletedJobs = mua.getTotalCompletedJobs();
+            totalReviews = mua.getTotalReviews();
+            if (mua.getCertificates() != null) {
+                certificates = new java.util.ArrayList<>(mua.getCertificates());
+            } else {
+                certificates = java.util.Collections.emptyList();
+            }
+            if (mua.getPortfolioImages() != null) {
+                portfolioImages = new java.util.ArrayList<>(mua.getPortfolioImages());
+            } else {
+                portfolioImages = java.util.Collections.emptyList();
+            }
             if (mua.getUser() != null) {
                 fullName = mua.getUser().getFullName();
                 email = mua.getUser().getEmail();
@@ -103,6 +138,10 @@ public class AgencyStaffMapper {
                 .isActive(entity.getIsActive())
                 .status(entity.getStatus())
                 .note(entity.getNote())
+                .certificates(certificates)
+                .portfolioImages(portfolioImages)
+                .totalCompletedJobs(totalCompletedJobs)
+                .totalReviews(totalReviews)
                 .joinedAt(entity.getJoinedAt())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
