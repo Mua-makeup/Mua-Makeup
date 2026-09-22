@@ -18,6 +18,7 @@ public class ShiftDetailRes {
     private Long shiftId;
     private Long staffId;
     private String staffName;
+    private java.time.LocalDate workDate;
     private Integer dayOfWeek;
     private String dayName;
     private String shiftName;

@@ -116,6 +116,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/makeup-styles/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/profile").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/muas/*/portfolios").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/mua/*/available-slots", "/api/v1/muas/*/available-slots").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/agency/*/profile", "/api/v1/agencies/*/profile")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/telemetry/nearby").permitAll()

@@ -79,7 +79,7 @@ export const agencyService = {
   // Ma trận Xếp Ca Tuần
   createShift: (data) => apiClient.post('/agencies/shifts', data),
   updateShift: (shiftId, data) => apiClient.put(`/agencies/shifts/${shiftId}`, data),
-  getWeeklyShiftMatrix: () => apiClient.get('/agencies/shifts/matrix'),
+  getWeeklyShiftMatrix: (params) => apiClient.get('/agencies/shifts/matrix', { params }),
   deleteShift: (shiftId) => apiClient.delete(`/agencies/shifts/${shiftId}`),
 
   // Studio Bookings Management

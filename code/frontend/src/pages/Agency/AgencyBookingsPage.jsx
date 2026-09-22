@@ -70,8 +70,18 @@ export const AgencyBookingsPage = () => {
     fetchBookings(0);
   }, [selectedStatus]);
 
+  // Tự động tải lại bảng khi có đơn đặt lịch mới đẩy về qua WebSocket
+  useEffect(() => {
+    const handleNewBooking = () => {
+      fetchBookings(0);
+    };
+    window.addEventListener('agency:new-booking', handleNewBooking);
+    return () => window.removeEventListener('agency:new-booking', handleNewBooking);
+  }, [selectedStatus, searchQuery, pageInfo.size]);
+
   const statusTabs = [
     { key: 'ALL', label: t('tab_all') },
+    { key: 'PENDING_DEPOSIT', label: t('status_pending_deposit') },
     { key: 'CONFIRMED', label: t('status_confirmed') },
     { key: 'IN_PROGRESS', label: t('status_in_progress') },
     { key: 'COMPLETED', label: t('status_completed') },
@@ -80,10 +90,12 @@ export const AgencyBookingsPage = () => {
 
   const filteredBookings = useMemo(() => {
     return bookings.filter((b) => {
+      const st = b.bookingStatus || b.status;
       const matchesStatus =
         selectedStatus === 'ALL' ||
-        (selectedStatus === 'CONFIRMED' && (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'ARRIVED')) ||
-        b.bookingStatus === selectedStatus;
+        st === selectedStatus ||
+        (selectedStatus === 'CANCELLED' && (st === 'CANCELLED' || st === 'CANCELLED_EXPIRED')) ||
+        (selectedStatus === 'CONFIRMED' && (st === 'CONFIRMED' || st === 'ACCEPTED' || st === 'AGENCY_ASSIGNED' || st === 'ARRIVED'));
 
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
@@ -101,12 +113,12 @@ export const AgencyBookingsPage = () => {
   // Statistics
   const stats = useMemo(() => {
     const total = bookings.length;
-    const completed = bookings.filter((b) => b.bookingStatus === 'COMPLETED').length;
+    const completed = bookings.filter((b) => (b.bookingStatus || b.status) === 'COMPLETED').length;
     const totalRevenue = bookings
-      .filter((b) => b.bookingStatus === 'COMPLETED')
+      .filter((b) => (b.bookingStatus || b.status) === 'COMPLETED')
       .reduce((sum, b) => sum + (Number(b.totalAmount) || 0), 0);
     const studioNet = bookings
-      .filter((b) => b.bookingStatus === 'COMPLETED')
+      .filter((b) => (b.bookingStatus || b.status) === 'COMPLETED')
       .reduce((sum, b) => sum + (Number(b.estimatedStudioNet) || 0), 0);
 
     return { total, completed, totalRevenue, studioNet };
@@ -134,14 +146,23 @@ export const AgencyBookingsPage = () => {
 
   const getStatusBadge = (status) => {
     const statusMap = {
+      PENDING_DEPOSIT: { variant: 'pending', label: t('status_pending_deposit') },
+      REQUESTED: { variant: 'warning', label: t('status_requested') },
+      PENDING_AGENCY_DISPATCH: { variant: 'warning', label: t('status_pending_agency_dispatch') },
+      AGENCY_ASSIGNED: { variant: 'info', label: t('status_agency_assigned') },
+      ACCEPTED: { variant: 'active', label: t('status_accepted') },
       CONFIRMED: { variant: 'active', label: t('status_confirmed') },
-      COMPLETED: { variant: 'success', label: t('status_completed') },
-      IN_PROGRESS: { variant: 'warning', label: t('status_in_progress') },
+      ON_THE_WAY: { variant: 'info', label: t('status_on_the_way') },
       ARRIVED: { variant: 'info', label: t('status_arrived') },
+      IN_PROGRESS: { variant: 'warning', label: t('status_in_progress') },
+      COMPLETED: { variant: 'success', label: t('status_completed') },
+      PAID_OUT: { variant: 'success', label: t('status_paid_out') },
       CANCELLED: { variant: 'inactive', label: t('status_cancelled') },
+      CANCELLED_EXPIRED: { variant: 'inactive', label: t('status_cancelled_expired') },
+      DISPUTED: { variant: 'danger', label: t('status_disputed') },
       PENDING: { variant: 'pending', label: t('status_pending') },
     };
-    const s = statusMap[status] || { variant: 'default', label: status };
+    const s = statusMap[status] || { variant: 'default', label: status || '—' };
     return <Badge variant={s.variant}>{s.label}</Badge>;
   };
 
@@ -177,7 +198,7 @@ export const AgencyBookingsPage = () => {
       accessor: 'servicePackageName',
       render: (row) => (
         <div className="max-w-[180px] truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
-          {row.servicePackageName || '—'}
+          {row.servicePackageName || row.packageName || '—'}
         </div>
       ),
     },
@@ -186,7 +207,10 @@ export const AgencyBookingsPage = () => {
       accessor: 'scheduledStartTime',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400">
-          {formatDateTime(row.scheduledStartTime)}
+          {formatDateTime(
+            row.scheduledStartTime ||
+              (row.bookingDate && row.startTime ? `${row.bookingDate}T${row.startTime}` : null)
+          )}
         </span>
       ),
     },
@@ -224,7 +248,7 @@ export const AgencyBookingsPage = () => {
       header: t('status'),
       accessor: 'bookingStatus',
       align: 'center',
-      render: (row) => getStatusBadge(row.bookingStatus),
+      render: (row) => getStatusBadge(row.bookingStatus || row.status),
     },
     {
       header: t('actions'),

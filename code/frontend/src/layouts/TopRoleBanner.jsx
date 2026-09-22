@@ -23,6 +23,7 @@ import { agencyService } from '../services/agency.service';
 import { changePasswordSchema } from '../schemas/auth.schema';
 import { useI18nStore } from '../store/useI18nStore';
 import { useThemeStore } from '../store/useThemeStore';
+import { NotificationDropdown } from '../components/features/notification/NotificationDropdown';
 
 export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) => {
   const { user, role, logout } = useAuth();
@@ -172,6 +173,9 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
 
         {/* Right: Controls & User Info */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Notification Bell Dropdown (Shown for Agency Admin) */}
+          {role === USER_ROLES.AGENCY_ADMIN && <NotificationDropdown agencyLogo={agencyLogo} />}
+
           {/* Language Switcher Button */}
           <button
             onClick={toggleLanguage}
@@ -202,9 +206,9 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
               onClick={() => setIsDropdownOpen((prev) => !prev)}
               className="flex items-center gap-2.5 p-1.5 md:px-3 md:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20"
             >
-              {user?.avatarUrl || agencyLogo ? (
+              {agencyLogo || user?.avatarUrl ? (
                 <img
-                  src={user?.avatarUrl || agencyLogo}
+                  src={agencyLogo || user?.avatarUrl}
                   alt="Avatar"
                   className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                 />

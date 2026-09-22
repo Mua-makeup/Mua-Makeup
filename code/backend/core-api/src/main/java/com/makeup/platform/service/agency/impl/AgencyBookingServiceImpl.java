@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -129,8 +130,16 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
         BigDecimal estimatedStaffCommission = totalAmount.multiply(commissionMultiplier).setScale(2, RoundingMode.HALF_UP);
         BigDecimal estimatedStudioNet = totalAmount.subtract(estimatedStaffCommission).setScale(2, RoundingMode.HALF_UP);
 
+        String servicePkgName = b.getServicePackage() != null ? b.getServicePackage().getPackageName() : null;
+        Long pkgId = b.getServicePackage() != null ? b.getServicePackage().getId() : null;
+        LocalDateTime scheduledStartTime = (b.getBookingDate() != null && b.getStartTime() != null)
+                ? b.getBookingDate().atTime(b.getStartTime()) : null;
+        LocalDateTime scheduledEndTime = (scheduledStartTime != null && b.getServicePackage() != null && b.getServicePackage().getEstimatedDurationMinutes() != null)
+                ? scheduledStartTime.plusMinutes(b.getServicePackage().getEstimatedDurationMinutes()) : null;
+
         return AgencyBookingRes.builder()
                 .id(b.getId())
+                .bookingId(b.getId())
                 .bookingCode(b.getBookingCode())
                 .customerId(customerId)
                 .customerName(customerName)
@@ -141,6 +150,12 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
                 .staffCommissionRate(staffCommissionRate)
                 .bookingType(b.getBookingType() != null ? b.getBookingType().name() : null)
                 .status(b.getStatus() != null ? b.getStatus().name() : null)
+                .bookingStatus(b.getStatus() != null ? b.getStatus().name() : null)
+                .packageId(pkgId)
+                .servicePackageName(servicePkgName)
+                .packageName(servicePkgName)
+                .scheduledStartTime(scheduledStartTime)
+                .scheduledEndTime(scheduledEndTime)
                 .destinationAddress(b.getDestinationAddress())
                 .bookingDate(b.getBookingDate())
                 .startTime(b.getStartTime())

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@sentry/react": "^7.100.0",
+    "@stomp/stompjs": "^7.3.0",
     "axios": "^1.6.8",
     "clsx": "^2.1.0",
     "lucide-react": "^0.350.0",

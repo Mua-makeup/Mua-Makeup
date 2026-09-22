@@ -13,6 +13,9 @@ import {
   Filter,
   Sparkles,
   GripVertical,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { ConfirmDialog } from '../../base/ConfirmDialog';
@@ -101,13 +104,85 @@ export const WeeklyShiftTable = () => {
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('12:00');
 
+  // Quản lý tuần làm việc (Week Navigation)
+  const [currentWeekBase, setCurrentWeekBase] = useState(() => new Date());
+
+  // Tính 7 ngày của tuần được chọn (Thứ 2 = index 0 đến Chủ Nhật = index 6)
+  const weekDays = useMemo(() => {
+    const current = new Date(currentWeekBase);
+    const day = current.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+    const diffToMonday = current.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(current.setDate(diffToMonday));
+    monday.setHours(0, 0, 0, 0);
+
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [currentWeekBase]);
+
+  // Map day value từ backend (2: T2, 3: T3, ..., 7: T7, 1: CN) sang Date tương ứng
+  const getDayDate = (dayValue) => {
+    const val = Number(dayValue);
+    const idx = val === 1 ? 6 : val - 2;
+    return weekDays[idx] || new Date();
+  };
+
+  const formatDateShort = (d) => {
+    const dateNum = String(d.getDate()).padStart(2, '0');
+    const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dateNum}/${monthNum}`;
+  };
+
+  const isDateToday = (d) => {
+    const today = new Date();
+    return d.toDateString() === today.toDateString();
+  };
+
+  const formatDateFull = (d) => {
+    if (!d) return '';
+    const dateNum = String(d.getDate()).padStart(2, '0');
+    const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+    const yearNum = d.getFullYear();
+    return `${dateNum}/${monthNum}/${yearNum}`;
+  };
+
+  const handlePrevWeek = () => {
+    const prev = new Date(currentWeekBase);
+    prev.setDate(prev.getDate() - 7);
+    setCurrentWeekBase(prev);
+  };
+
+  const handleNextWeek = () => {
+    const next = new Date(currentWeekBase);
+    next.setDate(next.getDate() + 7);
+    setCurrentWeekBase(next);
+  };
+
+  const handleThisWeek = () => {
+    setCurrentWeekBase(new Date());
+  };
+
+  const formatToIsoDate = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Load shift matrix and staff
   const loadData = async () => {
     setIsLoading(true);
     setApiError(null);
     try {
+      const startDate = formatToIsoDate(weekDays[0]);
+      const endDate = formatToIsoDate(weekDays[6]);
+
       const [shiftRes, staffRes] = await Promise.allSettled([
-        agencyService.getWeeklyShiftMatrix(),
+        agencyService.getWeeklyShiftMatrix({ startDate, endDate }),
         agencyService.getStaffList('ACTIVE'),
       ]);
 
@@ -171,7 +246,7 @@ export const WeeklyShiftTable = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentWeekBase]);
 
   // Danh sách ca sau khi lọc theo thợ
   const filteredShifts = useMemo(() => {
@@ -243,12 +318,17 @@ export const WeeklyShiftTable = () => {
       return;
     }
 
+    const targetDateObj = getDayDate(selectedDay);
+    const targetWorkDate = formatToIsoDate(targetDateObj);
+
     const payload = {
       staffId: Number(selectedStaffId),
       dayOfWeek: Number(selectedDay),
+      workDate: targetWorkDate,
       shiftName: shiftName.trim(),
       startTime,
       endTime,
+      isRecurring: false,
     };
 
     const validation = shiftSchema.safeParse(payload);
@@ -404,6 +484,9 @@ export const WeeklyShiftTable = () => {
       return;
     }
 
+    const targetDateObj = getDayDate(targetDay);
+    const targetWorkDate = formatToIsoDate(targetDateObj);
+
     // Optimistic UI update
     const previousShifts = [...shifts];
     setShifts((prev) =>
@@ -412,6 +495,7 @@ export const WeeklyShiftTable = () => {
           ? {
               ...s,
               dayOfWeek: targetDay,
+              workDate: targetWorkDate,
               startTime: newStartTime,
               endTime: newEndTime,
               shiftName: newShiftName,
@@ -424,10 +508,11 @@ export const WeeklyShiftTable = () => {
       await agencyService.updateShift(draggedShift.id, {
         staffId: draggedShift.staffId,
         dayOfWeek: targetDay,
+        workDate: targetWorkDate,
         shiftName: newShiftName,
         startTime: newStartTime,
         endTime: newEndTime,
-        isRecurring: draggedShift.isRecurring ?? true,
+        isRecurring: false,
       });
       setToastType('success');
       setToastMessage(t('shift_drag_success'));
@@ -540,6 +625,89 @@ export const WeeklyShiftTable = () => {
         </div>
       </div>
 
+      {/* Week Navigator Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gradient-to-r from-rose-50/50 via-white to-amber-50/40 dark:from-slate-900 dark:via-slate-850 dark:to-slate-900 border border-rose-200/60 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-slate-900 dark:text-white font-mono tracking-wide">
+                {formatDateShort(weekDays[0])} – {formatDateShort(weekDays[6])}/{currentWeekBase.getFullYear()}
+              </span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50">
+                {t('shift_week_schedule_note')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+          {/* Bộ chọn lịch trực tiếp */}
+          <div className="relative flex items-center gap-2 bg-white dark:bg-slate-800 border border-rose-300/80 dark:border-slate-700 rounded-xl px-3 py-1.5 shadow-2xs hover:border-rose-500 transition-all focus-within:ring-2 focus-within:ring-rose-500/20 cursor-pointer group">
+            <CalendarDays className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 hidden md:inline">
+              {t('shift_select_date_label')}:
+            </span>
+            <span className="text-xs font-extrabold text-rose-700 dark:text-rose-300 tracking-wide font-mono">
+              {formatDateFull(currentWeekBase)}
+            </span>
+            <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0 group-hover:text-rose-600 transition-colors" />
+            <input
+              type="date"
+              value={formatToIsoDate(currentWeekBase)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  const [y, m, d] = e.target.value.split('-').map(Number);
+                  setCurrentWeekBase(new Date(y, m - 1, d));
+                }
+              }}
+              onClick={(e) => {
+                try {
+                  if (typeof e.target.showPicker === 'function') {
+                    e.target.showPicker();
+                  }
+                } catch {
+                  // Fallback to browser default
+                }
+              }}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              title={t('shift_pick_date_title')}
+            />
+          </div>
+
+          {/* Nút trở về Tuần Này */}
+          <button
+            type="button"
+            onClick={handleThisWeek}
+            className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-bold text-rose-700 dark:text-rose-300 transition-colors shadow-2xs cursor-pointer"
+          >
+            {t('shift_nav_this_week')}
+          </button>
+
+          {/* Nút lùi / tiến tuần gọn gàng */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handlePrevWeek}
+              className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 transition-colors shadow-2xs cursor-pointer"
+              title={t('shift_nav_prev_week')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextWeek}
+              className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 transition-colors shadow-2xs cursor-pointer"
+              title={t('shift_nav_next_week')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Action Bar & Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
         <div className="flex items-center gap-2">
@@ -629,11 +797,22 @@ export const WeeklyShiftTable = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800 min-h-[140px]">
                 {SHIFT_DAYS.map((d) => {
                   const dayInfo = getDayInfo(d.key);
-                  const dayShifts = filteredShifts.filter(
-                    (s) =>
-                      Number(s.dayOfWeek) === Number(d.value) &&
-                      getPeriodId(s.startTime) === period.id
-                  );
+                  const dateObj = getDayDate(d.value);
+                  const dateIsoStr = formatToIsoDate(dateObj);
+
+                  const dayShifts = filteredShifts.filter((s) => {
+                    const isSameDow = Number(s.dayOfWeek) === Number(d.value);
+                    const isSamePeriod = getPeriodId(s.startTime) === period.id;
+                    if (!isSameDow || !isSamePeriod) return false;
+
+                    // Nếu ca có workDate: Phải khớp chính xác ngày của cột trong tuần đó
+                    if (s.workDate) {
+                      return s.workDate === dateIsoStr;
+                    }
+                    // Nếu ca định kỳ không có ngày: chỉ hiển thị khi isRecurring = true
+                    return s.isRecurring !== false;
+                  });
+
                   const isCellDragOver =
                     dragOverCell?.periodId === period.id &&
                     Number(dragOverCell?.dayValue) === Number(d.value);
@@ -654,16 +833,41 @@ export const WeeklyShiftTable = () => {
                       }`}
                     >
                       {/* Tiêu đề thứ cho từng cột */}
-                      <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100 dark:border-slate-800/60">
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                          {dayInfo.shortLabel} - {dayInfo.label}
-                        </span>
-                        {dayShifts.length > 0 && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            {dayShifts.length}
-                          </span>
-                        )}
-                      </div>
+                      {(() => {
+                        const dateObj = getDayDate(d.value);
+                        const isDayToday = isDateToday(dateObj);
+                        return (
+                          <div className={`flex items-center justify-between pb-1.5 mb-1.5 border-b ${
+                            isDayToday 
+                              ? 'border-rose-300 dark:border-rose-800 bg-rose-50/40 dark:bg-rose-950/20 -mx-1 px-1 rounded-t-lg'
+                              : 'border-slate-100 dark:border-slate-800/60'
+                          }`}>
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className={`text-[11px] font-bold truncate ${
+                                isDayToday 
+                                  ? 'text-rose-600 dark:text-rose-400 font-extrabold' 
+                                  : 'text-slate-700 dark:text-slate-300'
+                              }`}>
+                                {dayInfo.shortLabel} ({formatDateShort(dateObj)})
+                              </span>
+                              {isDayToday && (
+                                <span className="text-[8px] font-black px-1 py-0.5 rounded bg-gradient-to-r from-rose-500 to-pink-500 text-white shrink-0 tracking-tight leading-none">
+                                  {t('badge_today')}
+                                </span>
+                              )}
+                            </div>
+                            {dayShifts.length > 0 && (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full shrink-0 ${
+                                isDayToday
+                                  ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                              }`}>
+                                {dayShifts.length}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Danh sách ca trực trong buổi */}
                       <div className="space-y-2 flex-1">

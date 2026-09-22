@@ -21,11 +21,18 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
-    if (booking?.bookingId && isOpen) {
+    const bookingId = booking?.bookingId || booking?.id;
+    if (bookingId && isOpen) {
       setLoadingHistory(true);
       agencyService
-        .getBookingHistory(booking.bookingId)
-        .then((res) => setHistory(res?.data || res || []))
+        .getBookingHistory(bookingId)
+        .then((res) => {
+          const raw = res?.data || res;
+          const list = Array.isArray(raw)
+            ? raw
+            : (raw?.historyLogs || raw?.historyRecords || raw?.history || []);
+          setHistory(list);
+        })
         .catch(() => setHistory([]))
         .finally(() => setLoadingHistory(false));
     }
@@ -53,16 +60,26 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
     }
   };
 
+  const statusMap = {
+    PENDING_DEPOSIT: { variant: 'pending', label: t('status_pending_deposit') },
+    REQUESTED: { variant: 'warning', label: t('status_requested') },
+    PENDING_AGENCY_DISPATCH: { variant: 'warning', label: t('status_pending_agency_dispatch') },
+    AGENCY_ASSIGNED: { variant: 'info', label: t('status_agency_assigned') },
+    ACCEPTED: { variant: 'active', label: t('status_accepted') },
+    CONFIRMED: { variant: 'active', label: t('status_confirmed') },
+    ON_THE_WAY: { variant: 'info', label: t('status_on_the_way') },
+    ARRIVED: { variant: 'info', label: t('status_arrived') },
+    IN_PROGRESS: { variant: 'warning', label: t('status_in_progress') },
+    COMPLETED: { variant: 'success', label: t('status_completed') },
+    PAID_OUT: { variant: 'success', label: t('status_paid_out') },
+    CANCELLED: { variant: 'inactive', label: t('status_cancelled') },
+    CANCELLED_EXPIRED: { variant: 'inactive', label: t('status_cancelled_expired') },
+    DISPUTED: { variant: 'danger', label: t('status_disputed') },
+    PENDING: { variant: 'pending', label: t('status_pending') },
+  };
+
   const getStatusBadge = (status) => {
-    const statusMap = {
-      CONFIRMED: { variant: 'active', label: t('status_confirmed') },
-      COMPLETED: { variant: 'success', label: t('status_completed') },
-      IN_PROGRESS: { variant: 'warning', label: t('status_in_progress') },
-      ARRIVED: { variant: 'info', label: t('status_arrived') },
-      CANCELLED: { variant: 'inactive', label: t('status_cancelled') },
-      PENDING: { variant: 'pending', label: t('status_pending') },
-    };
-    const s = statusMap[status] || { variant: 'default', label: status };
+    const s = statusMap[status] || { variant: 'default', label: status || '—' };
     return <Badge variant={s.variant}>{s.label}</Badge>;
   };
 
@@ -76,7 +93,7 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
           <span className="text-xs font-mono bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 px-2 py-0.5 rounded-md font-bold">
             {booking.bookingCode}
           </span>
-          {getStatusBadge(booking.bookingStatus)}
+          {getStatusBadge(booking.bookingStatus || booking.status)}
         </div>
       }
       maxWidth="max-w-4xl"
@@ -107,7 +124,7 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
               <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                 <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <span className="font-medium text-rose-600 dark:text-rose-400">
-                  {booking.servicePackageName || '—'}
+                  {booking.servicePackageName || booking.packageName || '—'}
                 </span>
               </div>
             </div>
@@ -121,11 +138,25 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
             <div className="space-y-2 text-xs">
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                 <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>{formatDateTime(booking.scheduledStartTime)}</span>
+                <span>
+                  {formatDateTime(
+                    booking.scheduledStartTime ||
+                      (booking.bookingDate && booking.startTime
+                        ? `${booking.bookingDate}T${booking.startTime}`
+                        : null)
+                  )}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                 <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>{formatDateTime(booking.scheduledEndTime)}</span>
+                <span>
+                  {formatDateTime(
+                    booking.scheduledEndTime ||
+                      (booking.bookingDate && booking.endTime
+                        ? `${booking.bookingDate}T${booking.endTime}`
+                        : null)
+                  )}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                 <User className="w-4 h-4 text-rose-500 flex-shrink-0" />
@@ -204,7 +235,7 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
 
           {loadingHistory ? (
             <div className="text-xs text-slate-400 py-3 text-center">{t('loading')}</div>
-          ) : history.length === 0 ? (
+          ) : !Array.isArray(history) || history.length === 0 ? (
             <div className="text-xs text-slate-400 py-2 italic">{t('no_history')}</div>
           ) : (
             <div className="border-l-2 border-slate-200 dark:border-slate-800 ml-2 pl-4 space-y-4">
@@ -213,7 +244,7 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
                   <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-4 ring-white dark:ring-slate-900" />
                   <div className="flex items-baseline justify-between text-xs">
                     <span className="font-bold text-slate-800 dark:text-slate-200">
-                      {item.toStatus}
+                      {statusMap[item.toStatus]?.label || item.toStatus}
                     </span>
                     <span className="text-[11px] text-slate-400 font-mono">
                       {formatDateTime(item.changedAt || item.createdAt)}
@@ -224,9 +255,14 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
                       {item.action}
                     </p>
                   )}
-                  {item.notes && (
+                  {(item.note || item.notes) && (
                     <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 italic">
-                      "{item.notes}"
+                      "{item.note || item.notes}"
+                    </p>
+                  )}
+                  {item.changedBy && (
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {item.changedBy}
                     </p>
                   )}
                 </div>

@@ -65,13 +65,36 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
             );
         }
 
-        List<AgencyStaffShiftEntity> overlapping = agencyStaffShiftRepository.findOverlappingShifts(
-                req.getStaffId(),
-                req.getDayOfWeek(),
-                req.getStartTime(),
-                req.getEndTime(),
-                null
-        );
+        Integer dayOfWeek = req.getDayOfWeek();
+        if (req.getWorkDate() != null) {
+            int javaDow = req.getWorkDate().getDayOfWeek().getValue();
+            dayOfWeek = (javaDow == 7) ? 1 : javaDow + 1;
+        }
+        if (dayOfWeek == null) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_VALIDATION,
+                    "validation.day_of_week_required",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        List<AgencyStaffShiftEntity> overlapping;
+        if (req.getWorkDate() != null) {
+            overlapping = agencyStaffShiftRepository.findOverlappingShiftsForWorkDate(
+                    req.getStaffId(),
+                    dayOfWeek,
+                    req.getWorkDate(),
+                    req.getStartTime(),
+                    req.getEndTime()
+            );
+        } else {
+            overlapping = agencyStaffShiftRepository.findOverlappingRecurringShifts(
+                    req.getStaffId(),
+                    dayOfWeek,
+                    req.getStartTime(),
+                    req.getEndTime()
+            );
+        }
 
         if (!overlapping.isEmpty()) {
             throw new CustomBusinessException(
@@ -84,17 +107,18 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
         AgencyStaffShiftEntity shift = AgencyStaffShiftEntity.builder()
                 .agency(agency)
                 .staff(staff)
-                .dayOfWeek(req.getDayOfWeek())
+                .workDate(req.getWorkDate())
+                .dayOfWeek(dayOfWeek)
                 .shiftName(req.getShiftName().trim())
                 .startTime(req.getStartTime())
                 .endTime(req.getEndTime())
-                .isRecurring(req.getIsRecurring() != null ? req.getIsRecurring() : true)
+                .isRecurring(req.getIsRecurring() != null ? req.getIsRecurring() : (req.getWorkDate() == null))
                 .isActive(true)
                 .build();
 
         AgencyStaffShiftEntity saved = agencyStaffShiftRepository.save(shift);
-        log.info("Successfully created shift id={} for staffId={} on dayOfWeek={} in agencyId={}",
-                saved.getId(), staff.getId(), saved.getDayOfWeek(), agency.getId());
+        log.info("Successfully created shift id={} for staffId={} on workDate={} dayOfWeek={} in agencyId={}",
+                saved.getId(), staff.getId(), saved.getWorkDate(), saved.getDayOfWeek(), agency.getId());
 
         return mapToDetailRes(saved);
     }
@@ -102,9 +126,20 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     @Override
     @Transactional(readOnly = true)
     public WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId) {
+        return getWeeklyShiftMatrix(userId, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate) {
         AgencyProfileEntity agency = resolveAgencyForUser(userId);
 
-        List<AgencyStaffShiftEntity> allShifts = agencyStaffShiftRepository.findAllActiveByAgencyIdWithStaff(agency.getId());
+        List<AgencyStaffShiftEntity> allShifts;
+        if (startDate != null && endDate != null) {
+            allShifts = agencyStaffShiftRepository.findAllActiveByAgencyIdAndWeekRange(agency.getId(), startDate, endDate);
+        } else {
+            allShifts = agencyStaffShiftRepository.findAllActiveByAgencyIdWithStaff(agency.getId());
+        }
 
         Map<Integer, List<AgencyStaffShiftEntity>> shiftsByDay = allShifts.stream()
                 .collect(Collectors.groupingBy(AgencyStaffShiftEntity::getDayOfWeek));
@@ -131,6 +166,21 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
 
     @Override
     @Transactional(readOnly = true)
+    public ShiftDetailRes getShiftById(Long userId, Long shiftId) {
+        AgencyProfileEntity agency = resolveAgencyForUser(userId);
+
+        AgencyStaffShiftEntity shift = agencyStaffShiftRepository.findById(shiftId)
+                .filter(s -> s.getAgency().getId().equals(agency.getId()) && Boolean.TRUE.equals(s.getIsActive()))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_SHIFT_NOT_FOUND,
+                        "ERR_SHIFT_NOT_FOUND"
+                ));
+
+        return mapToDetailRes(shift);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ShiftDetailRes> getStaffShifts(Long userId, Long staffId) {
         AgencyStaffEntity staff = agencyStaffRepository.findById(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -147,14 +197,6 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     @Override
     @Transactional
     public ShiftDetailRes updateShift(Long userId, Long shiftId, ConfigureShiftReq req) {
-        if (!req.getEndTime().isAfter(req.getStartTime())) {
-            throw new CustomBusinessException(
-                    ErrorCodes.ERR_INVALID_SHIFT_TIME,
-                    "agency.shift_time_invalid",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-
         AgencyProfileEntity agency = getAgencyForManager(userId);
 
         AgencyStaffShiftEntity shift = agencyStaffShiftRepository.findById(shiftId)
@@ -174,13 +216,35 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
                     ));
         }
 
-        List<AgencyStaffShiftEntity> overlapping = agencyStaffShiftRepository.findOverlappingShifts(
-                staff.getId(),
-                req.getDayOfWeek(),
-                req.getStartTime(),
-                req.getEndTime(),
-                shiftId
-        );
+        Integer dayOfWeek = req.getDayOfWeek();
+        if (req.getWorkDate() != null) {
+            int javaDow = req.getWorkDate().getDayOfWeek().getValue();
+            dayOfWeek = (javaDow == 7) ? 1 : javaDow + 1;
+        } else if (dayOfWeek == null) {
+            dayOfWeek = shift.getDayOfWeek();
+        }
+
+        java.time.LocalDate targetWorkDate = req.getWorkDate() != null ? req.getWorkDate() : shift.getWorkDate();
+
+        List<AgencyStaffShiftEntity> overlapping;
+        if (targetWorkDate != null) {
+            overlapping = agencyStaffShiftRepository.findOverlappingShiftsForWorkDateExcluding(
+                    staff.getId(),
+                    dayOfWeek,
+                    targetWorkDate,
+                    req.getStartTime(),
+                    req.getEndTime(),
+                    shiftId
+            );
+        } else {
+            overlapping = agencyStaffShiftRepository.findOverlappingRecurringShiftsExcluding(
+                    staff.getId(),
+                    dayOfWeek,
+                    req.getStartTime(),
+                    req.getEndTime(),
+                    shiftId
+            );
+        }
 
         if (!overlapping.isEmpty()) {
             throw new CustomBusinessException(
@@ -191,7 +255,8 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
         }
 
         shift.setStaff(staff);
-        shift.setDayOfWeek(req.getDayOfWeek());
+        shift.setDayOfWeek(dayOfWeek);
+        shift.setWorkDate(targetWorkDate);
         if (req.getShiftName() != null && !req.getShiftName().isBlank()) {
             shift.setShiftName(req.getShiftName().trim());
         }
@@ -203,8 +268,8 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
         shift.setIsActive(true);
 
         AgencyStaffShiftEntity saved = agencyStaffShiftRepository.save(shift);
-        log.info("Successfully updated shift id={} for staffId={} to dayOfWeek={} {}-{} in agencyId={}",
-                saved.getId(), staff.getId(), saved.getDayOfWeek(), saved.getStartTime(), saved.getEndTime(), agency.getId());
+        log.info("Successfully updated shift id={} for staffId={} on workDate={} dayOfWeek={} {}-{} in agencyId={}",
+                saved.getId(), staff.getId(), saved.getWorkDate(), saved.getDayOfWeek(), saved.getStartTime(), saved.getEndTime(), agency.getId());
 
         return mapToDetailRes(saved);
     }
@@ -259,6 +324,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
                 .shiftId(entity.getId())
                 .staffId(entity.getStaff() != null ? entity.getStaff().getId() : null)
                 .staffName(staffName)
+                .workDate(entity.getWorkDate())
                 .dayOfWeek(entity.getDayOfWeek())
                 .dayName(ShiftDetailRes.getVietnameseDayName(entity.getDayOfWeek()))
                 .shiftName(entity.getShiftName())

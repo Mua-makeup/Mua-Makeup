@@ -45,6 +45,15 @@ public class AgencyBookingRes {
     private BigDecimal estimatedStaffCommission;
     private BigDecimal estimatedStudioNet;
 
+    // Service Package & Schedule
+    private Long bookingId;
+    private String bookingStatus;
+    private Long packageId;
+    private String servicePackageName;
+    private String packageName;
+    private LocalDateTime scheduledStartTime;
+    private LocalDateTime scheduledEndTime;
+
     // Audit
     private LocalDateTime createdAt;
 }

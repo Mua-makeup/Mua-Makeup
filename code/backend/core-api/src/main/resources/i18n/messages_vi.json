@@ -98,7 +98,9 @@
     "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
     "shift_created_success": "Tạo ca làm việc thành công!",
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
-    "shift_deleted_success": "Xóa ca làm việc thành công!"
+    "shift_deleted_success": "Xóa ca làm việc thành công!",
+    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
+    "logo_upload_success": "Tải lên logo của Studio thành công."
   },
   "catalog": {
     "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",
@@ -372,10 +374,6 @@
     "status_update_success": "Cập nhật trạng thái phong cách make-up thành công!",
     "not_found": "Không tìm thấy phong cách make-up yêu cầu."
   },
-  "agency": {
-    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
-    "logo_upload_success": "Tải lên logo của Studio thành công."
-  },
   "user": {
     "avatar_upload_success": "Tải lên ảnh đại diện thành công.",
     "profile_update_success": "Cập nhật hồ sơ thành công."
@@ -388,6 +386,25 @@
     "surge_rules_get_success": "Lấy danh sách quy tắc giá động thành công.",
     "h3_surge_status_success": "Lấy trạng thái thuật toán Uber H3 thành công.",
     "h3_surge_toggle_success": "Cập nhật trạng thái thuật toán Uber H3 thành công."
+  },
+  "booking": {
+    "scheduled_created_success": "Tạo đơn đặt lịch hẹn trước thành công! Vui lòng thanh toán cọc trong vòng 15 phút để giữ chỗ.",
+    "deposit_confirmed_success": "Xác nhận thanh toán tiền cọc thành công! Lịch hẹn của bạn đã được chốt.",
+    "slot_already_booked": "Thợ trang điểm đã có ca làm việc khác trong khung giờ này. Vui lòng chọn khung giờ khác!",
+    "buffer_time_violation": "Vi phạm khoảng đệm di chuyển tối thiểu 30 phút giữa các ca làm liên tiếp.",
+    "deposit_payment_timeout": "Hết hạn giữ chỗ 15 phút. Đơn hàng đã tự động bị hủy do chưa thanh toán tiền cọc.",
+    "invalid_time_range": "Thời gian kết thúc phải sau thời gian bắt đầu.",
+    "time_out_of_service": "Giờ bắt đầu ca hẹn phải nằm trong khung giờ phục vụ từ 03:00 đến 22:00.",
+    "time_must_be_2h_future": "Thời gian đặt hẹn trước phải cách thời điểm hiện tại tối thiểu 2 giờ.",
+    "date_too_far": "Thời gian đặt hẹn trước không được vượt quá 90 ngày trong tương lai.",
+    "no_available_staff": "Hiện không có thợ trang điểm nào của Studio rảnh và đủ kỹ năng trong khung giờ này."
+  },
+  "calendar": {
+    "slot_blocked_success": "Khóa khung giờ bận cá nhân thành công!",
+    "slot_unblocked_success": "Mở lại khung giờ làm việc thành công!",
+    "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
+    "cannot_unblock_booked_slot": "Không thể mở khóa slot lịch đã được gắn với đơn đặt hẹn của khách hàng.",
+    "slot_not_found": "Không tìm thấy khung giờ lịch làm việc."
   }
 }
 

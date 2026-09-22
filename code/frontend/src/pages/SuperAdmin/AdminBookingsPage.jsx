@@ -69,20 +69,28 @@ export const AdminBookingsPage = () => {
 
   const getStatusVariant = (status) => {
     switch (status) {
+      case 'PENDING_DEPOSIT':
+      case 'PENDING':
+        return 'pending';
       case 'REQUESTED':
+      case 'PENDING_AGENCY_DISPATCH':
         return 'warning';
       case 'ACCEPTED':
       case 'AGENCY_ASSIGNED':
-        return 'info';
+      case 'CONFIRMED':
       case 'ON_THE_WAY':
       case 'ARRIVED':
+        return 'info';
       case 'IN_PROGRESS':
         return 'primary';
       case 'COMPLETED':
       case 'PAID_OUT':
         return 'success';
       case 'CANCELLED':
+      case 'CANCELLED_EXPIRED':
         return 'rejected';
+      case 'DISPUTED':
+        return 'danger';
       default:
         return 'neutral';
     }
@@ -90,14 +98,20 @@ export const AdminBookingsPage = () => {
 
   const getStatusLabel = (status) => {
     const map = {
+      PENDING_DEPOSIT: t('status_pending_deposit'),
       REQUESTED: t('status_requested'),
+      PENDING_AGENCY_DISPATCH: t('status_pending_agency_dispatch'),
+      AGENCY_ASSIGNED: t('status_agency_assigned'),
       ACCEPTED: t('status_accepted'),
+      CONFIRMED: t('status_confirmed'),
       ON_THE_WAY: t('status_on_the_way'),
+      ARRIVED: t('status_arrived'),
       IN_PROGRESS: t('status_in_progress'),
       COMPLETED: t('status_completed'),
+      PAID_OUT: t('status_paid_out'),
       CANCELLED: t('status_cancelled'),
-      CONFIRMED: t('status_confirmed'),
-      ARRIVED: t('status_arrived'),
+      CANCELLED_EXPIRED: t('status_cancelled_expired'),
+      DISPUTED: t('status_disputed'),
       PENDING: t('status_pending'),
     };
     return map[status] || status;

@@ -12,6 +12,10 @@ public interface AgencyShiftService {
 
     WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId);
 
+    WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate);
+
+    ShiftDetailRes getShiftById(Long userId, Long shiftId);
+
     ShiftDetailRes updateShift(Long userId, Long shiftId, ConfigureShiftReq req);
 
     List<ShiftDetailRes> getStaffShifts(Long userId, Long staffId);

@@ -98,7 +98,9 @@
     "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today.",
     "shift_created_success": "Shift created successfully!",
     "shift_updated_success": "Shift updated successfully!",
-    "shift_deleted_success": "Shift deleted successfully!"
+    "shift_deleted_success": "Shift deleted successfully!",
+    "bookings_fetch_success": "Retrieved studio bookings successfully.",
+    "logo_upload_success": "Studio logo uploaded successfully."
   },
   "catalog": {
     "style_not_found": "Makeup style not found with ID: {0}",
@@ -372,10 +374,6 @@
     "status_update_success": "Updated makeup style status successfully!",
     "not_found": "Requested makeup style not found."
   },
-  "agency": {
-    "bookings_fetch_success": "Retrieved studio bookings successfully.",
-    "logo_upload_success": "Studio logo uploaded successfully."
-  },
   "user": {
     "avatar_upload_success": "Avatar uploaded successfully.",
     "profile_update_success": "Profile updated successfully."
@@ -388,6 +386,25 @@
     "surge_rules_get_success": "Retrieved dynamic pricing surge rules successfully.",
     "h3_surge_status_success": "Retrieved Uber H3 algorithm status successfully.",
     "h3_surge_toggle_success": "Updated Uber H3 algorithm status successfully."
+  },
+  "booking": {
+    "scheduled_created_success": "Scheduled booking created successfully! Please deposit within 15 minutes to confirm your slot.",
+    "deposit_confirmed_success": "Deposit confirmed successfully! Your scheduled booking is confirmed.",
+    "slot_already_booked": "The makeup artist has another booking during this time slot. Please choose another slot.",
+    "buffer_time_violation": "Violates minimum 30-minute travel buffer time between consecutive bookings.",
+    "deposit_payment_timeout": "Hold window expired. Booking cancelled due to deposit timeout (15 minutes).",
+    "invalid_time_range": "End time must be after start time.",
+    "time_out_of_service": "Booking start time must be within working hours (03:00 - 22:00).",
+    "time_must_be_2h_future": "Scheduled booking time must be at least 2 hours in the future.",
+    "date_too_far": "Booking date must not exceed 90 days in advance.",
+    "no_available_staff": "No studio staff available for this service in the requested time slot."
+  },
+  "calendar": {
+    "slot_blocked_success": "Personal busy slot blocked successfully!",
+    "slot_unblocked_success": "Personal busy slot unblocked successfully!",
+    "slots_fetch_success": "Available time slots retrieved successfully.",
+    "cannot_unblock_booked_slot": "Cannot unblock a calendar slot assigned to an active customer booking.",
+    "slot_not_found": "Calendar slot not found."
   }
 }
 
