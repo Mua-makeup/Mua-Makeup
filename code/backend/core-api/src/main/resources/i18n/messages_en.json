@@ -66,6 +66,9 @@
     "invitation_accept_success": "Successfully joined Studio.",
     "staff_list_success": "Staff list retrieved successfully.",
     "staff_detail_success": "Staff detail retrieved successfully.",
+    "staff_review_success": "Staff application reviewed successfully.",
+    "staff_review_approved": "Staff application approved successfully!",
+    "staff_review_rejected": "Staff application declined successfully.",
     "staff_status_update_success": "Staff status updated successfully.",
     "staff_commission_update_success": "Staff commission updated successfully.",
     "staff_remove_success": "Staff removed from Studio successfully.",
@@ -76,6 +79,8 @@
     "overtime_rule_created_success": "Studio overtime policy configured successfully.",
     "overtime_rules_get_success": "Studio overtime rules retrieved successfully.",
     "overtime_rule_deleted_success": "Studio overtime rule deleted successfully.",
+    "overtime_rule_activated": "Studio overtime rule activated successfully.",
+    "overtime_rule_deactivated": "Studio overtime rule deactivated successfully.",
     "overtime_report_submitted_success": "Overtime report submitted successfully. Awaiting studio review.",
     "overtime_report_reviewed_success": "Overtime report reviewed and adjudicated successfully.",
     "overtime_reports_get_success": "Overtime reports retrieved successfully.",
@@ -90,7 +95,10 @@
     "invalid_decision": "Invalid decision. Only APPROVE or REJECT is accepted.",
     "staff_not_active": "Staff member is not active or eligible for scheduling.",
     "shift_time_invalid": "Shift end time must be after start time.",
-    "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today."
+    "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today.",
+    "shift_created_success": "Shift created successfully!",
+    "shift_updated_success": "Shift updated successfully!",
+    "shift_deleted_success": "Shift deleted successfully!"
   },
   "catalog": {
     "style_not_found": "Makeup style not found with ID: {0}",
@@ -350,6 +358,7 @@
     "code_conflict": "This category code already exists.",
     "create_success": "Created master service category successfully!",
     "update_success": "Updated master service category successfully!",
+    "status_update_success": "Updated master service category status successfully!",
     "not_found": "Requested master service category not found."
   },
   "style": {
@@ -360,6 +369,7 @@
     "code_conflict": "This style code already exists.",
     "create_success": "Created makeup style successfully!",
     "update_success": "Updated makeup style successfully!",
+    "status_update_success": "Updated makeup style status successfully!",
     "not_found": "Requested makeup style not found."
   },
   "agency": {
@@ -373,6 +383,7 @@
   "pricing": {
     "surge_rule_created_success": "Dynamic pricing surge rule created successfully!",
     "surge_rule_updated_success": "Dynamic pricing surge rule updated successfully!",
+    "surge_rule_status_updated_success": "Updated dynamic pricing surge rule status successfully!",
     "surge_rule_deleted_success": "Dynamic pricing surge rule deleted successfully!",
     "surge_rules_get_success": "Retrieved dynamic pricing surge rules successfully.",
     "h3_surge_status_success": "Retrieved Uber H3 algorithm status successfully.",

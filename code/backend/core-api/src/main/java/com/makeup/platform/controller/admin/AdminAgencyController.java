@@ -11,6 +11,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import com.makeup.platform.common.base.PageResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+
+import com.makeup.platform.dto.request.admin.AdminCreateAgencyReq;
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1/admin/agencies")
 @RequiredArgsConstructor
@@ -18,12 +26,22 @@ public class AdminAgencyController extends BaseController {
 
     private final AgencyProfileService agencyProfileService;
 
+    @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<AgencyProfileRes>> createAgency(
+            @Valid @RequestBody AdminCreateAgencyReq req
+    ) {
+        AgencyProfileRes created = agencyProfileService.createAgencyByAdmin(req);
+        return created(created, "admin.agency_create_success");
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<AgencyProfileRes>>> getAllAgencies(
+    public ResponseEntity<ApiResponse<PageResponse<AgencyProfileRes>>> getAllAgencies(
             @RequestParam(value = "search", required = false) String search,
-            @RequestParam(value = "isVerified", required = false) Boolean isVerified) {
-        List<AgencyProfileRes> list = agencyProfileService.getAllAgenciesForAdmin(search, isVerified);
+            @RequestParam(value = "isVerified", required = false) Boolean isVerified,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        PageResponse<AgencyProfileRes> list = agencyProfileService.getAllAgenciesForAdmin(search, isVerified, pageable);
         return ok(list);
     }
 

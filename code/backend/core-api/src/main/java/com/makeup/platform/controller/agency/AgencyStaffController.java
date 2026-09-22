@@ -113,7 +113,10 @@ public class AgencyStaffController extends BaseController {
             @PathVariable Long staffId,
             @Valid @RequestBody ReviewStaffApplicationReq req) {
         AgencyStaffRes res = agencyStaffService.reviewStaffApplication(userId, staffId, req);
-        return ok(res, "agency.staff_review_success");
+        String msgKey = "APPROVE".equalsIgnoreCase(req.getDecision())
+                ? "agency.staff_review_approved"
+                : "agency.staff_review_rejected";
+        return ok(res, msgKey);
     }
 
     @PutMapping("/staff/{staffId}/status")

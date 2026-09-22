@@ -10,6 +10,10 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.service.booking.AdminBookingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.makeup.platform.common.base.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,10 +32,10 @@ public class AdminBookingServiceImpl implements AdminBookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AdminBookingRes> getAllBookings(String status, String keyword) {
+    public PageResponse<AdminBookingRes> getAllBookings(String status, String keyword, Pageable pageable) {
         List<BookingEntity> bookings = bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        return bookings.stream()
+        List<AdminBookingRes> filtered = bookings.stream()
                 .filter(b -> {
                     // Filter by status if provided
                     if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
@@ -62,6 +66,23 @@ public class AdminBookingServiceImpl implements AdminBookingService {
                 })
                 .map(bookingMapper::toAdminBookingRes)
                 .collect(Collectors.toList());
+
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageResponse.<AdminBookingRes>builder()
+                    .content(filtered)
+                    .page(0)
+                    .size(filtered.size())
+                    .totalElements(filtered.size())
+                    .totalPages(filtered.isEmpty() ? 0 : 1)
+                    .last(true)
+                    .build();
+        }
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), filtered.size());
+        List<AdminBookingRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
+        Page<AdminBookingRes> page = new PageImpl<>(pagedList, pageable, filtered.size());
+        return PageResponse.from(page);
     }
 
     @Override

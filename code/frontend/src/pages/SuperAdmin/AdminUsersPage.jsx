@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Search, RefreshCw, Lock, Unlock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Users, Search, RefreshCw, Lock, Unlock, AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { useI18nStore } from '../../store/useI18nStore';
 import { Badge } from '../../components/base/Badge';
 import { DataTable } from '../../components/base/DataTable';
 import { ConfirmDialog } from '../../components/base/ConfirmDialog';
+import { CreateUserModal } from '../../components/features/admin/CreateUserModal';
+import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const AdminUsersPage = () => {
   const { t } = useI18nStore();
@@ -19,16 +21,41 @@ export const AdminUsersPage = () => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const fetchUsers = async () => {
+  const [pageInfo, setPageInfo] = useState({
+    page: 0,
+    size: getSavedPageSize(10),
+    totalElements: 0,
+    totalPages: 1,
+  });
+
+  const fetchUsers = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
     setApiError('');
     try {
       const res = await superAdminService.getUsers({
         role: roleFilter === 'ALL' ? undefined : roleFilter,
         keyword: keyword.trim() || undefined,
+        page,
+        size,
       });
-      setUsers(res?.data || res || []);
+      const data = res?.data || res || {};
+      if (Array.isArray(data)) {
+        setUsers(data);
+        setPageInfo({ page: 0, size: data.length, totalElements: data.length, totalPages: 1 });
+      } else {
+        const total = data.totalElements ?? data.total_elements ?? (data.content?.length || 0);
+        const pSize = data.size ?? size ?? 10;
+        const totalP = data.totalPages ?? data.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
+        setUsers(data.content || []);
+        setPageInfo({
+          page: data.page ?? page,
+          size: pSize,
+          totalElements: total,
+          totalPages: totalP,
+        });
+      }
     } catch (err) {
       setApiError(err.message || t('error_api_connection'));
       setUsers([]);
@@ -38,12 +65,12 @@ export const AdminUsersPage = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(0);
   }, [roleFilter]);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchUsers();
+    fetchUsers(0);
   };
 
   const handleToggleStatus = async () => {
@@ -189,13 +216,23 @@ export const AdminUsersPage = () => {
           </p>
         </div>
 
-        <button
-          onClick={fetchUsers}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>{t('reload') || 'Tải Lại'}</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>{t('btn_add_user') || 'Thêm Người Dùng'}</span>
+          </button>
+
+          <button
+            onClick={fetchUsers}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{t('reload') || 'Tải Lại'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Toast Alert */}
@@ -253,6 +290,18 @@ export const AdminUsersPage = () => {
           data={users}
           isLoading={isLoading}
           emptyMessage={t('no_users_found') || 'Không tìm thấy người dùng nào phù hợp'}
+          pagination={{
+            page: pageInfo.page,
+            size: pageInfo.size,
+            totalElements: pageInfo.totalElements,
+            totalPages: pageInfo.totalPages,
+            onPageChange: (newPage1Indexed) => fetchUsers(newPage1Indexed - 1, pageInfo.size),
+            onPageSizeChange: (newSize) => {
+              savePageSize(newSize);
+              setPageInfo((prev) => ({ ...prev, size: newSize, page: 0 }));
+              fetchUsers(0, newSize);
+            },
+          }}
         />
       </div>
 
@@ -273,6 +322,17 @@ export const AdminUsersPage = () => {
         }
         confirmText={selectedUser?.isActive ? 'Khóa Tài Khoản' : 'Mở Khóa'}
         variant={selectedUser?.isActive ? 'danger' : 'primary'}
+      />
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={(msg) => {
+          setToastMessage(msg);
+          fetchUsers(0);
+          setTimeout(() => setToastMessage(''), 4000);
+        }}
       />
     </div>
   );

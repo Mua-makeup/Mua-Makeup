@@ -33,6 +33,8 @@ public interface SurgePricingService {
 
     SurgeRuleRes updateRule(Long id, ConfigureSurgeRuleReq req);
 
+    SurgeRuleRes toggleRuleStatus(Long id, boolean isActive);
+
     void deleteRule(Long id);
 
     List<SurgeRuleRes> listRules();

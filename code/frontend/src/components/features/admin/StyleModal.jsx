@@ -114,14 +114,27 @@ export const StyleModal = ({ isOpen, onClose, styleItem, onSuccess }) => {
           </div>
         )}
 
-        <Input
-          label={t('col_code')}
-          placeholder="e.g. KOREAN_NATURAL, SMOKEY_GLAM"
-          value={formData.styleCode}
-          onChange={(e) => setFormData({ ...formData, styleCode: e.target.value.toUpperCase() })}
-          error={errors.styleCode}
-          required
-        />
+        <div className="grid grid-cols-3 gap-3">
+          <div className="col-span-2">
+            <Input
+              label={t('col_code')}
+              placeholder="e.g. KOREAN_NATURAL, SMOKEY_GLAM"
+              value={formData.styleCode}
+              onChange={(e) => setFormData({ ...formData, styleCode: e.target.value.toUpperCase() })}
+              error={errors.styleCode}
+              required
+            />
+          </div>
+          <div className="col-span-1">
+            <Input
+              label={t('col_sort_order') || 'Thứ Tự'}
+              type="number"
+              min="1"
+              value={formData.sortOrder}
+              onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })}
+            />
+          </div>
+        </div>
 
         <Input
           label={t('col_styles')}
@@ -139,29 +152,6 @@ export const StyleModal = ({ isOpen, onClose, styleItem, onSuccess }) => {
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}
         />
-
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label={t('col_sort_order')}
-            type="number"
-            value={formData.sortOrder}
-            onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })}
-          />
-
-          <div className="flex flex-col justify-center pt-5">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-700"
-              />
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {t('status_active')}
-              </span>
-            </label>
-          </div>
-        </div>
       </form>
     </Modal>
   );

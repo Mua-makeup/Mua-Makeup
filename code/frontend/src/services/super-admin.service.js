@@ -2,8 +2,10 @@ import { apiClient } from './api-client';
 
 export const superAdminService = {
   // Lấy danh sách chứng chỉ MUA nộp lên
-  getCertificates: (status) =>
-    apiClient.get('/admin/muas/certificates', { params: { status: status || undefined } }),
+  getCertificates: (params) =>
+    apiClient.get('/admin/muas/certificates', {
+      params: typeof params === 'string' ? { status: params || undefined } : params,
+    }),
 
   // Duyệt hoặc từ chối chứng chỉ MUA
   verifyCertificate: (muaId, payload) =>
@@ -20,9 +22,13 @@ export const superAdminService = {
   getAllMasterCategories: () => apiClient.get('/admin/master-categories/all'),
   createMasterCategory: (payload) => apiClient.post('/admin/master-categories', payload),
   updateMasterCategory: (id, payload) => apiClient.put(`/admin/master-categories/${id}`, payload),
+  toggleCategoryStatus: (id, isActive) =>
+    apiClient.patch(`/admin/master-categories/${id}/status`, null, { params: { isActive } }),
   getAllMakeupStyles: () => apiClient.get('/admin/makeup-styles/all'),
   createMakeupStyle: (payload) => apiClient.post('/admin/makeup-styles', payload),
   updateMakeupStyle: (id, payload) => apiClient.put(`/admin/makeup-styles/${id}`, payload),
+  toggleStyleStatus: (id, isActive) =>
+    apiClient.patch(`/admin/makeup-styles/${id}/status`, null, { params: { isActive } }),
 
   // Platform Bookings Monitoring
   getBookings: (params) => apiClient.get('/admin/bookings', { params }),
@@ -31,12 +37,18 @@ export const superAdminService = {
 
   // Platform Users Management
   getUsers: (params) => apiClient.get('/admin/users', { params }),
+  createUser: (payload) => apiClient.post('/admin/users', payload),
   updateUserStatus: (id, active) => apiClient.put(`/admin/users/${id}/status`, null, { params: { active } }),
+
+  // Quản lý Studio Agency
+  createAgency: (payload) => apiClient.post('/admin/agencies', payload),
 
   // Dynamic & Surge Pricing Management
   getSurgeRules: () => apiClient.get('/admin/pricing/surge-rules'),
   createSurgeRule: (data) => apiClient.post('/admin/pricing/surge-rules', data),
   updateSurgeRule: (id, data) => apiClient.put(`/admin/pricing/surge-rules/${id}`, data),
+  toggleSurgeRuleStatus: (id, isActive) =>
+    apiClient.patch(`/admin/pricing/surge-rules/${id}/status`, null, { params: { isActive } }),
   deleteSurgeRule: (id) => apiClient.delete(`/admin/pricing/surge-rules/${id}`),
   deleteRule: (id) => apiClient.delete(`/admin/pricing/surge-rules/${id}`),
   getH3SurgeStatus: () => apiClient.get('/admin/pricing/surge-rules/h3-status'),

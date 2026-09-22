@@ -19,12 +19,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 import java.util.List;
 
@@ -59,6 +62,16 @@ public class AgencyOvertimeController extends BaseController {
             @PathVariable Long ruleId) {
         agencyOvertimeService.deleteRule(userId, ruleId);
         return ok(null, "agency.overtime_rule_deleted_success");
+    }
+
+    @PatchMapping("/overtime-rules/{ruleId}/status")
+    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> toggleRuleStatus(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long ruleId,
+            @RequestParam boolean isActive) {
+        agencyOvertimeService.toggleRuleStatus(userId, ruleId, isActive);
+        return ok(Map.of("id", ruleId, "isActive", isActive), isActive ? "agency.overtime_rule_activated" : "agency.overtime_rule_deactivated");
     }
 
     @PostMapping("/overtime-reports")

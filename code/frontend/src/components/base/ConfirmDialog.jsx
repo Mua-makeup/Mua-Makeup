@@ -34,6 +34,7 @@ export const ConfirmDialog = ({
         </div>
       }
       maxWidth="max-w-md"
+      minHeight="min-h-0"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
