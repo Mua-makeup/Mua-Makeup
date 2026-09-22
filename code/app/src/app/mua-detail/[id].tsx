@@ -15,6 +15,7 @@ import { BrandColors } from '@/constants/theme';
 import { useMuaDetailStore } from '@/store/mua-detail.store';
 import { MuaProfileHeader } from '@/components/customer/MuaProfileHeader';
 import { PackageSelectorList } from '@/components/customer/PackageSelectorList';
+import { PackageIncludedSteps } from '@/components/customer/PackageIncludedSteps';
 import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
 import { PortfolioShowcase } from '@/services/mua-profile.service';
@@ -142,6 +143,9 @@ export default function MuaDetailScreen() {
           selectedPackage={selectedPackage}
           onSelectPackage={(pkg) => selectPackage(pkg)}
         />
+
+        {/* QUY TRÌNH & CÁC BƯỚC THỰC HIỆN CỦA GÓI ĐANG CHỌN */}
+        <PackageIncludedSteps selectedPackage={selectedPackage} />
 
         {/* BỘ SƯU TẬP ẢNH MẪU ĐI KÈM RIÊNG CỦA GÓI ĐANG CHỌN */}
         <ServiceSampleGallery

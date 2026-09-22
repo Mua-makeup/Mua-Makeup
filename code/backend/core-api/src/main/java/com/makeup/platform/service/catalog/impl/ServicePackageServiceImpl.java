@@ -26,10 +26,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.makeup.platform.repository.catalog.PortfolioShowcaseRepository;
+import org.springframework.data.domain.PageRequest;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -43,6 +49,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     private final MakeupStyleRepository makeupStyleRepository;
     private final CatalogOwnerHelper ownerHelper;
     private final ServicePackageMapper packageMapper;
+    private final PortfolioShowcaseRepository portfolioShowcaseRepository;
 
     private static final BigDecimal MIN_PRICE = new BigDecimal("50000.00");
 
@@ -59,6 +66,11 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 
+        boolean initialAvailable = true;
+        if (owner.isMua()) {
+            initialAvailable = ownerHelper.hasVerifiedCertificate(owner.getMua());
+        }
+
         ServicePackageEntity pkg = ServicePackageEntity.builder()
                 .masterCategory(category)
                 .agency(owner.getAgency())
@@ -67,7 +79,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
                 .description(req.getDescription())
                 .price(req.getPrice())
                 .estimatedDurationMinutes(req.getEstimatedDurationMinutes() != null ? req.getEstimatedDurationMinutes() : 60)
-                .isAvailable(true)
+                .isAvailable(initialAvailable)
                 .packageItems(new ArrayList<>())
                 .styles(new HashSet<>())
                 .build();
@@ -94,7 +106,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         }
 
         ServicePackageEntity saved = packageRepository.save(pkg);
-        return packageMapper.toDetailRes(saved);
+        return packageMapper.toDetailRes(saved, getCoverImageUrl(saved.getId()));
     }
 
     @Override
@@ -118,6 +130,13 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         pkg.setPrice(req.getPrice());
         pkg.setEstimatedDurationMinutes(req.getEstimatedDurationMinutes());
         if (req.getIsAvailable() != null) {
+            if (Boolean.TRUE.equals(req.getIsAvailable()) && pkg.getMua() != null) {
+                boolean hasVerifiedCert = ownerHelper.hasVerifiedCertificate(pkg.getMua());
+                if (!hasVerifiedCert) {
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                            "mua.certificate_not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+                }
+            }
             pkg.setIsAvailable(req.getIsAvailable());
         }
 
@@ -127,7 +146,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         }
 
         ServicePackageEntity updated = packageRepository.save(pkg);
-        return packageMapper.toDetailRes(updated);
+        return packageMapper.toDetailRes(updated, getCoverImageUrl(updated.getId()));
     }
 
     @Override
@@ -142,7 +161,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "catalog.package_not_found", packageId));
-        return packageMapper.toDetailRes(pkg);
+        return packageMapper.toDetailRes(pkg, getCoverImageUrl(pkg.getId()));
     }
 
     @Override
@@ -167,7 +186,9 @@ public class ServicePackageServiceImpl implements ServicePackageService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return packageMapper.toSummaryResList(packageRepository.findAll(spec));
+        List<ServicePackageEntity> list = packageRepository.findAll(spec);
+        Map<Long, String> coverMap = getCoverImageMap(list);
+        return packageMapper.toSummaryResList(list, coverMap);
     }
 
     @Override
@@ -180,14 +201,47 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         } else {
             list = packageRepository.findByMuaId(owner.getMua().getId());
         }
-        return packageMapper.toSummaryResList(list);
+        Map<Long, String> coverMap = getCoverImageMap(list);
+        return packageMapper.toSummaryResList(list, coverMap);
     }
 
     @Override
     public PackageDetailRes toggleAvailability(Long userId, Long packageId, boolean isAvailable) {
         ServicePackageEntity pkg = findPackageAndCheckOwnership(userId, packageId);
+        if (isAvailable && pkg.getMua() != null) {
+            boolean hasVerifiedCert = ownerHelper.hasVerifiedCertificate(pkg.getMua());
+            if (!hasVerifiedCert) {
+                throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                        "mua.certificate_not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+            }
+        }
         pkg.setIsAvailable(isAvailable);
-        return packageMapper.toDetailRes(packageRepository.save(pkg));
+        ServicePackageEntity saved = packageRepository.save(pkg);
+        return packageMapper.toDetailRes(saved, getCoverImageUrl(saved.getId()));
+    }
+
+    private String getCoverImageUrl(Long packageId) {
+        if (packageId == null) {
+            return null;
+        }
+        List<String> covers = portfolioShowcaseRepository.findCoverImagesByPackageId(
+                packageId, PageRequest.of(0, 1));
+        return covers.isEmpty() ? null : covers.get(0);
+    }
+
+    private Map<Long, String> getCoverImageMap(List<ServicePackageEntity> packages) {
+        if (packages == null || packages.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Long> packageIds = packages.stream().map(ServicePackageEntity::getId).toList();
+        List<Object[]> rows = portfolioShowcaseRepository.findCoverImagesByPackageIds(packageIds);
+        Map<Long, String> map = new HashMap<>();
+        for (Object[] row : rows) {
+            Long pkgId = ((Number) row[0]).longValue();
+            String imageUrl = (String) row[1];
+            map.put(pkgId, imageUrl);
+        }
+        return map;
     }
 
     public ServicePackageEntity findPackageAndCheckOwnership(Long userId, Long packageId) {

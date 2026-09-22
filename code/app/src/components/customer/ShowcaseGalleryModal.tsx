@@ -31,25 +31,41 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
   onClose,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState(0);
 
   useEffect(() => {
     setCurrentIndex(initialIndex);
+    setSelectedAngleIndex(0);
   }, [initialIndex, visible]);
 
   if (!visible || showcases.length === 0) return null;
 
   const currentPhoto = showcases[currentIndex] || showcases[0];
-  const photoUrl =
+  
+  // Tổng hợp tất cả các góc chụp của tác phẩm này (Ảnh chính + các góc bổ sung)
+  const anglePhotos: string[] = [
+    currentPhoto.imageUrl,
+    ...(currentPhoto.additionalImages || []),
+  ].filter(Boolean);
+
+  const activePhotoUrl =
+    anglePhotos[selectedAngleIndex] ||
     currentPhoto.imageUrl ||
     currentPhoto.thumbnailUrl ||
     'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&auto=format&fit=crop&q=80';
 
   const handlePrev = () => {
-    if (currentIndex > 0) setCurrentIndex((i) => i - 1);
+    if (currentIndex > 0) {
+      setCurrentIndex((i) => i - 1);
+      setSelectedAngleIndex(0);
+    }
   };
 
   const handleNext = () => {
-    if (currentIndex < showcases.length - 1) setCurrentIndex((i) => i + 1);
+    if (currentIndex < showcases.length - 1) {
+      setCurrentIndex((i) => i + 1);
+      setSelectedAngleIndex(0);
+    }
   };
 
   return (
@@ -64,7 +80,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
 
             <View style={styles.counterBox}>
               <Text style={styles.counterText}>
-                {currentIndex + 1} / {showcases.length}
+                Tác phẩm {currentIndex + 1} / {showcases.length}
               </Text>
             </View>
 
@@ -77,9 +93,9 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
 
           {/* MAIN PHOTO ZOOM VIEWER */}
           <View style={styles.viewerContainer}>
-            <PhotoZoomViewer imageUrl={photoUrl} />
+            <PhotoZoomViewer imageUrl={activePhotoUrl} />
 
-            {/* Nút điều hướng Trái / Phải */}
+            {/* Nút điều hướng Trái / Phải giữa các tác phẩm */}
             {currentIndex > 0 && (
               <TouchableOpacity
                 style={[styles.navBtn, styles.navPrev]}
@@ -117,6 +133,14 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
                     </Text>
                   </View>
                 )}
+                {anglePhotos.length > 1 && (
+                  <View style={styles.angleCountBadge}>
+                    <Ionicons name="camera-outline" size={12} color="#FFFFFF" />
+                    <Text style={styles.angleCountBadgeText}>
+                      Góc {selectedAngleIndex + 1}/{anglePhotos.length}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <Text style={styles.titleText}>{currentPhoto.title || 'Ảnh mẫu tác phẩm'}</Text>
@@ -127,7 +151,36 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
               )}
             </View>
 
-            {/* THANH THUMBNAIL DƯỚI ĐÁY */}
+            {/* THANH CHỌN GÓC CHỤP CHI TIẾT NẾU TÁC PHẨM CÓ NHIỀU ẢNH */}
+            {anglePhotos.length > 1 && (
+              <View style={styles.angleSection}>
+                <Text style={styles.angleSectionLabel}>Góc chụp chi tiết:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.angleScroll}
+                >
+                  {anglePhotos.map((url, aIdx) => {
+                    const isAngleActive = aIdx === selectedAngleIndex;
+                    return (
+                      <TouchableOpacity
+                        key={`angle-${aIdx}`}
+                        style={[styles.angleChip, isAngleActive && styles.angleChipActive]}
+                        onPress={() => setSelectedAngleIndex(aIdx)}
+                        activeOpacity={0.8}
+                      >
+                        <Image source={{ uri: url }} style={styles.angleThumb} contentFit="cover" />
+                        <Text style={[styles.angleText, isAngleActive && styles.angleTextActive]}>
+                          {aIdx === 0 ? 'Chính diện' : `Góc ${aIdx + 1}`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* THANH THUMBNAIL CÁC TÁC PHẨM KHÁC DƯỚI ĐÁY */}
             {showcases.length > 1 && (
               <ScrollView
                 horizontal
@@ -141,7 +194,10 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
                     <TouchableOpacity
                       key={`thumb-${item.id}-${idx}`}
                       style={[styles.thumbBox, isThumbActive && styles.thumbBoxActive]}
-                      onPress={() => setCurrentIndex(idx)}
+                      onPress={() => {
+                        setCurrentIndex(idx);
+                        setSelectedAngleIndex(0);
+                      }}
                       activeOpacity={0.8}
                     >
                       <Image
@@ -303,5 +359,60 @@ const styles = StyleSheet.create({
   thumbImage: {
     width: '100%',
     height: '100%',
+  },
+  angleCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(225, 29, 72, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  angleCountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  angleSection: {
+    marginBottom: 10,
+  },
+  angleSectionLabel: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  angleScroll: {
+    gap: 8,
+  },
+  angleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  angleChipActive: {
+    backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
+  },
+  angleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  angleText: {
+    color: '#CBD5E1',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  angleTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });

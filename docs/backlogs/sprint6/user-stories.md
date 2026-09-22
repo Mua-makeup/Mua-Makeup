@@ -18,6 +18,6 @@
   - [ ] [APP-CUST-01] Màn hình Khám Phá & Bộ Lọc Đa Tiêu Chí (`explore.tsx`, `CategoryFilterBar.tsx`, `ServicePackageCard.tsx`).
   - [ ] [APP-CUST-02] Màn hình Chi Tiết Hồ Sơ Thợ MUA & Dịch Vụ Đi Kèm Ảnh Mẫu (`mua-detail/[id].tsx`, `ServiceSampleGallery.tsx`).
   - [ ] [APP-CUST-03] Trình Xem Ảnh Mẫu Cận Cảnh Của Dịch Vụ Đang Chọn (`ShowcaseGalleryModal.tsx`, `PhotoZoomViewer.tsx`).
-  - [ ] [APP-CUST-04] Màn hình Cập Nhật Hồ Sơ Cá Nhân Khách Hàng (`profile/edit.tsx`, `SavedAddressModal.tsx`).
-
-
+- [ ] [SPRINT-M0-MUA] [Quản Lý Gói Dịch Vụ & Album Tác Phẩm Thợ Tự Do (ROLE_FREELANCE_MUA)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_freelancer_service_packages_and_showcase.md)
+  - [ ] [APP-MUA-06] Tạo Mới & Cấu Hình Gói Dịch Vụ Thợ Tự Do (Package Builder & Add-on Items).
+  - [ ] [APP-MUA-04] Quản Lý Album Ảnh Mẫu Tác Phẩm Gắn Liền Với Từng Gói Dịch Vụ (Service-Linked Showcase).

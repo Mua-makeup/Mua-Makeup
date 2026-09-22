@@ -87,6 +87,17 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Nếu payload là FormData, xóa Content-Type để Axios / Browser / React Native tự sinh boundary
+    const isFormData = config.data && (
+      (typeof FormData !== 'undefined' && config.data instanceof FormData) ||
+      config.data?.constructor?.name === 'FormData' ||
+      typeof config.data?.append === 'function'
+    );
+    if (isFormData && config.headers) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

@@ -32,22 +32,24 @@ public final class FileValidationUtils {
         }
 
         String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || !originalFilename.contains(".")) {
-            throw new CustomBusinessException(
-                    ErrorCodes.ERR_INVALID_FILE_FORMAT,
-                    "INVALID_FILE_FORMAT",
-                    HttpStatus.BAD_REQUEST
-            );
+        String extension = null;
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
         }
 
-        String extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
-        if (!MediaConstants.ALLOWED_IMAGE_EXTENSIONS.contains(extension)) {
-            throw new CustomBusinessException(
-                    ErrorCodes.ERR_INVALID_FILE_FORMAT,
-                    "INVALID_FILE_FORMAT",
-                    new Object[]{MediaConstants.ALLOWED_IMAGE_EXTENSIONS},
-                    HttpStatus.BAD_REQUEST
-            );
+        if (extension == null || !MediaConstants.ALLOWED_IMAGE_EXTENSIONS.contains(extension)) {
+            String contentType = file.getContentType();
+            if (contentType != null && MediaConstants.ALLOWED_IMAGE_MIME_TYPES.contains(contentType.toLowerCase())) {
+                // Content-Type is valid, proceeding to magic bytes check
+                extension = "valid";
+            } else {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_INVALID_FILE_FORMAT,
+                        "INVALID_FILE_FORMAT",
+                        new Object[]{MediaConstants.ALLOWED_IMAGE_EXTENSIONS},
+                        HttpStatus.BAD_REQUEST
+                );
+            }
         }
 
         validateMagicBytes(file);

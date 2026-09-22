@@ -371,9 +371,11 @@ export default function MuaWorkProfileScreen() {
             {/* 2 Cột: Kinh nghiệm & Bán kính */}
             <View style={styles.twoColRow}>
               <View style={[styles.fieldGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.fieldLabel}>
-                  Kinh Nghiệm (Năm) <Text style={styles.required}>*</Text>
-                </Text>
+                <View style={styles.twoColLabelContainer}>
+                  <Text style={styles.fieldLabel}>
+                    Kinh Nghiệm (Năm) <Text style={styles.required}>*</Text>
+                  </Text>
+                </View>
                 <TextInput
                   style={[styles.input, fieldErrors.experienceYears && styles.inputError]}
                   placeholder="VD: 5"
@@ -392,9 +394,11 @@ export default function MuaWorkProfileScreen() {
               </View>
 
               <View style={[styles.fieldGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.fieldLabel}>
-                  Bán Kính Quét Đơn (km) <Text style={styles.required}>*</Text>
-                </Text>
+                <View style={styles.twoColLabelContainer}>
+                  <Text style={styles.fieldLabel}>
+                    Bán Kính Hoạt Động (km) <Text style={styles.required}>*</Text>
+                  </Text>
+                </View>
                 <TextInput
                   style={[styles.input, fieldErrors.maxRadius && styles.inputError]}
                   placeholder="VD: 15"
@@ -412,6 +416,11 @@ export default function MuaWorkProfileScreen() {
                 ) : null}
               </View>
             </View>
+
+            {/* Chú thích giải thích rõ ràng tính năng bán kính hoạt động */}
+            <Text style={styles.radiusExplainerText}>
+              💡 Bán kính tối đa bạn sẵn sàng di chuyển đến tận nơi để nhận ca trang điểm cho khách (tính từ địa chỉ cơ sở).
+            </Text>
 
             {/* Gợi ý chọn nhanh bán kính */}
             <View style={styles.radiusChipsWrapper}>
@@ -811,6 +820,17 @@ const styles = StyleSheet.create({
   },
   twoColRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  twoColLabelContainer: {
+    minHeight: 36,
+    justifyContent: 'flex-end',
+  },
+  radiusExplainerText: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 18,
+    marginTop: -8,
   },
   radiusChipsWrapper: {
     gap: 8,

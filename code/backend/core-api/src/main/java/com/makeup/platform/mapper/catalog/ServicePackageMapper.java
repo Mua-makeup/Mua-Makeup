@@ -18,6 +18,10 @@ public class ServicePackageMapper {
     private final PackageItemMapper itemMapper;
 
     public PackageDetailRes toDetailRes(ServicePackageEntity entity) {
+        return toDetailRes(entity, null);
+    }
+
+    public PackageDetailRes toDetailRes(ServicePackageEntity entity, String coverImageUrl) {
         if (entity == null) {
             return null;
         }
@@ -35,6 +39,7 @@ public class ServicePackageMapper {
                 .estimatedDurationMinutes(entity.getEstimatedDurationMinutes())
                 .durationMinutes(entity.getEstimatedDurationMinutes())
                 .isAvailable(entity.getIsAvailable())
+                .coverImageUrl(coverImageUrl)
                 .styles(entity.getStyles() != null ? taxonomyMapper.toStyleResList(entity.getStyles()) : Collections.emptyList())
                 .items(entity.getPackageItems() != null ? itemMapper.toResList(entity.getPackageItems()) : Collections.emptyList())
                 .createdAt(entity.getCreatedAt())
@@ -43,6 +48,10 @@ public class ServicePackageMapper {
     }
 
     public PackageSummaryRes toSummaryRes(ServicePackageEntity entity) {
+        return toSummaryRes(entity, null);
+    }
+
+    public PackageSummaryRes toSummaryRes(ServicePackageEntity entity, String coverImageUrl) {
         if (entity == null) {
             return null;
         }
@@ -59,14 +68,21 @@ public class ServicePackageMapper {
                 .estimatedDurationMinutes(entity.getEstimatedDurationMinutes())
                 .durationMinutes(entity.getEstimatedDurationMinutes())
                 .isAvailable(entity.getIsAvailable())
+                .coverImageUrl(coverImageUrl)
                 .styles(entity.getStyles() != null ? taxonomyMapper.toStyleResList(entity.getStyles()) : Collections.emptyList())
                 .build();
     }
 
     public List<PackageSummaryRes> toSummaryResList(Collection<ServicePackageEntity> entities) {
+        return toSummaryResList(entities, Collections.emptyMap());
+    }
+
+    public List<PackageSummaryRes> toSummaryResList(Collection<ServicePackageEntity> entities, java.util.Map<Long, String> coverImageMap) {
         if (entities == null || entities.isEmpty()) {
             return Collections.emptyList();
         }
-        return entities.stream().map(this::toSummaryRes).toList();
+        return entities.stream()
+                .map(e -> toSummaryRes(e, coverImageMap != null ? coverImageMap.get(e.getId()) : null))
+                .toList();
     }
 }

@@ -12,6 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePopupStore, PopupButton, PopupType } from '@/store/popup.store';
 
 export const GlobalPopupModal: React.FC = () => {
+  if (Platform.OS !== 'web') {
+    return null;
+  }
+
   const { isOpen, options, hide } = usePopupStore();
 
   if (!isOpen || !options) {

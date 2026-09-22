@@ -37,6 +37,12 @@ export default function RootLayout() {
           <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/mua-profile" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/staff-profile" options={{ presentation: 'card' }} />
+          <Stack.Screen name="mua/packages/index" options={{ presentation: 'card' }} />
+          <Stack.Screen name="mua/packages/create" options={{ presentation: 'card' }} />
+          <Stack.Screen name="mua/packages/[id]/edit" options={{ presentation: 'card' }} />
+          <Stack.Screen name="mua/packages/[id]/items" options={{ presentation: 'card' }} />
+          <Stack.Screen name="mua/packages/[id]/showcase" options={{ presentation: 'card' }} />
+          <Stack.Screen name="mua/packages/[id]/add-showcase" options={{ presentation: 'card' }} />
         </Stack>
         {/* Modal Popup toàn cục hiển thị đẹp mắt trên cả Web Laptop & Điện thoại */}
         <GlobalPopupModal />

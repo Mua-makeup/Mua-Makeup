@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
+import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
+import { hasSeenOnboarding } from '@/utils/storage';
 
 interface MuaArtist {
   id: number;
@@ -75,6 +77,15 @@ export default function HomeScreen() {
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
   const isCustomer = userInfo?.roles?.includes('ROLE_CUSTOMER') || (!isMUA && !isAgencyStaff);
+
+  useEffect(() => {
+    // Chỉ hiển thị hướng dẫn Onboarding khi người dùng mở ứng dụng lần đầu
+    hasSeenOnboarding().then((seen) => {
+      if (!seen) {
+        router.replace('/(auth)/onboarding');
+      }
+    });
+  }, []);
 
   const handleBookingPress = (mua: MuaArtist) => {
     router.push({
@@ -171,15 +182,15 @@ export default function HomeScreen() {
         {/* User Greeting Bar */}
         {isAuthenticated && (
           <View style={styles.greetingBar}>
-            <View>
-              <Text style={styles.greetingTitle}>
+            <View style={styles.greetingTextContainer}>
+              <Text style={styles.greetingTitle} numberOfLines={2}>
                 {isMUA
                   ? `Chào MUA, ${userInfo?.fullName}! 🎨`
                   : isAgencyStaff
                     ? `Chào Staff, ${userInfo?.fullName}! 🏢`
                     : `Xin chào, ${userInfo?.fullName}! ✨`}
               </Text>
-              <Text style={styles.greetingSubtitle}>
+              <Text style={styles.greetingSubtitle} numberOfLines={2}>
                 {isMUA
                   ? 'Chúc bạn một ngày làm việc tràn đầy sáng tạo'
                   : isAgencyStaff
@@ -531,6 +542,23 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
+            {/* 2.1. Quản Lý Gói Dịch Vụ Cá Nhân (Chỉ dành cho Freelance MUA) */}
+            {isMUA && (
+              <TouchableOpacity
+                style={styles.modalActionRow}
+                onPress={() => {
+                  setShowProfileModal(false);
+                  router.push('/mua/packages' as any);
+                }}
+                activeOpacity={0.7}>
+                <Ionicons name="briefcase-outline" size={22} color={BrandColors.primary} />
+                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
+                  Quản Lý Gói Dịch Vụ Của Tôi
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
+              </TouchableOpacity>
+            )}
+
             {/* 3. Trang Cá Nhân Công Khai (Chỉ dành cho MUA) */}
             {isMUA && (
               <TouchableOpacity
@@ -578,18 +606,6 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.modalActionRow}
-              onPress={() => {
-                setShowProfileModal(false);
-                router.push('/(auth)/onboarding');
-              }}
-              activeOpacity={0.7}>
-              <Ionicons name="help-circle-outline" size={22} color={BrandColors.slateHeading} />
-              <Text style={styles.modalActionText}>Xem Lại Hướng Dẫn (Onboarding)</Text>
-              <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
-            </TouchableOpacity>
-
             <View style={styles.modalDivider} />
 
             <TouchableOpacity
@@ -613,75 +629,10 @@ export default function HomeScreen() {
       </Modal>
 
       {/* Bottom Navigation Bar */}
-      <View
-        style={[
-          styles.bottomNav,
-          {
-            height: 54 + (insets.bottom > 0 ? insets.bottom : 8),
-            paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
-          },
-        ]}>
-        <TouchableOpacity style={styles.bottomNavItem} activeOpacity={0.8}>
-          <Ionicons name="home" size={22} color={BrandColors.primary} />
-          <Text style={[styles.bottomNavLabel, styles.bottomNavLabelActive]}>Trang Chủ</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.bottomNavItem}
-          onPress={() => router.push('/explore')}
-          activeOpacity={0.8}>
-          <Ionicons name="compass-outline" size={22} color={BrandColors.slateMuted} />
-          <Text style={styles.bottomNavLabel}>Khám Phá</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.bottomNavItem}
-          onPress={() => {
-            if (!isAuthenticated) {
-              router.push('/(auth)/login');
-            } else {
-              Alert.alert('Lịch Hẹn', 'Danh sách các lịch hẹn trang điểm của bạn.');
-            }
-          }}
-          activeOpacity={0.8}>
-          <Ionicons name="calendar-outline" size={22} color={BrandColors.slateMuted} />
-          <Text style={styles.bottomNavLabel}>Lịch Hẹn</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.bottomNavItem}
-          onPress={() => {
-            if (!isAuthenticated) {
-              router.push('/(auth)/login');
-            } else {
-              Alert.alert('Tin Nhắn', 'Hộp thư tin nhắn tư vấn và hỗ trợ realtime.');
-            }
-          }}
-          activeOpacity={0.8}>
-          <Ionicons name="chatbubbles-outline" size={22} color={BrandColors.slateMuted} />
-          <Text style={styles.bottomNavLabel}>Tin Nhắn</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.bottomNavItem}
-          onPress={() => {
-            if (!isAuthenticated) {
-              router.push('/(auth)/login');
-            } else {
-              setShowProfileModal(true);
-            }
-          }}
-          activeOpacity={0.8}>
-          <Ionicons
-            name={isAuthenticated ? 'person' : 'person-outline'}
-            size={22}
-            color={isAuthenticated ? BrandColors.primary : BrandColors.slateMuted}
-          />
-          <Text style={[styles.bottomNavLabel, isAuthenticated && styles.bottomNavLabelActive]}>
-            Tài Khoản
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <AppBottomNavBar
+        activeTab="home"
+        onAccountPress={() => setShowProfileModal(true)}
+      />
     </SafeAreaView>
   );
 }
@@ -796,21 +747,31 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#FFE4E6',
+    gap: 10,
+  },
+  greetingTextContainer: {
+    flex: 1,
+    paddingRight: 4,
   },
   greetingTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
     color: BrandColors.slateHeading,
+    lineHeight: 20,
   },
   greetingSubtitle: {
     fontSize: 11.5,
     color: BrandColors.slateMuted,
     marginTop: 2,
+    lineHeight: 16,
   },
   roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   roleBadgeMua: {
     backgroundColor: '#FDF2F8',

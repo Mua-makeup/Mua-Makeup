@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BaseButton } from '@/components/base/BaseButton';
 import { BrandColors } from '@/constants/theme';
+import { markOnboardingSeen } from '@/utils/storage';
 
 interface SlideItem {
   id: number;
@@ -57,15 +58,17 @@ export default function OnboardingScreen() {
   const currentSlide = ONBOARDING_SLIDES[currentIndex];
   const isLastSlide = currentIndex === ONBOARDING_SLIDES.length - 1;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isLastSlide) {
-      router.push('/(auth)/login');
+      await markOnboardingSeen();
+      router.replace('/(auth)/login');
     } else {
       setCurrentIndex((prev) => prev + 1);
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    await markOnboardingSeen();
     router.replace('/');
   };
 
