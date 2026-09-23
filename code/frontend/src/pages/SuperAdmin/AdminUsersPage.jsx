@@ -7,6 +7,7 @@ import { DataTable } from '../../components/base/DataTable';
 import { ConfirmDialog } from '../../components/base/ConfirmDialog';
 import { CreateUserModal } from '../../components/features/admin/CreateUserModal';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
+import { formatDate } from '../../utils/formatters';
 
 export const AdminUsersPage = () => {
   const { t } = useI18nStore();
@@ -158,7 +159,7 @@ export const AdminUsersPage = () => {
       accessor: 'createdAt',
       render: (row) => (
         <span className="text-xs text-slate-500">
-          {row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+          {row.createdAt ? formatDate(row.createdAt) : 'N/A'}
         </span>
       ),
     },

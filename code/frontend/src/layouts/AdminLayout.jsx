@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { TopRoleBanner } from './TopRoleBanner';
 import { Sidebar } from './Sidebar';
+import { AdminRealtimeNotifier } from '../components/features/notification/AdminRealtimeNotifier';
 
 export const AdminLayout = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -21,6 +22,8 @@ export const AdminLayout = () => {
           <Outlet />
         </main>
       </div>
+      {/* Realtime STOMP WebSocket notification listener for Super Admin */}
+      <AdminRealtimeNotifier />
     </div>
   );
 };

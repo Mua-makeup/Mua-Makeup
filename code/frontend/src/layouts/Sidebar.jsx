@@ -73,11 +73,6 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       icon: CalendarCheck,
     },
     {
-      to: '/agency/profile',
-      label: t('nav_agency_profile'),
-      icon: Building2,
-    },
-    {
       to: '/agency/settings',
       label: t('nav_agency_settings'),
       icon: MapPin,
@@ -111,7 +106,7 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       <div className="p-4 space-y-1">
         <div className="flex items-center justify-between lg:hidden pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
           <span className="text-xs font-bold text-slate-800 dark:text-white">
-            {t('app_title')} Menu
+            {t('app_title')} {t('menu')}
           </span>
           <button
             onClick={onCloseMobile}

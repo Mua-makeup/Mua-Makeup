@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { STORAGE_KEYS } from '../constants/roles.constant';
 import { TRANSLATIONS } from '../constants/i18n.constant';
+import { authService } from '../services/auth.service';
 
 const getSavedLanguage = () => {
   return localStorage.getItem(STORAGE_KEYS.LANGUAGE) || 'vi';
@@ -12,6 +13,12 @@ export const useI18nStore = create((set, get) => ({
   setLanguage: (lang) => {
     localStorage.setItem(STORAGE_KEYS.LANGUAGE, lang);
     set({ language: lang });
+
+    const isLoggedIn = localStorage.getItem('mua_logged_in');
+    if (isLoggedIn) {
+      authService.updateLanguage(lang).catch(() => {
+      });
+    }
   },
 
   toggleLanguage: () => {
@@ -20,8 +27,14 @@ export const useI18nStore = create((set, get) => ({
     get().setLanguage(next);
   },
 
-  t: (key) => {
+  t: (key, params) => {
     const lang = get().language;
-    return TRANSLATIONS[lang]?.[key] || TRANSLATIONS.vi?.[key] || key;
+    let text = TRANSLATIONS[lang]?.[key] || TRANSLATIONS.vi?.[key] || key;
+    if (params && typeof params === 'object') {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+      });
+    }
+    return text;
   },
 }));

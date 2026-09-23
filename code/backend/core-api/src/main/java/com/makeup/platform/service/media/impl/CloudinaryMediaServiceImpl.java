@@ -3,6 +3,7 @@ package com.makeup.platform.service.media.impl;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.Transformation;
 import com.cloudinary.utils.ObjectUtils;
+import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.MediaUploadException;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.service.media.MediaStorageService;
@@ -55,10 +56,10 @@ public class CloudinaryMediaServiceImpl implements MediaStorageService {
 
         } catch (IOException e) {
             log.error("Cloudinary upload failed: {}", e.getMessage(), e);
-            throw new MediaUploadException(com.makeup.platform.common.constants.ErrorCodes.ERR_MEDIA_STORAGE_FAILED, "ERR_MEDIA_STORAGE_FAILED", e.getMessage());
+            throw new MediaUploadException(ErrorCodes.ERR_MEDIA_STORAGE_FAILED, "ERR_MEDIA_STORAGE_FAILED", e.getMessage());
         } catch (Exception e) {
             log.error("Cloudinary service error: {}", e.getMessage(), e);
-            throw new MediaUploadException(com.makeup.platform.common.constants.ErrorCodes.ERR_MEDIA_STORAGE_FAILED, "ERR_MEDIA_STORAGE_FAILED", e.getMessage());
+            throw new MediaUploadException(ErrorCodes.ERR_MEDIA_STORAGE_FAILED, "ERR_MEDIA_STORAGE_FAILED", e.getMessage());
         }
     }
 

@@ -5,6 +5,7 @@ import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.dto.request.catalog.CreatePackageItemReq;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
+import com.makeup.platform.entity.catalog.PackageItemType;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.mapper.catalog.PackageItemMapper;
@@ -39,6 +40,31 @@ public class PackageItemServiceImpl implements PackageItemService {
                     "ERR_INVALID_ITEM_PRICE", HttpStatus.BAD_REQUEST);
         }
 
+        List<PackageItemEntity> existingItems = packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId);
+
+        // Chặn trùng thứ tự bước (stepOrder)
+        boolean isDuplicateOrder = existingItems.stream()
+                .anyMatch(it -> it.getStepOrder() != null && it.getStepOrder().equals(req.getStepOrder()));
+        if (isDuplicateOrder) {
+            throw new CustomBusinessException(ErrorCodes.ERR_DUPLICATE_STEP_ORDER,
+                    "ERR_DUPLICATE_STEP_ORDER", HttpStatus.BAD_REQUEST);
+        }
+
+        // Chặn tổng thời lượng bước COMPONENT vượt quá thời lượng gói
+        if (req.getItemType() == PackageItemType.COMPONENT) {
+            int currentComponentDuration = existingItems.stream()
+                    .filter(it -> it.getItemType() == PackageItemType.COMPONENT)
+                    .mapToInt(it -> it.getDurationMinutes() != null ? it.getDurationMinutes() : 0)
+                    .sum();
+            int newDuration = req.getDurationMinutes() != null ? req.getDurationMinutes() : 0;
+            int maxDuration = pkg.getEstimatedDurationMinutes() != null ? pkg.getEstimatedDurationMinutes() : 0;
+
+            if (maxDuration > 0 && (currentComponentDuration + newDuration) > maxDuration) {
+                throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_DURATION_EXCEEDED,
+                        "ERR_PACKAGE_DURATION_EXCEEDED", HttpStatus.BAD_REQUEST);
+            }
+        }
+
         PackageItemEntity item = PackageItemEntity.builder()
                 .servicePackage(pkg)
                 .itemType(req.getItemType())
@@ -56,7 +82,7 @@ public class PackageItemServiceImpl implements PackageItemService {
 
     @Override
     public PackageItemRes updateItem(Long userId, Long packageId, Long itemId, CreatePackageItemReq req) {
-        checkPackageOwnership(userId, packageId);
+        ServicePackageEntity pkg = checkPackageOwnership(userId, packageId);
 
         PackageItemEntity item = packageItemRepository.findByIdAndServicePackageId(itemId, packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
@@ -65,6 +91,32 @@ public class PackageItemServiceImpl implements PackageItemService {
         if (req.getItemPrice() != null && req.getItemPrice().compareTo(BigDecimal.ZERO) < 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_ITEM_PRICE,
                     "ERR_INVALID_ITEM_PRICE", HttpStatus.BAD_REQUEST);
+        }
+
+        List<PackageItemEntity> existingItems = packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId);
+
+        // Chặn trùng thứ tự bước (stepOrder) với các bước khác
+        boolean isDuplicateOrder = existingItems.stream()
+                .filter(it -> !it.getId().equals(itemId))
+                .anyMatch(it -> it.getStepOrder() != null && it.getStepOrder().equals(req.getStepOrder()));
+        if (isDuplicateOrder) {
+            throw new CustomBusinessException(ErrorCodes.ERR_DUPLICATE_STEP_ORDER,
+                    "ERR_DUPLICATE_STEP_ORDER", HttpStatus.BAD_REQUEST);
+        }
+
+        // Chặn tổng thời lượng bước COMPONENT vượt quá thời lượng gói
+        if (req.getItemType() == PackageItemType.COMPONENT) {
+            int otherComponentDuration = existingItems.stream()
+                    .filter(it -> !it.getId().equals(itemId) && it.getItemType() == PackageItemType.COMPONENT)
+                    .mapToInt(it -> it.getDurationMinutes() != null ? it.getDurationMinutes() : 0)
+                    .sum();
+            int newDuration = req.getDurationMinutes() != null ? req.getDurationMinutes() : 0;
+            int maxDuration = pkg.getEstimatedDurationMinutes() != null ? pkg.getEstimatedDurationMinutes() : 0;
+
+            if (maxDuration > 0 && (otherComponentDuration + newDuration) > maxDuration) {
+                throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_DURATION_EXCEEDED,
+                        "ERR_PACKAGE_DURATION_EXCEEDED", HttpStatus.BAD_REQUEST);
+            }
         }
 
         item.setItemType(req.getItemType());

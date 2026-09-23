@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { USER_ROLES } from '../constants/roles.constant';
 import { authService } from '../services/auth.service';
+import { useI18nStore } from './useI18nStore';
 
 export const useAuthStore = create((set) => ({
   user: null,
@@ -16,7 +17,7 @@ export const useAuthStore = create((set) => ({
       // res = { success: true, data: { accessToken, refreshToken, userInfo... } }
       const authData = res.data || res;
       const { userInfo } = authData;
-      const primaryRole = userInfo?.roles?.[0] || USER_ROLES.CUSTOMER;
+      const primaryRole = userInfo?.role || userInfo?.roles?.[0] || USER_ROLES.CUSTOMER;
 
       set({
         user: userInfo,
@@ -26,8 +27,11 @@ export const useAuthStore = create((set) => ({
         isLoading: false,
       });
 
-      // Đánh dấu đã có session để App.jsx biết gọi /me khi refresh trang
       localStorage.setItem('mua_logged_in', 'true');
+
+      if (userInfo?.language && (userInfo.language === 'vi' || userInfo.language === 'en')) {
+        useI18nStore.getState().setLanguage(userInfo.language);
+      }
 
       return { success: true, role: primaryRole };
     } catch (error) {
@@ -60,7 +64,12 @@ export const useAuthStore = create((set) => ({
       const res = await authService.getCurrentUser();
       const userInfo = res.data || res;
       if (userInfo && (userInfo.id || userInfo.email || userInfo.phoneNumber)) {
-        const primaryRole = userInfo?.roles?.[0] || USER_ROLES.CUSTOMER;
+        const primaryRole = userInfo?.role || userInfo?.roles?.[0] || USER_ROLES.CUSTOMER;
+
+        if (userInfo?.language && (userInfo.language === 'vi' || userInfo.language === 'en')) {
+          useI18nStore.getState().setLanguage(userInfo.language);
+        }
+
         set({
           user: userInfo,
           role: primaryRole,
@@ -69,6 +78,8 @@ export const useAuthStore = create((set) => ({
         });
         return true;
       }
+
+      localStorage.removeItem('mua_logged_in');
       set({
         user: null,
         role: null,
@@ -77,6 +88,7 @@ export const useAuthStore = create((set) => ({
       });
       return false;
     } catch {
+      localStorage.removeItem('mua_logged_in');
       set({
         user: null,
         role: null,
@@ -88,8 +100,19 @@ export const useAuthStore = create((set) => ({
   },
 
   setUser: (user) => {
-    const primaryRole = user?.roles?.[0] || null;
-    set({ user, role: primaryRole });
+    if (!user) {
+      set({ user: null, role: null, isAuthenticated: false });
+      return;
+    }
+    const primaryRole = user?.role || user?.roles?.[0] || null;
+    if (user?.language && (user.language === 'vi' || user.language === 'en')) {
+      useI18nStore.getState().setLanguage(user.language);
+    }
+    set({
+      user,
+      role: primaryRole,
+      isAuthenticated: true,
+    });
   },
 
   // Đánh dấu kiểm tra xong mà không có session

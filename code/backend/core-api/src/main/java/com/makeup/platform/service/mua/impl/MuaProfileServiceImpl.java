@@ -39,6 +39,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.makeup.platform.service.interaction.NotificationService;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -48,6 +50,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
     private final MuaStyleRepository muaStyleRepository;
     private final MediaStorageService mediaStorageService;
     private final MuaProfileMapper muaProfileMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -121,6 +124,17 @@ public class MuaProfileServiceImpl implements MuaProfileService {
             mua.getCertificates().add(certificateItem);
 
             muaProfileRepository.save(mua);
+
+            // Bắn thông báo in-app và WebSocket realtime tới Ban Quản Trị (Super Admin)
+            try {
+                notificationService.createCertificateUploadedNotification(
+                        mua,
+                        certificateItem.getCertName(),
+                        certificateItem.getImageUrl()
+                );
+            } catch (Exception notifEx) {
+                log.error("Failed to create certificate uploaded notification for muaId={}", mua.getId(), notifEx);
+            }
 
             return muaProfileMapper.toCertificateRes(certificateItem);
 
@@ -304,7 +318,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                 log.info("Deleted portfolio image {} for muaId={}", imageUrl, mua.getId());
             }
         }
-        return existingImages != null ? existingImages : java.util.Collections.emptyList();
+        return existingImages != null ? existingImages : Collections.emptyList();
     }
 
     private MuaProfileEntity getMuaProfileByUserId(Long userId) {

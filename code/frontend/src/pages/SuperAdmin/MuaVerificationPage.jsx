@@ -71,6 +71,16 @@ export const MuaVerificationPage = () => {
     loadCertificates(0);
   }, [statusFilter]);
 
+  useEffect(() => {
+    const handleNewCert = () => {
+      loadCertificates(0);
+    };
+    window.addEventListener('admin:certificate-uploaded', handleNewCert);
+    return () => {
+      window.removeEventListener('admin:certificate-uploaded', handleNewCert);
+    };
+  }, [statusFilter]);
+
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) return certList;
     const q = searchQuery.trim().toLowerCase();

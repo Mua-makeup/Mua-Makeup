@@ -116,6 +116,15 @@ export const StaffManagementPage = () => {
 
   useEffect(() => {
     loadStaffData(0);
+
+    const handleNewApplication = () => {
+      loadStaffData(0);
+    };
+
+    window.addEventListener('agency:staff-application', handleNewApplication);
+    return () => {
+      window.removeEventListener('agency:staff-application', handleNewApplication);
+    };
   }, []);
 
   const handleConfirmReviewApplication = async () => {

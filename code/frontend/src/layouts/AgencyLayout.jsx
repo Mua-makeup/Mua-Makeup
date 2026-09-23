@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { TopRoleBanner } from './TopRoleBanner';
 import { Sidebar } from './Sidebar';
+import { AgencyRealtimeNotifier } from '../components/features/notification/AgencyRealtimeNotifier';
 
 export const AgencyLayout = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -21,6 +22,8 @@ export const AgencyLayout = () => {
           <Outlet />
         </main>
       </div>
+      {/* Realtime STOMP WebSocket notification listener & floating toast */}
+      <AgencyRealtimeNotifier />
     </div>
   );
 };

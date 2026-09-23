@@ -103,9 +103,11 @@ export const shiftSchema = z
       z.number().int().min(1).max(7),
       z.string().min(1),
     ]),
+    workDate: z.string().optional(),
+    isRecurring: z.boolean().optional(),
     shiftName: z.string().min(2, 'Tên ca làm việc tối thiểu 2 ký tự'),
-    startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ bắt đầu phải có định dạng HH:mm'),
-    endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Giờ kết thúc phải có định dạng HH:mm'),
+    startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Giờ bắt đầu phải có định dạng HH:mm'),
+    endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/, 'Giờ kết thúc phải có định dạng HH:mm'),
   })
   .refine(
     (data) => {

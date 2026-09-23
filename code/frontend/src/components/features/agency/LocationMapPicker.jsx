@@ -503,7 +503,7 @@ export const LocationMapPicker = ({
                     setShowSuggestions(false);
                   }}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                  title="Clear"
+                  title={t('clear')}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -515,7 +515,7 @@ export const LocationMapPicker = ({
                   <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
                     <span>{t('map_suggestion_title')}</span>
                     <span className="text-[10px] lowercase text-slate-400">
-                      {suggestions.length} địa điểm
+                      {suggestions.length} {t('map_locations_count')}
                     </span>
                   </div>
                   {suggestions.map((item) => (

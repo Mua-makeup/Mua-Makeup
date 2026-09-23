@@ -245,7 +245,7 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
                 .toList();
 
         if (pageable == null || pageable.isUnpaged()) {
-            return com.makeup.platform.common.base.PageResponse.<AgencyProfileRes>builder()
+            return PageResponse.<AgencyProfileRes>builder()
                     .content(filtered)
                     .page(0)
                     .size(filtered.size())
