@@ -309,9 +309,10 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 | **`400 BAD_REQUEST`** | `ERR_STAFF_NOT_QUALIFIED_FOR_STYLE` | Thợ được chọn chưa có chứng chỉ Phong cách Make-up (Tone) theo yêu cầu đơn hàng (`agency_staff_styles.is_qualified = false`). | Chặn phân công Thợ chính, chỉ cho phép làm Thợ phụ nếu cần. |
 | **`400 BAD_REQUEST`** | `ERR_STAFF_OFF_SHIFT` | Thợ không có ca làm việc đăng ký tại Studio (`agency_staff_shifts`) vào thời điểm diễn ra ca hẹn. | Chặn phân công, yêu cầu chọn thợ đang trong ca trực. |
 | **`400 BAD_REQUEST`** | `ERR_MULTIPLE_PRIMARY_MUA` | Cố tình gán từ 2 Thợ chính trở lên cho cùng 1 đơn hàng. | Chặn gán bằng Partial Unique Index. |
-| **`202 ACCEPTED`** | `PENDING_STUDIO_APPROVAL` | Thợ báo bận khi còn từ $2\text{ tiếng}$ đến dưới $4\text{ tiếng}$. | Ghi nhận yêu cầu ở trạng thái chờ duyệt, `errorCode = null`, gửi alert cho Studio duyệt thủ công. |
+| **`202 ACCEPTED`** | `null` (Success with conditions) | Thợ báo bận khi còn từ $2\text{ tiếng}$ đến dưới $4\text{ tiếng}$. | Ghi nhận yêu cầu ở trạng thái chờ Studio duyệt thủ công (`dispatch.report_requires_approval`). |
 | **`400 BAD_REQUEST`** | `ERR_EMERGENCY_REPORT_TOO_LATE` | Thợ báo bận đột xuất khi thời gian còn lại trước ca làm $< 2\text{ tiếng}$. | Chặn tự hủy, yêu cầu thợ gọi hotline Studio can thiệp. |
-| **`400 BAD_REQUEST`** | `ERR_DUPLICATE_STAFF_ASSIGNMENT` | Chọn cùng một thợ cho cả vai trò Thợ chính và Thợ phụ trong cùng 1 đơn. | Bean Validation chặn trùng lặp ID thợ. |
+| **`400 BAD_REQUEST`** | `ERR_DUPLICATE_STAFF_ASSIGNMENT` | Chọn cùng một thợ cho cả vai trò Thợ chính và Thợ phụ hoặc trùng ID thợ phụ. | Bean Validation / Service chặn trùng lặp ID thợ. |
+| **`400 BAD_REQUEST`** | `ERR_ASSIGNMENT_ALREADY_CONFIRMED` | Thợ cố tình bấm xác nhận lại ca đã xác nhận trước đó. | Chặn thao tác trùng lặp. |
 | **`403 FORBIDDEN`** | `ERR_BOOKING_NOT_ASSIGNED_TO_AGENCY` | Studio A cố tình truy cập hoặc điều phối đơn hàng thuộc về Studio B (Lỗ hổng IDOR). | Đối chiếu `current_user.agency_id == booking.agency_id`. |
 | **`403 FORBIDDEN`** | `ERR_STAFF_NOT_IN_AGENCY` | Studio cố tình gán thợ tự do bên ngoài hoặc thợ thuộc Studio khác. | Đối chiếu `staff.agency_id == current_agency_id`. |
 | **`409 CONFLICT`** | `ERR_STAFF_CALENDAR_BUSY` | Thợ được chọn đã có ca làm khác hoặc lịch bận cá nhân trùng giờ hẹn (kể cả ca đêm). | Kiểm tra `mua_calendars` kết hợp Redisson MultiLock. |
@@ -329,13 +330,16 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   "dispatch.staff_reassigned_success": "Đổi chuyên viên dự phòng thành công.",
   "dispatch.booking_rejected_success": "Từ chối đơn chỉ định và hoàn cọc thành công.",
   "dispatch.emergency_busy_reported": "Đã ghi nhận báo bận khẩn cấp và thông báo tới Studio.",
+  "dispatch.assignment_confirmed_success": "Xác nhận nhận ca làm thành công.",
+  "dispatch.emergency_approval_processed": "Xử lý yêu cầu báo bận khẩn cấp thành công.",
   "dispatch.error.not_qualified_package": "Chuyên viên được chọn chưa đủ điều kiện thực hiện gói dịch vụ này.",
   "dispatch.error.not_qualified_style": "Chuyên viên được chọn chưa đạt chứng chỉ phong cách make-up yêu cầu.",
   "dispatch.error.off_shift": "Chuyên viên không có ca làm việc đăng ký tại Studio vào thời gian này.",
   "dispatch.error.multiple_primary_mua": "Đơn hàng chỉ được phép có duy nhất một Thợ chính.",
   "dispatch.error.calendar_busy": "Chuyên viên đã có ca làm hoặc lịch bận cá nhân trùng khung giờ này.",
   "dispatch.error.report_too_late": "Chỉ còn dưới 2 tiếng trước ca làm. Vui lòng gọi trực tiếp hotline Studio!",
-  "dispatch.error.duplicate_staff": "Không thể gán cùng một chuyên viên cho cả vai trò thợ chính và thợ phụ.",
+  "dispatch.error.duplicate_staff": "Không thể gán cùng một chuyên viên cho cả vai trò thợ chính và thợ phụ hoặc trùng lặp thợ phụ.",
+  "dispatch.error.already_confirmed": "Ca làm này đã được chuyên viên xác nhận trước đó.",
   "dispatch.report_requires_approval": "Yêu cầu báo bận đã được ghi nhận và đang chờ Studio xác nhận.",
   "dispatch.primary_staff_id.required": "Vui lòng chọn thợ chính.",
   "dispatch.assistants.max_two": "Chỉ được chọn tối đa 2 thợ phụ.",
@@ -356,13 +360,16 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   "dispatch.staff_reassigned_success": "Emergency backup staff reassigned successfully.",
   "dispatch.booking_rejected_success": "Booking rejected and deposit refunded successfully.",
   "dispatch.emergency_busy_reported": "Emergency busy report logged and agency notified.",
+  "dispatch.assignment_confirmed_success": "Assignment confirmed successfully.",
+  "dispatch.emergency_approval_processed": "Emergency busy approval processed successfully.",
   "dispatch.error.not_qualified_package": "Selected staff is not qualified for this service package.",
   "dispatch.error.not_qualified_style": "Selected staff does not have the required makeup style certificate.",
   "dispatch.error.off_shift": "Selected staff is not scheduled on shift at the studio during this timeframe.",
   "dispatch.error.multiple_primary_mua": "Booking can only have exactly one primary makeup artist.",
   "dispatch.error.calendar_busy": "Selected staff has an overlapping booking or busy slot in this timeframe.",
   "dispatch.error.report_too_late": "Less than 2 hours left before appointment. Please contact studio hotline directly!",
-  "dispatch.error.duplicate_staff": "Cannot assign the same staff as both primary MUA and assistant.",
+  "dispatch.error.duplicate_staff": "Cannot assign the same staff as both primary MUA and assistant or have duplicate assistants.",
+  "dispatch.error.already_confirmed": "This assignment has already been confirmed by the staff member.",
   "dispatch.report_requires_approval": "Emergency busy report has been recorded and is waiting for studio approval.",
   "dispatch.primary_staff_id.required": "Please select a primary makeup artist.",
   "dispatch.assistants.max_two": "You can select at most 2 assistants.",
@@ -438,7 +445,32 @@ public class ReassignStaffReq {
 }
 ```
 
-> **Lưu ý validation:** `@Size(max = 2)` chưa chặn được trường hợp `primaryStaffId` xuất hiện lại trong `assistantStaffIds` hoặc danh sách assistant có ID trùng nhau. Cần thêm custom validator hoặc validate ở service trước khi lấy lock.
+#### DTO Phê Duyệt Báo Bận Khẩn Cấp (Studio Admin): `ApproveEmergencyReportReq.java`
+```java
+package com.makeup.platform.dto.request.agency;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ApproveEmergencyReportReq {
+
+    @NotNull(message = "Trạng thái phê duyệt không được để trống")
+    private Boolean approved;
+
+    @Size(max = 255, message = "Ghi chú phê duyệt không được vượt quá 255 ký tự")
+    private String approvalNote;
+}
+```
+
+> **Lưu ý validation:** Tại Tầng Service (`StaffAssignmentMatrixServiceImpl`), bắt buộc kiểm tra `primaryStaffId` không nằm trong `assistantStaffIds` và danh sách `assistantStaffIds` không chứa phần tử trùng lặp trước khi xin `Redisson MultiLock`. Nếu vi phạm, ném ngoại lệ `ERR_DUPLICATE_STAFF_ASSIGNMENT`.
 
 ---
 
@@ -678,6 +710,80 @@ public class ReassignStaffReq {
 
 ---
 
+### 5.6. `POST /api/v1/agency/dispatch/assignments/{assignmentId}/confirm` (Thợ MUA Xác Nhận Nhận Ca)
+* **Quyền truy cập:** `ROLE_AGENCY_STAFF` hoặc `ROLE_FREELANCE_MUA` (Thợ được phân công).
+* **Mục đích:** Thợ xác nhận đã nhận lịch và sẵn sàng thực hiện ca làm.
+* **Xác thực IDOR:** `assignment.staff.mua_id == current_user.mua_id`.
+* **Response `200 OK`:**
+```json
+{
+  "success": true,
+  "errorCode": null,
+  "message": "Xác nhận nhận ca làm thành công.",
+  "data": {
+    "assignmentId": 1205,
+    "bookingId": 720,
+    "staffId": 101,
+    "assignmentRole": "PRIMARY_MUA",
+    "isConfirmedByStaff": true,
+    "confirmedAt": "2026-09-22T17:00:00Z"
+  },
+  "timestamp": "2026-09-22T17:00:00Z"
+}
+```
+
+---
+
+### 5.7. `POST /api/v1/agency/dispatch/bookings/{bookingId}/emergency-approval` (Studio Duyệt / Từ Chối Báo Bận 2h-4h)
+* **Quyền truy cập:** `ROLE_AGENCY_ADMIN` hoặc `ROLE_AGENCY_STAFF` (Lễ tân Studio).
+* **Mục đích:** Xử lý yêu cầu báo bận khi thời gian trước giờ hẹn rơi vào khoảng $2\text{ tiếng} \le T < 4\text{ tiếng}$ (`PENDING_STUDIO_APPROVAL`).
+* **Request Body:**
+```json
+{
+  "approved": true,
+  "approvalNote": "Chấp thuận cho thợ nghỉ do sự cố giao thông có biên bản"
+}
+```
+* **Response `200 OK`:**
+```json
+{
+  "success": true,
+  "errorCode": null,
+  "message": "Xử lý yêu cầu báo bận khẩn cấp thành công.",
+  "data": {
+    "bookingId": 720,
+    "approved": true,
+    "needsEmergencyReassignment": true,
+    "approvalNote": "Chấp thuận cho thợ nghỉ do sự cố giao thông có biên bản",
+    "processedAt": "2026-09-22T17:05:00Z"
+  },
+  "timestamp": "2026-09-22T17:05:00Z"
+}
+```
+
+---
+
+### 5.8. Cấu Trúc Payload WebSocket STOMP Alert (`/topic/agency/{agencyId}/dispatch-alerts`)
+* **Mục đích:** Bắn thông báo realtime tới Dashboard của Studio để rung chuông đỏ nhấp nháy ngay khi thợ báo bận đột xuất.
+* **Payload JSON:**
+```json
+{
+  "eventType": "EMERGENCY_REASSIGNMENT_REQUESTED",
+  "agencyId": 12,
+  "bookingId": 680,
+  "bookingCode": "BK-261115-EMG",
+  "staffId": 101,
+  "staffName": "Trần Mai Anh",
+  "reason": "Sốt xuất huyết nhập viện",
+  "appointmentStartTime": "2026-11-15T06:00:00Z",
+  "urgencyLevel": "CRITICAL",
+  "requiresApproval": false,
+  "timestamp": "2026-09-22T08:00:00Z"
+}
+```
+
+---
+
 ## 🗄️ 6. CƠ SỞ DỮ LIỆU ĐỒNG BỘ (FLYWAY MIGRATION TIMESTAMP)
 
 File script migration chuẩn theo quy tắc dự án:  
@@ -780,11 +886,23 @@ SELECT
     COALESCE(ass.is_qualified, false) AS is_qualified_package,
     -- 2. Kiểm tra kỹ năng phong cách (Tone)
     COALESCE(ast.is_qualified, false) AS is_qualified_style,
-    -- 3. Kiểm tra thợ có ca trực bao trọn thời gian hẹn (Hỗ trợ ca ngày cụ thể và ca tuần lặp lại)
-    CASE 
-        WHEN ash.id IS NOT NULL THEN true 
-        ELSE false 
-    END AS is_on_shift,
+    -- 3. Kiểm tra thợ có ca trực Studio (Dùng EXISTS chống triệt để nhân bản dòng & hỗ trợ cả ca đêm)
+    EXISTS (
+        SELECT 1 FROM agency_schema.agency_staff_shifts ash
+        WHERE ash.staff_id = s.id 
+          AND ash.agency_id = :agencyId
+          AND ash.is_active = true
+          AND (
+              (ash.work_date = :bookingDate)
+              OR (ash.work_date IS NULL AND ash.is_recurring = true AND ash.day_of_week = :dayOfWeek)
+          )
+          AND (
+              -- Ca trực trong ngày (start_time <= end_time)
+              (ash.start_time <= ash.end_time AND ash.start_time <= :appointmentStartTime AND ash.end_time >= :appointmentEndTime)
+              -- Ca trực vắt qua nửa đêm (start_time > end_time, ví dụ: 22:00 -> 06:00)
+              OR (ash.start_time > ash.end_time AND (:appointmentStartTime >= ash.start_time OR :appointmentEndTime <= ash.end_time))
+          )
+    ) AS is_on_shift,
     -- 4. Kiểm tra trùng lịch mua_calendars bằng tstzrange && (Bao gồm buffer time 30m, KHÔNG lọc cứng booking_date)
     CASE 
         WHEN cal.busy_count > 0 THEN false 
@@ -793,7 +911,20 @@ SELECT
     -- 5. Phân loại điều kiện tự động (Eligibility)
     CASE 
         WHEN cal.busy_count > 0 THEN 'BUSY'
-        WHEN ash.id IS NULL THEN 'OFF_SHIFT'
+        WHEN NOT EXISTS (
+            SELECT 1 FROM agency_schema.agency_staff_shifts ash
+            WHERE ash.staff_id = s.id 
+              AND ash.agency_id = :agencyId
+              AND ash.is_active = true
+              AND (
+                  (ash.work_date = :bookingDate)
+                  OR (ash.work_date IS NULL AND ash.is_recurring = true AND ash.day_of_week = :dayOfWeek)
+              )
+              AND (
+                  (ash.start_time <= ash.end_time AND ash.start_time <= :appointmentStartTime AND ash.end_time >= :appointmentEndTime)
+                  OR (ash.start_time > ash.end_time AND (:appointmentStartTime >= ash.start_time OR :appointmentEndTime <= ash.end_time))
+              )
+        ) THEN 'OFF_SHIFT'
         WHEN COALESCE(ass.is_qualified, false) = true AND COALESCE(ast.is_qualified, false) = true THEN 'ELIGIBLE_PRIMARY'
         WHEN COALESCE(ass.is_qualified, false) = true THEN 'ELIGIBLE_ASSISTANT_ONLY'
         ELSE 'NOT_QUALIFIED'
@@ -807,23 +938,11 @@ LEFT JOIN agency_schema.agency_staff_services ass
 -- Join năng lực tone
 LEFT JOIN agency_schema.agency_staff_styles ast 
     ON ast.staff_id = s.id AND ast.style_id = :styleId
--- Join ca trực: Khớp ca ngày cụ thể (work_date = :bookingDate) HOẶC ca định kỳ lặp lại (work_date IS NULL AND day_of_week = :dayOfWeek)
-LEFT JOIN agency_schema.agency_staff_shifts ash 
-    ON ash.staff_id = s.id 
-   AND ash.agency_id = :agencyId
-   AND ash.is_active = true
-   AND (
-       (ash.work_date = :bookingDate)
-       OR (ash.work_date IS NULL AND ash.is_recurring = true AND ash.day_of_week = :dayOfWeek)
-   )
-   AND ash.start_time <= :appointmentStartTime
-   AND ash.end_time >= :appointmentEndTime
--- Subquery kiểm tra overlap tstzrange trên mua_calendars (tính cả ca vắt qua đêm và buffer 30m)
+-- Subquery kiểm tra overlap tstzrange trên mua_calendars (tính cả ca vắt qua đêm và buffer 30m: windowStart = appStart - 30m, windowEnd = appEnd + 30m)
 LEFT JOIN (
     SELECT c.mua_id, COUNT(*) AS busy_count
     FROM mua_schema.mua_calendars c
     WHERE c.is_locked = true
-      -- Dùng bound [] nếu nghiệp vụ xem slot chạm biên là xung đột; nếu không, chuẩn hóa buffer vào start_at/end_at khi tạo calendar slot.
       AND tstzrange(c.start_at, c.end_at, '[]') && tstzrange(:windowStart, :windowEnd, '[]')
     GROUP BY c.mua_id
 ) cal ON cal.mua_id = s.mua_id
@@ -833,8 +952,8 @@ WHERE s.agency_id = :agencyId
 ORDER BY 
     CASE 
         WHEN cal.busy_count > 0 THEN 4
-        WHEN ash.id IS NULL THEN 3
-        WHEN COALESCE(ass.is_qualified, false) = true AND COALESCE(ast.is_qualified, false) = true THEN 1
+        WHEN eligibility = 'OFF_SHIFT' THEN 3
+        WHEN eligibility = 'ELIGIBLE_PRIMARY' THEN 1
         ELSE 2 
     END,
     mp.rating_average DESC NULLS LAST,
