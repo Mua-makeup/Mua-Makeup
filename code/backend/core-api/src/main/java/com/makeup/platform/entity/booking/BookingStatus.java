@@ -1,6 +1,7 @@
 package com.makeup.platform.entity.booking;
 
 public enum BookingStatus {
+    PENDING_DEPOSIT,
     REQUESTED,
     PENDING_AGENCY_DISPATCH,
     AGENCY_ASSIGNED,
@@ -11,5 +12,6 @@ public enum BookingStatus {
     COMPLETED,
     PAID_OUT,
     CANCELLED,
+    CANCELLED_EXPIRED,
     DISPUTED
 }

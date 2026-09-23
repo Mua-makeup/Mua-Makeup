@@ -4,11 +4,14 @@ import com.makeup.platform.dto.response.admin.AdminBookingRes;
 import com.makeup.platform.dto.response.booking.BookingAcceptanceRes;
 import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
+import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Component
 public class BookingMapper {
@@ -108,6 +111,40 @@ public class BookingMapper {
             agencyName = entity.getAgency().getAgencyName();
         }
 
+        Long packageId = null;
+        String packageName = null;
+        String packageDescription = null;
+        BigDecimal packagePrice = null;
+        Integer packageDurationMinutes = null;
+        String categoryName = null;
+        List<PackageItemRes> packageItems = List.of();
+
+        if (entity.getServicePackage() != null) {
+            var pkg = entity.getServicePackage();
+            packageId = pkg.getId();
+            packageName = pkg.getPackageName();
+            packageDescription = pkg.getDescription();
+            packagePrice = pkg.getPrice();
+            packageDurationMinutes = pkg.getEstimatedDurationMinutes();
+            if (pkg.getMasterCategory() != null) {
+                categoryName = pkg.getMasterCategory().getCategoryName();
+            }
+            if (pkg.getPackageItems() != null) {
+                packageItems = pkg.getPackageItems().stream()
+                        .map(item -> PackageItemRes.builder()
+                                .id(item.getId())
+                                .itemType(item.getItemType())
+                                .itemName(item.getItemName())
+                                .stepOrder(item.getStepOrder())
+                                .itemPrice(item.getItemPrice())
+                                .durationMinutes(item.getDurationMinutes())
+                                .isRequired(item.getIsRequired())
+                                .isActive(item.getIsActive())
+                                .build())
+                        .toList();
+            }
+        }
+
         return AdminBookingRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -120,6 +157,13 @@ public class BookingMapper {
                 .muaPhone(muaPhone)
                 .agencyId(agencyId)
                 .agencyName(agencyName)
+                .packageId(packageId)
+                .packageName(packageName)
+                .packageDescription(packageDescription)
+                .packagePrice(packagePrice)
+                .packageDurationMinutes(packageDurationMinutes)
+                .categoryName(categoryName)
+                .packageItems(packageItems)
                 .bookingType(entity.getBookingType() != null ? entity.getBookingType().name() : null)
                 .bookingPartner(entity.getBookingPartner() != null ? entity.getBookingPartner().name() : null)
                 .status(entity.getStatus() != null ? entity.getStatus().name() : null)

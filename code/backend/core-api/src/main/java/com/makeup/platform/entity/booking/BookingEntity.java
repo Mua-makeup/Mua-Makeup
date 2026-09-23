@@ -3,6 +3,7 @@ package com.makeup.platform.entity.booking;
 import com.makeup.platform.common.base.BaseEntity;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,6 +23,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "bookings", schema = "booking_schema")
@@ -46,6 +48,10 @@ public class BookingEntity extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mua_id")
     private MuaProfileEntity mua;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "package_id")
+    private ServicePackageEntity servicePackage;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "booking_type", nullable = false, length = 30)
@@ -107,6 +113,17 @@ public class BookingEntity extends BaseEntity {
 
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
+
+    @Column(name = "deposit_expired_at")
+    private OffsetDateTime depositExpiredAt;
+
+    @Column(name = "reminder_24h_sent", nullable = false)
+    @Builder.Default
+    private Boolean reminder24hSent = false;
+
+    @Column(name = "reminder_2h_sent", nullable = false)
+    @Builder.Default
+    private Boolean reminder2hSent = false;
 
     @Version
     @Column(name = "version", nullable = false)

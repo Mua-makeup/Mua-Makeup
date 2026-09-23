@@ -263,23 +263,25 @@ export const StaffDetailPage = () => {
               {t('staff_management_title')}
             </span>
             <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {t('staff_detail_title')}
+              {isPending ? t('staff_application_review_title') : t('staff_detail_title')}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            icon={Save}
-            onClick={handleSaveAll}
-            isLoading={isSaving}
-            disabled={isSaving}
-            className="shadow-sm"
-          >
-            {isSaving ? t('btn_saving') : t('btn_save_all_changes')}
-          </Button>
-        </div>
+        {!isPending && (
+          <div className="flex items-center gap-3">
+            <Button
+              variant="primary"
+              icon={Save}
+              onClick={handleSaveAll}
+              isLoading={isSaving}
+              disabled={isSaving}
+              className="shadow-sm"
+            >
+              {isSaving ? t('btn_saving') : t('btn_save_all_changes')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main Artist Profile Summary Card */}
@@ -365,27 +367,38 @@ export const StaffDetailPage = () => {
       {isPending && (
         <div className="p-6 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-3xl space-y-4 shadow-xs">
           <div className="flex items-center gap-2.5 text-amber-900 dark:text-amber-200">
-            <Award className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            <Award className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0" />
             <div>
               <h3 className="text-base font-bold">
                 {t('staff_review_panel_title')}
               </h3>
               <p className="text-xs text-amber-700/90 dark:text-amber-300/80 mt-0.5">
-                Ứng viên đang nộp đơn xin gia nhập cơ sở Studio của bạn. Hãy thẩm định hồ sơ, cấu hình hoa hồng và đưa ra quyết định tiếp nhận.
+                {t('staff_application_review_desc')}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <Input
-              label={t('staff_commission_label')}
-              type="number"
-              min="0"
-              max="100"
-              value={agreedCommissionRate}
-              onChange={(e) => setAgreedCommissionRate(e.target.value)}
-              helperText={t('staff_commission_helper')}
-            />
+            <div className="space-y-2">
+              <Input
+                label={t('staff_commission_label')}
+                type="number"
+                min="0"
+                max="100"
+                value={agreedCommissionRate}
+                onChange={(e) => setAgreedCommissionRate(e.target.value)}
+                helperText={t('staff_commission_helper')}
+              />
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={agreedCommissionRate}
+                onChange={(e) => setAgreedCommissionRate(Number(e.target.value))}
+                className="w-full accent-rose-600 cursor-pointer"
+              />
+            </div>
             <Input
               label={t('staff_review_note_label')}
               type="text"
@@ -419,260 +432,111 @@ export const StaffDetailPage = () => {
         </div>
       )}
 
-      {/* Grid 2 Columns: Settings on Left, Portfolio/Certs on Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: STUDIO CONFIGURATIONS (Commission, Styles, Packages) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Section: Commission Setting */}
-          <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <Percent className="w-4 h-4" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {t('staff_tab_commission')}
-                </h3>
-              </div>
-              <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                {agreedCommissionRate}%
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              <Input
-                label={t('staff_commission_label')}
-                type="number"
-                min="0"
-                max="100"
-                value={agreedCommissionRate}
-                onChange={(e) => setAgreedCommissionRate(e.target.value)}
-                helperText={t('staff_commission_helper')}
-              />
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={agreedCommissionRate}
-                onChange={(e) => setAgreedCommissionRate(Number(e.target.value))}
-                className="w-full accent-rose-600 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {/* Section: Styles Assignment */}
-          <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {t('staff_tab_styles')}
-                </h3>
-              </div>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                {selectedStyleIds.length} {t('selected') || 'đã chọn'}
-              </span>
-            </div>
-
-            {allStyles.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">
-                {t('staff_styles_empty')}
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
-                {allStyles.map((st) => {
-                  const isChecked = selectedStyleIds.includes(Number(st.id));
-                  return (
-                    <div
-                      key={st.id}
-                      onClick={() => handleToggleStyle(Number(st.id))}
-                      className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                        isChecked
-                          ? 'bg-rose-50/70 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800 text-rose-900 dark:text-rose-200 shadow-2xs'
-                          : 'bg-slate-50/50 border-slate-200 dark:bg-slate-850 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-all ${
-                            isChecked
-                              ? 'bg-rose-600 border-rose-600 text-white'
-                              : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
-                          }`}
-                        >
-                          {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </div>
-                        <span className="text-xs font-bold">{st.name || st.styleName}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Section: Packages Assignment */}
-          <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <Package className="w-4 h-4" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {t('staff_tab_packages')}
-                </h3>
-              </div>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                {selectedPackageIds.length} {t('selected') || 'đã chọn'}
-              </span>
-            </div>
-
-            {allPackages.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">
-                {t('staff_packages_empty')}
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-2.5 max-h-80 overflow-y-auto pr-1">
-                {allPackages.map((pkg) => {
-                  const isChecked = selectedPackageIds.includes(Number(pkg.id));
-                  return (
-                    <div
-                      key={pkg.id}
-                      onClick={() => handleTogglePackage(Number(pkg.id))}
-                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                        isChecked
-                          ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200 shadow-2xs'
-                          : 'bg-slate-50/50 border-slate-200 dark:bg-slate-850 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-all ${
-                            isChecked
-                              ? 'bg-emerald-600 border-emerald-600 text-white'
-                              : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
-                          }`}
-                        >
-                          {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold block">{pkg.name}</span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {pkg.durationMinutes ? `${pkg.durationMinutes} phút • ` : ''}
-                            {formatCurrency(pkg.basePrice || pkg.price || 0)}
-                          </span>
-                        </div>
-                      </div>
-                      <Badge variant={pkg.status === 'ACTIVE' ? 'active' : 'default'} size="sm">
-                        {pkg.status === 'ACTIVE' ? t('status_active') : pkg.status}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: CREDENTIALS, CERTIFICATES & PORTFOLIO */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Bio Box */}
-          {detail.bio && (
-            <div className="p-5 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-2">
+      {/* Main Content: Focused Review for Pending vs Full Management for Active */}
+      {isPending ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT COLUMN: Bio & Certificates */}
+          <div className="lg:col-span-6 space-y-6">
+            {/* Bio Box */}
+            <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-3">
               <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-rose-500" />
                 {t('staff_bio_title')}
               </h4>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">
-                &ldquo;{detail.bio}&rdquo;
-              </p>
-            </div>
-          )}
-
-          {/* Certificates Card */}
-          <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-                <h4 className="text-base font-bold text-slate-900 dark:text-white">
-                  {t('staff_certs_title')}
-                </h4>
-              </div>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
-                {certificates.length}
-              </span>
-            </div>
-
-            {certificates.length === 0 ? (
-              <div className="p-8 text-center bg-slate-50 dark:bg-slate-850 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-2">
-                <Award className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {t('staff_certs_empty')}
+              {detail.bio ? (
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed italic">
+                  &ldquo;{detail.bio}&rdquo;
                 </p>
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  {t('staff_bio_empty')}
+                </p>
+              )}
+            </div>
+
+            {/* Certificates Card */}
+            <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                  <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                    {t('staff_certs_title')}
+                  </h4>
+                </div>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                  {certificates.length}
+                </span>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {certificates.map((cert, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-50/60 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden group flex flex-col justify-between shadow-2xs"
-                  >
+
+              {certificates.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 dark:bg-slate-850 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-2">
+                  <Award className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {t('staff_certs_empty')}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {certificates.map((cert, idx) => (
                     <div
-                      onClick={() => cert.imageUrl && setPreviewImage(cert.imageUrl)}
-                      className="relative h-32 bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer flex items-center justify-center"
+                      key={idx}
+                      className="bg-slate-50/60 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden group flex flex-col justify-between shadow-2xs"
                     >
-                      {cert.imageUrl ? (
-                        <img
-                          src={cert.imageUrl}
-                          alt={cert.certName || 'Certificate'}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        />
-                      ) : (
-                        <div className="text-center p-4 text-slate-400">
-                          <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
-                          <span className="text-[11px]">{t('staff_no_cert_image')}</span>
+                      <div
+                        onClick={() => cert.imageUrl && setPreviewImage(cert.imageUrl)}
+                        className="relative h-32 bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer flex items-center justify-center"
+                      >
+                        {cert.imageUrl ? (
+                          <img
+                            src={cert.imageUrl}
+                            alt={cert.certName || 'Certificate'}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        ) : (
+                          <div className="text-center p-4 text-slate-400">
+                            <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                            <span className="text-[11px]">{t('staff_no_cert_image')}</span>
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold">
+                          <Eye className="w-4 h-4" />
+                          <span>{t('staff_btn_view_cert')}</span>
                         </div>
-                      )}
-
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold">
-                        <Eye className="w-4 h-4" />
-                        <span>{t('staff_btn_view_cert')}</span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 space-y-1.5">
-                      <div className="flex items-start justify-between gap-1.5">
-                        <h5 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1" title={cert.certName}>
-                          {cert.certName || t('staff_default_cert_name')}
-                        </h5>
-                        <Badge
-                          variant={cert.isVerified || cert.status === 'APPROVED' ? 'active' : 'pending'}
-                          size="sm"
-                        >
-                          {cert.isVerified || cert.status === 'APPROVED'
-                            ? t('staff_cert_verified')
-                            : t('staff_cert_pending')}
-                        </Badge>
                       </div>
 
-                      {cert.uploadedAt && (
-                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                          <Calendar className="w-3 h-3" />
-                          <span>{t('staff_uploaded_date')}: {formatDate(cert.uploadedAt)}</span>
+                      <div className="p-3 space-y-1.5">
+                        <div className="flex items-start justify-between gap-1.5">
+                          <h5 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1" title={cert.certName}>
+                            {cert.certName || t('staff_default_cert_name')}
+                          </h5>
+                          <Badge
+                            variant={cert.isVerified || cert.status === 'APPROVED' ? 'active' : 'pending'}
+                            size="sm"
+                          >
+                            {cert.isVerified || cert.status === 'APPROVED'
+                              ? t('staff_cert_verified')
+                              : t('staff_cert_pending')}
+                          </Badge>
                         </div>
-                      )}
+
+                        {cert.uploadedAt && (
+                          <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                            <Calendar className="w-3 h-3" />
+                            <span>{t('staff_uploaded_date')}: {formatDate(cert.uploadedAt)}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Portfolio Showcase Card */}
-          {portfolioImages.length > 0 && (
+          {/* RIGHT COLUMN: Portfolio & Styles */}
+          <div className="lg:col-span-6 space-y-6">
+            {/* Portfolio Showcase Card */}
             <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
                 <div className="flex items-center gap-2">
@@ -686,46 +550,367 @@ export const StaffDetailPage = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2.5">
-                {portfolioImages.map((img, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => setPreviewImage(img)}
-                    className="relative h-24 rounded-2xl bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer group shadow-2xs border border-slate-200 dark:border-slate-700"
-                  >
-                    <img
-                      src={img}
-                      alt={`Portfolio ${idx + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                      <Eye className="w-4 h-4" />
+              {portfolioImages.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 dark:bg-slate-850 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-2">
+                  <ImageIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {t('staff_portfolio_empty')}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {portfolioImages.map((img, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => setPreviewImage(img)}
+                      className="relative h-28 rounded-2xl bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer group shadow-2xs border border-slate-200 dark:border-slate-700"
+                    >
+                      <img
+                        src={img}
+                        alt={`Portfolio ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <Eye className="w-4 h-4" />
+                      </div>
                     </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Applicant's Signature Styles (if registered on MUA profile) */}
+            {detail.assignedStyles && detail.assignedStyles.length > 0 && (
+              <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-3">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-rose-500" />
+                  {t('staff_styles_title')}
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {detail.assignedStyles.map((st) => (
+                    <span
+                      key={st.id || st.styleCode}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 shadow-2xs"
+                    >
+                      {st.styleName || st.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* FULL STUDIO CONFIGURATIONS FOR ACTIVE STAFF */
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN: STUDIO CONFIGURATIONS (Commission, Styles, Packages) */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Section: Commission Setting */}
+              <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                      <Percent className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {t('staff_tab_commission')}
+                    </h3>
                   </div>
-                ))}
+                  <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                    {agreedCommissionRate}%
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <Input
+                    label={t('staff_commission_label')}
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={agreedCommissionRate}
+                    onChange={(e) => setAgreedCommissionRate(e.target.value)}
+                    helperText={t('staff_commission_helper')}
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={agreedCommissionRate}
+                    onChange={(e) => setAgreedCommissionRate(Number(e.target.value))}
+                    className="w-full accent-rose-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Section: Styles Assignment */}
+              <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {t('staff_tab_styles')}
+                    </h3>
+                  </div>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                    {selectedStyleIds.length} {t('selected') || 'đã chọn'}
+                  </span>
+                </div>
+
+                {allStyles.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">
+                    {t('staff_styles_empty')}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1">
+                    {allStyles.map((st) => {
+                      const isChecked = selectedStyleIds.includes(Number(st.id));
+                      return (
+                        <div
+                          key={st.id}
+                          onClick={() => handleToggleStyle(Number(st.id))}
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                            isChecked
+                              ? 'bg-rose-50/70 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800 text-rose-900 dark:text-rose-200 shadow-2xs'
+                              : 'bg-slate-50/50 border-slate-200 dark:bg-slate-850 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-all ${
+                                isChecked
+                                  ? 'bg-rose-600 border-rose-600 text-white'
+                                  : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                            <span className="text-xs font-bold">{st.name || st.styleName}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Section: Packages Assignment */}
+              <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                      <Package className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {t('staff_tab_packages')}
+                    </h3>
+                  </div>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    {selectedPackageIds.length} {t('selected') || 'đã chọn'}
+                  </span>
+                </div>
+
+                {allPackages.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">
+                    {t('staff_packages_empty')}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2.5 max-h-80 overflow-y-auto pr-1">
+                    {allPackages.map((pkg) => {
+                      const isChecked = selectedPackageIds.includes(Number(pkg.id));
+                      return (
+                        <div
+                          key={pkg.id}
+                          onClick={() => handleTogglePackage(Number(pkg.id))}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            isChecked
+                              ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200 shadow-2xs'
+                              : 'bg-slate-50/50 border-slate-200 dark:bg-slate-850 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-all ${
+                                isChecked
+                                  ? 'bg-emerald-600 border-emerald-600 text-white'
+                                  : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold block">{pkg.name}</span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {pkg.durationMinutes ? `${pkg.durationMinutes} phút • ` : ''}
+                                {formatCurrency(pkg.basePrice || pkg.price || 0)}
+                              </span>
+                            </div>
+                          </div>
+                          <Badge variant={pkg.status === 'ACTIVE' ? 'active' : 'default'} size="sm">
+                            {pkg.status === 'ACTIVE' ? t('status_active') : pkg.status}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Bottom Save Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs mt-6">
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <Save className="w-4 h-4 text-rose-500 shrink-0" />
-          <span>{t('staff_bottom_save_hint')}</span>
-        </div>
-        <Button
-          variant="primary"
-          icon={Save}
-          onClick={handleSaveAll}
-          isLoading={isSaving}
-          disabled={isSaving}
-          className="shadow-sm shrink-0"
-        >
-          {isSaving ? t('btn_saving') : t('btn_save_all_changes')}
-        </Button>
-      </div>
+            {/* RIGHT COLUMN: CREDENTIALS, CERTIFICATES & PORTFOLIO */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Bio Box */}
+              {detail.bio && (
+                <div className="p-5 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-2">
+                  <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-rose-500" />
+                    {t('staff_bio_title')}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">
+                    &ldquo;{detail.bio}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              {/* Certificates Card */}
+              <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                      {t('staff_certs_title')}
+                    </h4>
+                  </div>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                    {certificates.length}
+                  </span>
+                </div>
+
+                {certificates.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 dark:bg-slate-850 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 space-y-2">
+                    <Award className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      {t('staff_certs_empty')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {certificates.map((cert, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-slate-50/60 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden group flex flex-col justify-between shadow-2xs"
+                      >
+                        <div
+                          onClick={() => cert.imageUrl && setPreviewImage(cert.imageUrl)}
+                          className="relative h-32 bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer flex items-center justify-center"
+                        >
+                          {cert.imageUrl ? (
+                            <img
+                              src={cert.imageUrl}
+                              alt={cert.certName || 'Certificate'}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                          ) : (
+                            <div className="text-center p-4 text-slate-400">
+                              <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                              <span className="text-[11px]">{t('staff_no_cert_image')}</span>
+                            </div>
+                          )}
+
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-semibold">
+                            <Eye className="w-4 h-4" />
+                            <span>{t('staff_btn_view_cert')}</span>
+                          </div>
+                        </div>
+
+                        <div className="p-3 space-y-1.5">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <h5 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1" title={cert.certName}>
+                              {cert.certName || t('staff_default_cert_name')}
+                            </h5>
+                            <Badge
+                              variant={cert.isVerified || cert.status === 'APPROVED' ? 'active' : 'pending'}
+                              size="sm"
+                            >
+                              {cert.isVerified || cert.status === 'APPROVED'
+                                ? t('staff_cert_verified')
+                                : t('staff_cert_pending')}
+                            </Badge>
+                          </div>
+
+                          {cert.uploadedAt && (
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                              <Calendar className="w-3 h-3" />
+                              <span>{t('staff_uploaded_date')}: {formatDate(cert.uploadedAt)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Portfolio Showcase Card */}
+              {portfolioImages.length > 0 && (
+                <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                        {t('staff_portfolio_title')}
+                      </h4>
+                    </div>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                      {portfolioImages.length}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {portfolioImages.map((img, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setPreviewImage(img)}
+                        className="relative h-24 rounded-2xl bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer group shadow-2xs border border-slate-200 dark:border-slate-700"
+                      >
+                        <img
+                          src={img}
+                          alt={`Portfolio ${idx + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <Eye className="w-4 h-4" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Save Action Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs mt-6">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <Save className="w-4 h-4 text-rose-500 shrink-0" />
+              <span>{t('staff_bottom_save_hint')}</span>
+            </div>
+            <Button
+              variant="primary"
+              icon={Save}
+              onClick={handleSaveAll}
+              isLoading={isSaving}
+              disabled={isSaving}
+              className="shadow-sm shrink-0"
+            >
+              {isSaving ? t('btn_saving') : t('btn_save_all_changes')}
+            </Button>
+          </div>
+        </>
+      )}
 
       {/* Danger Zone: Xóa thợ khỏi Studio */}
       {!isPending && (

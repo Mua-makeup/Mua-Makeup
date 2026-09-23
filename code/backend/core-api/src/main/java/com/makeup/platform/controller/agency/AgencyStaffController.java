@@ -11,6 +11,7 @@ import com.makeup.platform.dto.request.agency.UpdateStaffStatusReq;
 import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
+import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
 import com.makeup.platform.service.agency.AgencyStaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,13 @@ public class AgencyStaffController extends BaseController {
             @PathVariable String inviteCode) {
         agencyStaffService.cancelInvitation(userId, inviteCode);
         return ok(null, "agency.invitation_cancel_success");
+    }
+
+    @GetMapping("/invitations/{inviteCode}/public")
+    public ResponseEntity<ApiResponse<PublicAgencyInvitationRes>> getPublicInvitationInfo(
+            @PathVariable String inviteCode) {
+        PublicAgencyInvitationRes res = agencyStaffService.getPublicInvitationInfo(inviteCode);
+        return ok(res, "agency.invitation_get_success");
     }
 
     @PostMapping("/invitations/accept")

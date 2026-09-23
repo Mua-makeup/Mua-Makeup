@@ -18,15 +18,18 @@ import { StaffInvitationModal } from '../../components/features/agency/StaffInvi
 import { PackageFormModal } from '../../components/features/agency/PackageFormModal';
 import { formatCurrency } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export const AgencyDashboardPage = () => {
   const { t } = useI18nStore();
+  const user = useAuthStore((state) => state.user);
   const [profile, setProfile] = useState(null);
   const [staffCount, setStaffCount] = useState(0);
   const [packages, setPackages] = useState([]);
   const [packageTotalCount, setPackageTotalCount] = useState(0);
   const [apiError, setApiError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [logoLoadError, setLogoLoadError] = useState(false);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
@@ -76,7 +79,22 @@ export const AgencyDashboardPage = () => {
 
   useEffect(() => {
     loadDashboardData();
+
+    const handleProfileUpdated = (e) => {
+      const updated = e.detail;
+      if (updated) {
+        setProfile((prev) => (prev ? { ...prev, ...updated } : updated));
+        setLogoLoadError(false);
+      } else {
+        loadDashboardData();
+      }
+    };
+
+    window.addEventListener('agency-profile-updated', handleProfileUpdated);
+    return () => window.removeEventListener('agency-profile-updated', handleProfileUpdated);
   }, []);
+
+  const studioLogo = (!logoLoadError && (profile?.logoUrl || user?.avatarUrl)) || null;
 
   return (
     <div className="space-y-6">
@@ -114,9 +132,18 @@ export const AgencyDashboardPage = () => {
       {/* Top Banner Studio */}
       <div className="p-6 bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:to-indigo-950 text-slate-900 dark:text-white rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors w-full">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
-            <Building2 className="w-7 h-7" />
-          </div>
+          {studioLogo ? (
+            <img
+              src={studioLogo}
+              alt={profile?.agencyName || 'Studio Agency'}
+              onError={() => setLogoLoadError(true)}
+              className="w-14 h-14 rounded-2xl object-cover border border-rose-200 dark:border-rose-500/40 shadow-xs shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
+              <Building2 className="w-7 h-7" />
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -133,7 +160,7 @@ export const AgencyDashboardPage = () => {
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Hotline: <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.addressDistrict || ''}, ${profile.addressCity || ''}` : 'N/A'}
+              Hotline: <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.district || ''}, ${profile.city || ''}` : 'N/A'}
             </p>
           </div>
         </div>

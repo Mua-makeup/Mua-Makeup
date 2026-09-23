@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.response.admin;
 
+import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -10,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -35,6 +37,16 @@ public class AdminBookingRes {
     // Agency Info (if any)
     private Long agencyId;
     private String agencyName;
+
+    // Service Package Details
+    private Long packageId;
+    private String packageName;
+    private String packageDescription;
+    private BigDecimal packagePrice;
+    private Integer packageDurationMinutes;
+    private String categoryName;
+    @Builder.Default
+    private List<PackageItemRes> packageItems = List.of();
 
     // Booking Details
     private String bookingType;

@@ -48,7 +48,9 @@ export const agencyService = {
   // Tuyển dụng & Mã mời QR 72h
   createInvitation: (data) => apiClient.post('/agencies/invitations', data),
   getInvitations: () => apiClient.get('/agencies/invitations'),
+  getPublicInvitationInfo: (inviteCode) => apiClient.get(`/agencies/invitations/${inviteCode}/public`),
   cancelInvitation: (inviteCode) => apiClient.delete(`/agencies/invitations/${inviteCode}`),
+  acceptInvitation: (data) => apiClient.post('/agencies/invitations/accept', data),
 
   // Quản lý Nhân viên Studio
   getStaffList: (status, page = 0, size = 20) =>
@@ -79,7 +81,7 @@ export const agencyService = {
   // Ma trận Xếp Ca Tuần
   createShift: (data) => apiClient.post('/agencies/shifts', data),
   updateShift: (shiftId, data) => apiClient.put(`/agencies/shifts/${shiftId}`, data),
-  getWeeklyShiftMatrix: () => apiClient.get('/agencies/shifts/matrix'),
+  getWeeklyShiftMatrix: (params) => apiClient.get('/agencies/shifts/matrix', { params }),
   deleteShift: (shiftId) => apiClient.delete(`/agencies/shifts/${shiftId}`),
 
   // Studio Bookings Management

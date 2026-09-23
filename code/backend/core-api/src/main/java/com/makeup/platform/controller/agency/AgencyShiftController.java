@@ -51,8 +51,10 @@ public class AgencyShiftController extends BaseController {
     @GetMapping("/shifts/matrix")
     @PreAuthorize("hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<WeeklyShiftMatrixRes>> getWeeklyShiftMatrix(
-            @AuthenticationPrincipal Long userId) {
-        WeeklyShiftMatrixRes res = agencyShiftService.getWeeklyShiftMatrix(userId);
+            @AuthenticationPrincipal Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate) {
+        WeeklyShiftMatrixRes res = agencyShiftService.getWeeklyShiftMatrix(userId, startDate, endDate);
         return ok(res, "agency.shift_matrix_get_success");
     }
 

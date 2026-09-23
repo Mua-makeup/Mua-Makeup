@@ -53,6 +53,20 @@ export const AgencyProfilePage = () => {
     loadProfile();
   }, []);
 
+  const resolveToastMessage = (msg, fallback) => {
+    if (!msg) return fallback;
+    const keyUnderscore = msg.replace(/\./g, '_');
+    const translatedUnderscore = t(keyUnderscore);
+    if (translatedUnderscore && translatedUnderscore !== keyUnderscore) {
+      return translatedUnderscore;
+    }
+    const directTranslated = t(msg);
+    if (directTranslated && directTranslated !== msg) {
+      return directTranslated;
+    }
+    return msg;
+  };
+
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setProfileErrors({});
@@ -74,7 +88,9 @@ export const AgencyProfilePage = () => {
     if (!validation.success) {
       const fieldErrors = {};
       validation.error.errors.forEach((err) => {
-        fieldErrors[err.path[0]] = err.message;
+        if (err.path[0]) {
+          fieldErrors[err.path[0]] = err.message;
+        }
       });
       setProfileErrors(fieldErrors);
       return;
@@ -89,7 +105,7 @@ export const AgencyProfilePage = () => {
           useAuthStore.getState().setUser({ ...u, avatarUrl: payload.logoUrl });
         }
       }
-      setSuccessMessage(res?.message || t('save_success'));
+      setSuccessMessage(resolveToastMessage(res?.message, t('agency_profile_update_success')));
       setTimeout(() => setSuccessMessage(''), 3500);
     } catch (err) {
       setServerError(err.message || t('error_general'));
@@ -114,7 +130,7 @@ export const AgencyProfilePage = () => {
     setIsLoadingCommission(true);
     try {
       const res = await agencyService.updateDefaultCommission(Number(commissionRate));
-      setSuccessMessage(res?.message || t('save_success'));
+      setSuccessMessage(resolveToastMessage(res?.message, t('agency_commission_update_success')));
       setTimeout(() => setSuccessMessage(''), 3500);
     } catch (err) {
       setCommissionError(err.message || t('error_general'));

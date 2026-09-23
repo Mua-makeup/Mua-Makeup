@@ -19,15 +19,14 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 
 import jakarta.persistence.EnumType;
-import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-
 import jakarta.persistence.MapsId;
 
 @Entity
@@ -100,7 +99,7 @@ public class MuaProfileEntity extends BaseEntity {
     private BigDecimal lastKnownLng;
 
     @Column(name = "last_known_updated_at")
-    private java.time.Instant lastKnownUpdatedAt;
+    private Instant lastKnownUpdatedAt;
 
     @Column(name = "base_address_lat", precision = 10, scale = 8)
     private BigDecimal baseAddressLat;

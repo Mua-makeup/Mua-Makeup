@@ -61,7 +61,6 @@ public class AdminBookingServiceImpl implements AdminBookingService {
                                 b.getDestinationAddress().toLowerCase().contains(kw);
                         return matchCode || matchCustName || matchCustPhone || matchAddress;
                     }
-
                     return true;
                 })
                 .map(bookingMapper::toAdminBookingRes)

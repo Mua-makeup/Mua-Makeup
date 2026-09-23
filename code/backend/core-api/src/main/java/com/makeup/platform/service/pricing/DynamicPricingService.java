@@ -4,6 +4,9 @@ import com.makeup.platform.dto.request.pricing.CalculateDistanceReq;
 import com.makeup.platform.dto.request.pricing.PreviewInvoiceReq;
 import com.makeup.platform.dto.response.pricing.DistanceMatrixRes;
 import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
+import com.makeup.platform.dto.response.pricing.ProviderOptionRes;
+
+import java.util.List;
 
 public interface DynamicPricingService {
 
@@ -22,5 +25,5 @@ public interface DynamicPricingService {
     /**
      * Lấy danh sách đối tác cung cấp dịch vụ (Studios & MUAs) thực tế từ CSDL.
      */
-    java.util.List<com.makeup.platform.dto.response.pricing.ProviderOptionRes> getAvailableProviders();
+    List<ProviderOptionRes> getAvailableProviders();
 }

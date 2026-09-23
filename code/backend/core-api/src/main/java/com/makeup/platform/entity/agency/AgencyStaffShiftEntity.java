@@ -17,6 +17,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -43,6 +44,9 @@ public class AgencyStaffShiftEntity {
 
     @Column(name = "day_of_week", nullable = false)
     private Integer dayOfWeek; // 1: Chủ Nhật, 2: Thứ 2, ..., 7: Thứ 7
+
+    @Column(name = "work_date")
+    private LocalDate workDate;
 
     @Column(name = "shift_name", length = 100, nullable = false)
     private String shiftName;
