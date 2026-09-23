@@ -14,6 +14,7 @@ import { Badge } from '../../components/base/Badge';
 import { useI18nStore } from '../../store/useI18nStore';
 import { AgencyBookingDetailModal } from '../../components/features/agency/AgencyBookingDetailModal';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
+import { formatDateTime, formatBookingDateTime } from '../../utils/formatters';
 
 export const AgencyBookingsPage = () => {
   const { t } = useI18nStore();
@@ -129,20 +130,7 @@ export const AgencyBookingsPage = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
   };
 
-  const formatDateTime = (isoStr) => {
-    if (!isoStr) return '—';
-    try {
-      return new Date(isoStr).toLocaleString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
+
 
   const getStatusBadge = (status) => {
     const statusMap = {
@@ -207,10 +195,9 @@ export const AgencyBookingsPage = () => {
       accessor: 'scheduledStartTime',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400">
-          {formatDateTime(
-            row.scheduledStartTime ||
-              (row.bookingDate && row.startTime ? `${row.bookingDate}T${row.startTime}` : null)
-          )}
+          {row.scheduledStartTime
+            ? formatDateTime(row.scheduledStartTime)
+            : formatBookingDateTime(row.startTime, row.bookingDate) || '—'}
         </span>
       ),
     },

@@ -12,6 +12,7 @@ import com.makeup.platform.dto.request.auth.LogoutReq;
 import com.makeup.platform.dto.request.auth.MuaRegisterDetails;
 import com.makeup.platform.dto.request.auth.RefreshTokenReq;
 import com.makeup.platform.dto.request.auth.RegisterReq;
+import com.makeup.platform.dto.request.auth.UpdateLanguageReq;
 import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
 import com.makeup.platform.dto.response.auth.UserRegisterRes;
@@ -19,6 +20,7 @@ import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.RoleEntity;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.mapper.auth.AuthMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.RolePermissionRepository;
@@ -61,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
-    private final com.makeup.platform.mapper.auth.AuthMapper authMapper;
+    private final AuthMapper authMapper;
 
     @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
@@ -312,7 +314,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public UserInfoRes updateLanguage(Long userId, com.makeup.platform.dto.request.auth.UpdateLanguageReq req) {
+    public UserInfoRes updateLanguage(Long userId, UpdateLanguageReq req) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
                         "ERR_USER_NOT_FOUND", HttpStatus.NOT_FOUND));

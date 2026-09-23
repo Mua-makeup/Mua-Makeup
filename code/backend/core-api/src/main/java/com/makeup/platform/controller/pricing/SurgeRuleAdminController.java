@@ -51,12 +51,12 @@ public class SurgeRuleAdminController extends BaseController {
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> toggleRuleStatus(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> toggleRuleStatus(
             @PathVariable Long id,
             @RequestParam boolean isActive
     ) {
         surgePricingService.toggleRuleStatus(id, isActive);
-        return ok(java.util.Map.of("id", id, "isActive", isActive), "pricing.surge_rule_status_updated_success");
+        return ok(Map.of("id", id, "isActive", isActive), "pricing.surge_rule_status_updated_success");
     }
 
     @DeleteMapping("/{id}")
@@ -75,9 +75,9 @@ public class SurgeRuleAdminController extends BaseController {
 
     @GetMapping("/h3-status")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Boolean>>> getH3SurgeStatus() {
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> getH3SurgeStatus() {
         boolean enabled = surgePricingService.isH3SurgeGloballyEnabled();
-        return ok(java.util.Map.of("isH3SurgeEnabled", enabled), "pricing.h3_surge_status_success");
+        return ok(Map.of("isH3SurgeEnabled", enabled), "pricing.h3_surge_status_success");
     }
 
     @PostMapping("/toggle-h3")

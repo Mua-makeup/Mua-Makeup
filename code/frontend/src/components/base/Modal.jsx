@@ -71,9 +71,9 @@ export const Modal = ({
       />
 
       {/* Modal Dialog */}
-      <div className="flex min-h-full items-center justify-center p-4 text-center">
+      <div className="flex min-h-full items-start justify-center pt-16 sm:pt-20 pb-16 px-4 text-center">
         <div
-          className={`w-full ${maxWidth} ${minHeight} flex flex-col justify-between transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left align-middle shadow-xl transition-all border border-slate-200 dark:border-slate-800`}
+          className={`w-full ${maxWidth} ${minHeight} flex flex-col justify-between transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left align-middle shadow-2xl transition-all border border-slate-200 dark:border-slate-800`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -88,7 +88,7 @@ export const Modal = ({
           </div>
 
           {/* Body */}
-          <div className="px-6 py-5 flex-1 max-h-[calc(100vh-180px)] overflow-y-auto text-slate-700 dark:text-slate-300">
+          <div className="px-6 py-5 flex-1 max-h-[calc(100vh-260px)] overflow-y-auto text-slate-700 dark:text-slate-300">
             {children}
           </div>
 

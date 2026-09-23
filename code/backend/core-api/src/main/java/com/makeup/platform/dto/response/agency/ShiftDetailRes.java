@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Data
@@ -18,7 +19,7 @@ public class ShiftDetailRes {
     private Long shiftId;
     private Long staffId;
     private String staffName;
-    private java.time.LocalDate workDate;
+    private LocalDate workDate;
     private Integer dayOfWeek;
     private String dayName;
     private String shiftName;

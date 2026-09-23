@@ -4,6 +4,7 @@ import com.makeup.platform.dto.request.agency.ConfigureShiftReq;
 import com.makeup.platform.dto.response.agency.ShiftDetailRes;
 import com.makeup.platform.dto.response.agency.WeeklyShiftMatrixRes;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface AgencyShiftService {
@@ -12,7 +13,7 @@ public interface AgencyShiftService {
 
     WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId);
 
-    WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate);
+    WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId, LocalDate startDate, LocalDate endDate);
 
     ShiftDetailRes getShiftById(Long userId, Long shiftId);
 

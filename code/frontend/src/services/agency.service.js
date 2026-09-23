@@ -48,7 +48,9 @@ export const agencyService = {
   // Tuyển dụng & Mã mời QR 72h
   createInvitation: (data) => apiClient.post('/agencies/invitations', data),
   getInvitations: () => apiClient.get('/agencies/invitations'),
+  getPublicInvitationInfo: (inviteCode) => apiClient.get(`/agencies/invitations/${inviteCode}/public`),
   cancelInvitation: (inviteCode) => apiClient.delete(`/agencies/invitations/${inviteCode}`),
+  acceptInvitation: (data) => apiClient.post('/agencies/invitations/accept', data),
 
   // Quản lý Nhân viên Studio
   getStaffList: (status, page = 0, size = 20) =>

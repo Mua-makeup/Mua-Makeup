@@ -23,6 +23,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "bookings", schema = "booking_schema")
@@ -114,7 +115,7 @@ public class BookingEntity extends BaseEntity {
     private String cancellationReason;
 
     @Column(name = "deposit_expired_at")
-    private java.time.OffsetDateTime depositExpiredAt;
+    private OffsetDateTime depositExpiredAt;
 
     @Column(name = "reminder_24h_sent", nullable = false)
     @Builder.Default

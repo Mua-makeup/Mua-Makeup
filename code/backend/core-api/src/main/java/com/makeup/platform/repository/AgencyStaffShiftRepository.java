@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -23,7 +24,7 @@ public interface AgencyStaffShiftRepository extends JpaRepository<AgencyStaffShi
             "ORDER BY s.startTime ASC")
     List<AgencyStaffShiftEntity> findActiveShiftsForStaffOnDate(
             @Param("staffId") Long staffId,
-            @Param("workDate") java.time.LocalDate workDate,
+            @Param("workDate") LocalDate workDate,
             @Param("dayOfWeek") Integer dayOfWeek);
 
     @Query("SELECT s FROM AgencyStaffShiftEntity s WHERE s.staff.id = :staffId AND s.isActive = true " +
@@ -32,7 +33,7 @@ public interface AgencyStaffShiftRepository extends JpaRepository<AgencyStaffShi
     List<AgencyStaffShiftEntity> findOverlappingShiftsForWorkDate(
             @Param("staffId") Long staffId,
             @Param("dayOfWeek") Integer dayOfWeek,
-            @Param("workDate") java.time.LocalDate workDate,
+            @Param("workDate") LocalDate workDate,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
 
@@ -43,7 +44,7 @@ public interface AgencyStaffShiftRepository extends JpaRepository<AgencyStaffShi
     List<AgencyStaffShiftEntity> findOverlappingShiftsForWorkDateExcluding(
             @Param("staffId") Long staffId,
             @Param("dayOfWeek") Integer dayOfWeek,
-            @Param("workDate") java.time.LocalDate workDate,
+            @Param("workDate") LocalDate workDate,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime,
             @Param("excludeShiftId") Long excludeShiftId);
@@ -86,8 +87,8 @@ public interface AgencyStaffShiftRepository extends JpaRepository<AgencyStaffShi
             "ORDER BY s.dayOfWeek ASC, s.startTime ASC")
     List<AgencyStaffShiftEntity> findAllActiveByAgencyIdAndWeekRange(
             @Param("agencyId") Long agencyId,
-            @Param("startDate") java.time.LocalDate startDate,
-            @Param("endDate") java.time.LocalDate endDate);
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
     @Query("SELECT s FROM AgencyStaffShiftEntity s " +
             "JOIN FETCH s.staff st " +

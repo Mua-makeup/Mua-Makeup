@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { USER_ROLES } from '../constants/roles.constant';
 import { authService } from '../services/auth.service';
+import { useI18nStore } from './useI18nStore';
 
 export const useAuthStore = create((set) => ({
   user: null,
@@ -26,8 +27,11 @@ export const useAuthStore = create((set) => ({
         isLoading: false,
       });
 
-      // Đánh dấu đã có session để App.jsx biết gọi /me khi refresh trang
       localStorage.setItem('mua_logged_in', 'true');
+
+      if (userInfo?.language && (userInfo.language === 'vi' || userInfo.language === 'en')) {
+        useI18nStore.getState().setLanguage(userInfo.language);
+      }
 
       return { success: true, role: primaryRole };
     } catch (error) {

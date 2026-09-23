@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -131,7 +132,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
 
     @Override
     @Transactional(readOnly = true)
-    public WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate) {
+    public WeeklyShiftMatrixRes getWeeklyShiftMatrix(Long userId, LocalDate startDate, LocalDate endDate) {
         AgencyProfileEntity agency = resolveAgencyForUser(userId);
 
         List<AgencyStaffShiftEntity> allShifts;
@@ -224,7 +225,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
             dayOfWeek = shift.getDayOfWeek();
         }
 
-        java.time.LocalDate targetWorkDate = req.getWorkDate() != null ? req.getWorkDate() : shift.getWorkDate();
+        LocalDate targetWorkDate = req.getWorkDate() != null ? req.getWorkDate() : shift.getWorkDate();
 
         List<AgencyStaffShiftEntity> overlapping;
         if (targetWorkDate != null) {

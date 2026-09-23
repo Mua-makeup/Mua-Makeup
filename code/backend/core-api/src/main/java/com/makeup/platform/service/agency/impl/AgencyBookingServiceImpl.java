@@ -1,8 +1,10 @@
 package com.makeup.platform.service.agency.impl;
 
+import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.response.agency.AgencyBookingRes;
+import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
@@ -13,6 +15,9 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.service.agency.AgencyBookingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,8 +40,8 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public com.makeup.platform.common.base.PageResponse<AgencyBookingRes> getAgencyBookings(
-            Long ownerUserId, String status, String keyword, org.springframework.data.domain.Pageable pageable) {
+    public PageResponse<AgencyBookingRes> getAgencyBookings(
+            Long ownerUserId, String status, String keyword, Pageable pageable) {
         AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(ownerUserId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "agency.not_found", HttpStatus.NOT_FOUND));
@@ -76,7 +81,7 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
                 .collect(Collectors.toList());
 
         if (pageable == null || pageable.isUnpaged()) {
-            return com.makeup.platform.common.base.PageResponse.<AgencyBookingRes>builder()
+            return PageResponse.<AgencyBookingRes>builder()
                     .content(filtered)
                     .page(0)
                     .size(filtered.size())
@@ -89,9 +94,9 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), filtered.size());
         List<AgencyBookingRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
-        org.springframework.data.domain.Page<AgencyBookingRes> page =
-                new org.springframework.data.domain.PageImpl<>(pagedList, pageable, filtered.size());
-        return com.makeup.platform.common.base.PageResponse.from(page);
+        Page<AgencyBookingRes> page =
+                new PageImpl<>(pagedList, pageable, filtered.size());
+        return PageResponse.from(page);
     }
 
     private AgencyBookingRes mapToAgencyBookingRes(BookingEntity b, AgencyProfileEntity agency) {
@@ -132,10 +137,40 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
 
         String servicePkgName = b.getServicePackage() != null ? b.getServicePackage().getPackageName() : null;
         Long pkgId = b.getServicePackage() != null ? b.getServicePackage().getId() : null;
+        String packageDescription = null;
+        BigDecimal packagePrice = null;
+        Integer packageDurationMinutes = null;
+        String categoryName = null;
+        List<PackageItemRes> packageItems = List.of();
+
+        if (b.getServicePackage() != null) {
+            var pkg = b.getServicePackage();
+            packageDescription = pkg.getDescription();
+            packagePrice = pkg.getPrice();
+            packageDurationMinutes = pkg.getEstimatedDurationMinutes();
+            if (pkg.getMasterCategory() != null) {
+                categoryName = pkg.getMasterCategory().getCategoryName();
+            }
+            if (pkg.getPackageItems() != null) {
+                packageItems = pkg.getPackageItems().stream()
+                        .map(item -> PackageItemRes.builder()
+                                .id(item.getId())
+                                .itemType(item.getItemType())
+                                .itemName(item.getItemName())
+                                .stepOrder(item.getStepOrder())
+                                .itemPrice(item.getItemPrice())
+                                .durationMinutes(item.getDurationMinutes())
+                                .isRequired(item.getIsRequired())
+                                .isActive(item.getIsActive())
+                                .build())
+                        .toList();
+            }
+        }
+
         LocalDateTime scheduledStartTime = (b.getBookingDate() != null && b.getStartTime() != null)
                 ? b.getBookingDate().atTime(b.getStartTime()) : null;
-        LocalDateTime scheduledEndTime = (scheduledStartTime != null && b.getServicePackage() != null && b.getServicePackage().getEstimatedDurationMinutes() != null)
-                ? scheduledStartTime.plusMinutes(b.getServicePackage().getEstimatedDurationMinutes()) : null;
+        LocalDateTime scheduledEndTime = (scheduledStartTime != null && packageDurationMinutes != null)
+                ? scheduledStartTime.plusMinutes(packageDurationMinutes) : null;
 
         return AgencyBookingRes.builder()
                 .id(b.getId())
@@ -154,6 +189,11 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
                 .packageId(pkgId)
                 .servicePackageName(servicePkgName)
                 .packageName(servicePkgName)
+                .packageDescription(packageDescription)
+                .packagePrice(packagePrice)
+                .packageDurationMinutes(packageDurationMinutes)
+                .categoryName(categoryName)
+                .packageItems(packageItems)
                 .scheduledStartTime(scheduledStartTime)
                 .scheduledEndTime(scheduledEndTime)
                 .destinationAddress(b.getDestinationAddress())

@@ -8,12 +8,15 @@ import { loginSchema } from '../../schemas/auth.schema';
 import { USER_ROLES } from '../../constants/roles.constant';
 import { Input } from '../../components/base/Input';
 import { Button } from '../../components/base/Button';
+import { MuaWelcomeModal } from '../../components/features/auth/MuaWelcomeModal';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18nStore();
   const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
+  const currentUser = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -21,6 +24,7 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+  const [showMuaModal, setShowMuaModal] = useState(false);
 
   useEffect(() => {
     if (location.state?.reason === 'unauthorized') {
@@ -49,10 +53,22 @@ export const LoginPage = () => {
 
     try {
       const result = await login({ loginIdentifier, password });
+      const searchParams = new URLSearchParams(location.search);
+      const redirectUrl = searchParams.get('redirect');
+
+      if (redirectUrl) {
+        navigate(redirectUrl, { replace: true });
+        return;
+      }
+
       if (result.role === USER_ROLES.SUPER_ADMIN) {
         navigate('/admin/dashboard', { replace: true });
       } else if (result.role === USER_ROLES.AGENCY_ADMIN) {
         navigate('/agency/dashboard', { replace: true });
+      } else if (result.role === USER_ROLES.FREELANCE_MUA) {
+        setShowMuaModal(true);
+      } else if (result.role === USER_ROLES.CUSTOMER) {
+        navigate('/', { replace: true });
       } else {
         setServerError(t('login_role_unauthorized'));
       }
@@ -150,7 +166,7 @@ export const LoginPage = () => {
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
-                onClick={() => handleQuickFill('0900000001', 'Admin@123')}
+                onClick={() => handleQuickFill('0900000001', 'Password@123')}
                 className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-700/60 hover:bg-rose-50/50 dark:hover:bg-rose-950/30 hover:border-rose-200 dark:hover:border-rose-700 text-left transition-all text-xs group"
               >
                 <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400">
@@ -161,7 +177,7 @@ export const LoginPage = () => {
               </button>
               <button
                 type="button"
-                onClick={() => handleQuickFill('0933112233', 'Agency@123')}
+                onClick={() => handleQuickFill('0912345435', 'Password@123')}
                 className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-700/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 hover:border-indigo-200 dark:hover:border-indigo-700 text-left transition-all text-xs group"
               >
                 <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
@@ -183,6 +199,19 @@ export const LoginPage = () => {
           </Link>
         </div>
       </div>
+
+      <MuaWelcomeModal
+        isOpen={showMuaModal}
+        onClose={() => {
+          setShowMuaModal(false);
+          navigate('/');
+        }}
+        user={currentUser}
+        onLogout={async () => {
+          setShowMuaModal(false);
+          await logout();
+        }}
+      />
     </div>
   );
 };

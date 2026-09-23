@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
-import { Sparkles, X, ArrowRight, Clock, Bell, User } from 'lucide-react';
+import { Sparkles, X, ArrowRight, Clock, Bell, User, UserPlus, Phone } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { USER_ROLES } from '../../../constants/roles.constant';
 import { agencyService } from '../../../services/agency.service';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { formatCurrency, formatBookingDateTime } from '../../../utils/formatters';
 
 export const AgencyRealtimeNotifier = () => {
   const navigate = useNavigate();
@@ -45,13 +46,14 @@ export const AgencyRealtimeNotifier = () => {
       const handleMessage = (message) => {
         try {
           const payload = JSON.parse(message.body);
-          if (payload && payload.type === 'NEW_BOOKING') {
-            // Check if this booking belongs to this agency
-            if (agencyId && payload.agencyId && payload.agencyId !== agencyId) {
-              return;
-            }
+          if (!payload) return;
 
-            // 1. Add to Zustand store (automatically plays sound chime if enabled, returns null if duplicate)
+          // Check if belongs to this agency
+          if (agencyId && payload.agencyId && payload.agencyId !== agencyId) {
+            return;
+          }
+
+          if (payload.type === 'NEW_BOOKING') {
             const notifItem = addNotification({
               id: payload.id,
               type: 'NEW_BOOKING',
@@ -67,24 +69,37 @@ export const AgencyRealtimeNotifier = () => {
               timestamp: payload.timestamp || Date.now(),
             });
 
-            if (!notifItem) {
-              // Duplicate notification, ignore
-              return;
-            }
+            if (!notifItem) return;
 
-            // 2. Dispatch custom event so pages like AgencyBookingsPage can auto-refresh
             window.dispatchEvent(
               new CustomEvent('agency:new-booking', { detail: payload })
             );
 
-            // 3. Show floating toast popup
-            if (toastTimeoutRef.current) {
-              clearTimeout(toastTimeoutRef.current);
-            }
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             setActiveToast(notifItem);
-            toastTimeoutRef.current = setTimeout(() => {
-              setActiveToast(null);
-            }, 8000);
+            toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 8000);
+          } else if (payload.type === 'STAFF_APPLICATION') {
+            const notifItem = addNotification({
+              id: payload.id,
+              type: 'STAFF_APPLICATION',
+              title: payload.title || t('notification_staff_application_title'),
+              content: payload.content,
+              muaName: payload.muaName,
+              muaPhone: payload.muaPhone,
+              inviteCode: payload.inviteCode,
+              staffId: payload.staffId,
+              timestamp: payload.timestamp || Date.now(),
+            });
+
+            if (!notifItem) return;
+
+            window.dispatchEvent(
+              new CustomEvent('agency:staff-application', { detail: payload })
+            );
+
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            setActiveToast(notifItem);
+            toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 8000);
           }
         } catch (e) {
           console.warn('[AgencyRealtimeNotifier] Error parsing message:', e);
@@ -99,8 +114,10 @@ export const AgencyRealtimeNotifier = () => {
         onConnect: () => {
           if (agencyId) {
             stompClient.subscribe(`/topic/agency/${agencyId}/bookings`, handleMessage);
+            stompClient.subscribe(`/topic/agency/${agencyId}/staff-applications`, handleMessage);
           } else {
             stompClient.subscribe('/topic/agency/bookings', handleMessage);
+            stompClient.subscribe('/topic/agency/staff-applications', handleMessage);
           }
         },
         onStompError: (frame) => {
@@ -126,15 +143,17 @@ export const AgencyRealtimeNotifier = () => {
 
   if (!activeToast) return null;
 
-  const formatPrice = (val) => {
-    if (!val && val !== 0) return '';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
-  };
+
+  const isStaffApp = activeToast.type === 'STAFF_APPLICATION';
 
   return (
     <aside
-      aria-label="New Booking Alert"
-      className="fixed bottom-6 right-6 z-50 max-w-sm w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-rose-500/40 dark:border-rose-500/30 animate-in slide-in-from-bottom-5 duration-300 ring-4 ring-rose-500/10"
+      aria-label={isStaffApp ? 'Staff Application Alert' : 'New Booking Alert'}
+      className={`fixed bottom-6 right-6 z-50 max-w-sm w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 duration-300 ring-4 animate-in slide-in-from-bottom-5 ${
+        isStaffApp
+          ? 'border-indigo-500/40 dark:border-indigo-500/30 ring-indigo-500/10'
+          : 'border-rose-500/40 dark:border-rose-500/30 ring-rose-500/10'
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -142,8 +161,16 @@ export const AgencyRealtimeNotifier = () => {
             <img
               src={studioLogo}
               alt="Studio"
-              className="w-10 h-10 rounded-xl object-cover border border-rose-200 dark:border-rose-800 shadow-md shrink-0"
+              className={`w-10 h-10 rounded-xl object-cover border shadow-md shrink-0 ${
+                isStaffApp
+                  ? 'border-indigo-200 dark:border-indigo-800'
+                  : 'border-rose-200 dark:border-rose-800'
+              }`}
             />
+          ) : isStaffApp ? (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-md animate-bounce">
+              <UserPlus className="w-5 h-5" />
+            </div>
           ) : (
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-400 text-white flex items-center justify-center shadow-md animate-bounce">
               <Bell className="w-5 h-5" />
@@ -151,13 +178,21 @@ export const AgencyRealtimeNotifier = () => {
           )}
           <div>
             <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <span>{t('notification_new_booking_title')}</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse">
+              <span>
+                {isStaffApp
+                  ? t('notification_staff_application_title')
+                  : t('notification_new_booking_title')}
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white animate-pulse ${
+                  isStaffApp ? 'bg-indigo-500' : 'bg-rose-500'
+                }`}
+              >
                 {t('new_badge')}
               </span>
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-              #{activeToast.bookingCode}
+              #{isStaffApp ? activeToast.inviteCode : activeToast.bookingCode}
             </p>
           </div>
         </div>
@@ -172,55 +207,87 @@ export const AgencyRealtimeNotifier = () => {
         </button>
       </div>
 
-      <div className="mt-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-100 dark:border-slate-800 space-y-1.5 text-xs">
-        <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
-          <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <User className="w-3.5 h-3.5 text-slate-400" />
-            {t('customer_label')}
-          </span>
-          <span className="font-bold truncate max-w-[180px]">{activeToast.customerName}</span>
-        </div>
-
-        <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
-          <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-rose-500" />
-            {t('package_label')}
-          </span>
-          <span className="font-medium truncate max-w-[180px]">{activeToast.servicePackageName}</span>
-        </div>
-
-        {activeToast.bookingDate && (
+      {isStaffApp ? (
+        <div className="mt-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-100 dark:border-slate-800 space-y-1.5 text-xs">
           <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
             <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              Lịch hẹn:
+              <User className="w-3.5 h-3.5 text-indigo-500" />
+              {t('artist_label')}
             </span>
-            <span className="font-mono text-[11px]">
-              {activeToast.startTime} {activeToast.bookingDate}
-            </span>
+            <span className="font-bold truncate max-w-[180px]">{activeToast.muaName}</span>
           </div>
-        )}
 
-        {activeToast.totalAmount && (
-          <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-            <span className="text-slate-500 dark:text-slate-400">{t('total_amount_label')}</span>
-            <span className="font-bold text-rose-600 dark:text-rose-400">
-              {formatPrice(activeToast.totalAmount)}
+          {activeToast.muaPhone && (
+            <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Phone className="w-3.5 h-3.5 text-slate-400" />
+                {t('phone_label')}
+              </span>
+              <span className="font-mono text-[11px]">{activeToast.muaPhone}</span>
+            </div>
+          )}
+
+          {activeToast.content && (
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 italic pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+              "{activeToast.content}"
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="mt-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-100 dark:border-slate-800 space-y-1.5 text-xs">
+          <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <User className="w-3.5 h-3.5 text-slate-400" />
+              {t('customer_label')}
             </span>
+            <span className="font-bold truncate max-w-[180px]">{activeToast.customerName}</span>
           </div>
-        )}
-      </div>
+
+          <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+              {t('package_label')}
+            </span>
+            <span className="font-medium truncate max-w-[180px]">{activeToast.servicePackageName}</span>
+          </div>
+
+          {activeToast.bookingDate && (
+            <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+              <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                {t('appointment_time')}
+              </span>
+              <span className="font-mono text-[11px]">
+                {formatBookingDateTime(activeToast.startTime, activeToast.bookingDate)}
+              </span>
+            </div>
+          )}
+
+          {activeToast.totalAmount && (
+            <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+              <span className="text-slate-500 dark:text-slate-400">{t('total_amount_label')}</span>
+              <span className="font-bold text-rose-600 dark:text-rose-400">
+                {formatCurrency(activeToast.totalAmount)}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-3 flex items-center gap-2">
         <button
           type="button"
           onClick={() => {
             setActiveToast(null);
-            navigate('/agency/bookings');
+            navigate(isStaffApp ? '/agency/staff' : '/agency/bookings');
           }}
-          className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 hover:to-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/20 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+          className={`flex-1 py-2 px-3 rounded-xl text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
+            isStaffApp
+              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-indigo-500/20'
+              : 'bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 hover:to-rose-600 shadow-rose-500/20'
+          }`}
         >
-          <span>{t('btn_view_booking_detail')}</span>
+          <span>{isStaffApp ? t('btn_review_application') : t('btn_view_booking_detail')}</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>

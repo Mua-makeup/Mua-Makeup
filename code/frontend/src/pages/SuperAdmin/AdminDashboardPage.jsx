@@ -18,10 +18,12 @@ import { DataTable } from '../../components/base/DataTable';
 import { CertificateReviewModal } from '../../components/features/admin/CertificateReviewModal';
 import { Toast } from '../../components/base/Toast';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const AdminDashboardPage = () => {
   const { t } = useI18nStore();
+  const user = useAuthStore((state) => state.user);
   const [categories, setCategories] = useState([]);
   const [styles, setStyles] = useState([]);
   const [pendingMuas, setPendingMuas] = useState([]);
@@ -92,9 +94,17 @@ export const AdminDashboardPage = () => {
       {/* Top Banner Admin */}
       <div className="p-6 bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:to-indigo-950 text-slate-900 dark:text-white rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors w-full">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
-            <Shield className="w-7 h-7" />
-          </div>
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt="Admin Avatar"
+              className="w-14 h-14 rounded-2xl object-cover border border-rose-200 dark:border-rose-500/40 shadow-xs shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
+              <Shield className="w-7 h-7" />
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">

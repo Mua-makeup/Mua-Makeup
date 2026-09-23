@@ -6,12 +6,15 @@ import {
   Check,
   CheckCheck,
   Trash2,
-  Sparkles,
+  Building2,
   ExternalLink,
   Clock,
+  UserPlus,
+  Award,
 } from 'lucide-react';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { formatCurrency, formatDate, formatBookingDateTime } from '../../../utils/formatters';
 
 export const NotificationDropdown = ({ agencyLogo }) => {
   const navigate = useNavigate();
@@ -48,9 +51,38 @@ export const NotificationDropdown = ({ agencyLogo }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const formatPrice = (val) => {
-    if (!val && val !== 0) return '';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+  const getNotificationTitle = (notif) => {
+    if (notif.type === 'STAFF_APPLICATION') {
+      return t('notification_staff_application_title');
+    }
+    if (notif.type === 'CERTIFICATE_VERIFICATION') {
+      return t('notification_cert_verification_title');
+    }
+    if (notif.type === 'NEW_BOOKING') {
+      return t('notification_new_booking_title');
+    }
+    if (notif.title === 'Có Đơn Đặt Lịch Mới!' || notif.title === 'New Booking Request!') {
+      return t('notification_new_booking_title');
+    }
+    if (notif.title === 'Đơn Gia Nhập Mới!' || notif.title === 'New Staff Application!') {
+      return t('notification_staff_application_title');
+    }
+    if (notif.title === 'Chứng Chỉ Mới Cần Duyệt!' || notif.title === 'New Certificate to Verify!') {
+      return t('notification_cert_verification_title');
+    }
+    return notif.title || t('notifications_title');
+  };
+
+  const getNotificationContent = (notif) => {
+    if (notif.type === 'STAFF_APPLICATION') {
+      const name = notif.muaName || notif.customerName || 'MUA';
+      return t('notif_staff_joined_desc', { name });
+    }
+    if (notif.type === 'CERTIFICATE_VERIFICATION') {
+      const name = notif.muaName || notif.customerName || 'MUA';
+      return t('notif_cert_uploaded_desc', { name });
+    }
+    return notif.content;
   };
 
   const formatTimeAgo = (ts) => {
@@ -58,16 +90,56 @@ export const NotificationDropdown = ({ agencyLogo }) => {
     const diffSeconds = Math.floor((Date.now() - Number(ts)) / 1000);
     if (diffSeconds < 60) return t('just_now');
     const minutes = Math.floor(diffSeconds / 60);
-    if (minutes < 60) return `${minutes} ${t('unit_minutes')} ${language === 'vi' ? 'trước' : 'ago'}`;
+    if (minutes < 60) {
+      return language === 'vi'
+        ? `${minutes} ${t('time_minutes_ago')}`
+        : `${minutes}${t('time_minutes_ago')}`;
+    }
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ${language === 'vi' ? 'trước' : 'ago'}`;
-    return new Date(ts).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US');
+    if (hours < 24) {
+      return language === 'vi'
+        ? `${hours} ${t('time_hours_ago')}`
+        : `${hours}${t('time_hours_ago')}`;
+    }
+    return formatDate(ts);
   };
 
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
     setIsOpen(false);
-    navigate('/agency/bookings');
+    if (notif.type === 'STAFF_APPLICATION') {
+      navigate('/agency/staff');
+    } else if (notif.type === 'CERTIFICATE_VERIFICATION') {
+      navigate('/admin/muas/credentials');
+    } else {
+      navigate('/agency/bookings');
+    }
+  };
+
+  const renderNotifIcon = (notif) => {
+    if (notif.type === 'STAFF_APPLICATION') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
+          <UserPlus className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (notif.type === 'CERTIFICATE_VERIFICATION') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-amber-200 dark:border-amber-800 flex items-center justify-center bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
+          <Award className="w-4 h-4" />
+        </div>
+      );
+    }
+    return (
+      <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-rose-200 dark:border-rose-700 flex items-center justify-center bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
+        {agencyLogo ? (
+          <img src={agencyLogo} alt="Studio" className="w-full h-full object-cover" />
+        ) : (
+          <Building2 className="w-4 h-4" />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -95,7 +167,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
 
       {/* Notification Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-[1200] animate-in fade-in slide-in-from-top-2 duration-150">
           {/* Header */}
           <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -181,18 +253,12 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500 absolute left-2 top-4" />
                   )}
 
-                  <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-slate-200 dark:border-slate-700 flex items-center justify-center bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
-                    {agencyLogo ? (
-                      <img src={agencyLogo} alt="Studio" className="w-full h-full object-cover" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                  </div>
+                  {renderNotifIcon(notif)}
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <p className={`text-xs truncate ${!notif.isRead ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-300'}`}>
-                        {notif.title || t('notification_new_booking_title')}
+                        {getNotificationTitle(notif)}
                       </p>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="text-[10px] text-slate-400 dark:text-slate-500 mr-0.5">
@@ -231,28 +297,66 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                       </div>
                     </div>
 
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                      <span className="font-semibold">{notif.customerName}</span> • {notif.servicePackageName}
-                    </p>
-
-                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-                      {notif.bookingCode && (
-                        <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">
-                          #{notif.bookingCode}
-                        </span>
-                      )}
-                      {notif.bookingDate && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          {notif.startTime} {notif.bookingDate}
-                        </span>
-                      )}
-                      {notif.totalAmount && (
-                        <span className="font-semibold text-rose-600 dark:text-rose-400">
-                          {formatPrice(notif.totalAmount)}
-                        </span>
-                      )}
-                    </div>
+                    {/* Content details depending on notification type */}
+                    {notif.type === 'STAFF_APPLICATION' ? (
+                      <>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug line-clamp-2">
+                          {getNotificationContent(notif)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+                          {notif.inviteCode && (
+                            <span className="font-mono bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                              {notif.inviteCode}
+                            </span>
+                          )}
+                          <span className="text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            {t('btn_review_application')}
+                          </span>
+                        </div>
+                      </>
+                    ) : notif.type === 'CERTIFICATE_VERIFICATION' ? (
+                      <>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug line-clamp-2">
+                          {getNotificationContent(notif)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+                          {notif.certName && (
+                            <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">
+                              {notif.certName}
+                            </span>
+                          )}
+                          <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            {t('btn_verify_certificate')}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">
+                          <span className="font-semibold">{notif.customerName}</span> • {notif.servicePackageName}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                          {notif.bookingCode && (
+                            <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">
+                              #{notif.bookingCode}
+                            </span>
+                          )}
+                          {notif.bookingDate && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {formatBookingDateTime(notif.startTime, notif.bookingDate)}
+                            </span>
+                          )}
+                          {notif.totalAmount && (
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">
+                              {formatCurrency(notif.totalAmount)}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Clock, MapPin, User, DollarSign, Image, AlertCircle, History } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, User, DollarSign, Image, AlertCircle, History, Package } from 'lucide-react';
 import { superAdminService } from '../../../services/super-admin.service';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { Badge } from '../../base/Badge';
+import { formatDate, formatDateTime } from '../../../utils/formatters';
 
 export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
   const { t } = useI18nStore();
@@ -80,31 +81,17 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
     return partner || '';
   };
 
-  const formatDateTime = (val) => {
-    if (!val) return '—';
-    try {
-      return new Date(val).toLocaleString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-    } catch {
-      return val;
-    }
-  };
+
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto flex items-start justify-center pt-16 sm:pt-20 pb-16 px-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md" onClick={onClose} />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-4xl min-h-[65vh] max-h-[90vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-100 dark:border-slate-800 overflow-hidden z-10 flex flex-col justify-between">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-rose-100 dark:border-slate-800 overflow-hidden z-10 flex flex-col max-h-[calc(100vh-160px)]">
         {/* Header */}
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40 shrink-0">
           <div className="flex items-center gap-3">
             <span className="font-mono text-sm font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-900/40">
               #{booking.bookingCode || booking.id}
@@ -122,7 +109,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
         </div>
 
         {/* Body Content */}
-        <div className="p-6 overflow-y-auto space-y-6 text-xs sm:text-sm">
+        <div className="p-6 overflow-y-auto space-y-6 text-xs sm:text-sm flex-1">
           {/* Main Info Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Customer Box */}
@@ -163,7 +150,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
             <div className="flex items-center gap-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-rose-500" />
-                <span>{booking.bookingDate || 'N/A'}</span>
+                <span>{booking.bookingDate ? formatDate(booking.bookingDate) : 'N/A'}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-rose-500" />
@@ -180,6 +167,92 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
                 {booking.destinationAddress || t('address_not_provided')}
               </span>
             </div>
+          </div>
+
+          {/* Service Package Details Section */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
+              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold uppercase text-[11px]">
+                <Package className="w-3.5 h-3.5" />
+                <span>{t('booking_package_details') || 'Gói Dịch Vụ Đã Đặt'}</span>
+              </div>
+              {booking.categoryName && (
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/40">
+                  {booking.categoryName}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                  {booking.packageName || booking.servicePackageName || t('unspecified_package')}
+                </h4>
+                {booking.packageDescription && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    {booking.packageDescription}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {booking.packageDurationMinutes && (
+                  <span className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 font-medium">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    {booking.packageDurationMinutes} {t('unit_minutes') || 'phút'}
+                  </span>
+                )}
+                {booking.packagePrice !== undefined && booking.packagePrice !== null && (
+                  <span className="text-xs font-bold text-slate-900 dark:text-white bg-rose-50 dark:bg-rose-950/30 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800">
+                    {Number(booking.packagePrice).toLocaleString()} đ
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Package Items / Steps Breakdown */}
+            {booking.packageItems && booking.packageItems.length > 0 && (
+              <div className="pt-2">
+                <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
+                  {t('package_items_list') || 'Quy Trình & Chi Tiết Các Bước'} ({booking.packageItems.length})
+                </p>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {booking.packageItems.map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                          {item.stepOrder || idx + 1}
+                        </span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                          {item.itemName}
+                        </span>
+                        {item.itemType && (
+                          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
+                            {item.itemType}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 text-slate-500 text-[11px]">
+                        {item.durationMinutes && (
+                          <span>{item.durationMinutes}p</span>
+                        )}
+                        {item.itemPrice && Number(item.itemPrice) > 0 ? (
+                          <span className="font-semibold text-rose-600 dark:text-rose-400">
+                            +{Number(item.itemPrice).toLocaleString()} đ
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[10px]">
+                            {t('included') || 'Đã bao gồm'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Financial Breakdown */}
@@ -283,16 +356,6 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            {t('close')}
-          </button>
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Data
@@ -23,7 +24,7 @@ public class ConfigureShiftReq {
     @NotNull(message = "{validation.staff_id_required}")
     private Long staffId;
 
-    private java.time.LocalDate workDate;
+    private LocalDate workDate;
 
     private Integer dayOfWeek; // 1: Chủ Nhật, 2: Thứ 2, ..., 7: Thứ 7
 

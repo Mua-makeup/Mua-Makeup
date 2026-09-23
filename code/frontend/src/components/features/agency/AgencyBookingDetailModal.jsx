@@ -8,12 +8,13 @@ import {
   AlertCircle,
   FileText,
   History,
+  Package,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Badge } from '../../base/Badge';
-import { Button } from '../../base/Button';
 import { agencyService } from '../../../services/agency.service';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { formatDateTime, formatBookingDateTime } from '../../../utils/formatters';
 
 export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
   const { t } = useI18nStore();
@@ -45,20 +46,6 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
   };
 
-  const formatDateTime = (isoStr) => {
-    if (!isoStr) return '—';
-    try {
-      return new Date(isoStr).toLocaleString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
 
   const statusMap = {
     PENDING_DEPOSIT: { variant: 'pending', label: t('status_pending_deposit') },
@@ -98,11 +85,6 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
       }
       maxWidth="max-w-4xl"
       minHeight="min-h-[65vh]"
-      footer={
-        <Button variant="secondary" onClick={onClose}>
-          {t('modal_close_btn')}
-        </Button>
-      }
     >
       <div className="space-y-6">
         {/* Core Info Grid */}
@@ -139,23 +121,17 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
                 <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <span>
-                  {formatDateTime(
-                    booking.scheduledStartTime ||
-                      (booking.bookingDate && booking.startTime
-                        ? `${booking.bookingDate}T${booking.startTime}`
-                        : null)
-                  )}
+                  {booking.scheduledStartTime
+                    ? formatDateTime(booking.scheduledStartTime)
+                    : formatBookingDateTime(booking.startTime, booking.bookingDate) || '—'}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                 <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <span>
-                  {formatDateTime(
-                    booking.scheduledEndTime ||
-                      (booking.bookingDate && booking.endTime
-                        ? `${booking.bookingDate}T${booking.endTime}`
-                        : null)
-                  )}
+                  {booking.scheduledEndTime
+                    ? formatDateTime(booking.scheduledEndTime)
+                    : formatBookingDateTime(booking.endTime, booking.bookingDate) || '—'}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
@@ -166,6 +142,92 @@ export const AgencyBookingDetailModal = ({ isOpen, onClose, booking }) => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Service Package Details Section */}
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
+            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold uppercase text-[11px]">
+              <Package className="w-3.5 h-3.5" />
+              <span>{t('booking_package_details') || 'Gói Dịch Vụ Đã Đặt'}</span>
+            </div>
+            {booking.categoryName && (
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/40">
+                {booking.categoryName}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                {booking.servicePackageName || booking.packageName || t('unspecified_package')}
+              </h4>
+              {booking.packageDescription && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  {booking.packageDescription}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {booking.packageDurationMinutes && (
+                <span className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-850 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 font-medium">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  {booking.packageDurationMinutes} {t('unit_minutes') || 'phút'}
+                </span>
+              )}
+              {booking.packagePrice !== undefined && booking.packagePrice !== null && (
+                <span className="text-xs font-bold text-slate-900 dark:text-white bg-rose-50 dark:bg-rose-950/30 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800">
+                  {formatCurrency(booking.packagePrice)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Package Items / Steps Breakdown */}
+          {booking.packageItems && booking.packageItems.length > 0 && (
+            <div className="pt-2">
+              <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
+                {t('package_items_list') || 'Quy Trình & Chi Tiết Các Bước'} ({booking.packageItems.length})
+              </p>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {booking.packageItems.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                        {item.stepOrder || idx + 1}
+                      </span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                        {item.itemName}
+                      </span>
+                      {item.itemType && (
+                        <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
+                          {item.itemType}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 text-slate-500 text-[11px]">
+                      {item.durationMinutes && (
+                        <span>{item.durationMinutes}p</span>
+                      )}
+                      {item.itemPrice && Number(item.itemPrice) > 0 ? (
+                        <span className="font-semibold text-rose-600 dark:text-rose-400">
+                          +{formatCurrency(item.itemPrice)}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[10px]">
+                          {t('included') || 'Đã bao gồm'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Financial & Commission Breakdown */}

@@ -6,6 +6,7 @@ import { Badge } from '../../components/base/Badge';
 import { DataTable } from '../../components/base/DataTable';
 import { BookingDetailModal } from '../../components/features/admin/BookingDetailModal';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
+import { formatDate } from '../../utils/formatters';
 
 export const AdminBookingsPage = () => {
   const { t } = useI18nStore();
@@ -165,7 +166,7 @@ export const AdminBookingsPage = () => {
       accessor: 'bookingDate',
       render: (row) => (
         <div className="text-xs text-slate-700 dark:text-slate-300">
-          <div>{row.bookingDate || 'N/A'}</div>
+          <div>{row.bookingDate ? formatDate(row.bookingDate) : 'N/A'}</div>
           <div className="text-[11px] text-slate-400">{row.startTime || ''}</div>
         </div>
       ),

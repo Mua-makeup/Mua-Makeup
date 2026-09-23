@@ -22,6 +22,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.makeup.platform.common.constants.SecurityConstants;
+import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.repository.UserRepository;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,6 +41,8 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationMapper notificationMapper;
     private final AgencyProfileRepository agencyProfileRepository;
     private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional(readOnly = true)
@@ -145,5 +157,125 @@ public class NotificationServiceImpl implements NotificationService {
         NotificationEntity saved = notificationRepository.save(entity);
         log.info("[Notification] Created in-app notification ID={} for agencyId={}", saved.getId(), event.getAgencyId());
         return saved;
+    }
+
+    @Override
+    @Transactional
+    public NotificationEntity createStaffApplicationNotification(
+            AgencyProfileEntity agency,
+            MuaProfileEntity mua,
+            String inviteCode,
+            Long staffId
+    ) {
+        if (agency == null || mua == null) {
+            return null;
+        }
+
+        String muaName = (mua.getUser() != null && StringUtils.hasText(mua.getUser().getFullName()))
+                ? mua.getUser().getFullName()
+                : "Thợ MUA #" + mua.getId();
+        String muaPhone = (mua.getUser() != null) ? mua.getUser().getPhoneNumber() : null;
+        String muaAvatar = (mua.getUser() != null) ? mua.getUser().getAvatarUrl() : null;
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("staffId", staffId);
+        metadata.put("muaId", mua.getId());
+        metadata.put("muaUserId", mua.getUser() != null ? mua.getUser().getId() : null);
+        metadata.put("muaName", muaName);
+        metadata.put("muaPhone", muaPhone);
+        metadata.put("muaAvatar", muaAvatar);
+        metadata.put("inviteCode", inviteCode);
+        metadata.put("appliedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .agency(agency)
+                .user(agency.getOwner())
+                .type("STAFF_APPLICATION")
+                .title("Có Đơn Gia Nhập Mới!")
+                .content("Thợ trang điểm " + muaName + " vừa nộp đơn xin gia nhập Studio qua mã mời " + inviteCode + ". Vui lòng xem xét phê duyệt.")
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created staff application notification ID={} for agencyId={}", saved.getId(), agency.getId());
+
+        // Broadcast realtime qua STOMP WebSocket
+        try {
+            Map<String, Object> payload = new HashMap<>(metadata);
+            payload.put("id", saved.getId());
+            payload.put("type", "STAFF_APPLICATION");
+            payload.put("title", saved.getTitle());
+            payload.put("content", saved.getContent());
+            payload.put("agencyId", agency.getId());
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/agency/" + agency.getId() + "/staff-applications", payload);
+            messagingTemplate.convertAndSend("/topic/agency/" + agency.getId() + "/notifications", payload);
+            log.info("[WebSocket] Sent staff application notification to /topic/agency/{}/staff-applications", agency.getId());
+        } catch (Exception e) {
+            log.error("[WebSocket] Failed to broadcast staff application notification for agencyId={}", agency.getId(), e);
+        }
+
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public void createCertificateUploadedNotification(
+            MuaProfileEntity mua,
+            String certName,
+            String imageUrl
+    ) {
+        if (mua == null) {
+            return;
+        }
+
+        String muaName = (mua.getUser() != null && StringUtils.hasText(mua.getUser().getFullName()))
+                ? mua.getUser().getFullName()
+                : "Thợ MUA #" + mua.getId();
+        String muaPhone = (mua.getUser() != null) ? mua.getUser().getPhoneNumber() : null;
+
+        List<UserEntity> superAdmins = userRepository.findAllByRoleName(SecurityConstants.ROLE_SUPER_ADMIN);
+        if (superAdmins == null || superAdmins.isEmpty()) {
+            log.warn("[Notification] No Super Admin found to receive certificate upload notification");
+            return;
+        }
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("muaId", mua.getId());
+        metadata.put("muaUserId", mua.getUser() != null ? mua.getUser().getId() : null);
+        metadata.put("muaName", muaName);
+        metadata.put("muaPhone", muaPhone);
+        metadata.put("certName", certName);
+        metadata.put("imageUrl", imageUrl);
+        metadata.put("uploadedAt", LocalDateTime.now().toString());
+
+        for (UserEntity admin : superAdmins) {
+            NotificationEntity entity = NotificationEntity.builder()
+                    .user(admin)
+                    .type("CERTIFICATE_VERIFICATION")
+                    .title("Chứng Chỉ Mới Cần Duyệt!")
+                    .content("Thợ trang điểm " + muaName + " vừa tải lên chứng chỉ '" + certName + "' cần được Ban Quản Trị phê duyệt.")
+                    .metadata(metadata)
+                    .isRead(false)
+                    .build();
+
+            notificationRepository.save(entity);
+        }
+
+        // Broadcast realtime qua STOMP WebSocket tới Ban Quản Trị
+        try {
+            Map<String, Object> payload = new HashMap<>(metadata);
+            payload.put("type", "CERTIFICATE_VERIFICATION");
+            payload.put("title", "Chứng Chỉ Mới Cần Duyệt!");
+            payload.put("content", "Thợ " + muaName + " vừa tải lên chứng chỉ '" + certName + "' cần được phê duyệt.");
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
+            log.info("[WebSocket] Sent certificate upload notification to /topic/admin/notifications for muaId={}", mua.getId());
+        } catch (Exception e) {
+            log.error("[WebSocket] Failed to broadcast certificate notification to /topic/admin/notifications", e);
+        }
     }
 }

@@ -3,10 +3,16 @@ package com.makeup.platform.mapper.agency;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
-import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.mua.MuaCertificateItem;
+import com.makeup.platform.entity.mua.MuaProfileEntity;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class AgencyStaffMapper {
@@ -25,7 +31,7 @@ public class AgencyStaffMapper {
         Long muaId = null;
 
         Integer experienceYears = null;
-        java.math.BigDecimal ratingAvg = null;
+        BigDecimal ratingAvg = null;
 
         if (mua != null) {
             muaId = mua.getId();
@@ -42,7 +48,7 @@ public class AgencyStaffMapper {
 
         String inviteCodeUsed = null;
         if (entity.getNote() != null && entity.getNote().contains("INV-")) {
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(INV-[A-Za-z0-9_-]+)").matcher(entity.getNote());
+            Matcher m = Pattern.compile("(INV-[A-Za-z0-9_-]+)").matcher(entity.getNote());
             if (m.find()) {
                 inviteCodeUsed = m.group(1);
             }
@@ -81,7 +87,7 @@ public class AgencyStaffMapper {
         String muaCode = null;
         String bio = null;
         Integer experienceYears = null;
-        java.math.BigDecimal ratingAvg = null;
+        BigDecimal ratingAvg = null;
         Boolean isOnline = null;
         Boolean isBusy = null;
         Long muaId = null;
@@ -102,14 +108,14 @@ public class AgencyStaffMapper {
             totalCompletedJobs = mua.getTotalCompletedJobs();
             totalReviews = mua.getTotalReviews();
             if (mua.getCertificates() != null) {
-                certificates = new java.util.ArrayList<>(mua.getCertificates());
+                certificates = new ArrayList<>(mua.getCertificates());
             } else {
-                certificates = java.util.Collections.emptyList();
+                certificates = Collections.emptyList();
             }
             if (mua.getPortfolioImages() != null) {
-                portfolioImages = new java.util.ArrayList<>(mua.getPortfolioImages());
+                portfolioImages = new ArrayList<>(mua.getPortfolioImages());
             } else {
-                portfolioImages = java.util.Collections.emptyList();
+                portfolioImages = Collections.emptyList();
             }
             if (mua.getUser() != null) {
                 fullName = mua.getUser().getFullName();

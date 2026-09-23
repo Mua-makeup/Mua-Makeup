@@ -62,6 +62,7 @@ public final class ErrorCodes {
     public static final String ERR_AGENCY_ACCESS_DENIED = "ERR_AGENCY_ACCESS_DENIED";
     public static final String ERR_STAFF_NOT_FOUND = "ERR_STAFF_NOT_FOUND";
     public static final String ERR_STAFF_ALREADY_EXISTS = "ERR_STAFF_ALREADY_EXISTS";
+    public static final String ERR_STAFF_APPLICATION_PENDING = "ERR_STAFF_APPLICATION_PENDING";
     public static final String ERR_INVITATION_NOT_FOUND = "ERR_INVITATION_NOT_FOUND";
     public static final String ERR_INVITATION_EXPIRED = "ERR_INVITATION_EXPIRED";
     public static final String ERR_INVITATION_ALREADY_USED = "ERR_INVITATION_ALREADY_USED";

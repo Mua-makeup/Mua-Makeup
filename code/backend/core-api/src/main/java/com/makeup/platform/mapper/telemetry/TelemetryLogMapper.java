@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -55,7 +56,7 @@ public class TelemetryLogMapper {
         }
 
         Instant recordedAt = trip.getCreatedAt() != null
-                ? trip.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toInstant()
+                ? trip.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant()
                 : Instant.now();
 
         return TelemetryLogRes.builder()

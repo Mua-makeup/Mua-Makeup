@@ -5,12 +5,15 @@ import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -51,8 +54,8 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
         ORDER BY (b.booking_date + b.start_time) ASC
     """, nativeQuery = true)
     List<BookingEntity> findPending24hRemindersBatch(
-            @Param("maxReminderTime") java.time.LocalDateTime maxReminderTime,
-            org.springframework.data.domain.Pageable pageable
+            @Param("maxReminderTime") LocalDateTime maxReminderTime,
+            Pageable pageable
     );
 
     /**
@@ -68,8 +71,8 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
         ORDER BY (b.booking_date + b.start_time) ASC
     """, nativeQuery = true)
     List<BookingEntity> findPending2hRemindersBatch(
-            @Param("maxReminderTime") java.time.LocalDateTime maxReminderTime,
-            org.springframework.data.domain.Pageable pageable
+            @Param("maxReminderTime") LocalDateTime maxReminderTime,
+            Pageable pageable
     );
 
     /**
@@ -86,7 +89,7 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
      * Cập nhật trạng thái hủy đơn hết hạn cọc có điều kiện nguyên tử (Atomic Conditional Update).
      * Triệt tiêu hoàn toàn race-condition khi khách hàng thanh toán cọc ở giây 14:59.
      */
-    @org.springframework.data.jpa.repository.Modifying
+    @Modifying
     @Query("""
         UPDATE BookingEntity b
         SET b.status = com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED, b.updatedAt = CURRENT_TIMESTAMP

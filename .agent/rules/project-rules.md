@@ -77,6 +77,10 @@ src/main/java/com/makeup/platform/
 5. **Bắt buộc Bean Validation**: Mọi Request DTO phải chứa `@NotBlank`, `@NotNull`, `@Min`, `@Max`, `@Email`, `@Pattern`, `@Future`. Controller phải có `@Valid @RequestBody`.
 6. **Kế thừa Base Components**: Mọi JPA Entity phải kế thừa `BaseEntity`. Mọi Controller kế thừa `BaseController`. Mọi CRUD service cơ bản kế thừa `BaseService` & `BaseServiceImpl`.
 7. **Tách biệt Interface và Implementation**: Thư mục `service/` chỉ chứa Interface. Toàn bộ code thực thi logic nghiệp vụ nằm trong `service/impl/`.
+8. **Quy chuẩn Import Tường Minh (No Inline Fully Qualified Names - Clean Imports Standard)**:
+   - Toàn bộ các class, interface, DTO, Entity, Enum, Exception hay Java utilities (`List`, `Map`, `LocalDate`, `BigDecimal`...) BẮT BUỘC phải được import tường minh ở đầu file (`import ...;`).
+   - TUYỆT ĐỐI KHÔNG viết đường dẫn package đầy đủ (Fully Qualified Class Name - FQN) trực tiếp trong thân code, signature phương thức hoặc khai báo biến (ví dụ: cấm viết `com.makeup.platform.entity.mua.MuaProfileEntity mua`, `java.util.List<...>`, `java.time.LocalDate` trong code; phải import ở đầu file).
+   - Ngoại lệ duy nhất: Khi xảy ra xung đột tên class (name collision) giữa hai thư viện/package khác nhau trong cùng 1 file mà không thể giải quyết bằng alias.
 9. **Database Migration với Flyway (Teamwork Standard - Timestamp Versioning)**:
    - **Quy tắc đặt tên bắt buộc**: Mọi script migration mới BẮT BUỘC đặt tên theo chuẩn Timestamp: `resources/db/migration/V<YYYYMMDDHHmmss>__<Mo_ta>.sql` (Ví dụ: `V20260914210900__Init_Location_Telemetry_Module.sql`).
    - **Tuyệt đối KHÔNG dùng số tuần tự `V<N>` (V7, V8, V9...)**: Vì khi 4+ thành viên làm việc song song trên nhiều nhánh Git khác nhau, số tuần tự sẽ dẫn đến xung đột phiên bản và lỗi `checksum mismatch` hoặc `applied migration not resolved locally`.
