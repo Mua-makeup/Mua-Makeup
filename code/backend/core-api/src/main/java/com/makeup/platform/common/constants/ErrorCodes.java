@@ -29,6 +29,8 @@ public final class ErrorCodes {
     public static final String ERR_PACKAGE_ACCESS_DENIED = "ERR_PACKAGE_ACCESS_DENIED";
     public static final String ERR_INVALID_PACKAGE_PRICE = "ERR_INVALID_PACKAGE_PRICE";
     public static final String ERR_INVALID_ITEM_PRICE = "ERR_INVALID_ITEM_PRICE";
+    public static final String ERR_DUPLICATE_STEP_ORDER = "ERR_DUPLICATE_STEP_ORDER";
+    public static final String ERR_PACKAGE_DURATION_EXCEEDED = "ERR_PACKAGE_DURATION_EXCEEDED";
     public static final String ERR_SURCHARGE_NOT_FOUND = "ERR_SURCHARGE_NOT_FOUND";
     public static final String ERR_SURCHARGE_ACCESS_DENIED = "ERR_SURCHARGE_ACCESS_DENIED";
     public static final String ERR_INVALID_SURCHARGE_AMOUNT = "ERR_INVALID_SURCHARGE_AMOUNT";

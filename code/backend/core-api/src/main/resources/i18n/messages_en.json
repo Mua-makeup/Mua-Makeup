@@ -176,6 +176,8 @@
   "ERR_PACKAGE_ACCESS_DENIED": "You do not have permission to manage this service package.",
   "ERR_INVALID_PACKAGE_PRICE": "Minimum package price is 50,000 VND.",
   "ERR_INVALID_ITEM_PRICE": "Item price cannot be less than 0 VND.",
+  "ERR_DUPLICATE_STEP_ORDER": "This step order already exists in the package workflow.",
+  "ERR_PACKAGE_DURATION_EXCEEDED": "Total duration of mandatory steps cannot exceed the package duration.",
   "ERR_SURCHARGE_NOT_FOUND": "Surcharge with ID {0} not found.",
   "ERR_SURCHARGE_ACCESS_DENIED": "You do not have permission to manage this surcharge.",
   "ERR_INVALID_SURCHARGE_AMOUNT": "Surcharge amount cannot be less than 0 VND.",

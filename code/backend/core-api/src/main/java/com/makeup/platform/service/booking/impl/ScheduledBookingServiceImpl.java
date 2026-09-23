@@ -15,6 +15,7 @@ import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
+import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.mapper.booking.ScheduledBookingMapper;
@@ -22,6 +23,7 @@ import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.agency.AgencyStaffCapacityService;
 import com.makeup.platform.service.booking.BookingAuditService;
@@ -32,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +56,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
     private final ServicePackageRepository servicePackageRepository;
+    private final PackageItemRepository packageItemRepository;
     private final AgencyProfileRepository agencyProfileRepository;
     private final MuaProfileRepository muaProfileRepository;
     private final MUACalendarService muaCalendarService;
@@ -83,9 +87,33 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         ServicePackageEntity servicePackage = servicePackageRepository.findById(req.getPackageId())
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "catalog.package_not_found"));
 
-        int durationMinutes = (servicePackage.getEstimatedDurationMinutes() != null && servicePackage.getEstimatedDurationMinutes() > 0)
+        int baseDuration = (servicePackage.getEstimatedDurationMinutes() != null && servicePackage.getEstimatedDurationMinutes() > 0)
                 ? servicePackage.getEstimatedDurationMinutes()
                 : 90;
+
+        BigDecimal addOnsTotal = BigDecimal.ZERO;
+        int addOnsDuration = 0;
+
+        if (req.getAddOnItemIds() != null && !req.getAddOnItemIds().isEmpty()) {
+            List<PackageItemEntity> addOns = packageItemRepository.findAllById(req.getAddOnItemIds());
+            for (PackageItemEntity item : addOns) {
+                if (item.getServicePackage() == null || !item.getServicePackage().getId().equals(servicePackage.getId())) {
+                    throw new CustomBusinessException(
+                            ErrorCodes.ERR_ADDON_NOT_IN_PACKAGE,
+                            "pricing.addon_not_in_package",
+                            HttpStatus.BAD_REQUEST
+                    );
+                }
+                if (item.getItemPrice() != null) {
+                    addOnsTotal = addOnsTotal.add(item.getItemPrice());
+                }
+                if (item.getDurationMinutes() != null) {
+                    addOnsDuration += item.getDurationMinutes();
+                }
+            }
+        }
+
+        int durationMinutes = baseDuration + addOnsDuration;
 
         MuaProfileEntity muaProfile = null;
         AgencyProfileEntity agencyProfile = null;
@@ -149,7 +177,8 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     : BigDecimal.ZERO;
 
             BigDecimal basePrice = servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO;
-            BigDecimal totalAmount = basePrice.add(surchargeFee);
+            BigDecimal serviceSubtotal = basePrice.add(addOnsTotal).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal totalAmount = serviceSubtotal.add(surchargeFee);
             BigDecimal depositAmount = totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
 
             String bookingCode = "BK-SCHED-" + (System.currentTimeMillis() % 10000000L);
@@ -169,7 +198,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     .destinationLongitude(req.getDestinationLongitude())
                     .bookingDate(req.getBookingDate())
                     .startTime(req.getStartTime())
-                    .serviceSubtotal(basePrice)
+                    .serviceSubtotal(serviceSubtotal)
                     .distanceFee(BigDecimal.ZERO)
                     .surchargeFee(surchargeFee)
                     .surgeMultiplier(BigDecimal.ONE)

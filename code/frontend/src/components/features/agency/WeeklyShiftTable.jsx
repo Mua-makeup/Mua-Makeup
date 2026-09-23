@@ -3,6 +3,7 @@ import {
   CalendarDays,
   Plus,
   Trash2,
+  Pencil,
   Clock,
   AlertTriangle,
   AlertCircle,
@@ -63,7 +64,34 @@ const SHIFT_PERIODS = [
   },
 ];
 
+// Kiểm tra ca trực có giao thoa (overlap) với khoảng thời gian của buổi không
+const isShiftInPeriod = (shift, periodId) => {
+  if (!shift?.startTime || !shift?.endTime) return false;
 
+  const parseMinutes = (tStr) => {
+    if (!tStr) return 0;
+    const parts = tStr.split(':');
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    return h * 60 + m;
+  };
+
+  const shiftStart = parseMinutes(shift.startTime);
+  const shiftEnd = parseMinutes(shift.endTime);
+
+  let periodStart = 6 * 60; // 06:00
+  let periodEnd = 12 * 60; // 12:00
+
+  if (periodId === 'AFTERNOON') {
+    periodStart = 12 * 60; // 12:00
+    periodEnd = 18 * 60; // 18:00
+  } else if (periodId === 'EVENING') {
+    periodStart = 18 * 60; // 18:00
+    periodEnd = 24 * 60; // 24:00
+  }
+
+  return Math.max(shiftStart, periodStart) < Math.min(shiftEnd, periodEnd);
+};
 
 // Phân loại ca vào buổi dựa theo giờ bắt đầu
 const getPeriodId = (startTime) => {
@@ -83,8 +111,9 @@ export const WeeklyShiftTable = () => {
   const [apiError, setApiError] = useState(null);
   const [isNotVerified, setIsNotVerified] = useState(false);
 
-  // Phân ca modal state
+  // Phân ca / sửa ca modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingShift, setEditingShift] = useState(null);
   const [formError, setFormError] = useState('');
 
   // Xóa ca modal alert state
@@ -99,7 +128,7 @@ export const WeeklyShiftTable = () => {
 
   // Form fields
   const [selectedStaffId, setSelectedStaffId] = useState('');
-  const [selectedDay, setSelectedDay] = useState(2); // Mặc định Thứ 2
+  const [selectedDays, setSelectedDays] = useState([2]); // Mảng các ngày trong tuần (2: T2, ...)
   const [shiftName, setShiftName] = useState(t('preset_morning'));
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('12:00');
@@ -256,9 +285,9 @@ export const WeeklyShiftTable = () => {
 
   // Thống kê nhanh
   const stats = useMemo(() => {
-    const morningCount = shifts.filter((s) => getPeriodId(s.startTime) === 'MORNING').length;
-    const afternoonCount = shifts.filter((s) => getPeriodId(s.startTime) === 'AFTERNOON').length;
-    const eveningCount = shifts.filter((s) => getPeriodId(s.startTime) === 'EVENING').length;
+    const morningCount = shifts.filter((s) => isShiftInPeriod(s, 'MORNING')).length;
+    const afternoonCount = shifts.filter((s) => isShiftInPeriod(s, 'AFTERNOON')).length;
+    const eveningCount = shifts.filter((s) => isShiftInPeriod(s, 'EVENING')).length;
     const uniqueStaffCount = new Set(shifts.map((s) => s.staffId)).size;
     return {
       total: shifts.length,
@@ -271,8 +300,9 @@ export const WeeklyShiftTable = () => {
 
   // Real-time Shift Conflict Hook
   const { hasConflict, conflictMessage } = useShiftConflict(shifts, {
+    id: editingShift?.id,
     staffId: Number(selectedStaffId),
-    dayOfWeek: Number(selectedDay),
+    dayOfWeek: Number(selectedDays[0] || 2),
     shiftName,
     startTime,
     endTime,
@@ -309,7 +339,42 @@ export const WeeklyShiftTable = () => {
     setEndTime(preset.endTime);
   };
 
-  const handleCreateShift = async (e) => {
+  const handleToggleDay = (dayVal) => {
+    if (editingShift) {
+      setSelectedDays([dayVal]);
+      return;
+    }
+    setSelectedDays((prev) => {
+      if (prev.includes(dayVal)) {
+        if (prev.length <= 1) return prev;
+        return prev.filter((d) => d !== dayVal);
+      }
+      return [...prev, dayVal].sort((a, b) => a - b);
+    });
+  };
+
+  const handleSelectWeekdays = () => {
+    if (editingShift) return;
+    setSelectedDays([2, 3, 4, 5, 6]);
+  };
+
+  const handleSelectFullWeek = () => {
+    if (editingShift) return;
+    setSelectedDays([2, 3, 4, 5, 6, 7, 1]);
+  };
+
+  const handleStartEditShift = (shift) => {
+    setEditingShift(shift);
+    setSelectedStaffId(String(shift.staffId));
+    setSelectedDays([Number(shift.dayOfWeek)]);
+    setShiftName(shift.shiftName || t('preset_morning'));
+    setStartTime(shift.startTime ? shift.startTime.substring(0, 5) : '08:00');
+    setEndTime(shift.endTime ? shift.endTime.substring(0, 5) : '12:00');
+    setFormError('');
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveShift = async (e) => {
     e.preventDefault();
     setFormError('');
 
@@ -318,40 +383,117 @@ export const WeeklyShiftTable = () => {
       return;
     }
 
-    const targetDateObj = getDayDate(selectedDay);
-    const targetWorkDate = formatToIsoDate(targetDateObj);
-
-    const payload = {
-      staffId: Number(selectedStaffId),
-      dayOfWeek: Number(selectedDay),
-      workDate: targetWorkDate,
-      shiftName: shiftName.trim(),
-      startTime,
-      endTime,
-      isRecurring: false,
-    };
-
-    const validation = shiftSchema.safeParse(payload);
-    if (!validation.success) {
-      setFormError(validation.error.errors[0]?.message || t('error_general'));
+    if (!selectedStaffId) {
+      setFormError(t('field_choose_staff'));
       return;
     }
 
+    const cleanStart = (startTime || '').trim();
+    const cleanEnd = (endTime || '').trim();
+    const fmtStartTime = cleanStart.length === 5 ? `${cleanStart}:00` : cleanStart;
+    const fmtEndTime = cleanEnd.length === 5 ? `${cleanEnd}:00` : cleanEnd;
+
     setIsLoading(true);
     try {
-      const res = await agencyService.createShift(payload);
-      const created = res.data || res;
-      setShifts((prev) => [
-        ...prev,
-        {
-          ...created,
-          dayOfWeek: Number(payload.dayOfWeek),
-          staffName:
-            staffList.find((s) => s.id === Number(selectedStaffId))?.fullName ||
-            `${t('staff_label')} #${selectedStaffId}`,
-        },
-      ]);
-      setIsAddModalOpen(false);
+      if (editingShift) {
+        const targetDay = selectedDays[0] || Number(editingShift.dayOfWeek);
+        const targetDateObj = getDayDate(targetDay);
+        const targetWorkDate = formatToIsoDate(targetDateObj);
+
+        const payload = {
+          staffId: Number(selectedStaffId),
+          dayOfWeek: Number(targetDay),
+          workDate: targetWorkDate,
+          shiftName: shiftName.trim(),
+          startTime: fmtStartTime,
+          endTime: fmtEndTime,
+          isRecurring: false,
+        };
+
+        const validation = shiftSchema.safeParse(payload);
+        if (!validation.success) {
+          setFormError(validation.error.errors[0]?.message || t('error_general'));
+          setIsLoading(false);
+          return;
+        }
+
+        const res = await agencyService.updateShift(editingShift.id, payload);
+        const updated = res.data || res;
+        setShifts((prev) =>
+          prev.map((s) =>
+            s.id === editingShift.id
+              ? {
+                  ...s,
+                  ...updated,
+                  dayOfWeek: Number(targetDay),
+                  workDate: targetWorkDate,
+                  startTime: fmtStartTime,
+                  endTime: fmtEndTime,
+                  shiftName: payload.shiftName,
+                  staffName:
+                    staffList.find((st) => st.id === Number(selectedStaffId))?.fullName ||
+                    s.staffName,
+                }
+              : s
+          )
+        );
+        setToastMessage(t('shift_updated_success'));
+        setToastType('success');
+        setIsAddModalOpen(false);
+        setEditingShift(null);
+      } else {
+        // Create mode: allow multiple days
+        const promises = selectedDays.map(async (dayVal) => {
+          const targetDateObj = getDayDate(dayVal);
+          const targetWorkDate = formatToIsoDate(targetDateObj);
+          const payload = {
+            staffId: Number(selectedStaffId),
+            dayOfWeek: Number(dayVal),
+            workDate: targetWorkDate,
+            shiftName: shiftName.trim(),
+            startTime: fmtStartTime,
+            endTime: fmtEndTime,
+            isRecurring: false,
+          };
+
+          const validation = shiftSchema.safeParse(payload);
+          if (!validation.success) {
+            throw new Error(validation.error.errors[0]?.message || t('error_general'));
+          }
+
+          const res = await agencyService.createShift(payload);
+          const created = res.data || res;
+          return {
+            ...created,
+            dayOfWeek: Number(dayVal),
+            workDate: targetWorkDate,
+            startTime: fmtStartTime,
+            endTime: fmtEndTime,
+            shiftName: payload.shiftName,
+            staffName:
+              staffList.find((s) => s.id === Number(selectedStaffId))?.fullName ||
+              `${t('staff_label')} #${selectedStaffId}`,
+          };
+        });
+
+        const results = await Promise.allSettled(promises);
+        const newShifts = results
+          .filter((r) => r.status === 'fulfilled')
+          .map((r) => r.value);
+
+        if (newShifts.length > 0) {
+          setShifts((prev) => [...prev, ...newShifts]);
+          setToastMessage(t('shift_created_success') || 'Phân ca thành công!');
+          setToastType('success');
+          setIsAddModalOpen(false);
+        }
+
+        const failed = results.filter((r) => r.status === 'rejected');
+        if (failed.length > 0) {
+          const firstErr = failed[0].reason?.response?.data?.message || failed[0].reason?.message;
+          setFormError(firstErr || t('shift_save_error'));
+        }
+      }
     } catch (err) {
       setFormError(
         err.response?.data?.message || err.message || t('shift_save_error')
@@ -377,7 +519,8 @@ export const WeeklyShiftTable = () => {
   };
 
   const openAddForDayAndPeriod = (dayValue, periodId) => {
-    setSelectedDay(Number(dayValue));
+    setEditingShift(null);
+    setSelectedDays([Number(dayValue)]);
     if (staffList.length > 0) setSelectedStaffId(String(staffList[0].id));
 
     if (periodId === 'MORNING') {
@@ -732,6 +875,8 @@ export const WeeklyShiftTable = () => {
           size="sm"
           icon={Plus}
           onClick={() => {
+            setEditingShift(null);
+            setSelectedDays([2]);
             if (staffList.length > 0) setSelectedStaffId(String(staffList[0].id));
             setShiftName(t('preset_morning'));
             setStartTime('08:00');
@@ -787,7 +932,7 @@ export const WeeklyShiftTable = () => {
 
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                   {
-                    filteredShifts.filter((s) => getPeriodId(s.startTime) === period.id).length
+                    filteredShifts.filter((s) => isShiftInPeriod(s, period.id)).length
                   }{' '}
                   {t('shifts_unit')}
                 </span>
@@ -802,7 +947,7 @@ export const WeeklyShiftTable = () => {
 
                   const dayShifts = filteredShifts.filter((s) => {
                     const isSameDow = Number(s.dayOfWeek) === Number(d.value);
-                    const isSamePeriod = getPeriodId(s.startTime) === period.id;
+                    const isSamePeriod = isShiftInPeriod(s, period.id);
                     if (!isSameDow || !isSamePeriod) return false;
 
                     // Nếu ca có workDate: Phải khớp chính xác ngày của cột trong tuần đó
@@ -903,17 +1048,30 @@ export const WeeklyShiftTable = () => {
                                       {s.staffName || `${t('staff_label')} #${s.staffId}`}
                                     </span>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDeletingShift(s);
-                                    }}
-                                    className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-90"
-                                    title={t('delete')}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleStartEditShift(s);
+                                      }}
+                                      className="text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-950/40 active:scale-90"
+                                      title={t('btn_edit_shift')}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeletingShift(s);
+                                      }}
+                                      className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-all p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-90"
+                                      title={t('delete')}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium truncate mt-0.5 pl-4.5">
@@ -961,12 +1119,12 @@ export const WeeklyShiftTable = () => {
         title={
           <div className="flex items-center gap-2 text-slate-900 dark:text-white">
             <CalendarDays className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-            <span>{t('modal_shift_title')}</span>
+            <span>{editingShift ? t('modal_shift_edit_title') : t('modal_shift_title')}</span>
           </div>
         }
         maxWidth="max-w-lg"
       >
-        <form onSubmit={handleCreateShift} className="space-y-4">
+        <form onSubmit={handleSaveShift} className="space-y-4">
           {/* Conflict Alert Banner */}
           {hasConflict && (
             <div className="p-3.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs rounded-xl flex items-start gap-2.5">
@@ -998,18 +1156,38 @@ export const WeeklyShiftTable = () => {
 
           {/* Chọn Ngày Trong Tuần Dạng Tag/Pill Trực Quan */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              {t('field_day_of_week')} <span className="text-rose-600">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                {t('field_day_of_week')} <span className="text-rose-600">*</span>
+              </label>
+              {!editingShift && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleSelectWeekdays}
+                    className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:underline px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/60 cursor-pointer"
+                  >
+                    {t('btn_select_all_weekdays')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSelectFullWeek}
+                    className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:underline px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/60 cursor-pointer"
+                  >
+                    {t('btn_select_full_week')}
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-7 gap-1.5">
               {SHIFT_DAYS.map((d) => {
                 const dayInfo = getDayInfo(d.key);
-                const isSelected = Number(selectedDay) === Number(d.value);
+                const isSelected = selectedDays.includes(Number(d.value));
                 return (
                   <button
                     key={d.value}
                     type="button"
-                    onClick={() => setSelectedDay(Number(d.value))}
+                    onClick={() => handleToggleDay(Number(d.value))}
                     className={`py-2 px-1 rounded-xl text-center border transition-all active:scale-95 cursor-pointer ${
                       isSelected
                         ? 'bg-rose-600 text-white border-rose-600 shadow-sm font-bold scale-[1.02] ring-2 ring-rose-500/30'
@@ -1104,13 +1282,15 @@ export const WeeklyShiftTable = () => {
             </div>
           </div>
 
-          {/* Tên ca làm việc */}
+          {/* Tên ca làm việc (Chỉ đọc để tránh gõ sai) */}
           <Input
             label={t('field_shift_name')}
             required
+            readOnly
             placeholder={t('shift_field_name_placeholder')}
             value={shiftName}
-            onChange={(e) => setShiftName(e.target.value)}
+            className="bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed select-none text-slate-700 dark:text-slate-300 font-medium"
+            helperText={t('shift_name_readonly_hint')}
           />
 
           {/* Khung giờ & thời lượng */}
@@ -1152,11 +1332,11 @@ export const WeeklyShiftTable = () => {
             <Button
               type="submit"
               variant="primary"
-              disabled={hasConflict || !selectedStaffId}
+              disabled={hasConflict || !selectedStaffId || selectedDays.length === 0}
               isLoading={isLoading}
               className="col-span-2 w-full"
             >
-              {t('save')}
+              {editingShift ? t('btn_update_shift') : t('btn_save_shift')}
             </Button>
           </div>
         </form>

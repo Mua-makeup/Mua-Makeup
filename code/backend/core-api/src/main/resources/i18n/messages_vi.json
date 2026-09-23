@@ -176,6 +176,8 @@
   "ERR_PACKAGE_ACCESS_DENIED": "Bạn không có quyền quản lý gói dịch vụ này.",
   "ERR_INVALID_PACKAGE_PRICE": "Giá tối thiểu của gói dịch vụ là 50,000 VNĐ.",
   "ERR_INVALID_ITEM_PRICE": "Giá thành phần không được nhỏ hơn 0 VNĐ.",
+  "ERR_DUPLICATE_STEP_ORDER": "Thứ tự bước này đã tồn tại trong quy trình gói dịch vụ.",
+  "ERR_PACKAGE_DURATION_EXCEEDED": "Tổng thời lượng các bước bắt buộc không được vượt quá thời lượng của gói dịch vụ.",
   "ERR_SURCHARGE_NOT_FOUND": "Không tìm thấy phụ phí với ID {0}.",
   "ERR_SURCHARGE_ACCESS_DENIED": "Bạn không có quyền quản lý phụ phí này.",
   "ERR_INVALID_SURCHARGE_AMOUNT": "Mức phụ phí không được nhỏ hơn 0 VNĐ.",

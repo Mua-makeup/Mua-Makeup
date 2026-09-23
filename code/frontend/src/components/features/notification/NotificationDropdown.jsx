@@ -6,10 +6,8 @@ import {
   Check,
   CheckCheck,
   Trash2,
-  Calendar,
   Sparkles,
   ExternalLink,
-  DollarSign,
   Clock,
 } from 'lucide-react';
 import { useNotificationStore } from '../../../store/useNotificationStore';

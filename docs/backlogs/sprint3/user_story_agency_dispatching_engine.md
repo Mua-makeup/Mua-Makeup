@@ -25,8 +25,8 @@
     * Đảm bảo mỗi đơn hàng chỉ có duy nhất 1 Thợ chính đang hoạt động, ngăn chặn triệt để xung đột khi đồng bộ `bookings.mua_id`.
   * **Kiểm Soát Tranh Chấp Lịch & Chống Deadlock (Lock Ordering & Redisson MultiLock):**
     * Khi gán đa nhân sự (1 Thợ chính + 1–2 Thợ phụ), toàn bộ danh sách `mua_id` bắt buộc phải được **sắp xếp tăng dần theo ID tự nhiên** (`Collections.sort`) trước khi yêu cầu khóa.
-    * Sử dụng **Redisson MultiLock** (`redissonClient.getMultiLock(...)`) khóa nguyên tử đồng thời các thợ, loại bỏ hoàn toàn nguy cơ Deadlock phân tán khi nhiều lễ tân gán ca cùng thời điểm.
-    * Kết hợp **Exclusion Constraint** (`exclude_mua_overlapping_slots`) ở tầng Database để bảo vệ phòng thủ 2 lớp (Defense-in-Depth).
+    * Sử dụng **Redisson MultiLock** (`redissonClient.getMultiLock(...)`) khóa đồng thời các thợ theo thứ tự cố định để giảm thiểu deadlock/race-condition khi nhiều lễ tân gán ca cùng thời điểm. Ràng buộc cuối cùng vẫn phải được bảo vệ bằng unique/exclusion constraint ở PostgreSQL.
+    * Kết hợp **Exclusion Constraint** (`exclude_mua_overlapping_slots`) ở tầng Database để bảo vệ phòng thủ 2 lớp (Defense-in-Depth). Migration bắt buộc phải tạo GiST index/constraint tương ứng, không chỉ mô tả ở tầng service.
   * **Quản Lý Vòng Đời & Kiểm Toán Khi Thợ Báo Bận Khẩn Cấp (Emergency Audit Trail):**
     * Khi thợ báo bận đột xuất, **KHÔNG xóa slot lịch** để chống việc khách khác nhảy vào book thợ đang ốm/sự cố. Hệ thống giữ nguyên `is_locked = true`, cập nhật `reason = 'EMERGENCY_LEAVE_STAFF_{id}'` và gỡ `booking_id = NULL`.
     * Cập nhật bản ghi phân công trong `booking_staff_assignments` sang `status = 'EMERGENCY_CANCELLED'`, ghi nhận `cancellation_reason` và `cancelled_at` để bảo lưu đầy đủ Audit Trail.
@@ -41,7 +41,10 @@
      * Xử lý tình huống khẩn cấp khi thợ chính báo bận đột xuất: Nhận cảnh báo chuông đỏ tức thì qua WebSocket STOMP và đổi thợ dự phòng chỉ với 1 cú click chuột.
   2. **Studio Staff MUA (Thợ trang điểm trực thuộc Studio):**
      * Nhận thông báo ca làm được Studio phân công trên Mobile App.
-     * Được quyền bấm xác nhận nhận ca (`is_confirmed_by_staff = true`) hoặc báo bận đột xuất (kèm lý do chính đáng) trước giờ hẹn $\ge 4\text{ tiếng}$. Bị chặn tự hủy khi còn $< 2\text{ tiếng}$.
+     * Được quyền bấm xác nhận nhận ca (`is_confirmed_by_staff = true`) hoặc báo bận đột xuất theo 3 ngưỡng rõ ràng:
+       - Còn $\ge 4\text{ tiếng}$ trước giờ hẹn: Thợ được tự báo bận trên App nếu có lý do và bằng chứng hợp lệ.
+       - Còn từ $2\text{ tiếng}$ đến dưới $4\text{ tiếng}$: App ghi nhận yêu cầu nhưng chuyển sang trạng thái `PENDING_STUDIO_APPROVAL`, Studio phải xác nhận thủ công.
+       - Còn $< 2\text{ tiếng}$: Chặn tự hủy trên App, yêu cầu gọi hotline Studio để xử lý khẩn cấp.
   3. **Customer (Khách hàng đặt ca của Studio):**
      * Được phục vụ bởi đội ngũ chuyên nghiệp có sự bảo chứng uy tín từ Studio.
      * Được thông báo rõ ràng thông tin Thợ chính và Thợ phụ phụ trách ca làm; được tự động cập nhật thông tin nếu Studio đổi thợ dự phòng.
@@ -242,7 +245,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 * **Scenario 04: Chống Race-Condition & Deadlock khi nhiều lễ tân gán ca đồng thời**
   * **Given** Lễ tân A gán Đơn 1 (cần Thợ 101 + Thợ 105); Lễ tân B gán Đơn 2 (cần Thợ 105 + Thợ 101).
   * **When** Cả hai bấm submit đồng thời ($< 50\text{ms}$).
-  * **Then** Nhờ thuật toán Lock Ordering (luôn sort ID tăng dần thành `[45, 48]`), một bên sẽ lấy được MultiLock trước, bên còn lại chờ hoặc bị ném `ERR_STAFF_CALENDAR_BUSY`, **hoàn toàn loại bỏ khả năng xảy ra Deadlock phân tán**.
+  * **Then** Nhờ thuật toán Lock Ordering (luôn sort ID tăng dần thành `[45, 48]`), một bên sẽ lấy được MultiLock trước, bên còn lại chờ hoặc bị ném `ERR_STAFF_CALENDAR_BUSY`, **giảm thiểu khả năng xảy ra deadlock phân tán; xung đột còn lại được xử lý bằng timeout và constraint ở database**.
 
 ---
 
@@ -306,6 +309,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 | **`400 BAD_REQUEST`** | `ERR_STAFF_NOT_QUALIFIED_FOR_STYLE` | Thợ được chọn chưa có chứng chỉ Phong cách Make-up (Tone) theo yêu cầu đơn hàng (`agency_staff_styles.is_qualified = false`). | Chặn phân công Thợ chính, chỉ cho phép làm Thợ phụ nếu cần. |
 | **`400 BAD_REQUEST`** | `ERR_STAFF_OFF_SHIFT` | Thợ không có ca làm việc đăng ký tại Studio (`agency_staff_shifts`) vào thời điểm diễn ra ca hẹn. | Chặn phân công, yêu cầu chọn thợ đang trong ca trực. |
 | **`400 BAD_REQUEST`** | `ERR_MULTIPLE_PRIMARY_MUA` | Cố tình gán từ 2 Thợ chính trở lên cho cùng 1 đơn hàng. | Chặn gán bằng Partial Unique Index. |
+| **`202 ACCEPTED`** | `PENDING_STUDIO_APPROVAL` | Thợ báo bận khi còn từ $2\text{ tiếng}$ đến dưới $4\text{ tiếng}$. | Ghi nhận yêu cầu ở trạng thái chờ duyệt, `errorCode = null`, gửi alert cho Studio duyệt thủ công. |
 | **`400 BAD_REQUEST`** | `ERR_EMERGENCY_REPORT_TOO_LATE` | Thợ báo bận đột xuất khi thời gian còn lại trước ca làm $< 2\text{ tiếng}$. | Chặn tự hủy, yêu cầu thợ gọi hotline Studio can thiệp. |
 | **`400 BAD_REQUEST`** | `ERR_DUPLICATE_STAFF_ASSIGNMENT` | Chọn cùng một thợ cho cả vai trò Thợ chính và Thợ phụ trong cùng 1 đơn. | Bean Validation chặn trùng lặp ID thợ. |
 | **`403 FORBIDDEN`** | `ERR_BOOKING_NOT_ASSIGNED_TO_AGENCY` | Studio A cố tình truy cập hoặc điều phối đơn hàng thuộc về Studio B (Lỗ hổng IDOR). | Đối chiếu `current_user.agency_id == booking.agency_id`. |
@@ -331,7 +335,15 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   "dispatch.error.multiple_primary_mua": "Đơn hàng chỉ được phép có duy nhất một Thợ chính.",
   "dispatch.error.calendar_busy": "Chuyên viên đã có ca làm hoặc lịch bận cá nhân trùng khung giờ này.",
   "dispatch.error.report_too_late": "Chỉ còn dưới 2 tiếng trước ca làm. Vui lòng gọi trực tiếp hotline Studio!",
-  "dispatch.error.duplicate_staff": "Không thể gán cùng một chuyên viên cho cả vai trò thợ chính và thợ phụ."
+  "dispatch.error.duplicate_staff": "Không thể gán cùng một chuyên viên cho cả vai trò thợ chính và thợ phụ.",
+  "dispatch.report_requires_approval": "Yêu cầu báo bận đã được ghi nhận và đang chờ Studio xác nhận.",
+  "dispatch.primary_staff_id.required": "Vui lòng chọn thợ chính.",
+  "dispatch.assistants.max_two": "Chỉ được chọn tối đa 2 thợ phụ.",
+  "dispatch.notes.too_long": "Ghi chú điều phối không được vượt quá 500 ký tự.",
+  "dispatch.old_staff_id.required": "Vui lòng chọn chuyên viên cần thay thế.",
+  "dispatch.new_staff_id.required": "Vui lòng chọn chuyên viên thay thế.",
+  "dispatch.reassign_reason.required": "Vui lòng nhập lý do đổi thợ.",
+  "dispatch.reassign_reason.max_len": "Lý do đổi thợ không được vượt quá 255 ký tự."
 }
 ```
 
@@ -350,7 +362,15 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   "dispatch.error.multiple_primary_mua": "Booking can only have exactly one primary makeup artist.",
   "dispatch.error.calendar_busy": "Selected staff has an overlapping booking or busy slot in this timeframe.",
   "dispatch.error.report_too_late": "Less than 2 hours left before appointment. Please contact studio hotline directly!",
-  "dispatch.error.duplicate_staff": "Cannot assign the same staff as both primary MUA and assistant."
+  "dispatch.error.duplicate_staff": "Cannot assign the same staff as both primary MUA and assistant.",
+  "dispatch.report_requires_approval": "Emergency busy report has been recorded and is waiting for studio approval.",
+  "dispatch.primary_staff_id.required": "Please select a primary makeup artist.",
+  "dispatch.assistants.max_two": "You can select at most 2 assistants.",
+  "dispatch.notes.too_long": "Dispatch notes must not exceed 500 characters.",
+  "dispatch.old_staff_id.required": "Please select the staff member to replace.",
+  "dispatch.new_staff_id.required": "Please select the replacement staff member.",
+  "dispatch.reassign_reason.required": "Please provide the reassignment reason.",
+  "dispatch.reassign_reason.max_len": "Reassignment reason must not exceed 255 characters."
 }
 ```
 
@@ -418,6 +438,8 @@ public class ReassignStaffReq {
 }
 ```
 
+> **Lưu ý validation:** `@Size(max = 2)` chưa chặn được trường hợp `primaryStaffId` xuất hiện lại trong `assistantStaffIds` hoặc danh sách assistant có ID trùng nhau. Cần thêm custom validator hoặc validate ở service trước khi lấy lock.
+
 ---
 
 ## 💻 5. ĐẶC TẢ REST API CONTRACTS
@@ -427,6 +449,7 @@ public class ReassignStaffReq {
 ### 5.1. `GET /api/v1/agency/dispatch/pending-bookings` (Danh Sách Đơn Chờ Điều Phối)
 * **Quyền truy cập:** `ROLE_AGENCY_ADMIN` hoặc `ROLE_AGENCY_STAFF`.
 * **Headers:** `Authorization: Bearer <JWT>`, `Accept-Language: vi`
+* **Query Params khuyến nghị:** `page`, `size`, `bookingDateFrom`, `bookingDateTo`, `emergencyOnly`, `sort=emergency_first,created_desc`. Với dữ liệu thật nên trả về `PageResponse<AgencyPendingBookingRes>` thay vì array không phân trang.
 * **Response `200 OK` (Đơn cần đổi thợ khẩn cấp được đẩy lên đầu):**
 ```json
 {
@@ -491,7 +514,14 @@ public class ReassignStaffReq {
 
 ---
 
-### 5.2. `GET /api/v1/agency/dispatch/bookings/{bookingId}/staff-matrix` (Ma Trận Năng Lực & Lịch Rảnh 4 Chiều)
+### 5.2. `POST /api/v1/agency/dispatch/bookings/{bookingId}/accept` (Tiếp Nhận Đơn Vào Luồng Điều Phối)
+* **Quyền truy cập:** `ROLE_AGENCY_ADMIN` hoặc `ROLE_AGENCY_STAFF`.
+* **Mục đích:** Xác nhận Studio nhận xử lý đơn chỉ định trước khi mở ma trận gán thợ. Nếu dự án quyết định không cần trạng thái trung gian, cần ghi rõ hành động “Bắt đầu Điều phối Thợ” chỉ là điều hướng UI và không đổi trạng thái booking.
+* **Validation bắt buộc:** `booking.agency_id == current_user.agency_id`, booking đang ở `PENDING_AGENCY_DISPATCH`, chưa bị hủy/thanh toán lỗi.
+
+---
+
+### 5.3. `GET /api/v1/agency/dispatch/bookings/{bookingId}/staff-matrix` (Ma Trận Năng Lực & Lịch Rảnh 4 Chiều)
 * **Response `200 OK`:**
 ```json
 {
@@ -568,7 +598,7 @@ public class ReassignStaffReq {
 
 ---
 
-### 5.3. `POST /api/v1/agency/dispatch/bookings/{bookingId}/assign` (Gán Thợ Chính & Thợ Phụ)
+### 5.4. `POST /api/v1/agency/dispatch/bookings/{bookingId}/assign` (Gán Thợ Chính & Thợ Phụ)
 * **Request Body:**
 ```json
 {
@@ -612,7 +642,7 @@ public class ReassignStaffReq {
 
 ---
 
-### 5.4. `POST /api/v1/agency/dispatch/bookings/{bookingId}/reassign` (Đổi Thợ Dự Phòng Khẩn Cấp)
+### 5.5. `POST /api/v1/agency/dispatch/bookings/{bookingId}/reassign` (Đổi Thợ Dự Phòng Khẩn Cấp)
 * **Request Body:**
 ```json
 {
@@ -694,12 +724,16 @@ CREATE TABLE IF NOT EXISTS booking_schema.booking_staff_assignments (
     replaced_by_staff_id BIGINT REFERENCES agency_schema.agency_staff(id) ON DELETE SET NULL,
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    UNIQUE (booking_id, staff_id, status)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_booking_staff_assign 
     ON booking_schema.booking_staff_assignments(booking_id, staff_id, assignment_role);
+
+-- Một thợ không được có 2 phân công ACTIVE trên cùng 1 booking, nhưng vẫn cho phép lưu nhiều bản ghi lịch sử CANCELLED/REPLACED.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_active_staff_per_booking
+    ON booking_schema.booking_staff_assignments(booking_id, staff_id)
+    WHERE status = 'ACTIVE';
 
 -- [CHỐT CHẶN VẬT LÝ DATABASE]: Duy nhất 1 Thợ chính đang ACTIVE trên mỗi đơn hàng
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_primary_mua_per_booking 
@@ -710,13 +744,29 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_primary_mua_per_booking
 COMMENT ON TABLE booking_schema.booking_staff_assignments IS 'Bảng phân công thợ chính và thợ phụ cho đơn hàng của Studio kèm trạng thái ACTIVE/EMERGENCY_CANCELLED/REPLACED';
 COMMENT ON COLUMN booking_schema.bookings.style_id IS 'Mã phong cách make-up (Tone) khách hàng yêu cầu cho đơn';
 COMMENT ON COLUMN booking_schema.bookings.needs_emergency_reassignment IS 'Cờ báo động Studio cần đổi thợ dự phòng khẩn cấp do thợ chính báo bận';
+
+-- Nếu bảng mua_schema.mua_calendars chưa có constraint chống trùng lịch, migration của sprint này phải bổ sung.
+-- Cần btree_gist để kết hợp mua_id (=) với tstzrange (&&) trong exclusion constraint.
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+ALTER TABLE mua_schema.mua_calendars
+    ADD CONSTRAINT exclude_mua_overlapping_locked_slots
+    EXCLUDE USING gist (
+        mua_id WITH =,
+        tstzrange(start_at, end_at, '[]') WITH &&
+    )
+    WHERE (is_locked = true);
 ```
+
+> **Lưu ý migration:** Nếu `mua_calendars` đã có constraint tương đương từ sprint trước, không tạo trùng tên. Tuy nhiên tài liệu implement phải chỉ rõ constraint đang nằm ở migration nào để đảm bảo rule chống double-booking không chỉ tồn tại ở service layer.
 
 ---
 
 ## ⚡ 7. THUẬT TOÁN MA TRẬN ĐIỀU PHỐI & CƠ CHẾ ĐỔI THỢ KHẨN CẤP
 
 ### 7.1. Single Projection Native Query 4 Chiều (Tối ưu $<15\text{ms}$, Hỗ Trợ Ca Tuần & Ca Ngày)
+
+> **Yêu cầu kỹ thuật khi implement query:** Tránh nhân bản dòng staff khi một thợ có nhiều ca trực hoặc nhiều bản ghi qualification. Nên dùng `EXISTS`, `LEFT JOIN LATERAL ... LIMIT 1`, hoặc `SELECT DISTINCT ON (s.id)`. Với ca trực qua đêm (`22:00 - 06:00`), không so sánh thuần `TIME`; cần chuẩn hóa thành timestamp window theo ngày booking rồi mới kiểm tra ca trực bao trọn appointment.
 
 ```sql
 SELECT 
@@ -773,7 +823,8 @@ LEFT JOIN (
     SELECT c.mua_id, COUNT(*) AS busy_count
     FROM mua_schema.mua_calendars c
     WHERE c.is_locked = true
-      AND tstzrange(c.start_at, c.end_at) && tstzrange(:windowStart, :windowEnd)
+      -- Dùng bound [] nếu nghiệp vụ xem slot chạm biên là xung đột; nếu không, chuẩn hóa buffer vào start_at/end_at khi tạo calendar slot.
+      AND tstzrange(c.start_at, c.end_at, '[]') && tstzrange(:windowStart, :windowEnd, '[]')
     GROUP BY c.mua_id
 ) cal ON cal.mua_id = s.mua_id
 WHERE s.agency_id = :agencyId 
@@ -794,8 +845,9 @@ ORDER BY
 
 ### 7.2. Thuật Toán Lock Ordering & Redisson MultiLock Chống Deadlock
 
+> **Ranh giới transaction:** Không giữ `@Transactional` bao quanh thời gian chờ `tryLock`. Lấy Redis lock trước, sau đó mới mở transaction ngắn để validate lần cuối, insert assignment và tạo calendar slot. PostgreSQL unique/exclusion constraints vẫn là lớp bảo vệ cuối nếu Redis lock timeout, lease hết hạn hoặc có request chạy lệch luồng.
+
 ```java
-@Transactional
 public DispatchAssignmentRes assignStaffToBooking(Long agencyId, Long bookingId, AssignStaffToBookingReq req) {
     BookingEntity booking = getBookingAndValidateAgency(agencyId, bookingId);
 
@@ -810,7 +862,7 @@ public DispatchAssignmentRes assignStaffToBooking(Long agencyId, Long bookingId,
         throw new CustomBusinessException(ErrorCodes.ERR_STAFF_NOT_IN_AGENCY, "dispatch.error.staff_not_found");
     }
 
-    // 2. SẮP XẾP TĂNG DẦN THEO ID TỰ NHIÊN ĐỂ LOẠI BỎ HOÀN TOÀN DEADLOCK PHÂN TÁN
+    // 2. SẮP XẾP TĂNG DẦN THEO ID TỰ NHIÊN ĐỂ GIẢM THIỂU DEADLOCK PHÂN TÁN
     List<Long> muaIdsToLock = staffEntities.stream()
         .map(AgencyStaffEntity::getMuaId)
         .sorted()
@@ -829,8 +881,8 @@ public DispatchAssignmentRes assignStaffToBooking(Long agencyId, Long bookingId,
             throw new CustomBusinessException(ErrorCodes.ERR_STAFF_CALENDAR_BUSY, "dispatch.error.calendar_busy");
         }
         
-        // 3. Thực thi nghiệp vụ lưu booking_staff_assignments và khóa mua_calendars...
-        return executeAssignmentInsideLock(booking, staffEntities, req);
+        // 3. Chỉ mở DB transaction sau khi đã lấy được Redis lock để tránh giữ connection trong lúc chờ lock.
+        return transactionTemplate.execute(status -> executeAssignmentInsideTransaction(booking, staffEntities, req));
     } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new CustomBusinessException(ErrorCodes.ERR_STAFF_CALENDAR_BUSY, "dispatch.error.calendar_busy");
@@ -873,13 +925,13 @@ sequenceDiagram
 ## 🛡️ 8. YÊU CẦU PHI CHỨC NĂNG & HIỆU NĂNG BACK-END (NFRS)
 
 1. **Hiệu Năng Tính Toán Ma Trận Điều Phối (Matrix Computation Latency):**
-   - API `GET /api/v1/agency/dispatch/bookings/{id}/staff-matrix` sử dụng Native Projection Query 4 chiều đạt thời gian thực thi **$< 15\text{ms}$** cho Studio quy mô tới 100 thợ.
-2. **Loại Bỏ Hoàn Toàn Deadlock (Deadlock-Free Guarantee):**
-   - 100% các thao tác gán ca đa nhân sự bắt buộc sắp xếp thứ tự `mua_id` tăng dần tự nhiên trước khi khóa thông qua `Redisson MultiLock`.
+   - API `GET /api/v1/agency/dispatch/bookings/{id}/staff-matrix` sử dụng Native Projection Query 4 chiều đạt **P95 DB execution time $< 15\text{ms}$** cho Studio quy mô tới 100 thợ, khi đã có đủ index/constraint bắt buộc. End-to-end API latency cần đo riêng vì còn phụ thuộc serialization, network và auth middleware.
+2. **Kiểm Soát Deadlock & Race-Condition (Concurrency Control):**
+   - 100% các thao tác gán ca đa nhân sự bắt buộc sắp xếp thứ tự `mua_id` tăng dần tự nhiên trước khi khóa thông qua `Redisson MultiLock`; PostgreSQL unique/exclusion constraints là lớp bảo vệ cuối cùng khi có lỗi cạnh tranh hoặc retry.
 3. **Bảo Vệ Toàn Vẹn Khóa Lịch & Audit Trail (Integrity & Auditability):**
    - Không được xóa vết lịch khi thợ báo bận đột xuất; bắt buộc duy trì trạng thái khóa phòng thủ `EMERGENCY_LEAVE` và lưu vết trạng thái phân công `EMERGENCY_CANCELLED` $\rightarrow$ `REPLACED` trong CSDL.
 4. **Tính Nguyên Tử Giao Dịch Khi Gán & Đổi Thợ (Reassignment Atomicity):**
-   - Mọi thao tác gán hoặc đổi thợ bắt buộc chạy trong **1 Database Transaction duy nhất (`@Transactional`)**.
+   - Sau khi lấy được Redis lock, mọi thao tác validate lần cuối, ghi `booking_staff_assignments`, cập nhật `bookings` và tạo slot `mua_calendars` phải chạy trong **1 database transaction ngắn duy nhất** (`TransactionTemplate` hoặc service method `@Transactional`).
 5. **Bảo Mật Phân Quyền Đa Đại Lý (Multi-Tenancy IDOR Protection):**
    - 100% các API điều phối bắt buộc đối chiếu `current_user.agency_id == booking.agency_id`. Nghiêm cấm truy cập chéo đơn hàng hoặc danh sách nhân sự giữa các Studio.
 6. **Chuẩn Hóa Mapper & i18n (Coding Standards Compliance):**

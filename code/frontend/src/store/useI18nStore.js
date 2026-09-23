@@ -20,8 +20,14 @@ export const useI18nStore = create((set, get) => ({
     get().setLanguage(next);
   },
 
-  t: (key) => {
+  t: (key, params) => {
     const lang = get().language;
-    return TRANSLATIONS[lang]?.[key] || TRANSLATIONS.vi?.[key] || key;
+    let text = TRANSLATIONS[lang]?.[key] || TRANSLATIONS.vi?.[key] || key;
+    if (params && typeof params === 'object') {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+      });
+    }
+    return text;
   },
 }));
