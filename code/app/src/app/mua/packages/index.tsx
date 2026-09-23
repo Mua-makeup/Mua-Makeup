@@ -27,7 +27,7 @@ export default function MuaPackagesScreen() {
   const loadPackages = useCallback(async () => {
     try {
       const data = await packageService.listMyPackages();
-      setPackages(data);
+      setPackages(Array.isArray(data) ? data : []);
     } catch (err) {
       const parsed = parseApiError(err);
       console.error('Lỗi nạp danh sách gói dịch vụ:', parsed.message);
@@ -107,7 +107,7 @@ export default function MuaPackagesScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={24} color={BrandColors.slateHeading} />
         </TouchableOpacity>

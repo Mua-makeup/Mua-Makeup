@@ -52,7 +52,8 @@ Cung cấp trải nghiệm tìm kiếm, duyệt danh mục dịch vụ làm đ�
 ## 📌 SPRINT M-2: ĐẶT LỊCH, BÁO GIÁ REALTIME & QUẢN LÝ ĐƠN HÀNG (`ROLE_CUSTOMER`)
 
 ### Mục tiêu Sprint:
-Xây dựng trọn vẹn luồng đặt lịch trang điểm từ chọn gói, tính phụ phí thông minh, áp dụng voucher đến quản lý lịch sử đơn hàng.
+Xây dựng trọn vẹn luồng đặt lịch trang điểm từ chọn gói, tính phụ phí thông minh, áp dụng voucher đến quản lý lịch sử đơn hàng.  
+**Tài liệu đặc tả chi tiết:** [docs/backlogs/sprint6/spec_customer_booking_and_order_management.md](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_customer_booking_and_order_management.md)
 
 | Mã Issue | Loại | Tên Tính Năng / Task Kỹ Thuật | Phân Hệ | File Mã Nguồn Dự Kiến | Ưu Tiên | Backend Controller |
 | :--- | :---: | :--- | :---: | :--- | :---: | :--- |
@@ -66,7 +67,10 @@ Xây dựng trọn vẹn luồng đặt lịch trang điểm từ chọn gói, t
 ## 📌 SPRINT M-3: BÀN LÀM VIỆC, RADAR NHẬN CA & PORTFOLIO (`ROLE_FREELANCE_MUA`)
 
 ### Mục tiêu Sprint:
-Trang bị đầy đủ công cụ tác nghiệp cho Thợ trang điểm tự do: Bật/tắt phát sóng GPS nhận ca, chuông báo đơn khẩn cấp 30s, quản lý gói dịch vụ và album ảnh mẫu gắn liền theo từng dịch vụ.
+Trang bị đầy đủ công cụ tác nghiệp cho Thợ trang điểm tự do: Bật/tắt phát sóng GPS nhận ca, chuông báo đơn khẩn cấp 30s, quản lý gói dịch vụ và album ảnh mẫu gắn liền theo từng dịch vụ.  
+**Tài liệu đặc tả kỹ thuật chi tiết:**
+- Bàn làm việc thợ, Đơn cấp tốc 30s & Tiến trình ca làm: [docs/backlogs/sprint6/spec_mua_workstation_instant_booking_and_job_execution.md](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_mua_workstation_instant_booking_and_job_execution.md)
+- Quản lý gói dịch vụ & Album ảnh mẫu: [docs/backlogs/sprint6/spec_freelancer_service_packages_and_showcase.md](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_freelancer_service_packages_and_showcase.md)
 
 | Mã Issue | Loại | Tên Tính Năng / Task Kỹ Thuật | Phân Hệ | File Mã Nguồn Dự Kiến | Ưu Tiên | Backend Controller |
 | :--- | :---: | :--- | :---: | :--- | :---: | :--- |

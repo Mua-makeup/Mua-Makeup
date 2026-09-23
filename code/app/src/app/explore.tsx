@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -52,6 +53,7 @@ export default function ExploreScreen() {
     resetFilters,
   } = useExploreStore();
 
+  const [headerHeight, setHeaderHeight] = useState(64);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [tempRadius, setTempRadius] = useState<number | null>(selectedRadiusKm);
@@ -105,10 +107,18 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* HEADER TÌM KIẾM */}
-      <View style={styles.header}>
+      <View
+        style={styles.header}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
+            if (isSearchFocused) {
+              setIsSearchFocused(false);
+              Keyboard.dismiss();
+              return;
+            }
             if (router.canGoBack()) {
               router.back();
             } else {
@@ -144,41 +154,58 @@ export default function ExploreScreen() {
           )}
         </View>
 
-        {/* NÚT BỘ LỌC TỔNG HỢP GỌN GÀNG */}
-        <TouchableOpacity
-          style={[
-            styles.filterBtn,
-            (selectedRadiusKm !== null || minPrice > 200000 || selectedCategoryId !== null || selectedStyleId !== null) &&
-              styles.filterBtnActive,
-          ]}
-          onPress={() => {
-            setTempRadius(selectedRadiusKm);
-            setTempMinPrice(minPrice);
-            setTempMaxPrice(maxPrice);
-            setIsFilterModalVisible(true);
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="options-outline"
-            size={19}
-            color={
-              selectedRadiusKm !== null || minPrice > 200000 || selectedCategoryId !== null || selectedStyleId !== null
-                ? '#FFFFFF'
-                : '#475569'
-            }
-          />
-        </TouchableOpacity>
+        {/* KHI ĐANG FOCUS TÌM KIẾM: HIỆN NÚT HỦY RÕ RÀNG / KHI KHÔNG FOCUS: HIỆN NÚT BỘ LỌC */}
+        {isSearchFocused ? (
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={() => {
+              setIsSearchFocused(false);
+              Keyboard.dismiss();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelBtnText}>Hủy</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.filterBtn,
+              (selectedRadiusKm !== null || minPrice > 200000 || selectedCategoryId !== null || selectedStyleId !== null) &&
+                styles.filterBtnActive,
+            ]}
+            onPress={() => {
+              setTempRadius(selectedRadiusKm);
+              setTempMinPrice(minPrice);
+              setTempMaxPrice(maxPrice);
+              setIsFilterModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="options-outline"
+              size={19}
+              color={
+                selectedRadiusKm !== null || minPrice > 200000 || selectedCategoryId !== null || selectedStyleId !== null
+                  ? '#FFFFFF'
+                  : '#475569'
+              }
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* OVERLAY GỢI Ý KHI NHẤN VÀO TÌM KIẾM (5 LOẠI HÌNH MAKEUP CHUẨN DB + PHONG CÁCH) */}
       <SearchSuggestionsOverlay
         visible={isSearchFocused}
+        topOffset={headerHeight}
         keyword={keyword}
         categories={categories}
         styles={availableStyles}
         onSelectSuggestion={handleSelectSuggestion}
-        onClose={() => setIsSearchFocused(false)}
+        onClose={() => {
+          setIsSearchFocused(false);
+          Keyboard.dismiss();
+        }}
       />
 
       {/* THANH LỌC THÔNG MINH 1 HÀNG DUY NHẤT (SMART QUICK-FILTER) */}
@@ -349,6 +376,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 10,
+    backgroundColor: '#FFFFFF',
+    zIndex: 100,
+    elevation: 6,
+  },
+  cancelBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BrandColors.primary,
   },
   searchBar: {
     flex: 1,

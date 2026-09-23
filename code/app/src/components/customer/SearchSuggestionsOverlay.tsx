@@ -14,6 +14,7 @@ import { MasterCategory, MakeupStyle } from '@/services/taxonomy.service';
 
 interface Props {
   visible: boolean;
+  topOffset?: number;
   keyword: string;
   categories: MasterCategory[];
   styles: MakeupStyle[];
@@ -61,6 +62,7 @@ export const POPULAR_MAKEUP_TYPES = [
 
 export const SearchSuggestionsOverlay: React.FC<Props> = ({
   visible,
+  topOffset = 64,
   keyword,
   categories,
   styles: makeupStyles,
@@ -102,12 +104,28 @@ export const SearchSuggestionsOverlay: React.FC<Props> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { top: topOffset }]}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
 
       <View style={styles.contentBox}>
+        {/* THANH TIỆN ÍCH TRÊN CÙNG KÈM NÚT ĐÓNG RÕ RÀNG */}
+        <View style={styles.topActionBar}>
+          <Text style={styles.topActionTitle}>GỢI Ý TÌM KIẾM NHANH</Text>
+          <TouchableOpacity
+            style={styles.closeOverlayBtn}
+            onPress={() => {
+              Keyboard.dismiss();
+              onClose();
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={15} color="#475569" />
+            <Text style={styles.closeOverlayText}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -286,6 +304,37 @@ const styles = StyleSheet.create({
   styleChipText: {
     fontSize: 12,
     fontWeight: '600',
+    color: '#334155',
+  },
+  topActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FAFAFA',
+  },
+  topActionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  closeOverlayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  closeOverlayText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: '#334155',
   },
 });

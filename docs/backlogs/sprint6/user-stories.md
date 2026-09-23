@@ -18,6 +18,13 @@
   - [ ] [APP-CUST-01] Màn hình Khám Phá & Bộ Lọc Đa Tiêu Chí (`explore.tsx`, `CategoryFilterBar.tsx`, `ServicePackageCard.tsx`).
   - [ ] [APP-CUST-02] Màn hình Chi Tiết Hồ Sơ Thợ MUA & Dịch Vụ Đi Kèm Ảnh Mẫu (`mua-detail/[id].tsx`, `ServiceSampleGallery.tsx`).
   - [ ] [APP-CUST-03] Trình Xem Ảnh Mẫu Cận Cảnh Của Dịch Vụ Đang Chọn (`ShowcaseGalleryModal.tsx`, `PhotoZoomViewer.tsx`).
-- [ ] [SPRINT-M0-MUA] [Quản Lý Gói Dịch Vụ & Album Tác Phẩm Thợ Tự Do (ROLE_FREELANCE_MUA)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_freelancer_service_packages_and_showcase.md)
-  - [ ] [APP-MUA-06] Tạo Mới & Cấu Hình Gói Dịch Vụ Thợ Tự Do (Package Builder & Add-on Items).
-  - [ ] [APP-MUA-04] Quản Lý Album Ảnh Mẫu Tác Phẩm Gắn Liền Với Từng Gói Dịch Vụ (Service-Linked Showcase).
+- [ ] [SPRINT-M2] [Đặt Lịch, Báo Giá Realtime & Quản Lý Đơn Hàng (ROLE_CUSTOMER)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_customer_booking_and_order_management.md)
+  - [ ] [APP-BOOK-01] Màn hình Đặt Lịch & Chọn Bước Làm Đẹp Mua Thêm (`create.tsx`, `PackageItemPicker.tsx`, `DestinationAddressPicker.tsx`).
+  - [ ] [APP-BOOK-02] Báo Giá Động Realtime & Bảng Chi Tiết Hóa Đơn Minh Bạch (`InvoiceSummaryCard.tsx`, `pricing.service.ts`).
+  - [ ] [APP-BOOK-03] Màn hình Quản Lý Lịch Hẹn Đa Trạng Thái (`bookings.tsx`, `BookingHistoryCard.tsx`).
+  - [ ] [APP-BOOK-04] Radar Tìm Thợ Khẩn Cấp 30s (`InstantRadarModal.tsx`).
+- [ ] [SPRINT-M3-MUA] [Bàn Làm Việc Thợ, Nhận Đơn Khẩn Cấp 30s & Tiến Trình Ca Làm Nghiệm Thu (ROLE_FREELANCE_MUA & ROLE_AGENCY_STAFF)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_mua_workstation_instant_booking_and_job_execution.md)
+  - [ ] [APP-MUA-01] Màn hình Bàn Làm Việc Thợ (`workstation.tsx`, `WorkstationHeader.tsx`, `TodayBookingCard.tsx`).
+  - [ ] [APP-MUA-02] Modal Đĩa Quay Đếm Ngược 30s Nhận Ca Cấp Tốc (`CountdownAcceptModal.tsx`, Redisson Distributed Lock).
+  - [ ] [APP-MUA-03] Tiến Trình Thực Hiện Ca Làm 4 Bước & Nghiệm Thu Ảnh (`job-execution/[id].tsx`, `ProofCameraModal.tsx`).
+

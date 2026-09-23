@@ -5,6 +5,7 @@ import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.booking.CreateInstantBookingReq;
 import com.makeup.platform.dto.response.booking.InstantBookingCreatedRes;
+import com.makeup.platform.dto.response.booking.RecentAddressRes;
 import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
@@ -25,6 +26,7 @@ import com.makeup.platform.service.telemetry.RedisGeoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.geo.GeoResults;
 import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -41,6 +43,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -503,5 +506,35 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 }
             }
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RecentAddressRes> getRecentAddresses(Long customerId) {
+        if (customerId == null) {
+            return Collections.emptyList();
+        }
+        List<Object[]> rows = bookingRepository.findRecentAddressesByCustomerId(customerId, PageRequest.of(0, 5));
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<RecentAddressRes> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            String address = (String) row[0];
+            BigDecimal lat = (BigDecimal) row[1];
+            BigDecimal lng = (BigDecimal) row[2];
+            LocalDateTime lastUsed = (LocalDateTime) row[3];
+            Long count = row[4] != null ? ((Number) row[4]).longValue() : 1L;
+
+            result.add(RecentAddressRes.builder()
+                    .address(address)
+                    .latitude(lat)
+                    .longitude(lng)
+                    .lastUsedAt(lastUsed)
+                    .orderCount(count)
+                    .build());
+        }
+        return result;
     }
 }

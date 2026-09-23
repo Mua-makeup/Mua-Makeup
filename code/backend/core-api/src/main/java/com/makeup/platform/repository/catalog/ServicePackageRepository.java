@@ -31,6 +31,6 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackageEn
 
     Optional<ServicePackageEntity> findByIdAndMuaId(Long id, Long muaId);
 
-    @Query("SELECT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id")
+    @Query("SELECT DISTINCT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id")
     Optional<ServicePackageEntity> findByIdWithDetails(@Param("id") Long id);
 }

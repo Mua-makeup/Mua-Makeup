@@ -43,6 +43,8 @@ export default function RootLayout() {
           <Stack.Screen name="mua/packages/[id]/items" options={{ presentation: 'card' }} />
           <Stack.Screen name="mua/packages/[id]/showcase" options={{ presentation: 'card' }} />
           <Stack.Screen name="mua/packages/[id]/add-showcase" options={{ presentation: 'card' }} />
+          <Stack.Screen name="mua/workstation" options={{ presentation: 'card' }} />
+          <Stack.Screen name="job-execution/[id]" options={{ presentation: 'card' }} />
         </Stack>
         {/* Modal Popup toàn cục hiển thị đẹp mắt trên cả Web Laptop & Điện thoại */}
         <GlobalPopupModal />

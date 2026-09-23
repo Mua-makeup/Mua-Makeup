@@ -388,6 +388,12 @@
     "surge_rules_get_success": "Lấy danh sách quy tắc giá động thành công.",
     "h3_surge_status_success": "Lấy trạng thái thuật toán Uber H3 thành công.",
     "h3_surge_toggle_success": "Cập nhật trạng thái thuật toán Uber H3 thành công."
+  },
+  "maps": {
+    "reverse_geocode_success": "Lấy thông tin địa chỉ từ tọa độ thành công.",
+    "geocode_success": "Chuyển đổi địa chỉ thành tọa độ thành công.",
+    "autocomplete_success": "Gợi ý địa điểm thành công.",
+    "place_detail_success": "Lấy chi tiết địa điểm thành công."
   }
 }
 

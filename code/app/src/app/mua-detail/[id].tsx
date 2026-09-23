@@ -57,23 +57,22 @@ export default function MuaDetailScreen() {
       return;
     }
 
-    // Điều hướng sang luồng đặt lịch
-    Alert.alert(
-      'Đặt Lịch Dịch Vụ',
-      `Bạn đã chọn gói: ${selectedPackage.packageName}\nGiá niêm yết: ${new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND',
-      }).format(selectedPackage.price)}`,
-      [
-        { text: 'Đóng', style: 'cancel' },
-        {
-          text: 'Tiếp tục chọn giờ',
-          onPress: () => {
-            // Chuyển sang màn hình chọn ngày giờ hoặc booking modal
-          },
-        },
-      ]
-    );
+    // Điều hướng trực tiếp sang màn hình Đặt Lịch & Chọn Ngày Giờ (Sprint M-2)
+    router.push({
+      pathname: '/booking/create',
+      params: {
+        packageId: selectedPackage.id.toString(),
+        muaId: muaProfile?.muaId?.toString() || id?.toString() || '1',
+      },
+    });
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
   };
 
   if (isLoading && !muaProfile) {
@@ -93,7 +92,7 @@ export default function MuaDetailScreen() {
         <Text style={styles.errorSubtitle}>
           {error || 'Hồ sơ thợ make-up này không tồn tại hoặc đã tạm dừng hoạt động.'}
         </Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
           <Text style={styles.backBtnText}>Quay lại</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -113,7 +112,7 @@ export default function MuaDetailScreen() {
       <SafeAreaView style={styles.floatingHeader} edges={['top']}>
         <TouchableOpacity
           style={styles.navCircleBtn}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={20} color="#0F172A" />

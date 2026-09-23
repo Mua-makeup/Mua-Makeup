@@ -388,6 +388,12 @@
     "surge_rules_get_success": "Retrieved dynamic pricing surge rules successfully.",
     "h3_surge_status_success": "Retrieved Uber H3 algorithm status successfully.",
     "h3_surge_toggle_success": "Updated Uber H3 algorithm status successfully."
+  },
+  "maps": {
+    "reverse_geocode_success": "Successfully resolved address from coordinates.",
+    "geocode_success": "Successfully geocoded address to coordinates.",
+    "autocomplete_success": "Successfully retrieved place suggestions.",
+    "place_detail_success": "Successfully retrieved place details."
   }
 }
 

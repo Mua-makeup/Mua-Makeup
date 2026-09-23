@@ -2,13 +2,16 @@ package com.makeup.platform.mapper.catalog;
 
 import com.makeup.platform.dto.response.catalog.PackageDetailRes;
 import com.makeup.platform.dto.response.catalog.PackageSummaryRes;
+import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -41,7 +44,7 @@ public class ServicePackageMapper {
                 .isAvailable(entity.getIsAvailable())
                 .coverImageUrl(coverImageUrl)
                 .styles(entity.getStyles() != null ? taxonomyMapper.toStyleResList(entity.getStyles()) : Collections.emptyList())
-                .items(entity.getPackageItems() != null ? itemMapper.toResList(entity.getPackageItems()) : Collections.emptyList())
+                .items(entity.getPackageItems() != null ? itemMapper.toResList(deduplicateItems(entity.getPackageItems())) : Collections.emptyList())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -84,5 +87,19 @@ public class ServicePackageMapper {
         return entities.stream()
                 .map(e -> toSummaryRes(e, coverImageMap != null ? coverImageMap.get(e.getId()) : null))
                 .toList();
+    }
+
+    private List<PackageItemEntity> deduplicateItems(List<PackageItemEntity> items) {
+        if (items == null || items.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<Long> seenIds = new HashSet<>();
+        List<PackageItemEntity> result = new java.util.ArrayList<>();
+        for (PackageItemEntity item : items) {
+            if (item.getId() == null || seenIds.add(item.getId())) {
+                result.add(item);
+            }
+        }
+        return result;
     }
 }

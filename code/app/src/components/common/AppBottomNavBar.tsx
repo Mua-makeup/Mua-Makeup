@@ -18,7 +18,9 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
   onAccountPress,
 }) => {
   const insets = useSafeAreaInsets();
-  const { isAuthenticated } = useAuthStore();
+  const { userInfo, isAuthenticated } = useAuthStore();
+  const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
+  const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
 
   const handleTabPress = (tab: BottomNavTab) => {
     switch (tab) {
@@ -28,15 +30,19 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
         }
         break;
       case 'explore':
-        if (activeTab !== 'explore') {
-          router.push('/explore');
+        if (isMUA) {
+          router.push('/mua/packages' as any);
+        } else if (isAgencyStaff) {
+          router.push('/bookings');
+        } else {
+          if (activeTab !== 'explore') {
+            router.push('/explore');
+          }
         }
         break;
       case 'appointments':
-        if (!isAuthenticated) {
-          router.push('/(auth)/login');
-        } else {
-          Alert.alert('Lịch Hẹn', 'Danh sách các lịch hẹn trang điểm của bạn.');
+        if (activeTab !== 'appointments') {
+          router.push('/bookings');
         }
         break;
       case 'messages':
@@ -69,14 +75,22 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
         },
       ]}
     >
-      {/* 1. Trang Chủ */}
+      {/* 1. Trang Chủ / Bàn Làm Việc */}
       <TouchableOpacity
         style={styles.bottomNavItem}
         activeOpacity={0.8}
         onPress={() => handleTabPress('home')}
       >
         <Ionicons
-          name={activeTab === 'home' ? 'home' : 'home-outline'}
+          name={
+            isMUA || isAgencyStaff
+              ? activeTab === 'home'
+                ? 'briefcase'
+                : 'briefcase-outline'
+              : activeTab === 'home'
+              ? 'home'
+              : 'home-outline'
+          }
           size={22}
           color={activeTab === 'home' ? BrandColors.primary : BrandColors.slateMuted}
         />
@@ -86,18 +100,30 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             activeTab === 'home' && styles.bottomNavLabelActive,
           ]}
         >
-          Trang Chủ
+          {isMUA || isAgencyStaff ? 'Bàn Làm Việc' : 'Trang Chủ'}
         </Text>
       </TouchableOpacity>
 
-      {/* 2. Khám Phá */}
+      {/* 2. Khám Phá (Khách) / Gói Dịch Vụ (Thợ MUA) / Ca Studio (Staff) */}
       <TouchableOpacity
         style={styles.bottomNavItem}
         activeOpacity={0.8}
         onPress={() => handleTabPress('explore')}
       >
         <Ionicons
-          name={activeTab === 'explore' ? 'compass' : 'compass-outline'}
+          name={
+            isMUA
+              ? activeTab === 'explore'
+                ? 'cube'
+                : 'cube-outline'
+              : isAgencyStaff
+              ? activeTab === 'explore'
+                ? 'business'
+                : 'business-outline'
+              : activeTab === 'explore'
+              ? 'compass'
+              : 'compass-outline'
+          }
           size={22}
           color={activeTab === 'explore' ? BrandColors.primary : BrandColors.slateMuted}
         />
@@ -107,7 +133,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             activeTab === 'explore' && styles.bottomNavLabelActive,
           ]}
         >
-          Khám Phá
+          {isMUA ? 'Gói Dịch Vụ' : isAgencyStaff ? 'Ca Studio' : 'Khám Phá'}
         </Text>
       </TouchableOpacity>
 

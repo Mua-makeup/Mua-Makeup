@@ -43,4 +43,3 @@ public class BookingAcceptanceController extends BaseController {
         return ok(result, "booking.skip_success");
     }
 }
-

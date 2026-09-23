@@ -37,4 +37,11 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
             BookingType bookingType,
             Collection<BookingStatus> statuses
     );
+
+    @Query("SELECT b.destinationAddress, b.destinationLatitude, b.destinationLongitude, MAX(b.createdAt), COUNT(b.id) " +
+           "FROM BookingEntity b " +
+           "WHERE b.customer.id = :customerId AND b.destinationAddress IS NOT NULL " +
+           "GROUP BY b.destinationAddress, b.destinationLatitude, b.destinationLongitude " +
+           "ORDER BY MAX(b.createdAt) DESC")
+    List<Object[]> findRecentAddressesByCustomerId(@Param("customerId") Long customerId, org.springframework.data.domain.Pageable pageable);
 }

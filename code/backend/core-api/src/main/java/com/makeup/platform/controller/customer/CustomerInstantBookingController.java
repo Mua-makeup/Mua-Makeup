@@ -40,4 +40,13 @@ public class CustomerInstantBookingController extends BaseController {
         customerInstantBookingService.cancelInstantBookingByCustomer(bookingId, customerId, "Khách hàng chủ động hủy tìm kiếm");
         return ok(null, "booking.cancel_success");
     }
+
+    @org.springframework.web.bind.annotation.GetMapping("/recent-addresses")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<java.util.List<com.makeup.platform.dto.response.booking.RecentAddressRes>>> getRecentAddresses() {
+        Long customerId = SecurityContextUtils.getCurrentUserId();
+        java.util.List<com.makeup.platform.dto.response.booking.RecentAddressRes> res =
+                customerInstantBookingService.getRecentAddresses(customerId);
+        return ok(res, "booking.recent_addresses_fetch_success");
+    }
 }

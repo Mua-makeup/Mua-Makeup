@@ -120,6 +120,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/telemetry/nearby").permitAll()
                         .requestMatchers("/api/v1/pricing/**").permitAll()
+                        .requestMatchers("/api/v1/maps/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         // All other endpoints require authentication
                         .anyRequest().authenticated())

@@ -15,8 +15,16 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
+import { useLocationStore } from '@/store/location.store';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
+import { InstantRadarModal } from '@/components/booking/InstantRadarModal';
+import { WorkstationHeader } from '@/components/mua/WorkstationHeader';
+import { WorkstationStatCards } from '@/components/mua/WorkstationStatCards';
+import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
+import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
+import { useWorkstationStore } from '@/store/workstation.store';
 import { hasSeenOnboarding } from '@/utils/storage';
+import * as Haptics from 'expo-haptics';
 
 interface MuaArtist {
   id: number;
@@ -70,6 +78,7 @@ const CATEGORIES = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { userInfo, isAuthenticated, logout } = useAuthStore();
+  const { currentAddress, fetchCurrentLocation, isLoading: isLocating } = useLocationStore();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isReadyToWork, setIsReadyToWork] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -77,6 +86,15 @@ export default function HomeScreen() {
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
   const isCustomer = userInfo?.roles?.includes('ROLE_CUSTOMER') || (!isMUA && !isAgencyStaff);
+  const isWorkstationRole = (isMUA || isAgencyStaff) && isAuthenticated;
+
+  const {
+    todayBookings,
+    isLoading: isWorkstationLoading,
+    selectedFilter,
+    setFilter,
+    fetchWorkstationData,
+  } = useWorkstationStore();
 
   useEffect(() => {
     // Chỉ hiển thị hướng dẫn Onboarding khi người dùng mở ứng dụng lần đầu
@@ -85,7 +103,16 @@ export default function HomeScreen() {
         router.replace('/(auth)/onboarding');
       }
     });
-  }, []);
+
+    // Tự động kích hoạt định vị GPS khi mở app hoặc khi đăng nhập
+    fetchCurrentLocation();
+
+    if (isWorkstationRole) {
+      fetchWorkstationData();
+    }
+  }, [isAuthenticated, isWorkstationRole]);
+
+  const [isRadarModalVisible, setIsRadarModalVisible] = useState(false);
 
   const handleBookingPress = (mua: MuaArtist) => {
     router.push({
@@ -95,21 +122,7 @@ export default function HomeScreen() {
   };
 
   const handleEmergencyBooking = () => {
-    if (!isAuthenticated) {
-      Alert.alert(
-        'Đăng Nhập Đặt Khẩn Cấp',
-        'Vui lòng đăng nhập tài khoản để hệ thống phát radar tìm thợ gần bạn trong 30 giây.',
-        [
-          { text: 'Đóng', style: 'cancel' },
-          { text: 'Đăng Nhập', onPress: () => router.push('/(auth)/login') },
-        ]
-      );
-      return;
-    }
-    Alert.alert(
-      '🚨 Radar Khẩn Cấp 30s Kích Hoạt',
-      'Đang quét các thợ MUA trực tuyến trong bán kính 5 km... Thợ sẽ nhận ca và có mặt sau 15-30 phút!'
-    );
+    setIsRadarModalVisible(true);
   };
 
   const handleLogout = async () => {
@@ -130,13 +143,22 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* Top Header Bar */}
       <View style={styles.headerBar}>
-        <TouchableOpacity style={styles.locationSelector} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.locationSelector}
+          activeOpacity={0.7}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            fetchCurrentLocation();
+          }}
+        >
           <Ionicons name="location" size={18} color={BrandColors.primary} />
           <View style={styles.locationCol}>
-            <Text style={styles.locationSmall}>Địa chỉ trang điểm</Text>
+            <Text style={styles.locationSmall}>
+              Vị trí hiện tại của bạn
+            </Text>
             <View style={styles.locationRow}>
               <Text style={styles.locationText} numberOfLines={1}>
-                128 Nguyễn Trãi, Q.1, TP.HCM
+                {isLocating ? 'Đang định vị GPS...' : currentAddress}
               </Text>
               <Ionicons name="chevron-down" size={14} color={BrandColors.slateHeading} />
             </View>
@@ -179,308 +201,322 @@ export default function HomeScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
 
-        {/* User Greeting Bar */}
-        {isAuthenticated && (
-          <View style={styles.greetingBar}>
-            <View style={styles.greetingTextContainer}>
-              <Text style={styles.greetingTitle} numberOfLines={2}>
-                {isMUA
-                  ? `Chào MUA, ${userInfo?.fullName}! 🎨`
-                  : isAgencyStaff
-                    ? `Chào Staff, ${userInfo?.fullName}! 🏢`
-                    : `Xin chào, ${userInfo?.fullName}! ✨`}
-              </Text>
-              <Text style={styles.greetingSubtitle} numberOfLines={2}>
-                {isMUA
-                  ? 'Chúc bạn một ngày làm việc tràn đầy sáng tạo'
-                  : isAgencyStaff
-                    ? 'Điều phối nhân sự & theo dõi đơn hàng đại lý'
-                    : 'Hôm nay bạn muốn tỏa sáng theo phong cách nào?'}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.roleBadge,
-                isMUA
-                  ? styles.roleBadgeMua
-                  : isAgencyStaff
-                    ? styles.roleBadgeAgency
-                    : styles.roleBadgeCustomer,
-              ]}>
-              <Text style={styles.roleBadgeText}>
-                {isMUA ? 'Thợ MUA' : isAgencyStaff ? 'Agency Staff' : 'Khách Hàng'}
-              </Text>
-            </View>
-          </View>
-        )}
+        {isWorkstationRole ? (
+          /* ========================================================================= */
+          /* MÀN HÌNH BÀN LÀM VIỆC DÀNH CHO THỢ MUA & AGENCY STAFF                     */
+          /* ========================================================================= */
+          <View style={styles.workstationWrapper}>
+            {/* Header thông tin thợ & Công tắc Trực tuyến (GPS ON/OFF) */}
+            <WorkstationHeader />
 
-        {/* THỢ MUA & AGENCY STAFF DASHBOARD STATUS CARD */}
-        {(isMUA || isAgencyStaff) && isAuthenticated && (
-          <View style={styles.muaDashboardCard}>
-            <View style={styles.muaDashboardHeader}>
-              <View style={styles.muaStatusRow}>
-                <View
-                  style={[
-                    styles.statusIndicatorDot,
-                    { backgroundColor: isReadyToWork ? BrandColors.success : BrandColors.slateMuted },
-                  ]}
-                />
-                <Text style={styles.muaStatusLabel}>
-                  {isReadyToWork ? 'SẴN SÀNG NHẬN CA (GPS ON)' : 'TẠM NGHỈ NHẬN CA'}
-                </Text>
-              </View>
-              <Switch
-                value={isReadyToWork}
-                onValueChange={setIsReadyToWork}
-                trackColor={{ false: '#CBD5E1', true: BrandColors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
+            {/* 3 Thẻ thống kê: Ca hoàn thành, Đánh giá sao, Thu nhập ngày */}
+            <WorkstationStatCards />
 
-            {/* Stats Row */}
-            <View style={styles.muaStatsRow}>
-              <View style={styles.muaStatCol}>
-                <Text style={styles.muaStatValue}>12</Text>
-                <Text style={styles.muaStatTitle}>Ca đã hoàn tất</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.muaStatCol}>
-                <Text style={styles.muaStatValue}>4.95 ⭐</Text>
-                <Text style={styles.muaStatTitle}>Điểm đánh giá</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.muaStatCol}>
-                <Text style={styles.muaStatValue}>1.450k</Text>
-                <Text style={styles.muaStatTitle}>Thu nhập hôm nay</Text>
-              </View>
-            </View>
-
-            {/* Radar Emergency Broadcast Test Banner */}
-            {isReadyToWork && (
-              <View style={styles.urgentAlertBox}>
-                <View style={styles.urgentAlertHeader}>
-                  <View style={styles.livePulseBox}>
-                    <Ionicons name="radio" size={16} color={BrandColors.danger} />
-                    <Text style={styles.urgentAlertBadge}>ĐANG QUÉT CA GẦN BẠN</Text>
-                  </View>
-                  <Text style={styles.urgentCountdown}>Còn 28s</Text>
+            {/* Phím tắt tác nghiệp nhanh */}
+            <View style={styles.workstationShortcutsRow}>
+              <TouchableOpacity
+                style={styles.workstationShortcutCard}
+                activeOpacity={0.8}
+                onPress={() => router.push('/mua/packages' as any)}
+              >
+                <View style={[styles.workstationShortcutIcon, { backgroundColor: '#FFF1F2' }]}>
+                  <Ionicons name="cube-outline" size={20} color="#E11D48" />
                 </View>
-                <Text style={styles.urgentDetailsText}>
-                  Khách đặt Make-up Dự Tiệc Cấp Tốc cách bạn 1.2 km (Q.1) • 450.000đ
+                <View style={styles.workstationShortcutText}>
+                  <Text style={styles.workstationShortcutTitle}>Gói Dịch Vụ</Text>
+                  <Text style={styles.workstationShortcutSub}>Bảng giá & album mẫu</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.workstationShortcutCard}
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (isMUA) {
+                    router.push('/profile/mua-profile' as any);
+                  } else {
+                    router.push('/profile/staff-profile' as any);
+                  }
+                }}
+              >
+                <View style={[styles.workstationShortcutIcon, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name={isMUA ? 'ribbon-outline' : 'business-outline'} size={20} color="#2563EB" />
+                </View>
+                <View style={styles.workstationShortcutText}>
+                  <Text style={styles.workstationShortcutTitle}>
+                    {isMUA ? 'Hồ Sơ & Bán Kính' : 'Hồ Sơ Nhân Sự'}
+                  </Text>
+                  <Text style={styles.workstationShortcutSub}>Cấu hình nhận ca</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Bộ lọc Ca Làm Hôm Nay */}
+            <View style={styles.workstationSectionHeader}>
+              <Text style={styles.workstationSectionTitle}>Lịch Hẹn Hôm Nay</Text>
+              <View style={styles.workstationFilterPills}>
+                {[
+                  { key: 'ALL', label: 'Tất cả' },
+                  { key: 'UPCOMING', label: 'Sắp làm' },
+                  { key: 'COMPLETED', label: 'Đã xong' },
+                ].map((f) => (
+                  <TouchableOpacity
+                    key={f.key}
+                    style={[
+                      styles.workstationFilterPill,
+                      selectedFilter === f.key && styles.workstationFilterPillActive,
+                    ]}
+                    onPress={() => setFilter(f.key as any)}
+                  >
+                    <Text
+                      style={[
+                        styles.workstationFilterText,
+                        selectedFilter === f.key && styles.workstationFilterTextActive,
+                      ]}
+                    >
+                      {f.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Danh sách ca hôm nay */}
+            {todayBookings.length > 0 ? (
+              todayBookings.map((b) => <TodayBookingCard key={b.id} booking={b} />)
+            ) : (
+              <View style={styles.workstationEmptyContainer}>
+                <View style={styles.workstationEmptyIconCircle}>
+                  <Ionicons name="calendar-outline" size={36} color="#94A3B8" />
+                </View>
+                <Text style={styles.workstationEmptyTitle}>Chưa Có Ca Làm Việc Hôm Nay</Text>
+                <Text style={styles.workstationEmptySubtext}>
+                  Hãy bật công tắc Trực tuyến để hệ thống tự động phát sóng GPS và điều phối đơn khẩn cấp và khách đặt hẹn đến bạn.
                 </Text>
-                <TouchableOpacity
-                  style={styles.acceptJobButton}
-                  onPress={() => Alert.alert('Thành Công', 'Bạn đã nhận ca thành công! Hệ thống điều hướng GPS tới vị trí khách hàng.')}
-                  activeOpacity={0.8}>
-                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                  <Text style={styles.acceptJobText}>Chấp Nhận Nhận Ca Ngay</Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>
-        )}
-
-        {/* CUSTOMER SECTION: Quick Search Bar to Explore Screen */}
-        {isCustomer && (
-          <TouchableOpacity
-            style={styles.searchBarBox}
-            onPress={() => router.push('/explore')}
-            activeOpacity={0.85}>
-            <Ionicons name="search" size={18} color={BrandColors.slateMuted} />
-            <Text style={styles.searchBarPlaceholder}>
-              Tìm kiếm gói dịch vụ, thợ trang điểm...
-            </Text>
-            <View style={styles.searchFilterPill}>
-              <Ionicons name="options-outline" size={14} color={BrandColors.primary} />
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* CUSTOMER SECTION: VIP Promo Banner */}
-        {isCustomer && (
-          <View style={styles.promoBanner}>
-            <View style={styles.promoContent}>
-              <View style={styles.promoTag}>
-                <Ionicons name="flame" size={12} color="#FFFFFF" />
-                <Text style={styles.promoTagText}>MÙA CƯỚI 2026</Text>
-              </View>
-              <Text style={styles.promoTitle}>Ưu Đãi 20% Gói Cô Dâu VIP</Text>
-              <Text style={styles.promoSubtitle}>
-                Trang điểm thử miễn phí • Mỹ phẩm Chanel & Dior cao cấp
-              </Text>
-              <TouchableOpacity
-                style={styles.promoButton}
-                onPress={() => router.push('/explore')}
-                activeOpacity={0.8}>
-                <Text style={styles.promoButtonText}>Khám Phá Ngay</Text>
-                <Ionicons name="arrow-forward" size={14} color={BrandColors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* CUSTOMER SECTION: 30s Instant Emergency Booking Card */}
-        {isCustomer && (
-          <TouchableOpacity
-            style={styles.emergencyCard}
-            onPress={handleEmergencyBooking}
-            activeOpacity={0.9}>
-            <View style={styles.emergencyGlowBg} />
-            <View style={styles.emergencyContent}>
-              <View style={styles.emergencyHeaderRow}>
-                <View style={styles.emergencyBadge}>
-                  <Ionicons name="flash" size={14} color="#FFFFFF" />
-                  <Text style={styles.emergencyBadgeText}>ĐẶT KHẨN CẤP 30S</Text>
+        ) : (
+          /* ========================================================================= */
+          /* MÀN HÌNH KHÁM PHÁ & ĐẶT LỊCH DÀNH CHO KHÁCH HÀNG (CUSTOMER)                */
+          /* ========================================================================= */
+          <>
+            {/* User Greeting Bar */}
+            {isAuthenticated && (
+              <View style={styles.greetingBar}>
+                <View style={styles.greetingTextContainer}>
+                  <Text style={styles.greetingTitle} numberOfLines={2}>
+                    {`Xin chào, ${userInfo?.fullName}! ✨`}
+                  </Text>
+                  <Text style={styles.greetingSubtitle} numberOfLines={2}>
+                    Hôm nay bạn muốn tỏa sáng theo phong cách nào?
+                  </Text>
                 </View>
-                <View style={styles.countdownPill}>
-                  <Text style={styles.countdownText}>⚡ Có thợ ngay</Text>
+                <View style={[styles.roleBadge, styles.roleBadgeCustomer]}>
+                  <Text style={styles.roleBadgeText}>Khách Hàng</Text>
                 </View>
               </View>
+            )}
 
-              <Text style={styles.emergencyTitle}>Bạn Cần Trang Điểm Gấp?</Text>
-              <Text style={styles.emergencyDesc}>
-                Hệ thống quét thợ MUA rảnh quanh bạn qua GPS • Thợ nhận ca tức thì trong 30s
-              </Text>
-
-              <View style={styles.emergencyCtaBtn}>
-                <Text style={styles.emergencyCtaText}>ĐẶT THỢ CẤP TỐC NGAY</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* Categories Chips */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Phong Cách Nổi Bật</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/explore')}>
-            <Text style={styles.viewAllText}>Xem tất cả</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}>
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                onPress={() => {
-                  setSelectedCategory(cat.id);
-                  router.push('/explore');
-                }}
-                activeOpacity={0.8}>
-                <Ionicons
-                  name={cat.icon}
-                  size={15}
-                  color={isSelected ? '#FFFFFF' : BrandColors.slateHeading}
-                />
-                <Text
-                  style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Featured MUAs List */}
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Thợ Make-up Được Yêu Thích</Text>
-            <View style={styles.verifiedCountBadge}>
-              <Text style={styles.verifiedCountText}>Gần bạn</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.muaListContainer}>
-          {FEATURED_MUAS.map((mua) => (
+            {/* Quick Search Bar to Explore Screen */}
             <TouchableOpacity
-              key={mua.id}
-              style={styles.muaCard}
-              onPress={() => handleBookingPress(mua)}
+              style={styles.searchBarBox}
+              onPress={() => router.push('/explore')}
               activeOpacity={0.85}>
-              {/* Avatar + Info */}
-              <View style={styles.muaCardTop}>
-                <Image source={{ uri: mua.avatar }} style={styles.muaAvatar} />
-                <View style={styles.muaInfoCol}>
-                  <View style={styles.muaNameRow}>
-                    <Text style={styles.muaName}>{mua.name}</Text>
-                    <Ionicons name="checkmark-circle" size={16} color={BrandColors.primary} />
-                  </View>
-                  <Text style={styles.muaCategory}>{mua.category}</Text>
+              <Ionicons name="search" size={18} color={BrandColors.slateMuted} />
+              <Text style={styles.searchBarPlaceholder}>
+                Tìm kiếm gói dịch vụ, thợ trang điểm...
+              </Text>
+              <View style={styles.searchFilterPill}>
+                <Ionicons name="options-outline" size={14} color={BrandColors.primary} />
+              </View>
+            </TouchableOpacity>
 
-                  <View style={styles.ratingAndDistRow}>
-                    <View style={styles.ratingBox}>
-                      <Ionicons name="star" size={13} color="#F59E0B" />
-                      <Text style={styles.ratingText}>{mua.rating}</Text>
-                      <Text style={styles.reviewsCount}>({mua.reviewsCount})</Text>
-                    </View>
-                    <Text style={styles.dotSeparator}>•</Text>
-                    <View style={styles.distBox}>
-                      <Ionicons name="navigate-outline" size={13} color={BrandColors.slateMuted} />
-                      <Text style={styles.distText}>{mua.distanceKm} km</Text>
-                    </View>
+            {/* VIP Promo Banner */}
+            <View style={styles.promoBanner}>
+              <View style={styles.promoContent}>
+                <View style={styles.promoTag}>
+                  <Ionicons name="flame" size={12} color="#FFFFFF" />
+                  <Text style={styles.promoTagText}>MÙA CƯỚI 2026</Text>
+                </View>
+                <Text style={styles.promoTitle}>Ưu Đãi 20% Gói Cô Dâu VIP</Text>
+                <Text style={styles.promoSubtitle}>
+                  Trang điểm thử miễn phí • Mỹ phẩm Chanel & Dior cao cấp
+                </Text>
+                <TouchableOpacity
+                  style={styles.promoButton}
+                  onPress={() => router.push('/explore')}
+                  activeOpacity={0.8}>
+                  <Text style={styles.promoButtonText}>Khám Phá Ngay</Text>
+                  <Ionicons name="arrow-forward" size={14} color={BrandColors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* 30s Instant Emergency Booking Card */}
+            <TouchableOpacity
+              style={styles.emergencyCard}
+              onPress={handleEmergencyBooking}
+              activeOpacity={0.9}>
+              <View style={styles.emergencyGlowBg} />
+              <View style={styles.emergencyContent}>
+                <View style={styles.emergencyHeaderRow}>
+                  <View style={styles.emergencyBadge}>
+                    <Ionicons name="flash" size={14} color="#FFFFFF" />
+                    <Text style={styles.emergencyBadgeText}>ĐẶT KHẨN CẤP 30S</Text>
+                  </View>
+                  <View style={styles.countdownPill}>
+                    <Text style={styles.countdownText}>⚡ Có thợ ngay</Text>
                   </View>
                 </View>
-              </View>
 
-              {/* Badges tags */}
-              <View style={styles.badgesRow}>
-                {mua.badges.map((badge, idx) => (
-                  <View key={idx} style={styles.badgeItem}>
-                    <Text style={styles.badgeItemText}>{badge}</Text>
-                  </View>
-                ))}
-              </View>
+                <Text style={styles.emergencyTitle}>Bạn Cần Trang Điểm Gấp?</Text>
+                <Text style={styles.emergencyDesc}>
+                  Hệ thống quét thợ MUA rảnh quanh bạn qua GPS • Thợ nhận ca tức thì trong 30s
+                </Text>
 
-              {/* Bottom Price & Action */}
-              <View style={styles.muaCardBottom}>
-                <View>
-                  <Text style={styles.priceLabel}>Giá khởi điểm</Text>
-                  <Text style={styles.priceValue}>{mua.startingPrice}</Text>
-                </View>
-
-                <View style={styles.bookNowButton}>
-                  <Text style={styles.bookNowButtonText}>Đặt Lịch</Text>
-                  <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
+                <View style={styles.emergencyCtaBtn}>
+                  <Text style={styles.emergencyCtaText}>ĐẶT THỢ CẤP TỐC NGAY</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                 </View>
               </View>
             </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* Platform Trust & Escrow Guarantee Card */}
-        <View style={styles.trustCard}>
-          <View style={styles.trustHeader}>
-            <Ionicons name="shield-checkmark" size={22} color={BrandColors.primary} />
-            <Text style={styles.trustTitle}>Cam Kết Bảo Chứng Từ MUA Platform</Text>
-          </View>
-          <View style={styles.trustItemsCol}>
-            <View style={styles.trustItemRow}>
-              <Ionicons name="checkmark-done-circle" size={17} color={BrandColors.success} />
-              <Text style={styles.trustItemText}>
-                100% Mỹ phẩm cao cấp chính hãng (MAC, Dior, Chanel, Charlotte Tilbury)
-              </Text>
+            {/* Categories Chips */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Phong Cách Nổi Bật</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/explore')}>
+                <Text style={styles.viewAllText}>Xem tất cả</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.trustItemRow}>
-              <Ionicons name="checkmark-done-circle" size={17} color={BrandColors.success} />
-              <Text style={styles.trustItemText}>
-                Quỹ cọc Escrow an toàn — Tiền chỉ giải ngân khi khách hàng nghiệm thu
-              </Text>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryScroll}>
+              {CATEGORIES.map((cat) => {
+                const isSelected = selectedCategory === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                    onPress={() => {
+                      setSelectedCategory(cat.id);
+                      router.push('/explore');
+                    }}
+                    activeOpacity={0.8}>
+                    <Ionicons
+                      name={cat.icon}
+                      size={15}
+                      color={isSelected ? '#FFFFFF' : BrandColors.slateHeading}
+                    />
+                    <Text
+                      style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Featured MUAs List */}
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Thợ Make-up Được Yêu Thích</Text>
+                <View style={styles.verifiedCountBadge}>
+                  <Text style={styles.verifiedCountText}>Gần bạn</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.trustItemRow}>
-              <Ionicons name="checkmark-done-circle" size={17} color={BrandColors.success} />
-              <Text style={styles.trustItemText}>
-                Cam kết đúng giờ 100% — Đổi thợ tức thì nếu có phát sinh sự cố
-              </Text>
+
+            <View style={styles.muaListContainer}>
+              {FEATURED_MUAS.map((mua) => (
+                <TouchableOpacity
+                  key={mua.id}
+                  style={styles.muaCard}
+                  onPress={() => handleBookingPress(mua)}
+                  activeOpacity={0.85}>
+                  {/* Avatar + Info */}
+                  <View style={styles.muaCardTop}>
+                    <Image source={{ uri: mua.avatar }} style={styles.muaAvatar} />
+                    <View style={styles.muaInfoCol}>
+                      <View style={styles.muaNameRow}>
+                        <Text style={styles.muaName}>{mua.name}</Text>
+                        <Ionicons name="checkmark-circle" size={16} color={BrandColors.primary} />
+                      </View>
+                      <Text style={styles.muaCategory}>{mua.category}</Text>
+
+                      <View style={styles.ratingAndDistRow}>
+                        <View style={styles.ratingBox}>
+                          <Ionicons name="star" size={13} color="#F59E0B" />
+                          <Text style={styles.ratingText}>{mua.rating}</Text>
+                          <Text style={styles.reviewsCount}>({mua.reviewsCount})</Text>
+                        </View>
+                        <Text style={styles.dotSeparator}>•</Text>
+                        <View style={styles.distBox}>
+                          <Ionicons name="navigate-outline" size={13} color={BrandColors.slateMuted} />
+                          <Text style={styles.distText}>{mua.distanceKm} km</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Badges tags */}
+                  <View style={styles.badgesRow}>
+                    {mua.badges.map((badge, idx) => (
+                      <View key={idx} style={styles.badgeItem}>
+                        <Text style={styles.badgeItemText}>{badge}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Bottom Price & Action */}
+                  <View style={styles.muaCardBottom}>
+                    <View>
+                      <Text style={styles.priceLabel}>Giá khởi điểm</Text>
+                      <Text style={styles.priceValue}>{mua.startingPrice}</Text>
+                    </View>
+
+                    <View style={styles.bookNowButton}>
+                      <Text style={styles.bookNowButtonText}>Đặt Lịch</Text>
+                      <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
-          </View>
-        </View>
+
+            {/* Platform Trust & Escrow Guarantee Card */}
+            <View style={styles.trustCard}>
+              <View style={styles.trustHeader}>
+                <Ionicons name="shield-checkmark" size={22} color={BrandColors.primary} />
+                <Text style={styles.trustTitle}>Cam Kết Bảo Chứng Từ MUA Platform</Text>
+              </View>
+              <View style={styles.trustItemsCol}>
+                <View style={styles.trustItemRow}>
+                  <Ionicons name="checkmark-done-circle" size={17} color={BrandColors.success} />
+                  <Text style={styles.trustItemText}>
+                    100% Mỹ phẩm cao cấp chính hãng (MAC, Dior, Chanel, Charlotte Tilbury)
+                  </Text>
+                </View>
+                <View style={styles.trustItemRow}>
+                  <Ionicons name="checkmark-done-circle" size={17} color={BrandColors.success} />
+                  <Text style={styles.trustItemText}>
+                    Quỹ cọc Escrow an toàn — Tiền chỉ giải ngân khi khách hàng nghiệm thu
+                  </Text>
+                </View>
+                <View style={styles.trustItemRow}>
+                  <Ionicons name="checkmark-done-circle" size={17} color={BrandColors.success} />
+                  <Text style={styles.trustItemText}>
+                    Cam kết đúng giờ 100% — Đổi thợ tức thì nếu có phát sinh sự cố
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
 
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -627,6 +663,15 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL RADAR TÌM THỢ KHẨN CẤP 30S (SPRINT M-2) */}
+      <InstantRadarModal
+        visible={isRadarModalVisible}
+        onClose={() => setIsRadarModalVisible(false)}
+      />
+
+      {/* MODAL ĐẾM NGƯỢC 30S NHẬN CA KHẨN CẤP (CHO THỢ MUA KHI CÓ BROADCAST) */}
+      <CountdownAcceptModal />
 
       {/* Bottom Navigation Bar */}
       <AppBottomNavBar
@@ -793,115 +838,111 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: BrandColors.slateHeading,
   },
-  muaDashboardCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+  workstationWrapper: {
+    paddingBottom: 24,
   },
-  muaDashboardHeader: {
+  workstationShortcutsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  muaStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusIndicatorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  muaStatusLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  muaStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-  },
-  muaStatCol: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  muaStatValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#F8FAFC',
-  },
-  muaStatTitle: {
-    fontSize: 10.5,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#334155',
-  },
-  urgentAlertBox: {
-    backgroundColor: '#450A0A',
-    borderWidth: 1,
-    borderColor: '#991B1B',
-    borderRadius: 12,
-    padding: 12,
+    gap: 10,
     marginTop: 14,
+    marginBottom: 8,
   },
-  urgentAlertHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  livePulseBox: {
+  workstationShortcutCard: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  urgentAlertBadge: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FECDD3',
-  },
-  urgentCountdown: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#F87171',
-  },
-  urgentDetailsText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-  acceptJobButton: {
-    backgroundColor: BrandColors.primary,
-    flexDirection: 'row',
+  workstationShortcutIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 8,
+    marginRight: 8,
+  },
+  workstationShortcutText: {
+    flex: 1,
+  },
+  workstationShortcutTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  workstationShortcutSub: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  workstationSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  workstationSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  workstationFilterPills: {
+    flexDirection: 'row',
     gap: 6,
   },
-  acceptJobText: {
+  workstationFilterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+  },
+  workstationFilterPillActive: {
+    backgroundColor: '#0F172A',
+  },
+  workstationFilterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  workstationFilterTextActive: {
     color: '#FFFFFF',
-    fontSize: 13,
+  },
+  workstationEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    marginTop: 8,
+  },
+  workstationEmptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  workstationEmptyTitle: {
+    fontSize: 14.5,
     fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  workstationEmptySubtext: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   promoBanner: {
     backgroundColor: '#FFF1F2',
@@ -1402,5 +1443,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  openWorkstationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFF1F2',
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  openWorkstationText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#E11D48',
   },
 });

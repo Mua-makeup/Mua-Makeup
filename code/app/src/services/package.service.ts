@@ -79,19 +79,25 @@ export interface UpdatePackageReq {
 export const packageService = {
   /** Lấy danh sách gói dịch vụ có lọc theo category, muaId, agencyId (Dành cho Khám phá) */
   async listPackages(params?: PackageFilterParams): Promise<PackageSummary[]> {
-    const res = await apiClient.get<ApiResponse<PackageSummary[]>>('/packages', {
+    const res = await apiClient.get<any>('/packages', {
       params: {
         availableOnly: true,
         ...params,
       },
     });
-    return res.data?.data || [];
+    const raw = res.data?.data;
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.content)) return raw.content;
+    return [];
   },
 
   /** Lấy danh sách toàn bộ gói của Thợ MUA đang đăng nhập */
   async listMyPackages(): Promise<PackageSummary[]> {
-    const res = await apiClient.get<ApiResponse<PackageSummary[]>>('/packages/my');
-    return res.data?.data || [];
+    const res = await apiClient.get<any>('/packages/my');
+    const raw = res.data?.data;
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.content)) return raw.content;
+    return [];
   },
 
   /** Lấy chi tiết gói dịch vụ bao gồm các bước items thực hiện */

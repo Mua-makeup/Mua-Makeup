@@ -12,4 +12,6 @@ public interface CustomerInstantBookingService {
     boolean expireInstantBooking(Long bookingId);
 
     boolean cancelInstantBookingByCustomer(Long bookingId, Long customerUserId, String reason);
+
+    java.util.List<com.makeup.platform.dto.response.booking.RecentAddressRes> getRecentAddresses(Long customerId);
 }
