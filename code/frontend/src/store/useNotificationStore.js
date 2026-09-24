@@ -66,15 +66,26 @@ export const useNotificationStore = create((set, get) => ({
   addNotification: (item) => {
     const currentList = get().notifications;
 
-    // Deduplication check: prevent duplicates by bookingId, bookingCode, or id
+    // Deduplication check: ONLY drop if exact same notification ID exists,
+    // or same bookingId AND same notification type arrived within 5 seconds (prevent network duplicate packets)
     const isDuplicate = currentList.some((n) => {
-      if (item.bookingId && n.bookingId && String(item.bookingId) === String(n.bookingId)) return true;
-      if (item.bookingCode && n.bookingCode && item.bookingCode === n.bookingCode) return true;
       if (item.id && n.id && String(item.id) === String(n.id)) return true;
+      if (
+        item.bookingId &&
+        n.bookingId &&
+        String(item.bookingId) === String(n.bookingId) &&
+        item.type === n.type
+      ) {
+        const timeDiff = Math.abs((item.timestamp || Date.now()) - (n.timestamp || Date.now()));
+        if (timeDiff < 5000) return true;
+      }
       return false;
     });
 
     if (isDuplicate) {
+      if (get().isSoundEnabled && item.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+        notificationSound.playEmergencyAlert();
+      }
       return null;
     }
 
@@ -106,7 +117,11 @@ export const useNotificationStore = create((set, get) => ({
     set({ notifications: updated });
 
     if (get().isSoundEnabled) {
-      notificationSound.playBookingChime();
+      if (item.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+        notificationSound.playEmergencyAlert();
+      } else {
+        notificationSound.playBookingChime();
+      }
     }
 
     return newNotif;

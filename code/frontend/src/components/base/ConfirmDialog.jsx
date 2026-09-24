@@ -16,12 +16,14 @@ export const ConfirmDialog = ({
   isDangerous = false,
   isLoading = false,
   zIndex = 'z-[70]',
+  confirmClassName = '',
 }) => {
   const { t } = useI18nStore();
   const effectiveTitle = title || t('modal_confirm_title');
   const effectiveConfirmText = confirmText || t('modal_confirm_btn');
   const effectiveCancelText = cancelText || t('modal_cancel_btn');
   const isDanger = isDangerous || variant === 'danger';
+  const resolvedVariant = isDanger ? 'danger' : (variant || 'primary');
   return (
     <Modal
       isOpen={isOpen}
@@ -41,9 +43,10 @@ export const ConfirmDialog = ({
             {effectiveCancelText}
           </Button>
           <Button
-            variant={isDanger ? 'danger' : 'primary'}
+            variant={resolvedVariant}
             onClick={onConfirm}
             isLoading={isLoading}
+            className={confirmClassName}
           >
             {effectiveConfirmText}
           </Button>

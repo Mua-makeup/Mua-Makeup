@@ -32,6 +32,7 @@ export const superAdminService = {
 
   // Platform Bookings Monitoring
   getBookings: (params) => apiClient.get('/admin/bookings', { params }),
+  getBookingStats: () => apiClient.get('/admin/bookings/stats'),
   getBookingDetail: (id) => apiClient.get(`/admin/bookings/${id}`),
   getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),
 
