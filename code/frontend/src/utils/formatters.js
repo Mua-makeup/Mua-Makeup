@@ -39,11 +39,56 @@ export function formatDateTime(date, includeSeconds = false) {
   }
 }
 
-export function formatBookingDateTime(startTime, bookingDate) {
-  if (!bookingDate) return startTime || '';
-  const formattedDate = formatDate(bookingDate);
-  if (!startTime) return formattedDate;
-  const formattedTime = startTime.length > 5 ? startTime.substring(0, 5) : startTime;
+export function formatBookingDateTime(arg1, arg2) {
+  if (!arg1 && !arg2) return '';
+
+  let datePart = null;
+  let timePart = null;
+
+  const isDate = (val) => {
+    if (!val) return false;
+    if (val instanceof Date) return true;
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      return /^\d{4}-\d{2}-\d{2}/.test(trimmed) || /^\d{2}\/\d{2}\/\d{4}/.test(trimmed);
+    }
+    return false;
+  };
+
+  const isTime = (val) => {
+    if (!val) return false;
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      return /^\d{1,2}:\d{2}/.test(trimmed);
+    }
+    return false;
+  };
+
+  if (isDate(arg1) && isTime(arg2)) {
+    datePart = arg1;
+    timePart = arg2;
+  } else if (isTime(arg1) && isDate(arg2)) {
+    timePart = arg1;
+    datePart = arg2;
+  } else if (isDate(arg1)) {
+    datePart = arg1;
+    timePart = arg2;
+  } else if (isDate(arg2)) {
+    datePart = arg2;
+    timePart = arg1;
+  } else {
+    timePart = arg1;
+    datePart = arg2;
+  }
+
+  const formattedDate = datePart ? formatDate(datePart) : '';
+  if (!timePart) return formattedDate;
+
+  const formattedTime = typeof timePart === 'string' && timePart.length > 5
+    ? timePart.substring(0, 5)
+    : String(timePart);
+
+  if (!formattedDate) return formattedTime;
   return `${formattedTime} ${formattedDate}`;
 }
 

@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Search, RefreshCw, Eye, AlertCircle, ShoppingBag } from 'lucide-react';
+import {
+  Search,
+  RefreshCw,
+  Eye,
+  AlertCircle,
+  ShoppingBag,
+  CheckCircle2,
+  DollarSign,
+  Clock,
+  CalendarDays,
+} from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { useI18nStore } from '../../store/useI18nStore';
 import { Badge } from '../../components/base/Badge';
@@ -11,7 +21,17 @@ import { formatDate } from '../../utils/formatters';
 export const AdminBookingsPage = () => {
   const { t } = useI18nStore();
   const [bookings, setBookings] = useState([]);
+  const [overviewStats, setOverviewStats] = useState({
+    totalBookings: 0,
+    completedBookings: 0,
+    inProgressBookings: 0,
+    totalGrossVolume: 0,
+    pendingDispatchCount: 0,
+    cancelledCount: 0,
+    disputedCount: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [keyword, setKeyword] = useState('');
@@ -24,6 +44,27 @@ export const AdminBookingsPage = () => {
     totalElements: 0,
     totalPages: 1,
   });
+
+  const fetchStats = async () => {
+    setIsStatsLoading(true);
+    try {
+      const res = await superAdminService.getBookingStats();
+      const data = res?.data || res || {};
+      setOverviewStats({
+        totalBookings: data.totalBookings || 0,
+        completedBookings: data.completedBookings || 0,
+        inProgressBookings: data.inProgressBookings || 0,
+        totalGrossVolume: data.totalGrossVolume || 0,
+        pendingDispatchCount: data.pendingDispatchCount || 0,
+        cancelledCount: data.cancelledCount || 0,
+        disputedCount: data.disputedCount || 0,
+      });
+    } catch {
+      // non-critical error
+    } finally {
+      setIsStatsLoading(false);
+    }
+  };
 
   const fetchBookings = async (page = 0, size = getSavedPageSize(pageInfo.size)) => {
     setIsLoading(true);
@@ -60,6 +101,10 @@ export const AdminBookingsPage = () => {
   };
 
   useEffect(() => {
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
     fetchBookings(0);
   }, [statusFilter]);
 
@@ -68,30 +113,47 @@ export const AdminBookingsPage = () => {
     fetchBookings(0);
   };
 
+  const handleReloadAll = () => {
+    fetchStats();
+    fetchBookings(0);
+  };
+
+  const formatCurrency = (val) => {
+    if (val === undefined || val === null) return '0 ₫';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+  };
+
   const getStatusVariant = (status) => {
     switch (status) {
       case 'PENDING_DEPOSIT':
       case 'PENDING':
         return 'pending';
       case 'REQUESTED':
-      case 'PENDING_AGENCY_DISPATCH':
         return 'warning';
-      case 'ACCEPTED':
+      case 'PENDING_AGENCY_DISPATCH':
+        return 'orange';
       case 'AGENCY_ASSIGNED':
+        return 'indigo';
+      case 'ACCEPTED':
+        return 'blue';
       case 'CONFIRMED':
+        return 'teal';
       case 'ON_THE_WAY':
+        return 'purple';
       case 'ARRIVED':
         return 'info';
       case 'IN_PROGRESS':
-        return 'primary';
+        return 'pink';
       case 'COMPLETED':
-      case 'PAID_OUT':
         return 'success';
+      case 'PAID_OUT':
+        return 'active';
       case 'CANCELLED':
-      case 'CANCELLED_EXPIRED':
-        return 'rejected';
-      case 'DISPUTED':
         return 'danger';
+      case 'CANCELLED_EXPIRED':
+        return 'inactive';
+      case 'DISPUTED':
+        return 'rejected';
       default:
         return 'neutral';
     }
@@ -118,6 +180,12 @@ export const AdminBookingsPage = () => {
     return map[status] || status;
   };
 
+  const getTypeLabel = (type) => {
+    if (type === 'REALTIME_INSTANT') return t('type_instant');
+    if (type === 'PRE_ORDER') return t('type_scheduled');
+    return type || '';
+  };
+
   const columns = [
     {
       header: t('col_booking_code'),
@@ -127,8 +195,8 @@ export const AdminBookingsPage = () => {
           <span className="font-mono text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900/30">
             #{row.bookingCode || row.id}
           </span>
-          <span className="block text-[10px] text-slate-400 mt-1 uppercase">
-            {row.bookingType}
+          <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">
+            {getTypeLabel(row.bookingType)}
           </span>
         </div>
       ),
@@ -148,18 +216,34 @@ export const AdminBookingsPage = () => {
     {
       header: t('col_mua'),
       accessor: 'muaName',
-      render: (row) => (
-        <div>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs block">
-            {row.muaName || (row.muaId ? `MUA #${row.muaId}` : t('unassigned_staff'))}
-          </span>
-          {row.agencyName && (
-            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-              Studio: {row.agencyName}
+      render: (row) => {
+        const assistants = (row.assignedStaff || []).filter(
+          (s) => s.role === 'ASSISTANT_MUA' && (!s.status || s.status === 'ACTIVE')
+        );
+
+        return (
+          <div className="space-y-0.5">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs block">
+              {row.muaName || (row.muaId ? `MUA #${row.muaId}` : t('unassigned_staff'))}
             </span>
-          )}
-        </div>
-      ),
+            {assistants.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800/60">
+                +{assistants.length} {t('dispatch_badge_assistant')}: {assistants.map((a) => a.staffName).join(', ')}
+              </span>
+            )}
+            {row.muaPhone && (
+              <span className="text-[11px] text-slate-400 block font-mono">
+                {row.muaPhone}
+              </span>
+            )}
+            {row.agencyName && (
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block">
+                Studio: {row.agencyName}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       header: t('col_date_time'),
@@ -207,14 +291,16 @@ export const AdminBookingsPage = () => {
     },
   ];
 
+  // Essential filtered status tabs tailored for Super Admin monitoring
   const statusTabs = [
     { key: 'ALL', label: t('tab_all') },
-    { key: 'REQUESTED', label: t('status_requested') },
-    { key: 'ACCEPTED', label: t('status_accepted') },
-    { key: 'ON_THE_WAY', label: t('status_on_the_way') },
+    { key: 'PENDING_DEPOSIT', label: t('status_pending_deposit') },
+    { key: 'PENDING_AGENCY_DISPATCH', label: t('status_pending_agency_dispatch') },
+    { key: 'CONFIRMED', label: t('status_confirmed') },
     { key: 'IN_PROGRESS', label: t('status_in_progress') },
     { key: 'COMPLETED', label: t('status_completed') },
     { key: 'CANCELLED', label: t('status_cancelled') },
+    { key: 'DISPUTED', label: t('status_disputed') },
   ];
 
   return (
@@ -232,12 +318,75 @@ export const AdminBookingsPage = () => {
         </div>
 
         <button
-          onClick={fetchBookings}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+          onClick={handleReloadAll}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading || isStatsLoading ? 'animate-spin' : ''}`} />
           <span>{t('reload') || 'Tải Lại'}</span>
         </button>
+      </div>
+
+      {/* KPI Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Bookings */}
+        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t('kpi_total_bookings')}
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center">
+              <CalendarDays className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
+            {overviewStats.totalBookings || 0}
+          </div>
+        </div>
+
+        {/* Card 2: Completed Bookings */}
+        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t('kpi_completed_bookings')}
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
+            {overviewStats.completedBookings || 0}
+          </div>
+        </div>
+
+        {/* Card 3: Platform Gross GMV */}
+        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t('kpi_total_gross_revenue')}
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 flex items-center justify-center">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-xl font-black text-slate-900 dark:text-white">
+            {formatCurrency(overviewStats.totalGrossVolume)}
+          </div>
+        </div>
+
+        {/* Card 4: In Progress Bookings */}
+        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {t('kpi_in_progress_bookings')}
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-xl font-black text-indigo-600 dark:text-indigo-400">
+            {overviewStats.inProgressBookings || 0}
+          </div>
+        </div>
       </div>
 
       {/* Error Notice */}
@@ -249,9 +398,9 @@ export const AdminBookingsPage = () => {
       )}
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        {/* Status Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        {/* Concise Status Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 lg:pb-0 scrollbar-none">
           {statusTabs.map((tab) => (
             <button
               key={tab.key}
@@ -259,7 +408,7 @@ export const AdminBookingsPage = () => {
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                 statusFilter === tab.key
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200/80 dark:border-slate-700/80'
               }`}
             >
               {tab.label}
@@ -268,20 +417,20 @@ export const AdminBookingsPage = () => {
         </div>
 
         {/* Keyword Search */}
-        <form onSubmit={handleSearch} className="relative min-w-[240px]">
+        <form onSubmit={handleSearch} className="relative min-w-[240px] shrink-0">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
           <input
             type="text"
             placeholder={t('search_booking_placeholder') || 'Mã đơn, SĐT, tên khách...'}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500"
+            className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500 shadow-2xs"
           />
         </form>
       </div>
 
       {/* Data Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-rose-100 dark:border-slate-800 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
         <DataTable
           columns={columns}
           data={bookings}
