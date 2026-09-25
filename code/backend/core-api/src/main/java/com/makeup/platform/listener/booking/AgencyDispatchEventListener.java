@@ -2,8 +2,11 @@ package com.makeup.platform.listener.booking;
 
 import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEvent;
 import com.makeup.platform.common.i18n.JsonMessageSource;
+import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.interaction.NotificationEntity;
+import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.service.interaction.NotificationService;
+import com.makeup.platform.service.mail.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -25,6 +28,8 @@ public class AgencyDispatchEventListener {
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
     private final JsonMessageSource messageSource;
+    private final AgencyProfileRepository agencyProfileRepository;
+    private final EmailService emailService;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -71,6 +76,27 @@ public class AgencyDispatchEventListener {
             messagingTemplate.convertAndSend(topic, payload);
             messagingTemplate.convertAndSend("/topic/agency/" + event.getAgencyId() + "/bookings", payload);
             log.info("[WebSocket] Sent emergency dispatch alert to {}", topic);
+
+            // 3. Gửi email cảnh báo khẩn cấp tới Studio
+            try {
+                AgencyProfileEntity agency = agencyProfileRepository.findByIdWithOwner(event.getAgencyId()).orElse(null);
+                if (agency != null) {
+                    String agencyEmail = (agency.getOwner() != null && agency.getOwner().getEmail() != null)
+                            ? agency.getOwner().getEmail() : null;
+                    if (agencyEmail != null && !agencyEmail.isBlank()) {
+                        emailService.sendAgencyEmergencyAlert(
+                                agencyEmail,
+                                agency.getAgencyName(),
+                                event
+                        );
+                    } else {
+                        log.warn("[EmailService] Agency owner email is missing for agencyId={}", event.getAgencyId());
+                    }
+                }
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send emergency alert email for bookingId={}: {}",
+                        event.getBookingId(), ex.getMessage());
+            }
         } catch (Exception e) {
             log.error("[WebSocket] Failed to broadcast emergency dispatch alert for bookingId={}",
                     event.getBookingId(), e);

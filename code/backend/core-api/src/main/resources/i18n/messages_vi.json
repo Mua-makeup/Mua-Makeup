@@ -26,7 +26,17 @@
     "language_updated": "Cập nhật ngôn ngữ ưa thích thành công.",
     "user_not_found": "Không tìm thấy người dùng.",
     "access_denied": "Truy cập bị từ chối: Bạn không có quyền thực hiện hành động này.",
-    "unauthorized_token": "Yêu cầu cần xác thực. Vui lòng đăng nhập hoặc cung cấp token hợp lệ."
+    "unauthorized_token": "Yêu cầu cần xác thực. Vui lòng đăng nhập hoặc cung cấp token hợp lệ.",
+    "2fa_required": "Yêu cầu xác thực hai lớp (2FA). Vui lòng nhập mã OTP đã gửi tới email của bạn.",
+    "2fa_verify_success": "Xác thực 2FA thành công!",
+    "2fa_session_expired": "Phiên xác thực 2FA đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.",
+    "invalid_otp": "Mã xác thực OTP không chính xác hoặc đã hết hạn.",
+    "resend_rate_limit": "Vui lòng chờ ít nhất 60 giây trước khi yêu cầu gửi lại mã OTP.",
+    "2fa_otp_resent": "Mã xác thực OTP mới đã được gửi lại vào email của bạn.",
+    "email_required_for_admin_2fa": "Tài khoản quản trị cần có địa chỉ email hợp lệ để nhận mã xác thực 2FA.",
+    "temp_token_required": "Mã phiên tạm thời không được để trống.",
+    "otp_required": "Mã xác thực OTP không được để trống.",
+    "otp_format_invalid": "Mã OTP phải gồm 6 chữ số."
   },
   "customer": {
     "profile_update_success": "Cập nhật hồ sơ khách hàng thành công!"

@@ -4,8 +4,10 @@ import { Client } from '@stomp/stompjs';
 import { Award, X, ArrowRight, User, FileText } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { USER_ROLES } from '../../../constants/roles.constant';
-import { useNotificationStore } from '../../../store/useNotificationStore';
+import { useNotificationStore, mapServerNotification } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { notificationService } from '../../../services/notification.service';
+import { notificationSound } from '../../../utils/notificationSound';
 
 export const AdminRealtimeNotifier = () => {
   const navigate = useNavigate();
@@ -20,6 +22,47 @@ export const AdminRealtimeNotifier = () => {
 
     let isMounted = true;
     let stompClient = null;
+
+    // Check unread certificate verifications on login / mount
+    const checkUnreadOnLogin = async () => {
+      try {
+        const notifRes = await notificationService.getNotifications(0, 15);
+        const notifData = notifRes?.data || notifRes || {};
+        const list = Array.isArray(notifData) ? notifData : notifData.content || [];
+        const unreadList = list
+          .filter((item) => !item.isRead && item.type === 'CERTIFICATE_VERIFICATION')
+          .map(mapServerNotification);
+
+        if (isMounted && unreadList.length > 0) {
+          let dismissedIds = [];
+          try {
+            const raw = sessionStorage.getItem('admin_dismissed_toast_ids');
+            dismissedIds = raw ? JSON.parse(raw) : [];
+          } catch {
+            dismissedIds = [];
+          }
+
+          const candidateList = unreadList.filter((item) => !dismissedIds.includes(String(item.id)));
+          if (candidateList.length > 0) {
+            const targetItem = candidateList[0];
+            const otherCount = candidateList.length - 1;
+            const toastData = {
+              ...targetItem,
+              otherCount: otherCount > 0 ? otherCount : 0,
+            };
+
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            setActiveToast(toastData);
+            notificationSound.playBookingChime();
+            toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 10000);
+          }
+        }
+      } catch (err) {
+        console.warn('[AdminRealtimeNotifier] Failed to check unread certificates on login:', err);
+      }
+    };
+
+    checkUnreadOnLogin();
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsHost = window.location.hostname || 'localhost';
@@ -51,6 +94,7 @@ export const AdminRealtimeNotifier = () => {
 
           if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
           setActiveToast(notifItem);
+          notificationSound.playBookingChime();
           toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 8000);
         }
       } catch (e) {
@@ -97,11 +141,16 @@ export const AdminRealtimeNotifier = () => {
             <Award className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
               <span>{t('notification_cert_verification_title')}</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white animate-pulse">
                 {t('new_badge')}
               </span>
+              {activeToast.otherCount > 0 && (
+                <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
+                  +{activeToast.otherCount} chứng chỉ khác
+                </span>
+              )}
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
               {t('cert_review_request')}
@@ -111,7 +160,22 @@ export const AdminRealtimeNotifier = () => {
 
         <button
           type="button"
-          onClick={() => setActiveToast(null)}
+          onClick={() => {
+            if (activeToast?.id) {
+              try {
+                const raw = sessionStorage.getItem('admin_dismissed_toast_ids');
+                const dismissed = raw ? JSON.parse(raw) : [];
+                if (!dismissed.includes(String(activeToast.id))) {
+                  dismissed.push(String(activeToast.id));
+                  sessionStorage.setItem('admin_dismissed_toast_ids', JSON.stringify(dismissed));
+                }
+              } catch {
+                // ignore
+              }
+            }
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            setActiveToast(null);
+          }}
           className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           title={t('close')}
         >
@@ -162,6 +226,20 @@ export const AdminRealtimeNotifier = () => {
         <button
           type="button"
           onClick={() => {
+            if (activeToast?.id) {
+              try {
+                const raw = sessionStorage.getItem('admin_dismissed_toast_ids');
+                const dismissed = raw ? JSON.parse(raw) : [];
+                if (!dismissed.includes(String(activeToast.id))) {
+                  dismissed.push(String(activeToast.id));
+                  sessionStorage.setItem('admin_dismissed_toast_ids', JSON.stringify(dismissed));
+                }
+                notificationService.markAsRead(activeToast.id).catch(() => {});
+              } catch {
+                // ignore
+              }
+            }
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             setActiveToast(null);
             navigate('/admin/muas/credentials');
           }}

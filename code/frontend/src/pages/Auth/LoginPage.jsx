@@ -9,12 +9,15 @@ import { USER_ROLES } from '../../constants/roles.constant';
 import { Input } from '../../components/base/Input';
 import { Button } from '../../components/base/Button';
 import { MuaWelcomeModal } from '../../components/features/auth/MuaWelcomeModal';
+import { TwoFactorModal } from '../../components/features/auth/TwoFactorModal';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18nStore();
   const login = useAuthStore((state) => state.login);
+  const verify2Fa = useAuthStore((state) => state.verify2Fa);
+  const resend2Fa = useAuthStore((state) => state.resend2Fa);
   const logout = useAuthStore((state) => state.logout);
   const currentUser = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -26,7 +29,21 @@ export const LoginPage = () => {
   const [serverError, setServerError] = useState('');
   const [showMuaModal, setShowMuaModal] = useState(false);
 
+  // 2FA state
+  const [show2FaModal, setShow2FaModal] = useState(false);
+  const [twoFaData, setTwoFaData] = useState({ tempToken: '', emailMasked: '' });
+  const [twoFaError, setTwoFaError] = useState('');
+
   useEffect(() => {
+    const isLoggingOut = sessionStorage.getItem('is_logging_out') === 'true';
+    if (isLoggingOut) {
+      sessionStorage.removeItem('is_logging_out');
+      sessionStorage.removeItem('auth_redirect_toast');
+      useToastStore.getState().hideToast();
+      setServerError('');
+      return;
+    }
+
     if (location.state?.reason === 'unauthorized') {
       const msg =
         t('auth_required_toast') ||
@@ -35,6 +52,28 @@ export const LoginPage = () => {
       showToast(msg, 'error');
     }
   }, [location.state, showToast, t]);
+
+  const handlePostLoginRedirect = (role) => {
+    const searchParams = new URLSearchParams(location.search);
+    const redirectUrl = searchParams.get('redirect');
+
+    if (redirectUrl) {
+      navigate(redirectUrl, { replace: true });
+      return;
+    }
+
+    if (role === USER_ROLES.SUPER_ADMIN) {
+      navigate('/admin/dashboard', { replace: true });
+    } else if (role === USER_ROLES.AGENCY_ADMIN) {
+      navigate('/agency/dashboard', { replace: true });
+    } else if (role === USER_ROLES.FREELANCE_MUA) {
+      setShowMuaModal(true);
+    } else if (role === USER_ROLES.CUSTOMER) {
+      navigate('/', { replace: true });
+    } else {
+      setServerError(t('login_role_unauthorized'));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,29 +92,54 @@ export const LoginPage = () => {
 
     try {
       const result = await login({ loginIdentifier, password });
-      const searchParams = new URLSearchParams(location.search);
-      const redirectUrl = searchParams.get('redirect');
 
-      if (redirectUrl) {
-        navigate(redirectUrl, { replace: true });
+      // Nếu yêu cầu 2FA (dành cho Admin / Studio)
+      if (result.requires2fa) {
+        setTwoFaData({
+          tempToken: result.tempToken,
+          emailMasked: result.emailMasked,
+        });
+        setTwoFaError('');
+        setShow2FaModal(true);
         return;
       }
 
-      if (result.role === USER_ROLES.SUPER_ADMIN) {
-        navigate('/admin/dashboard', { replace: true });
-      } else if (result.role === USER_ROLES.AGENCY_ADMIN) {
-        navigate('/agency/dashboard', { replace: true });
-      } else if (result.role === USER_ROLES.FREELANCE_MUA) {
-        setShowMuaModal(true);
-      } else if (result.role === USER_ROLES.CUSTOMER) {
-        navigate('/', { replace: true });
-      } else {
-        setServerError(t('login_role_unauthorized'));
-      }
+      handlePostLoginRedirect(result.role);
     } catch (err) {
       const errorMsg = err.message || t('error_general');
       setServerError(errorMsg);
       showToast(errorMsg, 'error');
+    }
+  };
+
+  const handleVerify2Fa = async (otpCode) => {
+    setTwoFaError('');
+    try {
+      const result = await verify2Fa({
+        tempToken: twoFaData.tempToken,
+        otpCode,
+      });
+      setShow2FaModal(false);
+      handlePostLoginRedirect(result.role);
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || t('error_general');
+      setTwoFaError(errorMsg);
+      showToast(errorMsg, 'error');
+    }
+  };
+
+  const handleResend2Fa = async () => {
+    try {
+      const res = await resend2Fa({ tempToken: twoFaData.tempToken });
+      if (res?.tempToken) {
+        setTwoFaData((prev) => ({ ...prev, tempToken: res.tempToken }));
+      }
+      showToast(t('auth_2fa_resend_success'), 'success');
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || t('error_general');
+      setTwoFaError(errorMsg);
+      showToast(errorMsg, 'error');
+      throw err;
     }
   };
 
@@ -184,7 +248,7 @@ export const LoginPage = () => {
                   <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Agency Admin</span>
                 </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">0933112233</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">0912345435</p>
               </button>
             </div>
           </div>
@@ -211,6 +275,16 @@ export const LoginPage = () => {
           setShowMuaModal(false);
           await logout();
         }}
+      />
+
+      <TwoFactorModal
+        isOpen={show2FaModal}
+        onClose={() => setShow2FaModal(false)}
+        emailMasked={twoFaData.emailMasked}
+        onVerify={handleVerify2Fa}
+        onResend={handleResend2Fa}
+        isLoading={isLoading}
+        error={twoFaError}
       />
     </div>
   );

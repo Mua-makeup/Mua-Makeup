@@ -17,4 +17,9 @@ public class AuthRes {
     private String tokenType = "Bearer";
     private long expiresIn;
     private UserInfoRes userInfo;
+
+    // 2FA Fields for Admin Login
+    private Boolean requires2fa;
+    private String tempToken;
+    private String emailMasked;
 }

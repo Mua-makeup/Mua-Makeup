@@ -67,30 +67,33 @@ apiClient.interceptors.response.use(
       }
     }
 
+    const isLoggingOut = sessionStorage.getItem('is_logging_out') === 'true';
+
     // Hiển thị Toast thông báo lỗi nếu xảy ra lỗi kết nối mạng hoặc lỗi máy chủ
-    if (isNetworkError || isTimeout) {
+    if ((isNetworkError || isTimeout) && !isLoggingOut) {
       useToastStore.getState().showToast(localizedMessage, 'error');
     }
 
     if (is401) {
       localStorage.removeItem('mua_logged_in');
 
-      // Luôn hiện Toast báo lỗi không có token / phiên hết hạn
-      useToastStore.getState().showToast(localizedMessage, 'error');
+      // Nếu đang chủ động logout, tuyệt đối không hiển thị toast lỗi hết hạn token
+      if (!isLoggingOut) {
+        useToastStore.getState().showToast(localizedMessage, 'error');
 
-      // Nếu đang ở ngoài màn hình login
-      if (!window.location.pathname.startsWith('/login')) {
-        // Lưu thông báo vào sessionStorage để hiển thị Toast sau khi trình duyệt chuyển trang tới /login
-        sessionStorage.setItem(
-          'auth_redirect_toast',
-          JSON.stringify({
-            message: localizedMessage,
-            type: 'error',
-          })
-        );
+        // Nếu đang ở ngoài màn hình login
+        if (!window.location.pathname.startsWith('/login')) {
+          sessionStorage.setItem(
+            'auth_redirect_toast',
+            JSON.stringify({
+              message: localizedMessage,
+              type: 'error',
+            })
+          );
 
-        if (window.location.pathname !== '/') {
-          window.location.href = '/login';
+          if (window.location.pathname !== '/') {
+            window.location.href = '/login';
+          }
         }
       }
     }

@@ -591,6 +591,15 @@ export const TRANSLATIONS = {
     login_here: 'Đăng nhập ngay',
     auth_required_toast: 'Bạn chưa đăng nhập hoặc không có token xác thực. Vui lòng đăng nhập để tiếp tục.',
     auth_session_expired_toast: 'Phiên làm việc đã hết hạn hoặc không tìm thấy token. Vui lòng đăng nhập lại.',
+    auth_2fa_modal_title: 'Xác Thực 2 Bước (2FA)',
+    auth_2fa_modal_desc: 'Mã xác thực gồm 6 chữ số đã được gửi đến email quản trị',
+    auth_2fa_otp_label: 'Mã OTP Xác Thực',
+    auth_2fa_otp_placeholder: 'Nhập mã 6 chữ số',
+    auth_2fa_verify_btn: 'Xác Thực & Đăng Nhập',
+    auth_2fa_resend_btn: 'Gửi lại mã OTP',
+    auth_2fa_resend_countdown: 'Gửi lại sau',
+    auth_2fa_seconds: 'giây',
+    auth_2fa_resend_success: 'Mã OTP mới đã được gửi tới email của bạn.',
 
     // DataTable & Common Inputs
     dt_showing: 'Hiển thị',
@@ -2023,6 +2032,15 @@ export const TRANSLATIONS = {
     login_here: 'Sign in here',
     auth_required_toast: 'Authentication required or token missing. Please log in to continue.',
     auth_session_expired_toast: 'Session expired or token not found. Please log in again.',
+    auth_2fa_modal_title: 'Two-Factor Authentication (2FA)',
+    auth_2fa_modal_desc: 'A 6-digit verification code has been sent to admin email',
+    auth_2fa_otp_label: 'Verification OTP Code',
+    auth_2fa_otp_placeholder: 'Enter 6-digit code',
+    auth_2fa_verify_btn: 'Verify & Sign In',
+    auth_2fa_resend_btn: 'Resend OTP Code',
+    auth_2fa_resend_countdown: 'Resend code in',
+    auth_2fa_seconds: 'seconds',
+    auth_2fa_resend_success: 'A new OTP code has been sent to your email.',
 
     // DataTable & Common Inputs
     dt_showing: 'Showing',

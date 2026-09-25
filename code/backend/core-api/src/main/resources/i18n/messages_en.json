@@ -26,7 +26,17 @@
     "language_updated": "Language preference updated successfully.",
     "user_not_found": "User not found.",
     "access_denied": "Access denied: You do not have permission to perform this action.",
-    "unauthorized_token": "Authentication required. Please log in or provide a valid token."
+    "unauthorized_token": "Authentication required. Please log in or provide a valid token.",
+    "2fa_required": "Two-factor authentication (2FA) required. Please enter the OTP sent to your email.",
+    "2fa_verify_success": "2FA verification successful!",
+    "2fa_session_expired": "2FA session has expired or is invalid. Please log in again.",
+    "invalid_otp": "Invalid or expired OTP code.",
+    "resend_rate_limit": "Please wait at least 60 seconds before requesting another OTP.",
+    "2fa_otp_resent": "A new OTP code has been resent to your email.",
+    "email_required_for_admin_2fa": "Admin account requires a valid email address for 2FA verification.",
+    "temp_token_required": "Temporary session token is required.",
+    "otp_required": "OTP code is required.",
+    "otp_format_invalid": "OTP code must be exactly 6 digits."
   },
   "customer": {
     "profile_update_success": "Customer profile updated successfully!"
