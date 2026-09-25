@@ -22,10 +22,13 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingStateMachineService;
 import com.makeup.platform.service.media.MediaStorageService;
+import com.makeup.platform.service.mua.MUACalendarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -47,6 +50,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final BookingMapper bookingMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final MediaStorageService mediaStorageService;
+    private final MUACalendarService muaCalendarService;
 
     @Override
     @Transactional
@@ -97,7 +101,33 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 throw new CustomBusinessException(ErrorCodes.ERR_CANCELLATION_REASON_REQUIRED,
                         "booking.cancellation_reason_required", HttpStatus.BAD_REQUEST);
             }
+
+            // Customer cancellation policy: cannot cancel within 2 hours of scheduled appointment
+            boolean isCustomer = booking.getCustomer() != null && booking.getCustomer().getId().equals(userId);
+            if (isCustomer) {
+                LocalDateTime scheduledStart = booking.getScheduledStartTime();
+                if (scheduledStart != null) {
+                    double hoursUntilBooking = Duration.between(LocalDateTime.now(), scheduledStart).toMinutes() / 60.0;
+                    if (hoursUntilBooking < 2.0) {
+                        log.warn("[StateMachine] Customer id={} attempted to cancel bookingId={} within 2 hours (hours remaining: {})",
+                                userId, bookingId, hoursUntilBooking);
+                        throw new CustomBusinessException(
+                                ErrorCodes.ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS,
+                                "booking.cannot_cancel_within_two_hours",
+                                HttpStatus.BAD_REQUEST
+                        );
+                    }
+                }
+            }
+
             booking.setCancellationReason(req.getReason().trim());
+        }
+
+        // Reset emergency reassignment flags if booking is cancelled, completed, or paid out
+        if (targetStatus == BookingStatus.CANCELLED || targetStatus == BookingStatus.COMPLETED
+                || targetStatus == BookingStatus.CANCELLED_EXPIRED || targetStatus == BookingStatus.PAID_OUT) {
+            booking.setNeedsEmergencyReassignment(false);
+            booking.setEmergencyReason(null);
         }
 
         try {
@@ -118,6 +148,16 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     muaProfileRepository.save(mua);
                     log.info("[StateMachine] Released busy status for MUA id={} after bookingId={} reached {}",
                             mua.getId(), bookingId, targetStatus);
+                }
+            }
+
+            // 5b. Release calendar slot upon cancellation
+            if (targetStatus == BookingStatus.CANCELLED) {
+                try {
+                    muaCalendarService.releaseSlotByBookingId(savedBooking.getId());
+                    log.info("[StateMachine] Released calendar slots for bookingId={} upon cancellation", bookingId);
+                } catch (Exception ex) {
+                    log.warn("[StateMachine] Failed to release calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
                 }
             }
 
@@ -159,7 +199,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             case PENDING_AGENCY_DISPATCH -> to == BookingStatus.AGENCY_ASSIGNED
                     || to == BookingStatus.CANCELLED;
             case AGENCY_ASSIGNED -> to == BookingStatus.ACCEPTED
-                    || to == BookingStatus.PENDING_AGENCY_DISPATCH;
+                    || to == BookingStatus.PENDING_AGENCY_DISPATCH
+                    || to == BookingStatus.CANCELLED;
             case ACCEPTED -> to == BookingStatus.ON_THE_WAY
                     || to == BookingStatus.CANCELLED;
             case ON_THE_WAY -> to == BookingStatus.ARRIVED;
@@ -240,13 +281,14 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                         throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                     }
-                } else if (booking.getStatus() == BookingStatus.PENDING_AGENCY_DISPATCH) {
+                } else if (booking.getStatus() == BookingStatus.PENDING_AGENCY_DISPATCH
+                        || booking.getStatus() == BookingStatus.AGENCY_ASSIGNED) {
                     if (!isCustomer && !isAgencyOwner) {
                         throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                     }
                 } else if (booking.getStatus() == BookingStatus.ACCEPTED) {
-                    if (!isCustomer && !isAssignedMua) {
+                    if (!isCustomer && !isAssignedMua && !isAgencyOwner) {
                         throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                     }

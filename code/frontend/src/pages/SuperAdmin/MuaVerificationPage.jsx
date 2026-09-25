@@ -71,6 +71,16 @@ export const MuaVerificationPage = () => {
     loadCertificates(0);
   }, [statusFilter]);
 
+  useEffect(() => {
+    const handleNewCert = () => {
+      loadCertificates(0);
+    };
+    window.addEventListener('admin:certificate-uploaded', handleNewCert);
+    return () => {
+      window.removeEventListener('admin:certificate-uploaded', handleNewCert);
+    };
+  }, [statusFilter]);
+
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) return certList;
     const q = searchQuery.trim().toLowerCase();
@@ -194,8 +204,8 @@ export const MuaVerificationPage = () => {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">
-          <Award className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <Award className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             {t('admin_credentials_title')}
           </h1>
         </div>
@@ -218,7 +228,7 @@ export const MuaVerificationPage = () => {
       )}
 
       {/* Filter Toolbar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 transition-colors">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 transition-colors">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -231,11 +241,11 @@ export const MuaVerificationPage = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-slate-400" />
+          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-rose-500 font-medium"
+            className="px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-rose-500 font-medium w-full sm:w-auto"
           >
             <option value={CERT_STATUS.ALL}>{t('admin_agency_filter_all')}</option>
             <option value={CERT_STATUS.PENDING}>{t('status_pending')}</option>

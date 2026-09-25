@@ -2,6 +2,7 @@ package com.makeup.platform.controller.admin;
 
 import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
+import com.makeup.platform.dto.response.admin.AdminBookingOverviewStatsRes;
 import com.makeup.platform.dto.response.admin.AdminBookingRes;
 import com.makeup.platform.service.booking.AdminBookingService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,12 @@ public class AdminBookingController extends BaseController {
     ) {
         PageResponse<AdminBookingRes> bookings = adminBookingService.getAllBookings(status, keyword, pageable);
         return ok(bookings, "admin.bookings_fetch_success");
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<AdminBookingOverviewStatsRes>> getBookingStats() {
+        AdminBookingOverviewStatsRes stats = adminBookingService.getBookingOverviewStats();
+        return ok(stats, "admin.stats_fetch_success");
     }
 
     @GetMapping("/{id}")

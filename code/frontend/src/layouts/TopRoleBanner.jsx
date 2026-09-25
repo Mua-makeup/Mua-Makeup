@@ -4,13 +4,13 @@ import {
   Key,
   User,
   Shield,
-  Sparkles,
   Sun,
   Moon,
   Globe,
   Menu,
   X,
   ChevronDown,
+  Building2,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { USER_ROLES } from '../constants/roles.constant';
@@ -23,6 +23,9 @@ import { agencyService } from '../services/agency.service';
 import { changePasswordSchema } from '../schemas/auth.schema';
 import { useI18nStore } from '../store/useI18nStore';
 import { useThemeStore } from '../store/useThemeStore';
+import { NotificationDropdown } from '../components/features/notification/NotificationDropdown';
+import { AgencyProfileCommissionModal } from '../components/features/agency/AgencyProfileCommissionModal';
+import { AdminProfileModal } from '../components/features/admin/AdminProfileModal';
 
 export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) => {
   const { user, role, logout } = useAuth();
@@ -32,6 +35,8 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
   const [agencyLogo, setAgencyLogo] = useState(null);
   const [isAgencyVerified, setIsAgencyVerified] = useState(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isAdminProfileModalOpen, setIsAdminProfileModalOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -68,6 +73,19 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
         })
         .catch(() => {});
     }
+
+    const handleProfileUpdated = (e) => {
+      const updated = e.detail;
+      if (updated?.logoUrl) {
+        setAgencyLogo(updated.logoUrl);
+      }
+      if (updated && typeof updated.isVerified === 'boolean') {
+        setIsAgencyVerified(updated.isVerified);
+      }
+    };
+
+    window.addEventListener('agency-profile-updated', handleProfileUpdated);
+    return () => window.removeEventListener('agency-profile-updated', handleProfileUpdated);
   }, [role, user?.avatarUrl]);
 
   const getRoleLabel = () => {
@@ -131,25 +149,38 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
 
   return (
     <>
-      <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs transition-colors">
+      <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-[1100] shadow-xs transition-colors">
         {/* Left: Mobile hamburger + Brand */}
         <div className="flex items-center gap-3">
           {onToggleMobileSidebar && (
             <button
               onClick={onToggleMobileSidebar}
               className="lg:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none"
-              title="Menu"
+              title={t('menu')}
             >
               {isMobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           )}
 
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center text-white shadow-sm flex-shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 dark:text-white tracking-tight text-sm sm:text-base">
+          {/* Brand Logo / Avatar */}
+          {agencyLogo || user?.avatarUrl ? (
+            <img
+              src={agencyLogo || user?.avatarUrl}
+              alt="Avatar"
+              className="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm flex-shrink-0"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              {role === USER_ROLES.AGENCY_ADMIN ? (
+                <Building2 className="w-5 h-5" />
+              ) : (
+                <Shield className="w-5 h-5" />
+              )}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="font-bold text-slate-900 dark:text-white tracking-tight text-sm sm:text-base truncate max-w-[110px] xs:max-w-[150px] sm:max-w-[200px] md:max-w-none">
                 {t('app_title')}
               </span>
               <span
@@ -164,34 +195,39 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[110px] xs:max-w-[150px] sm:max-w-[220px] md:max-w-none">
               {roleInfo.title}
             </p>
           </div>
         </div>
 
         {/* Right: Controls & User Info */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Notification Bell Dropdown (Shown for Agency Admin & Super Admin) */}
+          {(role === USER_ROLES.AGENCY_ADMIN || role === USER_ROLES.SUPER_ADMIN) && (
+            <NotificationDropdown agencyLogo={role === USER_ROLES.AGENCY_ADMIN ? agencyLogo : null} />
+          )}
+
           {/* Language Switcher Button */}
           <button
             onClick={toggleLanguage}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold transition-colors shrink-0"
             title={t('switch_language')}
           >
-            <Globe className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-            <span>{language.toUpperCase()}</span>
+            <Globe className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span className="text-[11px] sm:text-xs">{language.toUpperCase()}</span>
           </button>
 
           {/* Dark / Light Theme Toggle Button */}
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0"
             title={theme === 'dark' ? t('theme_light') : t('theme_dark')}
           >
             {theme === 'dark' ? (
-              <Sun className="w-4 h-4 text-amber-400" />
+              <Sun className="w-4 h-4 text-amber-400 shrink-0" />
             ) : (
-              <Moon className="w-4 h-4 text-slate-600" />
+              <Moon className="w-4 h-4 text-slate-600 shrink-0" />
             )}
           </button>
 
@@ -200,11 +236,11 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             <button
               type="button"
               onClick={() => setIsDropdownOpen((prev) => !prev)}
-              className="flex items-center gap-2.5 p-1.5 md:px-3 md:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+              className="flex items-center gap-1.5 sm:gap-2.5 p-1 sm:p-1.5 md:px-3 md:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20"
             >
-              {user?.avatarUrl || agencyLogo ? (
+              {agencyLogo || user?.avatarUrl ? (
                 <img
-                  src={user?.avatarUrl || agencyLogo}
+                  src={agencyLogo || user?.avatarUrl}
                   alt="Avatar"
                   className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                 />
@@ -230,7 +266,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
 
             {/* Dropdown Menu Popover */}
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-56 sm:w-60 max-w-[calc(100vw-24px)] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-[1200] animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* User Info Header */}
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                   <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
@@ -248,6 +284,34 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
 
                 {/* Dropdown Actions */}
                 <div className="py-1">
+                  {role === USER_ROLES.SUPER_ADMIN && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        setIsAdminProfileModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors text-left"
+                    >
+                      <User className="w-4 h-4 text-rose-500" />
+                      <span>{t('menu_admin_profile')}</span>
+                    </button>
+                  )}
+
+                  {role === USER_ROLES.AGENCY_ADMIN && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        setIsProfileModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors text-left"
+                    >
+                      <Building2 className="w-4 h-4 text-rose-500" />
+                      <span>{t('menu_agency_profile_commission')}</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -358,6 +422,27 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
         isDangerous={true}
         variant="danger"
       />
+
+      {/* Modal Chỉnh Sửa Hồ Sơ & Avatar cho Super Admin */}
+      {role === USER_ROLES.SUPER_ADMIN && (
+        <AdminProfileModal
+          isOpen={isAdminProfileModalOpen}
+          onClose={() => setIsAdminProfileModalOpen(false)}
+        />
+      )}
+
+      {/* Modal Chỉnh Sửa Hồ Sơ & Hoa Hồng Studio cho Agency Admin */}
+      {role === USER_ROLES.AGENCY_ADMIN && (
+        <AgencyProfileCommissionModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          onUpdated={(updated) => {
+            if (updated?.logoUrl) {
+              setAgencyLogo(updated.logoUrl);
+            }
+          }}
+        />
+      )}
     </>
   );
 };

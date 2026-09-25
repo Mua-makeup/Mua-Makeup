@@ -3,7 +3,10 @@ package com.makeup.platform.entity.booking;
 import com.makeup.platform.common.base.BaseEntity;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.catalog.MakeupStyleEntity;
+import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,6 +14,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
@@ -21,7 +25,11 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "bookings", schema = "booking_schema")
@@ -46,6 +54,31 @@ public class BookingEntity extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mua_id")
     private MuaProfileEntity mua;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "package_id")
+    private ServicePackageEntity servicePackage;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "style_id")
+    private MakeupStyleEntity style;
+
+    @Column(name = "needs_emergency_reassignment", nullable = false)
+    @Builder.Default
+    private Boolean needsEmergencyReassignment = false;
+
+    @Column(name = "emergency_reason", length = 255)
+    private String emergencyReason;
+
+    @Column(name = "emergency_reported_at")
+    private OffsetDateTime emergencyReportedAt;
+
+    @Column(name = "emergency_proof_url", columnDefinition = "TEXT")
+    private String emergencyProofUrl;
+
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<BookingStaffAssignmentEntity> staffAssignments = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "booking_type", nullable = false, length = 30)
@@ -108,8 +141,31 @@ public class BookingEntity extends BaseEntity {
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 
+    @Column(name = "deposit_expired_at")
+    private OffsetDateTime depositExpiredAt;
+
+    @Column(name = "reminder_24h_sent", nullable = false)
+    @Builder.Default
+    private Boolean reminder24hSent = false;
+
+    @Column(name = "reminder_2h_sent", nullable = false)
+    @Builder.Default
+    private Boolean reminder2hSent = false;
+
     @Version
     @Column(name = "version", nullable = false)
     @Builder.Default
     private Long version = 0L;
+
+    public LocalDateTime getScheduledStartTime() {
+        return (bookingDate != null && startTime != null) ? bookingDate.atTime(startTime) : null;
+    }
+
+    public LocalDateTime getScheduledEndTime() {
+        LocalDateTime start = getScheduledStartTime();
+        if (start != null && servicePackage != null && servicePackage.getEstimatedDurationMinutes() != null) {
+            return start.plusMinutes(servicePackage.getEstimatedDurationMinutes());
+        }
+        return start != null ? start.plusMinutes(60) : null;
+    }
 }

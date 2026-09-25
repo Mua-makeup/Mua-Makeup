@@ -29,6 +29,8 @@ public final class ErrorCodes {
     public static final String ERR_PACKAGE_ACCESS_DENIED = "ERR_PACKAGE_ACCESS_DENIED";
     public static final String ERR_INVALID_PACKAGE_PRICE = "ERR_INVALID_PACKAGE_PRICE";
     public static final String ERR_INVALID_ITEM_PRICE = "ERR_INVALID_ITEM_PRICE";
+    public static final String ERR_DUPLICATE_STEP_ORDER = "ERR_DUPLICATE_STEP_ORDER";
+    public static final String ERR_PACKAGE_DURATION_EXCEEDED = "ERR_PACKAGE_DURATION_EXCEEDED";
     public static final String ERR_SURCHARGE_NOT_FOUND = "ERR_SURCHARGE_NOT_FOUND";
     public static final String ERR_SURCHARGE_ACCESS_DENIED = "ERR_SURCHARGE_ACCESS_DENIED";
     public static final String ERR_INVALID_SURCHARGE_AMOUNT = "ERR_INVALID_SURCHARGE_AMOUNT";
@@ -60,6 +62,7 @@ public final class ErrorCodes {
     public static final String ERR_AGENCY_ACCESS_DENIED = "ERR_AGENCY_ACCESS_DENIED";
     public static final String ERR_STAFF_NOT_FOUND = "ERR_STAFF_NOT_FOUND";
     public static final String ERR_STAFF_ALREADY_EXISTS = "ERR_STAFF_ALREADY_EXISTS";
+    public static final String ERR_STAFF_APPLICATION_PENDING = "ERR_STAFF_APPLICATION_PENDING";
     public static final String ERR_INVITATION_NOT_FOUND = "ERR_INVITATION_NOT_FOUND";
     public static final String ERR_INVITATION_EXPIRED = "ERR_INVITATION_EXPIRED";
     public static final String ERR_INVITATION_ALREADY_USED = "ERR_INVITATION_ALREADY_USED";
@@ -92,6 +95,8 @@ public final class ErrorCodes {
     public static final String ERR_UNAUTHORIZED_TRANSITION = "ERR_UNAUTHORIZED_TRANSITION";
     public static final String ERR_COMPLETION_PHOTO_REQUIRED = "ERR_COMPLETION_PHOTO_REQUIRED";
     public static final String ERR_CANCELLATION_REASON_REQUIRED = "ERR_CANCELLATION_REASON_REQUIRED";
+    public static final String ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS = "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS";
+    public static final String ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL = "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL";
     public static final String ERR_BOOKING_ALREADY_TAKEN = "ERR_BOOKING_ALREADY_TAKEN";
     public static final String ERR_LOCK_ACQUISITION_TIMEOUT = "ERR_LOCK_ACQUISITION_TIMEOUT";
     public static final String ERR_OPTIMISTIC_LOCK_CONFLICT = "ERR_OPTIMISTIC_LOCK_CONFLICT";
@@ -106,6 +111,29 @@ public final class ErrorCodes {
     public static final String ERR_SURGE_RULE_NOT_FOUND = "ERR_SURGE_RULE_NOT_FOUND";
     public static final String ERR_PACKAGE_NOT_AVAILABLE = "ERR_PACKAGE_NOT_AVAILABLE";
     public static final String ERR_ADDON_NOT_IN_PACKAGE = "ERR_ADDON_NOT_IN_PACKAGE";
+
+    // Phân hệ Scheduled Booking & MUA Calendar Engine (ISSUE-18)
+    public static final String ERR_SLOT_ALREADY_BOOKED = "ERR_SLOT_ALREADY_BOOKED";
+    public static final String ERR_BUFFER_TIME_VIOLATION = "ERR_BUFFER_TIME_VIOLATION";
+    public static final String ERR_DEPOSIT_PAYMENT_TIMEOUT = "ERR_DEPOSIT_PAYMENT_TIMEOUT";
+    public static final String ERR_INVALID_TIME_RANGE = "ERR_INVALID_TIME_RANGE";
+    public static final String ERR_BOOKING_TIME_OUT_OF_SERVICE = "ERR_BOOKING_TIME_OUT_OF_SERVICE";
+    public static final String ERR_BOOKING_DATE_TOO_FAR = "ERR_BOOKING_DATE_TOO_FAR";
+    public static final String ERR_CANNOT_UNBLOCK_BOOKED_SLOT = "ERR_CANNOT_UNBLOCK_BOOKED_SLOT";
+    public static final String ERR_CALENDAR_SLOT_NOT_FOUND = "ERR_CALENDAR_SLOT_NOT_FOUND";
+    public static final String ERR_NO_AVAILABLE_STAFF = "ERR_NO_AVAILABLE_STAFF";
+
+    // Phân hệ Notifications (In-App & Multi-platform)
+    public static final String ERR_NOTIFICATION_NOT_FOUND = "ERR_NOTIFICATION_NOT_FOUND";
+
+    // Phân hệ Agency Dispatching Engine & Multi-Staff Assignment (ISSUE-19)
+    public static final String ERR_DISPATCH_PRIMARY_REQUIRED = "ERR_DISPATCH_PRIMARY_REQUIRED";
+    public static final String ERR_DISPATCH_STAFF_UNQUALIFIED = "ERR_DISPATCH_STAFF_UNQUALIFIED";
+    public static final String ERR_DISPATCH_STAFF_CONFLICT = "ERR_DISPATCH_STAFF_CONFLICT";
+    public static final String ERR_DISPATCH_MAX_ASSISTANTS_EXCEEDED = "ERR_DISPATCH_MAX_ASSISTANTS_EXCEEDED";
+    public static final String ERR_ASSIGNMENT_NOT_FOUND = "ERR_ASSIGNMENT_NOT_FOUND";
+    public static final String ERR_EMERGENCY_REPORT_NOT_FOUND = "ERR_EMERGENCY_REPORT_NOT_FOUND";
+    public static final String ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS = "ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS";
 }
 
 

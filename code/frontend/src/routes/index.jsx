@@ -12,6 +12,7 @@ import { AgencyLayout } from '../layouts/AgencyLayout';
 import { LandingPage } from '../pages/Landing/LandingPage';
 import { LoginPage } from '../pages/Auth/LoginPage';
 import { RegisterPage } from '../pages/Auth/RegisterPage';
+import { JoinAgencyPage } from '../pages/Join/JoinAgencyPage';
 import { NotFoundPage } from '../pages/NotFound/NotFoundPage';
 
 // Super Admin Pages
@@ -26,7 +27,6 @@ import { SurgePricingManagementPage } from '../pages/SuperAdmin/SurgePricingMana
 // Agency Admin Pages
 import { AgencyDashboardPage } from '../pages/Agency/AgencyDashboardPage';
 import { AgencyBookingsPage } from '../pages/Agency/AgencyBookingsPage';
-import { AgencyProfilePage } from '../pages/Agency/AgencyProfilePage';
 import { ServicePackageListPage } from '../pages/Agency/ServicePackageListPage';
 import { SurchargeConfigPage } from '../pages/Agency/SurchargeConfigPage';
 import { StaffManagementPage } from '../pages/Agency/StaffManagementPage';
@@ -42,6 +42,7 @@ export const AppRoutes = () => {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/join" element={<JoinAgencyPage />} />
 
         {/* Super Admin Protected Routes */}
         <Route
@@ -78,7 +79,7 @@ export const AppRoutes = () => {
           <Route index element={<Navigate to="/agency/dashboard" replace />} />
           <Route path="dashboard" element={<AgencyDashboardPage />} />
           <Route path="bookings" element={<AgencyBookingsPage />} />
-          <Route path="profile" element={<AgencyProfilePage />} />
+          <Route path="profile" element={<Navigate to="/agency/settings" replace />} />
           <Route path="settings" element={<AgencySettingsPage />} />
           <Route path="packages" element={<ServicePackageListPage />} />
           <Route path="surcharges" element={<SurchargeConfigPage />} />

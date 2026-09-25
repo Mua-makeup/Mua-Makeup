@@ -12,6 +12,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Data
@@ -23,9 +24,8 @@ public class ConfigureShiftReq {
     @NotNull(message = "{validation.staff_id_required}")
     private Long staffId;
 
-    @NotNull(message = "{validation.day_of_week_required}")
-    @Min(value = 1, message = "{validation.day_of_week_range}")
-    @Max(value = 7, message = "{validation.day_of_week_range}")
+    private LocalDate workDate;
+
     private Integer dayOfWeek; // 1: Chủ Nhật, 2: Thứ 2, ..., 7: Thứ 7
 
     @JsonSetter("dayOfWeek")

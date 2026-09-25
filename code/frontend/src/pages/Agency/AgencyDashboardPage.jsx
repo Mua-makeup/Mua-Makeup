@@ -18,15 +18,18 @@ import { StaffInvitationModal } from '../../components/features/agency/StaffInvi
 import { PackageFormModal } from '../../components/features/agency/PackageFormModal';
 import { formatCurrency } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export const AgencyDashboardPage = () => {
   const { t } = useI18nStore();
+  const user = useAuthStore((state) => state.user);
   const [profile, setProfile] = useState(null);
   const [staffCount, setStaffCount] = useState(0);
   const [packages, setPackages] = useState([]);
   const [packageTotalCount, setPackageTotalCount] = useState(0);
   const [apiError, setApiError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [logoLoadError, setLogoLoadError] = useState(false);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
@@ -61,13 +64,14 @@ export const AgencyDashboardPage = () => {
       }
 
       if (staffRes.status === 'fulfilled') {
-        const sList =
-          staffRes.value?.data?.content ||
-          staffRes.value?.data ||
-          staffRes.value?.content ||
-          staffRes.value ||
-          [];
-        if (Array.isArray(sList)) setStaffCount(sList.length);
+        const sData = staffRes.value?.data || staffRes.value || {};
+        const sList = Array.isArray(sData)
+          ? sData
+          : (Array.isArray(sData.content) ? sData.content : []);
+        const total = Array.isArray(sData)
+          ? sData.length
+          : (sData.totalElements ?? sData.total_elements ?? sList.length);
+        setStaffCount(total);
       }
     } finally {
       setIsLoading(false);
@@ -76,7 +80,22 @@ export const AgencyDashboardPage = () => {
 
   useEffect(() => {
     loadDashboardData();
+
+    const handleProfileUpdated = (e) => {
+      const updated = e.detail;
+      if (updated) {
+        setProfile((prev) => (prev ? { ...prev, ...updated } : updated));
+        setLogoLoadError(false);
+      } else {
+        loadDashboardData();
+      }
+    };
+
+    window.addEventListener('agency-profile-updated', handleProfileUpdated);
+    return () => window.removeEventListener('agency-profile-updated', handleProfileUpdated);
   }, []);
+
+  const studioLogo = (!logoLoadError && (profile?.logoUrl || user?.avatarUrl)) || null;
 
   return (
     <div className="space-y-6">
@@ -112,14 +131,23 @@ export const AgencyDashboardPage = () => {
       )}
 
       {/* Top Banner Studio */}
-      <div className="p-6 bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:to-indigo-950 text-slate-900 dark:text-white rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-6 transition-colors w-full">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
-            <Building2 className="w-7 h-7" />
-          </div>
+      <div className="p-4 sm:p-6 bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:to-indigo-950 text-slate-900 dark:text-white rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs dark:shadow-md flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6 transition-colors w-full">
+        <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
+          {studioLogo ? (
+            <img
+              src={studioLogo}
+              alt={profile?.agencyName || 'Studio Agency'}
+              onError={() => setLogoLoadError(true)}
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-rose-200 dark:border-rose-500/40 shadow-xs shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/40 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xl shrink-0 transition-colors">
+              <Building2 className="w-6 h-6 sm:w-7 sm:h-7" />
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white truncate">
                 {profile?.agencyName || 'Studio Agency'}
               </h1>
               {profile?.isVerified ? (
@@ -132,20 +160,21 @@ export const AgencyDashboardPage = () => {
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Hotline: <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.addressDistrict || ''}, ${profile.addressCity || ''}` : 'N/A'}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
+              Hotline: <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.district || ''}, ${profile.city || ''}` : 'N/A'}
             </p>
           </div>
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="flex flex-wrap items-center justify-start md:justify-end gap-2.5 shrink-0 md:ml-auto">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:flex-wrap items-center justify-start md:justify-end gap-2.5 shrink-0 md:ml-auto w-full md:w-auto [&>*]:w-full sm:[&>*]:w-auto">
           <Button
             variant="primary"
             size="sm"
             icon={QrCode}
             disabled={!profile?.isVerified}
             onClick={() => setIsInviteModalOpen(true)}
+            className="w-full sm:w-auto"
           >
             {t('btn_recruit_qr')}
           </Button>
@@ -155,17 +184,18 @@ export const AgencyDashboardPage = () => {
             icon={Plus}
             disabled={!profile?.isVerified}
             onClick={() => setIsPackageModalOpen(true)}
+            className="w-full sm:w-auto"
           >
             {t('btn_create_package')}
           </Button>
           {profile?.isVerified ? (
-            <Link to="/agency/shifts">
-              <Button variant="secondary" size="sm" icon={CalendarDays}>
+            <Link to="/agency/shifts" className="w-full sm:w-auto">
+              <Button variant="secondary" size="sm" icon={CalendarDays} className="w-full sm:w-auto">
                 {t('btn_weekly_shifts')}
               </Button>
             </Link>
           ) : (
-            <Button variant="secondary" size="sm" icon={CalendarDays} disabled>
+            <Button variant="secondary" size="sm" icon={CalendarDays} disabled className="w-full sm:w-auto">
               {t('btn_weekly_shifts')}
             </Button>
           )}

@@ -107,3 +107,12 @@ export const agencyRegisterSchema = z
       path: ['city'],
     },
   );
+
+export const userProfileSchema = z.object({
+  fullName: z
+    .string()
+    .min(2, 'Họ và tên tối thiểu 2 ký tự')
+    .max(100, 'Họ và tên tối đa 100 ký tự'),
+  email: z.string().email('Email không đúng định dạng').max(100, 'Email tối đa 100 ký tự'),
+  gender: z.string().optional(),
+});

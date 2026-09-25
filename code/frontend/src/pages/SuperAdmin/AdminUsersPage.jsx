@@ -7,6 +7,7 @@ import { DataTable } from '../../components/base/DataTable';
 import { ConfirmDialog } from '../../components/base/ConfirmDialog';
 import { CreateUserModal } from '../../components/features/admin/CreateUserModal';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
+import { formatDate } from '../../utils/formatters';
 
 export const AdminUsersPage = () => {
   const { t } = useI18nStore();
@@ -158,7 +159,7 @@ export const AdminUsersPage = () => {
       accessor: 'createdAt',
       render: (row) => (
         <span className="text-xs text-slate-500">
-          {row.createdAt ? new Date(row.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+          {row.createdAt ? formatDate(row.createdAt) : 'N/A'}
         </span>
       ),
     },
@@ -216,20 +217,20 @@ export const AdminUsersPage = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer w-full sm:w-auto"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-4 h-4 shrink-0" />
             <span>{t('btn_add_user') || 'Thêm Người Dùng'}</span>
           </button>
 
           <button
             onClick={fetchUsers}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors cursor-pointer w-full sm:w-auto"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
             <span>{t('reload') || 'Tải Lại'}</span>
           </button>
         </div>
@@ -238,7 +239,7 @@ export const AdminUsersPage = () => {
       {/* Toast Alert */}
       {toastMessage && (
         <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2.5 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -252,14 +253,14 @@ export const AdminUsersPage = () => {
       )}
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
         {/* Role Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 sm:pb-0 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 sm:pb-0 scrollbar-none w-full sm:w-auto shrink-0">
           {roleTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setRoleFilter(tab.key)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 roleFilter === tab.key
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'bg-white dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
@@ -271,7 +272,7 @@ export const AdminUsersPage = () => {
         </div>
 
         {/* Keyword Search */}
-        <form onSubmit={handleSearch} className="relative min-w-[240px]">
+        <form onSubmit={handleSearch} className="relative w-full sm:w-72 shrink-0">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
           <input
             type="text"

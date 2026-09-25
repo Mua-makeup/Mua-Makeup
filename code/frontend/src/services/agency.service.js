@@ -48,7 +48,9 @@ export const agencyService = {
   // Tuyển dụng & Mã mời QR 72h
   createInvitation: (data) => apiClient.post('/agencies/invitations', data),
   getInvitations: () => apiClient.get('/agencies/invitations'),
+  getPublicInvitationInfo: (inviteCode) => apiClient.get(`/agencies/invitations/${inviteCode}/public`),
   cancelInvitation: (inviteCode) => apiClient.delete(`/agencies/invitations/${inviteCode}`),
+  acceptInvitation: (data) => apiClient.post('/agencies/invitations/accept', data),
 
   // Quản lý Nhân viên Studio
   getStaffList: (status, page = 0, size = 20) =>
@@ -79,11 +81,29 @@ export const agencyService = {
   // Ma trận Xếp Ca Tuần
   createShift: (data) => apiClient.post('/agencies/shifts', data),
   updateShift: (shiftId, data) => apiClient.put(`/agencies/shifts/${shiftId}`, data),
-  getWeeklyShiftMatrix: () => apiClient.get('/agencies/shifts/matrix'),
+  getWeeklyShiftMatrix: (params) => apiClient.get('/agencies/shifts/matrix', { params }),
   deleteShift: (shiftId) => apiClient.delete(`/agencies/shifts/${shiftId}`),
 
   // Studio Bookings Management
   getBookings: (params) => apiClient.get('/agency/bookings', { params }),
   getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),
+  cancelBooking: (bookingId, reason) =>
+    apiClient.post(`/bookings/${bookingId}/transition`, {
+      targetStatus: 'CANCELLED',
+      reason: reason?.trim(),
+    }),
+
+  getBookingStats: () => apiClient.get('/agency/bookings/stats'),
+
+  // Điều Phối Thợ & Ma Trận Khả Dụng (ISSUE-19)
+  getPendingDispatchBookings: () => apiClient.get('/agency/dispatch/pending-bookings'),
+  getStaffMatrix: (bookingId) => apiClient.get(`/agency/dispatch/bookings/${bookingId}/staff-matrix`),
+  assignStaff: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/assign`, data),
+  reassignStaff: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/reassign`, data),
+  rejectDispatchBooking: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/reject`, data),
+  reportEmergencyBusy: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/report-emergency-busy`, data),
+  reviewEmergencyReport: (bookingId, staffId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/emergency-approval/${staffId}`, data),
+  proceedSolo: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/proceed-solo`, data),
+  confirmAssignment: (assignmentId) => apiClient.post(`/agency/dispatch/assignments/${assignmentId}/confirm`),
 };
 

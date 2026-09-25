@@ -11,6 +11,7 @@ import com.makeup.platform.dto.response.catalog.SurchargeCalculationRes;
 import com.makeup.platform.dto.response.catalog.SurchargeDetailRes;
 import com.makeup.platform.dto.response.pricing.DistanceMatrixRes;
 import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
+import com.makeup.platform.dto.response.pricing.ProviderOptionRes;
 import com.makeup.platform.dto.response.pricing.SurchargeBreakdownItemRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
@@ -300,8 +301,8 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<com.makeup.platform.dto.response.pricing.ProviderOptionRes> getAvailableProviders() {
-        List<com.makeup.platform.dto.response.pricing.ProviderOptionRes> list = new ArrayList<>();
+    public List<ProviderOptionRes> getAvailableProviders() {
+        List<ProviderOptionRes> list = new ArrayList<>();
 
         // 1. Studios
         List<AgencyProfileEntity> agencies = agencyProfileRepository.findAll();
@@ -318,7 +319,7 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
                 lng = branches.get(0).getLongitude();
             }
 
-            list.add(com.makeup.platform.dto.response.pricing.ProviderOptionRes.builder()
+            list.add(ProviderOptionRes.builder()
                     .id(a.getId())
                     .type("AGENCY")
                     .name(a.getAgencyName())
@@ -340,7 +341,7 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
             BigDecimal lat = m.getLastKnownLat() != null ? m.getLastKnownLat() : m.getBaseAddressLat();
             BigDecimal lng = m.getLastKnownLng() != null ? m.getLastKnownLng() : m.getBaseAddressLng();
 
-            list.add(com.makeup.platform.dto.response.pricing.ProviderOptionRes.builder()
+            list.add(ProviderOptionRes.builder()
                     .id(m.getId())
                     .type("FREELANCER")
                     .name(name)

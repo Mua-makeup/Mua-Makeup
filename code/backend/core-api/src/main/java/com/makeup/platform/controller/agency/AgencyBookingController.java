@@ -3,6 +3,7 @@ package com.makeup.platform.controller.agency;
 import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.common.base.PageResponse;
+import com.makeup.platform.dto.response.agency.AgencyBookingOverviewStatsRes;
 import com.makeup.platform.dto.response.agency.AgencyBookingRes;
 import com.makeup.platform.service.agency.AgencyBookingService;
 import lombok.RequiredArgsConstructor;
@@ -34,5 +35,13 @@ public class AgencyBookingController extends BaseController {
     ) {
         PageResponse<AgencyBookingRes> bookings = agencyBookingService.getAgencyBookings(userId, status, keyword, pageable);
         return ok(bookings, "agency.bookings_fetch_success");
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<AgencyBookingOverviewStatsRes>> getAgencyBookingStats(
+            @AuthenticationPrincipal Long userId
+    ) {
+        AgencyBookingOverviewStatsRes stats = agencyBookingService.getAgencyBookingOverviewStats(userId);
+        return ok(stats, "agency.stats_fetch_success");
     }
 }

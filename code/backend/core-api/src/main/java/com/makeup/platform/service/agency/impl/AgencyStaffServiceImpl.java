@@ -15,6 +15,7 @@ import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.dto.response.agency.AssignedStyleRes;
+import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffStyleEntity;
@@ -31,6 +32,7 @@ import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.service.agency.AgencyStaffService;
+import com.makeup.platform.service.interaction.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -73,6 +75,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     private final UserRepository userRepository;
     private final AgencyStaffMapper agencyStaffMapper;
     private final AgencyInvitationMapper agencyInvitationMapper;
+    private final NotificationService notificationService;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
 
@@ -180,6 +183,74 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     }
 
     @Override
+    public PublicAgencyInvitationRes getPublicInvitationInfo(String inviteCode) {
+        if (!StringUtils.hasText(inviteCode)) {
+            throw new ResourceNotFoundException(
+                    ErrorCodes.ERR_INVITATION_NOT_FOUND,
+                    "ERR_INVITATION_NOT_FOUND"
+            );
+        }
+
+        String trimmedCode = inviteCode.trim();
+        String key = REDIS_INVITATION_KEY_PREFIX + trimmedCode;
+        Object val = redisTemplate.opsForValue().get(key);
+
+        if (val != null) {
+            try {
+                AgencyInvitationRedisDto invitationDto = objectMapper.readValue(val.toString(), AgencyInvitationRedisDto.class);
+                boolean isExpired = invitationDto.getExpiresAt() != null && invitationDto.getExpiresAt().isBefore(LocalDateTime.now());
+                AgencyProfileEntity agency = agencyProfileRepository.findById(invitationDto.getAgencyId()).orElse(null);
+
+                return PublicAgencyInvitationRes.builder()
+                        .inviteCode(trimmedCode)
+                        .agencyId(invitationDto.getAgencyId())
+                        .agencyCode(agency != null ? agency.getAgencyCode() : null)
+                        .agencyName(agency != null ? agency.getAgencyName() : invitationDto.getAgencyName())
+                        .logoUrl(agency != null ? agency.getLogoUrl() : null)
+                        .hotline(agency != null ? agency.getHotline() : null)
+                        .addressStreet(agency != null ? agency.getAddressStreet() : null)
+                        .district(agency != null ? agency.getDistrict() : null)
+                        .city(agency != null ? agency.getCity() : null)
+                        .proposedCommissionRate(invitationDto.getProposedCommissionRate())
+                        .note(invitationDto.getNote())
+                        .expiresAt(invitationDto.getExpiresAt())
+                        .isExpired(isExpired)
+                        .build();
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to parse invitation redis json for public view: key={}", key, e);
+            }
+        }
+
+        // Fallback: parse code format INV-{agencyCode}-{suffix}
+        String[] parts = trimmedCode.split("-");
+        if (parts.length >= 2) {
+            String agencyCode = parts[1];
+            Optional<AgencyProfileEntity> agencyOpt = agencyProfileRepository.findByAgencyCode(agencyCode);
+            if (agencyOpt.isPresent()) {
+                AgencyProfileEntity agency = agencyOpt.get();
+                return PublicAgencyInvitationRes.builder()
+                        .inviteCode(trimmedCode)
+                        .agencyId(agency.getId())
+                        .agencyCode(agency.getAgencyCode())
+                        .agencyName(agency.getAgencyName())
+                        .logoUrl(agency.getLogoUrl())
+                        .hotline(agency.getHotline())
+                        .addressStreet(agency.getAddressStreet())
+                        .district(agency.getDistrict())
+                        .city(agency.getCity())
+                        .proposedCommissionRate(agency.getCommissionRateInternal())
+                        .isExpired(true)
+                        .build();
+            }
+        }
+
+        throw new ResourceNotFoundException(
+                ErrorCodes.ERR_INVITATION_NOT_FOUND,
+                "ERR_INVITATION_NOT_FOUND"
+        );
+    }
+
+    @Override
     @Transactional
     public AgencyStaffRes acceptInvitation(Long muaUserId, AcceptInvitationReq req) {
         MuaProfileEntity mua = muaProfileRepository.findByUserId(muaUserId)
@@ -238,8 +309,8 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             }
             if ("PENDING".equalsIgnoreCase(existing.getStatus())) {
                 throw new CustomBusinessException(
-                        ErrorCodes.ERR_STAFF_ALREADY_EXISTS,
-                        "Đơn xin gia nhập của bạn đang chờ Studio xét duyệt",
+                        ErrorCodes.ERR_STAFF_APPLICATION_PENDING,
+                        "ERR_STAFF_APPLICATION_PENDING",
                         HttpStatus.BAD_REQUEST
                 );
             }
@@ -262,6 +333,13 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                     .joinedAt(LocalDateTime.now())
                     .build();
             staff = agencyStaffRepository.save(newStaff);
+        }
+
+        // Tạo thông báo in-app và bắn WebSocket realtime tới chủ Studio
+        try {
+            notificationService.createStaffApplicationNotification(agency, mua, inviteCode, staff.getId());
+        } catch (Exception e) {
+            log.error("Failed to create staff application notification for agencyId={}, staffId={}", agencyId, staff.getId(), e);
         }
 
         // Giữ mã mời trong Redis để nhiều thợ có thể cùng nộp đơn gia nhập cho đến khi hết hạn TTL hoặc bị chủ Studio hủy
@@ -390,7 +468,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                             .build())
                     .collect(Collectors.toList()));
         } else {
-            res.setAssignedStyles(java.util.Collections.emptyList());
+            res.setAssignedStyles(Collections.emptyList());
         }
         return res;
     }
@@ -493,7 +571,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                             .build())
                     .collect(Collectors.toList()));
         } else {
-            res.setAssignedStyles(java.util.Collections.emptyList());
+            res.setAssignedStyles(Collections.emptyList());
         }
         return res;
     }

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Building2,
-  MapPin,
   TrendingUp,
   Save,
   AlertCircle,
@@ -13,7 +12,7 @@ import {
 import { Button } from '../../components/base/Button';
 import { Toast } from '../../components/base/Toast';
 import { LocationMapPicker } from '../../components/features/agency/LocationMapPicker';
-import { AgencyContactInfoModal } from '../../components/features/agency/AgencyContactInfoModal';
+import { AgencyStudioDetailModal } from '../../components/features/agency/AgencyStudioDetailModal';
 import { agencyService } from '../../services/agency.service';
 import { useI18nStore } from '../../store/useI18nStore';
 
@@ -23,7 +22,7 @@ export const AgencySettingsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTogglingSurge, setIsTogglingSurge] = useState(false);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
   // Form State
@@ -165,13 +164,21 @@ export const AgencySettingsPage = () => {
   }
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-2">
       {/* Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-500/20 shrink-0">
-            <Building2 className="w-5 h-5" />
-          </div>
+          {profile?.logoUrl ? (
+            <img
+              src={profile.logoUrl}
+              alt="Studio Logo"
+              className="w-10 h-10 rounded-xl object-cover border border-rose-200 dark:border-rose-800 shadow-md shadow-rose-500/20 shrink-0"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-500/20 shrink-0">
+              <Building2 className="w-5 h-5" />
+            </div>
+          )}
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {t('agency_settings_title')}
@@ -203,41 +210,6 @@ export const AgencySettingsPage = () => {
         onClose={() => setToastMessage(null)}
         duration={3000}
       />
-
-      {/* Studio Info Quick Banner with Detail & Edit Icon */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-100 dark:border-rose-900/50">
-            <MapPin className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                {profile?.agencyName || formData.agencyName || 'Studio Agency'}
-              </h3>
-              <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
-                • {profile?.hotline || formData.hotline || 'N/A'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              {[formData.addressStreet || profile?.addressStreet, formData.district || profile?.district, formData.city || profile?.city].filter(Boolean).join(', ') || t('agency_address_not_set')}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            icon={Eye}
-            onClick={() => setIsContactModalOpen(true)}
-            className="shadow-xs"
-          >
-            <span>{t('btn_view_and_edit')}</span>
-          </Button>
-        </div>
-      </div>
 
       {/* SECTION 1: SURGE PRICING POLICY (INSTANT AUTO-SAVE TOGGLE) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 shadow-sm">
@@ -303,18 +275,20 @@ export const AgencySettingsPage = () => {
               {t('agency_settings_map_title')}
             </h3>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-slate-400">
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <span className="text-xs font-mono text-slate-400 truncate">
               {t('agency_settings_map_coords')}: {formData.latitude?.toFixed(5)}, {formData.longitude?.toFixed(5)}
             </span>
-            <button
+            <Button
               type="button"
-              onClick={() => setIsContactModalOpen(true)}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title={t('btn_view_and_edit')}
+              variant="secondary"
+              size="sm"
+              icon={Eye}
+              onClick={() => setIsDetailModalOpen(true)}
+              className="shadow-xs text-xs py-1 px-3 h-8 shrink-0"
             >
-              <Eye className="w-4 h-4" />
-            </button>
+              <span>{t('btn_detail') || 'Chi Tiết'}</span>
+            </Button>
           </div>
         </div>
 
@@ -348,31 +322,13 @@ export const AgencySettingsPage = () => {
         </div>
       </div>
 
-      {/* Modal Contact Info Detail & Edit */}
-      <AgencyContactInfoModal
-        isOpen={isContactModalOpen}
-        onClose={() => setIsContactModalOpen(false)}
-        initialData={{
+      {/* Modal Studio Read-Only Detail */}
+      <AgencyStudioDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        data={{
           ...profile,
           ...formData,
-        }}
-        onSuccess={(updated) => {
-          setProfile(updated);
-          setFormData((prev) => ({
-            ...prev,
-            agencyName: updated.agencyName || prev.agencyName,
-            hotline: updated.hotline || prev.hotline,
-            addressStreet: updated.addressStreet || prev.addressStreet,
-            district: updated.district || prev.district,
-            city: updated.city || prev.city,
-            logoUrl: updated.logoUrl || prev.logoUrl,
-            latitude: updated.latitude ? Number(updated.latitude) : prev.latitude,
-            longitude: updated.longitude ? Number(updated.longitude) : prev.longitude,
-          }));
-          setToastMessage({
-            type: 'success',
-            text: t('agency_settings_save_success'),
-          });
         }}
       />
     </div>

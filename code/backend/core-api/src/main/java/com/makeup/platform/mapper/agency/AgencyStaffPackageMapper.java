@@ -7,6 +7,7 @@ import com.makeup.platform.entity.agency.AgencyStaffServiceEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,7 +24,7 @@ public class AgencyStaffPackageMapper {
         Long packageId = null;
         String packageName = null;
         String categoryName = null;
-        java.math.BigDecimal price = null;
+        BigDecimal price = null;
 
         if (pkg != null) {
             packageId = pkg.getId();

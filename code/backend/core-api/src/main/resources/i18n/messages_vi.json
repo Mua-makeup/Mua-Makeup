@@ -8,6 +8,7 @@
     "resource_not_found": "Không tìm thấy tài nguyên yêu cầu.",
     "missing_file_part": "Thiếu trường tệp tin bắt buộc: ''{0}''.",
     "missing_param": "Thiếu tham số bắt buộc: ''{0}''.",
+    "request_body_missing": "Dữ liệu yêu cầu (Request Body) không hợp lệ hoặc bị thiếu.",
     "file_size_exceeded": "Dung lượng tệp tải lên vượt quá giới hạn cho phép.",
     "invalid_file_format": "Định dạng tệp không hợp lệ. Các định dạng cho phép: {0}.",
     "invalid_magic_bytes": "Nội dung tệp không khớp với định dạng đa phương tiện cho phép."
@@ -61,6 +62,7 @@
     "location_not_configured": "Studio chưa cấu hình tọa độ vị trí cố định.",
     "commission_update_success": "Cập nhật tỷ lệ hoa hồng mặc định thành công.",
     "invitation_create_success": "Tạo mã mời gia nhập Studio thành công.",
+    "invitation_get_success": "Lấy thông tin mã mời Studio thành công.",
     "invitation_list_success": "Lấy danh sách mã mời thành công.",
     "invitation_cancel_success": "Hủy mã mời thành công.",
     "invitation_accept_success": "Gia nhập Studio thành công.",
@@ -98,7 +100,9 @@
     "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
     "shift_created_success": "Tạo ca làm việc thành công!",
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
-    "shift_deleted_success": "Xóa ca làm việc thành công!"
+    "shift_deleted_success": "Xóa ca làm việc thành công!",
+    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
+    "logo_upload_success": "Tải lên logo của Studio thành công."
   },
   "catalog": {
     "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",
@@ -137,6 +141,7 @@
     "unauthorized_transition": "Bạn không có quyền thực hiện chuyển trạng thái đơn hàng này.",
     "completion_photo_required": "Bắt buộc phải đính kèm ảnh sản phẩm hoàn thiện khi hoàn thành đơn.",
     "cancellation_reason_required": "Bắt buộc phải cung cấp lý do hủy đơn hàng.",
+    "cannot_cancel_within_two_hours": "Đơn hàng chỉ còn dưới 2 tiếng trước giờ hẹn, quý khách không thể tự hủy trên ứng dụng. Vui lòng liên hệ trực tiếp Studio để được hỗ trợ khẩn cấp.",
     "already_taken": "Rất tiếc! Đơn hàng này vừa được một thợ khác tiếp nhận.",
     "lock_timeout": "Hệ thống đang quá tải khi xử lý nhận đơn. Vui lòng thử lại sau giây lát.",
     "optimistic_lock_conflict": "Đơn hàng đã được cập nhật bởi một thao tác khác. Vui lòng tải lại và thử lại.",
@@ -174,6 +179,8 @@
   "ERR_PACKAGE_ACCESS_DENIED": "Bạn không có quyền quản lý gói dịch vụ này.",
   "ERR_INVALID_PACKAGE_PRICE": "Giá tối thiểu của gói dịch vụ là 50,000 VNĐ.",
   "ERR_INVALID_ITEM_PRICE": "Giá thành phần không được nhỏ hơn 0 VNĐ.",
+  "ERR_DUPLICATE_STEP_ORDER": "Thứ tự bước này đã tồn tại trong quy trình gói dịch vụ.",
+  "ERR_PACKAGE_DURATION_EXCEEDED": "Tổng thời lượng các bước bắt buộc không được vượt quá thời lượng của gói dịch vụ.",
   "ERR_SURCHARGE_NOT_FOUND": "Không tìm thấy phụ phí với ID {0}.",
   "ERR_SURCHARGE_ACCESS_DENIED": "Bạn không có quyền quản lý phụ phí này.",
   "ERR_INVALID_SURCHARGE_AMOUNT": "Mức phụ phí không được nhỏ hơn 0 VNĐ.",
@@ -198,6 +205,7 @@
   "ERR_AGENCY_ACCESS_DENIED": "Bạn không có quyền quản lý Studio này.",
   "ERR_STAFF_NOT_FOUND": "Không tìm thấy nhân viên trong Studio này.",
   "ERR_STAFF_ALREADY_EXISTS": "Thợ này hiện đã là nhân viên của Studio.",
+  "ERR_STAFF_APPLICATION_PENDING": "Đơn xin gia nhập của bạn đang chờ Studio phê duyệt.",
   "ERR_INVITATION_NOT_FOUND": "Mã mời không tồn tại hoặc không hợp lệ.",
   "ERR_INVITATION_EXPIRED": "Mã mời đã hết hạn sử dụng.",
   "ERR_INVITATION_ALREADY_USED": "Mã mời đã được sử dụng hoặc đã bị hủy.",
@@ -218,6 +226,8 @@
   "ERR_UNAUTHORIZED_TRANSITION": "Không có quyền thực hiện thao tác chuyển trạng thái này.",
   "ERR_COMPLETION_PHOTO_REQUIRED": "Bắt buộc đính kèm ảnh sản phẩm hoàn thiện.",
   "ERR_CANCELLATION_REASON_REQUIRED": "Bắt buộc cung cấp lý do hủy đơn hàng.",
+  "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS": "Đơn hàng chỉ còn dưới 2 tiếng trước giờ hẹn, quý khách không thể tự hủy trên ứng dụng.",
+  "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
   "ERR_BOOKING_ALREADY_TAKEN": "Đơn hàng đã được thợ khác tiếp nhận trước.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Hết thời gian chờ giành khóa phân tán đơn hàng.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Xung đột cập nhật phiên bản đơn hàng.",
@@ -372,10 +382,6 @@
     "status_update_success": "Cập nhật trạng thái phong cách make-up thành công!",
     "not_found": "Không tìm thấy phong cách make-up yêu cầu."
   },
-  "agency": {
-    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
-    "logo_upload_success": "Tải lên logo của Studio thành công."
-  },
   "user": {
     "avatar_upload_success": "Tải lên ảnh đại diện thành công.",
     "profile_update_success": "Cập nhật hồ sơ thành công."
@@ -388,6 +394,86 @@
     "surge_rules_get_success": "Lấy danh sách quy tắc giá động thành công.",
     "h3_surge_status_success": "Lấy trạng thái thuật toán Uber H3 thành công.",
     "h3_surge_toggle_success": "Cập nhật trạng thái thuật toán Uber H3 thành công."
+  },
+  "booking": {
+    "scheduled_created_success": "Tạo đơn đặt lịch hẹn trước thành công! Vui lòng thanh toán cọc trong vòng 15 phút để giữ chỗ.",
+    "deposit_confirmed_success": "Xác nhận thanh toán tiền cọc thành công! Lịch hẹn của bạn đã được chốt.",
+    "slot_already_booked": "Thợ trang điểm đã có ca làm việc khác trong khung giờ này. Vui lòng chọn khung giờ khác!",
+    "buffer_time_violation": "Vi phạm khoảng đệm di chuyển tối thiểu 30 phút giữa các ca làm liên tiếp.",
+    "deposit_payment_timeout": "Hết hạn giữ chỗ 15 phút. Đơn hàng đã tự động bị hủy do chưa thanh toán tiền cọc.",
+    "invalid_time_range": "Thời gian kết thúc phải sau thời gian bắt đầu.",
+    "time_out_of_service": "Giờ bắt đầu ca hẹn phải nằm trong khung giờ phục vụ từ 03:00 đến 22:00.",
+    "time_must_be_2h_future": "Thời gian đặt hẹn trước phải cách thời điểm hiện tại tối thiểu 2 giờ.",
+    "date_too_far": "Thời gian đặt hẹn trước không được vượt quá 90 ngày trong tương lai.",
+    "no_available_staff": "Hiện không có thợ trang điểm nào của Studio rảnh và đủ kỹ năng trong khung giờ này."
+  },
+  "calendar": {
+    "slot_blocked_success": "Khóa khung giờ bận cá nhân thành công!",
+    "slot_unblocked_success": "Mở lại khung giờ làm việc thành công!",
+    "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
+    "cannot_unblock_booked_slot": "Không thể mở khóa slot lịch đã được gắn với đơn đặt hẹn của khách hàng.",
+    "slot_not_found": "Không tìm thấy khung giờ lịch làm việc."
+  },
+  "dispatch": {
+    "primary_staff_id": {
+      "required": "Vui lòng chọn 1 Thợ chính (Primary MUA) chịu trách nhiệm ca."
+    },
+    "assistants": {
+      "max_two": "Tối đa chỉ được phân công 2 Thợ phụ (Assistant MUAs)."
+    },
+    "notes": {
+      "too_long": "Ghi chú điều phối không được vượt quá 500 ký tự."
+    },
+    "rejection_reason": {
+      "required": "Lý do từ chối đơn điều phối là bắt buộc.",
+      "too_long": "Lý do từ chối không được vượt quá 200 ký tự."
+    },
+    "rejection_note": {
+      "too_long": "Ghi chú từ chối không được vượt quá 500 ký tự."
+    },
+    "fetch_pending_success": "Lấy danh sách đơn chờ điều phối thành công.",
+    "fetch_matrix_success": "Lấy ma trận khả dụng 4 chiều của thợ thành công.",
+    "assign_success": "Điều phối thợ thành công! Đã gửi thông báo tới thợ.",
+    "reassign_success": "Đổi thợ dự phòng thành công! Khung giờ thợ cũ đã được bảo lưu lịch bận.",
+    "reject_success": "Từ chối tiếp nhận đơn thành công.",
+    "primary_required": "Đơn hàng bắt buộc phải có 1 Thợ chính (Primary MUA).",
+    "staff_unqualified": "Thợ được chọn không đáp ứng đủ 4 tiêu chí khả dụng (Ca, Gói, Phong cách, Lịch rảnh).",
+    "staff_conflict": "Thợ đã bị trùng lịch làm việc hoặc không khả dụng trong khung giờ này.",
+    "max_assistants_exceeded": "Chỉ được phân công tối đa 2 Thợ phụ cho một đơn.",
+    "assignment_not_found": "Không tìm thấy thông tin phân công thợ cho đơn này.",
+    "cannot_dispatch_in_status": "Không thể điều phối thợ ở trạng thái hiện tại của đơn hàng.",
+    "cannot_reassign_to_same_staff": "Không thể điều chuyển ca lại cho chính thợ cần thay thế hoặc đang báo bận.",
+    "staff_reported_busy": "Thợ này đã báo bận cho đơn hàng này, không thể chọn làm thợ thay thế.",
+    "staff_already_assigned": "Thợ này đang đảm nhiệm một vai trò khác trong đơn hàng này.",
+    "emergency_report_success": "Báo bận khẩn cấp thành công. Studio và Quản trị viên đã nhận cảnh báo.",
+    "emergency_review_success": "Xử lý duyệt báo bận khẩn cấp thành công.",
+    "proceed_solo_success": "Xác nhận để thợ đảm nhiệm toàn bộ đơn hàng thành công.",
+    "cannot_proceed_solo_no_active_staff": "Đơn hàng hiện không còn thợ nào đang hoạt động để làm một mình. Vui lòng chọn thợ thay thế hoặc từ chối báo bận.",
+    "emergency_proof_required_critical": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
+    "assignment_confirm_success": "Xác nhận nhận ca điều phối thành công!"
+  },
+  "emergency": {
+    "reason": {
+      "required": "Lý do báo bận khẩn cấp là bắt buộc.",
+      "too_long": "Lý do báo bận khẩn cấp không được vượt quá 500 ký tự."
+    },
+    "approved": {
+      "required": "Trạng thái phê duyệt là bắt buộc."
+    },
+    "note": {
+      "too_long": "Ghi chú đánh giá không được vượt quá 500 ký tự."
+    }
+  },
+  "notification": {
+    "emergency_title": "Cảnh Báo Báo Bận Đột Xuất!",
+    "emergency_content": "Thợ {0} báo bận đột xuất cho đơn #{1}: {2}",
+    "emergency_broadcast": "CẢNH BÁO KHẨN: Thợ {0} báo bận đột xuất cho đơn #{1}! Cần đổi thợ gấp.",
+    "new_booking_title": "Có Đơn Đặt Lịch Mới!",
+    "new_booking_content": "Khách hàng {0} vừa đặt gói {1}.",
+    "staff_application_title": "Có Đơn Gia Nhập Mới!",
+    "staff_application_content": "Thợ trang điểm {0} vừa nộp đơn xin gia nhập Studio qua mã mời {1}. Vui lòng xem xét phê duyệt.",
+    "certificate_upload_title": "Chứng Chỉ Mới Cần Duyệt!",
+    "certificate_upload_content": "Thợ trang điểm {0} vừa tải lên chứng chỉ '{1}' cần được Ban Quản Trị phê duyệt."
   },
   "maps": {
     "reverse_geocode_success": "Lấy thông tin địa chỉ từ tọa độ thành công.",

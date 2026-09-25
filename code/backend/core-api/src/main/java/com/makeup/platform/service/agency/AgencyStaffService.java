@@ -8,12 +8,16 @@ import com.makeup.platform.dto.request.agency.UpdateStaffStatusReq;
 import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
+import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
 public interface AgencyStaffService {
+
+    // Công khai: Lấy thông tin Studio từ mã mời để hiển thị logo và thông tin mời gia nhập
+    PublicAgencyInvitationRes getPublicInvitationInfo(String inviteCode);
 
     // Studio Admin: Tạo mã mời lưu Redis
     AgencyInvitationRes createInvitation(Long userId, CreateInvitationReq req);

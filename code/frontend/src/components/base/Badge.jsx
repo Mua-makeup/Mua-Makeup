@@ -25,6 +25,9 @@ export const Badge = ({
     indigo: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60',
     amber: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
     teal: 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800/60',
+    orange: 'bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/60',
+    pink: 'bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800/60',
+    cyan: 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/60',
     primary: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60',
   };
 
@@ -46,6 +49,9 @@ export const Badge = ({
     indigo: 'bg-indigo-500',
     amber: 'bg-amber-500',
     teal: 'bg-teal-500',
+    orange: 'bg-orange-500 animate-pulse',
+    pink: 'bg-pink-500 animate-pulse',
+    cyan: 'bg-cyan-500',
     primary: 'bg-rose-500',
   };
 
