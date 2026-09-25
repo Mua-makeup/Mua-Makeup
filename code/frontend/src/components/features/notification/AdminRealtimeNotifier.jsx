@@ -133,7 +133,7 @@ export const AdminRealtimeNotifier = () => {
   return (
     <aside
       aria-label="Admin Certificate Verification Alert"
-      className="fixed bottom-6 right-6 z-50 max-w-sm w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-amber-500/40 dark:border-amber-500/30 ring-4 ring-amber-500/10 animate-in slide-in-from-bottom-5 duration-300"
+      className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-[1250] sm:max-w-sm w-auto sm:w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 shadow-2xl border-2 border-amber-500/40 dark:border-amber-500/30 ring-4 ring-amber-500/10 animate-in slide-in-from-bottom-5 duration-300"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">

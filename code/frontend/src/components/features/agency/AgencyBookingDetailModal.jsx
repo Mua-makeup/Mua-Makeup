@@ -142,25 +142,33 @@ export const AgencyBookingDetailModal = ({
     if (!note) return null;
     const isApproved = note.includes('Studio CHẤP THUẬN') || note.includes('Studio APPROVED emergency');
     const isRejected = note.includes('Studio TỪ CHỐI') || note.includes('Studio REJECTED emergency');
-    const isReport = note.includes('Thợ báo bận đột xuất') || note.includes('Staff reported emergency');
+    const isReport = note.includes('Thợ báo bận đột xuất') || note.includes('Thợ báo bận khẩn cấp') || note.includes('Staff reported emergency');
 
-    if (!isApproved && !isRejected && !isReport) return null;
-
-    const proofMatch = note.match(/\[(?:Minh chứng|Proof):\s*(https?:\/\/[^\s\]]+)\]/i);
+    const proofMatch = note.match(/(?:\[)?(?:Minh chứng|Proof):\s*(https?:\/\/[^\s\]]+)(?:\])?/i);
     const proofUrl = proofMatch ? proofMatch[1] : null;
-    const cleanNote = note.replace(/\[(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+\]/gi, '').trim();
+
+    if (!isApproved && !isRejected && !isReport && !proofUrl) return null;
+
+    let cleanNote = note
+      .replace(/\[(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+\]/gi, '')
+      .replace(/(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+/gi, '')
+      .replace(/\[\s*\]/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .replace(/\.\s*\./g, '.')
+      .replace(/\s+\./g, '.');
 
     let type = 'report';
-    let badgeLabel = t('dispatch_emergency_reported_badge');
+    let badgeLabel = t('dispatch_emergency_reported_badge') || 'Thợ Báo Bận';
     let badgeVariant = 'warning';
 
     if (isApproved) {
       type = 'approved';
-      badgeLabel = t('dispatch_emergency_approved_badge');
+      badgeLabel = t('dispatch_emergency_approved_badge') || 'Studio Chấp Thuận';
       badgeVariant = 'success';
     } else if (isRejected) {
       type = 'rejected';
-      badgeLabel = t('dispatch_emergency_rejected_badge');
+      badgeLabel = t('dispatch_emergency_rejected_badge') || 'Studio Từ Chối';
       badgeVariant = 'danger';
     }
 
@@ -216,7 +224,11 @@ export const AgencyBookingDetailModal = ({
 
   const cleanEmergencyReason = (reason) => {
     if (!reason) return '';
-    return reason.replace(/^\[[^\]]*\]\s*/, '');
+    return reason
+      .replace(/^\[[^\]]*\]\s*/, '')
+      .replace(/\[(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+\]/gi, '')
+      .replace(/(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+/gi, '')
+      .trim();
   };
 
   return (

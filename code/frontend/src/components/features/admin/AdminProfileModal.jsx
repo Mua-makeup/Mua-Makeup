@@ -18,7 +18,7 @@ import { userProfileSchema } from '../../../schemas/auth.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { useAuthStore } from '../../../store/useAuthStore';
 
-const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_AVATAR_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
 export const AdminProfileModal = ({ isOpen, onClose, onUpdated }) => {
   const { t } = useI18nStore();
@@ -78,7 +78,7 @@ export const AdminProfileModal = ({ isOpen, onClose, onUpdated }) => {
 
     // Validate size
     if (file.size > MAX_AVATAR_SIZE_BYTES) {
-      setServerError('Ảnh không được vượt quá 5MB.');
+      setServerError('Ảnh không được vượt quá 20MB.');
       return;
     }
 
@@ -271,7 +271,7 @@ export const AdminProfileModal = ({ isOpen, onClose, onUpdated }) => {
               </span>
             </button>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              {t('admin_profile_avatar_hint') || 'Hỗ trợ JPG, PNG, WEBP (tối đa 5MB).'}
+              {t('admin_profile_avatar_hint') || 'Hỗ trợ JPG, PNG, WEBP (tối đa 20MB).'}
             </p>
           </div>
         </div>

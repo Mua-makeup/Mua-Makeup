@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Clock, MapPin, User, DollarSign, Image, AlertCircle, History, Package } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, User, DollarSign, Image, AlertCircle, History, Package, AlertTriangle, ExternalLink } from 'lucide-react';
 import { superAdminService } from '../../../services/super-admin.service';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { Badge } from '../../base/Badge';
@@ -48,6 +48,9 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
       if (trimmed.startsWith('Thợ báo bận khẩn cấp:')) {
         return trimmed.replace('Thợ báo bận khẩn cấp:', 'Staff reported emergency unavailability:');
       }
+      if (trimmed.startsWith('Thợ báo bận đột xuất:')) {
+        return trimmed.replace('Thợ báo bận đột xuất:', 'Staff reported emergency unavailability:');
+      }
       if (trimmed.startsWith('Thợ (') && trimmed.includes('xác nhận nhận ca')) {
         return trimmed
           .replace('Thợ (', 'Artist (')
@@ -60,8 +63,58 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
           .replace('Studio đã phân công thợ chính:', 'Studio assigned primary artist:')
           .replace('(Trợ lý:', '(Assistant:');
       }
+      if (trimmed.startsWith('Studio CHẤP THUẬN')) {
+        return trimmed
+          .replace('Studio CHẤP THUẬN đơn báo bận của thợ:', 'Studio APPROVED emergency request of artist:')
+          .replace('Lý do:', 'Reason:')
+          .replace('Ghi chú duyệt:', 'Approval note:');
+      }
+      if (trimmed.startsWith('Studio TỪ CHỐI')) {
+        return trimmed
+          .replace('Studio TỪ CHỐI đơn báo bận của thợ:', 'Studio REJECTED emergency request of artist:')
+          .replace('Thợ được khôi phục về ca trực.', 'Artist restored to active shift.')
+          .replace('Lý do báo bận:', 'Emergency reason:')
+          .replace('Ghi chú từ chối:', 'Rejection note:');
+      }
     }
     return text;
+  };
+
+  const parseEmergencyHistoryNote = (note) => {
+    if (!note) return null;
+    const isApproved = note.includes('Studio CHẤP THUẬN') || note.includes('Studio APPROVED');
+    const isRejected = note.includes('Studio TỪ CHỐI') || note.includes('Studio REJECTED');
+    const isReport = note.includes('Thợ báo bận') || note.includes('Staff reported emergency');
+
+    const proofMatch = note.match(/(?:\[)?(?:Minh chứng|Proof):\s*(https?:\/\/[^\s\]]+)(?:\])?/i);
+    const proofUrl = proofMatch ? proofMatch[1] : null;
+
+    if (!isApproved && !isRejected && !isReport && !proofUrl) return null;
+
+    let cleanNote = note
+      .replace(/\[(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+\]/gi, '')
+      .replace(/(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+/gi, '')
+      .replace(/\[\s*\]/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .replace(/\.\s*\./g, '.')
+      .replace(/\s+\./g, '.');
+
+    let type = 'report';
+    let badgeLabel = t('dispatch_emergency_reported_badge') || 'Thợ Báo Bận';
+    let badgeVariant = 'warning';
+
+    if (isApproved) {
+      type = 'approved';
+      badgeLabel = t('dispatch_emergency_approved_badge') || 'Studio Chấp Thuận';
+      badgeVariant = 'success';
+    } else if (isRejected) {
+      type = 'rejected';
+      badgeLabel = t('dispatch_emergency_rejected_badge') || 'Studio Từ Chối';
+      badgeVariant = 'danger';
+    }
+
+    return { type, badgeLabel, badgeVariant, cleanNote, proofUrl };
   };
 
   useEffect(() => {
@@ -156,15 +209,28 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
   };
 
   const getTypeLabel = (type) => {
-    if (type === 'REALTIME_INSTANT') return t('type_instant');
-    if (type === 'PRE_ORDER') return t('type_scheduled');
-    return type || '';
+    if (!type) return '';
+    const upper = String(type).toUpperCase();
+    if (upper === 'REALTIME_INSTANT' || upper === 'INSTANT') return t('type_instant');
+    if (upper === 'PRE_ORDER' || upper === 'SCHEDULED') return t('type_scheduled');
+    return type;
   };
 
   const getPartnerLabel = (partner) => {
     if (partner === 'FREELANCER_DIRECT') return t('partner_freelancer');
     if (partner === 'AGENCY_STUDIO') return t('partner_agency');
     return partner || '';
+  };
+
+  const isTerminated = ['CANCELLED', 'CANCELLED_EXPIRED', 'COMPLETED', 'REFUNDED'].includes(b.status);
+
+  const cleanEmergencyReason = (reason) => {
+    if (!reason) return '';
+    return reason
+      .replace(/^\[[^\]]*\]\s*/, '')
+      .replace(/\[(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+\]/gi, '')
+      .replace(/(?:Minh chứng|Proof):\s*https?:\/\/[^\s\]]+/gi, '')
+      .trim();
   };
 
   return (
@@ -194,6 +260,47 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
 
         {/* Body Content */}
         <div className="p-6 overflow-y-auto space-y-6 text-xs sm:text-sm flex-1">
+          {/* Emergency Alert Banner (if any) */}
+          {(b.needsEmergencyReassignment || b.emergencyProofUrl || b.proofDocumentUrl) && !isTerminated && (
+            <div className="p-4 rounded-xl border-2 border-red-600 bg-red-50 dark:bg-red-950/80 shadow-xs flex flex-col gap-2.5">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-extrabold text-red-700 dark:text-red-300 text-sm uppercase tracking-wide">
+                    {t('dispatch_emergency_alert_banner')}
+                  </p>
+                  <p className="mt-1 text-slate-900 dark:text-slate-100 font-semibold text-xs leading-relaxed">
+                    {cleanEmergencyReason(b.emergencyReason)}
+                  </p>
+                  {(b.emergencyProofUrl || b.proofDocumentUrl) && (
+                    <div className="mt-3 flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-900 border border-red-300 dark:border-red-800 w-fit">
+                      <img
+                        src={b.emergencyProofUrl || b.proofDocumentUrl}
+                        alt="Minh chứng báo bận"
+                        className="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-90"
+                        onClick={() => window.open(b.emergencyProofUrl || b.proofDocumentUrl, '_blank')}
+                      />
+                      <div className="text-xs space-y-0.5">
+                        <span className="font-bold text-slate-900 dark:text-white block">
+                          {t('proof_document_label') || 'Ảnh minh chứng sự cố'}:
+                        </span>
+                        <a
+                          href={b.emergencyProofUrl || b.proofDocumentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-red-600 dark:text-red-400 underline font-bold hover:text-red-700 inline-flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>{t('proof_document_view_full') || 'Xem ảnh gốc'}</span>
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Main Info Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Customer Box */}
@@ -532,11 +639,71 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
                         </span>
                       )}
                     </div>
-                    {(h.note || h.reason) && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 italic">
-                        "{translateReasonOrNote(h.note || h.reason)}"
-                      </p>
-                    )}
+                    {(() => {
+                      const noteText = h.note || h.reason;
+                      const emergencyInfo = parseEmergencyHistoryNote(noteText);
+
+                      if (emergencyInfo) {
+                        return (
+                          <div className="mt-1.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={emergencyInfo.badgeVariant} size="sm">
+                                {emergencyInfo.badgeLabel}
+                              </Badge>
+                              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                {emergencyInfo.type === 'approved'
+                                  ? t('emergency_history_approved_title')
+                                  : emergencyInfo.type === 'rejected'
+                                  ? t('emergency_history_rejected_title')
+                                  : t('emergency_history_reported_title')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                              {translateReasonOrNote(emergencyInfo.cleanNote)}
+                            </p>
+                            {emergencyInfo.proofUrl && (
+                              <div className="flex items-center gap-2.5 p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 w-fit">
+                                <img
+                                  src={emergencyInfo.proofUrl}
+                                  alt="Minh chứng"
+                                  className="w-10 h-10 object-cover rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-90"
+                                  onClick={() => window.open(emergencyInfo.proofUrl, '_blank')}
+                                />
+                                <div className="text-[11px] space-y-0.5">
+                                  <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                                    {t('proof_document_label') || 'Ảnh minh chứng sự cố'}
+                                  </span>
+                                  <a
+                                    href={emergencyInfo.proofUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-rose-600 dark:text-rose-400 underline font-semibold inline-flex items-center gap-1"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>{t('proof_document_view_full') || 'Xem ảnh gốc'}</span>
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {h.action && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                              {h.action}
+                            </p>
+                          )}
+                          {noteText && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 italic">
+                              "{translateReasonOrNote(noteText)}"
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

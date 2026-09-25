@@ -178,9 +178,9 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
               )}
             </div>
           )}
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-900 dark:text-white tracking-tight text-sm sm:text-base">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="font-bold text-slate-900 dark:text-white tracking-tight text-sm sm:text-base truncate max-w-[110px] xs:max-w-[150px] sm:max-w-[200px] md:max-w-none">
                 {t('app_title')}
               </span>
               <span
@@ -195,14 +195,14 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[110px] xs:max-w-[150px] sm:max-w-[220px] md:max-w-none">
               {roleInfo.title}
             </p>
           </div>
         </div>
 
         {/* Right: Controls & User Info */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
           {/* Notification Bell Dropdown (Shown for Agency Admin & Super Admin) */}
           {(role === USER_ROLES.AGENCY_ADMIN || role === USER_ROLES.SUPER_ADMIN) && (
             <NotificationDropdown agencyLogo={role === USER_ROLES.AGENCY_ADMIN ? agencyLogo : null} />
@@ -211,23 +211,23 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
           {/* Language Switcher Button */}
           <button
             onClick={toggleLanguage}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold transition-colors"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold transition-colors shrink-0"
             title={t('switch_language')}
           >
-            <Globe className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-            <span>{language.toUpperCase()}</span>
+            <Globe className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <span className="text-[11px] sm:text-xs">{language.toUpperCase()}</span>
           </button>
 
           {/* Dark / Light Theme Toggle Button */}
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            className="p-1.5 sm:p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0"
             title={theme === 'dark' ? t('theme_light') : t('theme_dark')}
           >
             {theme === 'dark' ? (
-              <Sun className="w-4 h-4 text-amber-400" />
+              <Sun className="w-4 h-4 text-amber-400 shrink-0" />
             ) : (
-              <Moon className="w-4 h-4 text-slate-600" />
+              <Moon className="w-4 h-4 text-slate-600 shrink-0" />
             )}
           </button>
 
@@ -236,7 +236,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             <button
               type="button"
               onClick={() => setIsDropdownOpen((prev) => !prev)}
-              className="flex items-center gap-2.5 p-1.5 md:px-3 md:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+              className="flex items-center gap-1.5 sm:gap-2.5 p-1 sm:p-1.5 md:px-3 md:py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/20"
             >
               {agencyLogo || user?.avatarUrl ? (
                 <img
@@ -266,7 +266,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
 
             {/* Dropdown Menu Popover */}
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-40 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-56 sm:w-60 max-w-[calc(100vw-24px)] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-[1200] animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* User Info Header */}
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                   <p className="text-xs font-bold text-slate-900 dark:text-white truncate">

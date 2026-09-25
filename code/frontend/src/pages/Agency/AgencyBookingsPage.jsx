@@ -460,14 +460,14 @@ export const AgencyBookingsPage = () => {
       </div>
 
       {/* Filter, Search and Refresh Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
         {/* Status Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none w-full sm:w-auto pb-1.5 sm:pb-0 shrink-0">
           {statusTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setSelectedStatus(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 selectedStatus === tab.key
                   ? 'bg-rose-600 text-white shadow-xs'
                   : tab.isEmergency
@@ -482,7 +482,7 @@ export const AgencyBookingsPage = () => {
 
         {/* Search and Refresh */}
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative w-full sm:w-72">
+          <div className="relative flex-1 sm:w-72">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
