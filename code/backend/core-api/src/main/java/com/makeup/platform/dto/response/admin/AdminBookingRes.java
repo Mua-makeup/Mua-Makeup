@@ -1,6 +1,7 @@
 package com.makeup.platform.dto.response.admin;
 
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
+import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -33,6 +34,8 @@ public class AdminBookingRes {
     private Long muaId;
     private String muaName;
     private String muaPhone;
+    @Builder.Default
+    private List<StaffAssignmentDetailRes> assignedStaff = List.of();
 
     // Agency Info (if any)
     private Long agencyId;

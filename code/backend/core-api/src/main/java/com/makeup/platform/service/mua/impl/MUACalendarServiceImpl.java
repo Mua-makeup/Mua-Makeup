@@ -238,6 +238,10 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         BookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found"));
 
+        // Idempotency guard: release any prior slot this MUA holds for this specific booking before locking
+        muaCalendarRepository.deleteByBookingIdAndMuaId(bookingId, muaId);
+        muaCalendarRepository.flush();
+
         MUACalendarEntity calendarSlot = MUACalendarEntity.builder()
                 .mua(muaProfile)
                 .booking(booking)
@@ -257,6 +261,13 @@ public class MUACalendarServiceImpl implements MUACalendarService {
     public void releaseSlotByBookingId(Long bookingId) {
         muaCalendarRepository.deleteByBookingId(bookingId);
         log.info("Released calendar slots associated with booking ID: {}", bookingId);
+    }
+
+    @Override
+    @Transactional
+    public void releaseSlotByBookingIdAndMuaId(Long bookingId, Long muaId) {
+        muaCalendarRepository.deleteByBookingIdAndMuaId(bookingId, muaId);
+        log.info("Released calendar slot for booking ID: {} and MUA ID: {}", bookingId, muaId);
     }
 
     /**

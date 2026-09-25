@@ -95,6 +95,8 @@ public final class ErrorCodes {
     public static final String ERR_UNAUTHORIZED_TRANSITION = "ERR_UNAUTHORIZED_TRANSITION";
     public static final String ERR_COMPLETION_PHOTO_REQUIRED = "ERR_COMPLETION_PHOTO_REQUIRED";
     public static final String ERR_CANCELLATION_REASON_REQUIRED = "ERR_CANCELLATION_REASON_REQUIRED";
+    public static final String ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS = "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS";
+    public static final String ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL = "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL";
     public static final String ERR_BOOKING_ALREADY_TAKEN = "ERR_BOOKING_ALREADY_TAKEN";
     public static final String ERR_LOCK_ACQUISITION_TIMEOUT = "ERR_LOCK_ACQUISITION_TIMEOUT";
     public static final String ERR_OPTIMISTIC_LOCK_CONFLICT = "ERR_OPTIMISTIC_LOCK_CONFLICT";
@@ -123,6 +125,15 @@ public final class ErrorCodes {
 
     // Phân hệ Notifications (In-App & Multi-platform)
     public static final String ERR_NOTIFICATION_NOT_FOUND = "ERR_NOTIFICATION_NOT_FOUND";
+
+    // Phân hệ Agency Dispatching Engine & Multi-Staff Assignment (ISSUE-19)
+    public static final String ERR_DISPATCH_PRIMARY_REQUIRED = "ERR_DISPATCH_PRIMARY_REQUIRED";
+    public static final String ERR_DISPATCH_STAFF_UNQUALIFIED = "ERR_DISPATCH_STAFF_UNQUALIFIED";
+    public static final String ERR_DISPATCH_STAFF_CONFLICT = "ERR_DISPATCH_STAFF_CONFLICT";
+    public static final String ERR_DISPATCH_MAX_ASSISTANTS_EXCEEDED = "ERR_DISPATCH_MAX_ASSISTANTS_EXCEEDED";
+    public static final String ERR_ASSIGNMENT_NOT_FOUND = "ERR_ASSIGNMENT_NOT_FOUND";
+    public static final String ERR_EMERGENCY_REPORT_NOT_FOUND = "ERR_EMERGENCY_REPORT_NOT_FOUND";
+    public static final String ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS = "ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS";
 }
 
 

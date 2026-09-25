@@ -1,5 +1,6 @@
 package com.makeup.platform.service.interaction;
 
+import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEvent;
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.dto.response.notification.NotificationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
@@ -38,4 +39,6 @@ public interface NotificationService {
             String certName,
             String imageUrl
     );
+
+    NotificationEntity createEmergencyNotification(EmergencyReassignmentRequestedEvent event);
 }

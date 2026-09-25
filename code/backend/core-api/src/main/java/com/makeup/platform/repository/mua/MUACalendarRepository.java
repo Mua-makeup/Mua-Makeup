@@ -42,4 +42,11 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
     @Modifying
     @Query("DELETE FROM MUACalendarEntity c WHERE c.booking.id = :bookingId")
     void deleteByBookingId(@Param("bookingId") Long bookingId);
+
+    /**
+     * Giải phóng slot khóa của một thợ cụ thể trên đơn hàng (dùng khi báo bận đột xuất hoặc điều phối lại)
+     */
+    @Modifying
+    @Query("DELETE FROM MUACalendarEntity c WHERE c.booking.id = :bookingId AND c.mua.id = :muaId")
+    void deleteByBookingIdAndMuaId(@Param("bookingId") Long bookingId, @Param("muaId") Long muaId);
 }
