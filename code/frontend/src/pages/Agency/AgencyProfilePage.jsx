@@ -169,8 +169,8 @@ export const AgencyProfilePage = () => {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">
-          <Building2 className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <Building2 className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             {t('agency_profile_title')}
           </h1>
         </div>
@@ -188,7 +188,7 @@ export const AgencyProfilePage = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Form Hồ sơ Studio */}
-        <div className="lg:col-span-8 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
+        <div className="lg:col-span-8 bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
           <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
             {t('studio_info_title')}
           </h2>
@@ -258,6 +258,7 @@ export const AgencyProfilePage = () => {
                 variant="primary"
                 icon={Save}
                 isLoading={isLoadingProfile}
+                className="w-full sm:w-auto"
               >
                 {t('btn_save_profile')}
               </Button>
@@ -267,7 +268,7 @@ export const AgencyProfilePage = () => {
 
         {/* Cột Chính sách hoa hồng Studio */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
             <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
               <Percent className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('commission_default_title')}</h3>

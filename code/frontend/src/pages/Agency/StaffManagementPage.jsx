@@ -366,8 +366,8 @@ export const StaffManagementPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Users className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <Users className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {t('staff_management_title')}
             </h1>
           </div>
@@ -376,14 +376,14 @@ export const StaffManagementPage = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">
           <Button
             variant="secondary"
             icon={RotateCw}
             disabled={isLoading}
             onClick={loadStaffData}
             title={t('btn_reload')}
-            className={isLoading ? '[&>svg]:animate-spin text-rose-500' : ''}
+            className={`w-full sm:w-auto ${isLoading ? '[&>svg]:animate-spin text-rose-500' : ''}`}
           >
             {t('btn_reload')}
           </Button>
@@ -397,6 +397,7 @@ export const StaffManagementPage = () => {
               if (isNotVerified) return;
               setIsInviteModalOpen(true);
             }}
+            className="w-full sm:w-auto"
           >
             {t('btn_recruit_qr')}
           </Button>
@@ -413,10 +414,10 @@ export const StaffManagementPage = () => {
       ) : (
         <>
           {/* Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none pb-0.5">
             <button
               onClick={() => setActiveTab('active')}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeTab === 'active'
                   ? 'border-rose-600 text-rose-600 dark:text-rose-400'
                   : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -428,7 +429,7 @@ export const StaffManagementPage = () => {
 
             <button
               onClick={() => setActiveTab('pending')}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeTab === 'pending'
                   ? 'border-rose-600 text-rose-600 dark:text-rose-400'
                   : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'

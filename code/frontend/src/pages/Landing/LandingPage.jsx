@@ -130,55 +130,55 @@ export const LandingPage = () => {
           isDark ? 'bg-slate-900/80 border-slate-700/60' : 'bg-white/80 border-rose-100/60'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 via-rose-500 to-amber-400 flex items-center justify-center text-white shadow-md shadow-rose-500/20">
-              <Sparkles className="w-5 h-5" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-rose-600 via-rose-500 to-amber-400 flex items-center justify-center text-white shadow-md shadow-rose-500/20 shrink-0">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
               <span
-                className={`font-extrabold tracking-tight text-xl block ${isDark ? 'text-slate-100' : 'text-slate-900'}`}
+                className={`font-extrabold tracking-tight text-base sm:text-xl block leading-tight ${isDark ? 'text-slate-100' : 'text-slate-900'}`}
               >
                 {t('app_title')}
               </span>
-              <span className="text-[10px] text-rose-500 font-bold uppercase tracking-wider block -mt-1">
+              <span className="text-[9px] sm:text-[10px] text-rose-500 font-bold uppercase tracking-wider block -mt-0.5">
                 {t('landing_brand_subtitle')}
               </span>
             </div>
           </Link>
 
           {/* Quick Nav & Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all active:scale-95 cursor-pointer ${
+              className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition-all active:scale-95 cursor-pointer shrink-0 ${
                 isDark
                   ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-amber-400'
                   : 'border-rose-200/80 bg-rose-50/60 hover:bg-rose-100/70 text-slate-600'
               }`}
               title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             {/* Language Switcher */}
             <button
               onClick={toggleLanguage}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl border text-[11px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0 ${
                 isDark
                   ? 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-300'
                   : 'border-rose-200/80 bg-rose-50/60 hover:bg-rose-100/70 text-slate-700'
               }`}
               title={t('switch_language')}
             >
-              <Globe className="w-3.5 h-3.5 text-rose-500" />
+              <Globe className="w-3.5 h-3.5 text-rose-500 shrink-0" />
               <span>{language.toUpperCase()}</span>
             </button>
 
             <Link
               to="/register"
-              className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              className={`hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                 isDark
                   ? 'text-slate-300 hover:text-rose-400 hover:bg-slate-800'
                   : 'text-slate-700 hover:text-rose-600 hover:bg-rose-50/50'
@@ -190,10 +190,11 @@ export const LandingPage = () => {
 
             <Link
               to={getDashboardPath()}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-[11px] sm:text-xs shadow-md shadow-rose-600/20 transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0"
             >
-              <span>{isAuthenticated ? t('landing_go_to_dashboard') : t('landing_admin_login')}</span>
-              <ArrowRight className="w-4 h-4" />
+              <span className="hidden xs:inline">{isAuthenticated ? t('landing_go_to_dashboard') : t('landing_admin_login')}</span>
+              <span className="xs:hidden">{isAuthenticated ? 'Bảng ĐK' : 'Đăng Nhập'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
@@ -201,7 +202,7 @@ export const LandingPage = () => {
 
       {/* Hero Section */}
       <main className="flex-1">
-        <section className="relative max-w-6xl mx-auto px-6 pt-14 pb-20 text-center">
+        <section className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-14 sm:pb-20 text-center">
           <div
             className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-bold mb-6 shadow-xs ${
               isDark
@@ -214,7 +215,7 @@ export const LandingPage = () => {
           </div>
 
           <h1
-            className={`text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight ${
+            className={`text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight ${
               isDark ? 'text-slate-100' : 'text-slate-900'
             }`}
           >
@@ -225,17 +226,17 @@ export const LandingPage = () => {
           </h1>
 
           <p
-            className={`mt-6 text-base sm:text-lg max-w-3xl mx-auto leading-relaxed font-normal ${
+            className={`mt-4 sm:mt-6 text-sm sm:text-lg max-w-3xl mx-auto leading-relaxed font-normal ${
               isDark ? 'text-slate-400' : 'text-slate-600'
             }`}
           >
             {t('landing_hero_desc')}
           </p>
 
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-md sm:max-w-none mx-auto w-full">
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-extrabold text-sm shadow-xl shadow-rose-600/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-600 text-white font-extrabold text-sm shadow-xl shadow-rose-600/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
             >
               <span>{t('landing_hero_cta_login')}</span>
               <ArrowRight className="w-4 h-4" />
@@ -243,7 +244,7 @@ export const LandingPage = () => {
 
             <Link
               to="/register"
-              className={`inline-flex items-center gap-2 px-7 py-4 rounded-2xl font-bold text-sm border transition-all hover:scale-105 active:scale-95 cursor-pointer ${
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-sm border transition-all hover:scale-105 active:scale-95 cursor-pointer ${
                 isDark
                   ? 'bg-slate-800 hover:bg-slate-700 text-slate-100 border-slate-600 hover:border-rose-500'
                   : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 hover:border-rose-300 shadow-xs'
@@ -272,11 +273,11 @@ export const LandingPage = () => {
 
         {/* Section 2: Trending Makeup Styles */}
         <section
-          className={`py-16 border-y transition-colors duration-300 ${
+          className={`py-12 sm:py-16 border-y transition-colors duration-300 ${
             isDark ? 'bg-slate-800/50 border-slate-700/60' : 'bg-white border-rose-100/60'
           }`}
         >
-          <div className="max-w-6xl mx-auto px-6">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="text-center max-w-2xl mx-auto mb-12">
               <div className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-500 uppercase tracking-wider mb-2">
                 <Palette className="w-4 h-4" />
@@ -334,9 +335,9 @@ export const LandingPage = () => {
         </section>
 
         {/* Section 3: Platform Highlights */}
-        <section className={`py-16 transition-colors duration-300 ${isDark ? 'bg-slate-900' : 'bg-slate-50/50'}`}>
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="text-center max-w-2xl mx-auto mb-12">
+        <section className={`py-12 sm:py-16 transition-colors duration-300 ${isDark ? 'bg-slate-900' : 'bg-slate-50/50'}`}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
               <div className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-500 uppercase tracking-wider mb-2">
                 <Flame className="w-4 h-4" />
                 <span>{t('landing_highlights_tag')}</span>
@@ -349,11 +350,11 @@ export const LandingPage = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {highlights.map((item, idx) => (
                 <div
                   key={idx}
-                  className={`p-6 rounded-3xl border shadow-xs flex flex-col items-start ${
+                  className={`p-5 sm:p-6 rounded-3xl border shadow-xs flex flex-col items-start ${
                     isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'
                   }`}
                 >
@@ -373,9 +374,9 @@ export const LandingPage = () => {
         </section>
 
         {/* Section 4: Dual Role Gateways */}
-        <section className={`py-16 transition-colors duration-300 ${isDark ? 'bg-slate-800/50' : ''}`}>
-          <div className="max-w-5xl mx-auto px-6">
-            <div className="text-center max-w-xl mx-auto mb-10">
+        <section className={`py-12 sm:py-16 transition-colors duration-300 ${isDark ? 'bg-slate-800/50' : ''}`}>
+          <div className="max-w-5xl mx-auto px-4 sm:px-6">
+            <div className="text-center max-w-xl mx-auto mb-8 sm:mb-10">
               <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">
                 {t('landing_gateways_tag')}
               </span>
@@ -384,10 +385,10 @@ export const LandingPage = () => {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Super Admin Card */}
               <div
-                className={`p-8 rounded-3xl border shadow-md flex flex-col justify-between transition-all ${
+                className={`p-6 sm:p-8 rounded-3xl border shadow-md flex flex-col justify-between transition-all ${
                   isDark
                     ? 'bg-slate-800 border-rose-800/60 shadow-rose-900/20 hover:border-rose-700'
                     : 'bg-white border-rose-200 shadow-rose-100/50 hover:border-rose-300'
@@ -417,7 +418,7 @@ export const LandingPage = () => {
 
               {/* Agency Admin Card */}
               <div
-                className={`p-8 rounded-3xl border shadow-md flex flex-col justify-between transition-all ${
+                className={`p-6 sm:p-8 rounded-3xl border shadow-md flex flex-col justify-between transition-all ${
                   isDark
                     ? 'bg-slate-800 border-indigo-800/60 shadow-indigo-900/20 hover:border-indigo-700'
                     : 'bg-white border-indigo-200 shadow-indigo-100/50 hover:border-indigo-300'
@@ -453,7 +454,7 @@ export const LandingPage = () => {
           isDark ? 'bg-slate-900 border-slate-700 text-slate-500' : 'bg-white border-slate-200 text-slate-500'
         }`}
       >
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center text-xs font-black">
               M

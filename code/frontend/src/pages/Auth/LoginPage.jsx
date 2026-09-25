@@ -87,7 +87,7 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-white to-pink-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-b from-rose-50/70 via-white to-pink-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex flex-col justify-center py-8 sm:py-12 px-3.5 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/" className="inline-flex items-center gap-2.5 group mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 via-rose-500 to-amber-400 flex items-center justify-center text-white shadow-md shadow-rose-500/20 group-hover:scale-105 transition-transform">
@@ -97,7 +97,7 @@ export const LoginPage = () => {
             {t('app_title')}
           </span>
         </Link>
-        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
           {t('login_title')}
         </h2>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -105,8 +105,8 @@ export const LoginPage = () => {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md py-8 px-6 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50 rounded-3xl border border-rose-100 dark:border-slate-700 sm:px-10 transition-colors duration-300">
+      <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md py-6 sm:py-8 px-5 sm:px-10 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50 rounded-3xl border border-rose-100 dark:border-slate-700 transition-colors duration-300">
           {serverError && (
             <div className="mb-5 p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-xs text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
               {serverError}

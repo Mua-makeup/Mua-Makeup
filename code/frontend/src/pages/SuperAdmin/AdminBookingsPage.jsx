@@ -181,17 +181,21 @@ export const AdminBookingsPage = () => {
   };
 
   const getTypeLabel = (type) => {
-    if (type === 'REALTIME_INSTANT') return t('type_instant');
-    if (type === 'PRE_ORDER') return t('type_scheduled');
-    return type || '';
+    if (!type) return '';
+    const upper = String(type).toUpperCase();
+    if (upper === 'REALTIME_INSTANT' || upper === 'INSTANT') return t('type_instant');
+    if (upper === 'PRE_ORDER' || upper === 'SCHEDULED') return t('type_scheduled');
+    return type;
   };
 
   const columns = [
     {
       header: t('col_booking_code'),
       accessor: 'bookingCode',
+      headerClassName: 'pl-3.5 sm:pl-4 pr-3',
+      className: 'pl-3.5 sm:pl-4 pr-3',
       render: (row) => (
-        <div>
+        <div className="flex flex-col items-start">
           <span className="font-mono text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900/30">
             #{row.bookingCode || row.id}
           </span>
@@ -398,14 +402,14 @@ export const AdminBookingsPage = () => {
       )}
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
         {/* Concise Status Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 lg:pb-0 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 sm:pb-0 scrollbar-none w-full sm:w-auto shrink-0">
           {statusTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setStatusFilter(tab.key)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 statusFilter === tab.key
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200/80 dark:border-slate-700/80'
@@ -417,7 +421,7 @@ export const AdminBookingsPage = () => {
         </div>
 
         {/* Keyword Search */}
-        <form onSubmit={handleSearch} className="relative min-w-[240px] shrink-0">
+        <form onSubmit={handleSearch} className="relative w-full sm:w-72 shrink-0">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
           <input
             type="text"
