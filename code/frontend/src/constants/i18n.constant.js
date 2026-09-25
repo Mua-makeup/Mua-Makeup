@@ -71,7 +71,7 @@ export const TRANSLATIONS = {
     admin_profile_uploading: 'Đang Tải Ảnh...',
     admin_profile_upload_success: 'Đã tải lên ảnh đại diện thành công!',
     admin_profile_update_success: 'Cập nhật thông tin quản trị viên thành công!',
-    admin_profile_avatar_hint: 'Hỗ trợ JPG, PNG, WEBP (tối đa 5MB).',
+    admin_profile_avatar_hint: 'Hỗ trợ JPG, PNG, WEBP (tối đa 20MB).',
     admin_profile_phone_readonly: 'Số điện thoại đăng nhập (Cố định)',
     admin_profile_role_readonly: 'Phân quyền tài khoản',
     field_gender: 'Giới Tính',
@@ -1429,6 +1429,9 @@ export const TRANSLATIONS = {
     confirm_proceed_solo_title: 'Xác Nhận Để 1 Thợ Làm Hết',
     confirm_proceed_solo_msg: 'Bạn có chắc chắn muốn để thợ {name} đảm nhiệm toàn bộ đơn hàng này mà không cần phân công thêm thợ phụ?',
     confirm_proceed_solo_btn: 'Xác Nhận Để 1 Thợ',
+    proof_document_label: 'Ảnh minh chứng sự cố',
+    proof_document_view_full: 'Xem ảnh gốc',
+    dispatch_emergency_alert_banner: 'Đơn hàng phát sinh sự cố báo bận khẩn cấp',
   },
   en: {
     // Navigation & Common
@@ -1502,7 +1505,7 @@ export const TRANSLATIONS = {
     admin_profile_uploading: 'Uploading...',
     admin_profile_upload_success: 'Avatar uploaded successfully!',
     admin_profile_update_success: 'Admin profile updated successfully!',
-    admin_profile_avatar_hint: 'Supports JPG, PNG, WEBP (max 5MB).',
+    admin_profile_avatar_hint: 'Supports JPG, PNG, WEBP (max 20MB).',
     admin_profile_phone_readonly: 'Login Phone Number (Fixed)',
     admin_profile_role_readonly: 'Account Role',
     field_gender: 'Gender',
@@ -2851,6 +2854,9 @@ export const TRANSLATIONS = {
     confirm_proceed_solo_title: 'Confirm Solo Assignment',
     confirm_proceed_solo_msg: 'Are you sure you want artist {name} to fulfill this entire booking without an assistant?',
     confirm_proceed_solo_btn: 'Confirm Solo',
+    proof_document_label: 'Incident Proof Photo',
+    proof_document_view_full: 'View original photo',
+    dispatch_emergency_alert_banner: 'Emergency unavailability reported for this booking',
   },
 };
 

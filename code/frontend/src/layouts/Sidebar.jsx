@@ -101,9 +101,20 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
 
   const navItems = role === USER_ROLES.SUPER_ADMIN ? superAdminNav : agencyAdminNav;
 
+  React.useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileOpen]);
+
   const sidebarContent = (
     <div className="flex flex-col justify-between h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors">
-      <div className="p-4 space-y-1">
+      <div className="p-4 space-y-1 overflow-y-auto flex-1">
         <div className="flex items-center justify-between lg:hidden pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
           <span className="text-xs font-bold text-slate-800 dark:text-white">
             {t('app_title')} {t('menu')}
@@ -152,7 +163,7 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
         })}
       </div>
 
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 text-[11px] text-slate-500 dark:text-slate-400">
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
         <p className="font-semibold text-slate-700 dark:text-slate-300">
           {t('app_title')} {t('platform_version')}
         </p>
@@ -172,12 +183,12 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
 
       {/* Mobile Drawer Overlay */}
       {isMobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-[1300] lg:hidden">
           <div
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
             onClick={onCloseMobile}
           />
-          <div className="fixed inset-y-0 left-0 w-64 max-w-full shadow-2xl z-50">
+          <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] shadow-2xl z-[1300] animate-in slide-in-from-left duration-200">
             {sidebarContent}
           </div>
         </div>

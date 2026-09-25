@@ -11,8 +11,8 @@ export const ShiftSchedulePage = () => {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">
-          <CalendarDays className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <CalendarDays className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             {t('shifts_title')}
           </h1>
         </div>
