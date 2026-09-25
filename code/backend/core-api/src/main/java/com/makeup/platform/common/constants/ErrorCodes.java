@@ -134,6 +134,10 @@ public final class ErrorCodes {
     public static final String ERR_ASSIGNMENT_NOT_FOUND = "ERR_ASSIGNMENT_NOT_FOUND";
     public static final String ERR_EMERGENCY_REPORT_NOT_FOUND = "ERR_EMERGENCY_REPORT_NOT_FOUND";
     public static final String ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS = "ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS";
+
+    // Phân hệ Xác thực 2FA OTP & Rate Limiting
+    public static final String ERR_RATE_LIMIT_EXCEEDED = "ERR_RATE_LIMIT_EXCEEDED";
+    public static final String ERR_INVALID_OTP = "ERR_INVALID_OTP";
 }
 
 

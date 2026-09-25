@@ -5,7 +5,8 @@ import { Sparkles, X, ArrowRight, Clock, Bell, User, UserPlus, Phone, ShieldAler
 import { useAuth } from '../../../hooks/useAuth';
 import { USER_ROLES } from '../../../constants/roles.constant';
 import { agencyService } from '../../../services/agency.service';
-import { useNotificationStore } from '../../../store/useNotificationStore';
+import { notificationService } from '../../../services/notification.service';
+import { useNotificationStore, mapServerNotification } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { formatCurrency, formatBookingDateTime } from '../../../utils/formatters';
 import { notificationSound } from '../../../utils/notificationSound';
@@ -38,6 +39,58 @@ export const AgencyRealtimeNotifier = () => {
         }
       } catch (err) {
         console.warn('[AgencyRealtimeNotifier] Failed to load agency profile:', err);
+      }
+
+      if (!isMounted) return;
+
+      // Check unread notifications on initial mount/login
+      try {
+        const notifRes = await notificationService.getNotifications(0, 15);
+        const notifData = notifRes?.data || notifRes || {};
+        const list = Array.isArray(notifData) ? notifData : notifData.content || [];
+        const unreadList = list
+          .filter((item) => !item.isRead)
+          .map(mapServerNotification);
+
+        if (isMounted && unreadList.length > 0) {
+          let dismissedIds = [];
+          try {
+            const dismissedRaw = sessionStorage.getItem('agency_dismissed_toast_ids');
+            dismissedIds = dismissedRaw ? JSON.parse(dismissedRaw) : [];
+          } catch {
+            dismissedIds = [];
+          }
+
+          const candidateList = unreadList.filter((item) => !dismissedIds.includes(String(item.id)));
+
+          if (candidateList.length > 0) {
+            // Priority: EMERGENCY_REASSIGNMENT_ALERT first, then NEW_BOOKING, then others
+            const emergencyItem = candidateList.find((item) => item.type === 'EMERGENCY_REASSIGNMENT_ALERT');
+            const bookingItem = candidateList.find((item) => item.type === 'NEW_BOOKING');
+            const targetItem = emergencyItem || bookingItem || candidateList[0];
+
+            if (targetItem) {
+              const otherCount = candidateList.length - 1;
+              const toastData = {
+                ...targetItem,
+                otherCount: otherCount > 0 ? otherCount : 0,
+              };
+
+              if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+              setActiveToast(toastData);
+
+              if (targetItem.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+                notificationSound.playEmergencyAlert();
+                toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 15000);
+              } else {
+                notificationSound.playBookingChime();
+                toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 10000);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[AgencyRealtimeNotifier] Failed to check unread notifications on login:', err);
       }
 
       if (!isMounted) return;
@@ -258,7 +311,7 @@ export const AgencyRealtimeNotifier = () => {
             </div>
           )}
           <div>
-            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
               <span>
                 {isEmergency
                   ? t('notification_emergency_title')
@@ -273,6 +326,11 @@ export const AgencyRealtimeNotifier = () => {
               >
                 {isEmergency ? t('emergency_badge') : t('new_badge')}
               </span>
+              {activeToast.otherCount > 0 && (
+                <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
+                  +{activeToast.otherCount} {isEmergency ? 'cảnh báo khác' : 'đơn khác'}
+                </span>
+              )}
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
               #{isStaffApp ? activeToast.inviteCode : activeToast.bookingCode}
@@ -282,7 +340,22 @@ export const AgencyRealtimeNotifier = () => {
 
         <button
           type="button"
-          onClick={() => setActiveToast(null)}
+          onClick={() => {
+            if (activeToast?.id) {
+              try {
+                const raw = sessionStorage.getItem('agency_dismissed_toast_ids');
+                const dismissed = raw ? JSON.parse(raw) : [];
+                if (!dismissed.includes(String(activeToast.id))) {
+                  dismissed.push(String(activeToast.id));
+                  sessionStorage.setItem('agency_dismissed_toast_ids', JSON.stringify(dismissed));
+                }
+              } catch {
+                // ignore
+              }
+            }
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            setActiveToast(null);
+          }}
           className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           title={t('close')}
         >
@@ -306,6 +379,35 @@ export const AgencyRealtimeNotifier = () => {
               {activeToast.emergencyReason}
             </p>
           </div>
+
+          {activeToast.proofDocumentUrl && (
+            <div className="pt-2 border-t border-red-200 dark:border-red-800 flex items-center gap-2.5">
+              <a
+                href={activeToast.proofDocumentUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block shrink-0 group"
+                title="Bấm để xem ảnh gốc"
+              >
+                <img
+                  src={activeToast.proofDocumentUrl}
+                  alt="Minh chứng sự cố"
+                  className="w-14 h-14 object-cover rounded-lg border border-red-300 dark:border-red-700 shadow-sm group-hover:scale-105 transition-transform"
+                />
+              </a>
+              <div className="text-[11px] text-red-700 dark:text-red-300">
+                <p className="font-bold">Ảnh minh chứng sự cố</p>
+                <a
+                  href={activeToast.proofDocumentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-red-900 dark:hover:text-red-100 font-medium"
+                >
+                  Bấm để xem ảnh gốc &rarr;
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       ) : isStaffApp ? (
         <div className="mt-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-100 dark:border-slate-800 space-y-1.5 text-xs">
@@ -378,8 +480,23 @@ export const AgencyRealtimeNotifier = () => {
         <button
           type="button"
           onClick={() => {
+            if (activeToast?.id) {
+              try {
+                const raw = sessionStorage.getItem('agency_dismissed_toast_ids');
+                const dismissed = raw ? JSON.parse(raw) : [];
+                if (!dismissed.includes(String(activeToast.id))) {
+                  dismissed.push(String(activeToast.id));
+                  sessionStorage.setItem('agency_dismissed_toast_ids', JSON.stringify(dismissed));
+                }
+                notificationService.markAsRead(activeToast.id).catch(() => {});
+              } catch {
+                // ignore
+              }
+            }
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            const targetRoute = isStaffApp ? '/agency/staff' : '/agency/bookings';
             setActiveToast(null);
-            navigate(isStaffApp ? '/agency/staff' : '/agency/bookings');
+            navigate(targetRoute);
           }}
           className={`flex-1 py-2 px-3 rounded-xl text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
             isEmergency

@@ -53,6 +53,12 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                   AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
                   AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
             ) AS hasCalendarFree,
+            EXISTS (
+                SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
+                WHERE bsa_canc.staff_id = s.id 
+                  AND bsa_canc.booking_id = :bookingId 
+                  AND bsa_canc.status = 'EMERGENCY_CANCELLED'
+            ) AS hasReportedBusy,
             bsa.assignment_role AS currentRole
         FROM agency_schema.agency_staff s
         JOIN mua_schema.mua_profiles mp ON s.mua_id = mp.id
@@ -60,12 +66,6 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
         LEFT JOIN booking_schema.booking_staff_assignments bsa 
             ON bsa.staff_id = s.id AND bsa.booking_id = :bookingId AND bsa.status = 'ACTIVE'
         WHERE s.agency_id = :agencyId AND s.status = 'ACTIVE'
-          AND NOT EXISTS (
-              SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
-              WHERE bsa_canc.staff_id = s.id 
-                AND bsa_canc.booking_id = :bookingId 
-                AND bsa_canc.status = 'EMERGENCY_CANCELLED'
-          )
         ORDER BY 
             (
                 EXISTS (
@@ -100,6 +100,12 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                       AND c.is_locked = true
                       AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
                       AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
+                    WHERE bsa_canc.staff_id = s.id 
+                      AND bsa_canc.booking_id = :bookingId 
+                      AND bsa_canc.status = 'EMERGENCY_CANCELLED'
                 )
             ) DESC,
             u.full_name ASC

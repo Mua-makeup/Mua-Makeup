@@ -92,19 +92,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
     setErrorMsg('');
 
     try {
-      // Find old staff ID if recorded in assignedStaff
-      const emergencyStaff = booking?.assignedStaff?.find(
-        (s) => s.status === 'EMERGENCY_CANCELLED'
-      );
-      const primaryStaff = booking?.assignedStaff?.find(
-        (s) => s.role === 'PRIMARY_MUA'
-      );
-      const oldStaff = emergencyStaff || primaryStaff;
-      let oldStaffId = oldStaff?.staffId;
-      if (!oldStaffId && booking?.staffMuaId && matrixData?.staffList) {
-        const staffInMatrix = matrixData.staffList.find((s) => s.muaId === booking.staffMuaId);
-        if (staffInMatrix) oldStaffId = staffInMatrix.staffId;
-      }
+      const oldStaffId = resolvedOldStaffId;
 
       await agencyService.reassignStaff(bookingId, {
         oldStaffId,
@@ -149,23 +137,32 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
 
   if (!booking) return null;
 
-  const emergencyCancelledStaffIds = (booking?.assignedStaff || [])
-    .filter((s) => s.status === 'EMERGENCY_CANCELLED')
-    .map((s) => s.staffId);
-  const activeStaffIds = (booking?.assignedStaff || [])
+  const nonReplacedStaffList = (booking?.assignedStaff || []).filter((s) => s.status !== 'REPLACED');
+  const emergencyAssignments = nonReplacedStaffList.filter((s) => s.status === 'EMERGENCY_CANCELLED');
+  const emergencyCancelledStaffIds = emergencyAssignments.map((s) => s.staffId);
+  const activeStaffIds = nonReplacedStaffList
     .filter((s) => s.status === 'ACTIVE')
     .map((s) => s.staffId);
 
-  const detectedOldStaff = booking?.assignedStaff?.find(
-    (s) => s.status === 'EMERGENCY_CANCELLED' || s.role === 'PRIMARY_MUA'
-  );
+  const currentStaffName = booking?.staffName;
+  let detectedOldStaff = null;
+  if (currentStaffName) {
+    detectedOldStaff = emergencyAssignments.find((s) => s.staffName === currentStaffName);
+  }
+  if (!detectedOldStaff && emergencyAssignments.length > 0) {
+    detectedOldStaff = emergencyAssignments[emergencyAssignments.length - 1];
+  }
+  if (!detectedOldStaff) {
+    detectedOldStaff = nonReplacedStaffList.find((s) => s.role === 'PRIMARY_MUA');
+  }
+
   let resolvedOldStaffId = detectedOldStaff?.staffId;
   if (!resolvedOldStaffId && booking?.staffMuaId && matrixData?.staffList) {
     const staffInMatrix = matrixData.staffList.find((s) => s.muaId === booking.staffMuaId);
     if (staffInMatrix) resolvedOldStaffId = staffInMatrix.staffId;
   }
 
-  const activeStaff = (booking?.assignedStaff || []).find(
+  const activeStaff = nonReplacedStaffList.find(
     (s) => s.status === 'ACTIVE' || (!s.status && s.role === 'PRIMARY_MUA')
   );
 
@@ -453,7 +450,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       variant="danger"
       isDangerous={true}
       isLoading={isSubmitting}
-      zIndex="z-[70]"
+      zIndex="z-[10000]"
     />
 
     {/* Pop-up Confirmation Dialog for Solo Proceed */}
@@ -470,7 +467,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       variant="success"
       confirmClassName="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
       isLoading={isSubmitting}
-      zIndex="z-[70]"
+      zIndex="z-[10000]"
     />
     </>
   );

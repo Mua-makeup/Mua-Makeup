@@ -101,6 +101,8 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
+                                "/api/v1/auth/verify-2fa",
+                                "/api/v1/auth/resend-2fa",
                                 "/api/v1/auth/refresh-token",
                                 "/api/v1/auth/logout",
                                 "/ws-makeup/**",

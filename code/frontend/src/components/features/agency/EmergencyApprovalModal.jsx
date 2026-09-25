@@ -39,9 +39,20 @@ export const EmergencyApprovalModal = ({
   if (!booking) return null;
 
   // Identify reporting staff
-  const reportingStaff = (booking.assignedStaff || []).find(
-    (s) => s.status === 'EMERGENCY_CANCELLED'
-  ) || (booking.assignedStaff || []).find((s) => s.role === 'PRIMARY_MUA');
+  const staffList = (booking.assignedStaff || []).filter((s) => s.status !== 'REPLACED');
+  const emergencyStaffList = staffList.filter((s) => s.status === 'EMERGENCY_CANCELLED');
+
+  const currentStaffName = booking.staffName;
+  let reportingStaff = null;
+  if (currentStaffName) {
+    reportingStaff = emergencyStaffList.find((s) => s.staffName === currentStaffName);
+  }
+  if (!reportingStaff && emergencyStaffList.length > 0) {
+    reportingStaff = emergencyStaffList[emergencyStaffList.length - 1];
+  }
+  if (!reportingStaff) {
+    reportingStaff = staffList.find((s) => s.role === 'PRIMARY_MUA') || staffList[0];
+  }
 
   const staffName = reportingStaff?.staffName || booking.staffName || 'Thợ trang điểm';
   const staffPhone = reportingStaff?.staffPhone || booking.staffPhone || '';
@@ -49,9 +60,14 @@ export const EmergencyApprovalModal = ({
   const staffId = reportingStaff?.staffId || booking.staffMuaId;
 
   const proofUrl =
+    reportingStaff?.proofDocumentUrl ||
     booking.emergencyProofUrl ||
-    booking.proofDocumentUrl ||
-    reportingStaff?.proofDocumentUrl;
+    booking.proofDocumentUrl;
+
+  const displayReason =
+    cleanEmergencyReason(reportingStaff?.cancellationReason) ||
+    cleanEmergencyReason(booking.emergencyReason) ||
+    t('dispatch_emergency_fallback_reason');
 
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -150,7 +166,7 @@ export const EmergencyApprovalModal = ({
                 {t('dispatch_emergency_reason_label')}
               </span>
               <p className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/40 text-slate-800 dark:text-slate-200 leading-relaxed font-medium text-xs">
-                {cleanEmergencyReason(booking.emergencyReason) || t('dispatch_emergency_fallback_reason')}
+                {displayReason}
               </p>
             </div>
 

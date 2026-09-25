@@ -25,6 +25,9 @@ public class StaffMatrixItemRes {
     private boolean hasStyle;
     private boolean hasCalendarFree;
 
+    @JsonProperty("hasReportedBusy")
+    private boolean hasReportedBusy;
+
     // Combined eligibility
     @JsonProperty("isFullyQualified")
     private boolean isFullyQualified;

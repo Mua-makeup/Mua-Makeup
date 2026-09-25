@@ -13,7 +13,7 @@ const getSavedSoundSetting = () => {
   }
 };
 
-const mapServerNotification = (item) => {
+export const mapServerNotification = (item) => {
   const meta = item.metadata || {};
   return {
     id: item.id,
@@ -29,6 +29,11 @@ const mapServerNotification = (item) => {
     bookingDate: meta.bookingDate,
     startTime: meta.startTime,
     staffId: meta.staffId,
+    staffName: meta.staffName,
+    role: meta.role,
+    emergencyReason: meta.emergencyReason,
+    emergencyTier: meta.emergencyTier,
+    proofDocumentUrl: meta.proofDocumentUrl,
     muaName: meta.muaName,
     muaAvatar: meta.muaAvatar,
     inviteCode: meta.inviteCode,
