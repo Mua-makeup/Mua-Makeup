@@ -1,12 +1,17 @@
 package com.makeup.platform.mapper.booking;
 
 import com.makeup.platform.dto.response.admin.AdminBookingRes;
+import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
 import com.makeup.platform.dto.response.booking.BookingAcceptanceRes;
 import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
+import com.makeup.platform.entity.booking.AssignmentRole;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -14,7 +19,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class BookingMapper {
+
+    private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
 
     public BookingStateTransitionRes toTransitionRes(BookingEntity entity, BookingStatus previousStatus, Long updatedByUserId) {
         if (entity == null) {
@@ -145,6 +153,27 @@ public class BookingMapper {
             }
         }
 
+        final List<StaffAssignmentDetailRes> assignedStaff = (entity.getStaffAssignments() != null && !entity.getStaffAssignments().isEmpty())
+                ? bookingStaffAssignmentMapper.toDetailResList(
+                        entity.getStaffAssignments().stream()
+                                .filter(sa -> sa.getStatus() != AssignmentStatus.REPLACED)
+                                .toList()
+                  )
+                : List.of();
+
+        if (muaName == null && !assignedStaff.isEmpty()) {
+            var primary = assignedStaff.stream()
+                    .filter(s -> s.getRole() == AssignmentRole.PRIMARY_MUA && s.getStatus() == AssignmentStatus.ACTIVE)
+                    .findFirst()
+                    .or(() -> assignedStaff.stream()
+                            .filter(s -> s.getRole() == AssignmentRole.PRIMARY_MUA)
+                            .findFirst())
+                    .orElse(assignedStaff.get(0));
+            muaName = primary.getStaffName();
+            muaPhone = primary.getStaffPhone();
+            muaId = primary.getStaffId();
+        }
+
         return AdminBookingRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -155,6 +184,7 @@ public class BookingMapper {
                 .muaId(muaId)
                 .muaName(muaName)
                 .muaPhone(muaPhone)
+                .assignedStaff(assignedStaff)
                 .agencyId(agencyId)
                 .agencyName(agencyName)
                 .packageId(packageId)

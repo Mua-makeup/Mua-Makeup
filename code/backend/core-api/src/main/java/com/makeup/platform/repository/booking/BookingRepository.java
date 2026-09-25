@@ -38,62 +38,86 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
     boolean existsByCustomerIdAndBookingTypeAndStatusIn(
             Long customerId,
             BookingType bookingType,
-            Collection<BookingStatus> statuses
-    );
+            Collection<BookingStatus> statuses);
 
     /**
-     * Quét phân trang các đơn cần nhắc trước 24h: Chưa gửi, thời điểm bắt đầu <= (now + 24h) và còn trong tương lai.
+     * Quét phân trang các đơn cần nhắc trước 24h: Chưa gửi, thời điểm bắt đầu <=
+     * (now + 24h) và còn trong tương lai.
      */
     @Query(value = """
-        SELECT * FROM booking_schema.bookings b
-        WHERE b.status = 'ACCEPTED'
-          AND b.booking_type = 'SCHEDULED'
-          AND b.reminder_24h_sent = FALSE
-          AND (b.booking_date + b.start_time) <= :maxReminderTime
-          AND (b.booking_date + b.start_time) > CURRENT_TIMESTAMP
-        ORDER BY (b.booking_date + b.start_time) ASC
-    """, nativeQuery = true)
+                SELECT * FROM booking_schema.bookings b
+                WHERE b.status = 'ACCEPTED'
+                  AND b.booking_type = 'SCHEDULED'
+                  AND b.reminder_24h_sent = FALSE
+                  AND (b.booking_date + b.start_time) <= :maxReminderTime
+                  AND (b.booking_date + b.start_time) > CURRENT_TIMESTAMP
+                ORDER BY (b.booking_date + b.start_time) ASC
+            """, nativeQuery = true)
     List<BookingEntity> findPending24hRemindersBatch(
             @Param("maxReminderTime") LocalDateTime maxReminderTime,
-            Pageable pageable
-    );
+            Pageable pageable);
 
     /**
-     * Quét phân trang các đơn cần nhắc trước 2h: Chưa gửi, thời điểm bắt đầu <= (now + 2h) và còn trong tương lai.
+     * Quét phân trang các đơn cần nhắc trước 2h: Chưa gửi, thời điểm bắt đầu <=
+     * (now + 2h) và còn trong tương lai.
      */
     @Query(value = """
-        SELECT * FROM booking_schema.bookings b
-        WHERE b.status = 'ACCEPTED'
-          AND b.booking_type = 'SCHEDULED'
-          AND b.reminder_2h_sent = FALSE
-          AND (b.booking_date + b.start_time) <= :maxReminderTime
-          AND (b.booking_date + b.start_time) > CURRENT_TIMESTAMP
-        ORDER BY (b.booking_date + b.start_time) ASC
-    """, nativeQuery = true)
+                SELECT * FROM booking_schema.bookings b
+                WHERE b.status = 'ACCEPTED'
+                  AND b.booking_type = 'SCHEDULED'
+                  AND b.reminder_2h_sent = FALSE
+                  AND (b.booking_date + b.start_time) <= :maxReminderTime
+                  AND (b.booking_date + b.start_time) > CURRENT_TIMESTAMP
+                ORDER BY (b.booking_date + b.start_time) ASC
+            """, nativeQuery = true)
     List<BookingEntity> findPending2hRemindersBatch(
             @Param("maxReminderTime") LocalDateTime maxReminderTime,
-            Pageable pageable
-    );
+            Pageable pageable);
 
     /**
      * Quét các đơn giữ chỗ PENDING_DEPOSIT đã quá hạn 15 phút chưa cọc
      */
     @Query("""
-        SELECT b FROM BookingEntity b
-        WHERE b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT
-          AND b.depositExpiredAt < CURRENT_TIMESTAMP
-    """)
+                SELECT b FROM BookingEntity b
+                WHERE b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT
+                  AND b.depositExpiredAt < CURRENT_TIMESTAMP
+            """)
     List<BookingEntity> findExpiredPendingDepositBookings();
 
     /**
-     * Cập nhật trạng thái hủy đơn hết hạn cọc có điều kiện nguyên tử (Atomic Conditional Update).
-     * Triệt tiêu hoàn toàn race-condition khi khách hàng thanh toán cọc ở giây 14:59.
+     * Cập nhật trạng thái hủy đơn hết hạn cọc có điều kiện nguyên tử (Atomic
+     * Conditional Update).
+     * Triệt tiêu hoàn toàn race-condition khi khách hàng thanh toán cọc ở giây
+     * 14:59.
      */
     @Modifying
     @Query("""
-        UPDATE BookingEntity b
-        SET b.status = com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED, b.updatedAt = CURRENT_TIMESTAMP
-        WHERE b.id = :bookingId AND b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT
-    """)
+                UPDATE BookingEntity b
+                SET b.status = com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
+                    b.needsEmergencyReassignment = false,
+                    b.emergencyReason = NULL,
+                    b.updatedAt = CURRENT_TIMESTAMP
+                WHERE b.id = :bookingId AND b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT
+            """)
     int cancelExpiredBookingIfPendingDeposit(@Param("bookingId") Long bookingId);
+
+    /**
+     * Danh sách đơn cần điều phối của Agency (Ưu tiên đơn khẩn cấp
+     * needsEmergencyReassignment = true lên đầu)
+     */
+    @Query("""
+                SELECT b FROM BookingEntity b
+                LEFT JOIN FETCH b.customer c
+                LEFT JOIN FETCH b.servicePackage sp
+                LEFT JOIN FETCH b.style st
+                WHERE b.agency.id = :agencyId
+                  AND (b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_AGENCY_DISPATCH
+                       OR (b.needsEmergencyReassignment = TRUE
+                           AND b.status NOT IN (com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
+                                                com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
+                                                com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+                                                com.makeup.platform.entity.booking.BookingStatus.PAID_OUT)))
+                ORDER BY b.needsEmergencyReassignment DESC, b.createdAt ASC
+            """)
+    List<BookingEntity> findPendingDispatchBookingsByAgencyId(@Param("agencyId") Long agencyId);
 }

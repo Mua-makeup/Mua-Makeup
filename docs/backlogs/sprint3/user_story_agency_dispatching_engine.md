@@ -10,7 +10,9 @@
 * **Mã Jira Issues phụ trách (Sprint 3):**
   * `ISSUE-19.1`: **User Story** - Agency Dispatching Engine - Tiếp nhận đơn đặt chỉ định Studio (`PENDING_AGENCY_DISPATCH`).
   * `ISSUE-19.2`: **Task** - UI Ma trận Lịch rảnh & Gán Thợ chính / Thợ phụ cho ca trên Web Studio (`agency_staff_services`, `agency_staff_styles` & `agency_staff_shifts`).
-  * `ISSUE-19.3`: **Task** - Tính năng Đổi Thợ dự phòng khi Thợ chính báo bận đột xuất trên Web Studio Portal.
+  * `ISSUE-19.3`: **Task** - Tính năng Báo bận khẩn cấp, Duyệt báo bận, Đổi Thợ dự phòng hoặc Duyệt 1 Thợ làm Solo trên Web Studio Portal.
+  * `ISSUE-19.4`: **Task** - Dashboard Thống kê Tổng quan & Giám sát Đơn hàng cho Studio (`AgencyBookingOverviewStatsRes`) và Super Admin (`AdminBookingOverviewStatsRes`).
+  * `ISSUE-19.5`: **Task** - Ràng buộc Cắt giờ: Chặn khách tự hủy đơn sát giờ (< 2h) và Bắt buộc minh chứng đối với thợ báo bận khẩn cấp Tier 3 (< 2h).
 * **Mô hình Kiến trúc:**
   * **Spring Boot 3.3.x Layered Architecture Monolith** (`code/backend/core-api`, Port `8080`).
   * **Động cơ Ma trận Lọc Năng lực & Lịch trực 4 Chiều Toàn Diện (Comprehensive 4-Way Dispatching Matrix):**
@@ -26,13 +28,13 @@
   * **Kiểm Soát Tranh Chấp Lịch & Chống Deadlock (Lock Ordering & Redisson MultiLock):**
     * Khi gán đa nhân sự (1 Thợ chính + 1–2 Thợ phụ), toàn bộ danh sách `mua_id` bắt buộc phải được **sắp xếp tăng dần theo ID tự nhiên** (`Collections.sort`) trước khi yêu cầu khóa.
     * Sử dụng **Redisson MultiLock** (`redissonClient.getMultiLock(...)`) khóa đồng thời các thợ theo thứ tự cố định để giảm thiểu deadlock/race-condition khi nhiều lễ tân gán ca cùng thời điểm. Ràng buộc cuối cùng vẫn phải được bảo vệ bằng unique/exclusion constraint ở PostgreSQL.
-    * Kết hợp **Exclusion Constraint** (`exclude_mua_overlapping_slots`) ở tầng Database để bảo vệ phòng thủ 2 lớp (Defense-in-Depth). Migration bắt buộc phải tạo GiST index/constraint tương ứng, không chỉ mô tả ở tầng service.
-  * **Quản Lý Vòng Đời & Kiểm Toán Khi Thợ Báo Bận Khẩn Cấp (Emergency Audit Trail):**
-    * Khi thợ báo bận đột xuất, **KHÔNG xóa slot lịch** để chống việc khách khác nhảy vào book thợ đang ốm/sự cố. Hệ thống giữ nguyên `is_locked = true`, cập nhật `reason = 'EMERGENCY_LEAVE_STAFF_{id}'` và gỡ `booking_id = NULL`.
-    * Cập nhật bản ghi phân công trong `booking_staff_assignments` sang `status = 'EMERGENCY_CANCELLED'`, ghi nhận `cancellation_reason` và `cancelled_at` để bảo lưu đầy đủ Audit Trail.
-    * Khi Studio gán thợ thay thế, bản ghi thợ cũ chuyển sang `status = 'REPLACED'` kèm tham chiếu `replaced_by_staff_id`.
+    * Kết hợp **Exclusion Constraint** (`exclude_mua_overlapping_slots`) ở tầng Database để bảo vệ phòng thủ 2 lớp (Defense-in-Depth).
+  * **Quản Lý Vòng Đời & Kiểm Toán Khi Thợ Báo Bận Khẩn Cấp (Emergency Audit Trail & Solo Fulfillment):**
+    * Khi thợ báo bận đột xuất, giải phóng ngay slot lịch `mua_calendars` của thợ trên ca đó để không gây kẹt lịch hệ thống, bảo lưu phân công ở trạng thái `EMERGENCY_CANCELLED` kèm `proof_document_url` minh chứng.
+    * Hỗ trợ 2 phương án xử lý khẩn cấp: (1) **Đổi thợ dự phòng (`reassignStaff`)** chọn thợ mới rảnh từ ma trận, thợ cũ chuyển sang `REPLACED`; hoặc (2) **Duyệt 1 thợ làm solo (`proceedSolo`)** khi không còn thợ phụ rảnh, cho phép Thợ chính hoàn thành trọn vẹn cả gói.
+    * Tự động xóa cờ `needs_emergency_reassignment` và giải phóng lịch mồ côi khi đơn kết thúc (`COMPLETED`, `CANCELLED`, `PAID_OUT`).
   * **Ưu Tiên Điều Phối Đơn Khẩn Cấp Trên Web Studio:**
-    * Bổ sung Partial Index `idx_bookings_agency_emergency` lọc `needs_emergency_reassignment = TRUE`, đẩy ngay lập tức các đơn cần đổi thợ lên đầu bảng danh sách chờ tiếp nhận.
+    * Bổ sung Partial Index `idx_bookings_agency_emergency` lọc `needs_emergency_reassignment = TRUE`, đẩy ngay lập tức các đơn cần đổi thợ lên đầu bảng danh sách chờ tiếp nhận kèm âm thanh cảnh báo chuông cấp cứu realtime qua WebSocket STOMP.
 * **Đối tượng Sử dụng (User Personas):**
   1. **Agency Owner / Studio Admin (`ROLE_AGENCY_ADMIN`) & Receptionist (`ROLE_AGENCY_STAFF`):**
      * Tiếp nhận đơn hàng do khách đặt trực tiếp cho Studio trên Web Studio Portal.
@@ -87,70 +89,79 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │   └── WebSocketConfig.java                   # STOMP broker cấu hình /ws-makeup
 │
 ├── controller/
-│   └── agency/
-│       ├── AgencyDispatchController.java      # GET /api/v1/agency/dispatch/pending-bookings, POST /reject
-│       ├── AgencyStaffMatrixController.java   # GET /api/v1/agency/dispatch/bookings/{id}/staff-matrix
-│       ├── AgencyAssignmentController.java    # POST /api/v1/agency/dispatch/bookings/{id}/assign
-│       └── AgencyEmergencyController.java     # POST /api/v1/agency/dispatch/bookings/{id}/reassign & /report-emergency-busy
+│   ├── agency/
+│   │   ├── AgencyDispatchController.java      # Dispatching APIs: assign, reassign, proceed-solo, emergency-report review, reject, matrix
+│   │   └── AgencyBookingController.java       # GET /api/v1/agency/bookings/overview-stats & GET /api/v1/agency/bookings
+│   └── admin/
+│       └── AdminBookingController.java        # GET /api/v1/admin/bookings/overview-stats & GET /api/v1/admin/bookings
 │
 ├── dto/
 │   ├── request/agency/
 │   │   ├── AssignStaffToBookingReq.java       # primaryStaffId, assistantStaffIds, dispatchNotes
 │   │   ├── ReassignStaffReq.java              # oldStaffId, newStaffId, reassignmentReason
+│   │   ├── ProceedSoloReq.java                # approvalReason
+│   │   ├── ApproveEmergencyReportReq.java     # approved (boolean), reviewNote
 │   │   ├── RejectDispatchBookingReq.java      # rejectionReason, rejectionNote
 │   │   └── ReportEmergencyBusyReq.java        # emergencyReason, proofDocumentUrl
-│   └── response/agency/
-│       ├── AgencyPendingBookingRes.java       # bookingId, customerName, package, style, totalAmount, needsEmergencyReassignment
-│       ├── StaffAvailabilityMatrixRes.java    # Danh sách thợ kèm ma trận: packageQualified, styleQualified, onShift, calendarFree, eligibility
-│       ├── DispatchAssignmentRes.java         # bookingId, primaryMua, assistants, status
-│       └── EmergencyReassignmentRes.java      # bookingId, previousStaff, newStaff, customerNotified
+│   └── response/
+│       ├── agency/
+│       │   ├── AgencyBookingRes.java          # bookingId, customer, staffAssignments, needsEmergencyReassignment, emergencyProofUrl...
+│       │   ├── AgencyBookingOverviewStatsRes.java # totalBookings, pendingDispatch, agencyAssigned, completed, cancelled, emergencyCases
+│       │   ├── StaffAvailabilityMatrixRes.java # booking info, availableStaff, busyStaff, unqualifiedStaff
+│       │   ├── StaffMatrixItemRes.java        # staffId, fullName, eligibility, hasShift, hasPackage, hasStyle, hasCalendarFree...
+│       │   ├── DispatchAssignmentRes.java     # bookingId, assignedStaff, bookingStatus
+│       │   ├── EmergencyApprovalRes.java      # bookingId, staffId, status, reviewNote, processedAt
+│       │   └── EmergencyReassignmentRes.java  # bookingId, newStaffId, emergencyResolved, resolvedAt
+│       └── admin/
+│           └── AdminBookingOverviewStatsRes.java # totalBookings, pendingBookings, completedBookings, cancelledBookings, emergencyCases
 │
 ├── entity/
 │   ├── agency/
-│   │   ├── AgencyStaffEntity.java             # agency_schema.agency_staff (id, agency_id, mua_id, status)
+│   │   ├── AgencyProfileEntity.java           # agency_schema.agency_profiles (owner_id, brand_name, address, lat, lng)
+│   │   ├── AgencyStaffEntity.java             # agency_schema.agency_staff (id, agency_id, mua_id, status, is_active)
 │   │   ├── AgencyStaffShiftEntity.java        # agency_schema.agency_staff_shifts (day_of_week, work_date, start_time, end_time)
 │   │   ├── AgencyStaffServiceEntity.java      # agency_schema.agency_staff_services (staff_id, package_id, is_qualified)
 │   │   └── AgencyStaffStyleEntity.java        # agency_schema.agency_staff_styles (staff_id, style_id, is_qualified)
 │   ├── booking/
-│   │   ├── BookingEntity.java                 # booking_schema.bookings (style_id, needs_emergency_reassignment...)
-│   │   └── BookingStaffAssignmentEntity.java  # booking_schema.booking_staff_assignments (status: ACTIVE, EMERGENCY_CANCELLED, REPLACED)
+│   │   ├── BookingEntity.java                 # booking_schema.bookings (needs_emergency_reassignment, emergency_proof_url...)
+│   │   ├── BookingStaffAssignmentEntity.java  # booking_schema.booking_staff_assignments (role, status, proof_document_url)
+│   │   ├── AssignmentRole.java                # PRIMARY_MUA, ASSISTANT_MUA
+│   │   └── AssignmentStatus.java              # ACTIVE, EMERGENCY_CANCELLED, REPLACED
 │   └── mua/
 │       └── MuaCalendarEntity.java             # mua_schema.mua_calendars (mua_id, start_at, end_at, is_locked, reason)
 │
 ├── mapper/
 │   ├── agency/
-│   │   ├── AgencyStaffMapper.java             # Manual Mapper Spring @Component: AgencyStaffEntity <-> DTOs
-│   │   └── DispatchMatrixMapper.java          # Manual Mapper Spring @Component: Native Projection <-> Matrix DTOs
+│   │   ├── AgencyBookingMapper.java           # Manual Mapper: BookingEntity -> AgencyBookingRes
+│   │   └── DispatchMatrixMapper.java          # Manual Mapper: StaffMatrixProjection -> StaffAvailabilityMatrixRes
 │   └── booking/
-│       └── BookingStaffAssignmentMapper.java  # Manual Mapper Spring @Component: BookingStaffAssignmentEntity <-> DTOs
+│       ├── BookingMapper.java                 # Manual Mapper: BookingEntity -> AdminBookingRes
+│       └── BookingStaffAssignmentMapper.java  # Manual Mapper: BookingStaffAssignmentEntity -> StaffAssignmentDetailRes
 │
 ├── repository/
 │   ├── agency/
 │   │   ├── AgencyStaffRepository.java
-│   │   ├── AgencyStaffShiftRepository.java    # findActiveShiftsByStaffAndDate
-│   │   ├── AgencyStaffServiceRepository.java  # checkStaffQualifiedForPackage
-│   │   └── AgencyStaffStyleRepository.java    # checkStaffQualifiedForStyle
+│   │   └── StaffMatrixRepository.java         # Native Query 4 chiều (<15ms)
 │   └── booking/
-│       ├── BookingRepository.java             # findPendingDispatchBookingsByAgencyId
-│       ├── BookingStaffAssignmentRepository.java # findByBookingIdAndStatus, countActivePrimaryMua
-│       └── custom/
-│           ├── StaffMatrixCustomRepository.java # Interface Native Projection ma trận thợ 4 chiều
-│           └── StaffMatrixCustomRepositoryImpl.java # Triển khai Native SQL 1 Query duy nhất (<15ms)
+│       ├── BookingRepository.java             # Quản lý bookings, đếm overview stats
+│       └── BookingStaffAssignmentRepository.java # findByBookingIdAndStaffIdAndStatus, existsBy...
 │
-├── event/
-│   ├── BookingStaffAssignedEvent.java         # Bắn thông báo mời thợ nhận ca
-│   ├── EmergencyReassignmentRequestedEvent.java # Báo chuông đỏ trên Web Studio qua WebSocket STOMP
-│   └── BookingStaffReassignedEvent.java       # Thông báo cập nhật thợ mới cho khách hàng
+├── listener/booking/
+│   └── AgencyDispatchEventListener.java       # Lắng nghe EmergencyReassignmentRequestedEvent phát STOMP WebSocket
 │
 └── service/
     ├── agency/
-    │   ├── AgencyDispatchService.java         # Tiếp nhận / từ chối đơn hàng gửi tới Studio
-    │   ├── StaffAssignmentMatrixService.java  # Tính toán ma trận thợ & gán đa nhân sự (Redisson MultiLock)
-    │   └── EmergencyReassignmentService.java  # Quy trình đổi thợ dự phòng khẩn cấp & Audit Trail
-    └── impl/agency/
-        ├── AgencyDispatchServiceImpl.java     # Triển khai tiếp nhận / từ chối đơn chỉ định
-        ├── StaffAssignmentMatrixServiceImpl.java # Triển khai gán thợ, sort Lock Ordering, khóa mua_calendars
-        └── EmergencyReassignmentServiceImpl.java # Triển khai đổi thợ, chuyển status assignment, STOMP alert
+    │   ├── AgencyDispatchService.java         # Interface: assign, reassign, proceedSolo, reportEmergencyBusy, review...
+    │   ├── AgencyBookingService.java          # Interface: getBookings, getOverviewStats
+    │   └── impl/
+    │       ├── AgencyDispatchServiceImpl.java # 100% logic điều phối, ma trận, Redisson lock, emergency handling
+    │       └── AgencyBookingServiceImpl.java  # Logic lọc đơn agency, tính toán KPI overview stats
+    └── booking/
+        ├── AdminBookingService.java           # Interface: getAdminBookings, getAdminOverviewStats
+        ├── BookingStateMachineService.java    # Interface: transitionBookingState (cutoff 2h cancellation)
+        └── impl/
+            ├── AdminBookingServiceImpl.java   # Logic giám sát đơn admin, tính toán KPI overview stats
+            └── BookingStateMachineServiceImpl.java # Chặn khách hủy < 2h, dọn dẹp cờ khẩn cấp & lịch mồ côi
 ```
 
 ---
@@ -292,10 +303,82 @@ code/backend/core-api/src/main/java/com/makeup/platform/
     - Ghi log biến động vào `booking_schema.booking_history`: `"Đổi thợ chính từ Mai Anh sang Ngọc Hân (Lý do: Sốt nhập viện)"`.
   * **And** Gửi Push Notification cập nhật hồ sơ chuyên viên mới (kèm ảnh, rating 4.96★) cho Khách hàng.
 
-* **Scenario 03: Chặn thợ tự ý báo bận sát giờ ($< 2$ tiếng) mà không có xác nhận của Studio**
-  * **When** Thợ báo bận khi chỉ còn 45 phút nữa là đến giờ hẹn khách.
-  * **Then** Hệ thống chặn lại không cho thợ tự hủy trên App và ném lỗi `ERR_EMERGENCY_REPORT_TOO_LATE`.
-  * **And** Trả về HTTP `400 BAD_REQUEST`: `"Chỉ còn dưới 2 tiếng trước ca làm. Vui lòng liên hệ hotline khẩn cấp của Studio để được hỗ trợ thủ công!"`.
+* **Scenario 03: Thợ báo bận sát giờ (< 2 tiếng - Tier 3 Critical) bắt buộc đính kèm minh chứng**
+  * **When** Thợ báo bận khi chỉ còn dưới 2 tiếng trước giờ hẹn khách nhưng không đính kèm URL ảnh minh chứng (`proofDocumentUrl` để trống/null).
+  * **Then** Hệ thống từ chối ghi nhận và ném lỗi `ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL`.
+  * **And** Trả về HTTP `400 BAD_REQUEST`: `"Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng."`.
+  * **When** Thợ cung cấp đầy đủ ảnh minh chứng bệnh án / sự cố giao thông.
+  * **Then** Hệ thống ghi nhận yêu cầu khẩn cấp Tier 3, giải phóng lịch `mua_calendars` của thợ, bật cờ `needs_emergency_reassignment = true` và kích hoạt chuông báo động STOMP WebSocket tới Studio Portal.
+
+* **Scenario 04: Chặn Khách hàng tự ý hủy đơn sát giờ (< 2 tiếng)**
+  * **When** Khách hàng bấm hủy đơn khi thời gian đến ca làm còn dưới 2 tiếng (`hoursUntilBooking < 2.0`).
+  * **Then** State Machine chặn lại và ném lỗi `ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS`.
+  * **And** Trả về HTTP `400 BAD_REQUEST`: `"Đơn hàng chỉ còn dưới 2 tiếng trước giờ hẹn, quý khách không thể tự hủy trên ứng dụng. Vui lòng liên hệ trực tiếp Studio để được hỗ trợ khẩn cấp."`.
+
+---
+
+### **US-DISP-04: Phê Duyệt Báo Bận Đột Xuất Của Thợ & Lưu Vết Minh Chứng (`ISSUE-19.4`)**
+> **As a** Chủ Studio / Quản trị viên Điều phối (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`),  
+> **I want to** xem xét lý do, phân loại Tier và xem ảnh chụp minh chứng sự cố do thợ gửi lên để quyết định Chấp thuận (APPROVED) hoặc Bác bỏ (REJECTED),  
+> **So that** Studio kiểm soát kỷ luật lao động của thợ và bảo đảm tính minh bạch trong các trường hợp bất khả kháng.
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Studio Chấp thuận báo bận hợp lệ (APPROVED)**
+  * **Given** Thợ phụ Lan Phương (`staff_id = 105`) báo bận có đính kèm ảnh giấy khám bệnh.
+  * **When** Studio Admin gửi request `POST /api/v1/agency/dispatch/bookings/720/emergency-report/105/review`:
+    ```json
+    {
+      "approved": true,
+      "reviewNote": "Chấp thuận cho thợ nghỉ do sự cố sức khỏe có xác nhận của bác sĩ"
+    }
+    ```
+  * **Then** Hệ thống xác nhận duyệt thành công, lưu vết vào `booking_history`, giải phóng lịch của Lan Phương và mở tiếp modal Đổi Thợ / Duyệt Làm Solo.
+
+* **Scenario 02: Studio Bác bỏ báo bận không chính đáng (REJECTED)**
+  * **Given** Thợ báo bận với lý do không chính đáng hoặc không có minh chứng rõ ràng.
+  * **When** Studio gửi request với `approved: false` kèm `reviewNote`: `"Lý do không hợp lệ, yêu cầu thợ có mặt đúng giờ"`.
+  * **Then** Trạng thái phân công của thợ được khôi phục về `ACTIVE`, khóa lịch được tái kích hoạt và tắt cờ khẩn cấp nếu các vai trò khác đã đủ.
+
+---
+
+### **US-DISP-05: Cơ Chế Phê Duyệt 1 Thợ Làm Solo Khi Hết Thợ Phụ Rảnh (`ISSUE-19.5`)**
+> **As a** Chủ Studio / Quản trị viên Điều phối,  
+> **I want** khi thợ phụ báo bận và trong cơ sở không còn bất kỳ thợ phụ nào khác rảnh, hệ thống cho phép tôi duyệt cho Thợ chính gánh vác làm trọn vẹn cả ca (làm solo),  
+> **So that** đơn hàng không bị hủy oan uổng, khách hàng vẫn được phục vụ chu đáo và Studio không bị thất thoát doanh thu.
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Duyệt cho Thợ chính làm solo thành công**
+  * **Given** Đơn 720 có Thợ chính Mai Anh (`staff_id = 101`) đang `ACTIVE`, Thợ phụ Lan Phương đã báo bận (`EMERGENCY_CANCELLED`).
+  * **And** Ma trận kiểm tra toàn bộ thợ còn lại đều bận ca hoặc không trong ca trực.
+  * **When** Studio Admin bấm **[Xác Nhận Để 1 Thợ Làm Hết]** qua `ConfirmDialog` và gọi API:
+    `POST /api/v1/agency/dispatch/bookings/720/proceed-solo`
+    ```json
+    {
+      "approvalReason": "Không còn thợ phụ rảnh. Thợ chính Mai Anh đồng ý kiêm nhiệm làm tóc và makeup trọn gói cho cô dâu."
+    }
+    ```
+  * **Then** Backend xác thực đơn có Thợ chính `ACTIVE`.
+  * **And** Đặt `needs_emergency_reassignment = false`, xóa cờ khẩn cấp trên `bookings`.
+  * **And** Ghi log kiểm toán vào `booking_schema.booking_history`: `"Studio phê duyệt để Thợ chính Mai Anh phụ trách solo toàn bộ ca làm (Không phân công thêm thợ phụ)"`.
+  * **And** Phát sự kiện WebSocket STOMP cập nhật giao diện Dashboard Studio về trạng thái an toàn.
+
+* **Scenario 02: Chặn duyệt solo khi đơn không có Thợ chính hoạt động**
+  * **When** Đơn hàng có Thợ chính đang bị hủy khẩn cấp mà chưa gán thợ chính mới, lễ tân bấm duyệt solo.
+  * **Then** Hệ thống ném lỗi `ERR_CANNOT_PROCEED_SOLO_NO_ACTIVE_STAFF` (HTTP `400 BAD_REQUEST`).
+  * **And** Thông báo: `"Đơn hàng chưa có thợ chính khả dụng để thực hiện solo. Vui lòng phân công thợ chính thay thế!"`.
+
+---
+
+### **US-DISP-06: Thống Kê Tổng Quan & Giám Sát Đơn Hàng Cho Studio & Super Admin (`ISSUE-19.6`)**
+> **As a** Quản trị viên (Studio Admin / Super Admin),  
+> **I want** xem các thẻ KPI thống kê số lượng đơn theo từng trạng thái và lọc nhanh các đơn khẩn cấp,  
+> **So that** nắm bắt nhanh tình hình hoạt động và không bỏ sót các ca cần can thiệp gấp.
+
+#### **Tiêu chí Nghiệm thu (Acceptance Criteria - BDD):**
+* **Scenario 01: Studio xem thống kê đơn hàng (`GET /api/v1/agency/bookings/overview-stats`)**
+  * **Then** Trả về: `totalBookings`, `pendingDispatch` (chờ gán thợ), `agencyAssigned` (đã gán thợ), `completed` (hoàn tất), `cancelled` (đã hủy), `emergencyCases` (đơn đang báo bận khẩn cấp).
+* **Scenario 02: Super Admin xem thống kê đơn toàn sàn (`GET /api/v1/admin/bookings/overview-stats`)**
+  * **Then** Trả về tổng quan tương ứng trên toàn hệ thống kèm bảng giám sát đa tiêu chí.
 
 ---
 
@@ -309,8 +392,9 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 | **`400 BAD_REQUEST`** | `ERR_STAFF_NOT_QUALIFIED_FOR_STYLE` | Thợ được chọn chưa có chứng chỉ Phong cách Make-up (Tone) theo yêu cầu đơn hàng (`agency_staff_styles.is_qualified = false`). | Chặn phân công Thợ chính, chỉ cho phép làm Thợ phụ nếu cần. |
 | **`400 BAD_REQUEST`** | `ERR_STAFF_OFF_SHIFT` | Thợ không có ca làm việc đăng ký tại Studio (`agency_staff_shifts`) vào thời điểm diễn ra ca hẹn. | Chặn phân công, yêu cầu chọn thợ đang trong ca trực. |
 | **`400 BAD_REQUEST`** | `ERR_MULTIPLE_PRIMARY_MUA` | Cố tình gán từ 2 Thợ chính trở lên cho cùng 1 đơn hàng. | Chặn gán bằng Partial Unique Index. |
-| **`202 ACCEPTED`** | `null` (Success with conditions) | Thợ báo bận khi còn từ $2\text{ tiếng}$ đến dưới $4\text{ tiếng}$. | Ghi nhận yêu cầu ở trạng thái chờ Studio duyệt thủ công (`dispatch.report_requires_approval`). |
-| **`400 BAD_REQUEST`** | `ERR_EMERGENCY_REPORT_TOO_LATE` | Thợ báo bận đột xuất khi thời gian còn lại trước ca làm $< 2\text{ tiếng}$. | Chặn tự hủy, yêu cầu thợ gọi hotline Studio can thiệp. |
+| **`400 BAD_REQUEST`** | `ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL` | Thợ báo bận khẩn cấp sát giờ hẹn (< 2 tiếng) nhưng không đính kèm link minh chứng sự cố. | Chặn ghi nhận, bắt buộc tải lên ảnh chụp giấy khám bệnh / sự cố bất khả kháng. |
+| **`400 BAD_REQUEST`** | `ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS` | Khách hàng bấm tự hủy đơn khi còn dưới 2 tiếng trước giờ hẹn. | Chặn hủy trên app, hướng dẫn khách liên hệ trực tiếp Studio. |
+| **`400 BAD_REQUEST`** | `ERR_CANNOT_PROCEED_SOLO_NO_ACTIVE_STAFF` | Studio duyệt làm solo nhưng đơn không có Thợ chính `ACTIVE`. | Chặn duyệt solo, yêu cầu gán Thợ chính trước. |
 | **`400 BAD_REQUEST`** | `ERR_DUPLICATE_STAFF_ASSIGNMENT` | Chọn cùng một thợ cho cả vai trò Thợ chính và Thợ phụ hoặc trùng ID thợ phụ. | Bean Validation / Service chặn trùng lặp ID thợ. |
 | **`400 BAD_REQUEST`** | `ERR_ASSIGNMENT_ALREADY_CONFIRMED` | Thợ cố tình bấm xác nhận lại ca đã xác nhận trước đó. | Chặn thao tác trùng lặp. |
 | **`403 FORBIDDEN`** | `ERR_BOOKING_NOT_ASSIGNED_TO_AGENCY` | Studio A cố tình truy cập hoặc điều phối đơn hàng thuộc về Studio B (Lỗ hổng IDOR). | Đối chiếu `current_user.agency_id == booking.agency_id`. |
@@ -734,14 +818,14 @@ public class ApproveEmergencyReportReq {
 
 ---
 
-### 5.7. `POST /api/v1/agency/dispatch/bookings/{bookingId}/emergency-approval` (Studio Duyệt / Từ Chối Báo Bận 2h-4h)
+### 5.7. `POST /api/v1/agency/dispatch/bookings/{bookingId}/emergency-report/{staffId}/review` (Studio Duyệt / Bác Bỏ Báo Bận Của Thợ)
 * **Quyền truy cập:** `ROLE_AGENCY_ADMIN` hoặc `ROLE_AGENCY_STAFF` (Lễ tân Studio).
-* **Mục đích:** Xử lý yêu cầu báo bận khi thời gian trước giờ hẹn rơi vào khoảng $2\text{ tiếng} \le T < 4\text{ tiếng}$ (`PENDING_STUDIO_APPROVAL`).
+* **Mục đích:** Xử lý yêu cầu báo bận đột xuất của thợ kèm lý do, phân loại Tier và ảnh minh chứng sự cố bất khả kháng.
 * **Request Body:**
 ```json
 {
   "approved": true,
-  "approvalNote": "Chấp thuận cho thợ nghỉ do sự cố giao thông có biên bản"
+  "reviewNote": "Chấp thuận cho thợ nghỉ do sự cố giao thông có biên bản bệnh viện"
 }
 ```
 * **Response `200 OK`:**
@@ -749,21 +833,74 @@ public class ApproveEmergencyReportReq {
 {
   "success": true,
   "errorCode": null,
-  "message": "Xử lý yêu cầu báo bận khẩn cấp thành công.",
+  "message": "Xử lý duyệt báo bận khẩn cấp thành công.",
   "data": {
     "bookingId": 720,
-    "approved": true,
-    "needsEmergencyReassignment": true,
-    "approvalNote": "Chấp thuận cho thợ nghỉ do sự cố giao thông có biên bản",
-    "processedAt": "2026-09-22T17:05:00Z"
+    "staffId": 105,
+    "status": "APPROVED",
+    "reviewNote": "Chấp thuận cho thợ nghỉ do sự cố giao thông có biên bản bệnh viện",
+    "processedAt": "2026-09-24T17:05:00"
   },
-  "timestamp": "2026-09-22T17:05:00Z"
+  "timestamp": "2026-09-24T17:05:00.123Z"
 }
 ```
 
 ---
 
-### 5.8. Cấu Trúc Payload WebSocket STOMP Alert (`/topic/agency/{agencyId}/dispatch-alerts`)
+### 5.8. `POST /api/v1/agency/dispatch/bookings/{bookingId}/proceed-solo` (Phê Duyệt Cho 1 Thợ Làm Solo Khi Hết Thợ Phụ)
+* **Quyền truy cập:** `ROLE_AGENCY_ADMIN` hoặc `ROLE_AGENCY_STAFF`.
+* **Mục đích:** Khi thợ phụ báo bận nhưng cơ sở không còn thợ phụ nào khác rảnh, Studio phê duyệt cho Thợ chính kiêm nhiệm hoàn thành trọn gói.
+* **Request Body:**
+```json
+{
+  "approvalReason": "Không còn thợ phụ rảnh. Thợ chính Mai Anh đồng ý kiêm nhiệm làm tóc và makeup trọn gói cho cô dâu."
+}
+```
+* **Response `200 OK`:**
+```json
+{
+  "success": true,
+  "errorCode": null,
+  "message": "Phê duyệt để 1 thợ thực hiện thành công.",
+  "data": null,
+  "timestamp": "2026-09-24T17:10:00.456Z"
+}
+```
+
+---
+
+### 5.9. Thống Kê Tổng Quan Đơn Hàng (Overview Stats APIs)
+* **`GET /api/v1/agency/bookings/overview-stats`** (Cho Studio):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "totalBookings": 128,
+      "pendingDispatch": 5,
+      "agencyAssigned": 12,
+      "completed": 102,
+      "cancelled": 9,
+      "emergencyCases": 2
+    }
+  }
+  ```
+* **`GET /api/v1/admin/bookings/overview-stats`** (Cho Super Admin toàn sàn):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "totalBookings": 1540,
+      "pendingBookings": 34,
+      "completedBookings": 1350,
+      "cancelledBookings": 156,
+      "emergencyCases": 8
+    }
+  }
+  ```
+
+---
+
+### 5.10. Cấu Trúc Payload WebSocket STOMP Alert (`/topic/agency/{agencyId}/dispatch-alerts`)
 * **Mục đích:** Bắn thông báo realtime tới Dashboard của Studio để rung chuông đỏ nhấp nháy ngay khi thợ báo bận đột xuất.
 * **Payload JSON:**
 ```json
@@ -776,18 +913,20 @@ public class ApproveEmergencyReportReq {
   "staffName": "Trần Mai Anh",
   "reason": "Sốt xuất huyết nhập viện",
   "appointmentStartTime": "2026-11-15T06:00:00Z",
-  "urgencyLevel": "CRITICAL",
-  "requiresApproval": false,
-  "timestamp": "2026-09-22T08:00:00Z"
+  "urgencyLevel": "TIER_3_CRITICAL",
+  "requiresApproval": true,
+  "timestamp": "2026-09-24T08:00:00Z"
 }
 ```
 
 ---
 
-## 🗄️ 6. CƠ SỞ DỮ LIỆU ĐỒNG BỘ (FLYWAY MIGRATION TIMESTAMP)
+## 🗄️ 6. CƠ SỞ DỮ LIỆU ĐỒNG BỘ (FLYWAY MIGRATIONS)
 
-File script migration chuẩn theo quy tắc dự án:  
-`code/backend/core-api/src/main/resources/db/migration/V20260922163000__Create_Agency_Dispatch_And_Multi_Staff_Assignments.sql`
+Các script migration chuẩn theo quy tắc dự án:
+1. `V20260924083000__Create_Agency_Dispatch_And_Multi_Staff_Assignments.sql`: Bổ sung `style_id`, cờ điều phối khẩn cấp trên `bookings`, tạo bảng `booking_staff_assignments` kèm Partial Unique Indexes.
+2. `V20260924110500__Add_Emergency_Proof_Url_To_Bookings.sql`: Bổ sung `emergency_proof_url` trên `bookings` và `proof_document_url` trên `booking_staff_assignments`.
+3. `V20260924125500__Fix_Emergency_Flags_And_Orphaned_Calendars.sql`: Dọn dẹp cờ khẩn cấp trên các đơn đã kết thúc (`CANCELLED`, `COMPLETED`, `PAID_OUT`) và giải phóng slot lịch mồ côi `mua_calendars`.
 
 ```sql
 -- ==============================================================================

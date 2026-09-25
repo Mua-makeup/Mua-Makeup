@@ -20,4 +20,6 @@ public interface MUACalendarService {
     void lockSlotForBooking(Long muaId, Long bookingId, LocalDate bookingDate, OffsetDateTime startAt, OffsetDateTime endAt, String reason);
 
     void releaseSlotByBookingId(Long bookingId);
+
+    void releaseSlotByBookingIdAndMuaId(Long bookingId, Long muaId);
 }
