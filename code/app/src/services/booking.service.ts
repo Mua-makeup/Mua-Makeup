@@ -13,6 +13,7 @@ export type BookingStatusType =
   | 'COMPLETED'
   | 'PAID_OUT'
   | 'CANCELLED'
+  | 'EXPIRED'
   | 'DISPUTED';
 
 export interface InstantBookingCreatedRes {
@@ -56,10 +57,18 @@ export interface CustomerBookingItem {
 export interface BookingStatusDetailRes {
   bookingId: number;
   bookingCode: string;
-  currentStatus: BookingStatusType;
+  status: BookingStatusType;
+  currentStatus?: BookingStatusType;
+  destinationAddress?: string;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
   muaId?: number;
   muaName?: string;
+  muaPhone?: string;
   muaPhoneNumber?: string;
+  muaAvatar?: string;
+  rating?: number;
+  totalAmount?: number;
   completionPhotoUrl?: string;
   updatedAt: string;
 }

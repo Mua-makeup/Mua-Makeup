@@ -209,3 +209,8 @@ Nhằm đảm bảo tính toàn vẹn của mã nguồn, quyền kiểm soát t�
    - AI TUYỆT ĐỐI KHÔNG tự ý viết mới, thêm mới, sửa đổi hoặc sinh code các file kiểm thử (Unit Test, Integration Test, Mockito/JUnit test suites).
    - Tuyệt đối không tạo hoặc can thiệp vào thư mục `src/test/` trừ khi người dùng có chỉ đạo hoặc yêu cầu trực tiếp rõ ràng.
    - Việc xác thực chất lượng code tập trung vào việc kiểm tra cú pháp, hợp đồng kiểu dữ liệu và biên dịch thành công qua Gradle (`compileJava`).
+
+5. **Tuân Thủ Tuyệt Đối Backend - Nghiêm Cấm Giả Lập Dữ Liệu (Strict Backend Adherence - No Frontend Mocking)**:
+   - Nghiêm cấm mọi hành vi tự ý hardcode, giả lập (mocking data), dùng `setTimeout` sinh dữ liệu ảo, timer ảo nhận đơn hoặc tạo object dữ liệu giả phía Frontend (cả Web SPA và Mobile App).
+   - Mọi dữ liệu hiển thị (danh sách thợ, gói dịch vụ, thông tin cuốc hẹn, số tiền, trạng thái, tọa độ GPS) BẮT BUỘC 100% phải lấy trực tiếp từ Backend Spring Boot và CSDL PostgreSQL thông qua REST API hoặc WebSocket STOMP.
+   - Mọi thao tác nghiệp vụ (tạo đơn, quét thợ, nhận ca, bỏ qua, cập nhật trạng thái làm việc) BẮT BUỘC gửi request thật lên Backend để xử lý giao dịch ACID và phân phối nghiệp vụ chuẩn xác.

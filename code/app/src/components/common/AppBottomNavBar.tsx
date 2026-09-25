@@ -31,18 +31,22 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
         break;
       case 'explore':
         if (isMUA) {
-          router.push('/mua/packages' as any);
+          if (activeTab !== 'explore') {
+            router.replace('/mua/packages' as any);
+          }
         } else if (isAgencyStaff) {
-          router.push('/bookings');
+          if (activeTab !== 'explore') {
+            router.replace('/bookings');
+          }
         } else {
           if (activeTab !== 'explore') {
-            router.push('/explore');
+            router.replace('/explore');
           }
         }
         break;
       case 'appointments':
         if (activeTab !== 'appointments') {
-          router.push('/bookings');
+          router.replace('/bookings');
         }
         break;
       case 'messages':

@@ -212,46 +212,33 @@ export default function HomeScreen() {
             {/* 3 Thẻ thống kê: Ca hoàn thành, Đánh giá sao, Thu nhập ngày */}
             <WorkstationStatCards />
 
-            {/* Phím tắt tác nghiệp nhanh */}
-            <View style={styles.workstationShortcutsRow}>
-              <TouchableOpacity
-                style={styles.workstationShortcutCard}
-                activeOpacity={0.8}
-                onPress={() => router.push('/mua/packages' as any)}
-              >
-                <View style={[styles.workstationShortcutIcon, { backgroundColor: '#FFF1F2' }]}>
-                  <Ionicons name="cube-outline" size={20} color="#E11D48" />
+            {/* Phím tắt Hồ Sơ Nghề Nghiệp & Chứng Chỉ */}
+            <TouchableOpacity
+              style={styles.profileShortcutBanner}
+              activeOpacity={0.8}
+              onPress={() => {
+                if (isMUA) {
+                  router.push('/profile/mua-profile' as any);
+                } else {
+                  router.push('/profile/staff-profile' as any);
+                }
+              }}
+            >
+              <View style={styles.profileShortcutLeft}>
+                <View style={styles.profileShortcutIcon}>
+                  <Ionicons name={isMUA ? 'ribbon' : 'business'} size={16} color="#7C3AED" />
                 </View>
-                <View style={styles.workstationShortcutText}>
-                  <Text style={styles.workstationShortcutTitle}>Gói Dịch Vụ</Text>
-                  <Text style={styles.workstationShortcutSub}>Bảng giá & album mẫu</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.workstationShortcutCard}
-                activeOpacity={0.8}
-                onPress={() => {
-                  if (isMUA) {
-                    router.push('/profile/mua-profile' as any);
-                  } else {
-                    router.push('/profile/staff-profile' as any);
-                  }
-                }}
-              >
-                <View style={[styles.workstationShortcutIcon, { backgroundColor: '#EFF6FF' }]}>
-                  <Ionicons name={isMUA ? 'ribbon-outline' : 'business-outline'} size={20} color="#2563EB" />
-                </View>
-                <View style={styles.workstationShortcutText}>
-                  <Text style={styles.workstationShortcutTitle}>
-                    {isMUA ? 'Hồ Sơ & Bán Kính' : 'Hồ Sơ Nhân Sự'}
+                <View>
+                  <Text style={styles.profileShortcutTitle}>
+                    {isMUA ? 'Hồ Sơ Nghề Nghiệp & Chứng Chỉ' : 'Hồ Sơ Nhân Sự Studio'}
                   </Text>
-                  <Text style={styles.workstationShortcutSub}>Cấu hình nhận ca</Text>
+                  <Text style={styles.profileShortcutSub}>
+                    Cập nhật tiểu sử, số năm kinh nghiệm & chứng chỉ
+                  </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-              </TouchableOpacity>
-            </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            </TouchableOpacity>
 
             {/* Bộ lọc Ca Làm Hôm Nay */}
             <View style={styles.workstationSectionHeader}>
@@ -670,14 +657,14 @@ export default function HomeScreen() {
         onClose={() => setIsRadarModalVisible(false)}
       />
 
-      {/* MODAL ĐẾM NGƯỢC 30S NHẬN CA KHẨN CẤP (CHO THỢ MUA KHI CÓ BROADCAST) */}
-      <CountdownAcceptModal />
-
       {/* Bottom Navigation Bar */}
       <AppBottomNavBar
         activeTab="home"
         onAccountPress={() => setShowProfileModal(true)}
       />
+
+      {/* HUD Nhận Ca Khẩn Cấp Toàn Cục Cho Thợ MUA (Pure Overlay - Không Bị iOS Chặn) */}
+      <CountdownAcceptModal />
     </SafeAreaView>
   );
 }
@@ -841,40 +828,40 @@ const styles = StyleSheet.create({
   workstationWrapper: {
     paddingBottom: 24,
   },
-  workstationShortcutsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  workstationShortcutCard: {
-    flex: 1,
+  profileShortcutBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 10,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 10,
+    marginBottom: 6,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  workstationShortcutIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  profileShortcutLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  workstationShortcutText: {
+    gap: 10,
     flex: 1,
   },
-  workstationShortcutTitle: {
-    fontSize: 12,
+  profileShortcutIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F5F3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileShortcutTitle: {
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
   },
-  workstationShortcutSub: {
-    fontSize: 10,
+  profileShortcutSub: {
+    fontSize: 10.5,
     color: '#64748B',
     marginTop: 1,
   },

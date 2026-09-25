@@ -176,7 +176,7 @@ export default function MuaPackagesScreen() {
       )}
 
       {/* Bottom Navigation */}
-      <AppBottomNavBar activeTab="account" />
+      <AppBottomNavBar activeTab="explore" />
     </View>
   );
 }

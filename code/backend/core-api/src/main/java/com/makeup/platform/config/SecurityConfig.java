@@ -39,8 +39,7 @@ public class SecurityConfig {
             "https://*.ngrok-free.app",
             "https://*.ngrok-free.dev",
             "https://*.loca.lt",
-            "*"
-    );
+            "*");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;

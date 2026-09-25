@@ -1,6 +1,7 @@
 package com.makeup.platform.service.customer.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
+import com.makeup.platform.common.constants.TelemetryConstants;
 import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.booking.CreateInstantBookingReq;
@@ -69,36 +70,42 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     @Override
     @Transactional
     public InstantBookingCreatedRes createInstantBooking(Long customerId, CreateInstantBookingReq req) {
-        log.info("[InstantBooking] Customer id={} creating instant booking at address={}", customerId, req.getDestinationAddress());
+        log.info("[InstantBooking] Customer id={} creating instant booking at address={}", customerId,
+                req.getDestinationAddress());
 
         UserEntity customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
                         "auth.user_not_found", HttpStatus.NOT_FOUND));
 
-        // 0. Quét dọn và tự động hủy tất cả đơn cũ còn ở trạng thái REQUESTED của khách hàng này
-        // Khi khách bấm "Đặt Lại" hoặc tạo yêu cầu mới, các đơn cũ chưa có thợ nhận sẽ được hủy ngay để không chặn khách
+        // 0. Quét dọn và tự động hủy tất cả đơn cũ còn ở trạng thái REQUESTED của khách
+        // hàng này
+        // Khi khách bấm "Đặt Lại" hoặc tạo yêu cầu mới, các đơn cũ chưa có thợ nhận sẽ
+        // được hủy ngay để không chặn khách
         List<BookingEntity> customerBookings = bookingRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
         for (BookingEntity b : customerBookings) {
             if (b.getBookingType() == BookingType.REALTIME_INSTANT && b.getStatus() == BookingStatus.REQUESTED) {
-                log.info("[InstantBooking] Auto-expiring pending REQUESTED booking id={} before new request", b.getId());
+                log.info("[InstantBooking] Auto-expiring pending REQUESTED booking id={} before new request",
+                        b.getId());
                 expireInstantBooking(b.getId());
             }
         }
 
-        // Chặn tạo đơn tức thì nếu khách hàng đang có đơn ĐÃ ĐƯỢC THỢ NHẬN VÀ ĐANG THỰC HIỆN
+        // Chặn tạo đơn tức thì nếu khách hàng đang có đơn ĐÃ ĐƯỢC THỢ NHẬN VÀ ĐANG THỰC
+        // HIỆN
         List<BookingStatus> activeExecutingStatuses = List.of(
                 BookingStatus.ACCEPTED,
                 BookingStatus.ON_THE_WAY,
                 BookingStatus.ARRIVED,
-                BookingStatus.IN_PROGRESS
-        );
-        if (bookingRepository.existsByCustomerIdAndBookingTypeAndStatusIn(customerId, BookingType.REALTIME_INSTANT, activeExecutingStatuses)) {
+                BookingStatus.IN_PROGRESS);
+        if (bookingRepository.existsByCustomerIdAndBookingTypeAndStatusIn(customerId, BookingType.REALTIME_INSTANT,
+                activeExecutingStatuses)) {
             log.warn("[InstantBooking] Customer id={} already has an active booking being served", customerId);
             throw new CustomBusinessException(ErrorCodes.ERR_BOOKING_ALREADY_EXISTS,
                     "booking.customer_has_active_instant_booking", HttpStatus.CONFLICT);
         }
 
-        // 1. Tính toán giá dịch vụ & Hệ số Surge thời gian thực (Dynamic Pricing Engine)
+        // 1. Tính toán giá dịch vụ & Hệ số Surge thời gian thực (Dynamic Pricing
+        // Engine)
         BigDecimal basePrice = new BigDecimal("500000.00");
         if (req.getPackageId() != null) {
             var packageOpt = servicePackageRepository.findById(req.getPackageId());
@@ -112,8 +119,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 LocalDateTime.now(),
                 "ALL",
                 req.getDestinationLatitude(),
-                req.getDestinationLongitude()
-        );
+                req.getDestinationLongitude());
 
         BigDecimal surgeMultiplier = (surgeInfo != null && surgeInfo.getMultiplier() != null)
                 ? surgeInfo.getMultiplier()
@@ -131,14 +137,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 .multiply(BigDecimal.valueOf(1000))
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // 2. Query potential online MUAs in Redis GEO (10km) sorted by distance ASC
+        // 2. Query potential online MUAs in Redis GEO (30km) sorted by distance ASC
         List<Long> candidateMuaIds = new ArrayList<>();
         try {
             GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults = redisGeoService.searchNearbyActiveMuas(
                     req.getDestinationLatitude().doubleValue(),
                     req.getDestinationLongitude().doubleValue(),
-                    10.0
-            );
+                    TelemetryConstants.MAX_RADIUS_KM);
             if (geoResults != null && !geoResults.getContent().isEmpty()) {
                 for (var item : geoResults.getContent()) {
                     try {
@@ -150,8 +155,10 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                                     && mua.getUser().getRole() != null
                                     && "ROLE_FREELANCE_MUA".equals(mua.getUser().getRole().getName());
                             boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
-                                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
-                            if (isFreelanceMUA && hasVerifiedCert && Boolean.TRUE.equals(mua.getIsOnline()) && !Boolean.TRUE.equals(mua.getIsBusy())) {
+                                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified())
+                                            || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+                            if (isFreelanceMUA && hasVerifiedCert && Boolean.TRUE.equals(mua.getIsOnline())
+                                    && !Boolean.TRUE.equals(mua.getIsBusy())) {
                                 String lockKey = "mua:dispatch:locked:" + muaId;
                                 Boolean isLocked = stringRedisTemplate.hasKey(lockKey);
                                 if (!Boolean.TRUE.equals(isLocked)) {
@@ -159,14 +166,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                                 }
                             }
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         } catch (Exception e) {
             log.warn("[InstantBooking] Redis GEO query failed: {}", e.getMessage());
         }
 
-        // BẮT BUỘC: Nếu không có thợ nào online trong bán kính quét -> Báo lỗi ngay cho khách hàng, không tạo đơn rác
+        // BẮT BUỘC: Nếu không có thợ nào online trong bán kính quét -> Báo lỗi ngay cho
+        // khách hàng, không tạo đơn rác
         if (candidateMuaIds.isEmpty()) {
             log.warn("[InstantBooking] No online available MUA found within 10km for customer id={}", customerId);
             throw new CustomBusinessException(ErrorCodes.ERR_MUA_NOT_AVAILABLE,
@@ -206,7 +215,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         bookingAuditService.logTransition(savedBooking, null, BookingStatus.REQUESTED, customerId,
                 "Khách hàng tạo đơn khẩn cấp (Instant Booking 30-60 phút)");
 
-        // 6. Sequential Waterfall Dispatch: Queue candidates in Redis & offer to first closest MUA
+        // 6. Sequential Waterfall Dispatch: Queue candidates in Redis & offer to first
+        // closest MUA
         Long firstTargetMuaId = null;
         Long firstTargetUserId = null;
         String listKey = "booking:dispatch:candidates:" + savedBooking.getId();
@@ -227,8 +237,10 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             // Khóa thợ này trong 25 giây để chống đơn khác tranh chấp
             stringRedisTemplate.opsForValue().set("mua:dispatch:locked:" + firstTargetMuaId,
                     String.valueOf(savedBooking.getId()), Duration.ofSeconds(25));
-            // Timer 20s Server-side: Tự động chuyển thợ kế tiếp nếu thợ này không phản hồi (ví dụ tắt trình duyệt/mất mạng)
-            stringRedisTemplate.opsForValue().set("booking:dispatch:timer:" + savedBooking.getId() + ":" + firstTargetMuaId,
+            // Timer 20s Server-side: Tự động chuyển thợ kế tiếp nếu thợ này không phản hồi
+            // (ví dụ tắt trình duyệt/mất mạng)
+            stringRedisTemplate.opsForValue().set(
+                    "booking:dispatch:timer:" + savedBooking.getId() + ":" + firstTargetMuaId,
                     "PENDING", Duration.ofSeconds(20));
             stringRedisTemplate.opsForValue().set("booking:dispatch:sent_at:" + savedBooking.getId(),
                     String.valueOf(System.currentTimeMillis()), Duration.ofMinutes(5));
@@ -256,7 +268,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             if (firstTargetMuaId != null) {
                 // CHỈ GỬI VÀO DUY NHẤT KÊNH RIÊNG CỦA THỢ ĐƯỢC CHỌN (KHÔNG GỬI KÊNH CHUNG)
                 messagingTemplate.convertAndSend("/topic/mua-offer/" + firstTargetMuaId, offerPayload);
-                log.info("[InstantBooking] Dispatched offer strictly to closest MUA id={} (totalCandidates={}) for bookingId={}",
+                log.info(
+                        "[InstantBooking] Dispatched offer strictly to closest MUA id={} (totalCandidates={}) for bookingId={}",
                         firstTargetMuaId, potentialCount, savedBooking.getId());
             }
         } catch (Exception e) {
@@ -264,7 +277,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         }
 
         // 7. Store TTL key for 45s countdown auto-expiration
-        stringRedisTemplate.opsForValue().set("booking:instant:expire:" + savedBooking.getId(), "ACTIVE", Duration.ofSeconds(45));
+        stringRedisTemplate.opsForValue().set("booking:instant:expire:" + savedBooking.getId(), "ACTIVE",
+                Duration.ofSeconds(45));
 
         return instantBookingMapper.toCreatedRes(savedBooking, potentialCount, 45);
     }
@@ -274,7 +288,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     public boolean dispatchNextCandidate(Long bookingId) {
         BookingEntity booking = bookingRepository.findById(bookingId).orElse(null);
         if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
-            log.info("[SequentialDispatch] Booking id={} is no longer in REQUESTED status, aborting next dispatch", bookingId);
+            log.info("[SequentialDispatch] Booking id={} is no longer in REQUESTED status, aborting next dispatch",
+                    bookingId);
             return false;
         }
 
@@ -321,7 +336,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
             // CHỈ GỬI VÀO DUY NHẤT KÊNH RIÊNG CỦA THỢ TIẾP THEO
             messagingTemplate.convertAndSend("/topic/mua-offer/" + nextMuaId, offerPayload);
-            log.info("[SequentialDispatch] Cascaded bookingId={} strictly to next closest MUA id={}", bookingId, nextMuaId);
+            log.info("[SequentialDispatch] Cascaded bookingId={} strictly to next closest MUA id={}", bookingId,
+                    nextMuaId);
             return true;
         } else {
             log.info("[SequentialDispatch] No more candidate MUAs available for bookingId={}", bookingId);
@@ -335,7 +351,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     public boolean expireInstantBooking(Long bookingId) {
         BookingEntity booking = bookingRepository.findById(bookingId).orElse(null);
         if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
-            log.info("[InstantBookingTimeout] Booking id={} is not in REQUESTED status (current={}), skipping auto-cancel",
+            log.info(
+                    "[InstantBookingTimeout] Booking id={} is not in REQUESTED status (current={}), skipping auto-cancel",
                     bookingId, booking != null ? booking.getStatus() : "null");
             return false;
         }
@@ -366,8 +383,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 savedBooking.getBookingCode(),
                 BookingStatus.REQUESTED,
                 BookingStatus.CANCELLED,
-                null
-        ));
+                null));
 
         // Direct STOMP broadcasts to Customer
         Map<String, Object> timeoutPayload = new HashMap<>();
@@ -415,7 +431,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         BookingStatus previousStatus = booking.getStatus();
         booking.setStatus(BookingStatus.CANCELLED);
-        String cancelReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : "Khách hàng chủ động hủy tìm kiếm";
+        String cancelReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim()
+                : "Khách hàng chủ động hủy tìm kiếm";
         booking.setCancellationReason(cancelReason);
 
         // Release MUA busy state if already accepted
@@ -439,7 +456,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
 
         // Audit log
-        bookingAuditService.logTransition(savedBooking, previousStatus, BookingStatus.CANCELLED, customerUserId, cancelReason);
+        bookingAuditService.logTransition(savedBooking, previousStatus, BookingStatus.CANCELLED, customerUserId,
+                cancelReason);
 
         // Publish Spring event
         eventPublisher.publishEvent(new BookingStateChangedEvent(
@@ -448,8 +466,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 savedBooking.getBookingCode(),
                 previousStatus,
                 BookingStatus.CANCELLED,
-                customerUserId
-        ));
+                customerUserId));
 
         // STOMP payload
         Map<String, Object> cancelPayload = new HashMap<>();
@@ -473,7 +490,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         messagingTemplate.convertAndSend("/topic/instant-dismiss/" + bookingId, dismissPayload);
         messagingTemplate.convertAndSend("/topic/instant-dismiss", dismissPayload);
 
-        log.info("[CustomerCancel] Booking id={} successfully cancelled by customer userId={}", bookingId, customerUserId);
+        log.info("[CustomerCancel] Booking id={} successfully cancelled by customer userId={}", bookingId,
+                customerUserId);
         return true;
     }
 
@@ -483,7 +501,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         LocalDateTime threshold = LocalDateTime.now().minusSeconds(45);
         List<BookingEntity> pending = bookingRepository.findByStatus(BookingStatus.REQUESTED);
         for (BookingEntity b : pending) {
-            if (b.getBookingType() != BookingType.REALTIME_INSTANT) continue;
+            if (b.getBookingType() != BookingType.REALTIME_INSTANT)
+                continue;
 
             // 1. Quá hạn 45s tổng thời gian tìm thợ -> Hủy đơn an toàn
             if (b.getCreatedAt() != null && b.getCreatedAt().isBefore(threshold)) {
@@ -492,13 +511,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 continue;
             }
 
-            // 2. Server-side check: Nếu thợ hiện tại đã quá 20s không phản hồi (tắt trình duyệt, mất mạng) -> Tự động chuyển thợ kế tiếp
+            // 2. Server-side check: Nếu thợ hiện tại đã quá 20s không phản hồi (tắt trình
+            // duyệt, mất mạng) -> Tự động chuyển thợ kế tiếp
             String sentAtStr = stringRedisTemplate.opsForValue().get("booking:dispatch:sent_at:" + b.getId());
             if (sentAtStr != null) {
                 try {
                     long sentAt = Long.parseLong(sentAtStr);
                     if (System.currentTimeMillis() - sentAt >= 20000) { // 20s
-                        log.info("[SafetyNet] Current MUA did not respond within 20s for bookingId={}. Auto-cascading to next candidate.", b.getId());
+                        log.info(
+                                "[SafetyNet] Current MUA did not respond within 20s for bookingId={}. Auto-cascading to next candidate.",
+                                b.getId());
                         dispatchNextCandidate(b.getId());
                     }
                 } catch (Exception e) {

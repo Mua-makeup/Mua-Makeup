@@ -10,6 +10,8 @@ import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/util
  * 3. Trên React Native Native Client: Đọc scriptURL của bundle đang tải
  * 4. Tránh hoàn toàn việc hardcode IP tĩnh khi đổi mạng Wi-Fi
  */
+const DEFAULT_DEV_HOST = '192.168.1.90';
+
 const getDevApiBaseUrl = () => {
   // 1. Trình duyệt Web (laptop hoặc mobile browser)
   if (Platform.OS === 'web') {
@@ -23,7 +25,7 @@ const getDevApiBaseUrl = () => {
   const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
   if (hostUri) {
     const hostIp = hostUri.split(':')[0];
-    if (hostIp) {
+    if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
       return `http://${hostIp}:8080/api/v1`;
     }
   }
@@ -32,18 +34,13 @@ const getDevApiBaseUrl = () => {
   const scriptURL = NativeModules.SourceCode?.scriptURL;
   if (scriptURL) {
     const match = scriptURL.match(/https?:\/\/([^/:]+)/);
-    if (match && match[1]) {
+    if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
       return `http://${match[1]}:8080/api/v1`;
     }
   }
 
-  // 4. Máy ảo Android Emulator kết nối ngược lại máy tính host
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8080/api/v1';
-  }
-
-  // 5. Fallback mặc định cho iOS Simulator hoặc local
-  return 'http://localhost:8080/api/v1';
+  // 4. Máy ảo Android Emulator hoặc điện thoại thật iOS/Android
+  return `http://${DEFAULT_DEV_HOST}:8080/api/v1`;
 };
 
 // Cấu hình URL kết nối máy tính qua Wi-Fi khi dev hoặc domain production

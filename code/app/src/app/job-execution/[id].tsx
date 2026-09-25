@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { JobTimelineStep } from '@/components/mua/JobTimelineStep';
 import { ProofCameraModal } from '@/components/mua/ProofCameraModal';
 import { freelancerBookingService, FreelancerBookingItem } from '@/services/freelancer-booking.service';
-import { BookingStatusType } from '@/services/booking.service';
+import { bookingService, BookingStatusType } from '@/services/booking.service';
 
 export default function JobExecutionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -63,24 +63,27 @@ export default function JobExecutionScreen() {
         setBooking(found);
         setCurrentStatus(found.status);
       } else {
-        // Fallback default mockup info if not in today's list
-        setBooking({
-          id: bookingId,
-          bookingCode: `BK-EXEC-${bookingId}`,
-          status: 'ACCEPTED',
-          customerName: 'Khách hàng',
-          customerPhone: '0987654321',
-          packageName: 'Dịch vụ trang điểm chuyên nghiệp',
-          destinationAddress: 'Địa chỉ trang điểm theo yêu cầu của khách',
-          destinationLatitude: 21.0285,
-          destinationLongitude: 105.8542,
-          bookingDate: new Date().toISOString().split('T')[0],
-          startTime: '09:00',
-          totalAmount: 600000,
-          depositAmount: 180000,
-          earningsAmount: 480000,
-          createdAt: new Date().toISOString(),
-        });
+        // Truy vấn chi tiết đơn thực tế từ backend
+        const detail = await bookingService.getBookingStatus(bookingId);
+        if (detail) {
+          setBooking({
+            id: detail.bookingId,
+            bookingCode: detail.bookingCode,
+            status: detail.status as BookingStatusType,
+            customerName: 'Khách hàng',
+            packageName: 'Dịch vụ trang điểm',
+            destinationAddress: detail.destinationAddress || 'Địa chỉ khách hàng',
+            destinationLatitude: detail.destinationLatitude ? Number(detail.destinationLatitude) : 21.0285,
+            destinationLongitude: detail.destinationLongitude ? Number(detail.destinationLongitude) : 105.8542,
+            bookingDate: new Date().toISOString().split('T')[0],
+            startTime: '09:00',
+            totalAmount: detail.totalAmount ? Number(detail.totalAmount) : 0,
+            depositAmount: 0,
+            earningsAmount: detail.totalAmount ? Number(detail.totalAmount) : 0,
+            createdAt: detail.updatedAt || new Date().toISOString(),
+          });
+          setCurrentStatus(detail.status as BookingStatusType);
+        }
       }
     } catch (e) {
       console.warn('Lỗi tải chi tiết đơn:', e);

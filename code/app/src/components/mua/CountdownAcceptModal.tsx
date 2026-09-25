@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   Animated,
   ActivityIndicator,
@@ -13,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useWorkstationStore } from '@/store/workstation.store';
+import { soundManager } from '@/utils/sound';
 
 export const CountdownAcceptModal: React.FC = () => {
   const { isAcceptModalVisible, activeOffer, dismissOffer, acceptActiveOffer } = useWorkstationStore();
@@ -21,12 +21,30 @@ export const CountdownAcceptModal: React.FC = () => {
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
     if (!isAcceptModalVisible || !activeOffer) {
       setSecondsLeft(30);
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.85);
       return;
     }
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 70,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     const initialSec = activeOffer.countdownSeconds || 30;
     setSecondsLeft(initialSec);
@@ -75,6 +93,7 @@ export const CountdownAcceptModal: React.FC = () => {
     return () => {
       clearInterval(timer);
       pulseLoop.stop();
+      soundManager.stopJobAlertSound();
     };
   }, [isAcceptModalVisible, activeOffer]);
 
@@ -114,9 +133,8 @@ export const CountdownAcceptModal: React.FC = () => {
   });
 
   return (
-    <Modal visible={isAcceptModalVisible} transparent animationType="fade">
-      <View style={styles.overlay}>
-        <View style={styles.contentCard}>
+    <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} pointerEvents="auto">
+      <Animated.View style={[styles.contentCard, { transform: [{ scale: scaleAnim }] }]}>
           {/* Header Title */}
           <View style={styles.header}>
             <View style={styles.flashBadge}>
@@ -205,20 +223,25 @@ export const CountdownAcceptModal: React.FC = () => {
             >
               <Text style={styles.skipBtnText}>Bỏ Qua Ca Này</Text>
             </TouchableOpacity>
-          </View>
         </View>
-      </View>
-    </Modal>
+      </Animated.View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    zIndex: 999999,
+    elevation: 999999,
   },
   contentCard: {
     width: '100%',

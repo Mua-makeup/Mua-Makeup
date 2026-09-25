@@ -73,6 +73,8 @@ public class MuaProfileMapper {
                 .baseAddressLat(mua.getBaseAddressLat())
                 .baseAddressLng(mua.getBaseAddressLng())
                 .isSurgeEnabled(mua.getIsSurgeEnabled())
+                .isOnline(mua.getIsOnline())
+                .availabilityStatus(mua.getAvailabilityStatus() != null ? mua.getAvailabilityStatus().name() : null)
                 .updatedAt(mua.getUpdatedAt())
                 .build();
     }

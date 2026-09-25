@@ -11,6 +11,7 @@ SplashScreen.preventAutoHideAsync();
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
 import { setupAlertPolyfill } from '@/store/popup.store';
+import { useWorkstationStore } from '@/store/workstation.store';
 
 // Kích hoạt hệ thống Luxury Popup tự động cho toàn bộ Alert.alert trong app
 setupAlertPolyfill();
@@ -20,9 +21,20 @@ export default function RootLayout() {
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
 
   useEffect(() => {
-    initializeAuth().finally(() => {
-      SplashScreen.hideAsync();
-    });
+    initializeAuth()
+      .then(() => {
+        const state = useAuthStore.getState();
+        const isMuaOrStaff =
+          state.userInfo?.roles?.some((r) => r === 'ROLE_FREELANCE_MUA' || r === 'ROLE_AGENCY_STAFF') ||
+          Boolean(state.userInfo?.muaId);
+
+        if (state.isAuthenticated && isMuaOrStaff) {
+          useWorkstationStore.getState().fetchWorkstationData();
+        }
+      })
+      .finally(() => {
+        SplashScreen.hideAsync();
+      });
   }, [initializeAuth]);
 
   return (
@@ -30,14 +42,15 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <AnimatedSplashOverlay />
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
+          <Stack.Screen name="index" options={{ animation: 'none' }} />
           <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
-          <Stack.Screen name="explore" />
+          <Stack.Screen name="explore" options={{ animation: 'none' }} />
+          <Stack.Screen name="bookings" options={{ animation: 'none' }} />
+          <Stack.Screen name="mua/packages/index" options={{ animation: 'none' }} />
           <Stack.Screen name="mua-detail/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/mua-profile" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/staff-profile" options={{ presentation: 'card' }} />
-          <Stack.Screen name="mua/packages/index" options={{ presentation: 'card' }} />
           <Stack.Screen name="mua/packages/create" options={{ presentation: 'card' }} />
           <Stack.Screen name="mua/packages/[id]/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="mua/packages/[id]/items" options={{ presentation: 'card' }} />

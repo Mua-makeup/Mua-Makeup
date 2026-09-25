@@ -14,6 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { BrandColors } from '@/constants/theme';
 import { bookingService, InstantBookingCreatedRes } from '@/services/booking.service';
+import { websocketService } from '@/services/websocket.service';
+import { soundManager } from '@/utils/sound';
+import { useLocationStore } from '@/store/location.store';
+import * as Location from 'expo-location';
 import { RadarWavesAnimation } from './RadarWavesAnimation';
 import { InstantCountdownTimer } from './InstantCountdownTimer';
 
@@ -29,19 +33,82 @@ const INSTANT_TYPES = [
 ];
 
 export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
+  const { currentAddress, latitude: storeLat, longitude: storeLng, fetchCurrentLocation } = useLocationStore();
   const [selectedType, setSelectedType] = useState(INSTANT_TYPES[0]);
-  const [address, setAddress] = useState('227 Nguyễn Văn Cừ, Phường 4, Quận 5, TP.HCM');
+  const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const [note, setNote] = useState('');
 
   const [step, setStep] = useState<'IDLE' | 'SCANNING' | 'MATCHED' | 'TIMEOUT'>('IDLE');
-  const [secondsLeft, setSecondsLeft] = useState(30);
+  const [secondsLeft, setSecondsLeft] = useState(45);
   const [createdBooking, setCreatedBooking] = useState<InstantBookingCreatedRes | null>(null);
+  const [matchedMua, setMatchedMua] = useState<{
+    name: string;
+    phone?: string;
+    avatar?: string;
+  } | null>(null);
 
   const timerRef = useRef<any>(null);
+  const statusPollRef = useRef<any>(null);
+  const activeTopicRef = useRef<string | null>(null);
+
+  const clearAllTimers = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (statusPollRef.current) {
+      clearInterval(statusPollRef.current);
+      statusPollRef.current = null;
+    }
+    if (activeTopicRef.current) {
+      websocketService.unsubscribe(activeTopicRef.current);
+      activeTopicRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearAllTimers();
+    };
+  }, []);
+
+  // Tự động đồng bộ vị trí thực tế của khách hàng khi mở Modal
+  useEffect(() => {
+    if (visible) {
+      if (currentAddress && currentAddress !== 'Đang xác định vị trí...' && currentAddress !== 'Chưa cấp quyền vị trí') {
+        setAddress(currentAddress);
+      }
+
+      if (storeLat && storeLng) {
+        setCoords({ latitude: storeLat, longitude: storeLng });
+      } else {
+        refreshLocation();
+      }
+    } else {
+      clearAllTimers();
+    }
+  }, [visible, currentAddress, storeLat, storeLng]);
+
+  const refreshLocation = async () => {
+    try {
+      setIsLocating(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        await fetchCurrentLocation();
+      }
+    } catch (e) {
+      console.warn('Không thể định vị GPS khách hàng:', e);
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   useEffect(() => {
     if (step === 'SCANNING') {
-      setSecondsLeft(30);
       timerRef.current = setInterval(() => {
         setSecondsLeft((prev) => {
           if (prev <= 1) {
@@ -63,25 +130,88 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
 
   const handleStartScan = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSecondsLeft(45);
     setStep('SCANNING');
 
     try {
+      // 1. Xác định tọa độ thực tế: từ state coords -> store -> hoặc lấy trực tiếp từ chip GPS
+      let targetLat = coords?.latitude || storeLat;
+      let targetLng = coords?.longitude || storeLng;
+
+      if (!targetLat || !targetLng) {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+            targetLat = loc.coords.latitude;
+            targetLng = loc.coords.longitude;
+          }
+        } catch (e) {
+          console.warn('Không thể lấy GPS tức thời:', e);
+        }
+      }
+
+      // Fallback nếu chạy giả lập không có GPS (tọa độ Hà Đông gần MUA #3)
+      if (!targetLat || !targetLng) {
+        targetLat = 20.975845;
+        targetLng = 105.762808;
+      }
+
+      const sendAddress = address?.trim() || currentAddress || 'Vị trí hiện tại của bạn';
+
       const res = await bookingService.createInstantBooking({
         packageId: selectedType.id,
-        destinationAddress: address,
-        destinationLatitude: 10.762622,
-        destinationLongitude: 106.682338,
+        destinationAddress: sendAddress,
+        destinationLatitude: targetLat,
+        destinationLongitude: targetLng,
         note: note || `Yêu cầu ca gấp: ${selectedType.title}`,
       });
       setCreatedBooking(res);
+      if (res.searchTimeoutSeconds) {
+        setSecondsLeft(res.searchTimeoutSeconds);
+      }
 
-      // Mô phỏng nhận thợ sau 8 giây nếu chạy test demo
-      setTimeout(() => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
+      // 2. Kết nối STOMP và đăng ký nhận tin ghép thợ tức thời qua WebSocket
+      await websocketService.connect();
+      const topic = `/topic/booking-matched/${res.bookingId}`;
+      activeTopicRef.current = topic;
+
+      websocketService.subscribe(topic, (msg: any) => {
+        console.log('[InstantRadarModal] Nhận WebSocket realtime:', msg);
+        if (msg?.status === 'ACCEPTED' || msg?.status === 'ON_THE_WAY' || msg?.type === 'BOOKING_MATCHED') {
+          clearAllTimers();
+          setMatchedMua({
+            name: msg.muaName || 'Chuyên viên Make-up',
+            phone: msg.muaPhone,
+            avatar: msg.muaAvatar,
+          });
+          handleMatched();
+        } else if (msg?.status === 'CANCELLED' || msg?.status === 'EXPIRED' || msg?.type === 'BOOKING_TIMEOUT') {
+          clearAllTimers();
+          handleTimeout();
         }
-        handleMatched();
-      }, 8000);
+      });
+
+      // 3. Polling dự phòng (Fallback an toàn qua REST)
+      statusPollRef.current = setInterval(async () => {
+        try {
+          const statusRes = await bookingService.getBookingStatus(res.bookingId);
+          if (statusRes && (statusRes.status === 'ACCEPTED' || statusRes.status === 'ON_THE_WAY')) {
+            clearAllTimers();
+            setMatchedMua({
+              name: statusRes.muaName || 'Chuyên viên Make-up',
+              phone: statusRes.muaPhone,
+              avatar: statusRes.muaAvatar,
+            });
+            handleMatched();
+          } else if (statusRes && (statusRes.status === 'CANCELLED' || statusRes.status === 'EXPIRED')) {
+            clearAllTimers();
+            handleTimeout();
+          }
+        } catch {
+          // bỏ qua lỗi tạm thời khi polling mạng
+        }
+      }, 2000);
     } catch (err: any) {
       Alert.alert('Không Thể Phát Sóng', err.message || 'Lỗi khi kích hoạt tìm thợ khẩn cấp.');
       setStep('IDLE');
@@ -89,19 +219,20 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   };
 
   const handleMatched = () => {
+    soundManager.playMatchSuccessSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setStep('MATCHED');
   };
 
   const handleTimeout = () => {
+    clearAllTimers();
+    soundManager.playTimeoutSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setStep('TIMEOUT');
   };
 
   const handleCancel = async () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
+    clearAllTimers();
     if (createdBooking) {
       try {
         await bookingService.cancelInstantBooking(createdBooking.bookingId);
@@ -114,6 +245,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   };
 
   const handleGoToBookings = () => {
+    clearAllTimers();
     setStep('IDLE');
     onClose();
     router.push('/bookings');
@@ -129,7 +261,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
               <View style={styles.radarIconBox}>
                 <Ionicons name="radio" size={18} color={BrandColors.primary} />
               </View>
-              <Text style={styles.modalTitle}>Tìm Thợ Khẩn Cấp 30s</Text>
+              <Text style={styles.modalTitle}>Tìm Thợ Khẩn Cấp 45s</Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={handleCancel} activeOpacity={0.7}>
               <Ionicons name="close" size={20} color="#64748B" />
@@ -168,14 +300,35 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
                 })}
               </View>
 
-              <Text style={[styles.sectionHeading, { marginTop: 14 }]}>Địa Chỉ Đón Thợ:</Text>
-              <TextInput
-                style={styles.addressInput}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Nhập địa chỉ của bạn..."
-                placeholderTextColor="#94A3B8"
-              />
+              <View style={styles.addressSectionHeader}>
+                <Text style={styles.sectionHeading}>Địa Chỉ Đón Thợ:</Text>
+                <TouchableOpacity
+                  style={styles.detectLocationBtn}
+                  onPress={refreshLocation}
+                  disabled={isLocating}
+                  activeOpacity={0.7}
+                >
+                  {isLocating ? (
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  ) : (
+                    <>
+                      <Ionicons name="locate" size={13} color="#2563EB" />
+                      <Text style={styles.detectLocationText}>Lấy GPS hiện tại</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.addressInputContainer}>
+                <Ionicons name="location-sharp" size={18} color="#E11D48" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.addressInput}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="Đang xác định địa chỉ đón thợ..."
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
 
               <View style={styles.priceEstimateBox}>
                 <Ionicons name="flash" size={16} color="#D97706" />
@@ -196,7 +349,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
             </View>
           )}
 
-          {/* STEP 2: ĐANG PHÁT SÓNG RADAR ĐẾM NGƯỢC 30S */}
+          {/* STEP 2: ĐANG PHÁT SÓNG RADAR ĐẾM NGƯỢC 45S */}
           {step === 'SCANNING' && (
             <View style={styles.scanningBox}>
               <View style={styles.animationArea}>
@@ -225,7 +378,11 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
               </View>
               <Text style={styles.matchedTitle}>Đã Tìm Thấy Thợ Nhận Ca! 🎉</Text>
               <Text style={styles.matchedSubtitle}>
-                Chuyên viên trang điểm <Text style={{ fontWeight: '800' }}>Lan Anh Make-up</Text> đã nhận ca và đang chuẩn bị xuất phát tới vị trí của bạn (cách 1.2 km).
+                Chuyên viên trang điểm{' '}
+                <Text style={{ fontWeight: '800' }}>
+                  {matchedMua?.name || 'Thợ trang điểm MUA'}
+                </Text>{' '}
+                đã nhận ca và đang chuẩn bị xuất phát tới vị trí của bạn.
               </Text>
 
               <TouchableOpacity
@@ -239,7 +396,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
             </View>
           )}
 
-          {/* STEP 4: TIMEOUT HẾT 30 GIÂY */}
+          {/* STEP 4: TIMEOUT HẾT 45 GIÂY */}
           {step === 'TIMEOUT' && (
             <View style={styles.timeoutBox}>
               <Ionicons name="time-outline" size={48} color="#F59E0B" />
@@ -366,12 +523,39 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 1,
   },
-  addressInput: {
+  addressSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  detectLocationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  detectLocationText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  addressInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  addressInput: {
+    flex: 1,
     paddingVertical: 10,
     fontSize: 13,
     color: '#0F172A',
