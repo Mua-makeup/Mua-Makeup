@@ -24,10 +24,14 @@ public class DispatchMatrixMapper {
         boolean hasPackage = Boolean.TRUE.equals(projection.getHasPackage());
         boolean hasStyle = Boolean.TRUE.equals(projection.getHasStyle());
         boolean hasCalendarFree = Boolean.TRUE.equals(projection.getHasCalendarFree());
+        boolean hasReportedBusy = Boolean.TRUE.equals(projection.getHasReportedBusy());
 
-        boolean isFullyQualified = hasShift && hasPackage && hasStyle && hasCalendarFree;
+        boolean isFullyQualified = hasShift && hasPackage && hasStyle && hasCalendarFree && !hasReportedBusy;
 
         List<String> reasons = new ArrayList<>();
+        if (hasReportedBusy) {
+            reasons.add("Đã báo bận ca này");
+        }
         if (!hasShift) {
             reasons.add("Chưa xếp ca làm việc");
         }
@@ -52,6 +56,7 @@ public class DispatchMatrixMapper {
                 .hasPackage(hasPackage)
                 .hasStyle(hasStyle)
                 .hasCalendarFree(hasCalendarFree)
+                .hasReportedBusy(hasReportedBusy)
                 .isFullyQualified(isFullyQualified)
                 .disqualificationReason(disqualificationReason)
                 .currentRole(projection.getCurrentRole())

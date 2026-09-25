@@ -513,6 +513,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
 
         boolean isNewStaffQualified = Boolean.TRUE.equals(newStaffProj.getHasShift())
                 && Boolean.TRUE.equals(newStaffProj.getHasCalendarFree())
+                && !Boolean.TRUE.equals(newStaffProj.getHasReportedBusy())
                 && (roleToAssign != AssignmentRole.PRIMARY_MUA
                     || (Boolean.TRUE.equals(newStaffProj.getHasPackage()) && Boolean.TRUE.equals(newStaffProj.getHasStyle())));
 
@@ -626,6 +627,19 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         AgencyStaffEntity primaryStaff = primaryAssignment.getStaff();
         String primaryStaffName = (primaryStaff != null && primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
                 ? primaryStaff.getMua().getUser().getFullName() : "Thợ chính";
+
+        // Mark previous emergency-cancelled staff assignments as REPLACED by solo primary staff
+        List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
+                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
+        for (BookingStaffAssignmentEntity ea : emergencyAssignments) {
+            ea.setStatus(AssignmentStatus.REPLACED);
+            ea.setReplacedByStaff(primaryStaff);
+            bookingStaffAssignmentRepository.save(ea);
+
+            if (ea.getStaff() != null && ea.getStaff().getMua() != null) {
+                muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), ea.getStaff().getMua().getId());
+            }
+        }
 
         // Clear emergency flag on booking
         booking.setNeedsEmergencyReassignment(false);
@@ -809,11 +823,22 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             ).orElse(null);
         }
         if (assignment == null) {
-            assignment = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
-                    booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED
-            ).stream().findFirst().orElseThrow(() -> new CustomBusinessException(
-                    ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"
-            ));
+            List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
+                    .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
+            if (emergencyAssignments.isEmpty()) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"
+                );
+            }
+            assignment = emergencyAssignments.stream()
+                    .sorted((a1, a2) -> {
+                        if (a1.getCancelledAt() != null && a2.getCancelledAt() != null) {
+                            return a2.getCancelledAt().compareTo(a1.getCancelledAt());
+                        }
+                        return Long.compare(a2.getId() != null ? a2.getId() : 0L, a1.getId() != null ? a1.getId() : 0L);
+                    })
+                    .findFirst()
+                    .orElse(emergencyAssignments.get(0));
         }
 
         AgencyStaffEntity staff = assignment.getStaff();

@@ -30,10 +30,13 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
   const [filterTab, setFilterTab] = useState('all'); // 'all' | 'qualified' | 'unqualified'
 
   // Helper: check if a staff is fully qualified for this booking
-  const isStaffQualified = (s) => Boolean(
-    (s?.isFullyQualified ?? s?.fullyQualified) ||
-    (s?.hasShift && s?.hasPackage && s?.hasStyle && s?.hasCalendarFree)
-  );
+  const isStaffQualified = (s) => {
+    if (s?.hasReportedBusy) return false;
+    return Boolean(
+      (s?.isFullyQualified ?? s?.fullyQualified) ||
+      (s?.hasShift && s?.hasPackage && s?.hasStyle && s?.hasCalendarFree)
+    );
+  };
 
   // Reject view states
   const [showRejectForm, setShowRejectForm] = useState(false);
@@ -216,7 +219,56 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
       onClose={onClose}
       title={showRejectForm ? t('dispatch_reject_title') : t('dispatch_modal_title')}
       subtitle={showRejectForm ? booking?.bookingCode : t('dispatch_modal_subtitle')}
-      size="2xl"
+      size="5xl"
+      height="h-[90vh] max-h-[90vh]"
+      footer={
+        showRejectForm ? (
+          <>
+            <Button
+              variant="ghost"
+              size="md"
+              onClick={() => {
+                setShowRejectForm(false);
+                setErrorMsg('');
+              }}
+              disabled={isSubmitting}
+            >
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              onClick={handleConfirmReject}
+              isLoading={isSubmitting}
+            >
+              {t('dispatch_reject_confirm_btn')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="danger"
+              size="md"
+              onClick={() => {
+                setShowRejectForm(true);
+                setErrorMsg('');
+              }}
+              disabled={isSubmitting || loading}
+            >
+              {t('dispatch_btn_reject')}
+            </Button>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={handleInitiateDispatch}
+              disabled={!primaryStaffId || isSubmitting || loading}
+              isLoading={isSubmitting}
+            >
+              {t('dispatch_btn_confirm')}
+            </Button>
+          </>
+        )
+      }
     >
       <div className="space-y-6">
         {/* Booking Brief Card */}
@@ -374,16 +426,16 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             {/* Matrix Table */}
             <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 max-h-[380px] overflow-y-auto shadow-xs">
               <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-                <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider backdrop-blur font-semibold text-[11px]">
+                <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800 normal-case tracking-normal backdrop-blur font-semibold text-xs">
                   <tr>
-                    <th className="py-2.5 px-3">{t('dispatch_table_col_staff')}</th>
-                    <th className="py-2.5 px-2 text-center">{t('dispatch_table_col_shift')}</th>
-                    <th className="py-2.5 px-2 text-center">{t('dispatch_table_col_package')}</th>
-                    <th className="py-2.5 px-2 text-center">{t('dispatch_table_col_style')}</th>
-                    <th className="py-2.5 px-2 text-center">{t('dispatch_table_col_calendar')}</th>
-                    <th className="py-2.5 px-2 text-center">{t('dispatch_table_col_status')}</th>
-                    <th className="py-2.5 px-3 text-center">{t('dispatch_table_col_primary')}</th>
-                    <th className="py-2.5 px-3 text-center">{t('dispatch_table_col_assistant')}</th>
+                    <th className="py-3 px-4 whitespace-nowrap">{t('dispatch_table_col_staff')}</th>
+                    <th className="py-3 px-3 text-center whitespace-nowrap">{t('dispatch_table_col_shift')}</th>
+                    <th className="py-3 px-3 text-center whitespace-nowrap">{t('dispatch_table_col_package')}</th>
+                    <th className="py-3 px-3 text-center whitespace-nowrap">{t('dispatch_table_col_style')}</th>
+                    <th className="py-3 px-3 text-center whitespace-nowrap">{t('dispatch_table_col_calendar')}</th>
+                    <th className="py-3 px-3 text-center whitespace-nowrap">{t('dispatch_table_col_status')}</th>
+                    <th className="py-3 px-4 text-center whitespace-nowrap">{t('dispatch_table_col_primary')}</th>
+                    <th className="py-3 px-4 text-center whitespace-nowrap">{t('dispatch_table_col_assistant')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -414,7 +466,9 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                         <tr
                           key={staff.staffId}
                           className={`transition-colors ${
-                            isPrimary
+                            staff.hasReportedBusy
+                              ? 'opacity-60 bg-rose-50/20 dark:bg-rose-950/20'
+                              : isPrimary
                               ? 'bg-amber-50/80 dark:bg-gold-500/10'
                               : isAssistant
                               ? 'bg-indigo-50/80 dark:bg-indigo-500/10'
@@ -424,7 +478,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           }`}
                         >
                           {/* Staff Info */}
-                          <td className="py-3 px-3">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             <div className="flex items-center gap-2.5">
                               {staff.staffAvatarUrl ? (
                                 <img
@@ -449,7 +503,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </td>
 
                           {/* 1. Shift */}
-                          <td className="py-3 px-2 text-center">
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
                             {staff.hasShift ? (
                               <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 mx-auto" />
                             ) : (
@@ -458,7 +512,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </td>
 
                           {/* 2. Package */}
-                          <td className="py-3 px-2 text-center">
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
                             {staff.hasPackage ? (
                               <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 mx-auto" />
                             ) : (
@@ -467,7 +521,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </td>
 
                           {/* 3. Style */}
-                          <td className="py-3 px-2 text-center">
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
                             {staff.hasStyle ? (
                               <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 mx-auto" />
                             ) : (
@@ -476,7 +530,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </td>
 
                           {/* 4. Calendar */}
-                          <td className="py-3 px-2 text-center">
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
                             {staff.hasCalendarFree ? (
                               <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 mx-auto" />
                             ) : (
@@ -485,8 +539,12 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </td>
 
                           {/* Overall Eligibility */}
-                          <td className="py-3 px-2 text-center">
-                            {isQualified ? (
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            {staff.hasReportedBusy ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-2xs">
+                                {t('dispatch_badge_reported_busy')}
+                              </span>
+                            ) : isQualified ? (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
                                 {t('dispatch_badge_qualified')}
                               </span>
@@ -501,14 +559,14 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </td>
 
                           {/* Select Primary MUA (Radio) */}
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <input
                               type="radio"
                               name="primaryStaff"
                               checked={isPrimary}
-                              disabled={!isQualified}
+                              disabled={!isQualified || staff.hasReportedBusy}
                               onChange={() => {
-                                if (isQualified) {
+                                if (isQualified && !staff.hasReportedBusy) {
                                   handleSelectPrimary(staff.staffId);
                                 }
                               }}
@@ -517,11 +575,12 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </td>
 
                           {/* Select Assistant MUA (Checkbox) */}
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <input
                               type="checkbox"
                               checked={isAssistant}
                               disabled={
+                                staff.hasReportedBusy ||
                                 isPrimary ||
                                 (!isAssistant && (!staff.hasShift || !staff.hasCalendarFree)) ||
                                 (!isAssistant && assistantStaffIds.length >= 2)
@@ -553,56 +612,6 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             </div>
           </div>
         )}
-
-        {/* Modal Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-          {showRejectForm ? (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowRejectForm(false);
-                  setErrorMsg('');
-                }}
-                disabled={isSubmitting}
-              >
-                {t('cancel')}
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleConfirmReject}
-                isLoading={isSubmitting}
-              >
-                {t('dispatch_reject_confirm_btn')}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => {
-                  setShowRejectForm(true);
-                  setErrorMsg('');
-                }}
-                disabled={isSubmitting || loading}
-              >
-                {t('dispatch_btn_reject')}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleInitiateDispatch}
-                disabled={!primaryStaffId || isSubmitting || loading}
-                isLoading={isSubmitting}
-              >
-                {t('dispatch_btn_confirm')}
-              </Button>
-            </>
-          )}
-        </div>
       </div>
     </Modal>
 
@@ -666,7 +675,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
       cancelText={t('cancel')}
       variant="primary"
       isLoading={isSubmitting}
-      zIndex="z-[70]"
+      zIndex="z-[10000]"
     />
     </>
   );

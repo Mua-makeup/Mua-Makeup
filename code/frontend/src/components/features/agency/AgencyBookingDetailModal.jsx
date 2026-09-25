@@ -253,7 +253,31 @@ export const AgencyBookingDetailModal = ({
       minHeight="min-h-[65vh]"
     >
       <div className="space-y-6">
-        {(currentBooking?.needsEmergencyReassignment || booking?.needsEmergencyReassignment) && !isTerminated && (
+        {(currentBooking?.needsEmergencyReassignment || booking?.needsEmergencyReassignment) && !isTerminated && (() => {
+          const staffList = (currentBooking?.assignedStaff || booking?.assignedStaff || [])
+            .filter((s) => s.status !== 'REPLACED');
+          const emergencyStaffList = staffList.filter((s) => s.status === 'EMERGENCY_CANCELLED');
+          const currentStaffName = currentBooking?.staffName || booking?.staffName;
+          let latestEmergencyStaff = null;
+          if (currentStaffName) {
+            latestEmergencyStaff = emergencyStaffList.find((s) => s.staffName === currentStaffName);
+          }
+          if (!latestEmergencyStaff && emergencyStaffList.length > 0) {
+            latestEmergencyStaff = emergencyStaffList[emergencyStaffList.length - 1];
+          }
+
+          const bannerReason =
+            cleanEmergencyReason(latestEmergencyStaff?.cancellationReason) ||
+            cleanEmergencyReason(currentBooking?.emergencyReason || booking?.emergencyReason);
+
+          const bannerProofUrl =
+            latestEmergencyStaff?.proofDocumentUrl ||
+            currentBooking?.emergencyProofUrl ||
+            currentBooking?.proofDocumentUrl ||
+            booking?.emergencyProofUrl ||
+            booking?.proofDocumentUrl;
+
+          return (
           <div className="p-4 rounded-xl border-2 border-red-600 bg-red-50 dark:bg-red-950/80 shadow-xs flex flex-col gap-2.5">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
@@ -262,23 +286,23 @@ export const AgencyBookingDetailModal = ({
                   {t('dispatch_emergency_alert_banner')}
                 </p>
                 <p className="mt-1 text-slate-900 dark:text-slate-100 font-semibold text-xs leading-relaxed">
-                  {cleanEmergencyReason(currentBooking?.emergencyReason || booking?.emergencyReason)}
+                  {bannerReason}
                 </p>
                 <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
-                  {(currentBooking?.emergencyProofUrl || currentBooking?.proofDocumentUrl || booking?.emergencyProofUrl || booking?.proofDocumentUrl) && (
+                  {bannerProofUrl && (
                     <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-900 border border-red-300 dark:border-red-800">
                       <img
-                        src={currentBooking?.emergencyProofUrl || currentBooking?.proofDocumentUrl || booking?.emergencyProofUrl || booking?.proofDocumentUrl}
+                        src={bannerProofUrl}
                         alt="Minh chứng báo bận"
                         className="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-90"
-                        onClick={() => window.open(currentBooking?.emergencyProofUrl || currentBooking?.proofDocumentUrl || booking?.emergencyProofUrl || booking?.proofDocumentUrl, '_blank')}
+                        onClick={() => window.open(bannerProofUrl, '_blank')}
                       />
                       <div className="text-xs space-y-0.5">
                         <span className="font-bold text-slate-900 dark:text-white block">
                           {t('proof_document_label') || 'Ảnh minh chứng sự cố'}:
                         </span>
                         <a
-                          href={currentBooking?.emergencyProofUrl || currentBooking?.proofDocumentUrl || booking?.emergencyProofUrl || booking?.proofDocumentUrl}
+                          href={bannerProofUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="text-red-600 dark:text-red-400 underline font-bold hover:text-red-700 inline-flex items-center gap-1"
@@ -309,7 +333,8 @@ export const AgencyBookingDetailModal = ({
               </div>
             </div>
           </div>
-        )}
+        );
+      })()}
 
         {/* Core Info Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -360,14 +385,26 @@ export const AgencyBookingDetailModal = ({
               </div>
 
               {(() => {
-                const staffList = currentBooking?.assignedStaff || booking?.assignedStaff || [];
+                const staffList = (currentBooking?.assignedStaff || booking?.assignedStaff || [])
+                  .filter((s) => s.status !== 'REPLACED');
                 
                 // 1. Identify primary MUA
                 let primaryStaff = staffList.find(
                   (s) => s.role === 'PRIMARY_MUA' && (!s.status || s.status === 'ACTIVE')
                 );
                 if (!primaryStaff) {
-                  primaryStaff = staffList.find((s) => s.role === 'PRIMARY_MUA' && s.status === 'EMERGENCY_CANCELLED');
+                  const currentStaffName = currentBooking?.staffName || booking?.staffName;
+                  if (currentStaffName) {
+                    primaryStaff = staffList.find(
+                      (s) => s.role === 'PRIMARY_MUA' && s.staffName === currentStaffName
+                    );
+                  }
+                  if (!primaryStaff) {
+                    const emergencyPrimaryList = staffList.filter(
+                      (s) => s.role === 'PRIMARY_MUA' && s.status === 'EMERGENCY_CANCELLED'
+                    );
+                    primaryStaff = emergencyPrimaryList[emergencyPrimaryList.length - 1];
+                  }
                 }
                 const fallbackPrimaryName = currentBooking?.staffName || booking?.staffName;
                 const fallbackPrimaryPhone = currentBooking?.staffPhone || booking?.staffPhone;
