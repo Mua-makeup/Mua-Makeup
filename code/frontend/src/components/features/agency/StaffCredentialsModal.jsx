@@ -462,14 +462,14 @@ export const StaffCredentialsModal = ({
         variant={confirmingAction === 'APPROVE' ? 'primary' : 'danger'}
         isDangerous={confirmingAction === 'REJECT'}
         isLoading={isReviewing}
-        zIndex="z-[80]"
+        zIndex="z-[10000]"
       />
 
       {/* Lightbox Image Preview Modal */}
       {previewImage && (
         <div
           onClick={() => setPreviewImage(null)}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-[10001] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}

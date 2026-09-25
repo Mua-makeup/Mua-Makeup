@@ -20,5 +20,7 @@ public interface StaffMatrixProjection {
 
     Boolean getHasCalendarFree();
 
+    Boolean getHasReportedBusy();
+
     String getCurrentRole();
 }

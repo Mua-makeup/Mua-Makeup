@@ -89,12 +89,23 @@ export const AgencyBookingsPage = () => {
       const data = res?.data || res || {};
       if (Array.isArray(data)) {
         setBookings(data);
+        setSelectedBooking((prev) => {
+          if (!prev) return null;
+          const updated = data.find((b) => (b.bookingId || b.id) === (prev.bookingId || prev.id));
+          return updated || prev;
+        });
         setPageInfo({ page: 0, size: data.length, totalElements: data.length, totalPages: 1 });
       } else {
         const total = data.totalElements ?? data.total_elements ?? (data.content?.length || 0);
         const pSize = data.size ?? size ?? 10;
         const totalP = data.totalPages ?? data.total_pages ?? Math.max(Math.ceil(total / pSize), 1);
-        setBookings(data.content || []);
+        const list = data.content || [];
+        setBookings(list);
+        setSelectedBooking((prev) => {
+          if (!prev) return null;
+          const updated = list.find((b) => (b.bookingId || b.id) === (prev.bookingId || prev.id));
+          return updated || prev;
+        });
         setPageInfo({
           page: data.page ?? page,
           size: pSize,

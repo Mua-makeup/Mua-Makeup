@@ -17,17 +17,22 @@ export default function App() {
     // Apply class 'dark' len <html> ngay khi app khoi dong
     initTheme();
 
-    const savedRedirectToast = sessionStorage.getItem('auth_redirect_toast');
-    if (savedRedirectToast) {
-      try {
-        const parsed = JSON.parse(savedRedirectToast);
-        if (parsed?.message) {
-          showToast(parsed.message, parsed.type || 'error');
+    const isLoggingOut = sessionStorage.getItem('is_logging_out') === 'true';
+    if (isLoggingOut) {
+      sessionStorage.removeItem('auth_redirect_toast');
+    } else {
+      const savedRedirectToast = sessionStorage.getItem('auth_redirect_toast');
+      if (savedRedirectToast) {
+        try {
+          const parsed = JSON.parse(savedRedirectToast);
+          if (parsed?.message) {
+            showToast(parsed.message, parsed.type || 'error');
+          }
+        } catch {
+          showToast(savedRedirectToast, 'error');
+        } finally {
+          sessionStorage.removeItem('auth_redirect_toast');
         }
-      } catch {
-        showToast(savedRedirectToast, 'error');
-      } finally {
-        sessionStorage.removeItem('auth_redirect_toast');
       }
     }
 

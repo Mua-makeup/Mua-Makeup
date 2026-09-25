@@ -28,10 +28,12 @@ import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.common.i18n.JsonMessageSource;
+import com.makeup.platform.service.mail.EmailService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
@@ -47,6 +49,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final JsonMessageSource messageSource;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -330,6 +333,27 @@ public class NotificationServiceImpl implements NotificationService {
             log.info("[WebSocket] Sent certificate upload notification to /topic/admin/notifications for muaId={}", mua.getId());
         } catch (Exception e) {
             log.error("[WebSocket] Failed to broadcast certificate notification to /topic/admin/notifications", e);
+        }
+
+        // Gửi email thông báo tới từng Super Admin
+        String uploadedTimeFormatted = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm - dd/MM/yyyy"));
+        for (UserEntity admin : superAdmins) {
+            if (admin != null && StringUtils.hasText(admin.getEmail())) {
+                try {
+                    emailService.sendAdminCertificateUploadNotification(
+                            admin.getEmail(),
+                            admin.getFullName(),
+                            muaName,
+                            muaPhone != null ? muaPhone : "Chưa cập nhật",
+                            certName,
+                            imageUrl,
+                            uploadedTimeFormatted
+                    );
+                } catch (Exception ex) {
+                    log.error("[EmailService] Failed to send certificate notification email to {}: {}",
+                            admin.getEmail(), ex.getMessage());
+                }
+            }
         }
     }
 
