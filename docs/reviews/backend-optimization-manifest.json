@@ -1,0 +1,205 @@
+[
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/common/constants/InstantBookingKeys.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 14,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/dto/response/telemetry/LiveTrackingRes.java",
+    "new": false,
+    "beforeLines": 40,
+    "afterLines": 43,
+    "baselineSha256": "fcbcfa3ba49213fe21078241b2071a4e6263208349c4eae2e07659e7b79b876d"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/listener/booking/InstantBookingEventListener.java",
+    "new": false,
+    "beforeLines": 92,
+    "afterLines": 93,
+    "baselineSha256": "d45bd8088296faa8a4fcf9ff37ae3e14b97958774716a718d6f56f96c71f98da"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/mapper/agency/AgencyBookingMapper.java",
+    "new": false,
+    "beforeLines": 172,
+    "afterLines": 179,
+    "baselineSha256": "3562c05dbd9e174314402bcf348e43374b7899eb36bfd6350bccba1dd314c156"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/AgencyStaffRepository.java",
+    "new": false,
+    "beforeLines": 45,
+    "afterLines": 49,
+    "baselineSha256": "1387cc2e3f7075dee09637e65b2264e9da138104803fa29b450b7c3fe282f79f"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingRepository.java",
+    "new": false,
+    "beforeLines": 123,
+    "afterLines": 169,
+    "baselineSha256": "7d2dd87e91621c77a4ee10a701118e425175e6105e26b4cfc35b055c02cf8173"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingSpecifications.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 80,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingRevenueRow.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 8,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingStatusAggregate.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 11,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/projection/MuaStartingPrice.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 8,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/ServicePackageRepository.java",
+    "new": false,
+    "beforeLines": 36,
+    "afterLines": 45,
+    "baselineSha256": "3393e183f216dcdd5254f44a2c2d8196c9daf32635d43922def5fb4a8a24b50a"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/repository/MuaProfileRepository.java",
+    "new": false,
+    "beforeLines": 26,
+    "afterLines": 36,
+    "baselineSha256": "d80fe6cb7a442f175ccd0d4a72057bdb3dbc81972b03ba478f9b04531b89fb37"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyBookingServiceImpl.java",
+    "new": false,
+    "beforeLines": 178,
+    "afterLines": 123,
+    "baselineSha256": "fdab9d41228f1747bc830df3556434487af83ded5e1a5031f5b8769425a7107a"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchServiceImpl.java",
+    "new": false,
+    "beforeLines": 1003,
+    "afterLines": 445,
+    "baselineSha256": "78aab264fe1799a95553c090ed72e79220fb11e649327ab8ecb5682513f8911b"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchSupport.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 125,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyEmergencyService.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 539,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/booking/BookingMessagePublisher.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 41,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/AdminBookingServiceImpl.java",
+    "new": false,
+    "beforeLines": 162,
+    "afterLines": 101,
+    "baselineSha256": "fd9676322b5c038c3ea02af6cffea4cb9c2514727a825fba46080ce992348579"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/DistributedLockServiceImpl.java",
+    "new": false,
+    "beforeLines": 158,
+    "afterLines": 162,
+    "baselineSha256": "fae44428195ad93b7db9151475d2289ec34706443dd1aadaa89be2722e0d40cd"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/customer/CustomerInstantBookingService.java",
+    "new": false,
+    "beforeLines": 17,
+    "afterLines": 20,
+    "baselineSha256": "613514587564e2842405343f4a1853524e5c01b3613253fe904d8bcdae39633d"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/customer/impl/CustomerInstantBookingServiceImpl.java",
+    "new": false,
+    "beforeLines": 558,
+    "afterLines": 587,
+    "baselineSha256": "d63481ee180e47cc2eefb0465b3cd057870e3885db6cdde40196ac05d4828c6c"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantBookingExpirationScheduler.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 42,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantDispatchLeaseService.java",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 50,
+    "baselineSha256": null
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryQueryServiceImpl.java",
+    "new": false,
+    "beforeLines": 361,
+    "afterLines": 301,
+    "baselineSha256": "10438b143ebef8a2fd2122e31c206162a937a968317435e9f08112d6f4eecee1"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryStreamServiceImpl.java",
+    "new": false,
+    "beforeLines": 258,
+    "afterLines": 259,
+    "baselineSha256": "4d41d4c38000d19fce04a0dfa4aca26882542905247216e7b9db011c36fe1f26"
+  },
+  {
+    "file": "code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/RedisExpirationListener.java",
+    "new": false,
+    "beforeLines": 105,
+    "afterLines": 109,
+    "baselineSha256": "ce3311279f7e9434301bd5b5dfdbff0033d1e86fe3933501a68aa12b300df6e1"
+  },
+  {
+    "file": "code/backend/core-api/src/main/resources/application-dev.yml",
+    "new": false,
+    "beforeLines": 32,
+    "afterLines": 33,
+    "baselineSha256": "0d1376e14de56823d7c6a677458c7c9130e69650a543f7d2316889d50df29d18"
+  },
+  {
+    "file": "code/backend/core-api/src/main/resources/application-prod.yml",
+    "new": false,
+    "beforeLines": 31,
+    "afterLines": 32,
+    "baselineSha256": "bcc1706233867aa8865850ff7b2e85a63f76cd9a4464a5e68eccc713e6ffacc0"
+  },
+  {
+    "file": "code/backend/core-api/src/main/resources/db/migration/V20260927120000__Optimize_Booking_Query_Indexes.sql",
+    "new": true,
+    "beforeLines": 0,
+    "afterLines": 7,
+    "baselineSha256": null
+  }
+]

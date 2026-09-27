@@ -6,7 +6,8 @@ import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.repository.MuaProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
+import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -23,13 +24,13 @@ public class InstantBookingEventListener {
     private final MuaProfileRepository muaProfileRepository;
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleInstantBookingAccepted(InstantBookingAcceptedEvent event) {
         log.info("[WebSocket] Received InstantBookingAcceptedEvent for bookingId={}, muaId={}",
                 event.getBookingId(), event.getMuaId());
 
         try {
-            MuaProfileEntity mua = muaProfileRepository.findById(event.getMuaId()).orElse(null);
+            MuaProfileEntity mua = muaProfileRepository.findWithUserById(event.getMuaId()).orElse(null);
 
             // 1. Broadcast to Customer topic /topic/booking-matched/{bookingId}
             Map<String, Object> matchedPayload = new HashMap<>();
@@ -64,7 +65,7 @@ public class InstantBookingEventListener {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleBookingStateChanged(BookingStateChangedEvent event) {
         log.info("[WebSocket] Received BookingStateChangedEvent for bookingId={}, status={}",
                 event.getBookingId(), event.getToStatus());

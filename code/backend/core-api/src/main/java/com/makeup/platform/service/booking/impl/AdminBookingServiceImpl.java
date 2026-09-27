@@ -13,7 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.makeup.platform.common.base.PageResponse;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import com.makeup.platform.repository.booking.BookingSpecifications;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -21,8 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -35,72 +34,19 @@ public class AdminBookingServiceImpl implements AdminBookingService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<AdminBookingRes> getAllBookings(String status, String keyword, Pageable pageable) {
-        List<BookingEntity> bookings = bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
-
-        List<AdminBookingRes> filtered = bookings.stream()
-                .filter(b -> {
-                    // Filter by status if provided
-                    if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
-                        String s = status.toUpperCase().trim();
-                        BookingStatus bs = b.getStatus();
-                        if (bs == null) {
-                            return false;
-                        }
-
-                        boolean match = switch (s) {
-                            case "PENDING_DEPOSIT" -> bs == BookingStatus.PENDING_DEPOSIT;
-                            case "PENDING_AGENCY_DISPATCH" -> bs == BookingStatus.PENDING_AGENCY_DISPATCH || bs == BookingStatus.REQUESTED;
-                            case "CONFIRMED", "AGENCY_ASSIGNED" -> bs == BookingStatus.AGENCY_ASSIGNED || bs == BookingStatus.ACCEPTED;
-                            case "IN_PROGRESS" -> bs == BookingStatus.IN_PROGRESS || bs == BookingStatus.ON_THE_WAY || bs == BookingStatus.ARRIVED;
-                            case "COMPLETED" -> bs == BookingStatus.COMPLETED || bs == BookingStatus.PAID_OUT;
-                            case "CANCELLED" -> bs == BookingStatus.CANCELLED || bs == BookingStatus.CANCELLED_EXPIRED;
-                            case "DISPUTED" -> bs == BookingStatus.DISPUTED;
-                            default -> {
-                                try {
-                                    yield bs == BookingStatus.valueOf(s);
-                                } catch (IllegalArgumentException e) {
-                                    yield false;
-                                }
-                            }
-                        };
-                        if (!match) {
-                            return false;
-                        }
-                    }
-
-                    // Filter by keyword (bookingCode, customer phone, customer name)
-                    if (keyword != null && !keyword.isBlank()) {
-                        String kw = keyword.toLowerCase().trim();
-                        boolean matchCode = b.getBookingCode() != null && b.getBookingCode().toLowerCase().contains(kw);
-                        boolean matchCustName = b.getCustomer() != null && b.getCustomer().getFullName() != null &&
-                                b.getCustomer().getFullName().toLowerCase().contains(kw);
-                        boolean matchCustPhone = b.getCustomer() != null && b.getCustomer().getPhoneNumber() != null &&
-                                b.getCustomer().getPhoneNumber().contains(kw);
-                        boolean matchAddress = b.getDestinationAddress() != null &&
-                                b.getDestinationAddress().toLowerCase().contains(kw);
-                        return matchCode || matchCustName || matchCustPhone || matchAddress;
-                    }
-                    return true;
-                })
-                .map(bookingMapper::toAdminBookingRes)
-                .collect(Collectors.toList());
-
-        if (pageable == null || pageable.isUnpaged()) {
+        var spec = BookingSpecifications.adminStatus(status).and(BookingSpecifications.keyword(keyword));
+        Sort order = Sort.by(Sort.Direction.DESC, "createdAt", "id");
+        Pageable queryPage = pageable == null || pageable.isUnpaged()
+                ? Pageable.unpaged(order)
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), order);
+        Page<AdminBookingRes> result = bookingRepository.findAll(spec, queryPage).map(bookingMapper::toAdminBookingRes);
+        if (queryPage.isUnpaged()) {
             return PageResponse.<AdminBookingRes>builder()
-                    .content(filtered)
-                    .page(0)
-                    .size(filtered.size())
-                    .totalElements(filtered.size())
-                    .totalPages(filtered.isEmpty() ? 0 : 1)
-                    .last(true)
-                    .build();
+                    .content(result.getContent()).page(0).size(result.getNumberOfElements())
+                    .totalElements(result.getTotalElements()).totalPages(result.isEmpty() ? 0 : 1)
+                    .last(true).build();
         }
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), filtered.size());
-        List<AdminBookingRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
-        Page<AdminBookingRes> page = new PageImpl<>(pagedList, pageable, filtered.size());
-        return PageResponse.from(page);
+        return PageResponse.from(result);
     }
 
     @Override
@@ -116,38 +62,31 @@ public class AdminBookingServiceImpl implements AdminBookingService {
     @Override
     @Transactional(readOnly = true)
     public AdminBookingOverviewStatsRes getBookingOverviewStats() {
-        List<BookingEntity> bookings = bookingRepository.findAll();
-
-        long totalBookings = bookings.size();
-
-        long completedBookings = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT)
-                .count();
-
-        long inProgressBookings = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.IN_PROGRESS
-                        || b.getStatus() == BookingStatus.ON_THE_WAY
-                        || b.getStatus() == BookingStatus.ARRIVED)
-                .count();
-
-        long pendingDispatchCount = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.PENDING_AGENCY_DISPATCH
-                        || b.getStatus() == BookingStatus.REQUESTED
-                        || Boolean.TRUE.equals(b.getNeedsEmergencyReassignment()))
-                .count();
-
-        BigDecimal totalGrossVolume = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT)
-                .map(b -> b.getTotalAmount() != null ? b.getTotalAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        long cancelledCount = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED)
-                .count();
-
-        long disputedCount = bookings.stream()
-                .filter(b -> b.getStatus() == BookingStatus.DISPUTED)
-                .count();
+        long totalBookings = 0;
+        long completedBookings = 0;
+        long inProgressBookings = 0;
+        long pendingDispatchCount = 0;
+        long cancelledCount = 0;
+        long disputedCount = 0;
+        BigDecimal totalGrossVolume = BigDecimal.ZERO;
+        for (var aggregate : bookingRepository.aggregateByStatus()) {
+            long count = aggregate.getBookingCount();
+            BookingStatus status = aggregate.getStatus();
+            totalBookings += count;
+            if (status == BookingStatus.COMPLETED || status == BookingStatus.PAID_OUT) {
+                completedBookings += count;
+                if (aggregate.getTotalAmount() != null) totalGrossVolume = totalGrossVolume.add(aggregate.getTotalAmount());
+            }
+            if (status == BookingStatus.IN_PROGRESS || status == BookingStatus.ON_THE_WAY || status == BookingStatus.ARRIVED) {
+                inProgressBookings += count;
+            }
+            if (status == BookingStatus.PENDING_AGENCY_DISPATCH || status == BookingStatus.REQUESTED
+                    || Boolean.TRUE.equals(aggregate.getNeedsEmergencyReassignment())) {
+                pendingDispatchCount += count;
+            }
+            if (status == BookingStatus.CANCELLED || status == BookingStatus.CANCELLED_EXPIRED) cancelledCount += count;
+            if (status == BookingStatus.DISPUTED) disputedCount += count;
+        }
 
         return AdminBookingOverviewStatsRes.builder()
                 .totalBookings(totalBookings)
