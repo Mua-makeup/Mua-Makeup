@@ -8,6 +8,7 @@
     "resource_not_found": "Không tìm thấy tài nguyên yêu cầu.",
     "missing_file_part": "Thiếu trường tệp tin bắt buộc: ''{0}''.",
     "missing_param": "Thiếu tham số bắt buộc: ''{0}''.",
+    "request_body_missing": "Dữ liệu yêu cầu (Request Body) không hợp lệ hoặc bị thiếu.",
     "file_size_exceeded": "Dung lượng tệp tải lên vượt quá giới hạn cho phép.",
     "invalid_file_format": "Định dạng tệp không hợp lệ. Các định dạng cho phép: {0}.",
     "invalid_magic_bytes": "Nội dung tệp không khớp với định dạng đa phương tiện cho phép."
@@ -140,6 +141,7 @@
     "unauthorized_transition": "Bạn không có quyền thực hiện chuyển trạng thái đơn hàng này.",
     "completion_photo_required": "Bắt buộc phải đính kèm ảnh sản phẩm hoàn thiện khi hoàn thành đơn.",
     "cancellation_reason_required": "Bắt buộc phải cung cấp lý do hủy đơn hàng.",
+    "cannot_cancel_within_two_hours": "Đơn hàng chỉ còn dưới 2 tiếng trước giờ hẹn, quý khách không thể tự hủy trên ứng dụng. Vui lòng liên hệ trực tiếp Studio để được hỗ trợ khẩn cấp.",
     "already_taken": "Rất tiếc! Đơn hàng này vừa được một thợ khác tiếp nhận.",
     "lock_timeout": "Hệ thống đang quá tải khi xử lý nhận đơn. Vui lòng thử lại sau giây lát.",
     "optimistic_lock_conflict": "Đơn hàng đã được cập nhật bởi một thao tác khác. Vui lòng tải lại và thử lại.",
@@ -224,6 +226,8 @@
   "ERR_UNAUTHORIZED_TRANSITION": "Không có quyền thực hiện thao tác chuyển trạng thái này.",
   "ERR_COMPLETION_PHOTO_REQUIRED": "Bắt buộc đính kèm ảnh sản phẩm hoàn thiện.",
   "ERR_CANCELLATION_REASON_REQUIRED": "Bắt buộc cung cấp lý do hủy đơn hàng.",
+  "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS": "Đơn hàng chỉ còn dưới 2 tiếng trước giờ hẹn, quý khách không thể tự hủy trên ứng dụng.",
+  "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
   "ERR_BOOKING_ALREADY_TAKEN": "Đơn hàng đã được thợ khác tiếp nhận trước.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Hết thời gian chờ giành khóa phân tán đơn hàng.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Xung đột cập nhật phiên bản đơn hàng.",
@@ -409,6 +413,67 @@
     "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
     "cannot_unblock_booked_slot": "Không thể mở khóa slot lịch đã được gắn với đơn đặt hẹn của khách hàng.",
     "slot_not_found": "Không tìm thấy khung giờ lịch làm việc."
+  },
+  "dispatch": {
+    "primary_staff_id": {
+      "required": "Vui lòng chọn 1 Thợ chính (Primary MUA) chịu trách nhiệm ca."
+    },
+    "assistants": {
+      "max_two": "Tối đa chỉ được phân công 2 Thợ phụ (Assistant MUAs)."
+    },
+    "notes": {
+      "too_long": "Ghi chú điều phối không được vượt quá 500 ký tự."
+    },
+    "rejection_reason": {
+      "required": "Lý do từ chối đơn điều phối là bắt buộc.",
+      "too_long": "Lý do từ chối không được vượt quá 200 ký tự."
+    },
+    "rejection_note": {
+      "too_long": "Ghi chú từ chối không được vượt quá 500 ký tự."
+    },
+    "fetch_pending_success": "Lấy danh sách đơn chờ điều phối thành công.",
+    "fetch_matrix_success": "Lấy ma trận khả dụng 4 chiều của thợ thành công.",
+    "assign_success": "Điều phối thợ thành công! Đã gửi thông báo tới thợ.",
+    "reassign_success": "Đổi thợ dự phòng thành công! Khung giờ thợ cũ đã được bảo lưu lịch bận.",
+    "reject_success": "Từ chối tiếp nhận đơn thành công.",
+    "primary_required": "Đơn hàng bắt buộc phải có 1 Thợ chính (Primary MUA).",
+    "staff_unqualified": "Thợ được chọn không đáp ứng đủ 4 tiêu chí khả dụng (Ca, Gói, Phong cách, Lịch rảnh).",
+    "staff_conflict": "Thợ đã bị trùng lịch làm việc hoặc không khả dụng trong khung giờ này.",
+    "max_assistants_exceeded": "Chỉ được phân công tối đa 2 Thợ phụ cho một đơn.",
+    "assignment_not_found": "Không tìm thấy thông tin phân công thợ cho đơn này.",
+    "cannot_dispatch_in_status": "Không thể điều phối thợ ở trạng thái hiện tại của đơn hàng.",
+    "cannot_reassign_to_same_staff": "Không thể điều chuyển ca lại cho chính thợ cần thay thế hoặc đang báo bận.",
+    "staff_reported_busy": "Thợ này đã báo bận cho đơn hàng này, không thể chọn làm thợ thay thế.",
+    "staff_already_assigned": "Thợ này đang đảm nhiệm một vai trò khác trong đơn hàng này.",
+    "emergency_report_success": "Báo bận khẩn cấp thành công. Studio và Quản trị viên đã nhận cảnh báo.",
+    "emergency_review_success": "Xử lý duyệt báo bận khẩn cấp thành công.",
+    "proceed_solo_success": "Xác nhận để thợ đảm nhiệm toàn bộ đơn hàng thành công.",
+    "cannot_proceed_solo_no_active_staff": "Đơn hàng hiện không còn thợ nào đang hoạt động để làm một mình. Vui lòng chọn thợ thay thế hoặc từ chối báo bận.",
+    "emergency_proof_required_critical": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
+    "assignment_confirm_success": "Xác nhận nhận ca điều phối thành công!"
+  },
+  "emergency": {
+    "reason": {
+      "required": "Lý do báo bận khẩn cấp là bắt buộc.",
+      "too_long": "Lý do báo bận khẩn cấp không được vượt quá 500 ký tự."
+    },
+    "approved": {
+      "required": "Trạng thái phê duyệt là bắt buộc."
+    },
+    "note": {
+      "too_long": "Ghi chú đánh giá không được vượt quá 500 ký tự."
+    }
+  },
+  "notification": {
+    "emergency_title": "Cảnh Báo Báo Bận Đột Xuất!",
+    "emergency_content": "Thợ {0} báo bận đột xuất cho đơn #{1}: {2}",
+    "emergency_broadcast": "CẢNH BÁO KHẨN: Thợ {0} báo bận đột xuất cho đơn #{1}! Cần đổi thợ gấp.",
+    "new_booking_title": "Có Đơn Đặt Lịch Mới!",
+    "new_booking_content": "Khách hàng {0} vừa đặt gói {1}.",
+    "staff_application_title": "Có Đơn Gia Nhập Mới!",
+    "staff_application_content": "Thợ trang điểm {0} vừa nộp đơn xin gia nhập Studio qua mã mời {1}. Vui lòng xem xét phê duyệt.",
+    "certificate_upload_title": "Chứng Chỉ Mới Cần Duyệt!",
+    "certificate_upload_content": "Thợ trang điểm {0} vừa tải lên chứng chỉ '{1}' cần được Ban Quản Trị phê duyệt."
   }
 }
 

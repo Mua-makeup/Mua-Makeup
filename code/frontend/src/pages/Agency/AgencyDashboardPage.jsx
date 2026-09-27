@@ -64,13 +64,14 @@ export const AgencyDashboardPage = () => {
       }
 
       if (staffRes.status === 'fulfilled') {
-        const sList =
-          staffRes.value?.data?.content ||
-          staffRes.value?.data ||
-          staffRes.value?.content ||
-          staffRes.value ||
-          [];
-        if (Array.isArray(sList)) setStaffCount(sList.length);
+        const sData = staffRes.value?.data || staffRes.value || {};
+        const sList = Array.isArray(sData)
+          ? sData
+          : (Array.isArray(sData.content) ? sData.content : []);
+        const total = Array.isArray(sData)
+          ? sData.length
+          : (sData.totalElements ?? sData.total_elements ?? sList.length);
+        setStaffCount(total);
       }
     } finally {
       setIsLoading(false);

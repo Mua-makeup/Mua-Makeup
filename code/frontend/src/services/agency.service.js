@@ -87,5 +87,23 @@ export const agencyService = {
   // Studio Bookings Management
   getBookings: (params) => apiClient.get('/agency/bookings', { params }),
   getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),
+  cancelBooking: (bookingId, reason) =>
+    apiClient.post(`/bookings/${bookingId}/transition`, {
+      targetStatus: 'CANCELLED',
+      reason: reason?.trim(),
+    }),
+
+  getBookingStats: () => apiClient.get('/agency/bookings/stats'),
+
+  // Điều Phối Thợ & Ma Trận Khả Dụng (ISSUE-19)
+  getPendingDispatchBookings: () => apiClient.get('/agency/dispatch/pending-bookings'),
+  getStaffMatrix: (bookingId) => apiClient.get(`/agency/dispatch/bookings/${bookingId}/staff-matrix`),
+  assignStaff: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/assign`, data),
+  reassignStaff: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/reassign`, data),
+  rejectDispatchBooking: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/reject`, data),
+  reportEmergencyBusy: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/report-emergency-busy`, data),
+  reviewEmergencyReport: (bookingId, staffId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/emergency-approval/${staffId}`, data),
+  proceedSolo: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/proceed-solo`, data),
+  confirmAssignment: (assignmentId) => apiClient.post(`/agency/dispatch/assignments/${assignmentId}/confirm`),
 };
 

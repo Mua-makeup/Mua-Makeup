@@ -8,6 +8,7 @@
     "resource_not_found": "Requested resource not found.",
     "missing_file_part": "Required file part is missing: ''{0}''.",
     "missing_param": "Required parameter is missing: ''{0}''.",
+    "request_body_missing": "Request body is missing or malformed.",
     "file_size_exceeded": "Uploaded file exceeds maximum allowed size.",
     "invalid_file_format": "Invalid file format. Allowed formats: {0}.",
     "invalid_magic_bytes": "File content does not match allowed media types."
@@ -140,6 +141,7 @@
     "unauthorized_transition": "You are not authorized to perform this booking state transition.",
     "completion_photo_required": "Completion photo URL is required when marking a booking as completed.",
     "cancellation_reason_required": "Cancellation reason is required when cancelling a booking.",
+    "cannot_cancel_within_two_hours": "Cannot cancel booking within 2 hours of scheduled appointment. Please contact the Studio directly for emergency assistance.",
     "already_taken": "Sorry! This booking has just been accepted by another artist.",
     "lock_timeout": "System is busy processing booking acceptance. Please try again in a moment.",
     "optimistic_lock_conflict": "Booking was updated by another concurrent operation. Please reload and retry.",
@@ -224,6 +226,8 @@
   "ERR_UNAUTHORIZED_TRANSITION": "Unauthorized booking state transition.",
   "ERR_COMPLETION_PHOTO_REQUIRED": "Completion photo is required.",
   "ERR_CANCELLATION_REASON_REQUIRED": "Cancellation reason is required.",
+  "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS": "Cannot cancel booking within 2 hours of scheduled appointment.",
+  "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Reporting emergency unavailability within 2 hours requires an incident proof document.",
   "ERR_BOOKING_ALREADY_TAKEN": "Booking already accepted by another artist.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Distributed lock acquisition timeout.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Optimistic lock version conflict.",
@@ -409,6 +413,67 @@
     "slots_fetch_success": "Available time slots retrieved successfully.",
     "cannot_unblock_booked_slot": "Cannot unblock a calendar slot assigned to an active customer booking.",
     "slot_not_found": "Calendar slot not found."
+  },
+  "dispatch": {
+    "primary_staff_id": {
+      "required": "Please select 1 Primary MUA responsible for this booking."
+    },
+    "assistants": {
+      "max_two": "A maximum of 2 Assistant MUAs can be assigned."
+    },
+    "notes": {
+      "too_long": "Dispatch notes cannot exceed 500 characters."
+    },
+    "rejection_reason": {
+      "required": "Rejection reason is required.",
+      "too_long": "Rejection reason cannot exceed 200 characters."
+    },
+    "rejection_note": {
+      "too_long": "Rejection note cannot exceed 500 characters."
+    },
+    "fetch_pending_success": "Pending dispatch bookings retrieved successfully.",
+    "fetch_matrix_success": "4-way staff availability matrix retrieved successfully.",
+    "assign_success": "Staff dispatched successfully! Notifications sent to staff.",
+    "reassign_success": "Backup staff reassigned successfully! Former staff calendar slot locked defensively.",
+    "reject_success": "Booking rejected successfully.",
+    "primary_required": "A Primary MUA is strictly required for this booking.",
+    "staff_unqualified": "Selected staff does not meet all 4 qualification criteria (Shift, Package, Style, Calendar).",
+    "staff_conflict": "Staff has an overlapping calendar conflict or is unavailable during this time.",
+    "max_assistants_exceeded": "Only up to 2 Assistant MUAs can be assigned to a booking.",
+    "assignment_not_found": "Staff assignment not found for this booking.",
+    "cannot_dispatch_in_status": "Cannot dispatch staff in the current booking status.",
+    "cannot_reassign_to_same_staff": "Cannot reassign to the same staff who is being replaced or reported busy.",
+    "staff_reported_busy": "This staff member has already reported emergency unavailability for this booking.",
+    "staff_already_assigned": "This staff member is already assigned to another role in this booking.",
+    "emergency_report_success": "Emergency busy reported successfully. Agency and Admin have been alerted.",
+    "emergency_review_success": "Emergency report reviewed successfully.",
+    "proceed_solo_success": "Confirmed solo fulfillment for the booking successfully.",
+    "cannot_proceed_solo_no_active_staff": "This booking has no active staff available to fulfill solo. Please reassign a staff member or reject the emergency request.",
+    "emergency_proof_required_critical": "Reporting emergency unavailability within 2 hours requires an incident proof document.",
+    "assignment_confirm_success": "Dispatch assignment confirmed successfully!"
+  },
+  "emergency": {
+    "reason": {
+      "required": "Emergency reason is required.",
+      "too_long": "Emergency reason cannot exceed 500 characters."
+    },
+    "approved": {
+      "required": "Approval status is required."
+    },
+    "note": {
+      "too_long": "Review note cannot exceed 500 characters."
+    }
+  },
+  "notification": {
+    "emergency_title": "Emergency Unavailability Alert!",
+    "emergency_content": "Staff {0} reported emergency unavailability for booking #{1}: {2}",
+    "emergency_broadcast": "CRITICAL ALERT: Staff {0} reported unavailable for booking #{1}! Immediate reassignment required.",
+    "new_booking_title": "New Booking Request!",
+    "new_booking_content": "Customer {0} has just booked package {1}.",
+    "staff_application_title": "New Staff Application!",
+    "staff_application_content": "Makeup Artist {0} has applied to join the Studio via invite code {1}. Please review.",
+    "certificate_upload_title": "New Certificate to Verify!",
+    "certificate_upload_content": "Makeup Artist {0} uploaded certificate '{1}' requiring Super Admin approval."
   }
 }
 

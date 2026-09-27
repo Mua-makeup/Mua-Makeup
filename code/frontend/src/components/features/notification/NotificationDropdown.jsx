@@ -11,6 +11,7 @@ import {
   Clock,
   UserPlus,
   Award,
+  ShieldAlert,
 } from 'lucide-react';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
@@ -52,6 +53,9 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   }, []);
 
   const getNotificationTitle = (notif) => {
+    if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+      return t('notification_emergency_title');
+    }
     if (notif.type === 'STAFF_APPLICATION') {
       return t('notification_staff_application_title');
     }
@@ -70,10 +74,18 @@ export const NotificationDropdown = ({ agencyLogo }) => {
     if (notif.title === 'Chứng Chỉ Mới Cần Duyệt!' || notif.title === 'New Certificate to Verify!') {
       return t('notification_cert_verification_title');
     }
+    if (notif.title === 'Cảnh Báo Báo Bận Đột Xuất!' || notif.title === 'Emergency Unavailability Alert!') {
+      return t('notification_emergency_title');
+    }
     return notif.title || t('notifications_title');
   };
 
   const getNotificationContent = (notif) => {
+    if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+      const staffName = notif.staffName || (notif.metadata && notif.metadata.staffName) || 'Thợ';
+      const bookingCode = notif.bookingCode || (notif.metadata && notif.metadata.bookingCode) || '';
+      return t('notification_emergency_desc', { staffName, bookingCode }) || notif.content;
+    }
     if (notif.type === 'STAFF_APPLICATION') {
       const name = notif.muaName || notif.customerName || 'MUA';
       return t('notif_staff_joined_desc', { name });
@@ -107,7 +119,9 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
     setIsOpen(false);
-    if (notif.type === 'STAFF_APPLICATION') {
+    if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+      navigate('/agency/bookings');
+    } else if (notif.type === 'STAFF_APPLICATION') {
       navigate('/agency/staff');
     } else if (notif.type === 'CERTIFICATE_VERIFICATION') {
       navigate('/admin/muas/credentials');
@@ -117,6 +131,13 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   };
 
   const renderNotifIcon = (notif) => {
+    if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-rose-200 dark:border-rose-800 flex items-center justify-center bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
+          <ShieldAlert className="w-4 h-4" />
+        </div>
+      );
+    }
     if (notif.type === 'STAFF_APPLICATION') {
       return (
         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
@@ -329,6 +350,23 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                           <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
                             <ExternalLink className="w-3 h-3" />
                             {t('btn_verify_certificate')}
+                          </span>
+                        </div>
+                      </>
+                    ) : notif.type === 'EMERGENCY_REASSIGNMENT_ALERT' ? (
+                      <>
+                        <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-0.5 leading-snug line-clamp-2 font-medium">
+                          {getNotificationContent(notif)}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+                          {notif.bookingCode && (
+                            <span className="font-mono bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800">
+                              #{notif.bookingCode}
+                            </span>
+                          )}
+                          <span className="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            {t('notification_emergency_reassign_btn')}
                           </span>
                         </div>
                       </>

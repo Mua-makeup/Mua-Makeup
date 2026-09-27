@@ -12,6 +12,7 @@ import {
   Eye,
   Briefcase,
   Star,
+  RotateCw,
 } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
 import { Button } from '../../components/base/Button';
@@ -375,18 +376,31 @@ export const StaffManagementPage = () => {
           </p>
         </div>
 
-        <Button
-          variant="primary"
-          icon={QrCode}
-          disabled={isNotVerified}
-          title={isNotVerified ? t('pending_tooltip_staff') : undefined}
-          onClick={() => {
-            if (isNotVerified) return;
-            setIsInviteModalOpen(true);
-          }}
-        >
-          {t('btn_recruit_qr')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            icon={RotateCw}
+            disabled={isLoading}
+            onClick={loadStaffData}
+            title={t('btn_reload')}
+            className={isLoading ? '[&>svg]:animate-spin text-rose-500' : ''}
+          >
+            {t('btn_reload')}
+          </Button>
+
+          <Button
+            variant="primary"
+            icon={QrCode}
+            disabled={isNotVerified}
+            title={isNotVerified ? t('pending_tooltip_staff') : undefined}
+            onClick={() => {
+              if (isNotVerified) return;
+              setIsInviteModalOpen(true);
+            }}
+          >
+            {t('btn_recruit_qr')}
+          </Button>
+        </div>
       </div>
 
       {/* Main Content: Pending Notice vs Tabs + Data Tables */}

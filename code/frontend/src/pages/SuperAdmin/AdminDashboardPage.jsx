@@ -28,6 +28,7 @@ export const AdminDashboardPage = () => {
   const [styles, setStyles] = useState([]);
   const [pendingMuas, setPendingMuas] = useState([]);
   const [agencies, setAgencies] = useState([]);
+  const [agencyTotalCount, setAgencyTotalCount] = useState(0);
   const [apiError, setApiError] = useState('');
   const [selectedCert, setSelectedCert] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
@@ -58,7 +59,9 @@ export const AdminDashboardPage = () => {
 
         const aData = agencyRes?.data || agencyRes;
         const aList = aData?.content || (Array.isArray(aData) ? aData : []);
+        const aTotal = aData?.totalElements ?? aData?.total_elements ?? aList.length;
         setAgencies(aList);
+        setAgencyTotalCount(aTotal);
       } catch (err) {
         setApiError(err.message || t('error_api_connection'));
       }
@@ -124,7 +127,7 @@ export const AdminDashboardPage = () => {
         <div className="flex flex-wrap items-center justify-start md:justify-end gap-2.5 shrink-0 md:ml-auto">
           <Link to="/admin/agencies">
             <Button variant="secondary" size="sm" icon={Building2}>
-              {t('nav_admin_agencies')} ({agencies.length})
+              {t('nav_admin_agencies')} ({agencyTotalCount})
             </Button>
           </Link>
           <Link to="/admin/muas/credentials">
@@ -178,7 +181,7 @@ export const AdminDashboardPage = () => {
                 {t('kpi_active_studios')}
               </p>
               <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-                {agencies.length}
+                {agencyTotalCount}
               </p>
               <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
                 <span>{agencies.filter((a) => a.isVerified).length} {t('status_verified')}</span>

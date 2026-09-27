@@ -208,6 +208,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         Long firstTargetUserId = null;
         String listKey = "booking:dispatch:candidates:" + savedBooking.getId();
         stringRedisTemplate.delete(listKey);
+        stringRedisTemplate.delete("booking:dispatch:skipped:" + savedBooking.getId());
         for (Long cId : candidateMuaIds) {
             stringRedisTemplate.opsForList().rightPush(listKey, String.valueOf(cId));
         }
@@ -275,17 +276,40 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             return false;
         }
 
-        // 1. Giải phóng khóa thợ hiện tại và timer cũ (nếu có)
+        // 1. Thêm thợ hiện tại vào danh sách đã bỏ qua/hết giờ của bookingId này, đồng thời giải phóng khóa thợ và timer cũ
         String currentMuaIdStr = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
+        String skippedSetKey = "booking:dispatch:skipped:" + bookingId;
         if (currentMuaIdStr != null) {
+            stringRedisTemplate.opsForSet().add(skippedSetKey, currentMuaIdStr);
+            stringRedisTemplate.expire(skippedSetKey, Duration.ofMinutes(10));
+
             stringRedisTemplate.delete("mua:dispatch:locked:" + currentMuaIdStr);
             stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + currentMuaIdStr);
+            log.info("[SequentialDispatch] Added MUA id={} to skipped set for bookingId={}", currentMuaIdStr, bookingId);
         }
         stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
 
-        // 2. Lấy thợ tiếp theo trong hàng đợi
+        // 2. Lấy thợ tiếp theo trong hàng đợi (lọc qua các thợ đã bỏ qua hoặc đang bận)
         String listKey = "booking:dispatch:candidates:" + bookingId;
-        String nextMuaIdStr = stringRedisTemplate.opsForList().leftPop(listKey);
+        String nextMuaIdStr = null;
+
+        while ((nextMuaIdStr = stringRedisTemplate.opsForList().leftPop(listKey)) != null) {
+            Boolean isSkipped = stringRedisTemplate.opsForSet().isMember(skippedSetKey, nextMuaIdStr);
+            if (Boolean.TRUE.equals(isSkipped)) {
+                log.info("[SequentialDispatch] Candidate MUA id={} already in skipped set for bookingId={}, skipping to next",
+                        nextMuaIdStr, bookingId);
+                continue;
+            }
+
+            Boolean isLocked = stringRedisTemplate.hasKey("mua:dispatch:locked:" + nextMuaIdStr);
+            if (Boolean.TRUE.equals(isLocked)) {
+                log.info("[SequentialDispatch] Candidate MUA id={} is currently evaluating another booking, skipping to next",
+                        nextMuaIdStr);
+                continue;
+            }
+
+            break; // Tìm thấy thợ hợp lệ
+        }
 
         if (nextMuaIdStr != null) {
             Long nextMuaId = Long.valueOf(nextMuaIdStr);
@@ -329,6 +353,37 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
     @Override
     @Transactional
+    public boolean skipCurrentCandidate(Long bookingId, Long muaUserId) {
+        MuaProfileEntity muaProfile = muaProfileRepository.findByUserId(muaUserId).orElse(null);
+        if (muaProfile == null) {
+            log.warn("[SequentialDispatch] User id={} does not have a MUA profile, cannot skip bookingId={}", muaUserId, bookingId);
+            return false;
+        }
+
+        Long muaId = muaProfile.getId();
+        String currentMuaIdStr = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
+
+        // Luôn lưu thợ này vào danh sách đã bỏ qua của bookingId này (TTL 10 phút)
+        String skippedSetKey = "booking:dispatch:skipped:" + bookingId;
+        stringRedisTemplate.opsForSet().add(skippedSetKey, String.valueOf(muaId));
+        stringRedisTemplate.expire(skippedSetKey, Duration.ofMinutes(10));
+
+        // Giải phóng khóa tạm thời và timer của thợ này
+        stringRedisTemplate.delete("mua:dispatch:locked:" + muaId);
+        stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + muaId);
+
+        if (currentMuaIdStr != null && currentMuaIdStr.equals(String.valueOf(muaId))) {
+            log.info("[SequentialDispatch] MUA id={} manually skipped bookingId={}, cascading to next candidate", muaId, bookingId);
+            return dispatchNextCandidate(bookingId);
+        } else {
+            log.info("[SequentialDispatch] MUA id={} clicked skip on bookingId={}, but current target is '{}'. Lock released, avoiding duplicate cascade.",
+                    muaId, bookingId, currentMuaIdStr);
+            return false;
+        }
+    }
+
+    @Override
+    @Transactional
     public boolean expireInstantBooking(Long bookingId) {
         BookingEntity booking = bookingRepository.findById(bookingId).orElse(null);
         if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
@@ -349,6 +404,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         }
         stringRedisTemplate.delete("booking:dispatch:candidates:" + bookingId);
         stringRedisTemplate.delete("booking:dispatch:current:" + bookingId);
+        stringRedisTemplate.delete("booking:dispatch:skipped:" + bookingId);
         stringRedisTemplate.delete("booking:instant:expire:" + bookingId);
         stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
 
@@ -432,6 +488,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         }
         stringRedisTemplate.delete("booking:dispatch:candidates:" + bookingId);
         stringRedisTemplate.delete("booking:dispatch:current:" + bookingId);
+        stringRedisTemplate.delete("booking:dispatch:skipped:" + bookingId);
         stringRedisTemplate.delete("booking:instant:expire:" + bookingId);
         stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
 

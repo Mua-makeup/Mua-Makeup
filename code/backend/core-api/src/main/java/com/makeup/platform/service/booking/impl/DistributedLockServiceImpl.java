@@ -75,6 +75,25 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                         .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                                 "mua.profile_not_found", HttpStatus.NOT_FOUND));
 
+                // 1. Kiểm tra xem thợ này đã từng bấm bỏ qua hoặc bị hết giờ đơn này chưa
+                Boolean isSkipped = stringRedisTemplate.opsForSet().isMember(
+                        "booking:dispatch:skipped:" + bookingId, String.valueOf(muaProfile.getId()));
+                if (Boolean.TRUE.equals(isSkipped)) {
+                    log.warn("[Redlock] MUA id={} attempted to accept booking id={} which they already skipped or timed out",
+                            muaProfile.getId(), bookingId);
+                    throw new CustomBusinessException(ErrorCodes.ERR_BOOKING_ALREADY_TAKEN,
+                            "booking.already_taken", HttpStatus.CONFLICT);
+                }
+
+                // 2. Kiểm tra xem thợ này có đúng là thợ đang được gửi đơn tới (current target) hay không
+                String currentTargetMuaId = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
+                if (currentTargetMuaId != null && !currentTargetMuaId.equals(String.valueOf(muaProfile.getId()))) {
+                    log.warn("[Redlock] MUA id={} attempted to accept booking id={} but current target is muaId={}",
+                            muaProfile.getId(), bookingId, currentTargetMuaId);
+                    throw new CustomBusinessException(ErrorCodes.ERR_BOOKING_ALREADY_TAKEN,
+                            "booking.already_taken", HttpStatus.CONFLICT);
+                }
+
                 boolean hasVerifiedCert = muaProfile.getCertificates() != null && muaProfile.getCertificates().stream()
                         .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
                 if (!hasVerifiedCert) {
@@ -115,6 +134,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                 stringRedisTemplate.delete("booking:instant:expire:" + bookingId);
                 stringRedisTemplate.delete("booking:dispatch:candidates:" + bookingId);
                 stringRedisTemplate.delete("booking:dispatch:current:" + bookingId);
+                stringRedisTemplate.delete("booking:dispatch:skipped:" + bookingId);
                 stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
                 stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + muaProfile.getId());
                 stringRedisTemplate.delete("mua:dispatch:locked:" + muaProfile.getId());
