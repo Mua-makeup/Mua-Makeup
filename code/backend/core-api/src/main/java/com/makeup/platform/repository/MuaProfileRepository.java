@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 
 @Repository
 public interface MuaProfileRepository extends JpaRepository<MuaProfileEntity, Long> {
@@ -22,5 +24,13 @@ public interface MuaProfileRepository extends JpaRepository<MuaProfileEntity, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT m FROM MuaProfileEntity m WHERE m.id = :id")
     Optional<MuaProfileEntity> findByIdForUpdate(@Param("id") Long id);
-}
+    @Query("SELECT m FROM MuaProfileEntity m LEFT JOIN FETCH m.user u LEFT JOIN FETCH u.role WHERE m.id IN :ids")
+    List<MuaProfileEntity> findDispatchCandidatesByIdIn(@Param("ids") Collection<Long> ids);
 
+    @Query("SELECT m FROM MuaProfileEntity m LEFT JOIN FETCH m.user WHERE m.id = :id")
+    Optional<MuaProfileEntity> findWithUserById(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM MuaProfileEntity m WHERE m.user.id = :userId")
+    Optional<MuaProfileEntity> findByUserIdForUpdate(@Param("userId") Long userId);
+}

@@ -1,0 +1,3239 @@
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/InstantBookingKeys.java b/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/InstantBookingKeys.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/common/constants/InstantBookingKeys.java
+@@ -0,0 +1,14 @@
++package com.makeup.platform.common.constants;
++
++public final class InstantBookingKeys {
++    public static final String EXPIRATION_PREFIX = "booking:instant:expire:";
++    public static final String OFFER_TIMER_PREFIX = "booking:dispatch:timer:";
++    private InstantBookingKeys() {}
++    public static String candidates(Long bookingId) { return "booking:dispatch:candidates:" + bookingId; }
++    public static String current(Long bookingId) { return "booking:dispatch:current:" + bookingId; }
++    public static String skipped(Long bookingId) { return "booking:dispatch:skipped:" + bookingId; }
++    public static String sentAt(Long bookingId) { return "booking:dispatch:sent_at:" + bookingId; }
++    public static String expiration(Long bookingId) { return EXPIRATION_PREFIX + bookingId; }
++    public static String timer(Long bookingId, Object muaId) { return OFFER_TIMER_PREFIX + bookingId + ":" + muaId; }
++    public static String candidateLease(Object muaId) { return "mua:dispatch:locked:" + muaId; }
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/dto/response/telemetry/LiveTrackingRes.java b/code/backend/core-api/src/main/java/com/makeup/platform/dto/response/telemetry/LiveTrackingRes.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/dto/response/telemetry/LiveTrackingRes.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/dto/response/telemetry/LiveTrackingRes.java
+@@ -15,6 +15,9 @@
+ @AllArgsConstructor
+ @Builder
+ public class LiveTrackingRes {
++
++    // LIVE, LAST_KNOWN, UNAVAILABLE or COMPLETED. Missing measurements stay null.
++    private String locationStatus;
+ 
+     private Long bookingId;
+ 
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/listener/booking/InstantBookingEventListener.java b/code/backend/core-api/src/main/java/com/makeup/platform/listener/booking/InstantBookingEventListener.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/listener/booking/InstantBookingEventListener.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/listener/booking/InstantBookingEventListener.java
+@@ -6,7 +6,8 @@
+ import com.makeup.platform.repository.MuaProfileRepository;
+ import lombok.RequiredArgsConstructor;
+ import lombok.extern.slf4j.Slf4j;
+-import org.springframework.context.event.EventListener;
++import org.springframework.transaction.event.TransactionalEventListener;
++import org.springframework.transaction.event.TransactionPhase;
+ import org.springframework.messaging.simp.SimpMessagingTemplate;
+ import org.springframework.scheduling.annotation.Async;
+ import org.springframework.stereotype.Component;
+@@ -23,13 +24,13 @@
+     private final MuaProfileRepository muaProfileRepository;
+ 
+     @Async
+-    @EventListener
++    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+     public void handleInstantBookingAccepted(InstantBookingAcceptedEvent event) {
+         log.info("[WebSocket] Received InstantBookingAcceptedEvent for bookingId={}, muaId={}",
+                 event.getBookingId(), event.getMuaId());
+ 
+         try {
+-            MuaProfileEntity mua = muaProfileRepository.findById(event.getMuaId()).orElse(null);
++            MuaProfileEntity mua = muaProfileRepository.findWithUserById(event.getMuaId()).orElse(null);
+ 
+             // 1. Broadcast to Customer topic /topic/booking-matched/{bookingId}
+             Map<String, Object> matchedPayload = new HashMap<>();
+@@ -64,7 +65,7 @@
+     }
+ 
+     @Async
+-    @EventListener
++    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+     public void handleBookingStateChanged(BookingStateChangedEvent event) {
+         log.info("[WebSocket] Received BookingStateChangedEvent for bookingId={}, status={}",
+                 event.getBookingId(), event.getToStatus());
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/mapper/agency/AgencyBookingMapper.java b/code/backend/core-api/src/main/java/com/makeup/platform/mapper/agency/AgencyBookingMapper.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/mapper/agency/AgencyBookingMapper.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/mapper/agency/AgencyBookingMapper.java
+@@ -8,7 +8,6 @@
+ import com.makeup.platform.entity.booking.AssignmentRole;
+ import com.makeup.platform.entity.booking.AssignmentStatus;
+ import com.makeup.platform.entity.booking.BookingEntity;
+-import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
+ import com.makeup.platform.entity.catalog.ServicePackageEntity;
+ import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
+ import com.makeup.platform.repository.AgencyStaffRepository;
+@@ -20,7 +19,7 @@
+ import java.time.LocalDateTime;
+ import java.util.Collections;
+ import java.util.List;
+-import java.util.Optional;
++import java.util.Map;
+ 
+ @Component
+ @RequiredArgsConstructor
+@@ -30,6 +29,10 @@
+     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
+ 
+     public AgencyBookingRes toRes(BookingEntity b, AgencyProfileEntity agency) {
++        return toRes(b, agency, null);
++    }
++
++    public AgencyBookingRes toRes(BookingEntity b, AgencyProfileEntity agency, Map<Long, BigDecimal> commissionRates) {
+         if (b == null) {
+             return null;
+         }
+@@ -58,10 +61,14 @@
+             }
+ 
+             if (agency != null) {
+-                Optional<AgencyStaffEntity> staffOpt = agencyStaffRepository.findByAgencyIdAndMuaId(agency.getId(), staffMuaId);
+-                if (staffOpt.isPresent() && staffOpt.get().getAgreedCommissionRate() != null) {
+-                    staffCommissionRate = staffOpt.get().getAgreedCommissionRate();
++                BigDecimal agreedRate;
++                if (commissionRates != null) {
++                    agreedRate = commissionRates.get(staffMuaId);
++                } else {
++                    agreedRate = agencyStaffRepository.findByAgencyIdAndMuaId(agency.getId(), staffMuaId)
++                            .map(AgencyStaffEntity::getAgreedCommissionRate).orElse(null);
+                 }
++                if (agreedRate != null) staffCommissionRate = agreedRate;
+             }
+         }
+ 
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/AgencyStaffRepository.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/AgencyStaffRepository.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/repository/AgencyStaffRepository.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/AgencyStaffRepository.java
+@@ -9,6 +9,7 @@
+ import org.springframework.stereotype.Repository;
+ 
+ import java.util.List;
++import java.util.Collection;
+ import java.util.Optional;
+ 
+ @Repository
+@@ -42,4 +43,7 @@
+ 
+     @Query("SELECT s FROM AgencyStaffEntity s WHERE s.mua.id = :muaId AND s.isActive = true AND s.status = 'ACTIVE'")
+     Optional<AgencyStaffEntity> findActiveStaffByMuaId(@Param("muaId") Long muaId);
++    @Query("SELECT s FROM AgencyStaffEntity s JOIN FETCH s.mua WHERE s.agency.id = :agencyId AND s.mua.id IN :muaIds")
++    List<AgencyStaffEntity> findCommissionRates(@Param("agencyId") Long agencyId,
++            @Param("muaIds") Collection<Long> muaIds);
+ }
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingRepository.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingRepository.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingRepository.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingRepository.java
+@@ -1,4 +1,6 @@
+ package com.makeup.platform.repository.booking;
++
++import com.makeup.platform.repository.booking.projection.BookingRevenueRow;
+ 
+ import com.makeup.platform.entity.booking.BookingEntity;
+ import com.makeup.platform.entity.booking.BookingStatus;
+@@ -6,6 +8,11 @@
+ 
+ import jakarta.persistence.LockModeType;
+ import org.springframework.data.domain.Pageable;
++import org.springframework.data.domain.Page;
++import org.springframework.data.jpa.domain.Specification;
++import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
++import org.springframework.data.jpa.repository.EntityGraph;
++import com.makeup.platform.repository.booking.projection.BookingStatusAggregate;
+ import org.springframework.data.jpa.repository.JpaRepository;
+ import org.springframework.data.jpa.repository.Lock;
+ import org.springframework.data.jpa.repository.Modifying;
+@@ -19,7 +26,19 @@
+ import java.util.Optional;
+ 
+ @Repository
+-public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
++public interface BookingRepository extends JpaRepository<BookingEntity, Long>, JpaSpecificationExecutor<BookingEntity> {
++
++    @Override
++    @EntityGraph(attributePaths = {"customer", "mua.user", "agency", "servicePackage.masterCategory"})
++    Page<BookingEntity> findAll(Specification<BookingEntity> spec, Pageable pageable);
++
++    @Query("""
++            SELECT b.status AS status, b.needsEmergencyReassignment AS needsEmergencyReassignment,
++                   COUNT(b) AS bookingCount, SUM(b.totalAmount) AS totalAmount
++            FROM BookingEntity b
++            GROUP BY b.status, b.needsEmergencyReassignment
++            """)
++    List<BookingStatusAggregate> aggregateByStatus();
+ 
+     Optional<BookingEntity> findByBookingCode(String bookingCode);
+ 
+@@ -120,4 +139,31 @@
+                 ORDER BY b.needsEmergencyReassignment DESC, b.createdAt ASC
+             """)
+     List<BookingEntity> findPendingDispatchBookingsByAgencyId(@Param("agencyId") Long agencyId);
++    @Query("""
++            SELECT b.id FROM BookingEntity b
++            WHERE b.customer.id = :customerId AND b.bookingType = :type AND b.status = :status
++            ORDER BY b.createdAt DESC
++            """)
++    List<Long> findCustomerPendingIds(@Param("customerId") Long customerId,
++            @Param("type") BookingType type, @Param("status") BookingStatus status);
++
++    @Query("""
++            SELECT b.id FROM BookingEntity b
++            WHERE b.bookingType = :type AND b.status = :status AND b.id > :afterId AND b.id <= :maxId
++            ORDER BY b.id
++            """)
++    List<Long> findPendingInstantIds(@Param("type") BookingType type,
++            @Param("status") BookingStatus status, @Param("afterId") Long afterId,
++            @Param("maxId") Long maxId, Pageable pageable);
++    @Query("""
++            SELECT m.id AS muaId, b.totalAmount AS totalAmount FROM BookingEntity b
++            LEFT JOIN b.mua m
++            WHERE b.agency.id = :agencyId AND b.status IN (
++                com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
++                com.makeup.platform.entity.booking.BookingStatus.PAID_OUT)
++            """)
++    List<BookingRevenueRow> findCompletedRevenueByAgencyId(
++            @Param("agencyId") Long agencyId);
++    @Query("SELECT MAX(b.id) FROM BookingEntity b WHERE b.bookingType = :type AND b.status = :status")
++    Long findPendingScanUpperBound(@Param("type") BookingType type, @Param("status") BookingStatus status);
+ }
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingSpecifications.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingSpecifications.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/BookingSpecifications.java
+@@ -0,0 +1,80 @@
++package com.makeup.platform.repository.booking;
++
++import com.makeup.platform.entity.booking.BookingEntity;
++import com.makeup.platform.entity.booking.BookingStatus;
++import jakarta.persistence.criteria.JoinType;
++import org.springframework.data.jpa.domain.Specification;
++
++import java.util.List;
++import java.util.Locale;
++
++/** Keeps admin and agency status aliases distinct while filtering in SQL. */
++public final class BookingSpecifications {
++    private BookingSpecifications() {}
++
++    public static Specification<BookingEntity> agency(Long agencyId) {
++        return (root, query, cb) -> cb.equal(root.get("agency").get("id"), agencyId);
++    }
++
++    public static Specification<BookingEntity> keyword(String keyword) {
++        return (root, query, cb) -> {
++            if (keyword == null || keyword.isBlank()) return cb.conjunction();
++            String value = keyword.toLowerCase(Locale.ROOT).trim()
++                    .replace("!", "!!").replace("%", "!%").replace("_", "!_");
++            String pattern = "%" + value + "%";
++            var customer = root.join("customer", JoinType.LEFT);
++            return cb.or(cb.like(cb.lower(root.get("bookingCode")), pattern, '!'),
++                    cb.like(cb.lower(customer.get("fullName")), pattern, '!'),
++                    cb.like(customer.get("phoneNumber"), pattern, '!'),
++                    cb.like(cb.lower(root.get("destinationAddress")), pattern, '!'));
++        };
++    }
++
++    public static Specification<BookingEntity> adminStatus(String status) {
++        if (status == null || status.isBlank() || status.equalsIgnoreCase("ALL")) return all();
++        String normalized = status.toUpperCase(Locale.ROOT).trim();
++        return switch (normalized) {
++            case "PENDING_AGENCY_DISPATCH" -> statuses(BookingStatus.PENDING_AGENCY_DISPATCH, BookingStatus.REQUESTED);
++            case "CONFIRMED", "AGENCY_ASSIGNED" -> statuses(BookingStatus.AGENCY_ASSIGNED, BookingStatus.ACCEPTED);
++            case "IN_PROGRESS" -> statuses(BookingStatus.IN_PROGRESS, BookingStatus.ON_THE_WAY, BookingStatus.ARRIVED);
++            case "COMPLETED" -> statuses(BookingStatus.COMPLETED, BookingStatus.PAID_OUT);
++            case "CANCELLED" -> statuses(BookingStatus.CANCELLED, BookingStatus.CANCELLED_EXPIRED);
++            default -> {
++                try {
++                    yield statuses(BookingStatus.valueOf(normalized));
++                } catch (IllegalArgumentException ex) {
++                    yield (root, query, cb) -> cb.disjunction();
++                }
++            }
++        };
++    }
++
++    public static Specification<BookingEntity> agencyStatus(String status) {
++        if (status == null || status.isBlank() || status.equalsIgnoreCase("ALL")) return all();
++        return switch (status.toUpperCase(Locale.ROOT)) {
++            case "EMERGENCY_REASSIGNMENT" -> (root, query, cb) -> cb.and(
++                    cb.isTrue(root.get("needsEmergencyReassignment")),
++                    cb.not(root.get("status").in(BookingStatus.CANCELLED, BookingStatus.CANCELLED_EXPIRED,
++                            BookingStatus.COMPLETED, BookingStatus.PAID_OUT)));
++            case "CONFIRMED" -> statuses(BookingStatus.ACCEPTED, BookingStatus.AGENCY_ASSIGNED,
++                    BookingStatus.ARRIVED, BookingStatus.ON_THE_WAY);
++            case "CANCELLED" -> statuses(BookingStatus.CANCELLED, BookingStatus.CANCELLED_EXPIRED);
++            default -> {
++                try {
++                    yield statuses(BookingStatus.valueOf(status.toUpperCase(Locale.ROOT)));
++                } catch (IllegalArgumentException ex) {
++                    // Retain the existing agency behavior for an unknown filter.
++                    yield all();
++                }
++            }
++        };
++    }
++
++    private static Specification<BookingEntity> statuses(BookingStatus... statuses) {
++        return (root, query, cb) -> root.get("status").in(List.of(statuses));
++    }
++
++    private static Specification<BookingEntity> all() {
++        return (root, query, cb) -> cb.conjunction();
++    }
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingRevenueRow.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingRevenueRow.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingRevenueRow.java
+@@ -0,0 +1,8 @@
++package com.makeup.platform.repository.booking.projection;
++
++import java.math.BigDecimal;
++
++public interface BookingRevenueRow {
++    Long getMuaId();
++    BigDecimal getTotalAmount();
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingStatusAggregate.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingStatusAggregate.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/booking/projection/BookingStatusAggregate.java
+@@ -0,0 +1,11 @@
++package com.makeup.platform.repository.booking.projection;
++
++import com.makeup.platform.entity.booking.BookingStatus;
++import java.math.BigDecimal;
++
++public interface BookingStatusAggregate {
++    BookingStatus getStatus();
++    Boolean getNeedsEmergencyReassignment();
++    Long getBookingCount();
++    BigDecimal getTotalAmount();
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/projection/MuaStartingPrice.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/projection/MuaStartingPrice.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/projection/MuaStartingPrice.java
+@@ -0,0 +1,8 @@
++package com.makeup.platform.repository.catalog.projection;
++
++import java.math.BigDecimal;
++
++public interface MuaStartingPrice {
++    Long getMuaId();
++    BigDecimal getStartingPrice();
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/ServicePackageRepository.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/ServicePackageRepository.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/ServicePackageRepository.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/catalog/ServicePackageRepository.java
+@@ -10,6 +10,8 @@
+ import org.springframework.stereotype.Repository;
+ 
+ import java.util.List;
++import java.util.Collection;
++import com.makeup.platform.repository.catalog.projection.MuaStartingPrice;
+ import java.util.Optional;
+ 
+ @Repository
+@@ -33,4 +35,11 @@
+ 
+     @Query("SELECT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id")
+     Optional<ServicePackageEntity> findByIdWithDetails(@Param("id") Long id);
++    @Query("""
++            SELECT p.mua.id AS muaId, MIN(p.price) AS startingPrice
++            FROM ServicePackageEntity p
++            WHERE p.mua.id IN :muaIds AND p.isAvailable = TRUE
++            GROUP BY p.mua.id
++            """)
++    List<MuaStartingPrice> findStartingPrices(@Param("muaIds") Collection<Long> muaIds);
+ }
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/repository/MuaProfileRepository.java b/code/backend/core-api/src/main/java/com/makeup/platform/repository/MuaProfileRepository.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/repository/MuaProfileRepository.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/repository/MuaProfileRepository.java
+@@ -9,6 +9,8 @@
+ import org.springframework.stereotype.Repository;
+ 
+ import java.util.Optional;
++import java.util.Collection;
++import java.util.List;
+ 
+ @Repository
+ public interface MuaProfileRepository extends JpaRepository<MuaProfileEntity, Long> {
+@@ -22,5 +24,13 @@
+     @Lock(LockModeType.PESSIMISTIC_WRITE)
+     @Query("SELECT m FROM MuaProfileEntity m WHERE m.id = :id")
+     Optional<MuaProfileEntity> findByIdForUpdate(@Param("id") Long id);
++    @Query("SELECT m FROM MuaProfileEntity m LEFT JOIN FETCH m.user u LEFT JOIN FETCH u.role WHERE m.id IN :ids")
++    List<MuaProfileEntity> findDispatchCandidatesByIdIn(@Param("ids") Collection<Long> ids);
++
++    @Query("SELECT m FROM MuaProfileEntity m LEFT JOIN FETCH m.user WHERE m.id = :id")
++    Optional<MuaProfileEntity> findWithUserById(@Param("id") Long id);
++
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("SELECT m FROM MuaProfileEntity m WHERE m.user.id = :userId")
++    Optional<MuaProfileEntity> findByUserIdForUpdate(@Param("userId") Long userId);
+ }
+-
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyBookingServiceImpl.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyBookingServiceImpl.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyBookingServiceImpl.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyBookingServiceImpl.java
+@@ -1,15 +1,15 @@
+ package com.makeup.platform.service.agency.impl;
++
++import com.makeup.platform.repository.booking.projection.BookingRevenueRow;
+ 
+ import com.makeup.platform.common.base.PageResponse;
+ import com.makeup.platform.common.constants.ErrorCodes;
+ import com.makeup.platform.common.exception.CustomBusinessException;
+ import com.makeup.platform.dto.response.agency.AgencyBookingOverviewStatsRes;
+ import com.makeup.platform.dto.response.agency.AgencyBookingRes;
+-import com.makeup.platform.dto.response.catalog.PackageItemRes;
+ import com.makeup.platform.entity.agency.AgencyProfileEntity;
+ import com.makeup.platform.entity.agency.AgencyStaffEntity;
+ import com.makeup.platform.entity.booking.BookingEntity;
+-import com.makeup.platform.entity.booking.BookingStatus;
+ import com.makeup.platform.mapper.agency.AgencyBookingMapper;
+ import com.makeup.platform.repository.AgencyProfileRepository;
+ import com.makeup.platform.repository.AgencyStaffRepository;
+@@ -18,19 +18,20 @@
+ import lombok.RequiredArgsConstructor;
+ import lombok.extern.slf4j.Slf4j;
+ import org.springframework.data.domain.Page;
+-import org.springframework.data.domain.PageImpl;
++import org.springframework.data.domain.PageRequest;
++import com.makeup.platform.repository.booking.BookingSpecifications;
+ import org.springframework.data.domain.Pageable;
++import org.springframework.data.domain.Sort;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.math.BigDecimal;
+ import java.math.RoundingMode;
+-import java.time.LocalDateTime;
+ import java.util.List;
++import java.util.Map;
++import java.util.HashMap;
+ import java.util.Objects;
+-import java.util.Optional;
+-import java.util.stream.Collectors;
+ 
+ @Slf4j
+ @Service
+@@ -50,79 +51,22 @@
+                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND,
+                         "agency.not_found", HttpStatus.NOT_FOUND));
+ 
+-        List<BookingEntity> bookings = bookingRepository.findByAgencyIdOrderByCreatedAtDesc(agency.getId());
+-
+-        List<AgencyBookingRes> filtered = bookings.stream()
+-                .filter(b -> {
+-                    // Filter status
+-                    if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
+-                        if ("EMERGENCY_REASSIGNMENT".equalsIgnoreCase(status)) {
+-                            if (!Boolean.TRUE.equals(b.getNeedsEmergencyReassignment())
+-                                    || b.getStatus() == BookingStatus.CANCELLED
+-                                    || b.getStatus() == BookingStatus.CANCELLED_EXPIRED
+-                                    || b.getStatus() == BookingStatus.COMPLETED
+-                                    || b.getStatus() == BookingStatus.PAID_OUT) {
+-                                return false;
+-                            }
+-                        } else if ("CONFIRMED".equalsIgnoreCase(status)) {
+-                            if (b.getStatus() != BookingStatus.ACCEPTED
+-                                    && b.getStatus() != BookingStatus.AGENCY_ASSIGNED
+-                                    && b.getStatus() != BookingStatus.ARRIVED
+-                                    && b.getStatus() != BookingStatus.ON_THE_WAY) {
+-                                return false;
+-                            }
+-                        } else if ("CANCELLED".equalsIgnoreCase(status)) {
+-                            if (b.getStatus() != BookingStatus.CANCELLED
+-                                    && b.getStatus() != BookingStatus.CANCELLED_EXPIRED) {
+-                                return false;
+-                            }
+-                        } else {
+-                            try {
+-                                BookingStatus target = BookingStatus.valueOf(status.toUpperCase());
+-                                if (b.getStatus() != target) {
+-                                    return false;
+-                                }
+-                            } catch (IllegalArgumentException e) {
+-                                log.warn("Invalid agency booking status filter: {}", status);
+-                            }
+-                        }
+-                    }
+-
+-                    // Filter keyword
+-                    if (keyword != null && !keyword.isBlank()) {
+-                        String kw = keyword.toLowerCase().trim();
+-                        boolean matchCode = b.getBookingCode() != null && b.getBookingCode().toLowerCase().contains(kw);
+-                        boolean matchCustName = b.getCustomer() != null && b.getCustomer().getFullName() != null &&
+-                                b.getCustomer().getFullName().toLowerCase().contains(kw);
+-                        boolean matchCustPhone = b.getCustomer() != null && b.getCustomer().getPhoneNumber() != null &&
+-                                b.getCustomer().getPhoneNumber().contains(kw);
+-                        boolean matchAddress = b.getDestinationAddress() != null &&
+-                                b.getDestinationAddress().toLowerCase().contains(kw);
+-                        return matchCode || matchCustName || matchCustPhone || matchAddress;
+-                    }
+-
+-                    return true;
+-                })
+-                .map(b -> mapToAgencyBookingRes(b, agency))
+-                .collect(Collectors.toList());
+-
+-        if (pageable == null || pageable.isUnpaged()) {
++        var spec = BookingSpecifications.agency(agency.getId()).and(BookingSpecifications.agencyStatus(status)).and(BookingSpecifications.keyword(keyword));
++        Sort order = Sort.by(Sort.Direction.DESC, "createdAt", "id");
++        Pageable queryPage = pageable == null || pageable.isUnpaged()
++                ? Pageable.unpaged(order)
++                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), order);
++        Page<BookingEntity> bookings = bookingRepository.findAll(spec, queryPage);
++        Map<Long, BigDecimal> rates = loadCommissionRates(agency.getId(), bookings.getContent().stream()
++                .filter(b -> b.getMua() != null).map(b -> b.getMua().getId()).distinct().toList());
++        Page<AgencyBookingRes> result = bookings.map(b -> agencyBookingMapper.toRes(b, agency, rates));
++        if (queryPage.isUnpaged()) {
+             return PageResponse.<AgencyBookingRes>builder()
+-                    .content(filtered)
+-                    .page(0)
+-                    .size(filtered.size())
+-                    .totalElements(filtered.size())
+-                    .totalPages(filtered.isEmpty() ? 0 : 1)
+-                    .last(true)
+-                    .build();
++                    .content(result.getContent()).page(0).size(result.getNumberOfElements())
++                    .totalElements(result.getTotalElements()).totalPages(result.isEmpty() ? 0 : 1)
++                    .last(true).build();
+         }
+-
+-        int start = (int) pageable.getOffset();
+-        int end = Math.min((start + pageable.getPageSize()), filtered.size());
+-        List<AgencyBookingRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
+-        Page<AgencyBookingRes> page =
+-                new PageImpl<>(pagedList, pageable, filtered.size());
+-        return PageResponse.from(page);
++        return PageResponse.from(result);
+     }
+ 
+     @Override
+@@ -132,36 +76,28 @@
+                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND,
+                         "agency.not_found", HttpStatus.NOT_FOUND));
+ 
+-        List<BookingEntity> bookings = bookingRepository.findByAgencyIdOrderByCreatedAtDesc(agency.getId());
+-
+-        long totalBookings = bookings.size();
+-
+-        long completedBookings = bookings.stream()
+-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT)
+-                .count();
+-
++        var agencySpec = BookingSpecifications.agency(agency.getId());
++        long totalBookings = bookingRepository.count(agencySpec);
++        List<BookingRevenueRow> completed =
++                bookingRepository.findCompletedRevenueByAgencyId(agency.getId());
++        long completedBookings = completed.size();
++        Map<Long, BigDecimal> rates = loadCommissionRates(agency.getId(), completed.stream()
++                .map(BookingRevenueRow::getMuaId)
++                .filter(Objects::nonNull).distinct().toList());
++        BigDecimal defaultRate = agency.getCommissionRateInternal() != null
++                ? agency.getCommissionRateInternal() : BigDecimal.valueOf(30.0);
+         BigDecimal totalGrossRevenue = BigDecimal.ZERO;
+         BigDecimal totalStudioNet = BigDecimal.ZERO;
+-
+-        for (BookingEntity b : bookings) {
+-            if (b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT) {
+-                AgencyBookingRes res = mapToAgencyBookingRes(b, agency);
+-                if (res.getTotalAmount() != null) {
+-                    totalGrossRevenue = totalGrossRevenue.add(res.getTotalAmount());
+-                }
+-                if (res.getEstimatedStudioNet() != null) {
+-                    totalStudioNet = totalStudioNet.add(res.getEstimatedStudioNet());
+-                }
+-            }
++        for (var booking : completed) {
++            BigDecimal amount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
++            BigDecimal rate = rates.getOrDefault(booking.getMuaId(), defaultRate);
++            BigDecimal multiplier = rate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
++            BigDecimal commission = amount.multiply(multiplier).setScale(2, RoundingMode.HALF_UP);
++            totalGrossRevenue = totalGrossRevenue.add(amount);
++            totalStudioNet = totalStudioNet.add(amount.subtract(commission).setScale(2, RoundingMode.HALF_UP));
+         }
+-
+-        long emergencyCount = bookings.stream()
+-                .filter(b -> Boolean.TRUE.equals(b.getNeedsEmergencyReassignment())
+-                        && b.getStatus() != BookingStatus.CANCELLED
+-                        && b.getStatus() != BookingStatus.CANCELLED_EXPIRED
+-                        && b.getStatus() != BookingStatus.COMPLETED
+-                        && b.getStatus() != BookingStatus.PAID_OUT)
+-                .count();
++        long emergencyCount = bookingRepository.count(agencySpec
++                .and(BookingSpecifications.agencyStatus("EMERGENCY_REASSIGNMENT")));
+ 
+         return AgencyBookingOverviewStatsRes.builder()
+                 .totalBookings(totalBookings)
+@@ -172,7 +108,16 @@
+                 .build();
+     }
+ 
+-    private AgencyBookingRes mapToAgencyBookingRes(BookingEntity b, AgencyProfileEntity agency) {
+-        return agencyBookingMapper.toRes(b, agency);
++    private Map<Long, BigDecimal> loadCommissionRates(Long agencyId, List<Long> muaIds) {
++        Map<Long, BigDecimal> rates = new HashMap<>();
++        for (int offset = 0; offset < muaIds.size(); offset += 250) {
++            for (AgencyStaffEntity staff : agencyStaffRepository.findCommissionRates(agencyId,
++                    muaIds.subList(offset, Math.min(offset + 250, muaIds.size())))) {
++                if (staff.getAgreedCommissionRate() != null) {
++                    rates.put(staff.getMua().getId(), staff.getAgreedCommissionRate());
++                }
++            }
++        }
++        return rates;
+     }
+ }
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchServiceImpl.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchServiceImpl.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchServiceImpl.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchServiceImpl.java
+@@ -2,7 +2,6 @@
+ 
+ import com.makeup.platform.common.constants.ErrorCodes;
+ import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
+-import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEvent;
+ import com.makeup.platform.common.exception.CustomBusinessException;
+ import com.makeup.platform.dto.request.agency.ApproveEmergencyReportReq;
+ import com.makeup.platform.dto.request.agency.AssignStaffToBookingReq;
+@@ -26,8 +25,6 @@
+ import com.makeup.platform.mapper.agency.AgencyBookingMapper;
+ import com.makeup.platform.mapper.agency.DispatchMatrixMapper;
+ import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
+-import com.makeup.platform.repository.AgencyProfileRepository;
+-import com.makeup.platform.repository.AgencyStaffRepository;
+ import com.makeup.platform.repository.StaffMatrixRepository;
+ import com.makeup.platform.repository.booking.BookingRepository;
+ import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
+@@ -39,17 +36,11 @@
+ import lombok.extern.slf4j.Slf4j;
+ import org.redisson.api.RLock;
+ import org.redisson.api.RedissonClient;
+-import org.springframework.context.i18n.LocaleContextHolder;
+ import org.springframework.context.ApplicationEventPublisher;
+-import org.springframework.http.HttpStatus;
+-import org.springframework.messaging.simp.SimpMessagingTemplate;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ import org.springframework.transaction.support.TransactionTemplate;
+ 
+-import java.util.Locale;
+-
+-import java.time.Duration;
+ import java.time.LocalDate;
+ import java.time.LocalDateTime;
+ import java.time.LocalTime;
+@@ -57,9 +48,7 @@
+ import java.time.ZoneOffset;
+ import java.util.ArrayList;
+ import java.util.Collections;
+-import java.util.HashMap;
+ import java.util.List;
+-import java.util.Map;
+ import java.util.Objects;
+ import java.util.concurrent.TimeUnit;
+ import java.util.stream.Collectors;
+@@ -69,11 +58,12 @@
+ @RequiredArgsConstructor
+ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
+ 
++    private final AgencyEmergencyService emergencyService;
++    private final AgencyDispatchSupport support;
++
+     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
+ 
+     private final BookingRepository bookingRepository;
+-    private final AgencyProfileRepository agencyProfileRepository;
+-    private final AgencyStaffRepository agencyStaffRepository;
+     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
+     private final StaffMatrixRepository staffMatrixRepository;
+     private final MUACalendarService muaCalendarService;
+@@ -81,20 +71,14 @@
+     private final RedissonClient redissonClient;
+     private final TransactionTemplate transactionTemplate;
+     private final ApplicationEventPublisher eventPublisher;
+-    private final SimpMessagingTemplate messagingTemplate;
+     private final AgencyBookingMapper agencyBookingMapper;
+     private final DispatchMatrixMapper dispatchMatrixMapper;
+     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
+ 
+-    private boolean isEnglishLocale() {
+-        Locale locale = LocaleContextHolder.getLocale();
+-        return locale != null && locale.getLanguage().equalsIgnoreCase("en");
+-    }
+-
+     @Override
+     @Transactional(readOnly = true)
+     public List<AgencyBookingRes> getPendingDispatchBookings(Long ownerUserId) {
+-        AgencyProfileEntity agency = getAgencyByOwnerUserId(ownerUserId);
++        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
+ 
+         List<BookingEntity> bookings = bookingRepository.findPendingDispatchBookingsByAgencyId(agency.getId());
+         return bookings.stream()
+@@ -105,12 +89,12 @@
+     @Override
+     @Transactional(readOnly = true)
+     public StaffAvailabilityMatrixRes getStaffMatrix(Long ownerUserId, Long bookingId) {
+-        AgencyProfileEntity agency = getAgencyByOwnerUserId(ownerUserId);
+-        BookingEntity booking = getBookingAndVerifyOwnership(bookingId, agency.getId());
++        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
++        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
+ 
+         LocalDate bookingDate = booking.getBookingDate();
+         LocalTime startTime = booking.getStartTime();
+-        int duration = getBookingDurationMinutes(booking);
++        int duration = support.getBookingDurationMinutes(booking);
+         LocalTime endTime = startTime.plusMinutes(duration);
+ 
+         OffsetDateTime startTs = bookingDate.atTime(startTime).atOffset(VIETNAM_OFFSET);
+@@ -136,7 +120,7 @@
+ 
+     @Override
+     public DispatchAssignmentRes assignStaff(Long ownerUserId, Long bookingId, AssignStaffToBookingReq req) {
+-        AgencyProfileEntity agency = getAgencyByOwnerUserId(ownerUserId);
++        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
+ 
+         if (req.getPrimaryStaffId() == null) {
+             throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_PRIMARY_REQUIRED, "dispatch.primary_required");
+@@ -185,7 +169,7 @@
+ 
+     @Transactional
+     protected DispatchAssignmentRes executeStaffAssignment(AgencyProfileEntity agency, Long bookingId, Long primaryStaffId, List<Long> assistantIds) {
+-        BookingEntity booking = getBookingAndVerifyOwnership(bookingId, agency.getId());
++        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
+         BookingStatus oldStatus = booking.getStatus();
+ 
+         if (booking.getStatus() != BookingStatus.PENDING_AGENCY_DISPATCH
+@@ -196,7 +180,7 @@
+ 
+         LocalDate bookingDate = booking.getBookingDate();
+         LocalTime startTime = booking.getStartTime();
+-        int duration = getBookingDurationMinutes(booking);
++        int duration = support.getBookingDurationMinutes(booking);
+         LocalTime endTime = startTime.plusMinutes(duration);
+         OffsetDateTime startTs = bookingDate.atTime(startTime).atOffset(VIETNAM_OFFSET);
+         OffsetDateTime endTs = bookingDate.atTime(endTime).atOffset(VIETNAM_OFFSET);
+@@ -217,11 +201,11 @@
+                 endTs
+         );
+ 
+-        AgencyStaffEntity primaryStaff = findAgencyStaff(primaryStaffId, agency.getId());
+-
+-        validateActiveStaff(primaryStaff);
+-
+-        StaffMatrixProjection primaryProj = findStaffProjection(projections, primaryStaffId);
++        AgencyStaffEntity primaryStaff = support.findAgencyStaff(primaryStaffId, agency.getId());
++
++        support.validateActiveStaff(primaryStaff);
++
++        StaffMatrixProjection primaryProj = support.findStaffProjection(projections, primaryStaffId);
+ 
+         boolean isPrimaryQualified = Boolean.TRUE.equals(primaryProj.getHasShift())
+                 && Boolean.TRUE.equals(primaryProj.getHasPackage())
+@@ -235,10 +219,10 @@
+         // 2. Verify Assistants
+         List<AgencyStaffEntity> assistantStaffList = new ArrayList<>();
+         for (Long astId : assistantIds) {
+-            AgencyStaffEntity astStaff = findAgencyStaff(astId, agency.getId());
+-            validateActiveStaff(astStaff);
+-
+-            StaffMatrixProjection astProj = findStaffProjection(projections, astId);
++            AgencyStaffEntity astStaff = support.findAgencyStaff(astId, agency.getId());
++            support.validateActiveStaff(astStaff);
++
++            StaffMatrixProjection astProj = support.findStaffProjection(projections, astId);
+ 
+             boolean isAstQualified = Boolean.TRUE.equals(astProj.getHasShift())
+                     && Boolean.TRUE.equals(astProj.getHasCalendarFree());
+@@ -315,7 +299,7 @@
+                 allSaved.size(), savedBooking.getBookingCode(), primaryStaff.getId());
+ 
+         // 7. Audit log transition into booking_history
+-        boolean isEn = isEnglishLocale();
++        boolean isEn = support.isEnglishLocale();
+         String primaryName = (primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
+                 ? primaryStaff.getMua().getUser().getFullName() : (isEn ? "Primary Artist" : "Thợ chính");
+         StringBuilder noteBuilder = new StringBuilder(isEn ? "Studio assigned primary artist: " : "Studio đã phân công thợ chính: ")
+@@ -345,7 +329,7 @@
+                 BookingStatus.AGENCY_ASSIGNED,
+                 agency.getOwner().getId()
+         ));
+-        broadcastDispatchUpdate(agency.getId(), savedBooking);
++        support.broadcastDispatchUpdate(agency.getId(), savedBooking);
+ 
+         List<StaffAssignmentDetailRes> assignmentDetails = bookingStaffAssignmentMapper.toDetailResList(allSaved);
+ 
+@@ -361,274 +345,20 @@
+ 
+     @Override
+     public EmergencyReassignmentRes reassignStaff(Long ownerUserId, Long bookingId, ReassignStaffReq req) {
+-        AgencyProfileEntity agency = getAgencyByOwnerUserId(ownerUserId);
+-
+-        RLock lock = redissonClient.getLock("lock:agency:staff:" + req.getNewStaffId());
+-        boolean acquired = false;
+-        try {
+-            acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
+-            if (!acquired) {
+-                throw new CustomBusinessException(ErrorCodes.ERR_LOCK_ACQUISITION_TIMEOUT, "common.system_busy");
+-            }
+-
+-            return transactionTemplate.execute(status -> executeStaffReassignment(agency, bookingId, req));
+-        } catch (InterruptedException e) {
+-            Thread.currentThread().interrupt();
+-            throw new CustomBusinessException(ErrorCodes.ERR_LOCK_ACQUISITION_TIMEOUT, "common.system_busy");
+-        } finally {
+-            if (acquired && lock.isHeldByCurrentThread()) {
+-                lock.unlock();
+-            }
+-        }
+-    }
+-
+-    @Transactional
+-    protected EmergencyReassignmentRes executeStaffReassignment(AgencyProfileEntity agency, Long bookingId, ReassignStaffReq req) {
+-        BookingEntity booking = getBookingAndVerifyOwnership(bookingId, agency.getId());
+-
+-        LocalDate bookingDate = booking.getBookingDate();
+-        LocalTime startTime = booking.getStartTime();
+-        int duration = getBookingDurationMinutes(booking);
+-        LocalTime endTime = startTime.plusMinutes(duration);
+-        OffsetDateTime startTs = bookingDate.atTime(startTime).atOffset(VIETNAM_OFFSET);
+-        OffsetDateTime endTs = bookingDate.atTime(endTime).atOffset(VIETNAM_OFFSET);
+-
+-        AgencyStaffEntity newStaff = findAgencyStaff(req.getNewStaffId(), agency.getId());
+-
+-        validateActiveStaff(newStaff);
+-
+-        // Prevent assigning to the same staff
+-        if (req.getOldStaffId() != null && req.getOldStaffId().equals(req.getNewStaffId())) {
+-            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.cannot_reassign_to_same_staff");
+-        }
+-
+-        // Prevent assigning a staff who reported emergency busy for this booking
+-        boolean wasCancelledOnThisBooking = bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
+-                booking.getId(), newStaff.getId(), AssignmentStatus.EMERGENCY_CANCELLED
+-        );
+-        if (wasCancelledOnThisBooking) {
+-            throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_reported_busy");
+-        }
+-
+-        // Prevent assigning a staff who is already active on this booking
+-        boolean isAlreadyActive = bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
+-                booking.getId(), newStaff.getId(), AssignmentStatus.ACTIVE
+-        );
+-        if (isAlreadyActive) {
+-            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.staff_already_assigned");
+-        }
+-
+-        // Replace old assignment if exists
+-        String oldStaffName = "Chưa có";
+-        AssignmentRole roleToAssign = AssignmentRole.PRIMARY_MUA;
+-        BookingStaffAssignmentEntity oldAssignment = findAssignmentToReplace(booking.getId(), req.getOldStaffId());
+-
+-        // Reject if this new staff already reported busy for this specific booking
+-        boolean alreadyReportedBusy = bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
+-                booking.getId(), newStaff.getId(), AssignmentStatus.EMERGENCY_CANCELLED
+-        );
+-        if (alreadyReportedBusy) {
+-            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.staff_reported_busy");
+-        }
+-
+-        if (oldAssignment != null) {
+-            roleToAssign = oldAssignment.getAssignmentRole();
+-            if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getMua() != null && oldAssignment.getStaff().getMua().getUser() != null) {
+-                oldStaffName = oldAssignment.getStaff().getMua().getUser().getFullName();
+-            }
+-            if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getId().equals(newStaff.getId())) {
+-                throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.cannot_reassign_to_same_staff");
+-            }
+-            oldAssignment.setStatus(AssignmentStatus.REPLACED);
+-            oldAssignment.setReplacedByStaff(newStaff);
+-            bookingStaffAssignmentRepository.saveAndFlush(oldAssignment);
+-
+-            // Release old staff's calendar slot if still present
+-            if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getMua() != null) {
+-                muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), oldAssignment.getStaff().getMua().getId());
+-            }
+-        }
+-
+-        // Verify qualification of new staff against matrix
+-        Long packageId = booking.getServicePackage() != null ? booking.getServicePackage().getId() : null;
+-        Long styleId = (booking.getStyle() != null && booking.getStyle().getId() != null) ? booking.getStyle().getId().longValue() : null;
+-
+-        List<StaffMatrixProjection> projections = staffMatrixRepository.getStaffAvailabilityMatrix(
+-                agency.getId(),
+-                booking.getId(),
+-                packageId,
+-                styleId,
+-                bookingDate,
+-                startTime,
+-                endTime,
+-                startTs,
+-                endTs
+-        );
+-
+-        StaffMatrixProjection newStaffProj = findStaffProjection(projections, newStaff.getId());
+-
+-        boolean isNewStaffQualified = Boolean.TRUE.equals(newStaffProj.getHasShift())
+-                && Boolean.TRUE.equals(newStaffProj.getHasCalendarFree())
+-                && !Boolean.TRUE.equals(newStaffProj.getHasReportedBusy())
+-                && (roleToAssign != AssignmentRole.PRIMARY_MUA
+-                    || (Boolean.TRUE.equals(newStaffProj.getHasPackage()) && Boolean.TRUE.equals(newStaffProj.getHasStyle())));
+-
+-        if (!isNewStaffQualified) {
+-            throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified");
+-        }
+-
+-        // Create new active assignment
+-        BookingStaffAssignmentEntity newAssignment = BookingStaffAssignmentEntity.builder()
+-                .booking(booking)
+-                .staff(newStaff)
+-                .assignmentRole(roleToAssign)
+-                .status(AssignmentStatus.ACTIVE)
+-                .assignedAt(OffsetDateTime.now())
+-                .build();
+-        bookingStaffAssignmentRepository.save(newAssignment);
+-
+-        // Lock calendar slot for new staff
+-        muaCalendarService.lockSlotForBooking(
+-                newStaff.getMua().getId(),
+-                booking.getId(),
+-                bookingDate,
+-                startTs,
+-                endTs,
+-                "EMERGENCY_REASSIGNMENT_" + roleToAssign.name()
+-        );
+-
+-        if (roleToAssign == AssignmentRole.PRIMARY_MUA) {
+-            booking.setMua(newStaff.getMua());
+-        }
+-
+-        // Check if there are other unfulfilled emergency roles
+-        boolean hasRemainingEmergency = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
+-                booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED
+-        ).stream().anyMatch(ea -> !bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
+-                booking.getId(), ea.getStaff().getId(), AssignmentStatus.ACTIVE
+-        ));
+-
+-        if (!hasRemainingEmergency) {
+-            booking.setNeedsEmergencyReassignment(false);
+-            booking.setEmergencyReason(null);
+-        }
+-
+-        BookingEntity savedBooking = bookingRepository.save(booking);
+-
+-        log.info("Reassigned staff {} for booking {} with role {}",
+-                newStaff.getId(), savedBooking.getBookingCode(), roleToAssign);
+-
+-        // Audit log transition into booking_history
+-        boolean isEnReassign = isEnglishLocale();
+-        String newStaffFullName = (newStaff.getMua() != null && newStaff.getMua().getUser() != null)
+-                ? newStaff.getMua().getUser().getFullName() : (isEnReassign ? "New Artist" : "Chuyên viên mới");
+-        String reassignNote = isEnReassign
+-                ? ("Studio reassigned staff from " + oldStaffName + " to " + newStaffFullName + " (Reason: " + req.getReassignmentReason() + ")")
+-                : ("Studio đổi thợ từ " + oldStaffName + " sang " + newStaffFullName + " (Lý do: " + req.getReassignmentReason() + ")");
+-        bookingAuditService.logTransition(
+-                savedBooking,
+-                savedBooking.getStatus(),
+-                savedBooking.getStatus(),
+-                agency.getOwner().getId(),
+-                reassignNote
+-        );
+-
+-        broadcastDispatchUpdate(agency.getId(), savedBooking);
+-
+-        return EmergencyReassignmentRes.builder()
+-                .bookingId(booking.getId())
+-                .bookingCode(booking.getBookingCode())
+-                .oldStaffId(req.getOldStaffId())
+-                .oldStaffName(oldStaffName)
+-                .newStaffId(newStaff.getId())
+-                .newStaffName(newStaff.getMua().getUser().getFullName())
+-                .role(roleToAssign)
+-                .emergencyReason(req.getReassignmentReason())
+-                .emergencyTier("REASSIGNED")
+-                .reassignedAt(LocalDateTime.now())
+-                .build();
++        return emergencyService.reassignStaff(ownerUserId, bookingId, req);
+     }
+ 
+     @Override
+     @Transactional
+     public void proceedSolo(Long ownerUserId, Long bookingId, ProceedSoloReq req) {
+-        AgencyProfileEntity agency = getAgencyByOwnerUserId(ownerUserId);
+-        BookingEntity booking = getBookingAndVerifyOwnership(bookingId, agency.getId());
+-
+-        List<BookingStaffAssignmentEntity> activeAssignments = bookingStaffAssignmentRepository
+-                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
+-
+-        if (activeAssignments.isEmpty()) {
+-            throw new CustomBusinessException(
+-                    ErrorCodes.ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS,
+-                    "dispatch.cannot_proceed_solo_no_active_staff"
+-            );
+-        }
+-
+-        // Find active primary staff, or promote first active staff to primary
+-        BookingStaffAssignmentEntity primaryAssignment = activeAssignments.stream()
+-                .filter(a -> a.getAssignmentRole() == AssignmentRole.PRIMARY_MUA)
+-                .findFirst()
+-                .orElse(null);
+-
+-        if (primaryAssignment == null) {
+-            primaryAssignment = activeAssignments.get(0);
+-            primaryAssignment.setAssignmentRole(AssignmentRole.PRIMARY_MUA);
+-            bookingStaffAssignmentRepository.save(primaryAssignment);
+-            if (primaryAssignment.getStaff() != null && primaryAssignment.getStaff().getMua() != null) {
+-                booking.setMua(primaryAssignment.getStaff().getMua());
+-            }
+-        }
+-
+-        AgencyStaffEntity primaryStaff = primaryAssignment.getStaff();
+-        String primaryStaffName = (primaryStaff != null && primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
+-                ? primaryStaff.getMua().getUser().getFullName() : "Thợ chính";
+-
+-        // Mark previous emergency-cancelled staff assignments as REPLACED by solo primary staff
+-        List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
+-                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
+-        for (BookingStaffAssignmentEntity ea : emergencyAssignments) {
+-            ea.setStatus(AssignmentStatus.REPLACED);
+-            ea.setReplacedByStaff(primaryStaff);
+-            bookingStaffAssignmentRepository.save(ea);
+-
+-            if (ea.getStaff() != null && ea.getStaff().getMua() != null) {
+-                muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), ea.getStaff().getMua().getId());
+-            }
+-        }
+-
+-        // Clear emergency flag on booking
+-        booking.setNeedsEmergencyReassignment(false);
+-        booking.setEmergencyReason(null);
+-        booking.setEmergencyProofUrl(null);
+-        booking.setEmergencyReportedAt(null);
+-        BookingEntity savedBooking = bookingRepository.save(booking);
+-
+-        boolean isEn = isEnglishLocale();
+-        String noteSuffix = (req != null && req.getResolutionNote() != null && !req.getResolutionNote().isBlank())
+-                ? (isEn ? " Note: " + req.getResolutionNote().trim() : " Ghi chú: " + req.getResolutionNote().trim())
+-                : "";
+-        String auditNote = isEn
+-                ? ("Studio confirmed artist " + primaryStaffName + " will fulfill the booking solo (no replacement needed)." + noteSuffix)
+-                : ("Studio xác nhận để thợ " + primaryStaffName + " đảm nhiệm toàn bộ đơn hàng (không cần phân công thêm thợ thay thế)." + noteSuffix);
+-
+-        bookingAuditService.logTransition(
+-                savedBooking,
+-                savedBooking.getStatus(),
+-                savedBooking.getStatus(),
+-                agency.getOwner().getId(),
+-                auditNote
+-        );
+-
+-        broadcastDispatchUpdate(agency.getId(), savedBooking);
+-        log.info("Booking {} emergency resolved as solo assignment for staff {}", savedBooking.getBookingCode(), primaryStaffName);
++        emergencyService.proceedSolo(ownerUserId, bookingId, req);
+     }
+ 
+     @Override
+     @Transactional
+     public void rejectBooking(Long ownerUserId, Long bookingId, RejectDispatchBookingReq req) {
+-        AgencyProfileEntity agency = getAgencyByOwnerUserId(ownerUserId);
+-        BookingEntity booking = getBookingAndVerifyOwnership(bookingId, agency.getId());
++        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
++        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
+ 
+         if (booking.getStatus() != BookingStatus.PENDING_AGENCY_DISPATCH) {
+             throw new CustomBusinessException(ErrorCodes.ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS, "dispatch.cannot_dispatch_in_status");
+@@ -637,7 +367,7 @@
+         BookingStatus oldStatus = booking.getStatus();
+         booking.setStatus(BookingStatus.CANCELLED);
+         booking.setNeedsEmergencyReassignment(false);
+-        boolean isEnReject = isEnglishLocale();
++        boolean isEnReject = support.isEnglishLocale();
+         String prefix = isEnReject ? "Studio rejected: " : "Studio từ chối: ";
+         String reason = prefix + req.getRejectionReason() +
+                 (req.getRejectionNote() != null ? " - " + req.getRejectionNote() : "");
+@@ -667,226 +397,19 @@
+                 BookingStatus.CANCELLED,
+                 agency.getOwner().getId()
+         ));
+-        broadcastDispatchUpdate(agency.getId(), savedBooking);
++        support.broadcastDispatchUpdate(agency.getId(), savedBooking);
+     }
+ 
+     @Override
+     @Transactional
+     public void reportEmergencyBusy(Long muaUserId, Long bookingId, ReportEmergencyBusyReq req) {
+-        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(muaUserId)
+-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_STAFF_NOT_FOUND, "agency.staff_not_found"));
+-
+-        BookingEntity booking = bookingRepository.findById(bookingId)
+-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found"));
+-
+-        BookingStaffAssignmentEntity assignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
+-                booking.getId(), staff.getId(), AssignmentStatus.ACTIVE
+-        ).orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"));
+-
+-        LocalDateTime scheduledStart = booking.getScheduledStartTime();
+-        if (scheduledStart == null && booking.getBookingDate() != null && booking.getStartTime() != null) {
+-            scheduledStart = booking.getBookingDate().atTime(booking.getStartTime());
+-        }
+-
+-        double hoursUntilBooking = 0.0;
+-        if (scheduledStart != null) {
+-            hoursUntilBooking = Duration.between(LocalDateTime.now(), scheduledStart).toMinutes() / 60.0;
+-        }
+-
+-        String tier;
+-        if (hoursUntilBooking >= 4.0) {
+-            tier = "TIER_1_STANDARD";
+-        } else if (hoursUntilBooking >= 2.0) {
+-            tier = "TIER_2_URGENT";
+-        } else {
+-            tier = "TIER_3_CRITICAL";
+-        }
+-
+-        // Critical emergency (< 2 hours) strictly requires incident proof document
+-        if (hoursUntilBooking < 2.0 && (req.getProofDocumentUrl() == null || req.getProofDocumentUrl().isBlank())) {
+-            log.warn("Staff {} attempted to report critical emergency for booking {} without proof document (hours remaining: {})",
+-                    staff.getId(), booking.getBookingCode(), hoursUntilBooking);
+-            throw new CustomBusinessException(
+-                    ErrorCodes.ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL,
+-                    "dispatch.emergency_proof_required_critical",
+-                    HttpStatus.BAD_REQUEST
+-            );
+-        }
+-
+-        // Cancel staff assignment
+-        assignment.setStatus(AssignmentStatus.EMERGENCY_CANCELLED);
+-        assignment.setCancellationReason(req.getEmergencyReason());
+-        assignment.setProofDocumentUrl(req.getProofDocumentUrl());
+-        assignment.setCancelledAt(OffsetDateTime.now());
+-        bookingStaffAssignmentRepository.save(assignment);
+-
+-        // Immediately release staff's calendar slot for this booking so they are not blocked or causing conflicts
+-        if (staff.getMua() != null) {
+-            muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), staff.getMua().getId());
+-        }
+-
+-        // Update booking to trigger emergency reassignment
+-        booking.setNeedsEmergencyReassignment(true);
+-        booking.setEmergencyReason(req.getEmergencyReason());
+-        booking.setEmergencyProofUrl(req.getProofDocumentUrl());
+-        booking.setEmergencyReportedAt(OffsetDateTime.now());
+-        BookingEntity savedBooking = bookingRepository.save(booking);
+-
+-        log.warn("Staff {} reported emergency busy for booking {} (Tier: {}, Hours remaining: {})",
+-                staff.getId(), savedBooking.getBookingCode(), tier, hoursUntilBooking);
+-
+-        // Audit log transition into booking_history
+-        boolean isEnReport = isEnglishLocale();
+-        String proofUrlPart = (req.getProofDocumentUrl() != null && !req.getProofDocumentUrl().isBlank())
+-                ? (isEnReport ? " [Proof: " + req.getProofDocumentUrl() + "]" : " [Minh chứng: " + req.getProofDocumentUrl() + "]")
+-                : "";
+-        String emergencyNote = (isEnReport ? "Staff reported emergency unavailability: " : "Thợ báo bận đột xuất: ")
+-                + req.getEmergencyReason() + proofUrlPart;
+-        bookingAuditService.logTransition(
+-                savedBooking,
+-                savedBooking.getStatus(),
+-                savedBooking.getStatus(),
+-                muaUserId,
+-                emergencyNote
+-        );
+-
+-        // Publish event for WebSocket alert to Agency
+-        eventPublisher.publishEvent(EmergencyReassignmentRequestedEvent.builder()
+-                .bookingId(booking.getId())
+-                .bookingCode(booking.getBookingCode())
+-                .agencyId(staff.getAgency().getId())
+-                .staffId(staff.getId())
+-                .staffName(staff.getMua().getUser().getFullName())
+-                .role(assignment.getAssignmentRole())
+-                .emergencyReason(req.getEmergencyReason())
+-                .emergencyTier(tier)
+-                .hoursUntilBooking(hoursUntilBooking)
+-                .scheduledStartTime(scheduledStart)
+-                .proofDocumentUrl(req.getProofDocumentUrl())
+-                .build());
++        emergencyService.reportEmergencyBusy(muaUserId, bookingId, req);
+     }
+ 
+     @Override
+     @Transactional
+     public EmergencyApprovalRes reviewEmergencyReport(Long ownerUserId, Long bookingId, Long staffId, ApproveEmergencyReportReq req) {
+-        AgencyProfileEntity agency = getAgencyByOwnerUserId(ownerUserId);
+-        BookingEntity booking = getBookingAndVerifyOwnership(bookingId, agency.getId());
+-
+-        BookingStaffAssignmentEntity assignment = null;
+-        if (staffId != null) {
+-            assignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
+-                    booking.getId(), staffId, AssignmentStatus.EMERGENCY_CANCELLED
+-            ).orElse(null);
+-        }
+-        if (assignment == null) {
+-            List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
+-                    .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
+-            if (emergencyAssignments.isEmpty()) {
+-                throw new CustomBusinessException(
+-                        ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"
+-                );
+-            }
+-            assignment = emergencyAssignments.stream()
+-                    .sorted((a1, a2) -> {
+-                        if (a1.getCancelledAt() != null && a2.getCancelledAt() != null) {
+-                            return a2.getCancelledAt().compareTo(a1.getCancelledAt());
+-                        }
+-                        return Long.compare(a2.getId() != null ? a2.getId() : 0L, a1.getId() != null ? a1.getId() : 0L);
+-                    })
+-                    .findFirst()
+-                    .orElse(emergencyAssignments.get(0));
+-        }
+-
+-        AgencyStaffEntity staff = assignment.getStaff();
+-        String staffName = (staff != null && staff.getMua() != null && staff.getMua().getUser() != null)
+-                ? staff.getMua().getUser().getFullName() : "Thợ trang điểm";
+-
+-        boolean isEn = isEnglishLocale();
+-        String reportedReason = assignment.getCancellationReason() != null ? assignment.getCancellationReason() : booking.getEmergencyReason();
+-        String proofUrl = assignment.getProofDocumentUrl() != null ? assignment.getProofDocumentUrl() : booking.getEmergencyProofUrl();
+-        String reviewNote = (req.getAdminReviewNote() != null && !req.getAdminReviewNote().isBlank()) ? req.getAdminReviewNote().trim() : null;
+-        String proofSuffix = (proofUrl != null && !proofUrl.isBlank())
+-                ? (isEn ? " [Proof: " + proofUrl + "]" : " [Minh chứng: " + proofUrl + "]")
+-                : "";
+-
+-        if (Boolean.TRUE.equals(req.getApproved())) {
+-            // Chấp thuận báo bận: Giữ cờ emergency, ghi nhận note duyệt
+-            if (reviewNote != null) {
+-                String existingNote = assignment.getDispatchNotes() != null ? assignment.getDispatchNotes() + " | " : "";
+-                assignment.setDispatchNotes(existingNote + "Studio duyệt: " + reviewNote);
+-                bookingStaffAssignmentRepository.save(assignment);
+-            }
+-
+-            String auditNote = isEn
+-                    ? ("Studio APPROVED emergency unavailability for artist: " + staffName + ". Reason: " + (reportedReason != null ? reportedReason : "N/A") + proofSuffix + ". Review Note: " + (reviewNote != null ? reviewNote : "None"))
+-                    : ("Studio CHẤP THUẬN đơn báo bận của thợ: " + staffName + ". Lý do: " + (reportedReason != null ? reportedReason : "Không rõ") + proofSuffix + ". Ghi chú duyệt: " + (reviewNote != null ? reviewNote : "Không"));
+-            bookingAuditService.logTransition(
+-                    booking,
+-                    booking.getStatus(),
+-                    booking.getStatus(),
+-                    ownerUserId,
+-                    auditNote
+-            );
+-        } else {
+-            // Từ chối báo bận: Khôi phục thợ về trạng thái ACTIVE, khóa lại lịch, tắt cờ emergency
+-            assignment.setStatus(AssignmentStatus.ACTIVE);
+-            if (reviewNote != null) {
+-                String existingNote = assignment.getDispatchNotes() != null ? assignment.getDispatchNotes() + " | " : "";
+-                assignment.setDispatchNotes(existingNote + "Studio từ chối duyệt: " + reviewNote);
+-            }
+-            assignment.setCancellationReason(null);
+-            assignment.setProofDocumentUrl(null);
+-            assignment.setCancelledAt(null);
+-            bookingStaffAssignmentRepository.save(assignment);
+-
+-            // Re-lock calendar slot for staff
+-            if (staff != null && staff.getMua() != null) {
+-                LocalDate bookingDate = booking.getBookingDate();
+-                LocalTime startTime = booking.getStartTime();
+-                int duration = (booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null)
+-                        ? booking.getServicePackage().getEstimatedDurationMinutes() : 60;
+-                LocalTime endTime = startTime.plusMinutes(duration);
+-                OffsetDateTime startTs = bookingDate.atTime(startTime).atOffset(VIETNAM_OFFSET);
+-                OffsetDateTime endTs = bookingDate.atTime(endTime).atOffset(VIETNAM_OFFSET);
+-
+-                muaCalendarService.lockSlotForBooking(
+-                        staff.getMua().getId(),
+-                        booking.getId(),
+-                        bookingDate,
+-                        startTs,
+-                        endTs,
+-                        "ASSIGNED_" + assignment.getAssignmentRole().name()
+-                );
+-            }
+-
+-            booking.setNeedsEmergencyReassignment(false);
+-            booking.setEmergencyReason(null);
+-            booking.setEmergencyProofUrl(null);
+-            booking.setEmergencyReportedAt(null);
+-            bookingRepository.save(booking);
+-
+-            String auditNote = isEn
+-                    ? ("Studio REJECTED emergency unavailability for artist: " + staffName + ". Artist restored to active duty. Reason: " + (reportedReason != null ? reportedReason : "N/A") + proofSuffix + ". Rejection Note: " + (reviewNote != null ? reviewNote : "None"))
+-                    : ("Studio TỪ CHỐI đơn báo bận của thợ: " + staffName + ". Thợ được khôi phục về ca trực. Lý do báo bận: " + (reportedReason != null ? reportedReason : "Không rõ") + proofSuffix + ". Ghi chú từ chối: " + (reviewNote != null ? reviewNote : "Không"));
+-            bookingAuditService.logTransition(
+-                    booking,
+-                    booking.getStatus(),
+-                    booking.getStatus(),
+-                    ownerUserId,
+-                    auditNote
+-            );
+-        }
+-
+-        log.info("Agency {} reviewed emergency report for booking {}, staffId={}: approved={}, note={}",
+-                agency.getId(), booking.getBookingCode(), staff.getId(), req.getApproved(), req.getAdminReviewNote());
+-
+-        return EmergencyApprovalRes.builder()
+-                .bookingId(booking.getId())
+-                .staffId(staff.getId())
+-                .approved(req.getApproved())
+-                .adminReviewNote(req.getAdminReviewNote())
+-                .reviewedAt(LocalDateTime.now())
+-                .build();
++        return emergencyService.reviewEmergencyReport(ownerUserId, bookingId, staffId, req);
+     }
+ 
+     @Override
+@@ -905,8 +428,8 @@
+         log.info("Staff {} confirmed assignment {}", muaUserId, assignmentId);
+ 
+         String staffName = (assignment.getStaff() != null && assignment.getStaff().getMua() != null && assignment.getStaff().getMua().getUser() != null)
+-                ? assignment.getStaff().getMua().getUser().getFullName() : (isEnglishLocale() ? "Artist" : "Chuyên viên");
+-        boolean isEnConfirm = isEnglishLocale();
++                ? assignment.getStaff().getMua().getUser().getFullName() : (support.isEnglishLocale() ? "Artist" : "Chuyên viên");
++        boolean isEnConfirm = support.isEnglishLocale();
+         String confirmNote = isEnConfirm
+                 ? ("Artist (" + staffName + ") confirmed assignment (" + assignment.getAssignmentRole().name() + ")")
+                 : ("Thợ (" + staffName + ") xác nhận nhận ca (" + assignment.getAssignmentRole().name() + ")");
+@@ -919,85 +442,4 @@
+         );
+     }
+ 
+-    private AgencyStaffEntity findAgencyStaff(Long staffId, Long agencyId) {
+-        return agencyStaffRepository.findByIdAndAgencyIdWithMuaAndUser(staffId, agencyId)
+-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_STAFF_NOT_FOUND, "agency.staff_not_found"));
+-    }
+-
+-    private void validateActiveStaff(AgencyStaffEntity staff) {
+-        if (!Boolean.TRUE.equals(staff.getIsActive()) || !"ACTIVE".equals(staff.getStatus())) {
+-            throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified");
+-        }
+-    }
+-
+-    private StaffMatrixProjection findStaffProjection(List<StaffMatrixProjection> projections, Long staffId) {
+-        return projections.stream()
+-                .filter(projection -> projection.getStaffId().equals(staffId))
+-                .findFirst()
+-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified"));
+-    }
+-
+-    private BookingStaffAssignmentEntity findAssignmentToReplace(Long bookingId, Long oldStaffId) {
+-        BookingStaffAssignmentEntity oldAssignment = null;
+-
+-        if (oldStaffId != null) {
+-            oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
+-                    bookingId, oldStaffId, AssignmentStatus.EMERGENCY_CANCELLED
+-            ).orElse(null);
+-            if (oldAssignment == null) {
+-                oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
+-                        bookingId, oldStaffId, AssignmentStatus.ACTIVE
+-                ).orElse(null);
+-            }
+-        }
+-
+-        if (oldAssignment == null) {
+-            oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
+-                    bookingId, AssignmentStatus.EMERGENCY_CANCELLED
+-            ).stream().findFirst().orElse(null);
+-        }
+-
+-        if (oldAssignment == null) {
+-            oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
+-                    bookingId, AssignmentStatus.ACTIVE
+-            ).stream().filter(a -> a.getAssignmentRole() == AssignmentRole.PRIMARY_MUA).findFirst().orElse(null);
+-        }
+-        return oldAssignment;
+-    }
+-
+-    private int getBookingDurationMinutes(BookingEntity booking) {
+-        return booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null
+-                ? booking.getServicePackage().getEstimatedDurationMinutes() : 60;
+-    }
+-
+-    private AgencyProfileEntity getAgencyByOwnerUserId(Long ownerUserId) {
+-        return agencyProfileRepository.findByOwnerId(ownerUserId)
+-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND, "agency.profile_not_found", HttpStatus.NOT_FOUND));
+-    }
+-
+-    private BookingEntity getBookingAndVerifyOwnership(Long bookingId, Long agencyId) {
+-        BookingEntity booking = bookingRepository.findById(bookingId)
+-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+-
+-        if (booking.getAgency() == null || !booking.getAgency().getId().equals(agencyId)) {
+-            throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_ACCESS_DENIED, "agency.access_denied", HttpStatus.FORBIDDEN);
+-        }
+-        return booking;
+-    }
+-
+-    private void broadcastDispatchUpdate(Long agencyId, BookingEntity booking) {
+-        try {
+-            Map<String, Object> payload = new HashMap<>();
+-            payload.put("type", "DISPATCH_STATUS_UPDATED");
+-            payload.put("bookingId", booking.getId());
+-            payload.put("bookingCode", booking.getBookingCode());
+-            payload.put("status", booking.getStatus().name());
+-            payload.put("needsEmergencyReassignment", booking.getNeedsEmergencyReassignment());
+-            payload.put("timestamp", System.currentTimeMillis());
+-
+-            messagingTemplate.convertAndSend("/topic/agency/" + agencyId + "/bookings", payload);
+-        } catch (Exception e) {
+-            log.error("Failed to broadcast dispatch update for bookingId={}", booking.getId(), e);
+-        }
+-    }
+ }
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchSupport.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchSupport.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyDispatchSupport.java
+@@ -0,0 +1,125 @@
++package com.makeup.platform.service.agency.impl;
++
++import com.makeup.platform.common.constants.ErrorCodes;
++import com.makeup.platform.common.exception.CustomBusinessException;
++import com.makeup.platform.entity.agency.AgencyProfileEntity;
++import com.makeup.platform.entity.agency.AgencyStaffEntity;
++import com.makeup.platform.entity.booking.AssignmentRole;
++import com.makeup.platform.entity.booking.AssignmentStatus;
++import com.makeup.platform.entity.booking.BookingEntity;
++import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
++import com.makeup.platform.repository.AgencyProfileRepository;
++import com.makeup.platform.repository.AgencyStaffRepository;
++import com.makeup.platform.repository.booking.BookingRepository;
++import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
++import com.makeup.platform.repository.custom.projection.StaffMatrixProjection;
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.context.i18n.LocaleContextHolder;
++import org.springframework.http.HttpStatus;
++import com.makeup.platform.service.booking.BookingMessagePublisher;
++import org.springframework.stereotype.Service;
++
++import java.util.Locale;
++
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++
++@Slf4j
++@Service
++@RequiredArgsConstructor
++public class AgencyDispatchSupport {
++    private final BookingRepository bookingRepository;
++    private final AgencyProfileRepository agencyProfileRepository;
++    private final AgencyStaffRepository agencyStaffRepository;
++    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
++    private final BookingMessagePublisher messagePublisher;
++
++    public boolean isEnglishLocale() {
++        Locale locale = LocaleContextHolder.getLocale();
++        return locale != null && locale.getLanguage().equalsIgnoreCase("en");
++    }
++
++    public AgencyStaffEntity findAgencyStaff(Long staffId, Long agencyId) {
++        return agencyStaffRepository.findByIdAndAgencyIdWithMuaAndUser(staffId, agencyId)
++                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_STAFF_NOT_FOUND, "agency.staff_not_found"));
++    }
++
++    public void validateActiveStaff(AgencyStaffEntity staff) {
++        if (!Boolean.TRUE.equals(staff.getIsActive()) || !"ACTIVE".equals(staff.getStatus())) {
++            throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified");
++        }
++    }
++
++    public StaffMatrixProjection findStaffProjection(List<StaffMatrixProjection> projections, Long staffId) {
++        return projections.stream()
++                .filter(projection -> projection.getStaffId().equals(staffId))
++                .findFirst()
++                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified"));
++    }
++
++    public BookingStaffAssignmentEntity findAssignmentToReplace(Long bookingId, Long oldStaffId) {
++        BookingStaffAssignmentEntity oldAssignment = null;
++
++        if (oldStaffId != null) {
++            oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
++                    bookingId, oldStaffId, AssignmentStatus.EMERGENCY_CANCELLED
++            ).orElse(null);
++            if (oldAssignment == null) {
++                oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
++                        bookingId, oldStaffId, AssignmentStatus.ACTIVE
++                ).orElse(null);
++            }
++        }
++
++        if (oldAssignment == null) {
++            oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
++                    bookingId, AssignmentStatus.EMERGENCY_CANCELLED
++            ).stream().findFirst().orElse(null);
++        }
++
++        if (oldAssignment == null) {
++            oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
++                    bookingId, AssignmentStatus.ACTIVE
++            ).stream().filter(a -> a.getAssignmentRole() == AssignmentRole.PRIMARY_MUA).findFirst().orElse(null);
++        }
++        return oldAssignment;
++    }
++
++    public int getBookingDurationMinutes(BookingEntity booking) {
++        return booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null
++                ? booking.getServicePackage().getEstimatedDurationMinutes() : 60;
++    }
++
++    public AgencyProfileEntity getAgencyByOwnerUserId(Long ownerUserId) {
++        return agencyProfileRepository.findByOwnerId(ownerUserId)
++                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND, "agency.profile_not_found", HttpStatus.NOT_FOUND));
++    }
++
++    public BookingEntity getBookingAndVerifyOwnership(Long bookingId, Long agencyId) {
++        BookingEntity booking = bookingRepository.findById(bookingId)
++                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
++
++        if (booking.getAgency() == null || !booking.getAgency().getId().equals(agencyId)) {
++            throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_ACCESS_DENIED, "agency.access_denied", HttpStatus.FORBIDDEN);
++        }
++        return booking;
++    }
++
++    public void broadcastDispatchUpdate(Long agencyId, BookingEntity booking) {
++        try {
++            Map<String, Object> payload = new HashMap<>();
++            payload.put("type", "DISPATCH_STATUS_UPDATED");
++            payload.put("bookingId", booking.getId());
++            payload.put("bookingCode", booking.getBookingCode());
++            payload.put("status", booking.getStatus().name());
++            payload.put("needsEmergencyReassignment", booking.getNeedsEmergencyReassignment());
++            payload.put("timestamp", System.currentTimeMillis());
++
++            messagePublisher.send("/topic/agency/" + agencyId + "/bookings", payload);
++        } catch (Exception e) {
++            log.error("Failed to broadcast dispatch update for bookingId={}", booking.getId(), e);
++        }
++    }
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyEmergencyService.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyEmergencyService.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/agency/impl/AgencyEmergencyService.java
+@@ -0,0 +1,539 @@
++package com.makeup.platform.service.agency.impl;
++
++import com.makeup.platform.common.constants.ErrorCodes;
++import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEvent;
++import com.makeup.platform.common.exception.CustomBusinessException;
++import com.makeup.platform.dto.request.agency.ApproveEmergencyReportReq;
++import com.makeup.platform.dto.request.agency.ProceedSoloReq;
++import com.makeup.platform.dto.request.agency.ReassignStaffReq;
++import com.makeup.platform.dto.request.agency.ReportEmergencyBusyReq;
++import com.makeup.platform.dto.response.agency.EmergencyApprovalRes;
++import com.makeup.platform.dto.response.agency.EmergencyReassignmentRes;
++import com.makeup.platform.entity.agency.AgencyProfileEntity;
++import com.makeup.platform.entity.agency.AgencyStaffEntity;
++import com.makeup.platform.entity.booking.AssignmentRole;
++import com.makeup.platform.entity.booking.AssignmentStatus;
++import com.makeup.platform.entity.booking.BookingEntity;
++import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
++import com.makeup.platform.repository.AgencyStaffRepository;
++import com.makeup.platform.repository.StaffMatrixRepository;
++import com.makeup.platform.repository.booking.BookingRepository;
++import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
++import com.makeup.platform.repository.custom.projection.StaffMatrixProjection;
++import com.makeup.platform.service.booking.BookingAuditService;
++import com.makeup.platform.service.mua.MUACalendarService;
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.redisson.api.RLock;
++import org.redisson.api.RedissonClient;
++import org.springframework.context.ApplicationEventPublisher;
++import org.springframework.http.HttpStatus;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++import org.springframework.transaction.support.TransactionTemplate;
++
++import java.time.Duration;
++import java.time.LocalDate;
++import java.time.LocalDateTime;
++import java.time.LocalTime;
++import java.time.OffsetDateTime;
++import java.time.ZoneOffset;
++import java.util.List;
++import java.util.concurrent.TimeUnit;
++
++@Slf4j
++@Service
++@RequiredArgsConstructor
++public class AgencyEmergencyService {
++    private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
++    private final BookingRepository bookingRepository;
++    private final AgencyStaffRepository agencyStaffRepository;
++    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
++    private final StaffMatrixRepository staffMatrixRepository;
++    private final MUACalendarService muaCalendarService;
++    private final BookingAuditService bookingAuditService;
++    private final RedissonClient redissonClient;
++    private final TransactionTemplate transactionTemplate;
++    private final ApplicationEventPublisher eventPublisher;
++    private final AgencyDispatchSupport support;
++
++    public EmergencyReassignmentRes reassignStaff(Long ownerUserId, Long bookingId, ReassignStaffReq req) {
++        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
++
++        RLock lock = redissonClient.getLock("lock:agency:staff:" + req.getNewStaffId());
++        boolean acquired = false;
++        try {
++            acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
++            if (!acquired) {
++                throw new CustomBusinessException(ErrorCodes.ERR_LOCK_ACQUISITION_TIMEOUT, "common.system_busy");
++            }
++
++            return transactionTemplate.execute(status -> executeStaffReassignment(agency, bookingId, req));
++        } catch (InterruptedException e) {
++            Thread.currentThread().interrupt();
++            throw new CustomBusinessException(ErrorCodes.ERR_LOCK_ACQUISITION_TIMEOUT, "common.system_busy");
++        } finally {
++            if (acquired && lock.isHeldByCurrentThread()) {
++                lock.unlock();
++            }
++        }
++    }
++
++    @Transactional
++    protected EmergencyReassignmentRes executeStaffReassignment(AgencyProfileEntity agency, Long bookingId, ReassignStaffReq req) {
++        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
++
++        LocalDate bookingDate = booking.getBookingDate();
++        LocalTime startTime = booking.getStartTime();
++        int duration = support.getBookingDurationMinutes(booking);
++        LocalTime endTime = startTime.plusMinutes(duration);
++        OffsetDateTime startTs = bookingDate.atTime(startTime).atOffset(VIETNAM_OFFSET);
++        OffsetDateTime endTs = bookingDate.atTime(endTime).atOffset(VIETNAM_OFFSET);
++
++        AgencyStaffEntity newStaff = support.findAgencyStaff(req.getNewStaffId(), agency.getId());
++
++        support.validateActiveStaff(newStaff);
++
++        // Prevent assigning to the same staff
++        if (req.getOldStaffId() != null && req.getOldStaffId().equals(req.getNewStaffId())) {
++            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.cannot_reassign_to_same_staff");
++        }
++
++        // Prevent assigning a staff who reported emergency busy for this booking
++        boolean wasCancelledOnThisBooking = bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
++                booking.getId(), newStaff.getId(), AssignmentStatus.EMERGENCY_CANCELLED
++        );
++        if (wasCancelledOnThisBooking) {
++            throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_reported_busy");
++        }
++
++        // Prevent assigning a staff who is already active on this booking
++        boolean isAlreadyActive = bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
++                booking.getId(), newStaff.getId(), AssignmentStatus.ACTIVE
++        );
++        if (isAlreadyActive) {
++            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.staff_already_assigned");
++        }
++
++        // Replace old assignment if exists
++        String oldStaffName = "Chưa có";
++        AssignmentRole roleToAssign = AssignmentRole.PRIMARY_MUA;
++        BookingStaffAssignmentEntity oldAssignment = support.findAssignmentToReplace(booking.getId(), req.getOldStaffId());
++
++        // Reject if this new staff already reported busy for this specific booking
++        boolean alreadyReportedBusy = bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
++                booking.getId(), newStaff.getId(), AssignmentStatus.EMERGENCY_CANCELLED
++        );
++        if (alreadyReportedBusy) {
++            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.staff_reported_busy");
++        }
++
++        if (oldAssignment != null) {
++            roleToAssign = oldAssignment.getAssignmentRole();
++            if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getMua() != null && oldAssignment.getStaff().getMua().getUser() != null) {
++                oldStaffName = oldAssignment.getStaff().getMua().getUser().getFullName();
++            }
++            if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getId().equals(newStaff.getId())) {
++                throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.cannot_reassign_to_same_staff");
++            }
++            oldAssignment.setStatus(AssignmentStatus.REPLACED);
++            oldAssignment.setReplacedByStaff(newStaff);
++            bookingStaffAssignmentRepository.saveAndFlush(oldAssignment);
++
++            // Release old staff's calendar slot if still present
++            if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getMua() != null) {
++                muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), oldAssignment.getStaff().getMua().getId());
++            }
++        }
++
++        // Verify qualification of new staff against matrix
++        Long packageId = booking.getServicePackage() != null ? booking.getServicePackage().getId() : null;
++        Long styleId = (booking.getStyle() != null && booking.getStyle().getId() != null) ? booking.getStyle().getId().longValue() : null;
++
++        List<StaffMatrixProjection> projections = staffMatrixRepository.getStaffAvailabilityMatrix(
++                agency.getId(),
++                booking.getId(),
++                packageId,
++                styleId,
++                bookingDate,
++                startTime,
++                endTime,
++                startTs,
++                endTs
++        );
++
++        StaffMatrixProjection newStaffProj = support.findStaffProjection(projections, newStaff.getId());
++
++        boolean isNewStaffQualified = Boolean.TRUE.equals(newStaffProj.getHasShift())
++                && Boolean.TRUE.equals(newStaffProj.getHasCalendarFree())
++                && !Boolean.TRUE.equals(newStaffProj.getHasReportedBusy())
++                && (roleToAssign != AssignmentRole.PRIMARY_MUA
++                    || (Boolean.TRUE.equals(newStaffProj.getHasPackage()) && Boolean.TRUE.equals(newStaffProj.getHasStyle())));
++
++        if (!isNewStaffQualified) {
++            throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified");
++        }
++
++        // Create new active assignment
++        BookingStaffAssignmentEntity newAssignment = BookingStaffAssignmentEntity.builder()
++                .booking(booking)
++                .staff(newStaff)
++                .assignmentRole(roleToAssign)
++                .status(AssignmentStatus.ACTIVE)
++                .assignedAt(OffsetDateTime.now())
++                .build();
++        bookingStaffAssignmentRepository.save(newAssignment);
++
++        // Lock calendar slot for new staff
++        muaCalendarService.lockSlotForBooking(
++                newStaff.getMua().getId(),
++                booking.getId(),
++                bookingDate,
++                startTs,
++                endTs,
++                "EMERGENCY_REASSIGNMENT_" + roleToAssign.name()
++        );
++
++        if (roleToAssign == AssignmentRole.PRIMARY_MUA) {
++            booking.setMua(newStaff.getMua());
++        }
++
++        // Check if there are other unfulfilled emergency roles
++        boolean hasRemainingEmergency = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
++                booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED
++        ).stream().anyMatch(ea -> !bookingStaffAssignmentRepository.existsByBookingIdAndStaffIdAndStatus(
++                booking.getId(), ea.getStaff().getId(), AssignmentStatus.ACTIVE
++        ));
++
++        if (!hasRemainingEmergency) {
++            booking.setNeedsEmergencyReassignment(false);
++            booking.setEmergencyReason(null);
++        }
++
++        BookingEntity savedBooking = bookingRepository.save(booking);
++
++        log.info("Reassigned staff {} for booking {} with role {}",
++                newStaff.getId(), savedBooking.getBookingCode(), roleToAssign);
++
++        // Audit log transition into booking_history
++        boolean isEnReassign = support.isEnglishLocale();
++        String newStaffFullName = (newStaff.getMua() != null && newStaff.getMua().getUser() != null)
++                ? newStaff.getMua().getUser().getFullName() : (isEnReassign ? "New Artist" : "Chuyên viên mới");
++        String reassignNote = isEnReassign
++                ? ("Studio reassigned staff from " + oldStaffName + " to " + newStaffFullName + " (Reason: " + req.getReassignmentReason() + ")")
++                : ("Studio đổi thợ từ " + oldStaffName + " sang " + newStaffFullName + " (Lý do: " + req.getReassignmentReason() + ")");
++        bookingAuditService.logTransition(
++                savedBooking,
++                savedBooking.getStatus(),
++                savedBooking.getStatus(),
++                agency.getOwner().getId(),
++                reassignNote
++        );
++
++        support.broadcastDispatchUpdate(agency.getId(), savedBooking);
++
++        return EmergencyReassignmentRes.builder()
++                .bookingId(booking.getId())
++                .bookingCode(booking.getBookingCode())
++                .oldStaffId(req.getOldStaffId())
++                .oldStaffName(oldStaffName)
++                .newStaffId(newStaff.getId())
++                .newStaffName(newStaff.getMua().getUser().getFullName())
++                .role(roleToAssign)
++                .emergencyReason(req.getReassignmentReason())
++                .emergencyTier("REASSIGNED")
++                .reassignedAt(LocalDateTime.now())
++                .build();
++    }
++
++    @Transactional
++    public void proceedSolo(Long ownerUserId, Long bookingId, ProceedSoloReq req) {
++        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
++        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
++
++        List<BookingStaffAssignmentEntity> activeAssignments = bookingStaffAssignmentRepository
++                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
++
++        if (activeAssignments.isEmpty()) {
++            throw new CustomBusinessException(
++                    ErrorCodes.ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS,
++                    "dispatch.cannot_proceed_solo_no_active_staff"
++            );
++        }
++
++        // Find active primary staff, or promote first active staff to primary
++        BookingStaffAssignmentEntity primaryAssignment = activeAssignments.stream()
++                .filter(a -> a.getAssignmentRole() == AssignmentRole.PRIMARY_MUA)
++                .findFirst()
++                .orElse(null);
++
++        if (primaryAssignment == null) {
++            primaryAssignment = activeAssignments.get(0);
++            primaryAssignment.setAssignmentRole(AssignmentRole.PRIMARY_MUA);
++            bookingStaffAssignmentRepository.save(primaryAssignment);
++            if (primaryAssignment.getStaff() != null && primaryAssignment.getStaff().getMua() != null) {
++                booking.setMua(primaryAssignment.getStaff().getMua());
++            }
++        }
++
++        AgencyStaffEntity primaryStaff = primaryAssignment.getStaff();
++        String primaryStaffName = (primaryStaff != null && primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
++                ? primaryStaff.getMua().getUser().getFullName() : "Thợ chính";
++
++        // Mark previous emergency-cancelled staff assignments as REPLACED by solo primary staff
++        List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
++                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
++        for (BookingStaffAssignmentEntity ea : emergencyAssignments) {
++            ea.setStatus(AssignmentStatus.REPLACED);
++            ea.setReplacedByStaff(primaryStaff);
++            bookingStaffAssignmentRepository.save(ea);
++
++            if (ea.getStaff() != null && ea.getStaff().getMua() != null) {
++                muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), ea.getStaff().getMua().getId());
++            }
++        }
++
++        // Clear emergency flag on booking
++        booking.setNeedsEmergencyReassignment(false);
++        booking.setEmergencyReason(null);
++        booking.setEmergencyProofUrl(null);
++        booking.setEmergencyReportedAt(null);
++        BookingEntity savedBooking = bookingRepository.save(booking);
++
++        boolean isEn = support.isEnglishLocale();
++        String noteSuffix = (req != null && req.getResolutionNote() != null && !req.getResolutionNote().isBlank())
++                ? (isEn ? " Note: " + req.getResolutionNote().trim() : " Ghi chú: " + req.getResolutionNote().trim())
++                : "";
++        String auditNote = isEn
++                ? ("Studio confirmed artist " + primaryStaffName + " will fulfill the booking solo (no replacement needed)." + noteSuffix)
++                : ("Studio xác nhận để thợ " + primaryStaffName + " đảm nhiệm toàn bộ đơn hàng (không cần phân công thêm thợ thay thế)." + noteSuffix);
++
++        bookingAuditService.logTransition(
++                savedBooking,
++                savedBooking.getStatus(),
++                savedBooking.getStatus(),
++                agency.getOwner().getId(),
++                auditNote
++        );
++
++        support.broadcastDispatchUpdate(agency.getId(), savedBooking);
++        log.info("Booking {} emergency resolved as solo assignment for staff {}", savedBooking.getBookingCode(), primaryStaffName);
++    }
++
++    @Transactional
++    public void reportEmergencyBusy(Long muaUserId, Long bookingId, ReportEmergencyBusyReq req) {
++        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(muaUserId)
++                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_STAFF_NOT_FOUND, "agency.staff_not_found"));
++
++        BookingEntity booking = bookingRepository.findById(bookingId)
++                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found"));
++
++        BookingStaffAssignmentEntity assignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
++                booking.getId(), staff.getId(), AssignmentStatus.ACTIVE
++        ).orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"));
++
++        LocalDateTime scheduledStart = booking.getScheduledStartTime();
++        if (scheduledStart == null && booking.getBookingDate() != null && booking.getStartTime() != null) {
++            scheduledStart = booking.getBookingDate().atTime(booking.getStartTime());
++        }
++
++        double hoursUntilBooking = 0.0;
++        if (scheduledStart != null) {
++            hoursUntilBooking = Duration.between(LocalDateTime.now(), scheduledStart).toMinutes() / 60.0;
++        }
++
++        String tier;
++        if (hoursUntilBooking >= 4.0) {
++            tier = "TIER_1_STANDARD";
++        } else if (hoursUntilBooking >= 2.0) {
++            tier = "TIER_2_URGENT";
++        } else {
++            tier = "TIER_3_CRITICAL";
++        }
++
++        // Critical emergency (< 2 hours) strictly requires incident proof document
++        if (hoursUntilBooking < 2.0 && (req.getProofDocumentUrl() == null || req.getProofDocumentUrl().isBlank())) {
++            log.warn("Staff {} attempted to report critical emergency for booking {} without proof document (hours remaining: {})",
++                    staff.getId(), booking.getBookingCode(), hoursUntilBooking);
++            throw new CustomBusinessException(
++                    ErrorCodes.ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL,
++                    "dispatch.emergency_proof_required_critical",
++                    HttpStatus.BAD_REQUEST
++            );
++        }
++
++        // Cancel staff assignment
++        assignment.setStatus(AssignmentStatus.EMERGENCY_CANCELLED);
++        assignment.setCancellationReason(req.getEmergencyReason());
++        assignment.setProofDocumentUrl(req.getProofDocumentUrl());
++        assignment.setCancelledAt(OffsetDateTime.now());
++        bookingStaffAssignmentRepository.save(assignment);
++
++        // Immediately release staff's calendar slot for this booking so they are not blocked or causing conflicts
++        if (staff.getMua() != null) {
++            muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), staff.getMua().getId());
++        }
++
++        // Update booking to trigger emergency reassignment
++        booking.setNeedsEmergencyReassignment(true);
++        booking.setEmergencyReason(req.getEmergencyReason());
++        booking.setEmergencyProofUrl(req.getProofDocumentUrl());
++        booking.setEmergencyReportedAt(OffsetDateTime.now());
++        BookingEntity savedBooking = bookingRepository.save(booking);
++
++        log.warn("Staff {} reported emergency busy for booking {} (Tier: {}, Hours remaining: {})",
++                staff.getId(), savedBooking.getBookingCode(), tier, hoursUntilBooking);
++
++        // Audit log transition into booking_history
++        boolean isEnReport = support.isEnglishLocale();
++        String proofUrlPart = (req.getProofDocumentUrl() != null && !req.getProofDocumentUrl().isBlank())
++                ? (isEnReport ? " [Proof: " + req.getProofDocumentUrl() + "]" : " [Minh chứng: " + req.getProofDocumentUrl() + "]")
++                : "";
++        String emergencyNote = (isEnReport ? "Staff reported emergency unavailability: " : "Thợ báo bận đột xuất: ")
++                + req.getEmergencyReason() + proofUrlPart;
++        bookingAuditService.logTransition(
++                savedBooking,
++                savedBooking.getStatus(),
++                savedBooking.getStatus(),
++                muaUserId,
++                emergencyNote
++        );
++
++        // Publish event for WebSocket alert to Agency
++        eventPublisher.publishEvent(EmergencyReassignmentRequestedEvent.builder()
++                .bookingId(booking.getId())
++                .bookingCode(booking.getBookingCode())
++                .agencyId(staff.getAgency().getId())
++                .staffId(staff.getId())
++                .staffName(staff.getMua().getUser().getFullName())
++                .role(assignment.getAssignmentRole())
++                .emergencyReason(req.getEmergencyReason())
++                .emergencyTier(tier)
++                .hoursUntilBooking(hoursUntilBooking)
++                .scheduledStartTime(scheduledStart)
++                .proofDocumentUrl(req.getProofDocumentUrl())
++                .build());
++    }
++
++    @Transactional
++    public EmergencyApprovalRes reviewEmergencyReport(Long ownerUserId, Long bookingId, Long staffId, ApproveEmergencyReportReq req) {
++        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
++        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
++
++        BookingStaffAssignmentEntity assignment = null;
++        if (staffId != null) {
++            assignment = bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(
++                    booking.getId(), staffId, AssignmentStatus.EMERGENCY_CANCELLED
++            ).orElse(null);
++        }
++        if (assignment == null) {
++            List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
++                    .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
++            if (emergencyAssignments.isEmpty()) {
++                throw new CustomBusinessException(
++                        ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"
++                );
++            }
++            assignment = emergencyAssignments.stream()
++                    .sorted((a1, a2) -> {
++                        if (a1.getCancelledAt() != null && a2.getCancelledAt() != null) {
++                            return a2.getCancelledAt().compareTo(a1.getCancelledAt());
++                        }
++                        return Long.compare(a2.getId() != null ? a2.getId() : 0L, a1.getId() != null ? a1.getId() : 0L);
++                    })
++                    .findFirst()
++                    .orElse(emergencyAssignments.get(0));
++        }
++
++        AgencyStaffEntity staff = assignment.getStaff();
++        String staffName = (staff != null && staff.getMua() != null && staff.getMua().getUser() != null)
++                ? staff.getMua().getUser().getFullName() : "Thợ trang điểm";
++
++        boolean isEn = support.isEnglishLocale();
++        String reportedReason = assignment.getCancellationReason() != null ? assignment.getCancellationReason() : booking.getEmergencyReason();
++        String proofUrl = assignment.getProofDocumentUrl() != null ? assignment.getProofDocumentUrl() : booking.getEmergencyProofUrl();
++        String reviewNote = (req.getAdminReviewNote() != null && !req.getAdminReviewNote().isBlank()) ? req.getAdminReviewNote().trim() : null;
++        String proofSuffix = (proofUrl != null && !proofUrl.isBlank())
++                ? (isEn ? " [Proof: " + proofUrl + "]" : " [Minh chứng: " + proofUrl + "]")
++                : "";
++
++        if (Boolean.TRUE.equals(req.getApproved())) {
++            // Chấp thuận báo bận: Giữ cờ emergency, ghi nhận note duyệt
++            if (reviewNote != null) {
++                String existingNote = assignment.getDispatchNotes() != null ? assignment.getDispatchNotes() + " | " : "";
++                assignment.setDispatchNotes(existingNote + "Studio duyệt: " + reviewNote);
++                bookingStaffAssignmentRepository.save(assignment);
++            }
++
++            String auditNote = isEn
++                    ? ("Studio APPROVED emergency unavailability for artist: " + staffName + ". Reason: " + (reportedReason != null ? reportedReason : "N/A") + proofSuffix + ". Review Note: " + (reviewNote != null ? reviewNote : "None"))
++                    : ("Studio CHẤP THUẬN đơn báo bận của thợ: " + staffName + ". Lý do: " + (reportedReason != null ? reportedReason : "Không rõ") + proofSuffix + ". Ghi chú duyệt: " + (reviewNote != null ? reviewNote : "Không"));
++            bookingAuditService.logTransition(
++                    booking,
++                    booking.getStatus(),
++                    booking.getStatus(),
++                    ownerUserId,
++                    auditNote
++            );
++        } else {
++            // Từ chối báo bận: Khôi phục thợ về trạng thái ACTIVE, khóa lại lịch, tắt cờ emergency
++            assignment.setStatus(AssignmentStatus.ACTIVE);
++            if (reviewNote != null) {
++                String existingNote = assignment.getDispatchNotes() != null ? assignment.getDispatchNotes() + " | " : "";
++                assignment.setDispatchNotes(existingNote + "Studio từ chối duyệt: " + reviewNote);
++            }
++            assignment.setCancellationReason(null);
++            assignment.setProofDocumentUrl(null);
++            assignment.setCancelledAt(null);
++            bookingStaffAssignmentRepository.save(assignment);
++
++            // Re-lock calendar slot for staff
++            if (staff != null && staff.getMua() != null) {
++                LocalDate bookingDate = booking.getBookingDate();
++                LocalTime startTime = booking.getStartTime();
++                int duration = (booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null)
++                        ? booking.getServicePackage().getEstimatedDurationMinutes() : 60;
++                LocalTime endTime = startTime.plusMinutes(duration);
++                OffsetDateTime startTs = bookingDate.atTime(startTime).atOffset(VIETNAM_OFFSET);
++                OffsetDateTime endTs = bookingDate.atTime(endTime).atOffset(VIETNAM_OFFSET);
++
++                muaCalendarService.lockSlotForBooking(
++                        staff.getMua().getId(),
++                        booking.getId(),
++                        bookingDate,
++                        startTs,
++                        endTs,
++                        "ASSIGNED_" + assignment.getAssignmentRole().name()
++                );
++            }
++
++            booking.setNeedsEmergencyReassignment(false);
++            booking.setEmergencyReason(null);
++            booking.setEmergencyProofUrl(null);
++            booking.setEmergencyReportedAt(null);
++            bookingRepository.save(booking);
++
++            String auditNote = isEn
++                    ? ("Studio REJECTED emergency unavailability for artist: " + staffName + ". Artist restored to active duty. Reason: " + (reportedReason != null ? reportedReason : "N/A") + proofSuffix + ". Rejection Note: " + (reviewNote != null ? reviewNote : "None"))
++                    : ("Studio TỪ CHỐI đơn báo bận của thợ: " + staffName + ". Thợ được khôi phục về ca trực. Lý do báo bận: " + (reportedReason != null ? reportedReason : "Không rõ") + proofSuffix + ". Ghi chú từ chối: " + (reviewNote != null ? reviewNote : "Không"));
++            bookingAuditService.logTransition(
++                    booking,
++                    booking.getStatus(),
++                    booking.getStatus(),
++                    ownerUserId,
++                    auditNote
++            );
++        }
++
++        log.info("Agency {} reviewed emergency report for booking {}, staffId={}: approved={}, note={}",
++                agency.getId(), booking.getBookingCode(), staff.getId(), req.getApproved(), req.getAdminReviewNote());
++
++        return EmergencyApprovalRes.builder()
++                .bookingId(booking.getId())
++                .staffId(staff.getId())
++                .approved(req.getApproved())
++                .adminReviewNote(req.getAdminReviewNote())
++                .reviewedAt(LocalDateTime.now())
++                .build();
++    }
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/BookingMessagePublisher.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/BookingMessagePublisher.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/BookingMessagePublisher.java
+@@ -0,0 +1,41 @@
++package com.makeup.platform.service.booking;
++
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.messaging.simp.SimpMessagingTemplate;
++import org.springframework.stereotype.Component;
++import org.springframework.transaction.support.TransactionSynchronization;
++import org.springframework.transaction.support.TransactionSynchronizationManager;
++
++import java.util.HashMap;
++import java.util.Map;
++
++/** Sends a snapshot only after the booking transaction has committed. */
++@Slf4j
++@Component
++@RequiredArgsConstructor
++public class BookingMessagePublisher {
++    private final SimpMessagingTemplate messagingTemplate;
++
++    public void send(String destination, Map<String, Object> payload) {
++        Map<String, Object> snapshot = new HashMap<>(payload);
++        Runnable delivery = () -> {
++            try {
++                messagingTemplate.convertAndSend(destination, snapshot);
++            } catch (RuntimeException ex) {
++                log.error("Failed to deliver committed booking message to {}", destination, ex);
++            }
++        };
++        if (TransactionSynchronizationManager.isActualTransactionActive()
++                && TransactionSynchronizationManager.isSynchronizationActive()) {
++            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
++                @Override
++                public void afterCommit() {
++                    delivery.run();
++                }
++            });
++        } else {
++            delivery.run();
++        }
++    }
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/AdminBookingServiceImpl.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/AdminBookingServiceImpl.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/AdminBookingServiceImpl.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/AdminBookingServiceImpl.java
+@@ -13,7 +13,8 @@
+ import lombok.extern.slf4j.Slf4j;
+ import com.makeup.platform.common.base.PageResponse;
+ import org.springframework.data.domain.Page;
+-import org.springframework.data.domain.PageImpl;
++import org.springframework.data.domain.PageRequest;
++import com.makeup.platform.repository.booking.BookingSpecifications;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.data.domain.Sort;
+ import org.springframework.http.HttpStatus;
+@@ -21,8 +22,6 @@
+ import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.math.BigDecimal;
+-import java.util.List;
+-import java.util.stream.Collectors;
+ 
+ @Slf4j
+ @Service
+@@ -35,72 +34,19 @@
+     @Override
+     @Transactional(readOnly = true)
+     public PageResponse<AdminBookingRes> getAllBookings(String status, String keyword, Pageable pageable) {
+-        List<BookingEntity> bookings = bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+-
+-        List<AdminBookingRes> filtered = bookings.stream()
+-                .filter(b -> {
+-                    // Filter by status if provided
+-                    if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
+-                        String s = status.toUpperCase().trim();
+-                        BookingStatus bs = b.getStatus();
+-                        if (bs == null) {
+-                            return false;
+-                        }
+-
+-                        boolean match = switch (s) {
+-                            case "PENDING_DEPOSIT" -> bs == BookingStatus.PENDING_DEPOSIT;
+-                            case "PENDING_AGENCY_DISPATCH" -> bs == BookingStatus.PENDING_AGENCY_DISPATCH || bs == BookingStatus.REQUESTED;
+-                            case "CONFIRMED", "AGENCY_ASSIGNED" -> bs == BookingStatus.AGENCY_ASSIGNED || bs == BookingStatus.ACCEPTED;
+-                            case "IN_PROGRESS" -> bs == BookingStatus.IN_PROGRESS || bs == BookingStatus.ON_THE_WAY || bs == BookingStatus.ARRIVED;
+-                            case "COMPLETED" -> bs == BookingStatus.COMPLETED || bs == BookingStatus.PAID_OUT;
+-                            case "CANCELLED" -> bs == BookingStatus.CANCELLED || bs == BookingStatus.CANCELLED_EXPIRED;
+-                            case "DISPUTED" -> bs == BookingStatus.DISPUTED;
+-                            default -> {
+-                                try {
+-                                    yield bs == BookingStatus.valueOf(s);
+-                                } catch (IllegalArgumentException e) {
+-                                    yield false;
+-                                }
+-                            }
+-                        };
+-                        if (!match) {
+-                            return false;
+-                        }
+-                    }
+-
+-                    // Filter by keyword (bookingCode, customer phone, customer name)
+-                    if (keyword != null && !keyword.isBlank()) {
+-                        String kw = keyword.toLowerCase().trim();
+-                        boolean matchCode = b.getBookingCode() != null && b.getBookingCode().toLowerCase().contains(kw);
+-                        boolean matchCustName = b.getCustomer() != null && b.getCustomer().getFullName() != null &&
+-                                b.getCustomer().getFullName().toLowerCase().contains(kw);
+-                        boolean matchCustPhone = b.getCustomer() != null && b.getCustomer().getPhoneNumber() != null &&
+-                                b.getCustomer().getPhoneNumber().contains(kw);
+-                        boolean matchAddress = b.getDestinationAddress() != null &&
+-                                b.getDestinationAddress().toLowerCase().contains(kw);
+-                        return matchCode || matchCustName || matchCustPhone || matchAddress;
+-                    }
+-                    return true;
+-                })
+-                .map(bookingMapper::toAdminBookingRes)
+-                .collect(Collectors.toList());
+-
+-        if (pageable == null || pageable.isUnpaged()) {
++        var spec = BookingSpecifications.adminStatus(status).and(BookingSpecifications.keyword(keyword));
++        Sort order = Sort.by(Sort.Direction.DESC, "createdAt", "id");
++        Pageable queryPage = pageable == null || pageable.isUnpaged()
++                ? Pageable.unpaged(order)
++                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), order);
++        Page<AdminBookingRes> result = bookingRepository.findAll(spec, queryPage).map(bookingMapper::toAdminBookingRes);
++        if (queryPage.isUnpaged()) {
+             return PageResponse.<AdminBookingRes>builder()
+-                    .content(filtered)
+-                    .page(0)
+-                    .size(filtered.size())
+-                    .totalElements(filtered.size())
+-                    .totalPages(filtered.isEmpty() ? 0 : 1)
+-                    .last(true)
+-                    .build();
++                    .content(result.getContent()).page(0).size(result.getNumberOfElements())
++                    .totalElements(result.getTotalElements()).totalPages(result.isEmpty() ? 0 : 1)
++                    .last(true).build();
+         }
+-
+-        int start = (int) pageable.getOffset();
+-        int end = Math.min((start + pageable.getPageSize()), filtered.size());
+-        List<AdminBookingRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
+-        Page<AdminBookingRes> page = new PageImpl<>(pagedList, pageable, filtered.size());
+-        return PageResponse.from(page);
++        return PageResponse.from(result);
+     }
+ 
+     @Override
+@@ -116,38 +62,31 @@
+     @Override
+     @Transactional(readOnly = true)
+     public AdminBookingOverviewStatsRes getBookingOverviewStats() {
+-        List<BookingEntity> bookings = bookingRepository.findAll();
+-
+-        long totalBookings = bookings.size();
+-
+-        long completedBookings = bookings.stream()
+-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT)
+-                .count();
+-
+-        long inProgressBookings = bookings.stream()
+-                .filter(b -> b.getStatus() == BookingStatus.IN_PROGRESS
+-                        || b.getStatus() == BookingStatus.ON_THE_WAY
+-                        || b.getStatus() == BookingStatus.ARRIVED)
+-                .count();
+-
+-        long pendingDispatchCount = bookings.stream()
+-                .filter(b -> b.getStatus() == BookingStatus.PENDING_AGENCY_DISPATCH
+-                        || b.getStatus() == BookingStatus.REQUESTED
+-                        || Boolean.TRUE.equals(b.getNeedsEmergencyReassignment()))
+-                .count();
+-
+-        BigDecimal totalGrossVolume = bookings.stream()
+-                .filter(b -> b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT)
+-                .map(b -> b.getTotalAmount() != null ? b.getTotalAmount() : BigDecimal.ZERO)
+-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+-
+-        long cancelledCount = bookings.stream()
+-                .filter(b -> b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED)
+-                .count();
+-
+-        long disputedCount = bookings.stream()
+-                .filter(b -> b.getStatus() == BookingStatus.DISPUTED)
+-                .count();
++        long totalBookings = 0;
++        long completedBookings = 0;
++        long inProgressBookings = 0;
++        long pendingDispatchCount = 0;
++        long cancelledCount = 0;
++        long disputedCount = 0;
++        BigDecimal totalGrossVolume = BigDecimal.ZERO;
++        for (var aggregate : bookingRepository.aggregateByStatus()) {
++            long count = aggregate.getBookingCount();
++            BookingStatus status = aggregate.getStatus();
++            totalBookings += count;
++            if (status == BookingStatus.COMPLETED || status == BookingStatus.PAID_OUT) {
++                completedBookings += count;
++                if (aggregate.getTotalAmount() != null) totalGrossVolume = totalGrossVolume.add(aggregate.getTotalAmount());
++            }
++            if (status == BookingStatus.IN_PROGRESS || status == BookingStatus.ON_THE_WAY || status == BookingStatus.ARRIVED) {
++                inProgressBookings += count;
++            }
++            if (status == BookingStatus.PENDING_AGENCY_DISPATCH || status == BookingStatus.REQUESTED
++                    || Boolean.TRUE.equals(aggregate.getNeedsEmergencyReassignment())) {
++                pendingDispatchCount += count;
++            }
++            if (status == BookingStatus.CANCELLED || status == BookingStatus.CANCELLED_EXPIRED) cancelledCount += count;
++            if (status == BookingStatus.DISPUTED) disputedCount += count;
++        }
+ 
+         return AdminBookingOverviewStatsRes.builder()
+                 .totalBookings(totalBookings)
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/DistributedLockServiceImpl.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/DistributedLockServiceImpl.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/DistributedLockServiceImpl.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/booking/impl/DistributedLockServiceImpl.java
+@@ -1,4 +1,6 @@
+ package com.makeup.platform.service.booking.impl;
++
++import com.makeup.platform.common.constants.InstantBookingKeys;
+ 
+ import com.makeup.platform.common.constants.BookingConstants;
+ import com.makeup.platform.common.constants.ErrorCodes;
+@@ -13,6 +15,7 @@
+ import com.makeup.platform.repository.MuaProfileRepository;
+ import com.makeup.platform.repository.booking.BookingRepository;
+ import com.makeup.platform.service.booking.BookingAuditService;
++import com.makeup.platform.service.customer.InstantDispatchLeaseService;
+ import com.makeup.platform.service.booking.DistributedLockService;
+ import lombok.RequiredArgsConstructor;
+ import lombok.extern.slf4j.Slf4j;
+@@ -39,6 +42,7 @@
+     private final BookingMapper bookingMapper;
+     private final ApplicationEventPublisher eventPublisher;
+     private final StringRedisTemplate stringRedisTemplate;
++    private final InstantDispatchLeaseService dispatchLeaseService;
+ 
+     @Override
+     public BookingAcceptanceRes acceptBookingWithLock(Long bookingId, Long userId) {
+@@ -60,7 +64,7 @@
+ 
+             // Execute database transaction and commit BEFORE releasing the lock in finally block
+             return transactionTemplate.execute(status -> {
+-                BookingEntity booking = bookingRepository.findById(bookingId)
++                BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
+                         .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                                 "booking.not_found", HttpStatus.NOT_FOUND));
+ 
+@@ -71,13 +75,13 @@
+                             "booking.already_taken", HttpStatus.CONFLICT);
+                 }
+ 
+-                MuaProfileEntity muaProfile = muaProfileRepository.findByUserId(userId)
++                MuaProfileEntity muaProfile = muaProfileRepository.findByUserIdForUpdate(userId)
+                         .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                                 "mua.profile_not_found", HttpStatus.NOT_FOUND));
+ 
+                 // 1. Kiểm tra xem thợ này đã từng bấm bỏ qua hoặc bị hết giờ đơn này chưa
+                 Boolean isSkipped = stringRedisTemplate.opsForSet().isMember(
+-                        "booking:dispatch:skipped:" + bookingId, String.valueOf(muaProfile.getId()));
++                        InstantBookingKeys.skipped(bookingId), String.valueOf(muaProfile.getId()));
+                 if (Boolean.TRUE.equals(isSkipped)) {
+                     log.warn("[Redlock] MUA id={} attempted to accept booking id={} which they already skipped or timed out",
+                             muaProfile.getId(), bookingId);
+@@ -86,7 +90,7 @@
+                 }
+ 
+                 // 2. Kiểm tra xem thợ này có đúng là thợ đang được gửi đơn tới (current target) hay không
+-                String currentTargetMuaId = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
++                String currentTargetMuaId = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
+                 if (currentTargetMuaId != null && !currentTargetMuaId.equals(String.valueOf(muaProfile.getId()))) {
+                     log.warn("[Redlock] MUA id={} attempted to accept booking id={} but current target is muaId={}",
+                             muaProfile.getId(), bookingId, currentTargetMuaId);
+@@ -131,13 +135,13 @@
+                 eventPublisher.publishEvent(new InstantBookingAcceptedEvent(this, bookingId, muaProfile.getId()));
+ 
+                 // Cancel 45s countdown timer, dispatch timer, candidate queues and release dispatch lock
+-                stringRedisTemplate.delete("booking:instant:expire:" + bookingId);
+-                stringRedisTemplate.delete("booking:dispatch:candidates:" + bookingId);
+-                stringRedisTemplate.delete("booking:dispatch:current:" + bookingId);
+-                stringRedisTemplate.delete("booking:dispatch:skipped:" + bookingId);
+-                stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
+-                stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + muaProfile.getId());
+-                stringRedisTemplate.delete("mua:dispatch:locked:" + muaProfile.getId());
++                stringRedisTemplate.delete(InstantBookingKeys.expiration(bookingId));
++                stringRedisTemplate.delete(InstantBookingKeys.candidates(bookingId));
++                stringRedisTemplate.delete(InstantBookingKeys.current(bookingId));
++                stringRedisTemplate.delete(InstantBookingKeys.skipped(bookingId));
++                stringRedisTemplate.delete(InstantBookingKeys.sentAt(bookingId));
++                stringRedisTemplate.delete(InstantBookingKeys.timer(bookingId, muaProfile.getId()));
++                dispatchLeaseService.release(bookingId, String.valueOf(muaProfile.getId()));
+ 
+                 log.info("[Redlock] Booking id={} successfully accepted by muaId={}", bookingId, muaProfile.getId());
+                 return bookingMapper.toAcceptanceRes(savedBooking);
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/CustomerInstantBookingService.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/CustomerInstantBookingService.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/CustomerInstantBookingService.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/CustomerInstantBookingService.java
+@@ -14,4 +14,7 @@
+     boolean expireInstantBooking(Long bookingId);
+ 
+     boolean cancelInstantBookingByCustomer(Long bookingId, Long customerUserId, String reason);
++    boolean dispatchNextCandidateIfCurrent(Long bookingId, Long expectedMuaId);
++
++    void processPendingBooking(Long bookingId);
+ }
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/impl/CustomerInstantBookingServiceImpl.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/impl/CustomerInstantBookingServiceImpl.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/impl/CustomerInstantBookingServiceImpl.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/impl/CustomerInstantBookingServiceImpl.java
+@@ -1,4 +1,6 @@
+ package com.makeup.platform.service.customer.impl;
++
++import com.makeup.platform.common.constants.InstantBookingKeys;
+ 
+ import com.makeup.platform.common.constants.ErrorCodes;
+ import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
+@@ -28,8 +30,8 @@
+ import org.springframework.data.redis.connection.RedisGeoCommands;
+ import org.springframework.data.redis.core.StringRedisTemplate;
+ import org.springframework.http.HttpStatus;
+-import org.springframework.messaging.simp.SimpMessagingTemplate;
+-import org.springframework.scheduling.annotation.Scheduled;
++import com.makeup.platform.service.booking.BookingMessagePublisher;
++import com.makeup.platform.service.customer.InstantDispatchLeaseService;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+@@ -51,7 +53,6 @@
+ 
+     private static final int BOOKING_TIMEOUT_SECONDS = 45;
+     private static final int OFFER_TIMEOUT_SECONDS = 20;
+-    private static final Duration CANDIDATE_LOCK_TTL = Duration.ofSeconds(25);
+     private static final Duration DISPATCH_STATE_TTL = Duration.ofMinutes(10);
+     private static final Duration OFFER_TIMESTAMP_TTL = Duration.ofMinutes(5);
+     private static final BigDecimal MUA_EARNINGS_RATE = new BigDecimal("0.80");
+@@ -65,7 +66,8 @@
+     private final SurgePricingService surgePricingService;
+     private final BookingAuditService bookingAuditService;
+     private final RedisGeoService redisGeoService;
+-    private final SimpMessagingTemplate messagingTemplate;
++    private final BookingMessagePublisher messagePublisher;
++    private final InstantDispatchLeaseService dispatchLeaseService;
+     private final InstantBookingMapper instantBookingMapper;
+     private final StringRedisTemplate stringRedisTemplate;
+     private final MuaProfileRepository muaProfileRepository;
+@@ -82,12 +84,10 @@
+ 
+         // 0. Quét dọn và tự động hủy tất cả đơn cũ còn ở trạng thái REQUESTED của khách hàng này
+         // Khi khách bấm "Đặt Lại" hoặc tạo yêu cầu mới, các đơn cũ chưa có thợ nhận sẽ được hủy ngay để không chặn khách
+-        List<BookingEntity> customerBookings = bookingRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+-        for (BookingEntity b : customerBookings) {
+-            if (b.getBookingType() == BookingType.REALTIME_INSTANT && b.getStatus() == BookingStatus.REQUESTED) {
+-                log.info("[InstantBooking] Auto-expiring pending REQUESTED booking id={} before new request", b.getId());
+-                expireInstantBooking(b.getId());
+-            }
++        List<Long> customerBookings = bookingRepository.findCustomerPendingIds(
++                customerId, BookingType.REALTIME_INSTANT, BookingStatus.REQUESTED);
++        for (Long previousBookingId : customerBookings) {
++            expireInstantBooking(previousBookingId);
+         }
+ 
+         // Chặn tạo đơn tức thì nếu khách hàng đang có đơn ĐÃ ĐƯỢC THỢ NHẬN VÀ ĐANG THỰC HIỆN
+@@ -182,15 +182,24 @@
+         // 6. Sequential Waterfall Dispatch: Queue candidates in Redis & offer to first closest MUA
+         Long firstTargetMuaId = null;
+         Long firstTargetUserId = null;
+-        String listKey = "booking:dispatch:candidates:" + savedBooking.getId();
++        String listKey = InstantBookingKeys.candidates(savedBooking.getId());
+         stringRedisTemplate.delete(listKey);
+-        stringRedisTemplate.delete("booking:dispatch:skipped:" + savedBooking.getId());
++        stringRedisTemplate.delete(InstantBookingKeys.skipped(savedBooking.getId()));
+         for (Long cId : candidateMuaIds) {
+             stringRedisTemplate.opsForList().rightPush(listKey, String.valueOf(cId));
+         }
+         stringRedisTemplate.expire(listKey, DISPATCH_STATE_TTL);
+ 
+-        String firstStr = stringRedisTemplate.opsForList().leftPop(listKey);
++        String firstStr;
++        while ((firstStr = stringRedisTemplate.opsForList().leftPop(listKey)) != null) {
++            if (dispatchLeaseService.tryClaim(savedBooking.getId(), firstStr)) {
++                break;
++            }
++        }
++        if (firstStr == null) {
++            throw new CustomBusinessException(ErrorCodes.ERR_MUA_NOT_AVAILABLE,
++                    "booking.no_mua_available_in_radius", HttpStatus.NOT_FOUND);
++        }
+         if (firstStr != null) {
+             firstTargetMuaId = Long.valueOf(firstStr);
+             var muaOpt = muaProfileRepository.findById(firstTargetMuaId);
+@@ -208,7 +217,7 @@
+ 
+             if (firstTargetMuaId != null) {
+                 // CHỈ GỬI VÀO DUY NHẤT KÊNH RIÊNG CỦA THỢ ĐƯỢC CHỌN (KHÔNG GỬI KÊNH CHUNG)
+-                messagingTemplate.convertAndSend("/topic/mua-offer/" + firstTargetMuaId, offerPayload);
++                messagePublisher.send("/topic/mua-offer/" + firstTargetMuaId, offerPayload);
+                 log.info("[InstantBooking] Dispatched offer strictly to closest MUA id={} (totalCandidates={}) for bookingId={}",
+                         firstTargetMuaId, potentialCount, savedBooking.getId());
+             }
+@@ -217,7 +226,7 @@
+         }
+ 
+         // 7. Store TTL key for 45s countdown auto-expiration
+-        stringRedisTemplate.opsForValue().set("booking:instant:expire:" + savedBooking.getId(), "ACTIVE", Duration.ofSeconds(BOOKING_TIMEOUT_SECONDS));
++        stringRedisTemplate.opsForValue().set(InstantBookingKeys.expiration(savedBooking.getId()), "ACTIVE", Duration.ofSeconds(BOOKING_TIMEOUT_SECONDS));
+ 
+         return instantBookingMapper.toCreatedRes(savedBooking, potentialCount, BOOKING_TIMEOUT_SECONDS);
+     }
+@@ -225,27 +234,27 @@
+     @Override
+     @Transactional
+     public boolean dispatchNextCandidate(Long bookingId) {
+-        BookingEntity booking = bookingRepository.findById(bookingId).orElse(null);
++        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId).orElse(null);
+         if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
+             log.info("[SequentialDispatch] Booking id={} is no longer in REQUESTED status, aborting next dispatch", bookingId);
+             return false;
+         }
+ 
+         // 1. Thêm thợ hiện tại vào danh sách đã bỏ qua/hết giờ của bookingId này, đồng thời giải phóng khóa thợ và timer cũ
+-        String currentMuaIdStr = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
+-        String skippedSetKey = "booking:dispatch:skipped:" + bookingId;
++        String currentMuaIdStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
++        String skippedSetKey = InstantBookingKeys.skipped(bookingId);
+         if (currentMuaIdStr != null) {
+             stringRedisTemplate.opsForSet().add(skippedSetKey, currentMuaIdStr);
+             stringRedisTemplate.expire(skippedSetKey, DISPATCH_STATE_TTL);
+ 
+-            stringRedisTemplate.delete("mua:dispatch:locked:" + currentMuaIdStr);
+-            stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + currentMuaIdStr);
++            dispatchLeaseService.release(bookingId, currentMuaIdStr);
++            stringRedisTemplate.delete(InstantBookingKeys.timer(bookingId, currentMuaIdStr));
+             log.info("[SequentialDispatch] Added MUA id={} to skipped set for bookingId={}", currentMuaIdStr, bookingId);
+         }
+-        stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
++        stringRedisTemplate.delete(InstantBookingKeys.sentAt(bookingId));
+ 
+         // 2. Lấy thợ tiếp theo trong hàng đợi (lọc qua các thợ đã bỏ qua hoặc đang bận)
+-        String listKey = "booking:dispatch:candidates:" + bookingId;
++        String listKey = InstantBookingKeys.candidates(bookingId);
+         String nextMuaIdStr = null;
+ 
+         while ((nextMuaIdStr = stringRedisTemplate.opsForList().leftPop(listKey)) != null) {
+@@ -256,8 +265,7 @@
+                 continue;
+             }
+ 
+-            Boolean isLocked = stringRedisTemplate.hasKey("mua:dispatch:locked:" + nextMuaIdStr);
+-            if (Boolean.TRUE.equals(isLocked)) {
++            if (!dispatchLeaseService.tryClaim(bookingId, nextMuaIdStr)) {
+                 log.info("[SequentialDispatch] Candidate MUA id={} is currently evaluating another booking, skipping to next",
+                         nextMuaIdStr);
+                 continue;
+@@ -276,7 +284,7 @@
+                     customer != null ? customer.getPhoneNumber() : "");
+ 
+             // CHỈ GỬI VÀO DUY NHẤT KÊNH RIÊNG CỦA THỢ TIẾP THEO
+-            messagingTemplate.convertAndSend("/topic/mua-offer/" + nextMuaId, offerPayload);
++            messagePublisher.send("/topic/mua-offer/" + nextMuaId, offerPayload);
+             log.info("[SequentialDispatch] Cascaded bookingId={} strictly to next closest MUA id={}", bookingId, nextMuaId);
+             return true;
+         } else {
+@@ -289,6 +297,10 @@
+     @Override
+     @Transactional
+     public boolean skipCurrentCandidate(Long bookingId, Long muaUserId) {
++        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId).orElse(null);
++        if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
++            return false;
++        }
+         MuaProfileEntity muaProfile = muaProfileRepository.findByUserId(muaUserId).orElse(null);
+         if (muaProfile == null) {
+             log.warn("[SequentialDispatch] User id={} does not have a MUA profile, cannot skip bookingId={}", muaUserId, bookingId);
+@@ -296,16 +308,16 @@
+         }
+ 
+         Long muaId = muaProfile.getId();
+-        String currentMuaIdStr = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
++        String currentMuaIdStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
+ 
+         // Luôn lưu thợ này vào danh sách đã bỏ qua của bookingId này (TTL 10 phút)
+-        String skippedSetKey = "booking:dispatch:skipped:" + bookingId;
++        String skippedSetKey = InstantBookingKeys.skipped(bookingId);
+         stringRedisTemplate.opsForSet().add(skippedSetKey, String.valueOf(muaId));
+         stringRedisTemplate.expire(skippedSetKey, DISPATCH_STATE_TTL);
+ 
+         // Giải phóng khóa tạm thời và timer của thợ này
+-        stringRedisTemplate.delete("mua:dispatch:locked:" + muaId);
+-        stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + muaId);
++        dispatchLeaseService.release(bookingId, String.valueOf(muaId));
++        stringRedisTemplate.delete(InstantBookingKeys.timer(bookingId, muaId));
+ 
+         if (currentMuaIdStr != null && currentMuaIdStr.equals(String.valueOf(muaId))) {
+             log.info("[SequentialDispatch] MUA id={} manually skipped bookingId={}, cascading to next candidate", muaId, bookingId);
+@@ -320,7 +332,7 @@
+     @Override
+     @Transactional
+     public boolean expireInstantBooking(Long bookingId) {
+-        BookingEntity booking = bookingRepository.findById(bookingId).orElse(null);
++        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId).orElse(null);
+         if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
+             log.info("[InstantBookingTimeout] Booking id={} is not in REQUESTED status (current={}), skipping auto-cancel",
+                     bookingId, booking != null ? booking.getStatus() : "null");
+@@ -357,8 +369,8 @@
+         timeoutPayload.put("message", "Đã hết thời gian tìm kiếm (45 giây). Đơn đã tự động hủy do không có thợ nhận.");
+         timeoutPayload.put("timestamp", System.currentTimeMillis());
+ 
+-        messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, timeoutPayload);
+-        messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, timeoutPayload);
++        messagePublisher.send("/topic/booking-matched/" + bookingId, timeoutPayload);
++        messagePublisher.send("/topic/booking-status/" + bookingId, timeoutPayload);
+ 
+         // Dismiss any lingering popup on MUAs
+         dismissBookingOffers(bookingId, "TIMEOUT_EXPIRED");
+@@ -370,7 +382,7 @@
+     @Override
+     @Transactional
+     public boolean cancelInstantBookingByCustomer(Long bookingId, Long customerUserId, String reason) {
+-        BookingEntity booking = bookingRepository.findById(bookingId)
++        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
+                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                         "booking.not_found", HttpStatus.NOT_FOUND));
+ 
+@@ -424,8 +436,8 @@
+         cancelPayload.put("message", cancelReason);
+         cancelPayload.put("timestamp", System.currentTimeMillis());
+ 
+-        messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, cancelPayload);
+-        messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, cancelPayload);
++        messagePublisher.send("/topic/booking-matched/" + bookingId, cancelPayload);
++        messagePublisher.send("/topic/booking-status/" + bookingId, cancelPayload);
+ 
+         // Dismiss MUAs
+         dismissBookingOffers(bookingId, "CUSTOMER_CANCELLED");
+@@ -434,59 +446,66 @@
+         return true;
+     }
+ 
+-    @Scheduled(fixedDelay = 30000)
+-    @Transactional
+-    public void scanAndExpireOverdueInstantBookings() {
+-        LocalDateTime threshold = LocalDateTime.now().minusSeconds(BOOKING_TIMEOUT_SECONDS);
+-        List<BookingEntity> pending = bookingRepository.findByStatus(BookingStatus.REQUESTED);
+-        for (BookingEntity b : pending) {
+-            if (b.getBookingType() != BookingType.REALTIME_INSTANT) continue;
+-
+-            // 1. Quá hạn 45s tổng thời gian tìm thợ -> Hủy đơn an toàn
+-            if (b.getCreatedAt() != null && b.getCreatedAt().isBefore(threshold)) {
+-                log.info("[SafetyNet] Expiring overdue instant bookingId={}", b.getId());
+-                expireInstantBooking(b.getId());
+-                continue;
+-            }
+-
+-            // 2. Server-side check: Nếu thợ hiện tại đã quá 20s không phản hồi (tắt trình duyệt, mất mạng) -> Tự động chuyển thợ kế tiếp
+-            String sentAtStr = stringRedisTemplate.opsForValue().get("booking:dispatch:sent_at:" + b.getId());
+-            if (sentAtStr != null) {
+-                try {
+-                    long sentAt = Long.parseLong(sentAtStr);
+-                    if (System.currentTimeMillis() - sentAt >= Duration.ofSeconds(OFFER_TIMEOUT_SECONDS).toMillis()) { // 20s
+-                        log.info("[SafetyNet] Current MUA did not respond within 20s for bookingId={}. Auto-cascading to next candidate.", b.getId());
+-                        dispatchNextCandidate(b.getId());
+-                    }
+-                } catch (Exception e) {
+-                    log.warn("[SafetyNet] Error parsing sent_at for bookingId={}: {}", b.getId(), e.getMessage());
+-                }
+-            }
++    @Override
++    @Transactional
++    public boolean dispatchNextCandidateIfCurrent(Long bookingId, Long expectedMuaId) {
++        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId).orElse(null);
++        if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
++            return false;
++        }
++        String current = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
++        return String.valueOf(expectedMuaId).equals(current) && dispatchNextCandidate(bookingId);
++    }
++
++    @Override
++    @Transactional
++    public void processPendingBooking(Long bookingId) {
++        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId).orElse(null);
++        if (booking == null || booking.getBookingType() != BookingType.REALTIME_INSTANT
++                || booking.getStatus() != BookingStatus.REQUESTED) {
++            return;
++        }
++        if (booking.getCreatedAt() != null && booking.getCreatedAt()
++                .isBefore(LocalDateTime.now().minusSeconds(BOOKING_TIMEOUT_SECONDS))) {
++            expireInstantBooking(bookingId);
++            return;
++        }
++        String sentAt = stringRedisTemplate.opsForValue().get(InstantBookingKeys.sentAt(bookingId));
++        if (sentAt == null) {
++            return;
++        }
++        long sentAtMillis;
++        try {
++            sentAtMillis = Long.parseLong(sentAt);
++        } catch (NumberFormatException ex) {
++            log.warn("Invalid offer timestamp for booking {}: {}", bookingId, sentAt);
++            return;
++        }
++        if (System.currentTimeMillis() - sentAtMillis >= Duration.ofSeconds(OFFER_TIMEOUT_SECONDS).toMillis()) {
++            dispatchNextCandidate(bookingId);
+         }
+     }
+ 
+     private void startCandidateOffer(Long bookingId, Long muaId, String candidateValue) {
+-        stringRedisTemplate.opsForValue().set("booking:dispatch:current:" + bookingId,
++        stringRedisTemplate.opsForValue().set(InstantBookingKeys.current(bookingId),
+                 candidateValue, DISPATCH_STATE_TTL);
+-        stringRedisTemplate.opsForValue().set("mua:dispatch:locked:" + muaId,
+-                String.valueOf(bookingId), CANDIDATE_LOCK_TTL);
+-        stringRedisTemplate.opsForValue().set("booking:dispatch:timer:" + bookingId + ":" + muaId,
++        stringRedisTemplate.opsForValue().set(InstantBookingKeys.timer(bookingId, muaId),
+                 "PENDING", Duration.ofSeconds(OFFER_TIMEOUT_SECONDS));
+-        stringRedisTemplate.opsForValue().set("booking:dispatch:sent_at:" + bookingId,
++        stringRedisTemplate.opsForValue().set(InstantBookingKeys.sentAt(bookingId),
+                 String.valueOf(System.currentTimeMillis()), OFFER_TIMESTAMP_TTL);
+     }
+ 
+     private void clearDispatchState(Long bookingId) {
+-        String currentMuaIdStr = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
++        String currentMuaIdStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
+         if (currentMuaIdStr != null) {
+-            stringRedisTemplate.delete("mua:dispatch:locked:" + currentMuaIdStr);
+-            stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + currentMuaIdStr);
+-        }
+-        stringRedisTemplate.delete("booking:dispatch:candidates:" + bookingId);
+-        stringRedisTemplate.delete("booking:dispatch:current:" + bookingId);
+-        stringRedisTemplate.delete("booking:dispatch:skipped:" + bookingId);
+-        stringRedisTemplate.delete("booking:instant:expire:" + bookingId);
+-        stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
++            dispatchLeaseService.release(bookingId, currentMuaIdStr);
++            stringRedisTemplate.delete(InstantBookingKeys.timer(bookingId, currentMuaIdStr));
++        }
++        stringRedisTemplate.delete(InstantBookingKeys.candidates(bookingId));
++        stringRedisTemplate.delete(InstantBookingKeys.current(bookingId));
++        stringRedisTemplate.delete(InstantBookingKeys.skipped(bookingId));
++        stringRedisTemplate.delete(InstantBookingKeys.expiration(bookingId));
++        stringRedisTemplate.delete(InstantBookingKeys.sentAt(bookingId));
+     }
+ 
+     private Map<String, Object> createOfferPayload(BookingEntity booking, Long targetMuaId,
+@@ -515,43 +534,53 @@
+         dismissPayload.put("reason", reason);
+         dismissPayload.put("timestamp", System.currentTimeMillis());
+ 
+-        messagingTemplate.convertAndSend("/topic/instant-dismiss/" + bookingId, dismissPayload);
+-        messagingTemplate.convertAndSend("/topic/instant-dismiss", dismissPayload);
++        messagePublisher.send("/topic/instant-dismiss/" + bookingId, dismissPayload);
++        messagePublisher.send("/topic/instant-dismiss", dismissPayload);
+     }
+ 
+     private List<Long> findAvailableCandidates(CreateInstantBookingReq req) {
+         List<Long> candidateMuaIds = new ArrayList<>();
+         try {
+             GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults = redisGeoService.searchNearbyActiveMuas(
+-                    req.getDestinationLatitude().doubleValue(),
+-                    req.getDestinationLongitude().doubleValue(),
+-                    10.0
+-            );
+-            if (geoResults != null && !geoResults.getContent().isEmpty()) {
+-                for (var item : geoResults.getContent()) {
+-                    try {
+-                        Long muaId = Long.valueOf(item.getContent().getName());
+-                        var muaOpt = muaProfileRepository.findById(muaId);
+-                        if (muaOpt.isPresent()) {
+-                            var mua = muaOpt.get();
+-                            boolean isFreelanceMUA = mua.getUser() != null
+-                                    && mua.getUser().getRole() != null
+-                                    && "ROLE_FREELANCE_MUA".equals(mua.getUser().getRole().getName());
+-                            boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
+-                                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+-                            if (isFreelanceMUA && hasVerifiedCert && Boolean.TRUE.equals(mua.getIsOnline()) && !Boolean.TRUE.equals(mua.getIsBusy())) {
+-                                String lockKey = "mua:dispatch:locked:" + muaId;
+-                                Boolean isLocked = stringRedisTemplate.hasKey(lockKey);
+-                                if (!Boolean.TRUE.equals(isLocked)) {
+-                                    candidateMuaIds.add(muaId);
+-                                }
+-                            }
+-                        }
+-                    } catch (Exception ignored) {}
++                    req.getDestinationLatitude().doubleValue(), req.getDestinationLongitude().doubleValue(), 10.0);
++            if (geoResults == null || geoResults.getContent().isEmpty()) {
++                return candidateMuaIds;
++            }
++            List<Long> nearbyIds = new ArrayList<>();
++            for (var item : geoResults.getContent()) {
++                try {
++                    nearbyIds.add(Long.valueOf(item.getContent().getName()));
++                } catch (NumberFormatException ex) {
++                    log.warn("Ignoring malformed MUA id in GEO index: {}", item.getContent().getName());
+                 }
+             }
+-        } catch (Exception e) {
+-            log.warn("[InstantBooking] Redis GEO query failed: {}", e.getMessage());
++            // Fetch in bounded batches; keep the GEO distance order when filtering.
++            Map<Long, MuaProfileEntity> profiles = new HashMap<>();
++            for (int offset = 0; offset < nearbyIds.size(); offset += 250) {
++                List<Long> batch = nearbyIds.subList(offset, Math.min(offset + 250, nearbyIds.size()));
++                for (MuaProfileEntity profile : muaProfileRepository.findDispatchCandidatesByIdIn(batch)) {
++                    profiles.put(profile.getId(), profile);
++                }
++            }
++            List<String> lockKeys = nearbyIds.stream().map(id -> InstantBookingKeys.candidateLease(id)).toList();
++            List<String> leases = lockKeys.isEmpty() ? List.of() : stringRedisTemplate.opsForValue().multiGet(lockKeys);
++            for (int index = 0; index < nearbyIds.size(); index++) {
++                Long id = nearbyIds.get(index);
++                MuaProfileEntity mua = profiles.get(id);
++                if (mua == null || mua.getUser() == null || mua.getUser().getRole() == null) {
++                    continue;
++                }
++                boolean freelance = "ROLE_FREELANCE_MUA".equals(mua.getUser().getRole().getName());
++                boolean verified = mua.getCertificates() != null && mua.getCertificates().stream()
++                        .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
++                boolean leased = leases != null && leases.get(index) != null;
++                if (freelance && verified && Boolean.TRUE.equals(mua.getIsOnline())
++                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased) {
++                    candidateMuaIds.add(id);
++                }
++            }
++        } catch (RuntimeException ex) {
++            log.warn("Unable to load instant booking candidates", ex);
+         }
+         return candidateMuaIds;
+     }
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantBookingExpirationScheduler.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantBookingExpirationScheduler.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantBookingExpirationScheduler.java
+@@ -0,0 +1,42 @@
++package com.makeup.platform.service.customer;
++
++import com.makeup.platform.entity.booking.BookingStatus;
++import com.makeup.platform.entity.booking.BookingType;
++import com.makeup.platform.repository.booking.BookingRepository;
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.data.domain.PageRequest;
++import org.springframework.scheduling.annotation.Scheduled;
++import org.springframework.stereotype.Component;
++
++import java.util.List;
++
++@Slf4j
++@Component
++@RequiredArgsConstructor
++public class InstantBookingExpirationScheduler {
++    private static final int BATCH_SIZE = 100;
++    private final BookingRepository bookingRepository;
++    private final CustomerInstantBookingService bookingService;
++
++    @Scheduled(fixedDelay = 30000)
++    public void scanPendingBookings() {
++        Long maxId = bookingRepository.findPendingScanUpperBound(BookingType.REALTIME_INSTANT, BookingStatus.REQUESTED);
++        if (maxId == null) return;
++        long afterId = 0;
++        List<Long> ids;
++        do {
++            ids = bookingRepository.findPendingInstantIds(BookingType.REALTIME_INSTANT,
++                    BookingStatus.REQUESTED, afterId, maxId, PageRequest.of(0, BATCH_SIZE));
++            for (Long id : ids) {
++                try {
++                    // Each booking gets its own transaction through the service proxy.
++                    bookingService.processPendingBooking(id);
++                } catch (RuntimeException ex) {
++                    log.error("Failed to process pending instant booking {}", id, ex);
++                }
++                afterId = id;
++            }
++        } while (ids.size() == BATCH_SIZE);
++    }
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantDispatchLeaseService.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantDispatchLeaseService.java
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/customer/InstantDispatchLeaseService.java
+@@ -0,0 +1,50 @@
++package com.makeup.platform.service.customer;
++
++import com.makeup.platform.common.constants.InstantBookingKeys;
++
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.data.redis.core.StringRedisTemplate;
++import org.springframework.data.redis.core.script.DefaultRedisScript;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.support.TransactionSynchronization;
++import org.springframework.transaction.support.TransactionSynchronizationManager;
++
++import java.time.Duration;
++import java.util.List;
++
++/** Atomic candidate leases; only the owning booking may release a lease. */
++@Slf4j
++@Service
++@RequiredArgsConstructor
++public class InstantDispatchLeaseService {
++    private static final Duration LEASE_TTL = Duration.ofSeconds(25);
++    private static final DefaultRedisScript<Long> RELEASE = new DefaultRedisScript<>(
++            "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
++            Long.class);
++    private final StringRedisTemplate redis;
++
++    public boolean tryClaim(Long bookingId, String muaId) {
++        boolean acquired = Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(
++                InstantBookingKeys.candidateLease(muaId), bookingId.toString(), LEASE_TTL));
++        if (acquired && TransactionSynchronizationManager.isSynchronizationActive()) {
++            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
++                @Override
++                public void afterCompletion(int status) {
++                    if (status != STATUS_COMMITTED) {
++                        try {
++                            release(bookingId, muaId);
++                        } catch (RuntimeException ex) {
++                            log.warn("Failed to release candidate lease after rollback; TTL will expire it", ex);
++                        }
++                    }
++                }
++            });
++        }
++        return acquired;
++    }
++
++    public void release(Long bookingId, String muaId) {
++        redis.execute(RELEASE, List.of(InstantBookingKeys.candidateLease(muaId)), bookingId.toString());
++    }
++}
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryQueryServiceImpl.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryQueryServiceImpl.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryQueryServiceImpl.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryQueryServiceImpl.java
+@@ -10,7 +10,6 @@
+ import com.makeup.platform.dto.response.telemetry.LiveTrackingRes;
+ import com.makeup.platform.dto.response.telemetry.NearbyProviderRes;
+ import com.makeup.platform.dto.response.telemetry.TelemetryLogRes;
+-import com.makeup.platform.entity.catalog.ServicePackageEntity;
+ import com.makeup.platform.entity.mua.MuaProfileEntity;
+ import com.makeup.platform.entity.telemetry.AdaptiveStreamMode;
+ import com.makeup.platform.entity.telemetry.AgencyBranchEntity;
+@@ -20,7 +19,6 @@
+ import com.makeup.platform.mapper.telemetry.TelemetryLogMapper;
+ import com.makeup.platform.mapper.telemetry.TelemetryProviderMapper;
+ import com.makeup.platform.entity.booking.BookingEntity;
+-import com.makeup.platform.entity.booking.BookingStatus;
+ import com.makeup.platform.repository.booking.BookingRepository;
+ import org.springframework.data.geo.Point;
+ import org.springframework.data.redis.core.StringRedisTemplate;
+@@ -38,6 +36,7 @@
+ import org.springframework.data.redis.connection.RedisGeoCommands;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.math.BigDecimal;
+ import java.math.RoundingMode;
+@@ -66,6 +65,7 @@
+     private final StringRedisTemplate stringRedisTemplate;
+ 
+     @Override
++    @Transactional(readOnly = true)
+     public List<NearbyProviderRes> findNearbyProviders(NearbyProvidersReq req) {
+         validateCoordinates(req.getLatitude(), req.getLongitude());
+ 
+@@ -104,35 +104,36 @@
+             // 2. Lấy profile tóm tắt siêu tốc qua MGET Redis String
+             List<String> summaries = redisGeoService.getMuaSummaries(muaIds);
+ 
++            Map<Long, NearbyProviderRes> providers = new HashMap<>();
++            List<Long> cacheMisses = new ArrayList<>();
+             for (int i = 0; i < muaIds.size(); i++) {
+                 Long muaId = muaIds.get(i);
+-                String summaryJson = i < summaries.size() ? summaries.get(i) : null;
+-                NearbyProviderRes providerRes = null;
+-
++                String summaryJson = summaries != null && i < summaries.size() ? summaries.get(i) : null;
+                 if (summaryJson != null) {
+                     try {
+                         Map<String, Object> summary = objectMapper.readValue(summaryJson, new TypeReference<>() {});
+-                        providerRes = telemetryProviderMapper.fromSummaryMap(summary);
+-                    } catch (Exception e) {
+-                        log.warn("Failed to parse summary JSON for MUA {}: {}", muaId, e.getMessage());
+-                    }
+-                }
+-
+-                // Fallback nếu cache bị miss (DB query & populate cache)
+-                if (providerRes == null) {
+-                    var muaOpt = muaProfileRepository.findById(muaId);
+-                    if (muaOpt.isPresent()) {
+-                        MuaProfileEntity mua = muaOpt.get();
+-                        List<ServicePackageEntity> packages = servicePackageRepository.findByMuaIdAndIsAvailableTrue(mua.getId());
+-                        BigDecimal startingPrice = packages.stream()
+-                                .map(ServicePackageEntity::getPrice)
+-                                .min(BigDecimal::compareTo)
+-                                .orElse(BigDecimal.valueOf(350000));
+-                        providerRes = telemetryProviderMapper.fromMuaEntity(mua, startingPrice);
+-                        cacheMuaSummary(mua);
+-                    }
+-                }
+-
++                        NearbyProviderRes provider = telemetryProviderMapper.fromSummaryMap(summary);
++                        if (provider != null) providers.put(muaId, provider);
++                    } catch (Exception ex) {
++                        log.warn("Invalid cached summary for MUA {}", muaId, ex);
++                    }
++                }
++                if (!providers.containsKey(muaId)) cacheMisses.add(muaId);
++            }
++            for (int offset = 0; offset < cacheMisses.size(); offset += 250) {
++                List<Long> batch = cacheMisses.subList(offset, Math.min(offset + 250, cacheMisses.size()));
++                Map<Long, BigDecimal> prices = new HashMap<>();
++                for (var price : servicePackageRepository.findStartingPrices(batch)) {
++                    if (price.getStartingPrice() != null) prices.put(price.getMuaId(), price.getStartingPrice());
++                }
++                for (MuaProfileEntity mua : muaProfileRepository.findDispatchCandidatesByIdIn(batch)) {
++                    BigDecimal startingPrice = prices.getOrDefault(mua.getId(), BigDecimal.valueOf(350000));
++                    providers.put(mua.getId(), telemetryProviderMapper.fromMuaEntity(mua, startingPrice));
++                    cacheMuaSummary(mua, startingPrice);
++                }
++            }
++            for (Long muaId : muaIds) {
++                NearbyProviderRes providerRes = providers.get(muaId);
+                 if (providerRes != null) {
+                     Double dist = distanceMap.get(muaId);
+                     providerRes.setDistanceKm(dist != null ? BigDecimal.valueOf(dist).setScale(2, RoundingMode.HALF_UP).doubleValue() : null);
+@@ -180,6 +181,7 @@
+     }
+ 
+     @Override
++    @Transactional(readOnly = true)
+     public LiveTrackingRes getLiveTripTracking(Long bookingId) {
+         Map<Object, Object> raw = redisGeoService.getTripLivePosition(bookingId);
+         if (raw == null || raw.isEmpty()) {
+@@ -193,6 +195,7 @@
+                         .speed(0.0)
+                         .heading(0.0)
+                         .streamMode(AdaptiveStreamMode.STOPPED)
++                        .locationStatus("COMPLETED")
+                         .updatedAt(trip.getEndTime())
+                         .build();
+             }
+@@ -201,58 +204,17 @@
+             var bookingOpt = bookingRepository.findById(bookingId);
+             if (bookingOpt.isPresent() && bookingOpt.get().getMua() != null) {
+                 BookingEntity booking = bookingOpt.get();
+-                Long muaId = booking.getMua().getId();
+-                double destLat = booking.getDestinationLatitude() != null ? booking.getDestinationLatitude().doubleValue() : 10.776889;
+-                double destLng = booking.getDestinationLongitude() != null ? booking.getDestinationLongitude().doubleValue() : 106.700806;
+-
+-                double initialLat = destLat + 0.009;
+-                double initialLng = destLng + 0.009;
+-                double distKm = GeoDistanceUtils.calculateDistanceKm(initialLat, initialLng, destLat, destLng);
+-                double speed = 35.0;
+-                int eta = (int) Math.max(1, Math.ceil(distKm * 3.0));
+-                AdaptiveStreamMode mode = AdaptiveStreamMode.MOVING;
+-
+-                if (booking.getStatus() == BookingStatus.ARRIVED
+-                        || booking.getStatus() == BookingStatus.IN_PROGRESS
+-                        || booking.getStatus() == BookingStatus.COMPLETED) {
+-                    initialLat = destLat;
+-                    initialLng = destLng;
+-                    distKm = 0.0;
+-                    speed = 0.0;
+-                    eta = 0;
+-                    mode = AdaptiveStreamMode.STOPPED;
+-                } else {
+-                    try {
+-                        var positions = stringRedisTemplate.opsForGeo().position(TelemetryConstants.REDIS_KEY_MUA_GEO, String.valueOf(muaId));
+-                        if (positions != null && !positions.isEmpty() && positions.get(0) != null) {
+-                            initialLng = positions.get(0).getX();
+-                            initialLat = positions.get(0).getY();
+-                            distKm = GeoDistanceUtils.calculateDistanceKm(initialLat, initialLng, destLat, destLng);
+-                            if (distKm * 1000 < TelemetryConstants.ADAPTIVE_APPROACHING_DISTANCE_METERS) {
+-                                mode = AdaptiveStreamMode.APPROACHING;
+-                            }
+-                        }
+-                    } catch (Exception ignored) {}
+-                }
+-
+-                redisGeoService.updateTripLivePosition(
+-                        bookingId, muaId, initialLat, initialLng,
+-                        speed, 90.0, 5.0, eta, distKm * 1000, mode
+-                );
+-
+-                return LiveTrackingRes.builder()
+-                        .bookingId(bookingId)
+-                        .muaId(muaId)
+-                        .currentLat(initialLat)
+-                        .currentLng(initialLng)
+-                        .speed(speed)
+-                        .heading(90.0)
+-                        .accuracy(5.0)
+-                        .etaMinutes(eta)
+-                        .distanceRemainingMeters(distKm * 1000)
+-                        .streamMode(mode)
+-                        .updatedAt(Instant.now())
+-                        .build();
++                MuaProfileEntity mua = booking.getMua();
++                LiveTrackingRes fallback = LiveTrackingRes.builder()
++                        .bookingId(bookingId).muaId(mua.getId()).locationStatus("UNAVAILABLE").build();
++                if (mua.getLastKnownLat() != null && mua.getLastKnownLng() != null
++                        && mua.getLastKnownUpdatedAt() != null) {
++                    fallback.setCurrentLat(mua.getLastKnownLat().doubleValue());
++                    fallback.setCurrentLng(mua.getLastKnownLng().doubleValue());
++                    fallback.setUpdatedAt(mua.getLastKnownUpdatedAt());
++                    fallback.setLocationStatus("LAST_KNOWN");
++                }
++                return fallback;
+             }
+ 
+             throw new CustomBusinessException(ErrorCodes.ERR_TRIP_NOT_FOUND, "ERR_TRIP_NOT_FOUND", HttpStatus.NOT_FOUND);
+@@ -260,6 +222,7 @@
+ 
+         LiveTrackingRes res = new LiveTrackingRes();
+         res.setBookingId(bookingId);
++        res.setLocationStatus("LIVE");
+ 
+         if (raw.containsKey("muaId")) {
+             res.setMuaId(Long.parseLong(raw.get("muaId").toString()));
+@@ -290,24 +253,6 @@
+         }
+         if (raw.containsKey("updatedAt")) {
+             res.setUpdatedAt(Instant.parse(raw.get("updatedAt").toString()));
+-        }
+-
+-        // Nếu trạng thái đơn đã là ARRIVED / IN_PROGRESS / COMPLETED thì tự động ép về STOPPED và điểm đến
+-        var bookingOpt = bookingRepository.findById(bookingId);
+-        if (bookingOpt.isPresent()) {
+-            BookingEntity booking = bookingOpt.get();
+-            if (booking.getStatus() == BookingStatus.ARRIVED
+-                    || booking.getStatus() == BookingStatus.IN_PROGRESS
+-                    || booking.getStatus() == BookingStatus.COMPLETED) {
+-                res.setStreamMode(AdaptiveStreamMode.STOPPED);
+-                res.setSpeed(0.0);
+-                res.setDistanceRemainingMeters(0.0);
+-                res.setEtaMinutes(0);
+-                if (booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
+-                    res.setCurrentLat(booking.getDestinationLatitude().doubleValue());
+-                    res.setCurrentLng(booking.getDestinationLongitude().doubleValue());
+-                }
+-            }
+         }
+ 
+         return res;
+@@ -329,7 +274,7 @@
+         return telemetryLogMapper.toResFromLogs(bookingId, logs);
+     }
+ 
+-    private void cacheMuaSummary(MuaProfileEntity mua) {
++    private void cacheMuaSummary(MuaProfileEntity mua, BigDecimal startingPrice) {
+         try {
+             Map<String, Object> summary = new HashMap<>();
+             summary.put("providerId", mua.getId());
+@@ -339,11 +284,6 @@
+             summary.put("avatarUrl", mua.getUser() != null ? mua.getUser().getAvatarUrl() : null);
+             summary.put("ratingAvg", mua.getRatingAvg() != null ? mua.getRatingAvg().doubleValue() : 5.0);
+ 
+-            List<ServicePackageEntity> packages = servicePackageRepository.findByMuaIdAndIsAvailableTrue(mua.getId());
+-            BigDecimal startingPrice = packages.stream()
+-                    .map(ServicePackageEntity::getPrice)
+-                    .min(BigDecimal::compareTo)
+-                    .orElse(BigDecimal.valueOf(350000));
+             summary.put("startingPrice", startingPrice.doubleValue());
+ 
+             String json = objectMapper.writeValueAsString(summary);
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryStreamServiceImpl.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryStreamServiceImpl.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryStreamServiceImpl.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/impl/TelemetryStreamServiceImpl.java
+@@ -172,6 +172,7 @@
+ 
+             // Broadcast qua STOMP topic
+             String topic = TelemetryConstants.TOPIC_GPS_STREAM_PREFIX + req.getBookingId();
++            res.setLocationStatus("LIVE");
+             messagingTemplate.convertAndSend(topic, res);
+             log.debug("Broadcasted live telemetry to topic {}", topic);
+ 
+diff --git a/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/RedisExpirationListener.java b/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/RedisExpirationListener.java
+--- a/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/RedisExpirationListener.java
++++ b/code/backend/core-api/src/main/java/com/makeup/platform/service/telemetry/RedisExpirationListener.java
+@@ -1,4 +1,6 @@
+ package com.makeup.platform.service.telemetry;
++
++import com.makeup.platform.common.constants.InstantBookingKeys;
+ 
+ import com.makeup.platform.common.constants.TelemetryConstants;
+ import com.makeup.platform.entity.telemetry.AvailabilityStatus;
+@@ -30,7 +32,9 @@
+         container.addMessageListener(this, new PatternTopic("__keyevent@*__:expired"));
+         try {
+             if (stringRedisTemplate.getConnectionFactory() != null) {
+-                stringRedisTemplate.getConnectionFactory().getConnection().serverCommands().setConfig("notify-keyspace-events", "KEA");
++                try (var connection = stringRedisTemplate.getConnectionFactory().getConnection()) {
++                    connection.serverCommands().setConfig("notify-keyspace-events", "KEA");
++                }
+                 log.info("Configured Redis notify-keyspace-events to KEA");
+             }
+         } catch (Exception e) {
+@@ -69,8 +73,8 @@
+             } catch (Exception e) {
+                 log.error("Error processing expiration for MUA heartbeat {}: {}", expiredKey, e.getMessage(), e);
+             }
+-        } else if (expiredKey != null && expiredKey.startsWith("booking:instant:expire:")) {
+-            String bookingIdStr = expiredKey.substring("booking:instant:expire:".length());
++        } else if (expiredKey != null && expiredKey.startsWith(InstantBookingKeys.EXPIRATION_PREFIX)) {
++            String bookingIdStr = expiredKey.substring(InstantBookingKeys.EXPIRATION_PREFIX.length());
+             try {
+                 Long bookingId = Long.parseLong(bookingIdStr);
+                 log.info("[RedisExpiration] Instant booking id={} reached 45s TTL. Triggering auto-cancel.", bookingId);
+@@ -80,7 +84,7 @@
+             } catch (Exception e) {
+                 log.error("Error processing expiration for booking {}: {}", expiredKey, e.getMessage(), e);
+             }
+-        } else if (expiredKey != null && expiredKey.startsWith("booking:dispatch:timer:")) {
++        } else if (expiredKey != null && expiredKey.startsWith(InstantBookingKeys.OFFER_TIMER_PREFIX)) {
+             // Key pattern: booking:dispatch:timer:{bookingId}:{targetMuaId}
+             String[] parts = expiredKey.split(":");
+             if (parts.length >= 5) {
+@@ -90,11 +94,11 @@
+                     log.info("[RedisExpiration] MUA offer 20s TTL expired for bookingId={}, targetMuaId={}", bookingId, targetMuaId);
+ 
+                     // Kiểm tra thợ hiện tại còn là targetMuaId không
+-                    String currentMuaStr = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
++                    String currentMuaStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
+                     if (currentMuaStr != null && currentMuaStr.equals(String.valueOf(targetMuaId))) {
+                         log.info("[RedisExpiration] Auto-cascading bookingId={} to next candidate because MUA {} did not respond within 20s",
+                                 bookingId, targetMuaId);
+-                        customerInstantBookingService.dispatchNextCandidate(bookingId);
++                        customerInstantBookingService.dispatchNextCandidateIfCurrent(bookingId, targetMuaId);
+                     }
+                 } catch (Exception e) {
+                     log.error("Error processing expiration for dispatch timer {}: {}", expiredKey, e.getMessage(), e);
+diff --git a/code/backend/core-api/src/main/resources/application-dev.yml b/code/backend/core-api/src/main/resources/application-dev.yml
+--- a/code/backend/core-api/src/main/resources/application-dev.yml
++++ b/code/backend/core-api/src/main/resources/application-dev.yml
+@@ -15,6 +15,7 @@
+     show-sql: true
+     properties:
+       hibernate:
++        default_batch_fetch_size: 50
+         format_sql: true
+         dialect: org.hibernate.dialect.PostgreSQLDialect
+         default_schema: public
+diff --git a/code/backend/core-api/src/main/resources/application-prod.yml b/code/backend/core-api/src/main/resources/application-prod.yml
+--- a/code/backend/core-api/src/main/resources/application-prod.yml
++++ b/code/backend/core-api/src/main/resources/application-prod.yml
+@@ -15,6 +15,7 @@
+     show-sql: false
+     properties:
+       hibernate:
++        default_batch_fetch_size: 50
+         format_sql: false
+         dialect: org.hibernate.dialect.PostgreSQLDialect
+         default_schema: public
+diff --git a/code/backend/core-api/src/main/resources/db/migration/V20260927120000__Optimize_Booking_Query_Indexes.sql b/code/backend/core-api/src/main/resources/db/migration/V20260927120000__Optimize_Booking_Query_Indexes.sql
+new file mode 100644
+--- /dev/null
++++ b/code/backend/core-api/src/main/resources/db/migration/V20260927120000__Optimize_Booking_Query_Indexes.sql
+@@ -0,0 +1,7 @@
++-- Support bounded instant-booking scans and stable agency pagination.
++CREATE INDEX IF NOT EXISTS idx_bookings_type_status_id
++    ON booking_schema.bookings (booking_type, status, id);
++CREATE INDEX IF NOT EXISTS idx_bookings_agency_created_id
++    ON booking_schema.bookings (agency_id, created_at DESC, id DESC);
++CREATE INDEX IF NOT EXISTS idx_bookings_created_id
++    ON booking_schema.bookings (created_at DESC, id DESC);

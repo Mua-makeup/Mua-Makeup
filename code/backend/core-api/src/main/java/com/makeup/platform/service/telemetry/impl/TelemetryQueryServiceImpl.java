@@ -10,7 +10,6 @@ import com.makeup.platform.dto.request.telemetry.NearbyProvidersReq;
 import com.makeup.platform.dto.response.telemetry.LiveTrackingRes;
 import com.makeup.platform.dto.response.telemetry.NearbyProviderRes;
 import com.makeup.platform.dto.response.telemetry.TelemetryLogRes;
-import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AdaptiveStreamMode;
 import com.makeup.platform.entity.telemetry.AgencyBranchEntity;
@@ -20,7 +19,6 @@ import com.makeup.platform.entity.telemetry.TelemetryLogEntity;
 import com.makeup.platform.mapper.telemetry.TelemetryLogMapper;
 import com.makeup.platform.mapper.telemetry.TelemetryProviderMapper;
 import com.makeup.platform.entity.booking.BookingEntity;
-import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.repository.booking.BookingRepository;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,6 +36,7 @@ import org.springframework.data.geo.GeoResults;
 import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -66,6 +65,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     private final StringRedisTemplate stringRedisTemplate;
 
     @Override
+    @Transactional(readOnly = true)
     public List<NearbyProviderRes> findNearbyProviders(NearbyProvidersReq req) {
         validateCoordinates(req.getLatitude(), req.getLongitude());
 
@@ -104,35 +104,36 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             // 2. Lấy profile tóm tắt siêu tốc qua MGET Redis String
             List<String> summaries = redisGeoService.getMuaSummaries(muaIds);
 
+            Map<Long, NearbyProviderRes> providers = new HashMap<>();
+            List<Long> cacheMisses = new ArrayList<>();
             for (int i = 0; i < muaIds.size(); i++) {
                 Long muaId = muaIds.get(i);
-                String summaryJson = i < summaries.size() ? summaries.get(i) : null;
-                NearbyProviderRes providerRes = null;
-
+                String summaryJson = summaries != null && i < summaries.size() ? summaries.get(i) : null;
                 if (summaryJson != null) {
                     try {
                         Map<String, Object> summary = objectMapper.readValue(summaryJson, new TypeReference<>() {});
-                        providerRes = telemetryProviderMapper.fromSummaryMap(summary);
-                    } catch (Exception e) {
-                        log.warn("Failed to parse summary JSON for MUA {}: {}", muaId, e.getMessage());
+                        NearbyProviderRes provider = telemetryProviderMapper.fromSummaryMap(summary);
+                        if (provider != null) providers.put(muaId, provider);
+                    } catch (Exception ex) {
+                        log.warn("Invalid cached summary for MUA {}", muaId, ex);
                     }
                 }
-
-                // Fallback nếu cache bị miss (DB query & populate cache)
-                if (providerRes == null) {
-                    var muaOpt = muaProfileRepository.findById(muaId);
-                    if (muaOpt.isPresent()) {
-                        MuaProfileEntity mua = muaOpt.get();
-                        List<ServicePackageEntity> packages = servicePackageRepository.findByMuaIdAndIsAvailableTrue(mua.getId());
-                        BigDecimal startingPrice = packages.stream()
-                                .map(ServicePackageEntity::getPrice)
-                                .min(BigDecimal::compareTo)
-                                .orElse(BigDecimal.valueOf(350000));
-                        providerRes = telemetryProviderMapper.fromMuaEntity(mua, startingPrice);
-                        cacheMuaSummary(mua);
-                    }
+                if (!providers.containsKey(muaId)) cacheMisses.add(muaId);
+            }
+            for (int offset = 0; offset < cacheMisses.size(); offset += 250) {
+                List<Long> batch = cacheMisses.subList(offset, Math.min(offset + 250, cacheMisses.size()));
+                Map<Long, BigDecimal> prices = new HashMap<>();
+                for (var price : servicePackageRepository.findStartingPrices(batch)) {
+                    if (price.getStartingPrice() != null) prices.put(price.getMuaId(), price.getStartingPrice());
                 }
-
+                for (MuaProfileEntity mua : muaProfileRepository.findDispatchCandidatesByIdIn(batch)) {
+                    BigDecimal startingPrice = prices.getOrDefault(mua.getId(), BigDecimal.valueOf(350000));
+                    providers.put(mua.getId(), telemetryProviderMapper.fromMuaEntity(mua, startingPrice));
+                    cacheMuaSummary(mua, startingPrice);
+                }
+            }
+            for (Long muaId : muaIds) {
+                NearbyProviderRes providerRes = providers.get(muaId);
                 if (providerRes != null) {
                     Double dist = distanceMap.get(muaId);
                     providerRes.setDistanceKm(dist != null ? BigDecimal.valueOf(dist).setScale(2, RoundingMode.HALF_UP).doubleValue() : null);
@@ -180,6 +181,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LiveTrackingRes getLiveTripTracking(Long bookingId) {
         Map<Object, Object> raw = redisGeoService.getTripLivePosition(bookingId);
         if (raw == null || raw.isEmpty()) {
@@ -193,6 +195,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                         .speed(0.0)
                         .heading(0.0)
                         .streamMode(AdaptiveStreamMode.STOPPED)
+                        .locationStatus("COMPLETED")
                         .updatedAt(trip.getEndTime())
                         .build();
             }
@@ -201,58 +204,17 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             var bookingOpt = bookingRepository.findById(bookingId);
             if (bookingOpt.isPresent() && bookingOpt.get().getMua() != null) {
                 BookingEntity booking = bookingOpt.get();
-                Long muaId = booking.getMua().getId();
-                double destLat = booking.getDestinationLatitude() != null ? booking.getDestinationLatitude().doubleValue() : 10.776889;
-                double destLng = booking.getDestinationLongitude() != null ? booking.getDestinationLongitude().doubleValue() : 106.700806;
-
-                double initialLat = destLat + 0.009;
-                double initialLng = destLng + 0.009;
-                double distKm = GeoDistanceUtils.calculateDistanceKm(initialLat, initialLng, destLat, destLng);
-                double speed = 35.0;
-                int eta = (int) Math.max(1, Math.ceil(distKm * 3.0));
-                AdaptiveStreamMode mode = AdaptiveStreamMode.MOVING;
-
-                if (booking.getStatus() == BookingStatus.ARRIVED
-                        || booking.getStatus() == BookingStatus.IN_PROGRESS
-                        || booking.getStatus() == BookingStatus.COMPLETED) {
-                    initialLat = destLat;
-                    initialLng = destLng;
-                    distKm = 0.0;
-                    speed = 0.0;
-                    eta = 0;
-                    mode = AdaptiveStreamMode.STOPPED;
-                } else {
-                    try {
-                        var positions = stringRedisTemplate.opsForGeo().position(TelemetryConstants.REDIS_KEY_MUA_GEO, String.valueOf(muaId));
-                        if (positions != null && !positions.isEmpty() && positions.get(0) != null) {
-                            initialLng = positions.get(0).getX();
-                            initialLat = positions.get(0).getY();
-                            distKm = GeoDistanceUtils.calculateDistanceKm(initialLat, initialLng, destLat, destLng);
-                            if (distKm * 1000 < TelemetryConstants.ADAPTIVE_APPROACHING_DISTANCE_METERS) {
-                                mode = AdaptiveStreamMode.APPROACHING;
-                            }
-                        }
-                    } catch (Exception ignored) {}
+                MuaProfileEntity mua = booking.getMua();
+                LiveTrackingRes fallback = LiveTrackingRes.builder()
+                        .bookingId(bookingId).muaId(mua.getId()).locationStatus("UNAVAILABLE").build();
+                if (mua.getLastKnownLat() != null && mua.getLastKnownLng() != null
+                        && mua.getLastKnownUpdatedAt() != null) {
+                    fallback.setCurrentLat(mua.getLastKnownLat().doubleValue());
+                    fallback.setCurrentLng(mua.getLastKnownLng().doubleValue());
+                    fallback.setUpdatedAt(mua.getLastKnownUpdatedAt());
+                    fallback.setLocationStatus("LAST_KNOWN");
                 }
-
-                redisGeoService.updateTripLivePosition(
-                        bookingId, muaId, initialLat, initialLng,
-                        speed, 90.0, 5.0, eta, distKm * 1000, mode
-                );
-
-                return LiveTrackingRes.builder()
-                        .bookingId(bookingId)
-                        .muaId(muaId)
-                        .currentLat(initialLat)
-                        .currentLng(initialLng)
-                        .speed(speed)
-                        .heading(90.0)
-                        .accuracy(5.0)
-                        .etaMinutes(eta)
-                        .distanceRemainingMeters(distKm * 1000)
-                        .streamMode(mode)
-                        .updatedAt(Instant.now())
-                        .build();
+                return fallback;
             }
 
             throw new CustomBusinessException(ErrorCodes.ERR_TRIP_NOT_FOUND, "ERR_TRIP_NOT_FOUND", HttpStatus.NOT_FOUND);
@@ -260,6 +222,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
 
         LiveTrackingRes res = new LiveTrackingRes();
         res.setBookingId(bookingId);
+        res.setLocationStatus("LIVE");
 
         if (raw.containsKey("muaId")) {
             res.setMuaId(Long.parseLong(raw.get("muaId").toString()));
@@ -292,24 +255,6 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             res.setUpdatedAt(Instant.parse(raw.get("updatedAt").toString()));
         }
 
-        // Nếu trạng thái đơn đã là ARRIVED / IN_PROGRESS / COMPLETED thì tự động ép về STOPPED và điểm đến
-        var bookingOpt = bookingRepository.findById(bookingId);
-        if (bookingOpt.isPresent()) {
-            BookingEntity booking = bookingOpt.get();
-            if (booking.getStatus() == BookingStatus.ARRIVED
-                    || booking.getStatus() == BookingStatus.IN_PROGRESS
-                    || booking.getStatus() == BookingStatus.COMPLETED) {
-                res.setStreamMode(AdaptiveStreamMode.STOPPED);
-                res.setSpeed(0.0);
-                res.setDistanceRemainingMeters(0.0);
-                res.setEtaMinutes(0);
-                if (booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
-                    res.setCurrentLat(booking.getDestinationLatitude().doubleValue());
-                    res.setCurrentLng(booking.getDestinationLongitude().doubleValue());
-                }
-            }
-        }
-
         return res;
     }
 
@@ -329,7 +274,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         return telemetryLogMapper.toResFromLogs(bookingId, logs);
     }
 
-    private void cacheMuaSummary(MuaProfileEntity mua) {
+    private void cacheMuaSummary(MuaProfileEntity mua, BigDecimal startingPrice) {
         try {
             Map<String, Object> summary = new HashMap<>();
             summary.put("providerId", mua.getId());
@@ -339,11 +284,6 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             summary.put("avatarUrl", mua.getUser() != null ? mua.getUser().getAvatarUrl() : null);
             summary.put("ratingAvg", mua.getRatingAvg() != null ? mua.getRatingAvg().doubleValue() : 5.0);
 
-            List<ServicePackageEntity> packages = servicePackageRepository.findByMuaIdAndIsAvailableTrue(mua.getId());
-            BigDecimal startingPrice = packages.stream()
-                    .map(ServicePackageEntity::getPrice)
-                    .min(BigDecimal::compareTo)
-                    .orElse(BigDecimal.valueOf(350000));
             summary.put("startingPrice", startingPrice.doubleValue());
 
             String json = objectMapper.writeValueAsString(summary);
