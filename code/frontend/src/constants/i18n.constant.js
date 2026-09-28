@@ -966,6 +966,24 @@ export const TRANSLATIONS = {
     landing_page_title_seo: 'MUA MAKEUP - Nền Tảng Đặt Lịch Make-up & Quản Lý Studio Chuyên Nghiệp',
     landing_page_desc_seo: 'Kết nối vẻ đẹp. Đơn giản hóa từng lịch hẹn. Nền tảng chuyên nghiệp kết nối khách hàng, makeup artist và studio làm đẹp với bảng giá minh bạch và điều phối thông minh.',
 
+    // Landing Marquee & Showcase
+    landing_marquee_badge: 'Hệ Sinh Thái Làm Đẹp Đỉnh Cao',
+    landing_marquee_brand_title: 'Đối Tác Thương Hiệu Mỹ Phẩm Cao Cấp',
+    landing_marquee_brand_subtitle: '100% chuyên viên cam kết sử dụng mỹ phẩm chính hãng từ các thương hiệu hàng đầu thế giới',
+    landing_marquee_lookbook_title: 'Lookbook Xu Hướng & Phong Cách Thịnh Hành',
+    landing_marquee_lookbook_subtitle: 'Cập nhật liên tục các layout makeup thịnh hành được yêu thích nhất mùa này',
+    landing_marquee_verified_tag: 'Đã Thẩm Định',
+    landing_marquee_booking_count: 'lượt đặt',
+    landing_marquee_from_price: 'Từ',
+    landing_marquee_currency: 'đ',
+    landing_marquee_authentic_guarantee: '100% Mỹ Phẩm Cao Cấp Chính Hãng',
+    landing_marquee_certified_artists: 'Chuyên Viên Đã Kiểm Duyệt',
+    landing_marquee_pause_hint: 'Rê chuột để dừng xem chi tiết',
+    landing_marquee_speed_ltr: 'Trôi Ngang Trái Sang Phải',
+    landing_marquee_auto_slide_2s: 'Lướt Tự Động Mỗi 2 Giây',
+    landing_marquee_prev: 'Thương Hiệu Trước',
+    landing_marquee_next: 'Thương Hiệu Tiếp Theo',
+
     // Landing Hero
     landing_hero_badge: 'Nền Tảng Đặt Lịch & Quản Lý Studio Make-up Chuyên Nghiệp',
     landing_hero_h1_main: 'Kết nối vẻ đẹp.',
@@ -2596,6 +2614,24 @@ export const TRANSLATIONS = {
     landing_theme_dark: 'Dark Mode',
     landing_page_title_seo: 'MUA MAKEUP - Professional Makeup Booking & Studio Management Platform',
     landing_page_desc_seo: 'Connecting Beauty. Simplifying Every Appointment. Professional platform connecting clients, makeup artists, and beauty studios with transparent rates and smart scheduling.',
+
+    // Landing Marquee & Showcase
+    landing_marquee_badge: 'Elite Beauty Ecosystem',
+    landing_marquee_brand_title: 'Prestige Brand Partners & Cosmetics',
+    landing_marquee_brand_subtitle: '100% verified artists committed to high-end cosmetics from leading global brands',
+    landing_marquee_lookbook_title: 'Trending Lookbook & Signature Styles',
+    landing_marquee_lookbook_subtitle: 'Real-time trending makeup layouts most favored by clients this season',
+    landing_marquee_verified_tag: 'Verified Artist',
+    landing_marquee_booking_count: 'bookings',
+    landing_marquee_from_price: 'From',
+    landing_marquee_currency: 'VND',
+    landing_marquee_authentic_guarantee: '100% Authentic High-End Cosmetics',
+    landing_marquee_certified_artists: 'Certified Top MUAs',
+    landing_marquee_pause_hint: 'Hover to pause & inspect',
+    landing_marquee_speed_ltr: 'Left to Right Motion',
+    landing_marquee_auto_slide_2s: 'Auto-Slides Every 2 Seconds',
+    landing_marquee_prev: 'Previous Brand',
+    landing_marquee_next: 'Next Brand',
 
     // Landing Hero
     landing_hero_badge: 'Professional Makeup Booking & Studio Ecosystem',
