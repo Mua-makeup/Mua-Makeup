@@ -244,6 +244,9 @@
   "ERR_MUA_MUST_BE_ONLINE": "Thợ cần bật trạng thái trực tuyến (Online) để tiếp nhận đơn.",
   "ERR_MUA_ALREADY_BUSY": "Thợ đang bận trong ca làm việc khác.",
   "validation": {
+    "payment_amount_required": "Số tiền thanh toán không được để trống.",
+    "payment_amount_min": "Số tiền nạp tối thiểu là 1,000 VNĐ.",
+    "payment_gateway_required": "Mã cổng thanh toán không được để trống.",
     "bio_size": "Tiểu sử không được vượt quá 500 ký tự.",
     "experience_years_required": "Số năm kinh nghiệm không được để trống.",
     "experience_years_min": "Số năm kinh nghiệm tối thiểu là 0 năm.",
@@ -484,6 +487,19 @@
     "staff_application_content": "Thợ trang điểm {0} vừa nộp đơn xin gia nhập Studio qua mã mời {1}. Vui lòng xem xét phê duyệt.",
     "certificate_upload_title": "Chứng Chỉ Mới Cần Duyệt!",
     "certificate_upload_content": "Thợ trang điểm {0} vừa tải lên chứng chỉ '{1}' cần được Ban Quản Trị phê duyệt."
+  },
+  "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Không tìm thấy cổng thanh toán yêu cầu.",
+  "ERR_PAYMENT_GATEWAY_DISABLED": "Cổng thanh toán này hiện đang tạm ngưng hoạt động.",
+  "ERR_PAYMENT_TRANSACTION_NOT_FOUND": "Không tìm thấy giao dịch thanh toán tương ứng.",
+  "ERR_PAYMENT_SIGNATURE_INVALID": "Chữ ký bảo mật của cổng thanh toán không hợp lệ.",
+  "ERR_PAYMENT_AMOUNT_MISMATCH": "Số tiền thanh toán thực tế không khớp với đơn hàng.",
+  "ERR_PAYMENT_ALREADY_PROCESSED": "Giao dịch thanh toán này đã được xử lý trước đó.",
+  "ERR_PAYMENT_CHECKOUT_FAILED": "Khởi tạo phiên thanh toán với đối tác thất bại.",
+  "ERR_PAYMENT_UNAUTHORIZED": "Bạn không có quyền truy cập thông tin giao dịch thanh toán này.",
+  "payment": {
+    "intent_created_success": "Khởi tạo yêu cầu thanh toán thành công.",
+    "gateway_list_success": "Lấy danh sách cổng thanh toán khả dụng thành công.",
+    "detail_success": "Lấy chi tiết giao dịch thanh toán thành công."
   }
 }
 

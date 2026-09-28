@@ -9,6 +9,7 @@
 * **Tên Phân hệ Nghiệp vụ:** `Multi-Gateway Payment Integration & Bank Payout Management`
 * **Mã Jira Issues phụ trách (Sprint 5 - Nhóm 2):**
   * `ISSUE-23.1`: **User Story** - Cổng thanh toán đa phương thức nạp tiền vào ví; giai đoạn đầu tích hợp VNPay/MoMo, sau khi có ledger mới hạch toán vào ví.
+    * **Thiết kế mở rộng:** áp dụng Strategy cho thao tác riêng của từng cổng. Luồng tạo intent, xác nhận payment và hạch toán ví dùng một service chung; thêm cổng mới bằng adapter mới và cấu hình, không sửa `PaymentGatewayService` hay `PaymentWebhookProcessor`.
   * `ISSUE-23.2`: **Task** - Tích hợp MoMo `captureWallet`, `payUrl` và IPN HMAC-SHA256; QR chỉ khi cổng trả dữ liệu QR.
   * `ISSUE-23.3`: **Task** - Tích hợp Cổng thanh toán VNPay API (VNPay Sandbox Checkout & IPN Callback với HMAC-SHA512).
   * `ISSUE-23.4`: **Task** - ZaloPay và VietQR; chỉ tự động ghi ví nếu có thông báo/truy vấn giao dịch được xác thực từ đối tác, không dựa vào ảnh QR hoặc lời báo đã chuyển khoản.
@@ -18,7 +19,7 @@
   * `ISSUE-24.4`: **Task** - Dashboard duyệt yêu cầu rút tiền cho Super Admin & Studio Web Portal (`ROLE_SUPER_ADMIN`, `ROLE_AGENCY_ADMIN`).
 
 * **Thứ tự nghiệm thu:**
-  1. **Kết nối VNPay/MoMo:** lưu `payment_transactions` ở `PENDING`, tạo checkout, nhận return để hiển thị kết quả, xác thực IPN và ghi `SUCCESS`/`FAILED` idempotent. `wallet_posting_status = NOT_POSTED`; giai đoạn này chưa cộng số dư ví.
+  1. **Nền tảng Strategy + kết nối VNPay/MoMo:** đăng ký adapter VNPay/MoMo theo mã cổng, lưu `payment_transactions` ở `PENDING`, tạo checkout, nhận return để hiển thị kết quả, xác thực IPN và ghi `SUCCESS`/`FAILED` idempotent. `wallet_posting_status = NOT_POSTED`; giai đoạn này chưa cộng số dư ví.
   2. **Hoàn tất nạp ví:** sau `ISSUE-22.1`–`ISSUE-22.4`, mỗi payment `SUCCESS` tạo đúng một `transactions` loại `DEPOSIT` với `source_payment_code` duy nhất, ledger và sao kê trong cùng transaction; sau đó `wallet_posting_status = POSTED`. Nếu lỗi, payment vẫn `SUCCESS` còn posting `NOT_POSTED`, để retry/đối soát.
   3. **Mở rộng:** `ISSUE-22.5`, `ISSUE-23.4` và `ISSUE-24.x` theo backlog.
 
@@ -42,7 +43,13 @@
 
 ## 🏗️ 2. KIẾN TRÚC PHÂN TẦNG BACK-END (DOMAIN SUB-PACKAGE: `wallet` & `payment`)
 
-Tuân thủ nghiêm ngặt chuẩn kiến trúc dự án tại `docs/project_structure.md`:
+**Strategy contract:** `PaymentGatewayStrategy` cung cấp `gatewayCode()`, metadata hiển thị, `createCheckout(intent)`, `verifyAndParseCallback(rawRequest)`, `callbackAcknowledgement(processingResult)` và `queryStatus(payment)` nếu cổng hỗ trợ truy vấn. `rawRequest` phải giữ nguyên dữ liệu cần ký (body/query) trước khi chuẩn hóa. Kết quả callback được chuẩn hóa thành `GatewayPaymentResult` gồm mã payment, mã request cổng, mã giao dịch cổng, số tiền, trạng thái và thời điểm. Adapter chỉ xử lý giao thức/chữ ký và định dạng phản hồi của cổng; service chung kiểm tra payment đã lưu, khóa/idempotency, đổi trạng thái và sau này gọi bước ghi ví. Adapter **không tự cập nhật** `payment_transactions`, `wallets` hay ledger.
+
+**Chọn Strategy:** Spring inject danh sách `PaymentGatewayStrategy` vào `PaymentGatewayRegistry`, tạo map theo `gatewayCode` chuẩn hóa chữ hoa khi khởi động. Trùng mã cổng phải fail startup; mã chưa hỗ trợ hoặc cổng bị tắt trong cấu hình phải trả lỗi có kiểm soát. Không dùng `switch`/`if` theo tên cổng trong `PaymentGatewayService`, `PaymentWebhookProcessor`, DTO validation hoặc callback controller. Callback GET/POST đi qua controller chung `/api/v1/payments/ipn/{gateway}`; adapter xác minh payload và tạo phản hồi đúng giao thức của cổng (MoMo `204`, VNPay `RspCode`/`Message`). Phương thức HTTP không được adapter hỗ trợ bị từ chối; callback sai chữ ký không được chuyển sang bước thay đổi payment.
+
+**Giới hạn của “không sửa code”:** tích hợp cổng mới vẫn cần viết adapter và cấu hình/kiểm thử đặc thù của cổng. Mục tiêu là **không sửa mã nguồn luồng chung hoặc các adapter cũ**. Frontend lấy danh sách cổng đang bật từ `GET /api/v1/payments/gateways`, render tùy chọn từ metadata và dùng một route return `/payments/return/:gateway`, nên không cần sửa màn hình thanh toán cho cổng mới có cùng trải nghiệm chuyển hướng. Nếu cổng có khả năng khác biệt (ví dụ VietQR chưa có API xác thực tiền vào), chỉ bật nạp ví tự động sau khi có bằng chứng giao dịch đáng tin cậy.
+
+Cấu trúc dự kiến theo `docs/project_structure.md`:
 
 ```text
 code/backend/core-api/src/main/java/com/makeup/platform/
@@ -62,8 +69,8 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │
 ├── controller/
 │   └── wallet/
-│       ├── PaymentController.java             # POST /api/v1/payments/create-intent; GET /api/v1/payments/{code}
-│       ├── PaymentCallbackController.java     # POST /api/v1/payments/ipn/momo; GET /api/v1/payments/ipn/vnpay
+│       ├── PaymentController.java             # POST create-intent; GET gateways; GET /api/v1/payments/{code}
+│       ├── PaymentCallbackController.java     # GET/POST /api/v1/payments/ipn/{gateway}, chuyển raw request vào Strategy
 │       ├── BankAccountController.java         # GET, POST, DELETE /api/v1/wallets/bank-accounts
 │       ├── PayoutController.java              # POST /api/v1/wallets/withdrawals (Người dùng tạo lệnh rút)
 │       └── AdminPayoutController.java         # GET, PATCH /api/v1/admin/payouts/{id}/approve & /reject
@@ -71,12 +78,12 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 ├── dto/
 │   ├── request/
 │   │   └── wallet/
-│   │       ├── CreatePaymentIntentReq.java    # amount, gateway (MOMO, VNPAY); bookingId chưa dùng
+│   │       ├── CreatePaymentIntentReq.java    # amount, gatewayCode; kiểm tra bằng Registry, không hardcode enum
 │   │       ├── LinkBankAccountReq.java        # bankCode, bankName, accountNumber, accountHolderName
 │   │       ├── CreateWithdrawalReq.java       # bankAccountId, amount
 │   │       ├── ProcessPayoutReq.java          # isApproved, adminNote
-│   │       ├── MomoIpnReq.java                # Payload webhook của MoMo
-│   │       └── VnpayIpnReq.java               # Query params IPN của VNPay
+│   │       ├── MomoIpnReq.java                # DTO riêng trong adapter MoMo
+│   │       └── VnpayIpnReq.java               # Query params riêng trong adapter VNPay
 │   └── response/
 │       └── wallet/
 │           ├── PaymentCheckoutRes.java        # paymentCode, paymentUrl, qrCodeUrl, deepLink
@@ -104,16 +111,19 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 │
 └── service/
     └── wallet/
-        ├── PaymentGatewayService.java         # Interface khởi tạo thanh toán & điều phối đa cổng
-        ├── PaymentWebhookProcessor.java       # Interface kiểm tra chữ ký & xử lý IPN idempotency
+        ├── PaymentGatewayService.java         # Tạo intent chung, tìm Strategy theo mã cổng
+        ├── PaymentWebhookProcessor.java       # Xử lý kết quả đã xác thực, idempotency và trạng thái chung
         ├── BankAccountService.java            # Interface quản lý & xác thực tài khoản ngân hàng
         ├── PayoutService.java                 # Interface tạo lệnh rút & duyệt giải ngân
-        ├── gateway/                           # TẦNG TÍCH HỢP SDK CỔNG THANH TOÁN
-        │   ├── MomoGatewayClient.java         # Giao tiếp MoMo Create Payment & verify HMAC-SHA256
-        │   ├── VnpayGatewayClient.java        # Tạo URL VNPay Checkout & verify SecureHash HMAC-SHA512
-        │   └── ZalopayGatewayClient.java      # Tạo đơn hàng ZaloPay & verify Callback MAC
+        ├── gateway/                           # Strategy và adapter cho từng cổng
+        │   ├── PaymentGatewayStrategy.java    # Contract checkout, callback, acknowledgement, status query
+        │   ├── PaymentGatewayRegistry.java    # Map gatewayCode -> Strategy; kiểm tra trùng mã
+        │   ├── GatewayPaymentResult.java      # Kết quả cổng đã chuẩn hóa
+        │   ├── MomoGatewayStrategy.java       # MoMo Create Payment, IPN HMAC-SHA256
+        │   ├── VnpayGatewayStrategy.java      # VNPay Checkout, IPN HMAC-SHA512
+        │   └── ZalopayGatewayStrategy.java    # Thêm ở ISSUE-23.4, không sửa service chung
         └── impl/
-            ├── PaymentGatewayServiceImpl.java # Implement điều hướng MoMo/VNPay/ZaloPay
+            ├── PaymentGatewayServiceImpl.java # Điều phối qua Registry, không rẽ nhánh theo cổng
             ├── PaymentWebhookProcessorImpl.java # Implement xử lý IPN an toàn chống trùng lặp
             ├── BankAccountServiceImpl.java    # Implement CRUD tài khoản ngân hàng
             └── PayoutServiceImpl.java         # Implement khóa tiền & duyệt chi tiền
@@ -142,7 +152,7 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   * **Given** Khách hàng yêu cầu nạp $1,000,000\text{ đ}$ qua MoMo.
   * **When** Gửi request `POST /api/v1/payments/create-intent` với `gateway = "MOMO"`.
   * **Then** Hệ thống tạo bản ghi `payment_transactions` với `payment_code = "PAY-260914-MOMO88"`, `status = 'PENDING'`.
-  * **And** `MomoGatewayClient` tính toán chữ ký số HMAC-SHA256 với SecretKey và gọi API MoMo Create Payment (`captureWallet`).
+  * **And** `MomoGatewayStrategy` tính toán chữ ký số HMAC-SHA256 với SecretKey và gọi API MoMo Create Payment (`captureWallet`).
   * **And** Request MoMo có `redirectUrl` và `ipnUrl` từ cấu hình server; trả về `pay_url`. Nếu cổng trả `qrCodeUrl`, frontend tự render mã QR từ dữ liệu này; không coi đó là URL ảnh QR.
 
 * **Scenario 03: Tiếp nhận MoMo IPN (`ISSUE-23.2`)**
@@ -187,6 +197,12 @@ code/backend/core-api/src/main/java/com/makeup/platform/
   * **Given** Request tới MoMo timeout hoặc payment `PENDING` quá ngưỡng cấu hình.
   * **When** Backend chưa có bằng chứng xác thực rằng cổng đã thất bại/thành công.
   * **Then** Giữ trạng thái chưa kết luận và truy vấn cổng/đối soát; không tạo intent mới với mã khác để ghi tiền trùng, không tự cộng ví hay đánh dấu `FAILED` chỉ vì timeout.
+
+* **Scenario 10: Thêm cổng mới qua Strategy mà không sửa luồng chung**
+  * **Given** `PaymentGatewayService` và `PaymentWebhookProcessor` đã chạy với VNPay/MoMo.
+  * **When** Đăng ký một Strategy giả lập có `gatewayCode = "TEST_GATEWAY"` và cấu hình bật cổng.
+  * **Then** `GET /api/v1/payments/gateways` trả metadata của cổng mới để frontend hiển thị; cùng API `create-intent`, route return và callback chung chọn được Strategy mới, tạo checkout, ghi nhận kết quả chuẩn hóa và trả acknowledgement theo adapter. Test xác nhận không cần sửa service/controller chung, DTO validation, schema payment, màn hình chọn cổng hay hai Strategy cũ.
+  * **And** Nếu hai Strategy khai báo cùng mã, ứng dụng từ chối khởi động; nếu client chọn mã không đăng ký hoặc đã tắt, trả lỗi có kiểm soát và không tạo payment.
 
 ---
 
@@ -280,8 +296,14 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### 5.1. `POST /api/v1/payments/create-intent` (Khởi Tạo Thanh Toán / Nạp Tiền)
+### 5.1. `GET /api/v1/payments/gateways` (Danh Sách Cổng Đang Bật)
+* Trả `gateway_code`, `display_name` và các khả năng checkout từ metadata của những Strategy đã đăng ký và đang bật. Frontend render danh sách này thay vì hardcode `MOMO`/`VNPAY`; không trả secret hoặc URL nội bộ.
+
+---
+
+### 5.2. `POST /api/v1/payments/create-intent` (Khởi Tạo Thanh Toán / Nạp Tiền)
 * **Headers:** `Authorization: Bearer <JWT>`, `Content-Type: application/json`
+* `gateway` là mã của Strategy đã đăng ký và được bật; API không chứa nhánh xử lý riêng cho từng cổng.
 * **Request Body:**
 ```json
 {
@@ -313,7 +335,8 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### 5.2. `POST /api/v1/payments/ipn/momo` (Webhook Nhận Kết Quả Từ MoMo - Public Endpoint)
+### 5.3. `POST /api/v1/payments/ipn/momo` (Webhook Nhận Kết Quả Từ MoMo - Public Endpoint)
+* Cùng `PaymentCallbackController` xử lý tuyến `/api/v1/payments/ipn/{gateway}`. Với `gateway = momo`, Strategy MoMo xác minh payload rồi trả `GatewayPaymentResult`; service chung mới đối chiếu payment và cập nhật trạng thái. Strategy MoMo định dạng acknowledgement `204` sau khi service xử lý xong.
 * **Headers:** `Content-Type: application/json`
 * **Request Body (Từ MoMo Server):**
 ```json
@@ -337,19 +360,19 @@ code/backend/core-api/src/main/java/com/makeup/platform/
 
 ---
 
-### 5.3. `GET /api/v1/payments/ipn/vnpay` (VNPay IPN - Public Endpoint)
-* VNPay cấu hình URL HTTPS public trong sandbox. Backend xác thực chữ ký HMAC-SHA512, mã merchant, mã giao dịch, số tiền và trạng thái trước khi ghi nhận.
+### 5.4. `GET /api/v1/payments/ipn/vnpay` (VNPay IPN - Public Endpoint)
+* Cùng controller `/api/v1/payments/ipn/{gateway}` nhận phương thức GET. Với `gateway = vnpay`, Strategy VNPay xác thực chữ ký HMAC-SHA512 và chuẩn hóa tham số; service chung đối chiếu mã merchant, mã giao dịch, số tiền và trạng thái với payment đã lưu trước khi ghi nhận. Strategy VNPay định dạng JSON acknowledgement theo kết quả xử lý. URL HTTPS public được cấu hình trong sandbox.
 * **Response:** JSON `{"RspCode":"00","Message":"Confirm Success"}` khi đã xử lý; phản hồi mã phù hợp khi chữ ký sai, không tìm thấy hoặc giao dịch đã xử lý.
 
 ---
 
-### 5.4. `GET /api/v1/payments/{payment_code}` (Tra Cứu Trạng Thái Cho Trang Return)
+### 5.5. `GET /api/v1/payments/{payment_code}` (Tra Cứu Trạng Thái Cho Trang Return)
 * Yêu cầu đăng nhập và chỉ cho phép chủ giao dịch xem. Frontend lấy `payment_code` từ tham số return của cổng (`vnp_TxnRef`/`orderId`), gọi API này để hiển thị cả `status` và `wallet_posting_status`; nếu IPN chưa tới, hiển thị `PENDING` và cho phép kiểm tra lại.
 * Không cập nhật payment hoặc ví từ request return URL của trình duyệt.
 
 ---
 
-### 5.5. `POST /api/v1/wallets/withdrawals` (Tạo Lệnh Rút Tiền)
+### 5.6. `POST /api/v1/wallets/withdrawals` (Tạo Lệnh Rút Tiền)
 * **Headers:** `Authorization: Bearer <JWT>`
 * **Request Body:**
 ```json
@@ -389,6 +412,8 @@ sequenceDiagram
     participant FE as Web / Mobile App
     participant API as Payment Controller
     participant GW as Payment Gateway Service
+    participant REG as Strategy Registry
+    participant STR as MoMo Strategy
     participant MOMO as MoMo / VNPay Gateway Server
     participant IPN as Webhook IPN Controller
     participant WAL as Wallet Service (ACID)
@@ -398,15 +423,22 @@ sequenceDiagram
     FE->>API: POST /api/v1/payments/create-intent (gateway=MOMO, amount=1M)
     API->>GW: createPaymentIntent()
     GW->>DB: INSERT INTO payment_transactions (code, amount, status=PENDING)
-    GW->>MOMO: Request Create Payment (HMAC-SHA256 Signature)
-    MOMO-->>GW: Trả về payUrl & qrCodeUrl
+    GW->>REG: resolve(MOMO)
+    REG-->>GW: MoMo Strategy
+    GW->>STR: createCheckout(intent)
+    STR->>MOMO: Request Create Payment (HMAC-SHA256)
+    MOMO-->>STR: payUrl, qrCodeUrl nếu có
+    STR-->>GW: checkout đã chuẩn hóa
     GW-->>API-->>FE: Trả payUrl; render QR nếu có dữ liệu QR
 
     U->>MOMO: Mở App MoMo Quét Mã QR & Bấm Thanh Toán
     Note over MOMO: Khách thanh toán thành công trên MoMo!
     
     MOMO->>IPN: POST /api/v1/payments/ipn/momo (Server-to-Server IPN)
-    IPN->>IPN: verifyHmacSignature(signature, secretKey)
+    IPN->>REG: resolve(MOMO)
+    REG-->>IPN: MoMo Strategy
+    IPN->>STR: verifyAndParseCallback(rawRequest)
+    STR-->>IPN: GatewayPaymentResult đã xác thực
     alt Chữ ký hợp lệ, dữ liệu khớp và payment đang PENDING
         IPN->>DB: UPDATE payment_transactions SET status = 'SUCCESS'
         IPN-->>MOMO: 204 No Content (đã ghi nhận kết quả cổng)
@@ -454,7 +486,7 @@ CREATE TABLE wallet_schema.payment_transactions (
     payment_code VARCHAR(50) UNIQUE NOT NULL,
     -- Sprint 5 chỉ nạp ví; booking payment trực tiếp cần migration và story riêng.
     user_id BIGINT NOT NULL REFERENCES auth_schema.users(id) ON DELETE RESTRICT,
-    payment_gateway VARCHAR(30) NOT NULL, -- Sprint 5: MOMO, VNPAY; mở rộng sau
+    payment_gateway VARCHAR(30) NOT NULL, -- mã Strategy; giai đoạn đầu MOMO, VNPAY; không CHECK danh sách cứng
     gateway_request_id VARCHAR(100), -- requestId của MoMo, duy nhất theo cổng
     gateway_transaction_id VARCHAR(100),
     amount DECIMAL(15, 2) NOT NULL CHECK (amount > 0),

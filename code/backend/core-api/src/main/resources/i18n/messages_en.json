@@ -244,6 +244,9 @@
   "ERR_MUA_MUST_BE_ONLINE": "Makeup artist must be online to accept booking.",
   "ERR_MUA_ALREADY_BUSY": "Makeup artist is already busy with another job.",
   "validation": {
+    "payment_amount_required": "Payment amount cannot be empty.",
+    "payment_amount_min": "Minimum deposit amount is 1,000 VND.",
+    "payment_gateway_required": "Payment gateway code cannot be blank.",
     "bio_size": "Bio cannot exceed 500 characters.",
     "experience_years_required": "Experience years cannot be blank.",
     "experience_years_min": "Minimum experience is 0 years.",
@@ -484,6 +487,19 @@
     "staff_application_content": "Makeup Artist {0} has applied to join the Studio via invite code {1}. Please review.",
     "certificate_upload_title": "New Certificate to Verify!",
     "certificate_upload_content": "Makeup Artist {0} uploaded certificate '{1}' requiring Super Admin approval."
+  },
+  "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Requested payment gateway was not found.",
+  "ERR_PAYMENT_GATEWAY_DISABLED": "This payment gateway is currently disabled.",
+  "ERR_PAYMENT_TRANSACTION_NOT_FOUND": "Payment transaction not found.",
+  "ERR_PAYMENT_SIGNATURE_INVALID": "Payment gateway cryptographic signature verification failed.",
+  "ERR_PAYMENT_AMOUNT_MISMATCH": "Actual paid amount does not match transaction amount.",
+  "ERR_PAYMENT_ALREADY_PROCESSED": "This payment transaction has already been processed.",
+  "ERR_PAYMENT_CHECKOUT_FAILED": "Failed to initialize payment session with gateway provider.",
+  "ERR_PAYMENT_UNAUTHORIZED": "You are not authorized to access this payment transaction.",
+  "payment": {
+    "intent_created_success": "Payment intent initialized successfully.",
+    "gateway_list_success": "Available payment gateways retrieved successfully.",
+    "detail_success": "Payment transaction details retrieved successfully."
   }
 }
 

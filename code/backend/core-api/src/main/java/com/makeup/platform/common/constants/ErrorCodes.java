@@ -138,6 +138,16 @@ public final class ErrorCodes {
     // Phân hệ Xác thực 2FA OTP & Rate Limiting
     public static final String ERR_RATE_LIMIT_EXCEEDED = "ERR_RATE_LIMIT_EXCEEDED";
     public static final String ERR_INVALID_OTP = "ERR_INVALID_OTP";
+
+    // Phân hệ Cổng thanh toán Đa phương thức (ISSUE-23)
+    public static final String ERR_PAYMENT_GATEWAY_NOT_FOUND = "ERR_PAYMENT_GATEWAY_NOT_FOUND";
+    public static final String ERR_PAYMENT_GATEWAY_DISABLED = "ERR_PAYMENT_GATEWAY_DISABLED";
+    public static final String ERR_PAYMENT_TRANSACTION_NOT_FOUND = "ERR_PAYMENT_TRANSACTION_NOT_FOUND";
+    public static final String ERR_PAYMENT_SIGNATURE_INVALID = "ERR_PAYMENT_SIGNATURE_INVALID";
+    public static final String ERR_PAYMENT_AMOUNT_MISMATCH = "ERR_PAYMENT_AMOUNT_MISMATCH";
+    public static final String ERR_PAYMENT_ALREADY_PROCESSED = "ERR_PAYMENT_ALREADY_PROCESSED";
+    public static final String ERR_PAYMENT_CHECKOUT_FAILED = "ERR_PAYMENT_CHECKOUT_FAILED";
+    public static final String ERR_PAYMENT_UNAUTHORIZED = "ERR_PAYMENT_UNAUTHORIZED";
 }
 
 

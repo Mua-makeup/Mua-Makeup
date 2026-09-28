@@ -4,7 +4,7 @@
 
 | Mốc | Issues | Đầu ra được nghiệm thu |
 | :--- | :--- | :--- |
-| 1. Kết nối cổng | `ISSUE-23.1` (phần payment), `ISSUE-23.3`, `ISSUE-23.2` | VNPay và MoMo tạo checkout, xác thực kết quả qua IPN/truy vấn cổng, lưu trạng thái payment đúng một lần. **Chưa coi là nạp ví thành công.** |
+| 1. Kết nối cổng | `ISSUE-23.1` (Strategy và payment chung), `ISSUE-23.3`, `ISSUE-23.2` | VNPay và MoMo tạo checkout, xác thực kết quả qua IPN/truy vấn cổng, lưu trạng thái payment đúng một lần. Thêm adapter mới không sửa luồng chung. **Chưa coi là nạp ví thành công.** |
 | 2. Ví và nạp tiền | `ISSUE-22.1`–`ISSUE-22.4`, phần còn lại của `ISSUE-23.1` | Payment đã được cổng xác nhận được hạch toán đúng một lần vào ví, ledger và sao kê; có thể đối soát và retry khi ghi sổ lỗi. |
 | 3. Escrow | `ISSUE-22.5` | Giữ cọc, hoàn cọc hoặc tất toán booking theo nguồn tiền thực có; không giải ngân vượt số tiền đã thu. |
 | 4. Mở rộng | `ISSUE-23.4`, `ISSUE-24.1`–`ISSUE-24.4` | ZaloPay/VietQR sau khi xác nhận được cơ chế đối soát; tài khoản ngân hàng, yêu cầu rút và payout theo khả năng của đối tác. |
@@ -16,11 +16,11 @@
 ## User stories và tasks
 
 - [ ] [ISSUE-23.1] [Thanh toán đa phương thức và nạp tiền vào ví](user_story_payment_gateways_and_payout.md)
-  - [ ] Payment dùng chung: intent, `PENDING`/`SUCCESS`/`FAILED`, cấu hình return/IPN, tra cứu trạng thái theo chủ giao dịch, idempotency và đối soát.
+  - [ ] Payment dùng chung: `PaymentGatewayStrategy` + Registry tự đăng ký adapter theo mã cổng; API liệt kê cổng đang bật cho frontend, intent, `PENDING`/`SUCCESS`/`FAILED`, return/IPN, tra cứu trạng thái, idempotency và đối soát. Không rẽ nhánh theo tên cổng trong service chung.
   - [ ] [ISSUE-23.3] VNPay sandbox: checkout, thẻ test trên web, IPN GET và kiểm tra HMAC-SHA512.
   - [ ] [ISSUE-23.2] MoMo sandbox: `captureWallet`, `payUrl`, IPN POST và kiểm tra HMAC-SHA256.
   - [ ] Sau `ISSUE-22.1`–`ISSUE-22.4`: ghi sổ nạp ví đúng một lần cho payment `SUCCESS`, kể cả IPN trùng hoặc đến muộn.
-  - [ ] [ISSUE-23.4] ZaloPay/VietQR: đặc tả cách xác thực tiền vào trước khi ghi ví; triển khai sau hai cổng trên.
+  - [ ] [ISSUE-23.4] ZaloPay/VietQR: adapter mới và cấu hình riêng; đặc tả cách xác thực tiền vào trước khi ghi ví. Không sửa service/controller chung hoặc adapter VNPay/MoMo.
 - [ ] [ISSUE-22.1] [Ví, sổ cái và Escrow](user_story_double_entry_ledger_and_escrow.md)
   - [ ] [ISSUE-22.2] Ví với `balance`, `frozen_balance` và `wallet_holds` theo booking/yêu cầu rút; giữ/mở phong tỏa có kiểm tra số dư và chống lặp.
   - [ ] [ISSUE-22.3] Ledger cho mọi khoản tiền thực chuyển giữa các ví/tài khoản đối ứng; đối soát với số dư.
