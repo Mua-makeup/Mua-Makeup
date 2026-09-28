@@ -179,7 +179,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         if (candidateMuaIds.isEmpty()) {
             log.warn("[InstantBooking] No online available MUA found within 10km for customer id={}", customerId);
             throw new CustomBusinessException(ErrorCodes.ERR_MUA_NOT_AVAILABLE,
-                    "booking.no_mua_available_in_radius", HttpStatus.NOT_FOUND);
+                    "booking.no_mua_available_in_radius", HttpStatus.BAD_REQUEST);
         }
 
         int potentialCount = candidateMuaIds.size();

@@ -16,11 +16,29 @@ export interface InstantBookingOffer {
   latitude: number;
   longitude: number;
   serviceName?: string;
+  categoryName?: string;
+  styleNames?: string[];
+  packageItems?: string[];
+  estimatedDurationMinutes?: number;
+  customerRating?: number;
+  customerNote?: string;
   distanceKm?: number;
-  earningsAmount: number;
+  estimatedTravelMinutes?: number;
+  targetArrivalTime?: string;
+  minutesUntilDeadline?: number;
+  basePrice?: number;
+  emergencySurchargeFee?: number;
+  surgeAmount?: number;
   totalAmount: number;
+  platformFee?: number;
+  earningsAmount: number;
+  depositAmount?: number;
+  isDepositSecured?: boolean;
   countdownSeconds: number;
+  candidateIndex?: number;
+  totalCandidates?: number;
 }
+
 
 export interface WorkstationStats {
   completedToday: number;

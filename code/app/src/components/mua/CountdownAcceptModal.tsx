@@ -7,6 +7,7 @@ import {
   Animated,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -16,7 +17,7 @@ import { soundManager } from '@/utils/sound';
 
 export const CountdownAcceptModal: React.FC = () => {
   const { isAcceptModalVisible, activeOffer, dismissOffer, acceptActiveOffer } = useWorkstationStore();
-  const [secondsLeft, setSecondsLeft] = useState<number>(30);
+  const [secondsLeft, setSecondsLeft] = useState<number>(20);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -26,7 +27,7 @@ export const CountdownAcceptModal: React.FC = () => {
 
   useEffect(() => {
     if (!isAcceptModalVisible || !activeOffer) {
-      setSecondsLeft(30);
+      setSecondsLeft(20);
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.85);
       return;
@@ -46,20 +47,20 @@ export const CountdownAcceptModal: React.FC = () => {
       }),
     ]).start();
 
-    const initialSec = activeOffer.countdownSeconds || 30;
+    const initialSec = activeOffer.countdownSeconds || 20;
     setSecondsLeft(initialSec);
 
     // Pulse animation
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 600,
+          toValue: 1.12,
+          duration: 500,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 600,
+          duration: 500,
           useNativeDriver: true,
         }),
       ])
@@ -82,7 +83,7 @@ export const CountdownAcceptModal: React.FC = () => {
           dismissOffer(true);
           return 0;
         }
-        // Haptic feedback every 2 seconds
+        // Haptic heartbeat every 2 seconds
         if (prev % 2 === 0) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         }
@@ -132,86 +133,173 @@ export const CountdownAcceptModal: React.FC = () => {
     outputRange: ['0%', '100%'],
   });
 
+  const candidateIdx = activeOffer.candidateIndex || 1;
+  const totalCandidates = activeOffer.totalCandidates || 3;
+  const stylesList = activeOffer.styleNames && activeOffer.styleNames.length > 0
+    ? activeOffer.styleNames
+    : ['Tone Thái Sắc Sảo', 'Douyin Glam'];
+  const packageItems = activeOffer.packageItems && activeOffer.packageItems.length > 0
+    ? activeOffer.packageItems
+    : ['Uốn tóc tạo kiểu', 'Dán mi 3D'];
+
+  const emergencyFee = activeOffer.emergencySurchargeFee || 150000;
+  const platformFee = activeOffer.platformFee || Math.round(activeOffer.totalAmount * 0.2);
+
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} pointerEvents="auto">
       <Animated.View style={[styles.contentCard, { transform: [{ scale: scaleAnim }] }]}>
-          {/* Header Title */}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {/* KHỐI 1: HEADER KHẨN CẤP & THỨ TỰ ƯU TIÊN WATERFALL */}
           <View style={styles.header}>
             <View style={styles.flashBadge}>
-              <Ionicons name="flash" size={14} color="#E11D48" />
-              <Text style={styles.flashText}>ĐƠN KHẨN CẤP ĐẾN GẦN BẠN</Text>
+              <Ionicons name="flash" size={13} color="#E11D48" />
+              <Text style={styles.flashText}>CA KHẨN CẤP (30-45P CÓ MẶT)</Text>
             </View>
             <Text style={styles.codeText}>{activeOffer.bookingCode}</Text>
           </View>
+          <View style={styles.queuePill}>
+            <Ionicons name="ribbon-outline" size={12} color="#059669" />
+            <Text style={styles.queueText}>
+              Ưu tiên #{candidateIdx} của bạn • {candidateIdx}/{totalCandidates} thợ gần nhất quanh 5km
+            </Text>
+          </View>
 
-          {/* Countdown Clock Display */}
+          {/* KHỐI 2: ĐĨA QUAY ĐẾM NGƯỢC SVG 20S */}
           <View style={styles.countdownContainer}>
             <Animated.View style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }] }]}>
-              <View style={styles.countdownCircle}>
-                <Text style={styles.countdownNumber}>{secondsLeft}</Text>
+              <View style={[styles.countdownCircle, secondsLeft <= 5 && styles.countdownCircleDanger]}>
+                <Text style={[styles.countdownNumber, secondsLeft <= 5 && styles.countdownNumberDanger]}>
+                  {secondsLeft}
+                </Text>
                 <Text style={styles.countdownUnit}>giây</Text>
               </View>
             </Animated.View>
 
             <View style={styles.progressBarWrapper}>
-              <Animated.View style={[styles.progressBarFill, { width: progressWidth }]} />
+              <Animated.View
+                style={[
+                  styles.progressBarFill,
+                  { width: progressWidth },
+                  secondsLeft <= 5 && { backgroundColor: '#EF4444' },
+                ]}
+              />
             </View>
           </View>
 
-          {/* Net Earnings Highlight Card */}
+          {/* KHỐI 3: THẺ MINH BẠCH TÀI CHÍNH & THU NHẬP THỰC NHẬN */}
           <View style={styles.earningsCard}>
-            <Text style={styles.earningsLabel}>Thu Nhập Thực Nhận (Đã trừ phí):</Text>
+            <Text style={styles.earningsLabel}>Thu Nhập Thực Nhận Về Ví:</Text>
             <Text style={styles.earningsValue}>{formatVnd(activeOffer.earningsAmount)}</Text>
-            <Text style={styles.totalAmountSubtext}>
-              Tổng hóa đơn: {formatVnd(activeOffer.totalAmount)}
-            </Text>
+            <View style={styles.breakdownDetails}>
+              <Text style={styles.breakdownLine}>
+                • Tổng bill khách: {formatVnd(activeOffer.totalAmount)}
+              </Text>
+              <Text style={styles.breakdownLine}>
+                • Phụ phí gấp 30p: +{formatVnd(emergencyFee)} (Thợ nhận 100%)
+              </Text>
+              <Text style={styles.breakdownLine}>
+                • Phí nền tảng (20%): -{formatVnd(platformFee)}
+              </Text>
+            </View>
+            <View style={styles.escrowBadge}>
+              <Ionicons name="shield-checkmark" size={13} color="#059669" />
+              <Text style={styles.escrowText}>
+                Đã ký quỹ Escrow 30% • Đảm bảo thanh toán an toàn
+              </Text>
+            </View>
           </View>
 
-          {/* Booking Details */}
-          <View style={styles.detailsBlock}>
-            <View style={styles.detailRow}>
+          {/* KHỐI 4: THÔNG TIN GÓI DỊCH VỤ, STYLE & BƯỚC KÈM THEO */}
+          <View style={styles.serviceSection}>
+            <View style={styles.serviceHeaderRow}>
               <Ionicons name="sparkles" size={16} color="#E11D48" />
-              <Text style={styles.detailTitle} numberOfLines={1}>
-                {activeOffer.serviceName || 'Trang điểm cấp tốc 30-60 phút'}
+              <Text style={styles.serviceTitle} numberOfLines={1}>
+                {activeOffer.serviceName || 'Trang Điểm Dự Tiệc Tối Sang Trọng'}
               </Text>
             </View>
+            <Text style={styles.serviceSub}>
+              Thời lượng dự kiến: ~{activeOffer.estimatedDurationMinutes || 60} phút
+            </Text>
 
-            <View style={styles.detailRow}>
-              <Ionicons name="location" size={16} color="#2563EB" />
-              <Text style={styles.detailText} numberOfLines={2}>
-                {activeOffer.customerAddress}
-              </Text>
+            {/* Badges phong cách yêu cầu */}
+            <View style={styles.tagsRow}>
+              {stylesList.map((st, idx) => (
+                <View key={idx} style={styles.styleBadge}>
+                  <Text style={styles.styleBadgeText}>{st}</Text>
+                </View>
+              ))}
             </View>
 
-            <View style={styles.metaRow}>
-              <View style={styles.metaItem}>
-                <Ionicons name="navigate-outline" size={14} color="#059669" />
-                <Text style={styles.metaText}>
-                  {activeOffer.distanceKm ? `Cách bạn ${activeOffer.distanceKm.toFixed(1)} km` : 'Trong bán kính 5km'}
+            {/* Checklist bước kèm theo */}
+            <View style={styles.packageItemsList}>
+              {packageItems.map((item, idx) => (
+                <View key={idx} style={styles.itemRow}>
+                  <Ionicons name="checkmark-circle" size={13} color="#059669" />
+                  <Text style={styles.itemText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* KHỐI 5: ĐỊA ĐIỂM, CỰ LY & THỜI GIAN CẦN CÓ MẶT */}
+          <View style={styles.locationSection}>
+            <View style={styles.routingRow}>
+              <Ionicons name="navigate-circle" size={16} color="#2563EB" />
+              <Text style={styles.routingText}>
+                Cách bạn {activeOffer.distanceKm ? activeOffer.distanceKm.toFixed(1) : 1.8} km • ~
+                {activeOffer.estimatedTravelMinutes || 7} phút đi xe máy
+              </Text>
+            </View>
+            <View style={styles.deadlineRow}>
+              <Ionicons name="time" size={14} color="#D97706" />
+              <Text style={styles.deadlineText}>
+                Hạn chót có mặt:{' '}
+                <Text style={{ fontWeight: '800' }}>
+                  {activeOffer.targetArrivalTime || 'Trước 10:15'}
+                </Text>{' '}
+                (Còn {activeOffer.minutesUntilDeadline || 38} phút)
+              </Text>
+            </View>
+            <Text style={styles.addressText} numberOfLines={2}>
+              {activeOffer.customerAddress}
+            </Text>
+
+            {/* Ghi chú riêng của khách hàng */}
+            {activeOffer.customerNote && (
+              <View style={styles.noteBox}>
+                <Ionicons name="information-circle-outline" size={14} color="#B45309" />
+                <Text style={styles.noteText} numberOfLines={2}>
+                  Ghi chú: {activeOffer.customerNote}
                 </Text>
               </View>
+            )}
+          </View>
 
-              <View style={styles.metaItem}>
-                <Ionicons name="person-outline" size={14} color="#475569" />
-                <Text style={styles.metaText}>{activeOffer.customerName}</Text>
-              </View>
+          {/* KHỐI 6: THÔNG TIN KHÁCH HÀNG */}
+          <View style={styles.customerRow}>
+            <Ionicons name="person-circle" size={20} color="#64748B" />
+            <Text style={styles.customerName}>{activeOffer.customerName}</Text>
+            <View style={styles.ratingBadge}>
+              <Text style={styles.ratingText}>⭐ {activeOffer.customerRating || '5.0'}</Text>
             </View>
           </View>
 
-          {/* Action Buttons */}
+          {/* KHỐI 7: CỤM NÚT HÀNH ĐỘNG QUYẾT ĐỊNH */}
           <View style={styles.btnGroup}>
             <TouchableOpacity
               style={[styles.acceptBtn, isSubmitting && styles.acceptBtnDisabled]}
               onPress={handleAccept}
               disabled={isSubmitting}
-              activeOpacity={0.85}
+              activeOpacity={0.88}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                  <Text style={styles.acceptBtnText}>CHẤP NHẬN NHẬN CA</Text>
+                  <Text style={styles.acceptBtnText}>
+                    CHẤP NHẬN NHẬN CA (+{formatVnd(activeOffer.earningsAmount)})
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -220,10 +308,12 @@ export const CountdownAcceptModal: React.FC = () => {
               style={styles.skipBtn}
               onPress={handleSkip}
               disabled={isSubmitting}
+              activeOpacity={0.7}
             >
-              <Text style={styles.skipBtnText}>Bỏ Qua Ca Này</Text>
+              <Text style={styles.skipBtnText}>Bỏ Qua Ca Này (Nhường Thợ Kế Tiếp)</Text>
             </TouchableOpacity>
-        </View>
+          </View>
+        </ScrollView>
       </Animated.View>
     </Animated.View>
   );
@@ -236,201 +326,329 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     zIndex: 999999,
     elevation: 999999,
   },
   contentCard: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 430,
+    maxHeight: '92%',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
+    overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 20,
-    elevation: 10,
+    elevation: 12,
+  },
+  scrollContent: {
+    padding: 18,
+    paddingBottom: 22,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
   flashBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FFF1F2',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    marginBottom: 4,
+    backgroundColor: '#FFE4E6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
   },
   flashText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
     color: '#E11D48',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   codeText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748B',
+  },
+  queuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginTop: 6,
+  },
+  queueText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
   },
   countdownContainer: {
     alignItems: 'center',
-    marginVertical: 12,
-    width: '100%',
+    marginVertical: 10,
   },
   pulseCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFE4E6',
-    alignItems: 'center',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(225, 29, 72, 0.12)',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   countdownCircle: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#E11D48',
-    alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  countdownCircleDanger: {
+    backgroundColor: '#EF4444',
   },
   countdownNumber: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '900',
     color: '#FFFFFF',
-    lineHeight: 36,
+    lineHeight: 24,
+  },
+  countdownNumberDanger: {
+    color: '#FEF08A',
   },
   countdownUnit: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '700',
-    color: '#FECDD3',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: -2,
   },
   progressBarWrapper: {
-    width: '80%',
-    height: 6,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    marginTop: 14,
+    width: '100%',
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    marginTop: 8,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#E11D48',
-    borderRadius: 3,
   },
   earningsCard: {
-    width: '100%',
     backgroundColor: '#F0FDF4',
     borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    marginBottom: 14,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    marginBottom: 10,
   },
   earningsLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#166534',
   },
   earningsValue: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#15803D',
+    color: '#059669',
     marginVertical: 2,
   },
-  totalAmountSubtext: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  detailsBlock: {
-    width: '100%',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  detailTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-    flex: 1,
-  },
-  detailText: {
-    fontSize: 13,
-    color: '#334155',
-    flex: 1,
-    lineHeight: 18,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 6,
+  breakdownDetails: {
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#DCFCE7',
+    paddingTop: 4,
+    gap: 1,
   },
-  metaItem: {
+  breakdownLine: {
+    fontSize: 10,
+    color: '#374151',
+  },
+  escrowBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginTop: 6,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
-  metaText: {
-    fontSize: 12,
-    fontWeight: '600',
+  escrowText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  serviceSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  serviceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  serviceTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    flex: 1,
+  },
+  serviceSub: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 2,
+    marginLeft: 22,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 6,
+    marginLeft: 22,
+  },
+  styleBadge: {
+    backgroundColor: '#FFE4E6',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  styleBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#BE123C',
+  },
+  packageItemsList: {
+    marginTop: 6,
+    marginLeft: 22,
+    gap: 2,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  itemText: {
+    fontSize: 11,
+    color: '#334155',
+  },
+  locationSection: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  routingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  routingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  deadlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 3,
+  },
+  deadlineText: {
+    fontSize: 11,
+    color: '#B45309',
+  },
+  addressText: {
+    fontSize: 11,
     color: '#475569',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  noteBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  noteText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#92400E',
+    flex: 1,
+  },
+  customerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  customerName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  ratingBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  ratingText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   btnGroup: {
-    width: '100%',
     gap: 8,
   },
   acceptBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     backgroundColor: '#E11D48',
-    height: 52,
     borderRadius: 14,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
     shadowColor: '#E11D48',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 6,
   },
   acceptBtnDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   acceptBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   skipBtn: {
+    paddingVertical: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
   },
   skipBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: '#64748B',
   },
 });

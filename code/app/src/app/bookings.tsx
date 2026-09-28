@@ -55,10 +55,7 @@ export default function BookingsScreen() {
   };
 
   const handleTrack = (booking: CustomerBookingItem) => {
-    Alert.alert(
-      'Vị Trí Thợ (Live Tracking)',
-      `Thợ trang điểm đang di chuyển tới địa chỉ:\n${booking.destinationAddress}\nCự ly dự kiến đến nơi trong ít phút.`
-    );
+    router.push(`/booking/tracking/${booking.id}` as any);
   };
 
   const handleReview = (booking: CustomerBookingItem) => {

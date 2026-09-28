@@ -121,22 +121,115 @@ sequenceDiagram
     end
 ```
 
-### 4.2. Giao Diện & Trải Nghiệm Modal Toàn Màn Hình (`CountdownAcceptModal.tsx`)
-* **Hiệu ứng đánh thức giác quan:**
-  - Nền mờ Backdrop màu đen thẫm (`rgba(15, 23, 42, 0.92)`).
-  - Vòng tròn đồng hồ SVG viền Rose Ruby chuyển sắc `#E11D48` $\rightarrow$ `#F43F5E` co ngắn dần theo thời gian thực (30s $\rightarrow$ 0s).
-  - Con số đếm ngược to bản ở tâm đĩa tròn với hiệu ứng đập nhịp (Pulse animation).
-  - Âm thanh chuông báo giục giã lặp lại mỗi 2 giây kết hợp rung xúc giác haptic `Haptics.impactAsync(ImpactFeedbackStyle.Heavy)`.
-* **Thông tin hiển thị trên thẻ đơn:**
-  - Tiêu đề nổi bật: **⚡ ĐƠN KHẨN CẤP ĐẾN GẦN BẠN**
-  - Số tiền thợ thực nhận (Net Earnings): `+ 480.000 đ` (đã trừ 20% hoa hồng nền tảng, màu Emerald Green nổi bật).
-  - Khoảng cách di chuyển: `Cách bạn 1.8 km (~6 phút đi xe)`.
-  - Tên gói dịch vụ: `Trang Điểm Dự Tiệc Nhanh (Party Glam)`.
-  - Địa chỉ đón: `Số 88 Phố Huế, P. Hàng Bài, Q. Hoàn Kiếm, Hà Nội`.
-  - Tên khách hàng & Ghi chú (VD: *Khách cần có mặt trước 10h15 để dự hội nghị*).
-* **Cụm 2 nút hành động:**
-  - Nút **[CHẤP NHẬN NHẬN CA]** (Rộng full ngang, nền gradient Rose Ruby rực rỡ, hiệu ứng rung xác nhận).
-  - Nút **[Bỏ Qua Ca Này]** (Màu xám mờ bên dưới, cho phép từ chối lịch sự).
+### 4.2. Giao Diện & Bố Cục Thẻ Dịch Vụ Nhận Đơn Khẩn Cấp Chuẩn Chuyên Nghiệp (`CountdownAcceptModal.tsx`)
+
+Nhằm khắc phục tình trạng giao diện sơ sài, thiếu dữ liệu khiến thợ MUA không đủ căn cứ để ra quyết định nhận ca trong 20-30 giây, bố cục modal được tái cấu trúc thành **7 Khối Thông Tin Chuẩn Mực (High Data-Density & Clean Layout)**:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ ⚡ CA KHẨN CẤP (CÓ MẶT TRONG 30-45 PHÚT)     BK-FAST-892102  │
+│ [Ưu tiên #1 của bạn • 1/4 thợ gần nhất trong bán kính 5km]  │
+├─────────────────────────────────────────────────────────────┤
+│                    ╭──────────────╮                         │
+│                    │    20 GIÂY   │  (Đĩa đếm ngược SVG)    │
+│                    ╰──────────────╯                         │
+│             [══════════════════════════════] (Progress Bar) │
+├─────────────────────────────────────────────────────────────┤
+│ 💰 THU NHẬP THỰC NHẬN VỀ VÍ: + 520.000 đ (Emerald Green)    │
+│    • Tổng hóa đơn khách trả: 650.000 đ                      │
+│    • Đã trừ 20% phí sàn: - 130.000 đ                        │
+│    • Phụ phí gấp 30p: + 150.000 đ (Thợ hưởng 100%)          │
+│    • 🔒 Đã ký quỹ Escrow 30%: Đảm bảo thanh toán an toàn    │
+├─────────────────────────────────────────────────────────────┤
+│ 💄 THÔNG TIN GÓI DỊCH VỤ & YÊU CẦU LÀM ĐẸP                  │
+│    • Gói chính: Make-up Dự Tiệc Tối Sang Trọng (60 phút)    │
+│    • Phong cách yêu cầu: [Tone Thái Sắc Sảo] [Douyin Glam]  │
+│    • Bước đi kèm: ✔ Uốn tóc sóng lơi  ✔ Dán mi gân trong 3D │
+├─────────────────────────────────────────────────────────────┤
+│ 📍 ĐỊA ĐIỂM, CỰ LY & THỜI GIAN CẦN CÓ MẶT                   │
+│    • Cự ly: 🛵 Cách bạn 1.8 km (Ước tính di chuyển ~7 phút) │
+│    • Hạn chót có mặt: Trước 10:15 (Còn 38 phút)            │
+│    • Địa chỉ: P1208, Tòa R2 Royal City, 72A Nguyễn Trãi    │
+│    • Ghi chú khách: "Bấm chuông P1208, mang tone mắt cam đào"│
+├─────────────────────────────────────────────────────────────┤
+│ 👤 THÔNG TIN KHÁCH HÀNG: Chị Mai Phương (⭐ 5.0 • 8 đơn uy tín)│
+├─────────────────────────────────────────────────────────────┤
+│ [             🚀 CHẤP NHẬN NHẬN CA (+520.000 đ)           ] │
+│ [              Bỏ Qua Ca Này (Nhường Thợ Kế Tiếp)          ] │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Chi Tiết 7 Khối Dữ Liệu Bắt Buộc Hiển Thị:
+1. **Khối 1: Header Phân Phối & Thứ Tự Ưu Tiên (Urgent Header & Dispatch Priority)**:
+   - Badge đỏ chớp nhẹ: `⚡ CA KHẨN CẤP (CÓ MẶT TRONG 30-45 PHÚT)`.
+   - Mã đơn ngắn: `BK-FAST-xxxxxx`.
+   - Vị trí xếp hạng ứng viên trong Waterfall Queue: `candidateIndex / totalCandidates` (VD: *"Bạn là lựa chọn số 1 gần nhất quanh 5km"*), tạo tâm lý tự hào và thúc đẩy quyết định nhanh.
+2. **Khối 2: Đĩa Quay Đếm Ngược SVG & Thanh Tiến Trình (Countdown Timer & Progress)**:
+   - Vòng tròn đồng hồ SVG viền Rose Ruby chuyển sắc `#E11D48` $\rightarrow$ `#F43F5E` co ngắn theo thời gian thực (20s/30s $\rightarrow$ 0s).
+   - Con số đếm ngược to bản ở tâm đĩa đập nhịp (Pulse animation) kèm âm thanh chuông báo và rung haptic mỗi 2 giây.
+   - Thanh tiến trình phụ dưới đĩa đổi sang màu cam đỏ khi còn dưới 5 giây.
+3. **Khối 3: Thẻ Minh Bạch Tài Chính & Thu Nhập Thực Nhận (Earnings & Breakdown Card)**:
+   - **Số tiền thực nhận to nhất, màu xanh Emerald `#059669` viền dạ quang**: `+ 520.000 đ`.
+   - Bảng phân rã minh bạch 3 dòng:
+     * Tổng bill khách thanh toán: `650.000 đ`.
+     * Phụ phí khẩn cấp 30 phút: `+ 150.000 đ` (Thợ nhận trọn vẹn).
+     * Phí nền tảng (Platform fee 20%): `- 130.000 đ`.
+   - Badge bảo chứng an toàn: `🔒 Đã ký quỹ cọc Escrow 30% qua ngân hàng (Không lo bùng ca)`.
+4. **Khối 4: Chi Tiết Gói Dịch Vụ, Style & Bước Kèm Theo (Service Specs & Styles Card)**:
+   - Tên gói dịch vụ cụ thể: `Trang Điểm Dự Tiệc Tối Sang Trọng`.
+   - Thẻ Style sở trường (`makeup_styles`): Badges nổi bật (VD: `[Tone Thái Sắc Sảo]`, `[Douyin Trend]`).
+   - Danh sách bước làm đẹp mua thêm (`package_items`): Đánh dấu check xanh (VD: `✔ Uốn tóc sóng lơi`, `✔ Dán mi gân trong 3D`, `✔ Đánh nền body`). Thợ nắm bắt ngay dụng cụ cần mang theo.
+   - Thời lượng dự kiến: `60 phút`.
+5. **Khối 5: Địa Điểm Đón, Cự Ly & Hạn Chót Có Mặt (Routing & Target Arrival Time)**:
+   - Cự ly và thời gian di chuyển dự kiến: `🛵 Cách bạn 1.8 km • ~7 phút đi xe máy`.
+   - **Hạn chót cần có mặt tại nhà khách**: Giờ cụ thể (VD: `Trước 10:15 - Còn 38 phút`).
+   - Địa chỉ chi tiết: Tòa nhà, ngõ ngách, số phòng rõ ràng.
+   - Ghi chú riêng của khách hàng: Hiển thị trong khung ghi chú màu vàng nhạt (VD: *"Bấm chuông tầng 12, thợ nhớ mang phấn bắt sáng giúp mình"*).
+6. **Khối 6: Hồ Sơ Khách Hàng & Uy Tín (Customer Profile Card)**:
+   - Họ tên khách hàng: `Chị Mai Phương`.
+   - Huy hiệu uy tín của khách: `⭐ 5.0 (8 đơn hoàn thành không hủy cuốc)`.
+7. **Khối 7: Cụm Nút Quyết Định (Action Controls)**:
+   - Nút **[🚀 CHẤP NHẬN NHẬN CA (+520.000 đ)]**: Nút gradient Rose Ruby nổi bật toàn bộ chiều ngang, rung haptic xác nhận, gọi API nhận đơn kèm **Redisson Distributed Lock**.
+   - Nút **[Bỏ Qua Ca Này (Nhường Thợ Kế Tiếp)]**: Nút xám tinh tế, xác nhận bỏ qua đơn lịch sự không trừ điểm thợ nếu phản hồi trước khi hết giờ.
+
+#### Hợp Đồng Payload WebSocket Đầy Đủ Mở Rộng (`offerPayload`):
+```json
+{
+  "type": "INSTANT_BOOKING_OFFER",
+  "bookingId": 105,
+  "bookingCode": "BK-FAST-892102",
+  "targetMuaId": 12,
+  "targetUserId": 45,
+  "candidateIndex": 1,
+  "totalCandidates": 3,
+  "countdownSeconds": 20,
+  "serviceName": "Trang Điểm Dự Tiệc Tối Sang Trọng",
+  "categoryName": "Dự Tiệc",
+  "styleNames": ["Tone Thái Sắc Sảo", "Douyin Trend"],
+  "packageItems": ["Uốn tóc tạo kiểu sóng lơi", "Dán mi gân trong 3D", "Đánh nền body chống trôi"],
+  "estimatedDurationMinutes": 60,
+  "customerName": "Mai Phương",
+  "customerPhone": "0912***789",
+  "customerRating": 5.0,
+  "customerAddress": "P1208, Tòa R2 Royal City, 72A Nguyễn Trãi, Thanh Xuân, Hà Nội",
+  "customerNote": "Bấm chuông căn hộ 1208 tầng 12, thợ nhớ mang phấn bắt sáng giúp mình ạ",
+  "latitude": 20.999510,
+  "longitude": 105.815230,
+  "distanceKm": 1.85,
+  "estimatedTravelMinutes": 7,
+  "targetArrivalTime": "10:15",
+  "minutesUntilDeadline": 38,
+  "basePrice": 500000,
+  "emergencySurchargeFee": 150000,
+  "surgeAmount": 0,
+  "totalAmount": 650000,
+  "platformFee": 130000,
+  "earningsAmount": 520000,
+  "depositAmount": 195000,
+  "isDepositSecured": true,
+  "timestamp": 1790343600000
+}
+```
 
 ---
 
