@@ -8,7 +8,6 @@ import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
-import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
 import com.makeup.platform.repository.AgencyStaffRepository;
@@ -20,7 +19,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +29,10 @@ public class AgencyBookingMapper {
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
 
     public AgencyBookingRes toRes(BookingEntity b, AgencyProfileEntity agency) {
+        return toRes(b, agency, null);
+    }
+
+    public AgencyBookingRes toRes(BookingEntity b, AgencyProfileEntity agency, Map<Long, BigDecimal> commissionRates) {
         if (b == null) {
             return null;
         }
@@ -58,10 +61,14 @@ public class AgencyBookingMapper {
             }
 
             if (agency != null) {
-                Optional<AgencyStaffEntity> staffOpt = agencyStaffRepository.findByAgencyIdAndMuaId(agency.getId(), staffMuaId);
-                if (staffOpt.isPresent() && staffOpt.get().getAgreedCommissionRate() != null) {
-                    staffCommissionRate = staffOpt.get().getAgreedCommissionRate();
+                BigDecimal agreedRate;
+                if (commissionRates != null) {
+                    agreedRate = commissionRates.get(staffMuaId);
+                } else {
+                    agreedRate = agencyStaffRepository.findByAgencyIdAndMuaId(agency.getId(), staffMuaId)
+                            .map(AgencyStaffEntity::getAgreedCommissionRate).orElse(null);
                 }
+                if (agreedRate != null) staffCommissionRate = agreedRate;
             }
         }
 

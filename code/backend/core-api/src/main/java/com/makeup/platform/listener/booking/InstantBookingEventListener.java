@@ -4,9 +4,13 @@ import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.event.booking.InstantBookingAcceptedEvent;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.repository.MuaProfileRepository;
+import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.catalog.PackageItemEntity;
+import com.makeup.platform.repository.booking.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
+import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -21,15 +25,17 @@ public class InstantBookingEventListener {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final MuaProfileRepository muaProfileRepository;
+    private final BookingRepository bookingRepository;
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleInstantBookingAccepted(InstantBookingAcceptedEvent event) {
         log.info("[WebSocket] Received InstantBookingAcceptedEvent for bookingId={}, muaId={}",
                 event.getBookingId(), event.getMuaId());
 
         try {
-            MuaProfileEntity mua = muaProfileRepository.findById(event.getMuaId()).orElse(null);
+            MuaProfileEntity mua = muaProfileRepository.findWithUserById(event.getMuaId()).orElse(null);
+            BookingEntity booking = bookingRepository.findById(event.getBookingId()).orElse(null);
 
             // 1. Broadcast to Customer topic /topic/booking-matched/{bookingId}
             Map<String, Object> matchedPayload = new HashMap<>();
@@ -41,6 +47,23 @@ public class InstantBookingEventListener {
                 matchedPayload.put("muaName", mua.getUser().getFullName());
                 matchedPayload.put("muaPhone", mua.getUser().getPhoneNumber());
                 matchedPayload.put("rating", mua.getRatingAvg());
+                matchedPayload.put("muaAvatar", (mua.getPortfolioImages() != null && !mua.getPortfolioImages().isEmpty())
+                        ? mua.getPortfolioImages().get(0) : null);
+            }
+            if (booking != null) {
+                matchedPayload.put("bookingCode", booking.getBookingCode());
+                matchedPayload.put("serviceName", booking.getServicePackage() != null
+                        ? booking.getServicePackage().getPackageName() : "Trang Điểm Khẩn Cấp");
+                matchedPayload.put("basePrice", booking.getServiceSubtotal());
+                matchedPayload.put("emergencySurchargeFee", booking.getSurchargeFee());
+                matchedPayload.put("totalAmount", booking.getTotalAmount());
+                matchedPayload.put("depositAmount", booking.getDepositAmount());
+                matchedPayload.put("estimatedDurationMinutes", booking.getServicePackage() != null
+                        ? booking.getServicePackage().getEstimatedDurationMinutes() : 60);
+                if (booking.getServicePackage() != null && booking.getServicePackage().getPackageItems() != null) {
+                    matchedPayload.put("packageItems", booking.getServicePackage().getPackageItems().stream()
+                            .map(PackageItemEntity::getItemName).toList());
+                }
             }
             matchedPayload.put("timestamp", System.currentTimeMillis());
 
@@ -64,7 +87,7 @@ public class InstantBookingEventListener {
     }
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleBookingStateChanged(BookingStateChangedEvent event) {
         log.info("[WebSocket] Received BookingStateChangedEvent for bookingId={}, status={}",
                 event.getBookingId(), event.getToStatus());

@@ -16,6 +16,7 @@ import { freelancerBookingService } from '@/services/freelancer-booking.service'
 interface Props {
   visible: boolean;
   bookingId: number;
+  initialPhotoUrl?: string;
   onClose: () => void;
   onSuccess: (photoUrl: string) => void;
 }
@@ -23,11 +24,18 @@ interface Props {
 export const ProofCameraModal: React.FC<Props> = ({
   visible,
   bookingId,
+  initialPhotoUrl,
   onClose,
   onSuccess,
 }) => {
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(initialPhotoUrl || null);
   const [isUploading, setIsUploading] = useState(false);
+
+  React.useEffect(() => {
+    if (visible) {
+      setPhotoUri(initialPhotoUrl || null);
+    }
+  }, [visible, initialPhotoUrl]);
 
   const handleCaptureCamera = async () => {
     try {
@@ -76,12 +84,22 @@ export const ProofCameraModal: React.FC<Props> = ({
       return;
     }
 
+    // Nếu ảnh này đã được tải lên Cloudinary trước đó (bắt đầu bằng http/https)
+    if (photoUri.startsWith('http://') || photoUri.startsWith('https://')) {
+      onSuccess(photoUri);
+      setPhotoUri(null);
+      return;
+    }
+
     try {
       setIsUploading(true);
       const res = await freelancerBookingService.uploadCompletionPhoto(bookingId, photoUri);
-      if (res && res.photoUrl) {
-        onSuccess(res.photoUrl);
+      const finalPhotoUrl = res?.completionPhotoUrl || res?.photoUrl;
+      if (finalPhotoUrl) {
+        onSuccess(finalPhotoUrl);
         setPhotoUri(null);
+      } else {
+        Alert.alert('Lỗi', 'Không nhận được đường dẫn ảnh nghiệm thu từ máy chủ.');
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Lỗi khi tải ảnh nghiệm thu lên hệ thống.';

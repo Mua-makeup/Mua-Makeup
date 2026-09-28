@@ -16,6 +16,9 @@ import java.time.Instant;
 @Builder
 public class LiveTrackingRes {
 
+    // LIVE, LAST_KNOWN, UNAVAILABLE or COMPLETED. Missing measurements stay null.
+    private String locationStatus;
+
     private Long bookingId;
 
     private Long muaId;

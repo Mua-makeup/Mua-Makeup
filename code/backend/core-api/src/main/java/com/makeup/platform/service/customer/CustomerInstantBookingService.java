@@ -2,6 +2,9 @@ package com.makeup.platform.service.customer;
 
 import com.makeup.platform.dto.request.booking.CreateInstantBookingReq;
 import com.makeup.platform.dto.response.booking.InstantBookingCreatedRes;
+import com.makeup.platform.dto.response.booking.RecentAddressRes;
+
+import java.util.List;
 
 public interface CustomerInstantBookingService {
 
@@ -15,5 +18,9 @@ public interface CustomerInstantBookingService {
 
     boolean cancelInstantBookingByCustomer(Long bookingId, Long customerUserId, String reason);
 
-    java.util.List<com.makeup.platform.dto.response.booking.RecentAddressRes> getRecentAddresses(Long customerId);
+    boolean dispatchNextCandidateIfCurrent(Long bookingId, Long expectedMuaId);
+
+    void processPendingBooking(Long bookingId);
+
+    List<RecentAddressRes> getRecentAddresses(Long customerId);
 }

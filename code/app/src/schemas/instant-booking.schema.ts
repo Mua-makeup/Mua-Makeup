@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
 export const createInstantBookingSchema = z.object({
+  masterCategoryId: z.number({ required_error: 'Vui lòng chọn danh mục dịch vụ.' }),
+  styleId: z.number().optional(),
+  radiusKm: z.number().min(1).max(30).optional(),
   packageId: z.number().optional(),
   destinationAddress: z
     .string({ required_error: 'Vui lòng nhập địa chỉ đón thợ.' })

@@ -134,16 +134,16 @@ export const CountdownAcceptModal: React.FC = () => {
   });
 
   const candidateIdx = activeOffer.candidateIndex || 1;
-  const totalCandidates = activeOffer.totalCandidates || 3;
+  const totalCandidates = activeOffer.totalCandidates || 1;
   const stylesList = activeOffer.styleNames && activeOffer.styleNames.length > 0
     ? activeOffer.styleNames
-    : ['Tone Thái Sắc Sảo', 'Douyin Glam'];
+    : [];
   const packageItems = activeOffer.packageItems && activeOffer.packageItems.length > 0
     ? activeOffer.packageItems
-    : ['Uốn tóc tạo kiểu', 'Dán mi 3D'];
+    : [];
 
   const emergencyFee = activeOffer.emergencySurchargeFee || 150000;
-  const platformFee = activeOffer.platformFee || Math.round(activeOffer.totalAmount * 0.2);
+  const platformFee = activeOffer.platformFee || 0;
 
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} pointerEvents="auto">
@@ -160,7 +160,7 @@ export const CountdownAcceptModal: React.FC = () => {
           <View style={styles.queuePill}>
             <Ionicons name="ribbon-outline" size={12} color="#059669" />
             <Text style={styles.queueText}>
-              Ưu tiên #{candidateIdx} của bạn • {candidateIdx}/{totalCandidates} thợ gần nhất quanh 5km
+              Ưu tiên #{candidateIdx} của bạn • {candidateIdx}/{totalCandidates} thợ gần nhất quanh vị trí khách
             </Text>
           </View>
 
@@ -214,7 +214,7 @@ export const CountdownAcceptModal: React.FC = () => {
             <View style={styles.serviceHeaderRow}>
               <Ionicons name="sparkles" size={16} color="#E11D48" />
               <Text style={styles.serviceTitle} numberOfLines={1}>
-                {activeOffer.serviceName || 'Trang Điểm Dự Tiệc Tối Sang Trọng'}
+                {activeOffer.serviceName || 'Gói Dịch Vụ Make-up'}
               </Text>
             </View>
             <Text style={styles.serviceSub}>
@@ -246,8 +246,8 @@ export const CountdownAcceptModal: React.FC = () => {
             <View style={styles.routingRow}>
               <Ionicons name="navigate-circle" size={16} color="#2563EB" />
               <Text style={styles.routingText}>
-                Cách bạn {activeOffer.distanceKm ? activeOffer.distanceKm.toFixed(1) : 1.8} km • ~
-                {activeOffer.estimatedTravelMinutes || 7} phút đi xe máy
+                Cách bạn {activeOffer.distanceKm ? activeOffer.distanceKm.toFixed(1) : '1.5'} km • ~
+                {activeOffer.estimatedTravelMinutes || 10} phút đi xe máy
               </Text>
             </View>
             <View style={styles.deadlineRow}>

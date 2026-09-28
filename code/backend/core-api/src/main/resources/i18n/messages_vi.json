@@ -304,6 +304,8 @@
     "booking_destination_address_size": "Địa chỉ điểm đến không được vượt quá 500 ký tự.",
     "booking_latitude_required": "Vĩ độ điểm đến không được để trống.",
     "booking_longitude_required": "Kinh độ điểm đến không được để trống.",
+    "master_category_required": "Vui lòng chọn danh mục dịch vụ.",
+    "radius_invalid": "Bán kính tìm kiếm phải từ 1.0 đến 30.0 km.",
     "commission_rate_required": "Tỷ lệ hoa hồng không được để trống.",
     "commission_rate_min": "Tỷ lệ hoa hồng tối thiểu là 0%.",
     "commission_rate_max": "Tỷ lệ hoa hồng tối đa là 100%.",

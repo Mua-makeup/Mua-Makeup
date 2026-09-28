@@ -345,17 +345,90 @@ Component `BookingProgressStepper.tsx` được hiển thị đồng thời ở 
 
 ---
 
-## 🛡️ 7. QUY CHUẨN KỸ THUẬT & KIỂM THỬ CHẤT LƯỢNG
-
-1. **Tuân Thủ Tuyệt Đối Backend - Nghiêm Cấm Giả Lập Dữ Liệu (Strict Rule 5):**
-   - 100% tọa độ thợ, trạng thái cuốc xe, danh sách thợ quanh vùng BẮT BUỘC lấy từ API thật của Spring Boot Core API và Redis GEO.
-   - Nghiêm cấm dùng `setTimeout` sinh tọa độ ảo hoặc tạo avatar thợ giả phía Frontend.
-2. **Quản Lý Bộ Nhớ & Vòng Đời WebSocket:**
-   - Khi khách thoát khỏi màn hình Live Tracking hoặc đóng Modal Radar, BẮT BUỘC phải gọi `websocketService.unsubscribe()` để đóng kênh, giải phóng RAM và chặn rò rỉ bộ nhớ (Memory Leak).
-3. **Chống Mất Kết Nối Mạng (Network Disconnection Resilience):**
-   - Nếu kết nối WebSocket bị đứt quãng khi xe thợ đi vào tầng hầm, app hiển thị thanh cảnh báo mỏng màu cam: `Đang kết nối lại tín hiệu vệ tinh...`.
-   - Client STOMP tự động thử kết nối lại theo cơ chế Exponential Backoff (1s, 2s, 4s, 8s...).
-   - Đồng thời kích hoạt cơ chế Fallback Polling gọi `GET /api/v1/telemetry/bookings/{id}/track` mỗi 15 giây nếu STOMP chưa khôi phục.
-4. **Đa Ngôn Ngữ Song Ngữ (System-Wide i18n):**
-   - Mọi nhãn hiển thị, thông báo toast, tiêu đề stepper đều phải khai báo song ngữ trong `TRANSLATIONS.vi` và `TRANSLATIONS.en`.
-   - Ví dụ: `radar_searching_mua`, `tracking_eta_minutes`, `status_on_the_way`, `status_arrived`, `status_in_progress`, `status_completed`.
+348: ## 🛡️ 7. QUY CHUẨN KỸ THUẬT & KIỂM THỬ CHẤT LƯỢNG
+349: 
+350: 1. **Tuân Thủ Tuyệt Đối Backend - Nghiêm Cấm Giả Lập Dữ Liệu (Strict Rule 5):**
+351:    - 100% tọa độ thợ, trạng thái cuốc xe, danh sách thợ quanh vùng BẮT BUỘC lấy từ API thật của Spring Boot Core API và Redis GEO.
+352:    - Nghiêm cấm dùng `setTimeout` sinh tọa độ ảo hoặc tạo avatar thợ giả phía Frontend.
+353: 2. **Quản Lý Bộ Nhớ & Vòng Đời WebSocket:**
+354:    - Khi khách thoát khỏi màn hình Live Tracking hoặc đóng Modal Radar, BẮT BUỘC phải gọi `websocketService.unsubscribe()` để đóng kênh, giải phóng RAM và chặn rò rỉ bộ nhớ (Memory Leak).
+355: 3. **Chống Mất Kết Nối Mạng (Network Disconnection Resilience):**
+356:    - Nếu kết nối WebSocket bị đứt quãng khi xe thợ đi vào tầng hầm, app hiển thị thanh cảnh báo mỏng màu cam: `Đang kết nối lại tín hiệu vệ tinh...`.
+357:    - Client STOMP tự động thử kết nối lại theo cơ chế Exponential Backoff (1s, 2s, 4s, 8s...).
+358:    - Đồng thời kích hoạt cơ chế Fallback Polling gọi `GET /api/v1/telemetry/bookings/{id}/track` mỗi 15 giây nếu STOMP chưa khôi phục.
+359: 4. **Đa Ngôn Ngữ Song Ngữ (System-Wide i18n):**
+360:    - Mọi nhãn hiển thị, thông báo toast, tiêu đề stepper đều phải khai báo song ngữ trong `TRANSLATIONS.vi` và `TRANSLATIONS.en`.
+361:    - Ví dụ: `radar_searching_mua`, `tracking_eta_minutes`, `status_on_the_way`, `status_arrived`, `status_in_progress`, `status_completed`.
+362: 
+363: ---
+364: 
+365: ## 🎯 8. ĐẶC TẢ CHI TIẾT 4 YÊU CẦU ĐIỀU CHỈNH TÌM THỢ & ĐỊNH GIÁ ĐỘNG KHẨN CẤP
+366: 
+367: Nhằm khắc phục triệt để tình trạng hardcode dữ liệu phía client và sai lệch luồng nghiệp vụ tìm thợ theo gói dịch vụ, hệ thống bổ sung đặc tả 4 tiêu chí cốt lõi sau:
+368: 
+369: ### 8.1. Vấn Đề 1: Ẩn Giá Dịch Vụ Trước Khi Tìm Thấy Thợ & Minh Bạch Giá Thật Bên MUA
+370: * **Thực trạng cũ & Lỗi vi phạm:**
+371:   - Frontend tự fix cứng các gói dịch vụ (`INSTANT_PACKAGES`) với giá 500k, 350k, 1200k và tự tính tổng hóa đơn 650.000đ (cọc 195.000đ) ngay trước khi quét thợ.
+372:   - Mỗi thợ trang điểm có mức giá dịch vụ khác nhau trong `ServicePackageEntity`. Việc hiển thị trước 1 mức giá cố định là không chính xác và đánh lừa khách hàng.
+373:   - Màn hình nhận ca của thợ (`CountdownAcceptModal.tsx`) đang hardcode fallback các nhãn, phụ phí 150k và thu nhập vì backend chưa gửi đủ payload chi tiết.
+374: * **Quy chuẩn Nghiệp vụ Mới:**
+375:   1. **Bước 1 (Trước khi quét thợ):**
+376:      - **Ẩn toàn bộ khối dự tính giá tiền và số tiền đặt cọc**. Khách hàng chỉ chọn: **Danh mục mong muốn** (Category) + **Phong cách** (Style) + **Bán kính quét** (Radius) + **Địa chỉ tiếp đón**.
+377:   2. **Điều phối Waterfall:**
+378:      - Khi gửi offer tới từng thợ qua WebSocket `/topic/mua-offer/{muaId}`, Backend lấy chính xác gói dịch vụ của thợ đó (`ServicePackageEntity` thuộc Category và Style tương ứng) để tính:
+379:        - `basePrice`: Giá niêm yết của thợ.
+380:        - `emergencySurchargeFee`: Phụ phí ca khẩn cấp (150.000đ hoặc từ quy tắc Dynamic Pricing).
+381:        - `totalAmount`: `basePrice + emergencySurchargeFee`.
+382:        - `platformFee`: Phí sàn (20% giá gói).
+383:        - `earningsAmount`: Thu nhập thực nhận của thợ (`basePrice * 80% + emergencySurchargeFee`).
+384:   3. **Màn hình MUA nhận đơn:**
+385:      - Render 100% dữ liệu từ payload WebSocket, tuyệt đối không dùng giá trị mặc định hardcode.
+386:   4. **Khi thợ nhận ca (`acceptBookingWithLock`):**
+387:      - Cập nhật `BookingEntity` với `packageId` và giá thực tế của thợ đã nhận.
+388:      - Phát sự kiện `BOOKING_MATCHED` tới khách hàng với đầy đủ thông tin: Tên thợ, Avatar, SĐT, Tên gói dịch vụ, Giá gói thực tế, Phụ phí khẩn cấp, Tổng tiền dự tính.
+389: 
+390: ### 8.2. Vấn Đề 2: Tìm Kiếm & Lọc Thợ Chuẩn Xác Theo Danh Mục (Category) & Phong Cách (Style)
+391: * **Thực trạng cũ & Lỗi vi phạm:**
+392:   - Danh mục và phong cách trên Modal đang khai báo mảng tĩnh, không đồng bộ với CSDL `catalog_schema.master_service_categories` và `catalog_schema.makeup_styles`.
+393:   - Backend (`CustomerInstantBookingServiceImpl.findAvailableCandidates`) chỉ kiểm tra MUA online trong Redis GEO mà **hoàn toàn không lọc theo danh mục hay phong cách**. Dẫn đến việc thợ MUA 3 chỉ đăng ký dịch vụ "Make-up Cô dâu" nhưng khi khách chọn "Đi làm" hay "Dự tiệc" thì MUA 3 vẫn bị quét trúng và nhận được cuốc.
+394: * **Quy chuẩn Nghiệp vụ Mới:**
+395:   1. **Frontend:**
+396:      - Tải danh mục thực tế từ `GET /api/v1/master-categories`.
+397:      - Tải phong cách thực tế từ `GET /api/v1/makeup-styles`.
+398:   2. **Hợp đồng Request DTO (`CreateInstantBookingReq`):**
+399:      - Bổ sung `@NotNull Integer masterCategoryId;`
+400:      - Bổ sung `Integer styleId;` (tùy chọn theo phong cách khách muốn)
+401:      - Bổ sung `Double radiusKm;` (mặc định 10.0km)
+402:   3. **Backend Candidate Filtering:**
+403:      - Tại `CustomerInstantBookingServiceImpl.findAvailableCandidates`:
+404:        - Sau khi lấy danh sách MUA online từ Redis GEO trong bán kính `radiusKm`, Backend thực hiện truy vấn `ServicePackageRepository` để lọc:
+405:        - Thợ MUA BẮT BUỘC phải sở hữu ít nhất 1 gói dịch vụ thỏa mãn:
+406:          - `mua.id = candidateId`
+407:          - `isAvailable = TRUE`
+408:          - `masterCategory.id = :masterCategoryId`
+409:          - Nếu `styleId != null`: Gói dịch vụ đó phải chứa phong cách có `style.id = :styleId`.
+410:        - Chỉ những thợ đáp ứng điều kiện trên mới được đưa vào hàng đợi Waterfall.
+411: 
+412: ### 8.3. Vấn Đề 3: Bóc Tách Dịch Vụ Mua Thêm (Add-ons) Sang Màn Hình Chi Tiết & Đặt Cọc
+413: * **Thực trạng cũ & Lỗi vi phạm:**
+414:   - Checkbox "Kèm làm tóc (+100k)", "Dán mi 3D (+50k)" đang bị đưa vào bước tìm kiếm ban đầu với giá fix cứng, trong khi chưa biết thợ nào nhận và thợ có cung cấp dịch vụ phụ đó hay không.
+415: * **Quy chuẩn Nghiệp vụ Mới:**
+416:   1. **Bước tìm thợ ban đầu:**
+417:      - **Chỉ chọn Phong cách (Style)** nhằm tìm đúng thợ có tay nghề sở trường phù hợp.
+418:      - **Ẩn hoàn toàn các dịch vụ mua thêm (Add-ons)** khỏi bước quét radar.
+419:   2. **Bước Chi Tiết Hóa Đơn & Đặt Cọc (Sau khi đã tìm thấy thợ):**
+420:      - Khi thợ chấp nhận ca (`MATCHED`), khách hàng được chuyển tới màn hình Chi Tiết Hóa Đơn & Xác Nhận Đặt Cọc.
+421:      - Lúc này hệ thống mới hiển thị danh sách Dịch vụ mua thêm (Package Items / Add-ons) thực tế của gói dịch vụ mà thợ đó đang cung cấp (Ví dụ: Uốn tóc tạo kiểu, Dán mi giả 3D, Đính đá nghệ thuật).
+422:      - Khách hàng có thể tích chọn thêm các mục này $\rightarrow$ Tổng hóa đơn và số tiền cọc 30% Escrow được tính lại theo thời gian thực $\rightarrow$ Khách bấm xác nhận thanh toán cọc để khóa đơn ca làm.
+423: 
+424: ### 8.4. Vấn Đề 4: Chuẩn Hóa Bán Kính Quét Mặc Định 10km & Cơ Chế Gợi Ý Mở Rộng
+425: * **Thực trạng cũ & Lỗi vi phạm:**
+426:   - Bán kính quét đang bị lệch giữa client và backend (lúc 5km, lúc 30km cố định).
+427:   - Khi không tìm thấy thợ, hệ thống chỉ hiển thị thông báo lỗi đóng băng, không có hướng dẫn hành động tiếp theo cho người dùng.
+428: * **Quy chuẩn Nghiệp vụ Mới:**
+429:   1. **Bán kính mặc định:** Thiết lập mặc định là **10 km** trên cả Client và Backend.
+430:   2. **Tùy chọn bán kính linh hoạt:** Hỗ trợ các mốc `5 km` | `10 km (Mặc định)` | `15 km` | `30 km`.
+431:   3. **Cơ chế gợi ý mở rộng (Smart Expansion Prompt):**
+432:      - Nếu trong bán kính hiện tại (VD 10km) không có thợ nào online (`nearbyProviders.length === 0`):
+433:        - Hiển thị Banner gợi ý trực quan: *"Chưa có chuyên viên trực tuyến trong bán kính 10km. Bạn có muốn mở rộng lên 15km hoặc 30km để quét thêm thợ không?"*.
+434:        - Cung cấp nút bấm một chạm **[Mở rộng 15km]** / **[Mở rộng 30km]** giúp tự động cập nhật bán kính và kích hoạt lại radar quét ngay lập tức.

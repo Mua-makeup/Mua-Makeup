@@ -85,7 +85,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
 
         // 3. Validate condition prerequisites
         if (targetStatus == BookingStatus.COMPLETED) {
-            String photoUrl = req.getCompletionPhotoUrl();
+            String photoUrl = req.getEffectiveCompletionPhotoUrl();
             if (StringUtils.hasText(photoUrl)) {
                 booking.setCompletionPhotoUrl(photoUrl.trim());
             } else if (!StringUtils.hasText(booking.getCompletionPhotoUrl())) {

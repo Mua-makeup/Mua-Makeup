@@ -49,7 +49,11 @@ export interface BookingStateTransitionRes {
 
 export interface BookingCompletionPhotoRes {
   bookingId: number;
-  photoUrl: string;
+  bookingCode?: string;
+  completionPhotoUrl: string;
+  photoUrl?: string;
+  thumbnailUrl?: string;
+  publicId?: string;
   uploadedAt: string;
 }
 
@@ -121,6 +125,12 @@ export const freelancerBookingService = {
       },
     });
 
-    return response.data.data;
+    const data = response.data?.data;
+    const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;
+    return {
+      ...data,
+      completionPhotoUrl: finalPhotoUrl,
+      photoUrl: finalPhotoUrl,
+    };
   },
 };

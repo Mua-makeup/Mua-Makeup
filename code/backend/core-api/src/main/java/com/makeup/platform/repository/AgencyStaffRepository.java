@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 @Repository
@@ -42,4 +43,7 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
 
     @Query("SELECT s FROM AgencyStaffEntity s WHERE s.mua.id = :muaId AND s.isActive = true AND s.status = 'ACTIVE'")
     Optional<AgencyStaffEntity> findActiveStaffByMuaId(@Param("muaId") Long muaId);
+    @Query("SELECT s FROM AgencyStaffEntity s JOIN FETCH s.mua WHERE s.agency.id = :agencyId AND s.mua.id IN :muaIds")
+    List<AgencyStaffEntity> findCommissionRates(@Param("agencyId") Long agencyId,
+            @Param("muaIds") Collection<Long> muaIds);
 }

@@ -1,5 +1,7 @@
 package com.makeup.platform.service.telemetry;
 
+import com.makeup.platform.common.constants.InstantBookingKeys;
+
 import com.makeup.platform.common.constants.TelemetryConstants;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.repository.MuaProfileRepository;
@@ -30,7 +32,9 @@ public class RedisExpirationListener implements MessageListener {
         container.addMessageListener(this, new PatternTopic("__keyevent@*__:expired"));
         try {
             if (stringRedisTemplate.getConnectionFactory() != null) {
-                stringRedisTemplate.getConnectionFactory().getConnection().serverCommands().setConfig("notify-keyspace-events", "KEA");
+                try (var connection = stringRedisTemplate.getConnectionFactory().getConnection()) {
+                    connection.serverCommands().setConfig("notify-keyspace-events", "KEA");
+                }
                 log.info("Configured Redis notify-keyspace-events to KEA");
             }
         } catch (Exception e) {
@@ -69,8 +73,8 @@ public class RedisExpirationListener implements MessageListener {
             } catch (Exception e) {
                 log.error("Error processing expiration for MUA heartbeat {}: {}", expiredKey, e.getMessage(), e);
             }
-        } else if (expiredKey != null && expiredKey.startsWith("booking:instant:expire:")) {
-            String bookingIdStr = expiredKey.substring("booking:instant:expire:".length());
+        } else if (expiredKey != null && expiredKey.startsWith(InstantBookingKeys.EXPIRATION_PREFIX)) {
+            String bookingIdStr = expiredKey.substring(InstantBookingKeys.EXPIRATION_PREFIX.length());
             try {
                 Long bookingId = Long.parseLong(bookingIdStr);
                 log.info("[RedisExpiration] Instant booking id={} reached 45s TTL. Triggering auto-cancel.", bookingId);
@@ -80,7 +84,7 @@ public class RedisExpirationListener implements MessageListener {
             } catch (Exception e) {
                 log.error("Error processing expiration for booking {}: {}", expiredKey, e.getMessage(), e);
             }
-        } else if (expiredKey != null && expiredKey.startsWith("booking:dispatch:timer:")) {
+        } else if (expiredKey != null && expiredKey.startsWith(InstantBookingKeys.OFFER_TIMER_PREFIX)) {
             // Key pattern: booking:dispatch:timer:{bookingId}:{targetMuaId}
             String[] parts = expiredKey.split(":");
             if (parts.length >= 5) {
@@ -90,11 +94,11 @@ public class RedisExpirationListener implements MessageListener {
                     log.info("[RedisExpiration] MUA offer 20s TTL expired for bookingId={}, targetMuaId={}", bookingId, targetMuaId);
 
                     // Kiểm tra thợ hiện tại còn là targetMuaId không
-                    String currentMuaStr = stringRedisTemplate.opsForValue().get("booking:dispatch:current:" + bookingId);
+                    String currentMuaStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
                     if (currentMuaStr != null && currentMuaStr.equals(String.valueOf(targetMuaId))) {
                         log.info("[RedisExpiration] Auto-cascading bookingId={} to next candidate because MUA {} did not respond within 20s",
                                 bookingId, targetMuaId);
-                        customerInstantBookingService.dispatchNextCandidate(bookingId);
+                        customerInstantBookingService.dispatchNextCandidateIfCurrent(bookingId, targetMuaId);
                     }
                 } catch (Exception e) {
                     log.error("Error processing expiration for dispatch timer {}: {}", expiredKey, e.getMessage(), e);

@@ -10,11 +10,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.makeup.platform.dto.response.booking.RecentAddressRes;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/customer/bookings")
@@ -41,11 +45,11 @@ public class CustomerInstantBookingController extends BaseController {
         return ok(null, "booking.cancel_success");
     }
 
-    @org.springframework.web.bind.annotation.GetMapping("/recent-addresses")
+    @GetMapping("/recent-addresses")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<ApiResponse<java.util.List<com.makeup.platform.dto.response.booking.RecentAddressRes>>> getRecentAddresses() {
+    public ResponseEntity<ApiResponse<List<RecentAddressRes>>> getRecentAddresses() {
         Long customerId = SecurityContextUtils.getCurrentUserId();
-        java.util.List<com.makeup.platform.dto.response.booking.RecentAddressRes> res =
+        List<RecentAddressRes> res =
                 customerInstantBookingService.getRecentAddresses(customerId);
         return ok(res, "booking.recent_addresses_fetch_success");
     }

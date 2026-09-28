@@ -82,6 +82,9 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             mua.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
             mua.setIsOnline(true);
             mua.setIsBusy(false);
+            mua.setLastKnownLat(BigDecimal.valueOf(req.getLatitude()));
+            mua.setLastKnownLng(BigDecimal.valueOf(req.getLongitude()));
+            mua.setLastKnownUpdatedAt(Instant.now());
             muaProfileRepository.save(mua);
 
             log.info("MUA {} is now AVAILABLE on Redis GEO", mua.getId());
@@ -177,6 +180,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
 
             // Broadcast qua STOMP topic
             String topic = TelemetryConstants.TOPIC_GPS_STREAM_PREFIX + req.getBookingId();
+            res.setLocationStatus("LIVE");
             messagingTemplate.convertAndSend(topic, res);
             log.debug("Broadcasted live telemetry to topic {}", topic);
 

@@ -145,7 +145,23 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       // Tự động kết nối WebSocket và lắng nghe đơn khẩn cấp ngay khi có profile thợ
       if (effectiveMuaId) {
         if (isOnline) {
-          startHeartbeat();
+          // Lấy tọa độ GPS mới nhất từ thiết bị và đồng bộ ngay lên Backend
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+            .then(async (loc) => {
+              const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+              set({ currentCoords: coords });
+              await telemetryService.toggleAvailability({
+                isAvailable: true,
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                heading: loc.coords.heading || 0,
+                speed: loc.coords.speed || 0,
+              });
+              startHeartbeat();
+            })
+            .catch(() => {
+              startHeartbeat();
+            });
         }
         console.log('[WorkstationStore] Tự động kích hoạt WebSocket cho MUA id =', effectiveMuaId);
         await websocketService.connect();

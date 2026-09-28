@@ -80,6 +80,7 @@ export default function JobExecutionScreen() {
             totalAmount: detail.totalAmount ? Number(detail.totalAmount) : 0,
             depositAmount: 0,
             earningsAmount: detail.totalAmount ? Number(detail.totalAmount) : 0,
+            completionPhotoUrl: detail.completionPhotoUrl || undefined,
             createdAt: detail.updatedAt || new Date().toISOString(),
           });
           setCurrentStatus(detail.status as BookingStatusType);
@@ -308,6 +309,7 @@ export default function JobExecutionScreen() {
       <ProofCameraModal
         visible={isCameraVisible}
         bookingId={bookingId}
+        initialPhotoUrl={booking?.completionPhotoUrl}
         onClose={() => setIsCameraVisible(false)}
         onSuccess={(photoUrl) => {
           setIsCameraVisible(false);

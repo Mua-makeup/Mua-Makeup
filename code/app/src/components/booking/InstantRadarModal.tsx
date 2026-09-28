@@ -17,6 +17,7 @@ import { BrandColors } from '@/constants/theme';
 import { bookingService, InstantBookingCreatedRes } from '@/services/booking.service';
 import { telemetryService, NearbyProviderRes } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
+import { taxonomyService, MasterCategory, MakeupStyle } from '@/services/taxonomy.service';
 import { soundManager } from '@/utils/sound';
 import { useLocationStore } from '@/store/location.store';
 import * as Location from 'expo-location';
@@ -28,43 +29,17 @@ interface Props {
   onClose: () => void;
 }
 
-const INSTANT_PACKAGES = [
-  {
-    id: 1,
-    title: 'Make-up Dự Tiệc Tối',
-    subtitle: 'Dạ hội, sinh nhật, prom, sự kiện',
-    basePrice: 500000,
-    durationMinutes: 60,
-    icon: 'wine' as const,
-  },
-  {
-    id: 2,
-    title: 'Đi Làm / Hàng Ngày',
-    subtitle: 'Nhẹ nhàng, trong trẻo, tự nhiên',
-    basePrice: 350000,
-    durationMinutes: 45,
-    icon: 'sunny' as const,
-  },
-  {
-    id: 3,
-    title: 'Cô Dâu Cấp Tốc',
-    subtitle: 'Đón dâu, ăn hỏi, tiệc cưới gấp',
-    basePrice: 1200000,
-    durationMinutes: 90,
-    icon: 'heart' as const,
-  },
-];
-
-const EMERGENCY_SURCHARGE = 150000; // Phụ phí ca khẩn cấp 30-45 phút
-
-const STYLES = ['Tone Thái Sắc Sảo', 'Douyin Glam', 'Tone Hàn Trong Trẻo'];
+const RADIUS_OPTIONS = [5, 10, 15, 30];
 
 export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   const { currentAddress, latitude: storeLat, longitude: storeLng, fetchCurrentLocation } = useLocationStore();
-  const [selectedPackage, setSelectedPackage] = useState(INSTANT_PACKAGES[0]);
-  const [selectedStyle, setSelectedStyle] = useState(STYLES[0]);
-  const [hasHairStyle, setHasHairStyle] = useState(false);
-  const [hasLashes, setHasLashes] = useState(false);
+  
+  // Dữ liệu danh mục và phong cách thật từ Database
+  const [categories, setCategories] = useState<MasterCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<MasterCategory | null>(null);
+  const [stylesList, setStylesList] = useState<MakeupStyle[]>([]);
+  const [selectedStyle, setSelectedStyle] = useState<MakeupStyle | null>(null);
+  const [isLoadingTaxonomy, setIsLoadingTaxonomy] = useState(false);
 
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -75,6 +50,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   const [nearbyProviders, setNearbyProviders] = useState<NearbyProviderRes[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<NearbyProviderRes | null>(null);
+  const [searchRadius, setSearchRadius] = useState<number>(10);
 
   const [step, setStep] = useState<'IDLE' | 'SCANNING' | 'MATCHED' | 'TIMEOUT'>('IDLE');
   const [secondsLeft, setSecondsLeft] = useState(45);
@@ -84,6 +60,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
     phone?: string;
     avatar?: string;
   } | null>(null);
+  const [matchedData, setMatchedData] = useState<any>(null);
 
   const timerRef = useRef<any>(null);
   const statusPollRef = useRef<any>(null);
@@ -109,6 +86,35 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
       clearAllTimers();
     };
   }, []);
+
+  // Nạp danh mục và phong cách thật từ DB khi mở modal
+  useEffect(() => {
+    if (visible) {
+      loadTaxonomy();
+    }
+  }, [visible]);
+
+  const loadTaxonomy = async () => {
+    try {
+      setIsLoadingTaxonomy(true);
+      const [cats, styles] = await Promise.all([
+        taxonomyService.getActiveCategories(),
+        taxonomyService.getActiveStyles(),
+      ]);
+      setCategories(cats || []);
+      if (cats && cats.length > 0) {
+        setSelectedCategory((prev) => prev || cats[0]);
+      }
+      setStylesList(styles || []);
+      if (styles && styles.length > 0) {
+        setSelectedStyle((prev) => prev || styles[0]);
+      }
+    } catch (e) {
+      console.warn('Lỗi tải danh mục / phong cách:', e);
+    } finally {
+      setIsLoadingTaxonomy(false);
+    }
+  };
 
   // Tải tọa độ GPS và quét thợ thật quanh vị trí
   useEffect(() => {
@@ -149,13 +155,20 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   };
 
-  const fetchNearbyProviders = async (lat: number, lng: number) => {
+  const handleSelectRadius = (r: number) => {
+    setSearchRadius(r);
+    if (coords) {
+      fetchNearbyProviders(coords.latitude, coords.longitude, r);
+    }
+  };
+
+  const fetchNearbyProviders = async (lat: number, lng: number, radius: number = searchRadius) => {
     try {
       setIsLoadingProviders(true);
       const list = await telemetryService.getNearbyProviders({
         latitude: lat,
         longitude: lng,
-        radiusKm: 5,
+        radiusKm: radius,
       });
       setNearbyProviders(list || []);
     } catch (err) {
@@ -165,14 +178,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
       setIsLoadingProviders(false);
     }
   };
-
-  // Tính toán báo giá thời gian thực
-  const hairAddonFee = hasHairStyle ? 100000 : 0;
-  const lashesAddonFee = hasLashes ? 50000 : 0;
-  const addonsTotal = hairAddonFee + lashesAddonFee;
-  const totalAmount = selectedPackage.basePrice + EMERGENCY_SURCHARGE + addonsTotal;
-  const depositAmount = Math.round((totalAmount * 0.3) / 1000) * 1000;
-  const remainingAmount = totalAmount - depositAmount;
 
   const formatVnd = (amount: number) => (amount || 0).toLocaleString('vi-VN') + ' đ';
 
@@ -204,8 +209,13 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
     if (nearbyProviders.length === 0) {
       Alert.alert(
         'Chưa Có Thợ Trực Tuyến',
-        'Hiện tại chưa có chuyên viên make-up nào đang online trong bán kính 5km quanh bạn. Bạn vui lòng thử lại sau ít phút hoặc đặt lịch hẹn theo giờ nhé!'
+        `Hiện tại chưa có chuyên viên make-up nào đang online trong bán kính ${searchRadius}km quanh bạn. Bạn vui lòng mở rộng bán kính quét hoặc thử lại sau ít phút nhé!`
       );
+      return;
+    }
+
+    if (!selectedCategory) {
+      Alert.alert('Chưa Chọn Dịch Vụ', 'Vui lòng chọn danh mục make-up bạn cần tìm.');
       return;
     }
 
@@ -232,17 +242,15 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
       }
 
       const sendAddress = address?.trim() || currentAddress || 'Vị trí hiện tại của bạn';
-      const itemsNote: string[] = [];
-      if (hasHairStyle) itemsNote.push('Uốn tóc tạo kiểu');
-      if (hasLashes) itemsNote.push('Dán mi 3D');
-      const combinedNote = `Style: ${selectedStyle}${itemsNote.length ? ' • ' + itemsNote.join(', ') : ''}${addressNote ? ' • ' + addressNote : ''}`;
 
       const res = await bookingService.createInstantBooking({
-        packageId: selectedPackage.id,
+        masterCategoryId: selectedCategory.id,
+        styleId: selectedStyle?.id,
+        radiusKm: searchRadius,
         destinationAddress: sendAddress,
         destinationLatitude: targetLat,
         destinationLongitude: targetLng,
-        note: combinedNote,
+        note: addressNote?.trim(),
       });
 
       setCreatedBooking(res);
@@ -258,6 +266,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
         console.log('[InstantRadarModal] Nhận WebSocket realtime:', msg);
         if (msg?.status === 'ACCEPTED' || msg?.status === 'ON_THE_WAY' || msg?.type === 'BOOKING_MATCHED') {
           clearAllTimers();
+          setMatchedData(msg);
           setMatchedMua({
             name: msg.muaName || 'Chuyên viên Make-up',
             phone: msg.muaPhone,
@@ -351,7 +360,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
             </TouchableOpacity>
           </View>
 
-          {/* BADGE THỐNG KÊ THỢ THẬT TỪ REDIS GEO */}
+          {/* BADGE THỐNG KÊ THỢ THẬT TỪ REDIS GEO & BỘ CHỌN BÁN KÍNH */}
           <View style={styles.statusBarRow}>
             {isLoadingProviders ? (
               <ActivityIndicator size="small" color="#10B981" />
@@ -360,99 +369,129 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
                 <View style={styles.greenPulseDot} />
                 <Text style={styles.onlineBadgeText}>
                   {nearbyProviders.length > 0
-                    ? `Có ${nearbyProviders.length} chuyên viên đang trực tuyến quanh bạn 5km`
-                    : 'Hiện chưa có chuyên viên online trong 5km'}
+                    ? `Có ${nearbyProviders.length} chuyên viên đang trực tuyến quanh bạn (${searchRadius}km)`
+                    : `Hiện chưa có chuyên viên online trong ${searchRadius}km`}
                 </Text>
+              </View>
+            )}
+
+            <View style={styles.radiusChipContainer}>
+              <Text style={styles.radiusLabel}>Bán kính:</Text>
+              <View style={styles.radiusChipsRow}>
+                {RADIUS_OPTIONS.map((r) => {
+                  const isSelected = r === searchRadius;
+                  return (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.radiusChip, isSelected && styles.radiusChipSelected]}
+                      onPress={() => handleSelectRadius(r)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.radiusChipText, isSelected && styles.radiusChipTextSelected]}>
+                        {r} km
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* GỢI Ý MỞ RỘNG BÁN KÍNH KHI 0 THỢ */}
+            {nearbyProviders.length === 0 && !isLoadingProviders && (
+              <View style={styles.expansionBanner}>
+                <Ionicons name="alert-circle" size={18} color="#D97706" style={{ marginTop: 2 }} />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={styles.expansionTitle}>Chưa có chuyên viên trong bán kính {searchRadius}km</Text>
+                  <Text style={styles.expansionDesc}>
+                    Hãy thử mở rộng bán kính quét để kết nối với nhiều chuyên viên trang điểm hơn nhé!
+                  </Text>
+                  <View style={styles.expansionBtnRow}>
+                    {searchRadius < 15 && (
+                      <TouchableOpacity style={styles.expansionBtn} onPress={() => handleSelectRadius(15)}>
+                        <Text style={styles.expansionBtnText}>Mở rộng 15 km</Text>
+                      </TouchableOpacity>
+                    )}
+                    {searchRadius < 30 && (
+                      <TouchableOpacity style={styles.expansionBtn} onPress={() => handleSelectRadius(30)}>
+                        <Text style={styles.expansionBtnText}>Mở rộng 30 km</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
               </View>
             )}
           </View>
 
-          {/* STEP 1: FORM CẤU HÌNH GÓI & BÁO GIÁ MINH BẠCH */}
+          {/* STEP 1: FORM CẤU HÌNH DANH MỤC & PHONG CÁCH (ẨN GIÁ) */}
           {step === 'IDLE' && (
             <ScrollView
               style={styles.scrollArea}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 24 }}
             >
-              {/* 1. CHỌN GÓI DỊCH VỤ */}
+              {/* 1. CHỌN DANH MỤC DỊCH VỤ THẬT TỪ DATABASE */}
               <Text style={styles.sectionHeading}>1. Gói Dịch Vụ Cần Gấp:</Text>
-              <View style={styles.packageList}>
-                {INSTANT_PACKAGES.map((pkg) => {
-                  const isSelected = pkg.id === selectedPackage.id;
-                  return (
-                    <TouchableOpacity
-                      key={pkg.id}
-                      style={[styles.pkgCard, isSelected && styles.pkgCardSelected]}
-                      onPress={() => setSelectedPackage(pkg)}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[styles.pkgIconBox, isSelected && styles.pkgIconBoxSelected]}>
-                        <Ionicons
-                          name={pkg.icon}
-                          size={18}
-                          color={isSelected ? '#FFFFFF' : '#64748B'}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.pkgTitle, isSelected && styles.pkgTitleSelected]}>
-                          {pkg.title}
-                        </Text>
-                        <Text style={styles.pkgSub}>{pkg.subtitle} • {pkg.durationMinutes}p</Text>
-                      </View>
-                      <Text style={[styles.pkgPrice, isSelected && styles.pkgPriceSelected]}>
-                        {formatVnd(pkg.basePrice)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {isLoadingTaxonomy ? (
+                <ActivityIndicator size="small" color={BrandColors.primary} style={{ marginVertical: 14 }} />
+              ) : (
+                <View style={styles.packageList}>
+                  {categories.map((cat) => {
+                    const isSelected = cat.id === selectedCategory?.id;
+                    const iconName = cat.categoryCode?.includes('BRIDE')
+                      ? 'heart'
+                      : cat.categoryCode?.includes('DAILY')
+                      ? 'sunny'
+                      : 'sparkles';
+                    return (
+                      <TouchableOpacity
+                        key={cat.id}
+                        style={[styles.pkgCard, isSelected && styles.pkgCardSelected]}
+                        onPress={() => setSelectedCategory(cat)}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.pkgIconBox, isSelected && styles.pkgIconBoxSelected]}>
+                          <Ionicons
+                            name={iconName as any}
+                            size={18}
+                            color={isSelected ? '#FFFFFF' : '#64748B'}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.pkgTitle, isSelected && styles.pkgTitleSelected]}>
+                            {cat.categoryName}
+                          </Text>
+                          {cat.description ? (
+                            <Text style={styles.pkgSub} numberOfLines={2}>
+                              {cat.description}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
 
-              {/* 2. CHỌN PHONG CÁCH & BƯỚC KÈM THEO */}
-              <Text style={styles.sectionHeading}>2. Phong Cách & Dịch Vụ Mua Thêm:</Text>
+              {/* 2. CHỌN PHONG CÁCH MAKE-UP THẬT TỪ DATABASE */}
+              <Text style={styles.sectionHeading}>2. Phong Cách Trang Điểm:</Text>
               <View style={styles.stylePillRow}>
-                {STYLES.map((st) => {
-                  const isSelected = st === selectedStyle;
+                {stylesList.map((st) => {
+                  const isSelected = st.id === selectedStyle?.id;
                   return (
                     <TouchableOpacity
-                      key={st}
+                      key={st.id}
                       style={[styles.stylePill, isSelected && styles.stylePillSelected]}
                       onPress={() => setSelectedStyle(st)}
                     >
                       <Text style={[styles.stylePillText, isSelected && styles.stylePillTextSelected]}>
-                        {st}
+                        {st.styleName}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              <View style={styles.addonRow}>
-                <TouchableOpacity
-                  style={[styles.addonChip, hasHairStyle && styles.addonChipSelected]}
-                  onPress={() => setHasHairStyle(!hasHairStyle)}
-                >
-                  <Ionicons
-                    name={hasHairStyle ? 'checkbox' : 'square-outline'}
-                    size={16}
-                    color={hasHairStyle ? BrandColors.primary : '#64748B'}
-                  />
-                  <Text style={styles.addonText}>Kèm làm tóc (+100k)</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.addonChip, hasLashes && styles.addonChipSelected]}
-                  onPress={() => setHasLashes(!hasLashes)}
-                >
-                  <Ionicons
-                    name={hasLashes ? 'checkbox' : 'square-outline'}
-                    size={16}
-                    color={hasLashes ? BrandColors.primary : '#64748B'}
-                  />
-                  <Text style={styles.addonText}>Dán mi 3D (+50k)</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 3. ĐỊA CHỈ ĐÓN THỢ */}
+              {/* 3. ĐỊA CHỈ TIẾP ĐÓN */}
               <View style={styles.addressHeaderRow}>
                 <Text style={styles.sectionHeading}>3. Địa Chỉ Trang Điểm Tận Nơi:</Text>
                 <TouchableOpacity
@@ -490,36 +529,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
                 placeholderTextColor="#94A3B8"
               />
 
-              {/* 4. BẢNG PHÂN RÃ HÓA ĐƠN MINH BẠCH */}
-              <View style={styles.breakdownCard}>
-                <Text style={styles.breakdownTitle}>Chi Tiết Dự Tính Hóa Đơn</Text>
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Giá dịch vụ gốc ({selectedPackage.title}):</Text>
-                  <Text style={styles.breakdownValue}>{formatVnd(selectedPackage.basePrice)}</Text>
-                </View>
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Phụ phí ca khẩn cấp (Cam kết 30-45p):</Text>
-                  <Text style={styles.breakdownValue}>+ {formatVnd(EMERGENCY_SURCHARGE)}</Text>
-                </View>
-                {addonsTotal > 0 && (
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Dịch vụ thêm (Tóc / Mi):</Text>
-                    <Text style={styles.breakdownValue}>+ {formatVnd(addonsTotal)}</Text>
-                  </View>
-                )}
-                <View style={styles.divider} />
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.totalLabel}>Tổng Hóa Đơn:</Text>
-                  <Text style={styles.totalValue}>{formatVnd(totalAmount)}</Text>
-                </View>
-                <View style={styles.depositRow}>
-                  <Ionicons name="shield-checkmark" size={14} color="#059669" />
-                  <Text style={styles.depositText}>
-                    Cọc giữ chân thợ (30% Escrow): <Text style={{ fontWeight: '800' }}>{formatVnd(depositAmount)}</Text>
-                  </Text>
-                </View>
-              </View>
-
               {/* NÚT KÍCH HOẠT QUÉT THỢ */}
               <TouchableOpacity
                 style={styles.startScanBtn}
@@ -546,16 +555,23 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
 
               <Text style={styles.scanningTitle}>Đang Kết Nối Chuyên Viên Gần Bạn</Text>
               <Text style={styles.scanningDesc}>
-                Hệ thống đang quét các chuyên viên trong bán kính 5-10km. Thợ gần bạn nhất đang nhận được thông báo chuông và có 20s để bấm nhận ca.
+                Hệ thống đang quét các chuyên viên trong bán kính {searchRadius}km. Thợ gần bạn nhất đang nhận được thông báo chuông và có 20s để bấm nhận ca.
               </Text>
 
               {/* CARD TÓM TẮT ĐƠN HÀNG */}
               <View style={styles.scanSummaryCard}>
                 <View style={styles.scanSummaryRow}>
                   <Ionicons name="sparkles" size={14} color={BrandColors.primary} />
-                  <Text style={styles.scanSummaryLabel}>Gói dịch vụ:</Text>
-                  <Text style={styles.scanSummaryVal}>{selectedPackage.title}</Text>
+                  <Text style={styles.scanSummaryLabel}>Dịch vụ:</Text>
+                  <Text style={styles.scanSummaryVal}>{selectedCategory?.categoryName || 'Trang điểm'}</Text>
                 </View>
+                {selectedStyle && (
+                  <View style={styles.scanSummaryRow}>
+                    <Ionicons name="color-palette-outline" size={14} color="#64748B" />
+                    <Text style={styles.scanSummaryLabel}>Phong cách:</Text>
+                    <Text style={styles.scanSummaryVal}>{selectedStyle.styleName}</Text>
+                  </View>
+                )}
                 <View style={styles.scanSummaryRow}>
                   <Ionicons name="location" size={14} color="#64748B" />
                   <Text style={styles.scanSummaryLabel}>Điểm đến:</Text>
@@ -572,31 +588,76 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
             </View>
           )}
 
-          {/* STEP 3: ĐÃ TÌM THẤY THỢ MUA NHẬN CA */}
+          {/* STEP 3: ĐÃ TÌM THẤY THỢ MUA NHẬN CA - HIỆN GIÁ THỰC TẾ & ĐẶT CỌC */}
           {step === 'MATCHED' && (
-            <View style={styles.matchedBox}>
-              <View style={styles.matchedCircle}>
-                <Ionicons name="checkmark-done" size={36} color="#10B981" />
-              </View>
-              <Text style={styles.matchedTitle}>Đã Khớp Chuyên Viên! 🎉</Text>
-              <Text style={styles.matchedSubtitle}>
-                Chuyên viên{' '}
-                <Text style={{ fontWeight: '800', color: BrandColors.primary }}>
-                  {matchedMua?.name || 'Make-up Pro'}
-                </Text>{' '}
-                đã bấm nhận ca và đang chuẩn bị xuất phát tới vị trí của bạn.
-              </Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+              <View style={styles.matchedBox}>
+                <View style={styles.matchedCircle}>
+                  <Ionicons name="checkmark-done" size={36} color="#10B981" />
+                </View>
+                <Text style={styles.matchedTitle}>Đã Khớp Chuyên Viên! 🎉</Text>
+                <Text style={styles.matchedSubtitle}>
+                  Chuyên viên{' '}
+                  <Text style={{ fontWeight: '800', color: BrandColors.primary }}>
+                    {matchedMua?.name || 'Make-up Pro'}
+                  </Text>{' '}
+                  đã bấm nhận ca và đang chuẩn bị xuất phát tới vị trí của bạn.
+                </Text>
 
-              <TouchableOpacity
-                style={styles.viewTripBtn}
-                onPress={handleGoToTracking}
-                activeOpacity={0.88}
-              >
-                <Ionicons name="navigate" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.viewTripBtnText}>Xem Bản Đồ Live Tracking</Text>
-                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+                {/* THẺ HÓA ĐƠN THỰC TẾ CỦA THỢ */}
+                <View style={styles.realInvoiceCard}>
+                  <View style={styles.realInvoiceHeader}>
+                    <Ionicons name="receipt-outline" size={18} color="#0F172A" />
+                    <Text style={styles.realInvoiceTitle}>Chi Tiết Hóa Đơn & Đặt Cọc</Text>
+                  </View>
+
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Gói dịch vụ:</Text>
+                    <Text style={styles.breakdownValueBold}>
+                      {matchedData?.serviceName || selectedCategory?.categoryName || 'Trang điểm'}
+                    </Text>
+                  </View>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Giá niêm yết của thợ:</Text>
+                    <Text style={styles.breakdownValue}>
+                      {formatVnd(matchedData?.basePrice || 500000)}
+                    </Text>
+                  </View>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Phụ phí ca khẩn cấp (30-45p):</Text>
+                    <Text style={styles.breakdownValue}>
+                      + {formatVnd(matchedData?.emergencySurchargeFee || 150000)}
+                    </Text>
+                  </View>
+                  <View style={styles.divider} />
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.totalLabel}>Tổng Hóa Đơn:</Text>
+                    <Text style={styles.totalValue}>
+                      {formatVnd(matchedData?.totalAmount || 650000)}
+                    </Text>
+                  </View>
+                  <View style={styles.depositRow}>
+                    <Ionicons name="shield-checkmark" size={14} color="#059669" />
+                    <Text style={styles.depositText}>
+                      Cọc giữ chân thợ (30% Escrow):{' '}
+                      <Text style={{ fontWeight: '800', color: '#059669' }}>
+                        {formatVnd(matchedData?.depositAmount || 195000)}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.viewTripBtn}
+                  onPress={handleGoToTracking}
+                  activeOpacity={0.88}
+                >
+                  <Ionicons name="navigate" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.viewTripBtnText}>Xem Bản Đồ Live Tracking</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           )}
 
           {/* STEP 4: TIMEOUT HẾT 45 GIÂY */}
@@ -615,7 +676,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
                   activeOpacity={0.88}
                 >
                   <Ionicons name="refresh" size={16} color="#FFFFFF" />
-                  <Text style={styles.retryBtnText}>Quét Lại (5km)</Text>
+                  <Text style={styles.retryBtnText}>Quét Lại ({searchRadius}km)</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -681,6 +742,42 @@ const styles = StyleSheet.create({
   statusBarRow: {
     marginBottom: 12,
   },
+  radiusChipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  radiusLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  radiusChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  radiusChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  radiusChipSelected: {
+    backgroundColor: '#FFF1F2',
+    borderColor: BrandColors.primary,
+  },
+  radiusChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  radiusChipTextSelected: {
+    color: BrandColors.primary,
+    fontWeight: '700',
+  },
   onlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -700,6 +797,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#059669',
+  },
+  expansionBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 10,
+  },
+  expansionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  expansionDesc: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  expansionBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  expansionBtn: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  expansionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   scrollArea: {
     maxHeight: 520,
@@ -914,6 +1047,34 @@ const styles = StyleSheet.create({
   depositText: {
     fontSize: 11,
     color: '#059669',
+  },
+  breakdownValueBold: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  realInvoiceCard: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  realInvoiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 8,
+  },
+  realInvoiceTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   startScanBtn: {
     backgroundColor: BrandColors.primary,
