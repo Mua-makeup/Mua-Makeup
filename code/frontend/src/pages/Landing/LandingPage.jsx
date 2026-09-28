@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useScrollReveal } from '../../hooks/useScrollReveal';
 import { LandingNavbar } from '../../components/features/landing/LandingNavbar';
 import { LandingHero } from '../../components/features/landing/LandingHero';
+import { LandingMarqueeShowcase } from '../../components/features/landing/LandingMarqueeShowcase';
 import { LandingAudienceValue } from '../../components/features/landing/LandingAudienceValue';
 import { LandingBentoFeatures } from '../../components/features/landing/LandingBentoFeatures';
 import { LandingStylesSection } from '../../components/features/landing/LandingStylesSection';
@@ -15,6 +17,9 @@ import { StyleDetailModal } from '../../components/features/landing/StyleDetailM
 export const LandingPage = () => {
   const { t, language } = useI18nStore();
   const [selectedStyle, setSelectedStyle] = useState(null);
+
+  // Activate scroll-reveal animation across all landing sections
+  useScrollReveal('.reveal-on-scroll', 0.12);
 
   // Sync document title, description and lang attribute
   useEffect(() => {
@@ -34,29 +39,48 @@ export const LandingPage = () => {
 
       {/* Main Content Sections */}
       <main className="flex-1">
-        {/* Hero Section */}
-        <LandingHero />
+        {/* Hero Section with entrance animation */}
+        <div className="animate-fade-in-up">
+          <LandingHero />
+        </div>
+
+        {/* Realtime Marquee Showcase: Luxury Partner Brands (Left to Right Slide) */}
+        <LandingMarqueeShowcase />
 
         {/* Audience Value Proposition */}
-        <LandingAudienceValue />
+        <div className="reveal-on-scroll">
+          <LandingAudienceValue />
+        </div>
 
         {/* Bento Features Grid */}
-        <LandingBentoFeatures />
+        <div className="reveal-on-scroll">
+          <LandingBentoFeatures />
+        </div>
 
         {/* Featured Styles Collection */}
-        <LandingStylesSection onSelectStyle={setSelectedStyle} />
+        <div className="reveal-on-scroll">
+          <LandingStylesSection onSelectStyle={setSelectedStyle} />
+        </div>
 
         {/* How to Get Started Workflow */}
-        <LandingWorkflowSteps />
+        <div className="reveal-on-scroll">
+          <LandingWorkflowSteps />
+        </div>
 
         {/* Operational Preview of Studio Portal */}
-        <LandingOperationalPreview />
+        <div className="reveal-on-scroll">
+          <LandingOperationalPreview />
+        </div>
 
         {/* Frequently Asked Questions */}
-        <LandingFaqSection />
+        <div className="reveal-on-scroll">
+          <LandingFaqSection />
+        </div>
 
         {/* Final Call to Action */}
-        <LandingCtaSection />
+        <div className="reveal-on-scroll">
+          <LandingCtaSection />
+        </div>
       </main>
 
       {/* Footer */}
