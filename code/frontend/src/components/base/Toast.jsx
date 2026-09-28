@@ -40,7 +40,7 @@ export const Toast = ({
 
   return (
     <div
-      className={`fixed bottom-5 right-5 z-[9999] max-w-md flex items-center gap-3 p-4 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-bounce-short ${config.bg} ${className}`}
+      className={`fixed bottom-4 sm:bottom-5 right-4 sm:right-5 left-4 sm:left-auto z-[9999] max-w-md flex items-center gap-3 p-3.5 sm:p-4 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-bounce-short ${config.bg} ${className}`}
     >
       {config.icon}
       <div className="flex-1 text-sm font-medium leading-snug">{message}</div>

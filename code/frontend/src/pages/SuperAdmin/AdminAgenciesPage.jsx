@@ -274,20 +274,20 @@ export const AdminAgenciesPage = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">
           <button
             onClick={() => setIsCreateAgencyOpen(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer w-full sm:w-auto"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>{t('btn_add_agency') || 'Thêm Studio Mới'}</span>
           </button>
 
           <button
             onClick={() => fetchAgencies(0)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors cursor-pointer w-full sm:w-auto"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
             <span>{t('reload') || 'Tải Lại'}</span>
           </button>
         </div>
@@ -305,9 +305,9 @@ export const AdminAgenciesPage = () => {
       )}
 
       {/* Search & Filter Toolbar */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors">
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 transition-colors">
         {/* Search Bar */}
-        <form onSubmit={handleSearch} className="relative flex-1 max-w-md">
+        <form onSubmit={handleSearch} className="relative flex-1 w-full sm:max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
@@ -319,11 +319,11 @@ export const AdminAgenciesPage = () => {
         </form>
 
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl overflow-x-auto scrollbar-none w-full sm:w-auto shrink-0">
           <button
             type="button"
             onClick={() => setStatusFilter('ALL')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 ${
               statusFilter === 'ALL'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -334,7 +334,7 @@ export const AdminAgenciesPage = () => {
           <button
             type="button"
             onClick={() => setStatusFilter('VERIFIED')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 ${
               statusFilter === 'VERIFIED'
                 ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -345,7 +345,7 @@ export const AdminAgenciesPage = () => {
           <button
             type="button"
             onClick={() => setStatusFilter('PENDING')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shrink-0 ${
               statusFilter === 'PENDING'
                 ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'

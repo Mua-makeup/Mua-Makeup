@@ -36,7 +36,8 @@ public class BookingAcceptanceController extends BaseController {
     @PostMapping("/{bookingId}/skip")
     @PreAuthorize("hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> skipBooking(@PathVariable Long bookingId) {
-        boolean nextDispatched = customerInstantBookingService.dispatchNextCandidate(bookingId);
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        boolean nextDispatched = customerInstantBookingService.skipCurrentCandidate(bookingId, userId);
         Map<String, Object> result = new HashMap<>();
         result.put("bookingId", bookingId);
         result.put("nextCandidateDispatched", nextDispatched);

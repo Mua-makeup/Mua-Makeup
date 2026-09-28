@@ -6,9 +6,7 @@ import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.dto.request.catalog.CreatePackageReq;
 import com.makeup.platform.dto.request.catalog.UpdatePackageReq;
-import com.makeup.platform.dto.response.catalog.MakeupStyleRes;
 import com.makeup.platform.dto.response.catalog.PackageDetailRes;
-import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.dto.response.catalog.PackageSummaryRes;
 import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.MasterCategoryEntity;
@@ -33,8 +31,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -51,10 +47,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
     @Override
     public PackageDetailRes createPackage(Long userId, CreatePackageReq req) {
-        if (req.getPrice() != null && req.getPrice().compareTo(MIN_PRICE) < 0) {
-            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_PACKAGE_PRICE,
-                    "ERR_INVALID_PACKAGE_PRICE", HttpStatus.BAD_REQUEST);
-        }
+        validatePackagePrice(req.getPrice());
 
         MasterCategoryEntity category = masterCategoryRepository.findById(req.getMasterCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_MASTER_CATEGORY_NOT_FOUND,
@@ -104,10 +97,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     public PackageDetailRes updatePackage(Long userId, Long packageId, UpdatePackageReq req) {
         ServicePackageEntity pkg = findPackageAndCheckOwnership(userId, packageId);
 
-        if (req.getPrice() != null && req.getPrice().compareTo(MIN_PRICE) < 0) {
-            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_PACKAGE_PRICE,
-                    "ERR_INVALID_PACKAGE_PRICE", HttpStatus.BAD_REQUEST);
-        }
+        validatePackagePrice(req.getPrice());
 
         if (!pkg.getMasterCategory().getId().equals(req.getMasterCategoryId())) {
             MasterCategoryEntity newCat = masterCategoryRepository.findById(req.getMasterCategoryId())
@@ -191,6 +181,13 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         ServicePackageEntity pkg = findPackageAndCheckOwnership(userId, packageId);
         pkg.setIsAvailable(isAvailable);
         return packageMapper.toDetailRes(packageRepository.save(pkg));
+    }
+
+    private void validatePackagePrice(BigDecimal price) {
+        if (price != null && price.compareTo(MIN_PRICE) < 0) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_PACKAGE_PRICE,
+                    "ERR_INVALID_PACKAGE_PRICE", HttpStatus.BAD_REQUEST);
+        }
     }
 
     public ServicePackageEntity findPackageAndCheckOwnership(Long userId, Long packageId) {

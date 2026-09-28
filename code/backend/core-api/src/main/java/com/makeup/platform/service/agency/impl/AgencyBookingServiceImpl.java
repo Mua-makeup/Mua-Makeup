@@ -1,14 +1,16 @@
 package com.makeup.platform.service.agency.impl;
 
+import com.makeup.platform.repository.booking.projection.BookingRevenueRow;
+
 import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.dto.response.agency.AgencyBookingOverviewStatsRes;
 import com.makeup.platform.dto.response.agency.AgencyBookingRes;
-import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
-import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.mapper.agency.AgencyBookingMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
@@ -16,18 +18,20 @@ import com.makeup.platform.service.agency.AgencyBookingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import com.makeup.platform.repository.booking.BookingSpecifications;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -37,6 +41,7 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyStaffRepository agencyStaffRepository;
     private final BookingRepository bookingRepository;
+    private final AgencyBookingMapper agencyBookingMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -46,164 +51,73 @@ public class AgencyBookingServiceImpl implements AgencyBookingService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "agency.not_found", HttpStatus.NOT_FOUND));
 
-        List<BookingEntity> bookings = bookingRepository.findByAgencyIdOrderByCreatedAtDesc(agency.getId());
-
-        List<AgencyBookingRes> filtered = bookings.stream()
-                .filter(b -> {
-                    // Filter status
-                    if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
-                        try {
-                            BookingStatus target = BookingStatus.valueOf(status.toUpperCase());
-                            if (b.getStatus() != target) {
-                                return false;
-                            }
-                        } catch (IllegalArgumentException e) {
-                            log.warn("Invalid agency booking status filter: {}", status);
-                        }
-                    }
-
-                    // Filter keyword
-                    if (keyword != null && !keyword.isBlank()) {
-                        String kw = keyword.toLowerCase().trim();
-                        boolean matchCode = b.getBookingCode() != null && b.getBookingCode().toLowerCase().contains(kw);
-                        boolean matchCustName = b.getCustomer() != null && b.getCustomer().getFullName() != null &&
-                                b.getCustomer().getFullName().toLowerCase().contains(kw);
-                        boolean matchCustPhone = b.getCustomer() != null && b.getCustomer().getPhoneNumber() != null &&
-                                b.getCustomer().getPhoneNumber().contains(kw);
-                        boolean matchAddress = b.getDestinationAddress() != null &&
-                                b.getDestinationAddress().toLowerCase().contains(kw);
-                        return matchCode || matchCustName || matchCustPhone || matchAddress;
-                    }
-
-                    return true;
-                })
-                .map(b -> mapToAgencyBookingRes(b, agency))
-                .collect(Collectors.toList());
-
-        if (pageable == null || pageable.isUnpaged()) {
+        var spec = BookingSpecifications.agency(agency.getId()).and(BookingSpecifications.agencyStatus(status)).and(BookingSpecifications.keyword(keyword));
+        Sort order = Sort.by(Sort.Direction.DESC, "createdAt", "id");
+        Pageable queryPage = pageable == null || pageable.isUnpaged()
+                ? Pageable.unpaged(order)
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), order);
+        Page<BookingEntity> bookings = bookingRepository.findAll(spec, queryPage);
+        Map<Long, BigDecimal> rates = loadCommissionRates(agency.getId(), bookings.getContent().stream()
+                .filter(b -> b.getMua() != null).map(b -> b.getMua().getId()).distinct().toList());
+        Page<AgencyBookingRes> result = bookings.map(b -> agencyBookingMapper.toRes(b, agency, rates));
+        if (queryPage.isUnpaged()) {
             return PageResponse.<AgencyBookingRes>builder()
-                    .content(filtered)
-                    .page(0)
-                    .size(filtered.size())
-                    .totalElements(filtered.size())
-                    .totalPages(filtered.isEmpty() ? 0 : 1)
-                    .last(true)
-                    .build();
+                    .content(result.getContent()).page(0).size(result.getNumberOfElements())
+                    .totalElements(result.getTotalElements()).totalPages(result.isEmpty() ? 0 : 1)
+                    .last(true).build();
         }
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), filtered.size());
-        List<AgencyBookingRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
-        Page<AgencyBookingRes> page =
-                new PageImpl<>(pagedList, pageable, filtered.size());
-        return PageResponse.from(page);
+        return PageResponse.from(result);
     }
 
-    private AgencyBookingRes mapToAgencyBookingRes(BookingEntity b, AgencyProfileEntity agency) {
-        String customerName = null;
-        String customerPhone = null;
-        Long customerId = null;
-        if (b.getCustomer() != null) {
-            customerId = b.getCustomer().getId();
-            customerName = b.getCustomer().getFullName();
-            customerPhone = b.getCustomer().getPhoneNumber();
+    @Override
+    @Transactional(readOnly = true)
+    public AgencyBookingOverviewStatsRes getAgencyBookingOverviewStats(Long ownerUserId) {
+        AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(ownerUserId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND,
+                        "agency.not_found", HttpStatus.NOT_FOUND));
+
+        var agencySpec = BookingSpecifications.agency(agency.getId());
+        long totalBookings = bookingRepository.count(agencySpec);
+        List<BookingRevenueRow> completed =
+                bookingRepository.findCompletedRevenueByAgencyId(agency.getId());
+        long completedBookings = completed.size();
+        Map<Long, BigDecimal> rates = loadCommissionRates(agency.getId(), completed.stream()
+                .map(BookingRevenueRow::getMuaId)
+                .filter(Objects::nonNull).distinct().toList());
+        BigDecimal defaultRate = agency.getCommissionRateInternal() != null
+                ? agency.getCommissionRateInternal() : BigDecimal.valueOf(30.0);
+        BigDecimal totalGrossRevenue = BigDecimal.ZERO;
+        BigDecimal totalStudioNet = BigDecimal.ZERO;
+        for (var booking : completed) {
+            BigDecimal amount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal rate = rates.getOrDefault(booking.getMuaId(), defaultRate);
+            BigDecimal multiplier = rate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            BigDecimal commission = amount.multiply(multiplier).setScale(2, RoundingMode.HALF_UP);
+            totalGrossRevenue = totalGrossRevenue.add(amount);
+            totalStudioNet = totalStudioNet.add(amount.subtract(commission).setScale(2, RoundingMode.HALF_UP));
         }
+        long emergencyCount = bookingRepository.count(agencySpec
+                .and(BookingSpecifications.agencyStatus("EMERGENCY_REASSIGNMENT")));
 
-        Long staffMuaId = null;
-        String staffName = null;
-        String staffPhone = null;
-        BigDecimal staffCommissionRate = agency.getCommissionRateInternal() != null ?
-                agency.getCommissionRateInternal() : BigDecimal.valueOf(30.0);
-
-        if (b.getMua() != null) {
-            staffMuaId = b.getMua().getId();
-            if (b.getMua().getUser() != null) {
-                staffName = b.getMua().getUser().getFullName();
-                staffPhone = b.getMua().getUser().getPhoneNumber();
-            }
-
-            // Check if staff has custom commission
-            Optional<AgencyStaffEntity> staffOpt = agencyStaffRepository.findByAgencyIdAndMuaId(agency.getId(), staffMuaId);
-            if (staffOpt.isPresent() && staffOpt.get().getAgreedCommissionRate() != null) {
-                staffCommissionRate = staffOpt.get().getAgreedCommissionRate();
-            }
-        }
-
-
-        BigDecimal totalAmount = b.getTotalAmount() != null ? b.getTotalAmount() : BigDecimal.ZERO;
-        BigDecimal commissionMultiplier = staffCommissionRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-        BigDecimal estimatedStaffCommission = totalAmount.multiply(commissionMultiplier).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal estimatedStudioNet = totalAmount.subtract(estimatedStaffCommission).setScale(2, RoundingMode.HALF_UP);
-
-        String servicePkgName = b.getServicePackage() != null ? b.getServicePackage().getPackageName() : null;
-        Long pkgId = b.getServicePackage() != null ? b.getServicePackage().getId() : null;
-        String packageDescription = null;
-        BigDecimal packagePrice = null;
-        Integer packageDurationMinutes = null;
-        String categoryName = null;
-        List<PackageItemRes> packageItems = List.of();
-
-        if (b.getServicePackage() != null) {
-            var pkg = b.getServicePackage();
-            packageDescription = pkg.getDescription();
-            packagePrice = pkg.getPrice();
-            packageDurationMinutes = pkg.getEstimatedDurationMinutes();
-            if (pkg.getMasterCategory() != null) {
-                categoryName = pkg.getMasterCategory().getCategoryName();
-            }
-            if (pkg.getPackageItems() != null) {
-                packageItems = pkg.getPackageItems().stream()
-                        .map(item -> PackageItemRes.builder()
-                                .id(item.getId())
-                                .itemType(item.getItemType())
-                                .itemName(item.getItemName())
-                                .stepOrder(item.getStepOrder())
-                                .itemPrice(item.getItemPrice())
-                                .durationMinutes(item.getDurationMinutes())
-                                .isRequired(item.getIsRequired())
-                                .isActive(item.getIsActive())
-                                .build())
-                        .toList();
-            }
-        }
-
-        LocalDateTime scheduledStartTime = (b.getBookingDate() != null && b.getStartTime() != null)
-                ? b.getBookingDate().atTime(b.getStartTime()) : null;
-        LocalDateTime scheduledEndTime = (scheduledStartTime != null && packageDurationMinutes != null)
-                ? scheduledStartTime.plusMinutes(packageDurationMinutes) : null;
-
-        return AgencyBookingRes.builder()
-                .id(b.getId())
-                .bookingId(b.getId())
-                .bookingCode(b.getBookingCode())
-                .customerId(customerId)
-                .customerName(customerName)
-                .customerPhone(customerPhone)
-                .staffMuaId(staffMuaId)
-                .staffName(staffName)
-                .staffPhone(staffPhone)
-                .staffCommissionRate(staffCommissionRate)
-                .bookingType(b.getBookingType() != null ? b.getBookingType().name() : null)
-                .status(b.getStatus() != null ? b.getStatus().name() : null)
-                .bookingStatus(b.getStatus() != null ? b.getStatus().name() : null)
-                .packageId(pkgId)
-                .servicePackageName(servicePkgName)
-                .packageName(servicePkgName)
-                .packageDescription(packageDescription)
-                .packagePrice(packagePrice)
-                .packageDurationMinutes(packageDurationMinutes)
-                .categoryName(categoryName)
-                .packageItems(packageItems)
-                .scheduledStartTime(scheduledStartTime)
-                .scheduledEndTime(scheduledEndTime)
-                .destinationAddress(b.getDestinationAddress())
-                .bookingDate(b.getBookingDate())
-                .startTime(b.getStartTime())
-                .totalAmount(totalAmount)
-                .depositAmount(b.getDepositAmount() != null ? b.getDepositAmount() : BigDecimal.ZERO)
-                .estimatedStaffCommission(estimatedStaffCommission)
-                .estimatedStudioNet(estimatedStudioNet)
-                .createdAt(b.getCreatedAt())
+        return AgencyBookingOverviewStatsRes.builder()
+                .totalBookings(totalBookings)
+                .completedBookings(completedBookings)
+                .totalGrossRevenue(totalGrossRevenue)
+                .totalStudioNet(totalStudioNet)
+                .emergencyCount(emergencyCount)
                 .build();
+    }
+
+    private Map<Long, BigDecimal> loadCommissionRates(Long agencyId, List<Long> muaIds) {
+        Map<Long, BigDecimal> rates = new HashMap<>();
+        for (int offset = 0; offset < muaIds.size(); offset += 250) {
+            for (AgencyStaffEntity staff : agencyStaffRepository.findCommissionRates(agencyId,
+                    muaIds.subList(offset, Math.min(offset + 250, muaIds.size())))) {
+                if (staff.getAgreedCommissionRate() != null) {
+                    rates.put(staff.getMua().getId(), staff.getAgreedCommissionRate());
+                }
+            }
+        }
+        return rates;
     }
 }

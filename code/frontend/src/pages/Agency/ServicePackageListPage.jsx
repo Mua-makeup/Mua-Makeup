@@ -252,8 +252,8 @@ export const ServicePackageListPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Package className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <Package className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {t('packages_management_title')}
             </h1>
           </div>
@@ -272,6 +272,7 @@ export const ServicePackageListPage = () => {
             setEditingPackage(null);
             setIsFormOpen(true);
           }}
+          className="w-full sm:w-auto"
         >
           {t('btn_create_package')}
         </Button>

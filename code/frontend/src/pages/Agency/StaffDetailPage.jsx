@@ -253,7 +253,7 @@ export const StaffDetailPage = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/agency/staff')}
-            className="w-10 h-10 rounded-xl flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-700 shadow-2xs transition-all cursor-pointer"
+            className="w-10 h-10 rounded-xl flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-700 shadow-2xs transition-all cursor-pointer shrink-0"
             title={t('btn_back_to_staff_list')}
           >
             <ArrowLeft className="w-5 h-5" />
@@ -262,21 +262,21 @@ export const StaffDetailPage = () => {
             <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
               {t('staff_management_title')}
             </span>
-            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {isPending ? t('staff_application_review_title') : t('staff_detail_title')}
             </h1>
           </div>
         </div>
 
         {!isPending && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button
               variant="primary"
               icon={Save}
               onClick={handleSaveAll}
               isLoading={isSaving}
               disabled={isSaving}
-              className="shadow-sm"
+              className="w-full sm:w-auto shadow-sm"
             >
               {isSaving ? t('btn_saving') : t('btn_save_all_changes')}
             </Button>
@@ -285,9 +285,9 @@ export const StaffDetailPage = () => {
       </div>
 
       {/* Main Artist Profile Summary Card */}
-      <div className="p-6 bg-gradient-to-br from-slate-50 via-white to-rose-50/40 dark:from-slate-800/90 dark:via-slate-800 dark:to-slate-900/90 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-black text-3xl flex items-center justify-center shadow-md overflow-hidden shrink-0 border-3 border-white dark:border-slate-700">
+      <div className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 via-white to-rose-50/40 dark:from-slate-800/90 dark:via-slate-800 dark:to-slate-900/90 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-5 sm:gap-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 min-w-0 w-full md:w-auto">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-black text-2xl sm:text-3xl flex items-center justify-center shadow-md overflow-hidden shrink-0 border-3 border-white dark:border-slate-700">
             {detail.avatarUrl ? (
               <img
                 src={detail.avatarUrl}
@@ -298,16 +298,16 @@ export const StaffDetailPage = () => {
               detail.fullName?.charAt(0) || 'M'
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
                 {detail.fullName}
               </h2>
               <Badge variant={isPending ? 'pending' : 'active'} size="md">
                 {isPending ? t('status_pending') : t('status_active')}
               </Badge>
             </div>
-            <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mt-2 flex-wrap">
+            <div className="flex items-center gap-3 sm:gap-4 text-xs text-slate-500 dark:text-slate-400 mt-2 flex-wrap">
               {detail.phoneNumber && (
                 <span className="flex items-center gap-1.5 font-mono">
                   <Phone className="w-3.5 h-3.5 text-slate-400" />
@@ -315,9 +315,9 @@ export const StaffDetailPage = () => {
                 </span>
               )}
               {detail.email && (
-                <span className="flex items-center gap-1.5 font-mono">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  {detail.email}
+                <span className="flex items-center gap-1.5 font-mono truncate max-w-[200px] sm:max-w-none">
+                  <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate">{detail.email}</span>
                 </span>
               )}
               {detail.muaCode && (
@@ -330,34 +330,34 @@ export const StaffDetailPage = () => {
         </div>
 
         {/* Quick Career Stats */}
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-          <div className="text-center px-4 py-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xs min-w-[90px]">
-            <span className="block text-[11px] font-bold text-slate-400 uppercase">
+        <div className="grid grid-cols-3 sm:flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-between md:justify-end">
+          <div className="text-center px-2.5 sm:px-4 py-2.5 sm:py-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xs min-w-0 sm:min-w-[90px]">
+            <span className="block text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase truncate">
               {t('staff_metric_experience')}
             </span>
-            <span className="text-base font-extrabold text-slate-900 dark:text-white flex items-center justify-center gap-1 mt-0.5">
-              <Briefcase className="w-4 h-4 text-indigo-500" />
-              {detail.experienceYears ?? 1} {t('unit_years')}
+            <span className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white flex items-center justify-center gap-1 mt-0.5">
+              <Briefcase className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500 shrink-0" />
+              <span>{detail.experienceYears ?? 1} {t('unit_years')}</span>
             </span>
           </div>
 
-          <div className="text-center px-4 py-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xs min-w-[90px]">
-            <span className="block text-[11px] font-bold text-slate-400 uppercase">
+          <div className="text-center px-2.5 sm:px-4 py-2.5 sm:py-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xs min-w-0 sm:min-w-[90px]">
+            <span className="block text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase truncate">
               {t('staff_metric_rating')}
             </span>
-            <span className="text-base font-extrabold text-amber-500 flex items-center justify-center gap-1 mt-0.5">
-              <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-              {detail.ratingAvg ? Number(detail.ratingAvg).toFixed(1) : '5.0'}
+            <span className="text-sm sm:text-base font-extrabold text-amber-500 flex items-center justify-center gap-1 mt-0.5">
+              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-400 text-amber-400 shrink-0" />
+              <span>{detail.ratingAvg ? Number(detail.ratingAvg).toFixed(1) : '5.0'}</span>
             </span>
           </div>
 
-          <div className="text-center px-4 py-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xs min-w-[90px]">
-            <span className="block text-[11px] font-bold text-slate-400 uppercase">
+          <div className="text-center px-2.5 sm:px-4 py-2.5 sm:py-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-2xs min-w-0 sm:min-w-[90px]">
+            <span className="block text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase truncate">
               {t('staff_metric_completed_jobs')}
             </span>
-            <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
-              <Check className="w-4 h-4" />
-              {detail.totalCompletedJobs ?? 0}
+            <span className="text-sm sm:text-base font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1 mt-0.5">
+              <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span>{detail.totalCompletedJobs ?? 0}</span>
             </span>
           </div>
         </div>
@@ -893,7 +893,7 @@ export const StaffDetailPage = () => {
           </div>
 
           {/* Bottom Save Action Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-5 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs mt-6">
             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <Save className="w-4 h-4 text-rose-500 shrink-0" />
               <span>{t('staff_bottom_save_hint')}</span>
@@ -904,7 +904,7 @@ export const StaffDetailPage = () => {
               onClick={handleSaveAll}
               isLoading={isSaving}
               disabled={isSaving}
-              className="shadow-sm shrink-0"
+              className="w-full sm:w-auto shadow-sm shrink-0"
             >
               {isSaving ? t('btn_saving') : t('btn_save_all_changes')}
             </Button>
@@ -914,7 +914,7 @@ export const StaffDetailPage = () => {
 
       {/* Danger Zone: Xóa thợ khỏi Studio */}
       {!isPending && (
-        <div className="p-6 bg-rose-50/50 dark:bg-rose-950/20 rounded-3xl border border-rose-200 dark:border-rose-900/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-8">
+        <div className="p-4 sm:p-6 bg-rose-50/50 dark:bg-rose-950/20 rounded-3xl border border-rose-200 dark:border-rose-900/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-8">
           <div>
             <h4 className="text-sm font-bold text-rose-900 dark:text-rose-300">
               {t('danger_zone_title')}
@@ -928,7 +928,7 @@ export const StaffDetailPage = () => {
             icon={Trash2}
             onClick={() => setIsRemovingStaff(true)}
             disabled={isSaving}
-            className="shrink-0"
+            className="w-full sm:w-auto shrink-0"
           >
             {t('btn_remove_staff')}
           </Button>

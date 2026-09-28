@@ -42,17 +42,17 @@ export const NotFoundPage = () => {
         {t('error_404_desc')}
       </p>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+      <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-xs sm:max-w-none [&>*]:w-full sm:[&>*]:w-auto">
         <Link
           to={dest.path}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm shadow-sm transition-all"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm shadow-sm transition-all"
         >
           <Home className="w-4 h-4" />
           <span>{dest.label}</span>
         </Link>
         <button
           onClick={() => window.history.back()}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold text-sm border border-slate-200 shadow-xs transition-all"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold text-sm border border-slate-200 shadow-xs transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>{t('dt_prev_page')}</span>

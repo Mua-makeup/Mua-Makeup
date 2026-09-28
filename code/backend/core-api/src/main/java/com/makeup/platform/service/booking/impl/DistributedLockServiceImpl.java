@@ -1,5 +1,7 @@
 package com.makeup.platform.service.booking.impl;
 
+import com.makeup.platform.common.constants.InstantBookingKeys;
+
 import com.makeup.platform.common.constants.BookingConstants;
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.booking.InstantBookingAcceptedEvent;
@@ -13,6 +15,7 @@ import com.makeup.platform.mapper.booking.BookingMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
+import com.makeup.platform.service.customer.InstantDispatchLeaseService;
 import com.makeup.platform.service.booking.DistributedLockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +42,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
     private final BookingMapper bookingMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final StringRedisTemplate stringRedisTemplate;
+    private final InstantDispatchLeaseService dispatchLeaseService;
 
     @Override
     public BookingAcceptanceRes acceptBookingWithLock(Long bookingId, Long userId) {
@@ -60,7 +64,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
 
             // Execute database transaction and commit BEFORE releasing the lock in finally block
             return transactionTemplate.execute(status -> {
-                BookingEntity booking = bookingRepository.findById(bookingId)
+                BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                         .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
                                 "booking.not_found", HttpStatus.NOT_FOUND));
 
@@ -71,9 +75,28 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                             "booking.already_taken", HttpStatus.CONFLICT);
                 }
 
-                MuaProfileEntity muaProfile = muaProfileRepository.findByUserId(userId)
+                MuaProfileEntity muaProfile = muaProfileRepository.findByUserIdForUpdate(userId)
                         .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                                 "mua.profile_not_found", HttpStatus.NOT_FOUND));
+
+                // 1. Kiểm tra xem thợ này đã từng bấm bỏ qua hoặc bị hết giờ đơn này chưa
+                Boolean isSkipped = stringRedisTemplate.opsForSet().isMember(
+                        InstantBookingKeys.skipped(bookingId), String.valueOf(muaProfile.getId()));
+                if (Boolean.TRUE.equals(isSkipped)) {
+                    log.warn("[Redlock] MUA id={} attempted to accept booking id={} which they already skipped or timed out",
+                            muaProfile.getId(), bookingId);
+                    throw new CustomBusinessException(ErrorCodes.ERR_BOOKING_ALREADY_TAKEN,
+                            "booking.already_taken", HttpStatus.CONFLICT);
+                }
+
+                // 2. Kiểm tra xem thợ này có đúng là thợ đang được gửi đơn tới (current target) hay không
+                String currentTargetMuaId = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
+                if (currentTargetMuaId != null && !currentTargetMuaId.equals(String.valueOf(muaProfile.getId()))) {
+                    log.warn("[Redlock] MUA id={} attempted to accept booking id={} but current target is muaId={}",
+                            muaProfile.getId(), bookingId, currentTargetMuaId);
+                    throw new CustomBusinessException(ErrorCodes.ERR_BOOKING_ALREADY_TAKEN,
+                            "booking.already_taken", HttpStatus.CONFLICT);
+                }
 
                 boolean hasVerifiedCert = muaProfile.getCertificates() != null && muaProfile.getCertificates().stream()
                         .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
@@ -112,12 +135,13 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                 eventPublisher.publishEvent(new InstantBookingAcceptedEvent(this, bookingId, muaProfile.getId()));
 
                 // Cancel 45s countdown timer, dispatch timer, candidate queues and release dispatch lock
-                stringRedisTemplate.delete("booking:instant:expire:" + bookingId);
-                stringRedisTemplate.delete("booking:dispatch:candidates:" + bookingId);
-                stringRedisTemplate.delete("booking:dispatch:current:" + bookingId);
-                stringRedisTemplate.delete("booking:dispatch:sent_at:" + bookingId);
-                stringRedisTemplate.delete("booking:dispatch:timer:" + bookingId + ":" + muaProfile.getId());
-                stringRedisTemplate.delete("mua:dispatch:locked:" + muaProfile.getId());
+                stringRedisTemplate.delete(InstantBookingKeys.expiration(bookingId));
+                stringRedisTemplate.delete(InstantBookingKeys.candidates(bookingId));
+                stringRedisTemplate.delete(InstantBookingKeys.current(bookingId));
+                stringRedisTemplate.delete(InstantBookingKeys.skipped(bookingId));
+                stringRedisTemplate.delete(InstantBookingKeys.sentAt(bookingId));
+                stringRedisTemplate.delete(InstantBookingKeys.timer(bookingId, muaProfile.getId()));
+                dispatchLeaseService.release(bookingId, String.valueOf(muaProfile.getId()));
 
                 log.info("[Redlock] Booking id={} successfully accepted by muaId={}", bookingId, muaProfile.getId());
                 return bookingMapper.toAcceptanceRes(savedBooking);

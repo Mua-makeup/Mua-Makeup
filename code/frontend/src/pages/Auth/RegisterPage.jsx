@@ -109,7 +109,7 @@ export const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 transition-colors">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-8 sm:py-10 px-3.5 sm:px-6 lg:px-8 transition-colors">
       <div className="sm:mx-auto sm:w-full sm:max-w-lg text-center">
         <Link to="/" className="inline-flex items-center gap-2 group mb-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
@@ -119,7 +119,7 @@ export const RegisterPage = () => {
             {t('app_title')}
           </span>
         </Link>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
           {t('register_title_main')}
         </h2>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -128,7 +128,7 @@ export const RegisterPage = () => {
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-lg">
-        <div className="bg-white dark:bg-slate-900 py-8 px-6 shadow-sm rounded-3xl border border-slate-200 dark:border-slate-800 sm:px-8 transition-colors">
+        <div className="bg-white dark:bg-slate-900 py-6 sm:py-8 px-4 sm:px-8 shadow-sm rounded-3xl border border-slate-200 dark:border-slate-800 transition-colors">
           {/* Account Type Selector Tabs */}
           <div className="mb-6 grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
             <button

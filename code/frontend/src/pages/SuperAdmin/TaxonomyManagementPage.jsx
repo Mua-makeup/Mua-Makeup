@@ -268,8 +268,8 @@ export const TaxonomyManagementPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <Layers className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <Layers className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {t('admin_taxonomy_title')}
             </h1>
           </div>
@@ -278,13 +278,14 @@ export const TaxonomyManagementPage = () => {
           </p>
         </div>
 
-        <div>
+        <div className="w-full sm:w-auto">
           {activeTab === TAXONOMY_TABS.CATEGORIES ? (
             <Button
               variant="primary"
               size="md"
               icon={Plus}
               onClick={handleOpenCreateCategory}
+              className="w-full sm:w-auto"
             >
               {t('btn_add_category')}
             </Button>
@@ -294,6 +295,7 @@ export const TaxonomyManagementPage = () => {
               size="md"
               icon={Plus}
               onClick={handleOpenCreateStyle}
+              className="w-full sm:w-auto"
             >
               {t('btn_add_style')}
             </Button>
@@ -312,10 +314,10 @@ export const TaxonomyManagementPage = () => {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none pb-0.5">
         <button
           onClick={() => setActiveTab(TAXONOMY_TABS.CATEGORIES)}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === TAXONOMY_TABS.CATEGORIES
               ? 'border-rose-600 text-rose-600 dark:text-rose-400'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -327,7 +329,7 @@ export const TaxonomyManagementPage = () => {
 
         <button
           onClick={() => setActiveTab(TAXONOMY_TABS.STYLES)}
-          className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === TAXONOMY_TABS.STYLES
               ? 'border-rose-600 text-rose-600 dark:text-rose-400'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'

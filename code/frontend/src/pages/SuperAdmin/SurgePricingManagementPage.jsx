@@ -209,7 +209,7 @@ export const SurgePricingManagementPage = () => {
             setIsModalOpen(true);
           }}
           icon={Plus}
-          className="shadow-md shadow-rose-500/20 shrink-0 self-start sm:self-auto"
+          className="shadow-md shadow-rose-500/20 shrink-0 w-full sm:w-auto"
         >
           {t('surge_rule_btn_add')}
         </Button>
@@ -224,10 +224,10 @@ export const SurgePricingManagementPage = () => {
       />
 
       {/* MASTER SWITCH: UBER H3 REALTIME SURGE ENGINE CARD */}
-      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-rose-950 text-slate-900 dark:text-white rounded-2xl p-5 md:p-6 shadow-xs dark:shadow-xl border border-slate-200 dark:border-slate-700/50 relative overflow-hidden transition-colors">
+      <div className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-rose-950 text-slate-900 dark:text-white rounded-2xl p-4 sm:p-6 shadow-xs dark:shadow-xl border border-slate-200 dark:border-slate-700/50 relative overflow-hidden transition-colors">
         <div className="absolute top-0 right-0 w-96 h-96 bg-rose-500/5 dark:bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200 dark:border-rose-500/30 shrink-0 transition-colors">
@@ -245,7 +245,7 @@ export const SurgePricingManagementPage = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-slate-700/60 p-3 rounded-xl shrink-0 self-start md:self-auto transition-colors">
+          <div className="flex items-center justify-between sm:justify-start gap-4 bg-slate-50 dark:bg-slate-800/80 backdrop-blur border border-slate-200 dark:border-slate-700/60 p-3 rounded-xl shrink-0 w-full md:w-auto transition-colors">
             <div className="text-right">
               <span className="block text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
                 {t('col_status')}

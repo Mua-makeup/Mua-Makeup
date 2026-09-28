@@ -172,6 +172,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
 
             // Broadcast qua STOMP topic
             String topic = TelemetryConstants.TOPIC_GPS_STREAM_PREFIX + req.getBookingId();
+            res.setLocationStatus("LIVE");
             messagingTemplate.convertAndSend(topic, res);
             log.debug("Broadcasted live telemetry to topic {}", topic);
 

@@ -1,11 +1,18 @@
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    max-swallow-size: 50MB
 
 spring:
   application:
     name: core-api
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 100MB
   data:
     web:
       pageable:
@@ -15,7 +22,24 @@ spring:
     baseline-on-migrate: true
     out-of-order: true
     validate-on-migrate: false
+    ignore-migration-patterns:
+      - "*:missing"
     locations: classpath:db/migration
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: trung8d2005@gmail.com
+    password: jteewzdhxwzkdsjx
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 jwt:
   secret: ${JWT_SECRET:MakeupBookingPlatformLayeredMonolithSecretKey2026MustBeSecureLongKey!}
@@ -30,6 +54,8 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:demo}
 
 app:
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:3000}
   maps:
     goong:
       api-key: ${GOONG_API_KEY:dummy_goong_key}

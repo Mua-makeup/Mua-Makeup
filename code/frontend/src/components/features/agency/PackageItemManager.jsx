@@ -389,7 +389,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
       <Modal
         isOpen={isAdding || Boolean(editingItem)}
         onClose={resetForm}
-        zIndex="z-[60]"
+        zIndex="z-[10000]"
         maxWidth="max-w-lg"
         title={
           <div className="flex items-center gap-2 text-slate-900 dark:text-white">

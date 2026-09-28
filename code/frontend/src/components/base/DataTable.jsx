@@ -73,7 +73,7 @@ export const DataTable = ({
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm min-h-[70vh] flex flex-col justify-between">
+    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm min-h-[45vh] sm:min-h-[55vh] lg:min-h-[65vh] flex flex-col justify-between">
       <div className="overflow-x-auto flex-1">
         <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
           <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -81,7 +81,13 @@ export const DataTable = ({
               {columns.map((col, idx) => (
                 <th
                   key={idx}
-                  className={`px-5 py-3.5 whitespace-nowrap ${
+                  className={`py-3.5 whitespace-nowrap ${
+                    col.headerClassName
+                      ? col.headerClassName
+                      : idx === 0
+                      ? 'pl-3.5 sm:pl-4 pr-3 sm:pr-4'
+                      : 'px-4 sm:px-5'
+                  } ${
                     col.align === 'right'
                       ? 'text-right'
                       : col.align === 'center'
@@ -108,7 +114,13 @@ export const DataTable = ({
                 {columns.map((col, cIdx) => (
                   <td
                     key={cIdx}
-                    className={`px-5 py-3.5 whitespace-nowrap ${
+                    className={`py-3.5 whitespace-nowrap ${
+                      col.className
+                        ? col.className
+                        : cIdx === 0
+                        ? 'pl-3.5 sm:pl-4 pr-3 sm:pr-4'
+                        : 'px-4 sm:px-5'
+                    } ${
                       col.align === 'right'
                         ? 'text-right'
                         : col.align === 'center'
@@ -126,14 +138,14 @@ export const DataTable = ({
       </div>
 
       {pagination && (
-        <div className="px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 mt-auto">
+        <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 mt-auto">
           {/* Left: Total Records */}
           <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">
             Tổng số bản ghi: <strong className="font-bold text-slate-900 dark:text-white">{totalItems}</strong>
           </div>
 
           {/* Right: Page Navigation & Size Selector */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap justify-center sm:justify-end">
             {/* Prev Button */}
             <button
               onClick={() => pagination.onPageChange(curPage - 1)}
@@ -144,26 +156,35 @@ export const DataTable = ({
               <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {/* Numeric Page Buttons */}
-            {getPageNumbers().map((p, idx) =>
-              p === '...' ? (
-                <span key={`ellipsis-${idx}`} className="w-6 text-center text-xs text-slate-400 font-bold">
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={p}
-                  onClick={() => pagination.onPageChange(p)}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
-                    p === curPage
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'border border-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  {p}
-                </button>
-              )
-            )}
+            {/* Mobile Page Indicator */}
+            <div className="flex sm:hidden items-center px-2 font-medium text-xs text-slate-700 dark:text-slate-300">
+              <span className="font-bold text-rose-600 dark:text-rose-400">{curPage}</span>
+              <span className="mx-1 text-slate-400">/</span>
+              <span>{totalPages}</span>
+            </div>
+
+            {/* Desktop Numeric Page Buttons */}
+            <div className="hidden sm:flex items-center gap-1.5">
+              {getPageNumbers().map((p, idx) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="w-6 text-center text-xs text-slate-400 font-bold">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => pagination.onPageChange(p)}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+                      p === curPage
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'border border-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+            </div>
 
             {/* Next Button */}
             <button

@@ -11,7 +11,9 @@ import com.makeup.platform.dto.request.auth.LoginReq;
 import com.makeup.platform.dto.request.auth.LogoutReq;
 import com.makeup.platform.dto.request.auth.RefreshTokenReq;
 import com.makeup.platform.dto.request.auth.RegisterReq;
+import com.makeup.platform.dto.request.auth.Resend2FaReq;
 import com.makeup.platform.dto.request.auth.UpdateLanguageReq;
+import com.makeup.platform.dto.request.auth.Verify2FaReq;
 import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
 import com.makeup.platform.dto.response.auth.UserRegisterRes;
@@ -51,9 +53,28 @@ public class AuthController extends BaseController {
             @Valid @RequestBody LoginReq req,
             HttpServletResponse response) {
         AuthRes res = authService.login(req);
+        if (Boolean.TRUE.equals(res.getRequires2fa())) {
+            return ok(res, "auth.2fa_required");
+        }
         cookieUtils.setAccessTokenCookie(response, res.getAccessToken());
         cookieUtils.setRefreshTokenCookie(response, res.getRefreshToken());
         return ok(res, "auth.login_success");
+    }
+
+    @PostMapping("/verify-2fa")
+    public ResponseEntity<ApiResponse<AuthRes>> verify2Fa(
+            @Valid @RequestBody Verify2FaReq req,
+            HttpServletResponse response) {
+        AuthRes res = authService.verify2Fa(req);
+        cookieUtils.setAccessTokenCookie(response, res.getAccessToken());
+        cookieUtils.setRefreshTokenCookie(response, res.getRefreshToken());
+        return ok(res, "auth.2fa_verify_success");
+    }
+
+    @PostMapping("/resend-2fa")
+    public ResponseEntity<ApiResponse<Void>> resend2Fa(@Valid @RequestBody Resend2FaReq req) {
+        authService.resend2FaOtp(req);
+        return ok(null, "auth.2fa_otp_resent");
     }
 
     @PostMapping("/refresh-token")

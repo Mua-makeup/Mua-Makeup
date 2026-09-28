@@ -275,8 +275,8 @@ export const AgencySettingsPage = () => {
               {t('agency_settings_map_title')}
             </h3>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-slate-400">
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <span className="text-xs font-mono text-slate-400 truncate">
               {t('agency_settings_map_coords')}: {formData.latitude?.toFixed(5)}, {formData.longitude?.toFixed(5)}
             </span>
             <Button

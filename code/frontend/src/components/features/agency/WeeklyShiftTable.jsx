@@ -786,7 +786,7 @@ export const WeeklyShiftTable = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap w-full sm:w-auto">
           {/* Bộ chọn lịch trực tiếp */}
           <div className="relative flex items-center gap-2 bg-white dark:bg-slate-800 border border-rose-300/80 dark:border-slate-700 rounded-xl px-3 py-1.5 shadow-2xs hover:border-rose-500 transition-all focus-within:ring-2 focus-within:ring-rose-500/20 cursor-pointer group">
             <CalendarDays className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
@@ -853,13 +853,13 @@ export const WeeklyShiftTable = () => {
 
       {/* Action Bar & Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{t('filter_by_staff')}</span>
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">{t('filter_by_staff')}</span>
           <select
             value={filterStaffId}
             onChange={(e) => setFilterStaffId(e.target.value)}
-            className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+            className="text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-1 focus:ring-rose-500 w-full sm:w-auto"
           >
             <option value="ALL">{t('filter_all_staff')} ({staffList.length})</option>
             {staffList.map((s) => (
@@ -884,7 +884,7 @@ export const WeeklyShiftTable = () => {
             setFormError('');
             setIsAddModalOpen(true);
           }}
-          className="shadow-sm"
+          className="shadow-sm w-full sm:w-auto"
         >
           {t('btn_new_shift')}
         </Button>
@@ -939,7 +939,8 @@ export const WeeklyShiftTable = () => {
               </div>
 
               {/* 7 Cột Ngày tương ứng với Buổi này */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800 min-h-[140px]">
+              <div className="overflow-x-auto scrollbar-none">
+                <div className="grid grid-cols-7 min-w-[780px] xl:min-w-0 divide-x divide-slate-100 dark:divide-slate-800 min-h-[140px]">
                 {SHIFT_DAYS.map((d) => {
                   const dayInfo = getDayInfo(d.key);
                   const dateObj = getDayDate(d.value);
@@ -1104,6 +1105,7 @@ export const WeeklyShiftTable = () => {
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
           );

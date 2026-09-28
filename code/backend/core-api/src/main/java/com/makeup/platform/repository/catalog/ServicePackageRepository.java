@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Collection;
+import com.makeup.platform.repository.catalog.projection.MuaStartingPrice;
 import java.util.Optional;
 
 @Repository
@@ -33,4 +35,11 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackageEn
 
     @Query("SELECT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id")
     Optional<ServicePackageEntity> findByIdWithDetails(@Param("id") Long id);
+    @Query("""
+            SELECT p.mua.id AS muaId, MIN(p.price) AS startingPrice
+            FROM ServicePackageEntity p
+            WHERE p.mua.id IN :muaIds AND p.isAvailable = TRUE
+            GROUP BY p.mua.id
+            """)
+    List<MuaStartingPrice> findStartingPrices(@Param("muaIds") Collection<Long> muaIds);
 }

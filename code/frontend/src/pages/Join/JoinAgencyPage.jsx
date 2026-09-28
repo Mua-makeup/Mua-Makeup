@@ -195,7 +195,7 @@ export const JoinAgencyPage = () => {
       </div>
 
       {/* Main Container Card */}
-      <div className="w-full max-w-lg bg-white/95 dark:bg-slate-900/85 backdrop-blur-xl border border-rose-100 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-rose-200/50 dark:shadow-slate-950/70 z-10 relative transition-colors duration-300">
+      <div className="w-full max-w-lg bg-white/95 dark:bg-slate-900/85 backdrop-blur-xl border border-rose-100 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl shadow-rose-200/50 dark:shadow-slate-950/70 z-10 relative transition-colors duration-300">
         {/* Case 1: Checking Auth State */}
         {isCheckingAuth && (
           <div className="flex flex-col items-center justify-center py-12 text-center">

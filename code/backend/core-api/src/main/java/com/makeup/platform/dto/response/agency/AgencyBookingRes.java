@@ -62,6 +62,14 @@ public class AgencyBookingRes {
     private LocalDateTime scheduledStartTime;
     private LocalDateTime scheduledEndTime;
 
+    // Dispatch & Emergency Info
+    private Boolean needsEmergencyReassignment;
+    private String emergencyReason;
+    private LocalDateTime emergencyReportedAt;
+    private String emergencyProofUrl;
+    @Builder.Default
+    private List<StaffAssignmentDetailRes> assignedStaff = List.of();
+
     // Audit
     private LocalDateTime createdAt;
 }

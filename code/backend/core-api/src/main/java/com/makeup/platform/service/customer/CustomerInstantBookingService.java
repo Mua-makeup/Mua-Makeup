@@ -9,7 +9,12 @@ public interface CustomerInstantBookingService {
 
     boolean dispatchNextCandidate(Long bookingId);
 
+    boolean skipCurrentCandidate(Long bookingId, Long muaUserId);
+
     boolean expireInstantBooking(Long bookingId);
 
     boolean cancelInstantBookingByCustomer(Long bookingId, Long customerUserId, String reason);
+    boolean dispatchNextCandidateIfCurrent(Long bookingId, Long expectedMuaId);
+
+    void processPendingBooking(Long bookingId);
 }

@@ -12,7 +12,8 @@ export const ProtectedRoute = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
-    if (!isCheckingAuth && !isAuthenticated) {
+    const isLoggingOut = sessionStorage.getItem('is_logging_out') === 'true';
+    if (!isCheckingAuth && !isAuthenticated && !isLoggingOut) {
       const msg =
         t('auth_required_toast') ||
         'Bạn chưa đăng nhập hoặc không có token xác thực. Vui lòng đăng nhập để tiếp tục.';
@@ -41,6 +42,10 @@ export const ProtectedRoute = ({ children }) => {
   }
 
   if (!isAuthenticated) {
+    const isLoggingOut = sessionStorage.getItem('is_logging_out') === 'true';
+    if (isLoggingOut) {
+      return <Navigate to="/login" replace />;
+    }
     return <Navigate to="/login" state={{ from: location, reason: 'unauthorized' }} replace />;
   }
 
