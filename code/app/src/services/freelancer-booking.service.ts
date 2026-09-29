@@ -94,12 +94,14 @@ export const freelancerBookingService = {
     bookingId: number,
     targetStatus: BookingStatusType,
     reason?: string,
-    completionPhotoUrl?: string
+    completionPhotoUrl?: string,
+    emergencyProofUrl?: string
   ): Promise<BookingStateTransitionRes> {
     const response = await apiClient.post(`/bookings/${bookingId}/transition`, {
       targetStatus,
       reason,
       completionPhotoUrl,
+      emergencyProofUrl,
     });
     return response.data.data;
   },

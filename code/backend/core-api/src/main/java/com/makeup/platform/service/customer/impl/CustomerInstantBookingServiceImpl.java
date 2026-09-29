@@ -15,6 +15,7 @@ import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.InstantBookingMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
@@ -426,6 +427,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         if (booking.getMua() != null) {
             MuaProfileEntity mua = booking.getMua();
             mua.setIsBusy(false);
+            if (Boolean.TRUE.equals(mua.getIsOnline())) {
+                mua.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+            } else {
+                mua.setAvailabilityStatus(AvailabilityStatus.OFFLINE);
+            }
             muaProfileRepository.save(mua);
         }
 
@@ -535,6 +541,163 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     .build());
         }
         return result;
+    }
+
+    @Override
+    @Transactional
+    public boolean rejectMatchedProvider(Long bookingId, Long customerUserId, String reason) {
+        log.info("[RejectMatchedProvider] Customer userId={} rejecting current MUA for bookingId={}, reason={}",
+                customerUserId, bookingId, reason);
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerUserId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.ACCEPTED) {
+            log.warn("[RejectMatchedProvider] Cannot reject provider for booking id={} in status={}",
+                    bookingId, booking.getStatus());
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "booking.invalid_status", HttpStatus.BAD_REQUEST);
+        }
+
+        String effectiveReason = (reason != null && !reason.trim().isEmpty())
+                ? reason.trim() : "Khách hàng từ chối thợ và yêu cầu tìm kiếm thợ khác";
+
+        MuaProfileEntity rejectedMua = booking.getMua();
+        if (rejectedMua != null) {
+            rejectedMua.setIsBusy(false);
+            if (Boolean.TRUE.equals(rejectedMua.getIsOnline())) {
+                rejectedMua.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
+            } else {
+                rejectedMua.setAvailabilityStatus(AvailabilityStatus.OFFLINE);
+            }
+            muaProfileRepository.save(rejectedMua);
+
+            // Ghi nhận MUA bị từ chối vào Set trong Redis để không điều phối lại cho đơn này
+            stringRedisTemplate.opsForSet().add(InstantBookingKeys.skipped(bookingId),
+                    String.valueOf(rejectedMua.getId()));
+
+            // Bắn WebSocket thông báo thợ bị từ chối
+            Map<String, Object> rejectedPayload = new HashMap<>();
+            rejectedPayload.put("type", "BOOKING_REJECTED_BY_CUSTOMER");
+            rejectedPayload.put("bookingId", bookingId);
+            rejectedPayload.put("bookingCode", booking.getBookingCode());
+            rejectedPayload.put("reason", effectiveReason);
+            rejectedPayload.put("message", "Khách hàng đã từ chối nhận dịch vụ (" + effectiveReason + ") và chuyển tìm thợ khác.");
+            rejectedPayload.put("timestamp", System.currentTimeMillis());
+
+            messagePublisher.send("/topic/booking-customer-rejected/" + rejectedMua.getId(), rejectedPayload);
+            messagePublisher.send("/topic/booking-status/" + bookingId, rejectedPayload);
+        }
+
+        BookingStatus previousStatus = booking.getStatus();
+        booking.setMua(null);
+        booking.setStatus(BookingStatus.REQUESTED);
+        BookingEntity savedBooking = bookingRepository.save(booking);
+
+        // Audit log
+        bookingAuditService.logTransition(savedBooking, previousStatus, BookingStatus.REQUESTED, customerUserId, effectiveReason);
+
+        // Publish Spring event
+        eventPublisher.publishEvent(new BookingStateChangedEvent(
+                this,
+                savedBooking.getId(),
+                savedBooking.getBookingCode(),
+                previousStatus,
+                BookingStatus.REQUESTED,
+                customerUserId));
+
+        // STOMP thông báo phía Khách hàng tiếp tục tìm kiếm
+        Map<String, Object> resetPayload = new HashMap<>();
+        resetPayload.put("type", "BOOKING_SEARCHING_AGAIN");
+        resetPayload.put("bookingId", bookingId);
+        resetPayload.put("status", "REQUESTED");
+        resetPayload.put("message", "Đang tiếp tục tìm kiếm thợ trang điểm khác...");
+        resetPayload.put("timestamp", System.currentTimeMillis());
+        messagePublisher.send("/topic/booking-status/" + bookingId, resetPayload);
+        messagePublisher.send("/topic/booking-matched/" + bookingId, resetPayload);
+
+        // Tiếp tục gọi chu trình điều phối thợ tiếp theo trong hàng đợi
+        dispatchNextCandidate(bookingId);
+        return true;
+    }
+
+    @Override
+    @Transactional
+    public boolean confirmDeposit(Long bookingId, Long customerUserId, List<String> addOnNames, BigDecimal addOnTotal) {
+        log.info("[ConfirmDeposit] Customer userId={} confirming deposit for bookingId={}, addOns={}, addOnTotal={}",
+                customerUserId, bookingId, addOnNames, addOnTotal);
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerUserId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.ACCEPTED) {
+            log.warn("[ConfirmDeposit] Cannot confirm deposit for booking id={} in status={}",
+                    bookingId, booking.getStatus());
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "booking.invalid_status", HttpStatus.BAD_REQUEST);
+        }
+
+        BigDecimal extra = (addOnTotal != null && addOnTotal.compareTo(BigDecimal.ZERO) > 0)
+                ? addOnTotal : BigDecimal.ZERO;
+        if (extra.compareTo(BigDecimal.ZERO) > 0) {
+            booking.setServiceSubtotal((booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO).add(extra));
+            booking.setTotalAmount(booking.getTotalAmount().add(extra));
+            BigDecimal extraDeposit = extra.multiply(DEPOSIT_RATE).setScale(0, RoundingMode.HALF_UP);
+            booking.setDepositAmount(booking.getDepositAmount().add(extraDeposit));
+        }
+
+        // Đã thanh toán cọc thành công -> xóa hạn đếm ngược cọc
+        booking.setDepositExpiredAt(null);
+        BookingEntity savedBooking = bookingRepository.save(booking);
+
+        stringRedisTemplate.opsForValue().set("booking:deposit_paid:" + bookingId, "true", Duration.ofDays(7));
+
+        // Đọc cấu hình % chiết khấu Freelancer động từ Redis (mặc định 20%)
+        BigDecimal commissionRate = new BigDecimal("0.20");
+        try {
+            String rateStr = stringRedisTemplate.opsForValue().get("settings:freelancer_commission_rate");
+            if (rateStr != null && !rateStr.trim().isEmpty()) {
+                commissionRate = new BigDecimal(rateStr.trim());
+            }
+        } catch (Exception ignored) {}
+
+        BigDecimal finalServiceSubtotal = savedBooking.getServiceSubtotal() != null ? savedBooking.getServiceSubtotal() : BigDecimal.ZERO;
+        BigDecimal platformFee = finalServiceSubtotal.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal distanceFee = savedBooking.getDistanceFee() != null ? savedBooking.getDistanceFee() : BigDecimal.ZERO;
+        BigDecimal surchargeFee = savedBooking.getSurchargeFee() != null ? savedBooking.getSurchargeFee() : BigDecimal.ZERO;
+        BigDecimal earningsAmount = finalServiceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+
+        // Bắn WebSocket thông báo thợ đã được khách chốt & cập nhật bill chi tiết
+        if (savedBooking.getMua() != null) {
+            Map<String, Object> confirmPayload = new HashMap<>();
+            confirmPayload.put("type", "CUSTOMER_CONFIRMED_DEPOSIT");
+            confirmPayload.put("bookingId", bookingId);
+            confirmPayload.put("bookingCode", savedBooking.getBookingCode());
+            confirmPayload.put("addOnNames", addOnNames != null ? addOnNames : List.of());
+            confirmPayload.put("addOnTotal", extra);
+            confirmPayload.put("totalAmount", savedBooking.getTotalAmount());
+            confirmPayload.put("depositAmount", savedBooking.getDepositAmount());
+            confirmPayload.put("platformFee", platformFee);
+            confirmPayload.put("earningsAmount", earningsAmount);
+            confirmPayload.put("message", "Khách hàng đã chốt đơn & đặt cọc 30%. Bạn có thể bấm bắt đầu di chuyển!");
+            confirmPayload.put("timestamp", System.currentTimeMillis());
+
+            messagePublisher.send("/topic/booking-customer-confirmed/" + savedBooking.getMua().getId(), confirmPayload);
+            messagePublisher.send("/topic/booking-status/" + bookingId, confirmPayload);
+            messagePublisher.send("/topic/booking-matched/" + bookingId, confirmPayload);
+        }
+
+        return true;
     }
 
     private void startCandidateOffer(Long bookingId, Long muaId, String candidateValue) {

@@ -14,6 +14,7 @@ import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.common.utils.GeoDistanceUtils;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.customer.InstantDispatchLeaseService;
 import com.makeup.platform.service.booking.DistributedLockService;
@@ -31,6 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -147,7 +149,23 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                         booking.setServiceSubtotal(pkg.getPrice());
                         BigDecimal emergencyFee = new BigDecimal("150000.00");
                         booking.setSurchargeFee(emergencyFee);
-                        BigDecimal total = pkg.getPrice().add(emergencyFee);
+
+                        double distanceKm = 1.5;
+                        if (muaProfile.getLastKnownLat() != null && muaProfile.getLastKnownLng() != null
+                                && booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
+                            distanceKm = GeoDistanceUtils.calculateDistanceKm(
+                                    muaProfile.getLastKnownLat().doubleValue(),
+                                    muaProfile.getLastKnownLng().doubleValue(),
+                                    booking.getDestinationLatitude().doubleValue(),
+                                    booking.getDestinationLongitude().doubleValue());
+                        }
+                        BigDecimal distanceFee = BigDecimal.ZERO;
+                        if (distanceKm > 2.0) {
+                            distanceFee = BigDecimal.valueOf((distanceKm - 2.0) * 10000).setScale(0, RoundingMode.HALF_UP);
+                        }
+                        booking.setDistanceFee(distanceFee);
+
+                        BigDecimal total = pkg.getPrice().add(emergencyFee).add(distanceFee);
                         booking.setTotalAmount(total);
                         BigDecimal rawDeposit = total.multiply(new BigDecimal("0.30"));
                         BigDecimal deposit = rawDeposit.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
@@ -158,6 +176,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
 
                 booking.setStatus(BookingStatus.ACCEPTED);
                 booking.setMua(muaProfile);
+                booking.setDepositExpiredAt(OffsetDateTime.now().plusMinutes(10));
                 BookingEntity savedBooking = bookingRepository.save(booking);
 
                 // Mark MUA as busy so no other instant bookings are dispatched

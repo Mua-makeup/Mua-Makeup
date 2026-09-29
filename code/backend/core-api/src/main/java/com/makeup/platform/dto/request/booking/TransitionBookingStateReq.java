@@ -26,6 +26,7 @@ public class TransitionBookingStateReq {
 
     private String completionPhotoUrl;
     private String photoUrl;
+    private String emergencyProofUrl;
 
     public String getEffectiveCompletionPhotoUrl() {
         if (completionPhotoUrl != null && !completionPhotoUrl.trim().isEmpty()) {

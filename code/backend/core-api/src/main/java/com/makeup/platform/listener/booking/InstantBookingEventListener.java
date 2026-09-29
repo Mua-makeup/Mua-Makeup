@@ -15,6 +15,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,8 +57,10 @@ public class InstantBookingEventListener {
                         ? booking.getServicePackage().getPackageName() : "Trang Điểm Khẩn Cấp");
                 matchedPayload.put("basePrice", booking.getServiceSubtotal());
                 matchedPayload.put("emergencySurchargeFee", booking.getSurchargeFee());
+                matchedPayload.put("distanceFee", booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO);
                 matchedPayload.put("totalAmount", booking.getTotalAmount());
                 matchedPayload.put("depositAmount", booking.getDepositAmount());
+                matchedPayload.put("depositTimeoutSeconds", 600);
                 matchedPayload.put("estimatedDurationMinutes", booking.getServicePackage() != null
                         ? booking.getServicePackage().getEstimatedDurationMinutes() : 60);
                 if (booking.getServicePackage() != null && booking.getServicePackage().getPackageItems() != null) {

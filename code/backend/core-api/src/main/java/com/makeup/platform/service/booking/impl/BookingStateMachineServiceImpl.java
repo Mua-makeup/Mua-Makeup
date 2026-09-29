@@ -27,10 +27,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -51,6 +54,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final ApplicationEventPublisher eventPublisher;
     private final MediaStorageService mediaStorageService;
     private final MUACalendarService muaCalendarService;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional
@@ -123,6 +127,20 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             booking.setCancellationReason(req.getReason().trim());
         }
 
+        if (targetStatus == BookingStatus.DISPUTED) {
+            if (req.getReason() == null || req.getReason().trim().isEmpty()) {
+                log.warn("[StateMachine] Dispute/Cancellation reason required for bookingId={}", bookingId);
+                throw new CustomBusinessException(ErrorCodes.ERR_CANCELLATION_REASON_REQUIRED,
+                        "booking.cancellation_reason_required", HttpStatus.BAD_REQUEST);
+            }
+            booking.setEmergencyReason(req.getReason().trim());
+            booking.setEmergencyReportedAt(OffsetDateTime.now());
+            if (StringUtils.hasText(req.getEmergencyProofUrl())) {
+                booking.setEmergencyProofUrl(req.getEmergencyProofUrl().trim());
+            }
+            booking.setCancellationReason(req.getReason().trim());
+        }
+
         // Reset emergency reassignment flags if booking is cancelled, completed, or paid out
         if (targetStatus == BookingStatus.CANCELLED || targetStatus == BookingStatus.COMPLETED
                 || targetStatus == BookingStatus.CANCELLED_EXPIRED || targetStatus == BookingStatus.PAID_OUT) {
@@ -135,8 +153,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             booking.setStatus(targetStatus);
             BookingEntity savedBooking = bookingRepository.save(booking);
 
-            // 5. Release MUA busy status upon completion or cancellation
-            if (targetStatus == BookingStatus.COMPLETED || targetStatus == BookingStatus.CANCELLED) {
+            // 5. Release MUA busy status upon completion, cancellation, or dispute
+            if (targetStatus == BookingStatus.COMPLETED || targetStatus == BookingStatus.CANCELLED || targetStatus == BookingStatus.DISPUTED) {
                 if (savedBooking.getMua() != null) {
                     MuaProfileEntity mua = savedBooking.getMua();
                     mua.setIsBusy(false);
@@ -203,9 +221,12 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     || to == BookingStatus.CANCELLED;
             case ACCEPTED -> to == BookingStatus.ON_THE_WAY
                     || to == BookingStatus.CANCELLED;
-            case ON_THE_WAY -> to == BookingStatus.ARRIVED;
-            case ARRIVED -> to == BookingStatus.IN_PROGRESS;
-            case IN_PROGRESS -> to == BookingStatus.COMPLETED;
+            case ON_THE_WAY -> to == BookingStatus.ARRIVED
+                    || to == BookingStatus.CANCELLED;
+            case ARRIVED -> to == BookingStatus.IN_PROGRESS
+                    || to == BookingStatus.DISPUTED;
+            case IN_PROGRESS -> to == BookingStatus.COMPLETED
+                    || to == BookingStatus.DISPUTED;
             case COMPLETED -> to == BookingStatus.PAID_OUT
                     || to == BookingStatus.DISPUTED;
             case DISPUTED -> to == BookingStatus.PAID_OUT
@@ -287,7 +308,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                         throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                     }
-                } else if (booking.getStatus() == BookingStatus.ACCEPTED) {
+                } else if (booking.getStatus() == BookingStatus.ACCEPTED
+                        || booking.getStatus() == BookingStatus.ON_THE_WAY) {
                     if (!isCustomer && !isAssignedMua && !isAgencyOwner) {
                         throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
@@ -299,7 +321,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 break;
 
             case DISPUTED:
-                if (!isCustomer) {
+                if (!isCustomer && !isAssignedMua) {
                     throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                             "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                 }
@@ -361,6 +383,18 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         return bookingMapper.toCompletionPhotoRes(savedBooking, uploadResult.getThumbnailUrl(), uploadResult.getPublicId());
     }
 
+    private BigDecimal getFreelancerCommissionRate() {
+        try {
+            if (stringRedisTemplate != null) {
+                String val = stringRedisTemplate.opsForValue().get("settings:freelancer_commission_rate");
+                if (val != null) {
+                    return new BigDecimal(val);
+                }
+            }
+        } catch (Exception ignored) {}
+        return new BigDecimal("0.20"); // Mặc định 20%
+    }
+
     @Override
     @Transactional(readOnly = true)
     public BookingStatusDetailRes getBookingStatusDetail(Long bookingId) {
@@ -384,6 +418,38 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
+        BigDecimal serviceSubtotal = booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO;
+        BigDecimal surchargeFee = booking.getSurchargeFee() != null ? booking.getSurchargeFee() : BigDecimal.ZERO;
+        BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
+        BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+
+        BigDecimal commissionRate = getFreelancerCommissionRate();
+        BigDecimal platformFee = serviceSubtotal.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal earningsAmount = serviceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+
+        boolean isDepositPaid = false;
+        Integer depositTimeoutSeconds = null;
+        if (booking.getStatus() == BookingStatus.ACCEPTED) {
+            Boolean hasRedisFlag = stringRedisTemplate != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey("booking:deposit_paid:" + booking.getId()));
+            if (Boolean.TRUE.equals(hasRedisFlag)) {
+                isDepositPaid = true;
+            } else {
+                if (booking.getDepositExpiredAt() != null) {
+                    long remaining = Duration.between(OffsetDateTime.now(), booking.getDepositExpiredAt()).getSeconds();
+                    depositTimeoutSeconds = (int) Math.max(0, remaining);
+                } else {
+                    depositTimeoutSeconds = 0;
+                }
+            }
+        } else if (booking.getStatus() == BookingStatus.ON_THE_WAY
+                || booking.getStatus() == BookingStatus.ARRIVED
+                || booking.getStatus() == BookingStatus.IN_PROGRESS
+                || booking.getStatus() == BookingStatus.COMPLETED
+                || booking.getStatus() == BookingStatus.PAID_OUT) {
+            isDepositPaid = true;
+        }
+
         return BookingStatusDetailRes.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -395,9 +461,21 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .muaName(muaName)
                 .muaPhone(muaPhone)
                 .muaAvatar(muaAvatar)
+                .customerName(booking.getCustomer() != null ? booking.getCustomer().getFullName() : null)
+                .customerPhone(booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : null)
+                .customerAvatar(booking.getCustomer() != null ? booking.getCustomer().getAvatarUrl() : null)
+                .packageName(booking.getServicePackage() != null ? booking.getServicePackage().getPackageName() : "Trang Điểm Khẩn Cấp")
                 .rating(rating)
-                .totalAmount(booking.getTotalAmount())
+                .serviceSubtotal(serviceSubtotal)
+                .surchargeFee(surchargeFee)
+                .distanceFee(distanceFee)
+                .totalAmount(totalAmount)
+                .depositAmount(depositAmount)
+                .platformFee(platformFee)
+                .earningsAmount(earningsAmount)
                 .completionPhotoUrl(booking.getCompletionPhotoUrl())
+                .isDepositPaid(isDepositPaid)
+                .depositTimeoutSeconds(depositTimeoutSeconds)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
                 .build();
     }

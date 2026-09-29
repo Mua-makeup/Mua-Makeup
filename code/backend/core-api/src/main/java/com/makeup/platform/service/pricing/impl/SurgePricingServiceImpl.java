@@ -217,12 +217,12 @@ public class SurgePricingServiceImpl implements SurgePricingService {
         try {
             String val = redisTemplate.opsForValue().get(H3_SURGE_GLOBAL_KEY);
             if (val == null) {
-                return true; // default enabled
+                return false; // default disabled
             }
             return Boolean.parseBoolean(val);
         } catch (Exception ex) {
-            log.warn("Failed to check H3 surge global status from Redis, fallback to true: {}", ex.getMessage());
-            return true;
+            log.warn("Failed to check H3 surge global status from Redis, fallback to false: {}", ex.getMessage());
+            return false;
         }
     }
 

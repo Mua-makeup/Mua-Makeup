@@ -492,6 +492,16 @@
     "geocode_success": "Chuyển đổi địa chỉ thành tọa độ thành công.",
     "autocomplete_success": "Gợi ý địa điểm thành công.",
     "place_detail_success": "Lấy chi tiết địa điểm thành công."
+  },
+  "booking": {
+    "create_success": "Tạo đơn đặt lịch thành công!",
+    "cancel_success": "Hủy đơn đặt lịch thành công!",
+    "recent_addresses_fetch_success": "Lấy danh sách địa chỉ gần đây thành công.",
+    "reject_provider_success": "Đã từ chối thợ và chuyển tìm kiếm thợ khác.",
+    "deposit_success": "Xác nhận đặt cọc thành công!",
+    "not_found": "Không tìm thấy thông tin đơn đặt lịch.",
+    "unauthorized_transition": "Bạn không có quyền thay đổi trạng thái đơn đặt lịch này.",
+    "invalid_status": "Trạng thái đơn hàng không hợp lệ cho thao tác này."
   }
 }
 

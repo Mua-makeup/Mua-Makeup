@@ -8,6 +8,11 @@ import {
   Linking,
   Alert,
   Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -19,6 +24,14 @@ import { telemetryService, LiveTrackingRes } from '@/services/telemetry.service'
 import { websocketService } from '@/services/websocket.service';
 import { BookingProgressStepper } from '@/components/booking/BookingProgressStepper';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
+
+const CUSTOMER_CANCEL_REASONS = [
+  'Bận việc đột xuất / Không thể tiếp tục',
+  'Thợ di chuyển quá chậm / Không liên lạc được',
+  'Đặt nhầm địa chỉ hoặc thời gian make-up',
+  'Thay đổi ý định / muốn đặt lại sau',
+  'Lý do khác',
+];
 
 export default function BookingLiveTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -154,6 +167,34 @@ export default function BookingLiveTrackingScreen() {
     );
   };
 
+  const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [selectedReasonChip, setSelectedReasonChip] = useState<string>('Bận việc đột xuất / Không thể tiếp tục');
+  const [customReason, setCustomReason] = useState<string>('');
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleCustomerCancelTrip = () => {
+    setIsCancelModalVisible(true);
+  };
+
+  const handleConfirmCancelTrip = async () => {
+    try {
+      setIsCancelling(true);
+      const finalReason = customReason.trim()
+        ? `${selectedReasonChip}: ${customReason.trim()}`
+        : selectedReasonChip;
+      await bookingService.cancelBooking(bookingId, finalReason);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setIsCancelModalVisible(false);
+      Alert.alert('Đã Hủy Đơn', 'Đơn đặt lịch đã được hủy thành công.', [
+        { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Không Thể Hủy', e.response?.data?.message || e.message);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -238,16 +279,111 @@ export default function BookingLiveTrackingScreen() {
             <Text style={styles.callBtnText}>Gọi Điện Cho Thợ</Text>
           </TouchableOpacity>
 
+          {(status === 'ACCEPTED' || status === 'ON_THE_WAY') && (
+            <TouchableOpacity
+              style={styles.cancelTripBtn}
+              onPress={handleCustomerCancelTrip}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close-circle-outline" size={18} color="#E11D48" />
+              <Text style={styles.cancelTripBtnText}>Hủy Đơn</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.detailBtn}
             onPress={() => router.push('/bookings')}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={18} color="#334155" />
-            <Text style={styles.detailBtnText}>Chi Tiết Đơn</Text>
+            <Text style={styles.detailBtnText}>Chi Tiết</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* MODAL HỦY ĐƠN HÀNG DÀNH CHO KHÁCH HÀNG (KÈM LÝ DO & CHỐNG CHE BÀN PHÍM) */}
+      <Modal visible={isCancelModalVisible} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="close-circle" size={20} color="#E11D48" />
+                <Text style={styles.modalTitle}>Lý Do Hủy Đơn Hàng</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsCancelModalVisible(false)}
+                disabled={isCancelling}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalSubtitle}>
+                Vui lòng chọn lý do bạn muốn hủy ca hẹn này. Hành động này sẽ giải phóng chuyên viên và kết thúc lịch trình.
+              </Text>
+
+              <View style={styles.reasonsList}>
+                {CUSTOMER_CANCEL_REASONS.map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[
+                      styles.reasonChip,
+                      selectedReasonChip === r && styles.reasonChipSelected,
+                    ]}
+                    onPress={() => setSelectedReasonChip(r)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.reasonChipText,
+                        selectedReasonChip === r && styles.reasonChipTextSelected,
+                      ]}
+                    >
+                      {r}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Nhập lý do chi tiết khác (tùy chọn)..."
+                placeholderTextColor="#94A3B8"
+                value={customReason}
+                onChangeText={setCustomReason}
+                multiline
+                numberOfLines={3}
+              />
+
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIsCancelModalVisible(false)}
+                  disabled={isCancelling}
+                >
+                  <Text style={styles.modalCancelBtnText}>Giữ Lại Đơn</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, isCancelling && styles.disabledBtn]}
+                  onPress={handleConfirmCancelTrip}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.modalSubmitBtnText}>Xác Nhận Hủy</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -410,6 +546,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  cancelTripBtn: {
+    flex: 1,
+    backgroundColor: '#FFF1F2',
+    borderRadius: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  cancelTripBtnText: {
+    color: '#E11D48',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   detailBtn: {
     flex: 1,
     backgroundColor: '#F1F5F9',
@@ -426,5 +579,110 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontSize: 13,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 10,
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  reasonsList: {
+    gap: 8,
+    marginVertical: 10,
+  },
+  reasonChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  reasonChipSelected: {
+    borderColor: '#E11D48',
+    backgroundColor: '#FFF1F2',
+  },
+  reasonChipText: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  reasonChipTextSelected: {
+    color: '#E11D48',
+    fontWeight: '700',
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+    marginTop: 10,
+    minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  modalSubmitBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#E11D48',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSubmitBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  disabledBtn: {
+    opacity: 0.6,
   },
 });

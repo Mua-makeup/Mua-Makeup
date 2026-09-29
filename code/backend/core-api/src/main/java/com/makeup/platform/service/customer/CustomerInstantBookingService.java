@@ -23,4 +23,8 @@ public interface CustomerInstantBookingService {
     void processPendingBooking(Long bookingId);
 
     List<RecentAddressRes> getRecentAddresses(Long customerId);
+ 
+    boolean rejectMatchedProvider(Long bookingId, Long customerUserId, String reason);
+
+    boolean confirmDeposit(Long bookingId, Long customerUserId, List<String> addOnNames, java.math.BigDecimal addOnTotal);
 }

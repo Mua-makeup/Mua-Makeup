@@ -67,9 +67,25 @@ export interface BookingStatusDetailRes {
   muaPhone?: string;
   muaPhoneNumber?: string;
   muaAvatar?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerAvatar?: string;
   rating?: number;
   totalAmount?: number;
+  serviceSubtotal?: number;
+  surchargeFee?: number;
+  distanceFee?: number;
+  depositAmount?: number;
+  platformFee?: number;
+  earningsAmount?: number;
+  styleName?: string;
+  packageName?: string;
+  packageItems?: string[];
+  estimatedDurationMinutes?: number;
+  emergencyProofUrl?: string;
   completionPhotoUrl?: string;
+  isDepositPaid?: boolean;
+  depositTimeoutSeconds?: number;
   updatedAt: string;
 }
 
@@ -106,8 +122,8 @@ export const bookingService = {
   /**
    * Hủy tìm kiếm thợ khẩn cấp
    */
-  async cancelInstantBooking(bookingId: number): Promise<void> {
-    await apiClient.post(`/customer/bookings/${bookingId}/cancel`);
+  async cancelInstantBooking(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/cancel`, { reason });
   },
 
   /**
@@ -161,6 +177,34 @@ export const bookingService = {
     } catch {
       return [];
     }
+  },
+
+  /**
+   * Khách hàng từ chối thợ đã khớp để tìm thợ khác (có gửi kèm lý do)
+   */
+  async rejectMatchedProvider(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/reject-provider`, { reason });
+  },
+
+  /**
+   * Khách hàng đồng ý thợ và đặt cọc 30% (có thể kèm các dịch vụ mua thêm)
+   */
+  async confirmDeposit(
+    bookingId: number,
+    payload?: { addOnNames?: string[]; addOnTotal?: number }
+  ): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/confirm-deposit`, payload || {});
+  },
+
+  /**
+   * Báo cáo sự cố khẩn cấp (chuyển sang DISPUTED kèm ảnh và lý do)
+   */
+  async reportDispute(bookingId: number, reason: string, emergencyProofUrl?: string): Promise<void> {
+    await apiClient.post(`/bookings/${bookingId}/transition`, {
+      targetStatus: 'DISPUTED',
+      reason,
+      emergencyProofUrl,
+    });
   },
 };
 

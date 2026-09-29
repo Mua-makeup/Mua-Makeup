@@ -309,7 +309,12 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   const handleMatched = (bookingId?: number) => {
     soundManager.playMatchSuccessSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setStep('MATCHED');
+    clearAllTimers();
+    const targetId = bookingId || createdBooking?.bookingId;
+    onClose();
+    if (targetId) {
+      router.push(`/booking/instant-matched/${targetId}` as any);
+    }
   };
 
   const handleTimeout = () => {

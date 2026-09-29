@@ -486,6 +486,16 @@
     "staff_application_content": "Makeup Artist {0} has applied to join the Studio via invite code {1}. Please review.",
     "certificate_upload_title": "New Certificate to Verify!",
     "certificate_upload_content": "Makeup Artist {0} uploaded certificate '{1}' requiring Super Admin approval."
+  },
+  "booking": {
+    "create_success": "Booking created successfully!",
+    "cancel_success": "Booking cancelled successfully!",
+    "recent_addresses_fetch_success": "Recent addresses fetched successfully.",
+    "reject_provider_success": "Provider rejected. Searching for another makeup artist.",
+    "deposit_success": "Deposit confirmed successfully!",
+    "not_found": "Booking not found.",
+    "unauthorized_transition": "Unauthorized booking status transition.",
+    "invalid_status": "Invalid booking status for this operation."
   }
 }
 
