@@ -496,6 +496,14 @@
     "not_found": "Booking not found.",
     "unauthorized_transition": "Unauthorized booking status transition.",
     "invalid_status": "Invalid booking status for this operation."
+  },
+  "customer_address": {
+    "fetch_success": "Saved addresses fetched successfully.",
+    "create_success": "Saved address created successfully.",
+    "update_success": "Saved address updated successfully.",
+    "delete_success": "Saved address deleted successfully.",
+    "set_default_success": "Default address set successfully.",
+    "not_found": "Saved address not found or unauthorized access."
   }
 }
 

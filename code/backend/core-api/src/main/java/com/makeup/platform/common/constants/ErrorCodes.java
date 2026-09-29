@@ -138,6 +138,9 @@ public final class ErrorCodes {
     // Phân hệ Xác thực 2FA OTP & Rate Limiting
     public static final String ERR_RATE_LIMIT_EXCEEDED = "ERR_RATE_LIMIT_EXCEEDED";
     public static final String ERR_INVALID_OTP = "ERR_INVALID_OTP";
+
+    // Phân hệ Sổ địa chỉ khách hàng (Customer Address Book)
+    public static final String ERR_ADDRESS_NOT_FOUND = "ERR_ADDRESS_NOT_FOUND";
 }
 
 

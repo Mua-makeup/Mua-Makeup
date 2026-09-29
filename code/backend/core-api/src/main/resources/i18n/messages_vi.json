@@ -502,6 +502,14 @@
     "not_found": "Không tìm thấy thông tin đơn đặt lịch.",
     "unauthorized_transition": "Bạn không có quyền thay đổi trạng thái đơn đặt lịch này.",
     "invalid_status": "Trạng thái đơn hàng không hợp lệ cho thao tác này."
+  },
+  "customer_address": {
+    "fetch_success": "Lấy danh sách địa chỉ thân quen thành công.",
+    "create_success": "Thêm địa chỉ thân quen thành công.",
+    "update_success": "Cập nhật địa chỉ thành công.",
+    "delete_success": "Xóa địa chỉ thành công.",
+    "set_default_success": "Đặt địa chỉ mặc định thành công.",
+    "not_found": "Địa chỉ không tồn tại hoặc không thuộc quyền sở hữu của bạn."
   }
 }
 
