@@ -218,6 +218,13 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                     fallback.setCurrentLng(mua.getLastKnownLng().doubleValue());
                     fallback.setUpdatedAt(mua.getLastKnownUpdatedAt());
                     fallback.setLocationStatus("LAST_KNOWN");
+                    if (fallback.getDestinationLat() != null && fallback.getDestinationLng() != null) {
+                        double distMeters = GeoDistanceUtils.calculateDistanceMeters(
+                                fallback.getCurrentLat(), fallback.getCurrentLng(),
+                                fallback.getDestinationLat(), fallback.getDestinationLng()) * 1.35;
+                        fallback.setDistanceRemainingMeters(distMeters);
+                        fallback.setEtaMinutes(Math.max(1, (int) Math.ceil((distMeters / 1000.0) / 20.0 * 60)));
+                    }
                 }
                 return fallback;
             }
@@ -276,6 +283,21 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         }
         if (raw.containsKey("updatedAt")) {
             res.setUpdatedAt(Instant.parse(raw.get("updatedAt").toString()));
+        }
+
+        // Tự động tính cự ly và ETA dự phòng nếu chưa có
+        if (res.getDistanceRemainingMeters() == null && res.getCurrentLat() != null && res.getDestinationLat() != null) {
+            double distMeters = GeoDistanceUtils.calculateDistanceMeters(
+                    res.getCurrentLat(), res.getCurrentLng(),
+                    res.getDestinationLat(), res.getDestinationLng()) * 1.35;
+            res.setDistanceRemainingMeters(distMeters);
+        }
+        if (res.getEtaMinutes() == null && res.getDistanceRemainingMeters() != null) {
+            double effectiveSpeed = (res.getSpeed() != null && res.getSpeed() >= 3.0)
+                    ? (20.0 * 0.6 + res.getSpeed() * 0.4)
+                    : 14.0;
+            int eta = (int) Math.ceil((res.getDistanceRemainingMeters() / 1000.0) / effectiveSpeed * 60);
+            res.setEtaMinutes(Math.max(1, eta));
         }
 
         return res;

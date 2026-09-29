@@ -136,22 +136,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         // 3. Cập nhật vị trí trên Redis GEO
         redisGeoService.addActiveMua(mua.getId(), req.getLatitude(), req.getLongitude());
 
-        // 4. Tính toán Adaptive Sampling Rate Mode
-        AdaptiveStreamMode mode;
-        if (req.getDistanceRemainingMeters() != null && req.getDistanceRemainingMeters() < TelemetryConstants.ADAPTIVE_APPROACHING_DISTANCE_METERS) {
-            mode = AdaptiveStreamMode.APPROACHING; // 3s
-        } else if (speed < TelemetryConstants.ADAPTIVE_STOPPED_SPEED_THRESHOLD_KMH) {
-            mode = AdaptiveStreamMode.STOPPED; // 20s
-        } else {
-            mode = AdaptiveStreamMode.MOVING; // 5s
-        }
-
-        Integer etaMinutes = null;
-        if (req.getDistanceRemainingMeters() != null && speed > 5.0) {
-            etaMinutes = (int) Math.ceil((req.getDistanceRemainingMeters() / 1000.0) / speed * 60);
-        }
-
-        // Lấy tọa độ điểm hẹn cố định của Khách hàng
+        // 4. Lấy tọa độ điểm hẹn cố định của Khách hàng
         Double destLat = null;
         Double destLng = null;
         if (req.getBookingId() != null) {
@@ -177,6 +162,27 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             }
         }
 
+        // 5. Xác định khoảng cách còn lại (Meters)
+        Double distanceRemainingMeters = req.getDistanceRemainingMeters();
+        if (distanceRemainingMeters == null && destLat != null && destLng != null) {
+            // Hệ số uốn lượn đường phố đô thị 1.35x (Detour Road Factor)
+            distanceRemainingMeters = GeoDistanceUtils.calculateDistanceMeters(
+                    req.getLatitude(), req.getLongitude(), destLat, destLng) * 1.35;
+        }
+
+        // 6. Tính toán Adaptive Sampling Rate Mode
+        AdaptiveStreamMode mode;
+        if (distanceRemainingMeters != null && distanceRemainingMeters < TelemetryConstants.ADAPTIVE_APPROACHING_DISTANCE_METERS) {
+            mode = AdaptiveStreamMode.APPROACHING; // 3s
+        } else if (speed < TelemetryConstants.ADAPTIVE_STOPPED_SPEED_THRESHOLD_KMH) {
+            mode = AdaptiveStreamMode.STOPPED; // 20s
+        } else {
+            mode = AdaptiveStreamMode.MOVING; // 5s
+        }
+
+        // 7. Thuật toán Hybrid ETA tối ưu: chống nhảy số khi dừng đèn đỏ và phản ánh đúng tốc độ
+        Integer etaMinutes = calculateOptimalEta(distanceRemainingMeters, speed);
+
         LiveTrackingRes res = LiveTrackingRes.builder()
                 .bookingId(req.getBookingId())
                 .muaId(mua.getId())
@@ -188,17 +194,17 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                 .heading(heading)
                 .accuracy(accuracy)
                 .etaMinutes(etaMinutes)
-                .distanceRemainingMeters(req.getDistanceRemainingMeters())
+                .distanceRemainingMeters(distanceRemainingMeters)
                 .streamMode(mode)
                 .updatedAt(Instant.now())
                 .build();
 
-        // 5. Nếu không bị nhiễu và có bookingId thì cập nhật Redis Hash & broadcast STOMP
+        // 8. Nếu không bị nhiễu và có bookingId thì cập nhật Redis Hash & broadcast STOMP
         if (!isNoiseOrSpoof && req.getBookingId() != null) {
             // Cập nhật Redis Hash
             redisGeoService.updateTripLivePosition(
                     req.getBookingId(), mua.getId(), req.getLatitude(), req.getLongitude(),
-                    speed, heading, accuracy, etaMinutes, req.getDistanceRemainingMeters(), mode,
+                    speed, heading, accuracy, etaMinutes, distanceRemainingMeters, mode,
                     destLat, destLng
             );
 
@@ -287,5 +293,26 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         if (lat == null || lng == null || lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
             throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
         }
+    }
+
+    private Integer calculateOptimalEta(Double distanceRemainingMeters, double speedKmh) {
+        if (distanceRemainingMeters == null || distanceRemainingMeters <= 0) {
+            return 0;
+        }
+
+        double urbanBaselineSpeedKmh = 20.0;
+        double effectiveSpeedKmh;
+
+        if (speedKmh < TelemetryConstants.ADAPTIVE_STOPPED_SPEED_THRESHOLD_KMH) {
+            effectiveSpeedKmh = urbanBaselineSpeedKmh * 0.7; // ~14 km/h khi dừng đèn đỏ / kẹt xe
+        } else {
+            effectiveSpeedKmh = (urbanBaselineSpeedKmh * 0.6) + (speedKmh * 0.4);
+        }
+
+        effectiveSpeedKmh = Math.max(10.0, Math.min(effectiveSpeedKmh, 50.0));
+        double distanceKm = distanceRemainingMeters / 1000.0;
+        int etaMinutes = (int) Math.ceil((distanceKm / effectiveSpeedKmh) * 60);
+
+        return Math.max(1, etaMinutes);
     }
 }
