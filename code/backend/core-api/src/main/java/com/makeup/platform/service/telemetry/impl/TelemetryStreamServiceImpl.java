@@ -9,11 +9,13 @@ import com.makeup.platform.common.utils.GeoDistanceUtils;
 import com.makeup.platform.dto.request.telemetry.LocationStreamReq;
 import com.makeup.platform.dto.request.telemetry.ToggleAvailabilityReq;
 import com.makeup.platform.dto.response.telemetry.LiveTrackingRes;
+import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AdaptiveStreamMode;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.entity.telemetry.ProviderType;
+import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.telemetry.RedisGeoService;
@@ -39,6 +41,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
 
     private final MuaProfileRepository muaProfileRepository;
     private final ServicePackageRepository servicePackageRepository;
+    private final BookingRepository bookingRepository;
     private final RedisGeoService redisGeoService;
     private final TelemetryLogService telemetryLogService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -148,11 +151,39 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             etaMinutes = (int) Math.ceil((req.getDistanceRemainingMeters() / 1000.0) / speed * 60);
         }
 
+        // Lấy tọa độ điểm hẹn cố định của Khách hàng
+        Double destLat = null;
+        Double destLng = null;
+        if (req.getBookingId() != null) {
+            Map<Object, Object> tripData = redisGeoService.getTripLivePosition(req.getBookingId());
+            if (tripData != null && tripData.containsKey("destinationLat") && tripData.containsKey("destinationLng")) {
+                try {
+                    destLat = Double.parseDouble(tripData.get("destinationLat").toString());
+                    destLng = Double.parseDouble(tripData.get("destinationLng").toString());
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            if (destLat == null || destLng == null) {
+                var bookingOpt = bookingRepository.findById(req.getBookingId());
+                if (bookingOpt.isPresent()) {
+                    BookingEntity booking = bookingOpt.get();
+                    if (booking.getDestinationLatitude() != null) {
+                        destLat = booking.getDestinationLatitude().doubleValue();
+                    }
+                    if (booking.getDestinationLongitude() != null) {
+                        destLng = booking.getDestinationLongitude().doubleValue();
+                    }
+                }
+            }
+        }
+
         LiveTrackingRes res = LiveTrackingRes.builder()
                 .bookingId(req.getBookingId())
                 .muaId(mua.getId())
                 .currentLat(req.getLatitude())
                 .currentLng(req.getLongitude())
+                .destinationLat(destLat)
+                .destinationLng(destLng)
                 .speed(speed)
                 .heading(heading)
                 .accuracy(accuracy)
@@ -167,7 +198,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             // Cập nhật Redis Hash
             redisGeoService.updateTripLivePosition(
                     req.getBookingId(), mua.getId(), req.getLatitude(), req.getLongitude(),
-                    speed, heading, accuracy, etaMinutes, req.getDistanceRemainingMeters(), mode
+                    speed, heading, accuracy, etaMinutes, req.getDistanceRemainingMeters(), mode,
+                    destLat, destLng
             );
 
             // Broadcast qua STOMP topic

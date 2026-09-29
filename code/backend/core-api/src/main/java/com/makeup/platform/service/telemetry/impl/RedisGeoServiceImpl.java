@@ -113,11 +113,13 @@ public class RedisGeoServiceImpl implements RedisGeoService {
         return stringRedisTemplate.opsForGeo().radius(TelemetryConstants.REDIS_KEY_MUA_GEO, circle, args);
     }
 
+
     @Override
     public void updateTripLivePosition(Long bookingId, Long muaId, double lat, double lng,
                                        Double speed, Double heading, Double accuracy,
                                        Integer etaMinutes, Double distanceRemainingMeters,
-                                       AdaptiveStreamMode mode) {
+                                       AdaptiveStreamMode mode,
+                                       Double destinationLat, Double destinationLng) {
         String key = TelemetryConstants.REDIS_KEY_TRIP_PREFIX + bookingId;
         Map<String, String> data = new HashMap<>();
         data.put("bookingId", String.valueOf(bookingId));
@@ -130,6 +132,8 @@ public class RedisGeoServiceImpl implements RedisGeoService {
         if (etaMinutes != null) data.put("etaMinutes", String.valueOf(etaMinutes));
         if (distanceRemainingMeters != null) data.put("distanceRemainingMeters", String.valueOf(distanceRemainingMeters));
         if (mode != null) data.put("streamMode", mode.name());
+        if (destinationLat != null) data.put("destinationLat", String.valueOf(destinationLat));
+        if (destinationLng != null) data.put("destinationLng", String.valueOf(destinationLng));
         data.put("updatedAt", Instant.now().toString());
 
         stringRedisTemplate.opsForHash().putAll(key, data);
