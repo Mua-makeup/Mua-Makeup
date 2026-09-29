@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Mail, RefreshCw, KeyRound, ArrowRight, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Mail, RefreshCw, ArrowRight, AlertCircle } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { useI18nStore } from '../../../store/useI18nStore';
