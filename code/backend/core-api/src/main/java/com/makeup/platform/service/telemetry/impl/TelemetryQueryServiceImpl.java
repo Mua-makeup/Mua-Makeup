@@ -206,7 +206,12 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                 BookingEntity booking = bookingOpt.get();
                 MuaProfileEntity mua = booking.getMua();
                 LiveTrackingRes fallback = LiveTrackingRes.builder()
-                        .bookingId(bookingId).muaId(mua.getId()).locationStatus("UNAVAILABLE").build();
+                        .bookingId(bookingId)
+                        .muaId(mua.getId())
+                        .destinationLat(booking.getDestinationLatitude() != null ? booking.getDestinationLatitude().doubleValue() : null)
+                        .destinationLng(booking.getDestinationLongitude() != null ? booking.getDestinationLongitude().doubleValue() : null)
+                        .locationStatus("UNAVAILABLE")
+                        .build();
                 if (mua.getLastKnownLat() != null && mua.getLastKnownLng() != null
                         && mua.getLastKnownUpdatedAt() != null) {
                     fallback.setCurrentLat(mua.getLastKnownLat().doubleValue());
@@ -232,6 +237,24 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         }
         if (raw.containsKey("currentLng")) {
             res.setCurrentLng(Double.parseDouble(raw.get("currentLng").toString()));
+        }
+        if (raw.containsKey("destinationLat")) {
+            res.setDestinationLat(Double.parseDouble(raw.get("destinationLat").toString()));
+        }
+        if (raw.containsKey("destinationLng")) {
+            res.setDestinationLng(Double.parseDouble(raw.get("destinationLng").toString()));
+        }
+        if (res.getDestinationLat() == null || res.getDestinationLng() == null) {
+            var bOpt = bookingRepository.findById(bookingId);
+            if (bOpt.isPresent()) {
+                BookingEntity b = bOpt.get();
+                if (b.getDestinationLatitude() != null) {
+                    res.setDestinationLat(b.getDestinationLatitude().doubleValue());
+                }
+                if (b.getDestinationLongitude() != null) {
+                    res.setDestinationLng(b.getDestinationLongitude().doubleValue());
+                }
+            }
         }
         if (raw.containsKey("speed")) {
             res.setSpeed(Double.parseDouble(raw.get("speed").toString()));
