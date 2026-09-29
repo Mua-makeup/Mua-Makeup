@@ -86,6 +86,7 @@ export interface BookingStatusDetailRes {
   completionPhotoUrl?: string;
   isDepositPaid?: boolean;
   depositTimeoutSeconds?: number;
+  cancellationReason?: string;
   updatedAt: string;
 }
 
@@ -153,9 +154,11 @@ export const bookingService = {
    * Chuyển trạng thái đơn hoặc khách hàng hủy ca hẹn
    */
   async cancelBooking(bookingId: number, reasonText: string): Promise<void> {
+    const finalReason = reasonText?.trim() || 'Hủy đơn theo yêu cầu';
     await apiClient.post(`/bookings/${bookingId}/transition`, {
       targetStatus: 'CANCELLED',
-      reasonText,
+      reason: finalReason,
+      reasonText: finalReason,
     });
   },
 

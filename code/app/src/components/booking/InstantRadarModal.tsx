@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +20,7 @@ import { bookingService, InstantBookingCreatedRes } from '@/services/booking.ser
 import { telemetryService, NearbyProviderRes } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { taxonomyService, MasterCategory, MakeupStyle } from '@/services/taxonomy.service';
+import { mapsService, PlaceSuggestion } from '@/services/maps.service';
 import { soundManager } from '@/utils/sound';
 import { useLocationStore } from '@/store/location.store';
 import * as Location from 'expo-location';
@@ -46,6 +49,11 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   const [isLocating, setIsLocating] = useState(false);
   const [addressNote, setAddressNote] = useState('');
 
+  // Gợi ý địa điểm Goong Maps Autocomplete
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const searchTimeoutRef = useRef<any>(null);
+
   // Danh sách thợ thật từ API Backend
   const [nearbyProviders, setNearbyProviders] = useState<NearbyProviderRes[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = useState(false);
@@ -65,6 +73,54 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   const timerRef = useRef<any>(null);
   const statusPollRef = useRef<any>(null);
   const activeTopicRef = useRef<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (suggestions.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 380, animated: true });
+      }, 100);
+    }
+  }, [suggestions]);
+
+  const handleAddressChange = (text: string) => {
+    setAddress(text);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (text.trim().length >= 2) {
+      searchTimeoutRef.current = setTimeout(async () => {
+        setIsSearchingPlaces(true);
+        try {
+          const list = await mapsService.getPlaceSuggestions(
+            text,
+            coords?.latitude || storeLat,
+            coords?.longitude || storeLng
+          );
+          setSuggestions(list || []);
+        } catch {
+          setSuggestions([]);
+        } finally {
+          setIsSearchingPlaces(false);
+        }
+      }, 350);
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const handleSelectSuggestion = async (item: PlaceSuggestion) => {
+    setAddress(item.description);
+    setSuggestions([]);
+    try {
+      const detail = await mapsService.getPlaceDetail(item.placeId);
+      if (detail && detail.latitude && detail.longitude) {
+        const newCoords = { latitude: detail.latitude, longitude: detail.longitude };
+        setCoords(newCoords);
+        fetchNearbyProviders(detail.latitude, detail.longitude, searchRadius);
+      }
+    } catch (e) {
+      console.warn('Lỗi lấy tọa độ từ place detail:', e);
+    }
+  };
 
   const clearAllTimers = () => {
     if (timerRef.current) {
@@ -223,6 +279,20 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
       let targetLat = coords?.latitude || storeLat;
       let targetLng = coords?.longitude || storeLng;
 
+      // Geocode địa chỉ nhập tay nếu chưa có tọa độ chuẩn
+      if (address?.trim() && (!coords || address !== currentAddress)) {
+        try {
+          const geo = await mapsService.geocode(address.trim());
+          if (geo && geo.latitude && geo.longitude) {
+            targetLat = geo.latitude;
+            targetLng = geo.longitude;
+            setCoords({ latitude: targetLat, longitude: targetLng });
+          }
+        } catch (e) {
+          console.warn('Lỗi geocode địa chỉ đích:', e);
+        }
+      }
+
       if (!targetLat || !targetLng) {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync();
@@ -301,7 +371,45 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
       }, 2000);
     } catch (err: any) {
       const parsed = parseApiError(err);
-      Alert.alert('Không Thể Tìm Thợ', parsed.message);
+      if (
+        parsed.errorCode === 'ERR_BOOKING_ALREADY_EXISTS' ||
+        parsed.message.includes('customer_has_active_instant_booking') ||
+        parsed.message.includes('chưa hoàn thành') ||
+        parsed.message.includes('đang được phục vụ')
+      ) {
+        Alert.alert(
+          'Đang Có Đơn Đang Thực Hiện',
+          'Bạn đang có một ca đặt thợ khẩn cấp đang được chuyên viên phục vụ. Bạn có muốn chuyển sang màn hình theo dõi vị trí không?',
+          [
+            { text: 'Đóng', style: 'cancel' },
+            {
+              text: 'Theo Dõi Đơn',
+              onPress: async () => {
+                onClose();
+                try {
+                  const myBookings = await bookingService.getMyBookings('UPCOMING');
+                  const active = myBookings.find(
+                    (b) =>
+                      b.status === 'ACCEPTED' ||
+                      b.status === 'ON_THE_WAY' ||
+                      b.status === 'ARRIVED' ||
+                      b.status === 'IN_PROGRESS'
+                  );
+                  if (active) {
+                    router.push(`/booking/tracking/${active.id}` as any);
+                  } else {
+                    router.push('/bookings' as any);
+                  }
+                } catch {
+                  router.push('/bookings' as any);
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Không Thể Tìm Thợ', parsed.message);
+      }
       setStep('IDLE');
     }
   };
@@ -350,7 +458,10 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.overlay}
+      >
         <View style={styles.modalCard}>
           {/* HEADER */}
           <View style={styles.modalHeader}>
@@ -430,9 +541,11 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
           {/* STEP 1: FORM CẤU HÌNH DANH MỤC & PHONG CÁCH (ẨN GIÁ) */}
           {step === 'IDLE' && (
             <ScrollView
+              ref={scrollViewRef}
               style={styles.scrollArea}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 24 }}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 180 }}
             >
               {/* 1. CHỌN DANH MỤC DỊCH VỤ THẬT TỪ DATABASE */}
               <Text style={styles.sectionHeading}>1. Gói Dịch Vụ Cần Gấp:</Text>
@@ -520,16 +633,49 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
                 <TextInput
                   style={styles.addressInput}
                   value={address}
-                  onChangeText={setAddress}
+                  onChangeText={handleAddressChange}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollTo({ y: 340, animated: true });
+                    }, 150);
+                  }}
                   placeholder="Nhập địa chỉ nhà của bạn..."
                   placeholderTextColor="#94A3B8"
                 />
+                {isSearchingPlaces && <ActivityIndicator size="small" color="#2563EB" />}
               </View>
+
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {suggestions.slice(0, 4).map((sugg) => (
+                    <TouchableOpacity
+                      key={sugg.placeId}
+                      style={styles.suggestionItem}
+                      onPress={() => handleSelectSuggestion(sugg)}
+                    >
+                      <Ionicons name="pin" size={14} color="#64748B" style={{ marginTop: 2, marginRight: 8 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.suggestionMainText}>{sugg.mainText}</Text>
+                        {sugg.secondaryText ? (
+                          <Text style={styles.suggestionSecText} numberOfLines={1}>
+                            {sugg.secondaryText}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
               <TextInput
                 style={styles.noteInput}
                 value={addressNote}
                 onChangeText={setAddressNote}
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 150);
+                }}
                 placeholder="Ghi chú thêm: Tòa nhà, số tầng, căn hộ, mang tone gì..."
                 placeholderTextColor="#94A3B8"
               />
@@ -698,7 +844,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -714,8 +860,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 20,
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     maxHeight: '90%',
+  },
+  scrollArea: {
+    flexGrow: 0,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -838,9 +987,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
-  },
-  scrollArea: {
-    maxHeight: 520,
   },
   sectionHeading: {
     fontSize: 13,
@@ -1274,5 +1420,37 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 13,
     fontWeight: '700',
+  },
+  suggestionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: -4,
+    marginBottom: 10,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  suggestionMainText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  suggestionSecText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
   },
 });

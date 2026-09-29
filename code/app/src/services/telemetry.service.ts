@@ -14,6 +14,8 @@ export interface LocationStreamPayload {
   longitude: number;
   heading?: number;
   speed?: number;
+  accuracy?: number;
+  distanceRemainingMeters?: number;
 }
 
 export interface LiveTrackingRes {
@@ -21,11 +23,15 @@ export interface LiveTrackingRes {
   muaId: number;
   currentLat: number;
   currentLng: number;
+  destinationLat?: number;
+  destinationLng?: number;
   speed: number;
   heading: number;
   accuracy: number;
   etaMinutes: number;
   distanceRemainingMeters: number;
+  streamMode?: 'APPROACHING' | 'MOVING' | 'STOPPED';
+  locationStatus?: string;
   updatedAt: string;
 }
 

@@ -20,6 +20,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -49,6 +50,55 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
     List<BookingEntity> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
     List<BookingEntity> findByMuaIdOrderByCreatedAtDesc(Long muaId);
+
+    @Query("""
+            SELECT DISTINCT b FROM BookingEntity b
+            LEFT JOIN FETCH b.customer c
+            LEFT JOIN FETCH b.mua m
+            LEFT JOIN FETCH m.user mu
+            LEFT JOIN FETCH b.servicePackage sp
+            LEFT JOIN FETCH b.style st
+            WHERE b.mua.id = :muaId
+              AND (
+                  b.bookingDate = :date
+                  OR b.status IN (
+                      com.makeup.platform.entity.booking.BookingStatus.ACCEPTED,
+                      com.makeup.platform.entity.booking.BookingStatus.ON_THE_WAY,
+                      com.makeup.platform.entity.booking.BookingStatus.ARRIVED,
+                      com.makeup.platform.entity.booking.BookingStatus.IN_PROGRESS
+                  )
+              )
+            ORDER BY b.createdAt DESC
+            """)
+    List<BookingEntity> findFreelancerBookingsByDate(
+            @Param("muaId") Long muaId,
+            @Param("date") LocalDate date);
+
+    @Query("""
+            SELECT DISTINCT b FROM BookingEntity b
+            LEFT JOIN FETCH b.customer c
+            LEFT JOIN FETCH b.mua m
+            LEFT JOIN FETCH m.user mu
+            LEFT JOIN FETCH b.servicePackage sp
+            LEFT JOIN FETCH b.style st
+            WHERE b.mua.id = :muaId
+            ORDER BY b.createdAt DESC
+            """)
+    List<BookingEntity> findAllFreelancerBookings(
+            @Param("muaId") Long muaId);
+
+    @Query("""
+            SELECT DISTINCT b FROM BookingEntity b
+            LEFT JOIN FETCH b.customer c
+            LEFT JOIN FETCH b.mua m
+            LEFT JOIN FETCH m.user mu
+            LEFT JOIN FETCH b.servicePackage sp
+            LEFT JOIN FETCH b.style st
+            WHERE b.customer.id = :customerId
+            ORDER BY b.createdAt DESC
+            """)
+    List<BookingEntity> findCustomerBookings(
+            @Param("customerId") Long customerId);
 
     List<BookingEntity> findByAgencyIdOrderByCreatedAtDesc(Long agencyId);
 

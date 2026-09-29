@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { WorkstationHeader } from '@/components/mua/WorkstationHeader';
 import { WorkstationStatCards } from '@/components/mua/WorkstationStatCards';
 import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
@@ -26,9 +26,11 @@ export default function MuaWorkstationScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    fetchWorkstationData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchWorkstationData();
+    }, [])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -41,6 +43,10 @@ export default function MuaWorkstationScreen() {
     { key: 'UPCOMING', label: 'Sắp làm' },
     { key: 'COMPLETED', label: 'Đã xong' },
   ];
+
+  const activeJob = todayBookings.find((b) =>
+    ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -66,6 +72,43 @@ export default function MuaWorkstationScreen() {
           <>
             {/* Header with Avatar & Online Switch */}
             <WorkstationHeader />
+
+            {/* Banner nổi bật khi Thợ đang có ca làm dang dở (1 Chạm Vào Ca Làm Ngay) */}
+            {activeJob && (
+              <TouchableOpacity
+                style={styles.activeJobBanner}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/job-execution/${activeJob.id}` as any)}
+              >
+                <View style={styles.activeJobIconBox}>
+                  <Ionicons name="flash" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.activePulseDot} />
+                    <Text style={styles.activeJobBadge}>
+                      {activeJob.status === 'ON_THE_WAY'
+                        ? 'BẠN ĐANG DI CHUYỂN TỚI KHÁCH'
+                        : activeJob.status === 'ARRIVED'
+                        ? 'ĐÃ TỚI ĐIỂM HẸN KHÁCH HÀNG'
+                        : activeJob.status === 'IN_PROGRESS'
+                        ? 'ĐANG TRANG ĐIỂM CHO KHÁCH'
+                        : 'CA LÀM ĐÃ ĐƯỢC XÁC NHẬN'}
+                    </Text>
+                  </View>
+                  <Text style={styles.activeJobTitle} numberOfLines={1}>
+                    {activeJob.customerName} • Mã {activeJob.bookingCode}
+                  </Text>
+                  <Text style={styles.activeJobSub} numberOfLines={1}>
+                    {activeJob.destinationAddress || 'Chạm để tiếp tục tiến trình ca làm việc'}
+                  </Text>
+                </View>
+                <View style={styles.activeJobBtn}>
+                  <Text style={styles.activeJobBtnText}>Vào Ca</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* 3 Metric Stat Cards */}
             <WorkstationStatCards />
@@ -287,5 +330,68 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  activeJobBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 8,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#E11D48',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  activeJobIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activePulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981',
+  },
+  activeJobBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#34D399',
+    letterSpacing: 0.5,
+  },
+  activeJobTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  activeJobSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  activeJobBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 2,
+  },
+  activeJobBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

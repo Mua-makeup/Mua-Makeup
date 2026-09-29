@@ -216,8 +216,16 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
                         && mua.getLastKnownUpdatedAt() != null) {
                     fallback.setCurrentLat(mua.getLastKnownLat().doubleValue());
                     fallback.setCurrentLng(mua.getLastKnownLng().doubleValue());
-                    fallback.setUpdatedAt(mua.getLastKnownUpdatedAt());
                     fallback.setLocationStatus("LAST_KNOWN");
+                    if (fallback.getDestinationLat() != null && fallback.getDestinationLng() != null) {
+                        double dist = GeoDistanceUtils.calculateDistanceMeters(
+                                fallback.getCurrentLat(), fallback.getCurrentLng(),
+                                fallback.getDestinationLat(), fallback.getDestinationLng()
+                        );
+                        fallback.setDistanceRemainingMeters(dist);
+                        fallback.setEtaMinutes(dist <= 25.0 ? 0 : Math.max(1, (int) Math.ceil((dist / 1000.0) / 25.0 * 60)));
+                        fallback.setStreamMode(dist < 300.0 ? AdaptiveStreamMode.APPROACHING : AdaptiveStreamMode.MOVING);
+                    }
                 }
                 return fallback;
             }
@@ -276,6 +284,22 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         }
         if (raw.containsKey("updatedAt")) {
             res.setUpdatedAt(Instant.parse(raw.get("updatedAt").toString()));
+        }
+
+        // Tự động tính toán cự ly và thời gian đến tức thời nếu Redis chưa kịp lưu
+        if (res.getDistanceRemainingMeters() == null && res.getCurrentLat() != null && res.getCurrentLng() != null
+                && res.getDestinationLat() != null && res.getDestinationLng() != null) {
+            double dist = GeoDistanceUtils.calculateDistanceMeters(
+                    res.getCurrentLat(), res.getCurrentLng(),
+                    res.getDestinationLat(), res.getDestinationLng()
+            );
+            res.setDistanceRemainingMeters(dist);
+            if (res.getEtaMinutes() == null) {
+                res.setEtaMinutes(dist <= 25.0 ? 0 : Math.max(1, (int) Math.ceil((dist / 1000.0) / 25.0 * 60)));
+            }
+            if (res.getStreamMode() == null) {
+                res.setStreamMode(dist < 300.0 ? AdaptiveStreamMode.APPROACHING : AdaptiveStreamMode.MOVING);
+            }
         }
 
         return res;

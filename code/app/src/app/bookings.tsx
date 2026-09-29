@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,29 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { useAuthStore } from '@/store/auth.store';
 import { useBookingStore } from '@/store/booking.store';
 import { CustomerBookingItem } from '@/services/booking.service';
+import {
+  freelancerBookingService,
+  FreelancerBookingItem,
+} from '@/services/freelancer-booking.service';
 import { BookingTabSegment } from '@/components/booking/BookingTabSegment';
 import { BookingHistoryCard } from '@/components/booking/BookingHistoryCard';
+import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
 import { CancelBookingModal } from '@/components/booking/CancelBookingModal';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 
 export default function BookingsScreen() {
+  const { userInfo, isAuthenticated } = useAuthStore();
+  const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
+  const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+  const isWorkstationRole = (isMUA || isAgencyStaff) && isAuthenticated;
+
+  // Dữ liệu cho Khách Hàng (Customer)
   const {
     activeTab,
     upcomingBookings,
@@ -32,14 +44,83 @@ export default function BookingsScreen() {
     cancelBooking,
   } = useBookingStore();
 
+  // Dữ liệu cho Thợ MUA / Nhân viên Agency
+  const [freelancerUpcoming, setFreelancerUpcoming] = useState<FreelancerBookingItem[]>([]);
+  const [freelancerHistory, setFreelancerHistory] = useState<FreelancerBookingItem[]>([]);
+  const [isLoadingFreelancer, setIsLoadingFreelancer] = useState(false);
+  const [isRefreshingFreelancer, setIsRefreshingFreelancer] = useState(false);
+
   const [selectedBookingToCancel, setSelectedBookingToCancel] = useState<CustomerBookingItem | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  useEffect(() => {
-    fetchMyBookings();
-  }, []);
+  // Tải danh sách đơn hàng toàn bộ của Thợ (toàn bộ các ngày)
+  const fetchFreelancerBookings = async (isRefresh = false) => {
+    if (!isRefresh) setIsLoadingFreelancer(true);
+    else setIsRefreshingFreelancer(true);
 
-  const currentList = activeTab === 'UPCOMING' ? upcomingBookings : historyBookings;
+    try {
+      // date = undefined để lấy toàn bộ ca làm việc của thợ
+      const all = await freelancerBookingService.getMyAssignedBookings();
+      const upcoming: FreelancerBookingItem[] = [];
+      const history: FreelancerBookingItem[] = [];
+
+      const upcomingStatuses = [
+        'REQUESTED',
+        'PENDING_AGENCY_DISPATCH',
+        'AGENCY_ASSIGNED',
+        'ACCEPTED',
+        'ON_THE_WAY',
+        'ARRIVED',
+        'IN_PROGRESS',
+      ];
+
+      for (const item of all) {
+        if (upcomingStatuses.includes(item.status)) {
+          upcoming.push(item);
+        } else {
+          history.push(item);
+        }
+      }
+
+      setFreelancerUpcoming(upcoming);
+      setFreelancerHistory(history);
+    } catch {
+      setFreelancerUpcoming([]);
+      setFreelancerHistory([]);
+    } finally {
+      setIsLoadingFreelancer(false);
+      setIsRefreshingFreelancer(false);
+    }
+  };
+
+  // Tự động làm mới dữ liệu khi người dùng chuyển vào tab "Lịch Hẹn"
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        if (isWorkstationRole) {
+          fetchFreelancerBookings();
+        } else {
+          fetchMyBookings();
+        }
+      }
+    }, [isAuthenticated, isWorkstationRole])
+  );
+
+  const upcomingCount = isWorkstationRole ? freelancerUpcoming.length : upcomingBookings.length;
+  const historyCount = isWorkstationRole ? freelancerHistory.length : historyBookings.length;
+  const isLoading = isWorkstationRole ? isLoadingFreelancer : isLoadingBookings;
+  const isRefreshing = isWorkstationRole ? isRefreshingFreelancer : isRefreshingBookings;
+  const currentList = isWorkstationRole
+    ? (activeTab === 'UPCOMING' ? freelancerUpcoming : freelancerHistory)
+    : (activeTab === 'UPCOMING' ? upcomingBookings : historyBookings);
+
+  const handleRefresh = async () => {
+    if (isWorkstationRole) {
+      await fetchFreelancerBookings(true);
+    } else {
+      await fetchMyBookings(true);
+    }
+  };
 
   const handleConfirmCancel = async (bookingId: number, reason: string) => {
     setIsCancelling(true);
@@ -65,7 +146,7 @@ export default function BookingsScreen() {
     );
   };
 
-  const handleRebook = (booking: CustomerBookingItem) => {
+  const handleRebook = () => {
     router.push('/explore');
   };
 
@@ -73,44 +154,54 @@ export default function BookingsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* HEADER TOP BAR */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lịch Hẹn Của Tôi</Text>
+        <Text style={styles.headerTitle}>
+          {isWorkstationRole ? 'Lịch Ca Làm Việc Của Thợ' : 'Lịch Hẹn Của Tôi'}
+        </Text>
       </View>
 
       {/* SEGMENT TABS */}
       <View style={styles.tabContainer}>
         <BookingTabSegment
           activeTab={activeTab}
-          upcomingCount={upcomingBookings.length}
-          historyCount={historyBookings.length}
+          upcomingCount={upcomingCount}
+          historyCount={historyCount}
           onTabChange={setActiveTab}
         />
       </View>
 
       {/* DANH SÁCH ĐƠN HÀNG */}
-      {isLoadingBookings && currentList.length === 0 ? (
+      {isLoading && currentList.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải danh sách lịch hẹn...</Text>
+          <Text style={styles.loadingText}>
+            {isWorkstationRole
+              ? 'Đang tải danh sách ca làm việc...'
+              : 'Đang tải danh sách lịch hẹn...'}
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={currentList}
+          data={currentList as any[]}
           keyExtractor={(item) => `booking-${item.id}`}
-          renderItem={({ item }) => (
-            <BookingHistoryCard
-              booking={item}
-              onCancelPress={(b) => setSelectedBookingToCancel(b)}
-              onTrackPress={handleTrack}
-              onReviewPress={handleReview}
-              onRebookPress={handleRebook}
-            />
-          )}
+          renderItem={({ item }) =>
+            isWorkstationRole ? (
+              <TodayBookingCard booking={item as FreelancerBookingItem} />
+            ) : (
+              <BookingHistoryCard
+                booking={item as CustomerBookingItem}
+                onCancelPress={(b) => setSelectedBookingToCancel(b)}
+                onTrackPress={handleTrack}
+                onReviewPress={handleReview}
+                onRebookPress={handleRebook}
+              />
+            )
+          }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={isRefreshingBookings}
-              onRefresh={() => fetchMyBookings(true)}
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
               colors={[BrandColors.primary]}
             />
           }
@@ -118,26 +209,42 @@ export default function BookingsScreen() {
             <View style={styles.emptyContainer}>
               <Ionicons name="calendar-outline" size={54} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>
-                {activeTab === 'UPCOMING'
-                  ? 'Bạn chưa có lịch hẹn nào sắp tới'
-                  : 'Chưa có lịch sử làm đẹp nào'}
+                {isWorkstationRole
+                  ? (activeTab === 'UPCOMING'
+                      ? 'Bạn chưa có ca làm việc nào sắp tới'
+                      : 'Chưa có lịch sử ca làm nào')
+                  : (activeTab === 'UPCOMING'
+                      ? 'Bạn chưa có lịch hẹn nào sắp tới'
+                      : 'Chưa có lịch sử làm đẹp nào')}
               </Text>
               <Text style={styles.emptySubtitle}>
-                Khám phá ngay các dịch vụ trang điểm chuyên nghiệp gần bạn và đặt lịch nhanh chóng.
+                {isWorkstationRole
+                  ? (activeTab === 'UPCOMING'
+                      ? 'Hãy bật công tắc Trực tuyến tại Bàn làm việc để hệ thống điều phối đơn khách hàng và đơn khẩn cấp đến bạn.'
+                      : 'Các ca làm việc sau khi hoàn tất hoặc kết thúc sẽ được lưu trữ tại đây.')
+                  : 'Khám phá ngay các dịch vụ trang điểm chuyên nghiệp gần bạn và đặt lịch nhanh chóng.'}
               </Text>
               <TouchableOpacity
                 style={styles.exploreBtn}
-                onPress={() => router.push('/explore')}
+                onPress={() => {
+                  if (isWorkstationRole) {
+                    router.replace('/');
+                  } else {
+                    router.push('/explore');
+                  }
+                }}
                 activeOpacity={0.88}
               >
-                <Text style={styles.exploreBtnText}>Khám Phá Dịch Vụ Ngay</Text>
+                <Text style={styles.exploreBtnText}>
+                  {isWorkstationRole ? 'Về Bàn Làm Việc' : 'Khám Phá Dịch Vụ Ngay'}
+                </Text>
               </TouchableOpacity>
             </View>
           }
         />
       )}
 
-      {/* MODAL HỦY LỊCH HẸN */}
+      {/* MODAL HỦY LỊCH HẸN (DÀNH CHO KHÁCH HÀNG) */}
       <CancelBookingModal
         visible={!!selectedBookingToCancel}
         booking={selectedBookingToCancel}

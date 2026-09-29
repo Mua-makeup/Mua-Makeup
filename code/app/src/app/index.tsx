@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
@@ -23,6 +23,7 @@ import { WorkstationStatCards } from '@/components/mua/WorkstationStatCards';
 import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
 import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
 import { useWorkstationStore } from '@/store/workstation.store';
+import { useBookingStore } from '@/store/booking.store';
 import { hasSeenOnboarding } from '@/utils/storage';
 import * as Haptics from 'expo-haptics';
 
@@ -111,6 +112,37 @@ export default function HomeScreen() {
       fetchWorkstationData();
     }
   }, [isAuthenticated, isWorkstationRole]);
+
+  // Tải các đơn sắp tới của Khách Hàng để phát hiện chuyến đi khẩn cấp đang diễn ra
+  const { upcomingBookings, fetchMyBookings } = useBookingStore();
+
+  useEffect(() => {
+    if (isAuthenticated && isCustomer) {
+      fetchMyBookings();
+    }
+  }, [isAuthenticated, isCustomer]);
+
+  // Tự động tải lại dữ liệu khi người dùng quay lại màn hình Home từ bất kỳ đâu
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isAuthenticated) {
+        if (isWorkstationRole) {
+          fetchWorkstationData();
+        }
+        if (isCustomer) {
+          fetchMyBookings();
+        }
+      }
+    }, [isAuthenticated, isWorkstationRole, isCustomer])
+  );
+
+  const activeCustomerTrip = upcomingBookings.find((b) =>
+    ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)
+  );
+
+  const activeMuaJob = todayBookings.find((b) =>
+    ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)
+  );
 
   const [isRadarModalVisible, setIsRadarModalVisible] = useState(false);
 
@@ -240,6 +272,43 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
 
+            {/* Banner nổi bật khi Thợ đang có ca làm dang dở (1 Chạm Vào Ca Làm Ngay) */}
+            {activeMuaJob && (
+              <TouchableOpacity
+                style={styles.activeJobBanner}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/job-execution/${activeMuaJob.id}` as any)}
+              >
+                <View style={styles.activeJobIconBox}>
+                  <Ionicons name="flash" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.activePulseDot} />
+                    <Text style={styles.activeJobBadge}>
+                      {activeMuaJob.status === 'ON_THE_WAY'
+                        ? 'BẠN ĐANG DI CHUYỂN TỚI KHÁCH'
+                        : activeMuaJob.status === 'ARRIVED'
+                        ? 'ĐÃ TỚI ĐIỂM HẸN KHÁCH HÀNG'
+                        : activeMuaJob.status === 'IN_PROGRESS'
+                        ? 'ĐANG TRANG ĐIỂM CHO KHÁCH'
+                        : 'CA LÀM ĐÃ ĐƯỢC XÁC NHẬN'}
+                    </Text>
+                  </View>
+                  <Text style={styles.activeJobTitle} numberOfLines={1}>
+                    {activeMuaJob.customerName} • Mã {activeMuaJob.bookingCode}
+                  </Text>
+                  <Text style={styles.activeJobSub} numberOfLines={1}>
+                    {activeMuaJob.destinationAddress || 'Chạm để tiếp tục tiến trình ca làm việc'}
+                  </Text>
+                </View>
+                <View style={styles.activeJobBtn}>
+                  <Text style={styles.activeJobBtnText}>Vào Ca</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            )}
+
             {/* Bộ lọc Ca Làm Hôm Nay */}
             <View style={styles.workstationSectionHeader}>
               <Text style={styles.workstationSectionTitle}>Lịch Hẹn Hôm Nay</Text>
@@ -305,6 +374,43 @@ export default function HomeScreen() {
                   <Text style={styles.roleBadgeText}>Khách Hàng</Text>
                 </View>
               </View>
+            )}
+
+            {/* BANNER THEO DÕI XE THỢ REALTIME DÀNH CHO KHÁCH (NẾU ĐANG CÓ CHUYẾN ĐI) */}
+            {activeCustomerTrip && (
+              <TouchableOpacity
+                style={styles.activeTripBanner}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/booking/tracking/${activeCustomerTrip.id}` as any)}
+              >
+                <View style={styles.activeTripIconBox}>
+                  <Ionicons name="navigate" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.activePulseDot} />
+                    <Text style={styles.activeTripBadge}>
+                      {activeCustomerTrip.status === 'ON_THE_WAY'
+                        ? 'THỢ ĐANG TRÊN ĐƯỜNG ĐẾN'
+                        : activeCustomerTrip.status === 'ARRIVED'
+                        ? 'THỢ ĐÃ TỚI ĐIỂM HẸN'
+                        : activeCustomerTrip.status === 'IN_PROGRESS'
+                        ? 'ĐANG TRANG ĐIỂM'
+                        : 'CHUYÊN VIÊN ĐÃ NHẬN CA'}
+                    </Text>
+                  </View>
+                  <Text style={styles.activeTripTitle} numberOfLines={1}>
+                    {activeCustomerTrip.muaName || 'Chuyên viên make-up'} • Mã {activeCustomerTrip.bookingCode}
+                  </Text>
+                  <Text style={styles.activeTripSub} numberOfLines={1}>
+                    {activeCustomerTrip.destinationAddress || 'Chạm để theo dõi trực tiếp vị trí Live GPS'}
+                  </Text>
+                </View>
+                <View style={styles.activeTripBtn}>
+                  <Text style={styles.activeTripBtnText}>Theo Dõi</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
             )}
 
             {/* Quick Search Bar to Explore Screen */}
@@ -1447,5 +1553,122 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#E11D48',
+  },
+  activeTripBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#E11D48',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  activeTripIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeTripBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#34D399',
+    letterSpacing: 0.5,
+  },
+  activeTripTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  activeTripSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  activeTripBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 2,
+  },
+  activeTripBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  activeJobBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 10,
+    marginBottom: 10,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#E11D48',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  activeJobIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activePulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981',
+  },
+  activeJobBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#34D399',
+    letterSpacing: 0.5,
+  },
+  activeJobTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  activeJobSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  activeJobBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 2,
+  },
+  activeJobBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

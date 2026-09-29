@@ -20,10 +20,28 @@ import { useLocalSearchParams, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { JobTimelineStep } from '@/components/mua/JobTimelineStep';
 import { ProofCameraModal } from '@/components/mua/ProofCameraModal';
+import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
 import { bookingService, BookingStatusType } from '@/services/booking.service';
+import { telemetryService } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { useWorkstationStore } from '@/store/workstation.store';
+import * as Location from 'expo-location';
+
+function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth radius in meters
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
 
 interface ExtendedBookingItem {
   id: number;
@@ -96,6 +114,158 @@ export default function JobExecutionScreen() {
   // Stopwatch state when IN_PROGRESS
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<any>(null);
+
+  // State for MUA GPS telemetry tracking - Khởi tạo tức thì từ store hoặc fallback để hiển thị Map ngay trong 0s
+  const [driverCoords, setDriverCoords] = useState<{
+    latitude: number;
+    longitude: number;
+    speed: number;
+    heading: number;
+    accuracy: number;
+  } | null>(() => {
+    const storeCoords = useWorkstationStore.getState().currentCoords;
+    if (storeCoords?.latitude && storeCoords?.longitude) {
+      return {
+        latitude: storeCoords.latitude,
+        longitude: storeCoords.longitude,
+        speed: 0,
+        heading: 0,
+        accuracy: 10,
+      };
+    }
+    return null;
+  });
+  const [driverDistanceMeters, setDriverDistanceMeters] = useState<number>(0);
+  const [driverEtaMinutes, setDriverEtaMinutes] = useState<number>(10);
+  const [driverStreamMode, setDriverStreamMode] = useState<'APPROACHING' | 'MOVING' | 'STOPPED'>('MOVING');
+
+  // Lấy vị trí đã biết gần nhất ngay khi mount để map hiển thị trong <10ms
+  useEffect(() => {
+    Location.getLastKnownPositionAsync().then((lastLoc) => {
+      if (lastLoc?.coords) {
+        setDriverCoords((prev) => prev || {
+          latitude: lastLoc.coords.latitude,
+          longitude: lastLoc.coords.longitude,
+          speed: (lastLoc.coords.speed || 0) * 3.6,
+          heading: lastLoc.coords.heading || 0,
+          accuracy: lastLoc.coords.accuracy || 10,
+        });
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Luồng phát sóng GPS thời gian thực của Thợ MUA khi đang di chuyển (ON_THE_WAY)
+  useEffect(() => {
+    if (currentStatus !== 'ON_THE_WAY' || !booking) return;
+
+    let isCancelled = false;
+    let timerId: any = null;
+    let lastPosition: { lat: number; lng: number; time: number } | null = null;
+
+    const streamCycle = async () => {
+      if (isCancelled) return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        if (isCancelled) return;
+
+        const lat = loc.coords.latitude;
+        const lng = loc.coords.longitude;
+        const heading = loc.coords.heading || 0;
+        const accuracy = loc.coords.accuracy || 10;
+        const now = Date.now();
+
+        // Tính toán tốc độ km/h với bộ lọc nhiễu GPS (GPS Jitter Filter)
+        let speed = 0;
+        if (loc.coords.speed !== null && loc.coords.speed !== undefined && loc.coords.speed >= 0.8) {
+          speed = loc.coords.speed * 3.6;
+        } else if (lastPosition) {
+          const distDelta = calculateDistanceMeters(lastPosition.lat, lastPosition.lng, lat, lng);
+          const timeDeltaSeconds = (now - lastPosition.time) / 1000;
+          // Chỉ tính tốc độ nếu cự ly di chuyển > 12m (vượt ngưỡng sai số GPS trong nhà)
+          if (distDelta >= 12 && timeDeltaSeconds > 0) {
+            speed = (distDelta / timeDeltaSeconds) * 3.6;
+          }
+        }
+        // Triệt tiêu tốc độ ảo khi đứng yên / ngồi cạnh nhau
+        if (speed < 2.5) {
+          speed = 0;
+        }
+        lastPosition = { lat, lng, time: now };
+
+        // Khoảng cách tới điểm hẹn khách hàng
+        const destLat = booking.destinationLatitude;
+        const destLng = booking.destinationLongitude;
+        let distRemaining =
+          destLat && destLng ? calculateDistanceMeters(lat, lng, destLat, destLng) : 0;
+
+        // Nếu ngồi sát nhau hoặc sai lệch GPS < 15m, nhận diện là đã tới điểm hẹn
+        if (distRemaining < 15) {
+          distRemaining = 0;
+        }
+
+        // Xác định Adaptive Sampling Mode theo chuẩn backend TelemetryConstants:
+        // - APPROACHING (<300m): bắn websocket 3s
+        // - STOPPED (<3km/h): bắn websocket 20s
+        // - MOVING (còn lại): bắn websocket 5s
+        let mode: 'APPROACHING' | 'MOVING' | 'STOPPED';
+        let nextIntervalMs: number;
+        if (distRemaining < 300) {
+          mode = 'APPROACHING';
+          nextIntervalMs = 3000;
+        } else if (speed < 3.0) {
+          mode = 'STOPPED';
+          nextIntervalMs = 20000;
+        } else {
+          mode = 'MOVING';
+          nextIntervalMs = 5000;
+        }
+
+        let eta = 1;
+        if (distRemaining <= 25) {
+          eta = 0; // Đã tới nơi
+        } else if (distRemaining > 0 && speed > 5.0) {
+          eta = Math.ceil(distRemaining / 1000.0 / speed * 60);
+        } else if (distRemaining > 0) {
+          eta = Math.max(1, Math.ceil(distRemaining / 1000.0 / 25 * 60));
+        }
+
+        setDriverCoords({ latitude: lat, longitude: lng, speed, heading, accuracy });
+        setDriverDistanceMeters(distRemaining);
+        setDriverEtaMinutes(eta);
+        setDriverStreamMode(mode);
+
+        // Gửi tọa độ lên Backend Spring Boot
+        await telemetryService.streamLocation({
+          bookingId,
+          latitude: lat,
+          longitude: lng,
+          speed,
+          heading,
+          accuracy,
+          distanceRemainingMeters: distRemaining,
+        });
+
+        if (!isCancelled) {
+          timerId = setTimeout(streamCycle, nextIntervalMs);
+        }
+      } catch (err) {
+        console.warn('Lỗi stream GPS Thợ MUA:', err);
+        if (!isCancelled) {
+          timerId = setTimeout(streamCycle, 5000);
+        }
+      }
+    };
+
+    streamCycle();
+
+    return () => {
+      isCancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [currentStatus, bookingId, booking?.destinationLatitude, booking?.destinationLongitude]);
 
   useEffect(() => {
     loadBookingDetail();
@@ -503,6 +673,71 @@ export default function JobExecutionScreen() {
           <>
             {/* Step Progress Timeline */}
             <JobTimelineStep currentStatus={currentStatus} />
+
+            {/* LỘ TRÌNH GOONG MAPS TRỰC QUAN KHI ĐANG DI CHUYỂN */}
+            {currentStatus === 'ON_THE_WAY' && booking && (
+              <View style={styles.driverMapBox}>
+                <View style={styles.driverMapHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="navigate" size={16} color="#E11D48" />
+                    <Text style={styles.driverMapTitle}>Lộ Trình Tới Khách Hàng (Live GPS)</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.driverModeBadge,
+                      {
+                        backgroundColor:
+                          driverStreamMode === 'APPROACHING'
+                            ? '#ECFDF5'
+                            : driverStreamMode === 'STOPPED'
+                            ? '#FEF3C7'
+                            : '#F0F9FF',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.driverModeText,
+                        {
+                          color:
+                            driverStreamMode === 'APPROACHING'
+                              ? '#059669'
+                              : driverStreamMode === 'STOPPED'
+                              ? '#D97706'
+                              : '#0284C7',
+                        },
+                      ]}
+                    >
+                      {driverStreamMode === 'APPROACHING'
+                        ? 'SẮP TỚI (<300m • 3s)'
+                        : driverStreamMode === 'STOPPED'
+                        ? 'ĐANG DỪNG (20s)'
+                        : 'DI CHUYỂN (5s)'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ height: 320, width: '100%', borderRadius: 16, overflow: 'hidden', backgroundColor: '#E2E8F0' }}>
+                  <LiveTrackingMap
+                    customerCoords={{
+                      latitude: booking.destinationLatitude,
+                      longitude: booking.destinationLongitude,
+                      address: booking.destinationAddress,
+                    }}
+                    muaCoords={{
+                      latitude: driverCoords?.latitude || booking.destinationLatitude || 21.0285,
+                      longitude: driverCoords?.longitude || booking.destinationLongitude || 105.8542,
+                      heading: driverCoords?.heading || 0,
+                      speed: driverCoords?.speed || 0,
+                    }}
+                    etaMinutes={driverEtaMinutes}
+                    distanceRemainingMeters={driverDistanceMeters}
+                    muaName="Vị trí của bạn"
+                    streamMode={driverStreamMode}
+                  />
+                </View>
+              </View>
+            )}
 
             {/* Stopwatch Card if IN_PROGRESS */}
             {currentStatus === 'IN_PROGRESS' && (
@@ -1650,6 +1885,41 @@ const styles = StyleSheet.create({
   startTripNowBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  driverMapBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  driverMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    paddingBottom: 10,
+  },
+  driverMapTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  driverModeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  driverModeText: {
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.2,
   },

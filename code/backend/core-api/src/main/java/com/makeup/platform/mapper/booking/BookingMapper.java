@@ -5,6 +5,8 @@ import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
 import com.makeup.platform.dto.response.booking.BookingAcceptanceRes;
 import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
+import com.makeup.platform.dto.response.booking.CustomerBookingItemRes;
+import com.makeup.platform.dto.response.booking.FreelancerBookingItemRes;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
@@ -209,6 +211,118 @@ public class BookingMapper {
                 .depositAmount(entity.getDepositAmount())
                 .completionPhotoUrl(entity.getCompletionPhotoUrl())
                 .cancellationReason(entity.getCancellationReason())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    public FreelancerBookingItemRes toFreelancerBookingRes(BookingEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        String customerName = entity.getCustomer() != null ? entity.getCustomer().getFullName() : null;
+        String customerPhone = entity.getCustomer() != null ? entity.getCustomer().getPhoneNumber() : null;
+
+        String packageName = "Trang điểm";
+        String packageCoverUrl = null;
+        if (entity.getServicePackage() != null) {
+            packageName = entity.getServicePackage().getPackageName();
+        } else if (entity.getStyle() != null) {
+            packageName = entity.getStyle().getStyleName();
+        }
+
+        BigDecimal earnings = BigDecimal.ZERO;
+        if (entity.getServiceSubtotal() != null) {
+            BigDecimal platformFee = entity.getServiceSubtotal().multiply(BigDecimal.valueOf(0.1));
+            BigDecimal surcharge = entity.getSurchargeFee() != null ? entity.getSurchargeFee() : BigDecimal.ZERO;
+            BigDecimal distance = entity.getDistanceFee() != null ? entity.getDistanceFee() : BigDecimal.ZERO;
+            earnings = entity.getServiceSubtotal().subtract(platformFee).add(surcharge).add(distance);
+        } else if (entity.getTotalAmount() != null) {
+            earnings = entity.getTotalAmount();
+        }
+
+        return FreelancerBookingItemRes.builder()
+                .id(entity.getId())
+                .bookingCode(entity.getBookingCode())
+                .status(entity.getStatus() != null ? entity.getStatus().name() : null)
+                .bookingType(entity.getBookingType() != null ? entity.getBookingType().name() : null)
+                .customerName(customerName)
+                .customerPhone(customerPhone)
+                .packageName(packageName)
+                .packageCoverUrl(packageCoverUrl)
+                .destinationAddress(entity.getDestinationAddress())
+                .destinationLatitude(entity.getDestinationLatitude())
+                .destinationLongitude(entity.getDestinationLongitude())
+                .bookingDate(entity.getBookingDate())
+                .startTime(entity.getStartTime())
+                .totalAmount(entity.getTotalAmount())
+                .depositAmount(entity.getDepositAmount())
+                .earningsAmount(earnings)
+                .note(entity.getEmergencyReason())
+                .completionPhotoUrl(entity.getCompletionPhotoUrl())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    public CustomerBookingItemRes toCustomerBookingRes(BookingEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        Long muaId = null;
+        String muaName = null;
+        String muaAvatarUrl = null;
+        String muaPhoneNumber = null;
+
+        if (entity.getMua() != null) {
+            muaId = entity.getMua().getId();
+            if (entity.getMua().getUser() != null) {
+                muaName = entity.getMua().getUser().getFullName();
+                muaAvatarUrl = entity.getMua().getUser().getAvatarUrl();
+                muaPhoneNumber = entity.getMua().getUser().getPhoneNumber();
+            }
+        }
+
+        String packageName = "Trang điểm";
+        String packageCoverUrl = null;
+        if (entity.getServicePackage() != null) {
+            packageName = entity.getServicePackage().getPackageName();
+        } else if (entity.getStyle() != null) {
+            packageName = entity.getStyle().getStyleName();
+        }
+
+        LocalDateTime bookingTime = null;
+        if (entity.getBookingDate() != null && entity.getStartTime() != null) {
+            bookingTime = entity.getBookingDate().atTime(entity.getStartTime());
+        }
+
+        BigDecimal remainingAmount = BigDecimal.ZERO;
+        if (entity.getTotalAmount() != null) {
+            BigDecimal deposit = entity.getDepositAmount() != null ? entity.getDepositAmount() : BigDecimal.ZERO;
+            remainingAmount = entity.getTotalAmount().subtract(deposit);
+            if (remainingAmount.compareTo(BigDecimal.ZERO) < 0) {
+                remainingAmount = BigDecimal.ZERO;
+            }
+        }
+
+        return CustomerBookingItemRes.builder()
+                .id(entity.getId())
+                .bookingCode(entity.getBookingCode())
+                .muaId(muaId)
+                .muaName(muaName)
+                .muaAvatarUrl(muaAvatarUrl)
+                .muaPhoneNumber(muaPhoneNumber)
+                .packageName(packageName)
+                .packageCoverUrl(packageCoverUrl)
+                .bookingTime(bookingTime)
+                .destinationAddress(entity.getDestinationAddress())
+                .destinationLatitude(entity.getDestinationLatitude())
+                .destinationLongitude(entity.getDestinationLongitude())
+                .status(entity.getStatus() != null ? entity.getStatus().name() : null)
+                .totalAmount(entity.getTotalAmount())
+                .depositAmount(entity.getDepositAmount())
+                .remainingAmount(remainingAmount)
+                .note(entity.getEmergencyReason())
                 .createdAt(entity.getCreatedAt())
                 .build();
     }
