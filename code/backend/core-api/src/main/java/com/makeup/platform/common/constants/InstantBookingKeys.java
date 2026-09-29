@@ -11,4 +11,5 @@ public final class InstantBookingKeys {
     public static String expiration(Long bookingId) { return EXPIRATION_PREFIX + bookingId; }
     public static String timer(Long bookingId, Object muaId) { return OFFER_TIMER_PREFIX + bookingId + ":" + muaId; }
     public static String candidateLease(Object muaId) { return "mua:dispatch:locked:" + muaId; }
+    public static String meta(Long bookingId) { return "booking:dispatch:meta:" + bookingId; }
 }

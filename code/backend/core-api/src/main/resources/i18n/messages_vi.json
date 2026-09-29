@@ -304,6 +304,8 @@
     "booking_destination_address_size": "Địa chỉ điểm đến không được vượt quá 500 ký tự.",
     "booking_latitude_required": "Vĩ độ điểm đến không được để trống.",
     "booking_longitude_required": "Kinh độ điểm đến không được để trống.",
+    "master_category_required": "Vui lòng chọn danh mục dịch vụ.",
+    "radius_invalid": "Bán kính tìm kiếm phải từ 1.0 đến 30.0 km.",
     "commission_rate_required": "Tỷ lệ hoa hồng không được để trống.",
     "commission_rate_min": "Tỷ lệ hoa hồng tối thiểu là 0%.",
     "commission_rate_max": "Tỷ lệ hoa hồng tối đa là 100%.",
@@ -484,6 +486,22 @@
     "staff_application_content": "Thợ trang điểm {0} vừa nộp đơn xin gia nhập Studio qua mã mời {1}. Vui lòng xem xét phê duyệt.",
     "certificate_upload_title": "Chứng Chỉ Mới Cần Duyệt!",
     "certificate_upload_content": "Thợ trang điểm {0} vừa tải lên chứng chỉ '{1}' cần được Ban Quản Trị phê duyệt."
+  },
+  "maps": {
+    "reverse_geocode_success": "Lấy thông tin địa chỉ từ tọa độ thành công.",
+    "geocode_success": "Chuyển đổi địa chỉ thành tọa độ thành công.",
+    "autocomplete_success": "Gợi ý địa điểm thành công.",
+    "place_detail_success": "Lấy chi tiết địa điểm thành công."
+  },
+  "booking": {
+    "create_success": "Tạo đơn đặt lịch thành công!",
+    "cancel_success": "Hủy đơn đặt lịch thành công!",
+    "recent_addresses_fetch_success": "Lấy danh sách địa chỉ gần đây thành công.",
+    "reject_provider_success": "Đã từ chối thợ và chuyển tìm kiếm thợ khác.",
+    "deposit_success": "Xác nhận đặt cọc thành công!",
+    "not_found": "Không tìm thấy thông tin đơn đặt lịch.",
+    "unauthorized_transition": "Bạn không có quyền thay đổi trạng thái đơn đặt lịch này.",
+    "invalid_status": "Trạng thái đơn hàng không hợp lệ cho thao tác này."
   }
 }
 

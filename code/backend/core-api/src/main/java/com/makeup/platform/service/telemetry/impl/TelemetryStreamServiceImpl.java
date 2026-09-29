@@ -53,11 +53,13 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         log.info("Toggling availability for userId={}, isAvailable={}", userId, req.getIsAvailable());
 
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                        "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         if (Boolean.TRUE.equals(req.getIsAvailable())) {
             boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
-                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+                    .anyMatch(
+                            c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
             if (!hasVerifiedCert) {
                 log.warn("MUA {} attempted to go ONLINE without verified certificates", mua.getId());
                 throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
@@ -65,7 +67,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             }
 
             if (req.getLatitude() == null || req.getLongitude() == null) {
-                throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
+                throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID",
+                        HttpStatus.BAD_REQUEST);
             }
             validateCoordinates(req.getLatitude(), req.getLongitude());
 
@@ -82,6 +85,9 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             mua.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
             mua.setIsOnline(true);
             mua.setIsBusy(false);
+            mua.setLastKnownLat(BigDecimal.valueOf(req.getLatitude()));
+            mua.setLastKnownLng(BigDecimal.valueOf(req.getLongitude()));
+            mua.setLastKnownUpdatedAt(Instant.now());
             muaProfileRepository.save(mua);
 
             log.info("MUA {} is now AVAILABLE on Redis GEO", mua.getId());
@@ -110,7 +116,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         validateCoordinates(req.getLatitude(), req.getLongitude());
 
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                        "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         double speed = req.getSpeed() != null ? req.getSpeed() : 0.0;
         double heading = req.getHeading() != null ? req.getHeading() : 0.0;
@@ -214,7 +221,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             messagingTemplate.convertAndSend(topic, res);
             log.debug("Broadcasted live telemetry to topic {}", topic);
 
-            // 6. Dead-Reckoning Filter trước khi ghi xuống Database (Giảm > 85% I/O Disk Write)
+            // 6. Dead-Reckoning Filter trước khi ghi xuống Database (Giảm > 85% I/O Disk
+            // Write)
             checkAndTriggerDeadReckoningLog(mua.getId(), req);
         }
 
@@ -235,7 +243,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                 double prevLng = Double.parseDouble(parts[1]);
                 long prevEpochMillis = Long.parseLong(parts[2]);
 
-                double deltaDistance = GeoDistanceUtils.calculateDistanceMeters(prevLat, prevLng, req.getLatitude(), req.getLongitude());
+                double deltaDistance = GeoDistanceUtils.calculateDistanceMeters(prevLat, prevLng, req.getLatitude(),
+                        req.getLongitude());
                 long deltaSeconds = (now.toEpochMilli() - prevEpochMillis) / 1000;
 
                 if (deltaDistance >= TelemetryConstants.DEAD_RECKONING_DISTANCE_METERS
@@ -282,21 +291,31 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
     @Override
     public void recordHeartbeat(Long userId) {
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                        "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
         if (Boolean.TRUE.equals(mua.getIsOnline())) {
             redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
-            log.debug("Renewed heartbeat for online MUA {} (TTL={}s)", mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
+            Double lat = mua.getLastKnownLat() != null ? mua.getLastKnownLat().doubleValue()
+                    : (mua.getBaseAddressLat() != null ? mua.getBaseAddressLat().doubleValue() : null);
+            Double lng = mua.getLastKnownLng() != null ? mua.getLastKnownLng().doubleValue()
+                    : (mua.getBaseAddressLng() != null ? mua.getBaseAddressLng().doubleValue() : null);
+            if (lat != null && lng != null) {
+                redisGeoService.addActiveMua(mua.getId(), lat, lng);
+            }
+            log.debug("Renewed heartbeat for online MUA {} (TTL={}s)", mua.getId(),
+                    TelemetryConstants.HEARTBEAT_TTL_SECONDS);
         }
     }
 
     private void validateCoordinates(Double lat, Double lng) {
         if (lat == null || lng == null || lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
-            throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
+            throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID",
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
     private Integer calculateOptimalEta(Double distanceRemainingMeters, double speedKmh) {
-        if (distanceRemainingMeters == null || distanceRemainingMeters <= 0) {
+        if (distanceRemainingMeters == null || distanceRemainingMeters <= 25.0) {
             return 0;
         }
 

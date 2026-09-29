@@ -34,5 +34,7 @@ public class MuaProfileRes {
     private BigDecimal baseAddressLat;
     private BigDecimal baseAddressLng;
     private Boolean isSurgeEnabled;
+    private Boolean isOnline;
+    private String availabilityStatus;
     private LocalDateTime updatedAt;
 }
