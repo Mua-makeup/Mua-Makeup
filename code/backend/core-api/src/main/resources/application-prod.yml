@@ -20,7 +20,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         default_schema: public
         jdbc:
-          time_zone: UTC
+          time_zone: Asia/Ho_Chi_Minh
   data:
     redis:
       host: ${REDIS_HOST}

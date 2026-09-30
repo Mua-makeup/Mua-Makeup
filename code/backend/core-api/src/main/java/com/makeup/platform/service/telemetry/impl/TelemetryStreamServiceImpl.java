@@ -319,16 +319,16 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             return 0;
         }
 
-        double urbanBaselineSpeedKmh = 20.0;
-        double effectiveSpeedKmh;
+        // Tốc độ cơ sở chuẩn xe máy đô thị tại Việt Nam (25 km/h), đồng bộ 100% giữa API và App thợ
+        double urbanBaselineSpeedKmh = 25.0;
+        double effectiveSpeedKmh = urbanBaselineSpeedKmh;
 
-        if (speedKmh < TelemetryConstants.ADAPTIVE_STOPPED_SPEED_THRESHOLD_KMH) {
-            effectiveSpeedKmh = urbanBaselineSpeedKmh * 0.7; // ~14 km/h khi dừng đèn đỏ / kẹt xe
-        } else {
-            effectiveSpeedKmh = (urbanBaselineSpeedKmh * 0.6) + (speedKmh * 0.4);
+        // Nếu xe đang di chuyển thực tế >= 10 km/h, kết hợp tốc độ tức thời và cơ sở
+        if (speedKmh >= 10.0) {
+            effectiveSpeedKmh = (urbanBaselineSpeedKmh * 0.6) + (Math.min(speedKmh, 50.0) * 0.4);
         }
 
-        effectiveSpeedKmh = Math.max(10.0, Math.min(effectiveSpeedKmh, 50.0));
+        effectiveSpeedKmh = Math.max(15.0, Math.min(effectiveSpeedKmh, 50.0));
         double distanceKm = distanceRemainingMeters / 1000.0;
         int etaMinutes = (int) Math.ceil((distanceKm / effectiveSpeedKmh) * 60);
 

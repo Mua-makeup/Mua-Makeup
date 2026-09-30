@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { formatEtaText, formatDistanceText, computeHybridEta, getStreamModeBadge } from '@/utils/date';
 
 interface Props {
   customerCoords: { latitude: number; longitude: number; address?: string };
@@ -258,6 +259,10 @@ export const LiveTrackingMap: React.FC<Props> = ({
   const webViewRef = useRef<WebView>(null);
   const [isFollowing, setIsFollowing] = useState(true);
 
+  // Goong base route state để tính Hybrid ETA mượt mà (không nhảy số)
+  const [goongBaseDuration, setGoongBaseDuration] = useState<number | null>(null);
+  const [goongBaseDistance, setGoongBaseDistance] = useState<number | null>(null);
+
   // Lưu tọa độ ban đầu để khởi tạo HTML cố định duy nhất 1 lần (Không reload WebView)
   const initialHtml = useMemo(() => {
     return buildLeafletHtml(
@@ -308,7 +313,7 @@ export const LiveTrackingMap: React.FC<Props> = ({
     `);
   };
 
-  // Tính cự ly thực tế tức thời giữa tọa độ MUA và Khách hàng
+  // Tính cự ly tức thời giữa MUA và Khách hàng (ưu tiên từ Backend, fallback tính Haversine)
   const effectiveDistance = useMemo(() => {
     if (distanceRemainingMeters && distanceRemainingMeters > 0) {
       return distanceRemainingMeters;
@@ -341,40 +346,15 @@ export const LiveTrackingMap: React.FC<Props> = ({
 
   const isAtLocation = effectiveDistance > 0 && effectiveDistance <= 25;
 
-  const formattedDistance = isAtLocation
-    ? 'Tại điểm hẹn (< 25 m)'
-    : effectiveDistance < 1000
-    ? `${Math.round(effectiveDistance)} m`
-    : `${(effectiveDistance / 1000).toFixed(1)} km`;
+  // Hybrid ETA: Goong route ratio → fallback Backend etaMinutes (không nhảy số)
+  const hybridEta = useMemo(
+    () => computeHybridEta(goongBaseDuration, goongBaseDistance, effectiveDistance, etaMinutes ?? null),
+    [goongBaseDuration, goongBaseDistance, effectiveDistance, etaMinutes]
+  );
 
-  const getEtaText = () => {
-    if (isAtLocation) {
-      return 'Đã đến nơi';
-    }
-    if (etaMinutes !== undefined && etaMinutes !== null && etaMinutes > 0) {
-      return `~${etaMinutes} phút`;
-    }
-    if (effectiveDistance < 300) {
-      return '~1 - 2 phút';
-    }
-    const estimated = Math.max(1, Math.ceil((effectiveDistance / 1000.0) / 25 * 60));
-    return `~${estimated} phút`;
-  };
-
-  const getStatusBadge = () => {
-    if (isAtLocation) {
-      return { text: 'ĐÃ ĐẾN NƠI', color: '#10B981', bg: 'rgba(16, 185, 129, 0.2)', icon: 'checkmark-circle' };
-    }
-    if (streamMode === 'APPROACHING' || effectiveDistance < 300) {
-      return { text: 'SẮP TỚI NƠI', color: '#10B981', bg: 'rgba(16, 185, 129, 0.2)', icon: 'navigate-circle' };
-    }
-    if (streamMode === 'STOPPED' || (muaCoords.speed !== undefined && muaCoords.speed < 2.5)) {
-      return { text: 'ĐANG DỪNG', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.2)', icon: 'pause-circle' };
-    }
-    return { text: 'ĐANG DI CHUYỂN', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.2)', icon: 'speedometer' };
-  };
-
-  const statusBadge = getStatusBadge();
+  const etaDisplayText = formatEtaText(hybridEta, effectiveDistance);
+  const formattedDistance = formatDistanceText(effectiveDistance);
+  const statusBadge = getStreamModeBadge(streamMode, isAtLocation);
   const displaySpeed = muaCoords.speed && muaCoords.speed >= 2.5 ? Math.round(muaCoords.speed) : 0;
 
   // Memoize WebView source object reference để react-native-webview tuyệt đối KHÔNG bao giờ reload lại HTML khi parent re-render
@@ -419,11 +399,11 @@ export const LiveTrackingMap: React.FC<Props> = ({
           <Ionicons name="flash" size={16} color="#FFFFFF" />
         </View>
         <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={styles.etaTitle}>
-              Dự kiến đến sau: <Text style={styles.etaHighlight}>{getEtaText()}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <Text style={styles.etaTitle} numberOfLines={2}>
+              Thời gian dự kiến còn lại:{'\n'}<Text style={[styles.etaHighlight, isAtLocation && { color: '#4ADE80' }]}>{etaDisplayText}</Text>
             </Text>
-            <View style={[styles.statusBadgePill, { backgroundColor: statusBadge.bg }]}>
+            <View style={[styles.statusBadgePill, { backgroundColor: statusBadge.bg, borderColor: statusBadge.color, borderWidth: 0.8 }]}>
               <Text style={[styles.statusBadgeText, { color: statusBadge.color }]}>{statusBadge.text}</Text>
             </View>
           </View>

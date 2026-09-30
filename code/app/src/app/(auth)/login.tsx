@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandLogo } from '@/components/auth/BrandLogo';
-import { QuickTestAccounts } from '@/components/auth/QuickTestAccounts';
 import { BaseButton } from '@/components/base/BaseButton';
 import { BaseInput } from '@/components/base/BaseInput';
 import { BrandColors } from '@/constants/theme';
@@ -46,12 +45,6 @@ export default function LoginScreen() {
       const parsed = parseApiError(err);
       setErrorMessage(parsed.message);
     }
-  };
-
-  const handleSelectQuickAccount = (phone: string, roleName: string) => {
-    setIdentifier(phone);
-    setPassword('Password@123');
-    setErrorMessage('');
   };
 
   return (
@@ -125,9 +118,6 @@ export default function LoginScreen() {
                 <Text style={styles.registerLink}>Đăng ký ngay</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Quick Test Accounts */}
-            <QuickTestAccounts onSelectAccount={handleSelectQuickAccount} />
           </View>
 
           {/* Back to Home Link */}

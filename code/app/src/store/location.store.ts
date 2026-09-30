@@ -29,7 +29,23 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => true);
+      if (!servicesEnabled) {
+        set({
+          isLoading: false,
+          currentAddress: 'Chưa bật định vị GPS',
+          shortAddress: 'GPS tắt',
+          error: 'LOCATION_SERVICES_DISABLED',
+        });
+        return;
+      }
+
+      let { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync();
+        status = req.status;
+      }
+
       if (status !== 'granted') {
         set({
           isLoading: false,
@@ -40,9 +56,18 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      let location = null;
+      try {
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+      } catch {
+        location = await Location.getLastKnownPositionAsync();
+      }
+
+      if (!location?.coords) {
+        throw new Error('Không thể thu nhận tọa độ GPS.');
+      }
 
       const { latitude, longitude } = location.coords;
 

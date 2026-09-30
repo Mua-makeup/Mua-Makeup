@@ -27,4 +27,6 @@ public interface CustomerInstantBookingService {
     boolean rejectMatchedProvider(Long bookingId, Long customerUserId, String reason);
 
     boolean confirmDeposit(Long bookingId, Long customerUserId, List<String> addOnNames, java.math.BigDecimal addOnTotal);
+
+    java.util.Map<String, Object> getPendingOfferForMua(Long muaUserId);
 }

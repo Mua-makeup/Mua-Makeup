@@ -61,4 +61,12 @@ public class BookingAcceptanceController extends BaseController {
         result.put("nextCandidateDispatched", nextDispatched);
         return ok(result, "booking.skip_success");
     }
+
+    @GetMapping("/instant/pending-offer")
+    @PreAuthorize("hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getPendingOffer() {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        Map<String, Object> res = customerInstantBookingService.getPendingOfferForMua(userId);
+        return ok(res, "booking.pending_offer_checked");
+    }
 }

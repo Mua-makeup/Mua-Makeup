@@ -30,5 +30,6 @@ public class CustomerBookingItemRes {
     private BigDecimal depositAmount;
     private BigDecimal remainingAmount;
     private String note;
+    private Boolean isDepositPaid;
     private LocalDateTime createdAt;
 }

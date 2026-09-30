@@ -24,6 +24,7 @@ import { telemetryService, LiveTrackingRes } from '@/services/telemetry.service'
 import { websocketService } from '@/services/websocket.service';
 import { BookingProgressStepper } from '@/components/booking/BookingProgressStepper';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
+import { computeHybridEta } from '@/utils/date';
 
 const CUSTOMER_CANCEL_REASONS = [
   'Bận việc đột xuất / Không thể tiếp tục',
@@ -63,9 +64,13 @@ export default function BookingLiveTrackingScreen() {
     speed: 28,
   });
 
-  const [etaMinutes, setEtaMinutes] = useState(12);
-  const [distanceRemainingMeters, setDistanceRemainingMeters] = useState(2100);
+  const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const [distanceRemainingMeters, setDistanceRemainingMeters] = useState<number | null>(null);
   const [streamMode, setStreamMode] = useState<'APPROACHING' | 'MOVING' | 'STOPPED' | undefined>(undefined);
+
+  // Goong base route state cho Hybrid ETA calculation
+  const [goongBaseDuration, setGoongBaseDuration] = useState<number | null>(null);
+  const [goongBaseDistance, setGoongBaseDistance] = useState<number | null>(null);
 
   // Status Transition Pop-up Modal State
   const [statusPopup, setStatusPopup] = useState<{
@@ -118,6 +123,14 @@ export default function BookingLiveTrackingScreen() {
         const detailRes = await bookingService.getBookingStatus(bookingId).catch(() => null);
         if (detailRes && isMounted) {
           setBookingDetail(detailRes);
+
+          // Nếu thợ đã nhận đơn (ACCEPTED) nhưng khách chưa thanh toán cọc 30%:
+          // Tự động chuyển hướng khách sang màn hình kiểm tra thợ & thanh toán cọc
+          if (detailRes.status === 'ACCEPTED' && !detailRes.isDepositPaid) {
+            router.replace(`/booking/instant-matched/${bookingId}` as any);
+            return;
+          }
+
           if (detailRes.status) {
             setStatus(detailRes.status);
             if (detailRes.status === 'CANCELLED') {
@@ -224,8 +237,18 @@ export default function BookingLiveTrackingScreen() {
               }));
             }
             if (msg.streamMode) setStreamMode(msg.streamMode);
-            if (msg.etaMinutes !== undefined) setEtaMinutes(msg.etaMinutes);
-            if (msg.distanceRemainingMeters !== undefined) setDistanceRemainingMeters(msg.distanceRemainingMeters);
+
+            // Hybrid ETA: ưu tiên Goong base route ratio, fallback payload.etaMinutes từ Backend
+            const newDist = msg.distanceRemainingMeters !== undefined
+              ? Number(msg.distanceRemainingMeters)
+              : null;
+            if (newDist !== null) setDistanceRemainingMeters(newDist);
+
+            const backendEta = msg.etaMinutes !== undefined ? Number(msg.etaMinutes) : null;
+            setEtaMinutes((prev) => {
+              const hybrid = computeHybridEta(goongBaseDuration, goongBaseDistance, newDist, backendEta);
+              return hybrid !== null ? hybrid : backendEta ?? prev;
+            });
           }
         });
 
@@ -427,8 +450,8 @@ export default function BookingLiveTrackingScreen() {
             <LiveTrackingMap
               customerCoords={customerCoords}
               muaCoords={muaCoords}
-              etaMinutes={etaMinutes}
-              distanceRemainingMeters={distanceRemainingMeters}
+              etaMinutes={etaMinutes ?? undefined}
+              distanceRemainingMeters={distanceRemainingMeters ?? undefined}
               muaName={muaName}
               streamMode={streamMode}
             />
@@ -460,8 +483,8 @@ export default function BookingLiveTrackingScreen() {
             {/* ACTION BUTTONS */}
             <View style={styles.actionBtnRow}>
               <TouchableOpacity style={styles.callBtn} onPress={handleCallMua} activeOpacity={0.85}>
-                <Ionicons name="call" size={18} color="#FFFFFF" />
-                <Text style={styles.callBtnText}>Gọi Điện Cho Thợ</Text>
+                <Ionicons name="call" size={16} color="#FFFFFF" />
+                <Text style={styles.callBtnText} numberOfLines={1}>Gọi Cho Thợ</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -469,17 +492,17 @@ export default function BookingLiveTrackingScreen() {
                 onPress={handleCustomerCancelTrip}
                 activeOpacity={0.8}
               >
-                <Ionicons name="close-circle-outline" size={18} color="#E11D48" />
-                <Text style={styles.cancelTripBtnText}>Hủy Đơn</Text>
+                <Ionicons name="close-circle-outline" size={16} color="#E11D48" />
+                <Text style={styles.cancelTripBtnText} numberOfLines={1}>Hủy Đơn</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.detailBtn}
-                onPress={() => router.push('/bookings')}
+                onPress={() => router.push(`/booking/detail/${bookingId}` as any)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="document-text-outline" size={18} color="#334155" />
-                <Text style={styles.detailBtnText}>Chi Tiết</Text>
+                <Ionicons name="document-text-outline" size={16} color="#334155" />
+                <Text style={styles.detailBtnText} numberOfLines={1}>Chi Tiết</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1083,17 +1106,18 @@ const styles = StyleSheet.create({
   },
   actionBtnRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   callBtn: {
-    flex: 1.5,
+    flex: 1.35,
     backgroundColor: '#10B981',
     borderRadius: 14,
     paddingVertical: 12,
+    paddingHorizontal: 6,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
@@ -1102,7 +1126,7 @@ const styles = StyleSheet.create({
   },
   callBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   cancelTripBtn: {

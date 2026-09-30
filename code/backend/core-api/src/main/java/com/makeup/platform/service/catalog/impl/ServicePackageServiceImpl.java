@@ -195,7 +195,9 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         } else {
             page = packageRepository.findByMuaId(owner.getMua().getId(), pageable);
         }
-        return PageResponse.from(page.map(packageMapper::toSummaryRes));
+        // Lấy ảnh bìa (showcase đầu tiên) cho từng gói theo batch query
+        Map<Long, String> coverMap = getCoverImageMap(page.getContent());
+        return PageResponse.from(page.map(e -> packageMapper.toSummaryRes(e, coverMap.get(e.getId()))));
     }
 
     @Override

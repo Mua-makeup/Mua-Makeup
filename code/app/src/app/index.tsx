@@ -25,6 +25,7 @@ import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { hasSeenOnboarding } from '@/utils/storage';
+import { useAccountModalStore } from '@/store/account-modal.store';
 import * as Haptics from 'expo-haptics';
 
 interface MuaArtist {
@@ -82,7 +83,6 @@ export default function HomeScreen() {
   const { currentAddress, fetchCurrentLocation, isLoading: isLocating } = useLocationStore();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isReadyToWork, setIsReadyToWork] = useState(true);
-  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
@@ -164,7 +164,7 @@ export default function HomeScreen() {
         text: 'Đăng Xuất',
         style: 'destructive',
         onPress: async () => {
-          setShowProfileModal(false);
+          useAccountModalStore.getState().closeAccountModal();
           await logout();
         },
       },
@@ -206,7 +206,7 @@ export default function HomeScreen() {
           {isAuthenticated ? (
             <TouchableOpacity
               style={styles.avatarButton}
-              onPress={() => setShowProfileModal(true)}
+              onPress={() => useAccountModalStore.getState().openAccountModal()}
               activeOpacity={0.8}>
               <View style={styles.avatarBox}>
                 <Text style={styles.avatarText}>
@@ -381,16 +381,28 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={styles.activeTripBanner}
                 activeOpacity={0.9}
-                onPress={() => router.push(`/booking/tracking/${activeCustomerTrip.id}` as any)}
+                onPress={() => {
+                  if (activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid) {
+                    router.push(`/booking/instant-matched/${activeCustomerTrip.id}` as any);
+                  } else {
+                    router.push(`/booking/tracking/${activeCustomerTrip.id}` as any);
+                  }
+                }}
               >
-                <View style={styles.activeTripIconBox}>
-                  <Ionicons name="navigate" size={20} color="#FFFFFF" />
+                <View style={[styles.activeTripIconBox, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' }]}>
+                  <Ionicons
+                    name={activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid ? 'card' : 'navigate'}
+                    size={20}
+                    color="#FFFFFF"
+                  />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={styles.activePulseDot} />
-                    <Text style={styles.activeTripBadge}>
-                      {activeCustomerTrip.status === 'ON_THE_WAY'
+                    <View style={[styles.activePulseDot, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#F59E0B' }]} />
+                    <Text style={[styles.activeTripBadge, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { color: '#D97706' }]}>
+                      {activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
+                        ? 'THỢ ĐÃ NHẬN • CHỜ BẠN ĐẶT CỌC'
+                        : activeCustomerTrip.status === 'ON_THE_WAY'
                         ? 'THỢ ĐANG TRÊN ĐƯỜNG ĐẾN'
                         : activeCustomerTrip.status === 'ARRIVED'
                         ? 'THỢ ĐÃ TỚI ĐIỂM HẸN'
@@ -403,11 +415,15 @@ export default function HomeScreen() {
                     {activeCustomerTrip.muaName || 'Chuyên viên make-up'} • Mã {activeCustomerTrip.bookingCode}
                   </Text>
                   <Text style={styles.activeTripSub} numberOfLines={1}>
-                    {activeCustomerTrip.destinationAddress || 'Chạm để theo dõi trực tiếp vị trí Live GPS'}
+                    {activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
+                      ? 'Chạm để kiểm tra thợ & thanh toán cọc giữ chỗ 30%'
+                      : activeCustomerTrip.destinationAddress || 'Chạm để theo dõi trực tiếp vị trí Live GPS'}
                   </Text>
                 </View>
-                <View style={styles.activeTripBtn}>
-                  <Text style={styles.activeTripBtnText}>Theo Dõi</Text>
+                <View style={[styles.activeTripBtn, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' }]}>
+                  <Text style={styles.activeTripBtnText}>
+                    {activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid ? 'Đặt Cọc' : 'Theo Dõi'}
+                  </Text>
                   <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
@@ -614,148 +630,7 @@ export default function HomeScreen() {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Profile Modal */}
-      <Modal visible={showProfileModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
 
-            <View style={styles.modalHeader}>
-              <View style={styles.modalAvatarBox}>
-                <Text style={styles.modalAvatarText}>
-                  {userInfo?.fullName ? userInfo.fullName.charAt(0).toUpperCase() : 'U'}
-                </Text>
-              </View>
-              <Text style={styles.modalUserName}>{userInfo?.fullName || 'Người Dùng'}</Text>
-              <Text style={styles.modalUserPhone}>{userInfo?.phoneNumber || userInfo?.email}</Text>
-              <View style={styles.modalRolePill}>
-                <Text style={styles.modalRolePillText}>
-                  {isMUA
-                    ? 'Thợ Make-up Tự Do'
-                    : isAgencyStaff
-                      ? 'Nhân Viên Agency'
-                      : 'Khách Hàng Thân Thiết'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.modalDivider} />
-
-            {/* 1. Thông Tin Cá Nhân (Chung cho TẤT CẢ mọi Role) */}
-            <TouchableOpacity
-              style={styles.modalActionRow}
-              onPress={() => {
-                setShowProfileModal(false);
-                router.push('/profile/edit');
-              }}
-              activeOpacity={0.7}>
-              <Ionicons name="person-circle-outline" size={22} color={BrandColors.slateHeading} />
-              <Text style={styles.modalActionText}>Thông Tin Cá Nhân</Text>
-              <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
-            </TouchableOpacity>
-
-            {/* 2. Hồ Sơ Nghề Nghiệp Thợ MUA (Chỉ dành cho MUA) */}
-            {isMUA && (
-              <TouchableOpacity
-                style={styles.modalActionRow}
-                onPress={() => {
-                  setShowProfileModal(false);
-                  router.push('/profile/mua-profile');
-                }}
-                activeOpacity={0.7}>
-                <Ionicons name="color-wand-outline" size={22} color={BrandColors.primary} />
-                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
-                  Hồ Sơ Nghề Nghiệp MUA
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
-              </TouchableOpacity>
-            )}
-
-            {/* 2.1. Quản Lý Gói Dịch Vụ Cá Nhân (Chỉ dành cho Freelance MUA) */}
-            {isMUA && (
-              <TouchableOpacity
-                style={styles.modalActionRow}
-                onPress={() => {
-                  setShowProfileModal(false);
-                  router.push('/mua/packages' as any);
-                }}
-                activeOpacity={0.7}>
-                <Ionicons name="briefcase-outline" size={22} color={BrandColors.primary} />
-                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
-                  Quản Lý Gói Dịch Vụ Của Tôi
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
-              </TouchableOpacity>
-            )}
-
-            {/* 3. Trang Cá Nhân Công Khai (Chỉ dành cho MUA) */}
-            {isMUA && (
-              <TouchableOpacity
-                style={styles.modalActionRow}
-                onPress={() => {
-                  setShowProfileModal(false);
-                  router.push({
-                    pathname: '/mua-detail/[id]',
-                    params: { id: userInfo?.muaId || 4 },
-                  });
-                }}
-                activeOpacity={0.7}>
-                <Ionicons name="globe-outline" size={22} color={BrandColors.slateHeading} />
-                <Text style={styles.modalActionText}>Trang Cá Nhân Công Khai</Text>
-                <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
-              </TouchableOpacity>
-            )}
-
-            {/* 4. Hồ Sơ Nhân Sự Studio (Chỉ dành cho Agency Staff) */}
-            {isAgencyStaff && (
-              <TouchableOpacity
-                style={styles.modalActionRow}
-                onPress={() => {
-                  setShowProfileModal(false);
-                  router.push('/profile/staff-profile');
-                }}
-                activeOpacity={0.7}>
-                <Ionicons name="business-outline" size={22} color={BrandColors.primary} />
-                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
-                  Hồ Sơ Nhân Sự Studio
-                </Text>
-                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={styles.modalActionRow}
-              onPress={() => {
-                setShowProfileModal(false);
-                Alert.alert('Ví Tiền', 'Tính năng quản lý ví & cọc Escrow.');
-              }}
-              activeOpacity={0.7}>
-              <Ionicons name="wallet-outline" size={22} color={BrandColors.slateHeading} />
-              <Text style={styles.modalActionText}>Ví Tiền & Điểm Thưởng</Text>
-              <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
-            </TouchableOpacity>
-
-            <View style={styles.modalDivider} />
-
-            <TouchableOpacity
-              style={[styles.modalActionRow, { marginBottom: 12 }]}
-              onPress={handleLogout}
-              activeOpacity={0.7}>
-              <Ionicons name="log-out-outline" size={22} color={BrandColors.danger} />
-              <Text style={[styles.modalActionText, { color: BrandColors.danger }]}>
-                Đăng Xuất Tài Khoản
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.closeModalBtn}
-              onPress={() => setShowProfileModal(false)}
-              activeOpacity={0.8}>
-              <Text style={styles.closeModalBtnText}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* MODAL RADAR TÌM THỢ KHẨN CẤP 30S (SPRINT M-2) */}
       <InstantRadarModal
@@ -766,11 +641,8 @@ export default function HomeScreen() {
       {/* Bottom Navigation Bar */}
       <AppBottomNavBar
         activeTab="home"
-        onAccountPress={() => setShowProfileModal(true)}
+        onAccountPress={() => useAccountModalStore.getState().openAccountModal()}
       />
-
-      {/* HUD Nhận Ca Khẩn Cấp Toàn Cục Cho Thợ MUA (Pure Overlay - Không Bị iOS Chặn) */}
-      <CountdownAcceptModal />
     </SafeAreaView>
   );
 }

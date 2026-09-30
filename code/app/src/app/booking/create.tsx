@@ -23,6 +23,7 @@ import { PackageItemPicker } from '@/components/booking/PackageItemPicker';
 import { DestinationAddressPicker } from '@/components/booking/DestinationAddressPicker';
 import { InvoiceSummaryCard } from '@/components/booking/InvoiceSummaryCard';
 import { useLocationStore } from '@/store/location.store';
+import { customerAddressService } from '@/services/customer-address.service';
 import { createBookingSchema } from '@/schemas/booking-create.schema';
 import { parseApiError } from '@/utils/error';
 
@@ -78,9 +79,21 @@ export default function CreateBookingScreen() {
         // Đồng bộ store
         setPackageAndProvider(targetPackageId, targetMuaId, providerType);
 
-        // Tự động điền vị trí GPS hiện tại của khách nếu có
-        if ((!destinationLatitude || destinationLatitude === 0) && currentLat && currentLng) {
-          setDestination(currentAddress, currentLat, currentLng);
+        // Tự động điền địa chỉ vị trí GPS hiện tại của khách hàng
+        if (!destinationLatitude || destinationLatitude === 0) {
+          if (currentLat && currentLng && currentAddress && !currentAddress.startsWith('Đang') && !currentAddress.startsWith('Chưa')) {
+            setDestination(currentAddress, currentLat, currentLng);
+          } else {
+            try {
+              const savedList = await customerAddressService.getSavedAddresses();
+              const defaultAddr = savedList.find((a) => a.isDefault) || (savedList.length > 0 ? savedList[0] : null);
+              if (defaultAddr) {
+                setDestination(defaultAddr.addressLine, defaultAddr.latitude, defaultAddr.longitude);
+              }
+            } catch {
+              // Bỏ qua lỗi sổ địa chỉ
+            }
+          }
         }
       } catch (err: any) {
         Alert.alert('Lỗi Tải Dữ Liệu', err.message || 'Không thể tải thông tin gói dịch vụ.');

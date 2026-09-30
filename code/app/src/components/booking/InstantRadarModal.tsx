@@ -26,6 +26,8 @@ import { useLocationStore } from '@/store/location.store';
 import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
 import { InstantCountdownTimer } from './InstantCountdownTimer';
+import { customerAddressService, CustomerAddressItem } from '@/services/customer-address.service';
+import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 
 interface Props {
   visible: boolean;
@@ -48,6 +50,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [addressNote, setAddressNote] = useState('');
+  const [isSavedAddressModalVisible, setIsSavedAddressModalVisible] = useState(false);
 
   // Gợi ý địa điểm Goong Maps Autocomplete
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -172,37 +175,85 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
     }
   };
 
-  // Tải tọa độ GPS và quét thợ thật quanh vị trí
+  // Tải tọa độ GPS hoặc ưu tiên địa chỉ mặc định đã lưu của khách hàng
   useEffect(() => {
     if (visible) {
-      if (currentAddress && currentAddress !== 'Đang xác định vị trí...' && currentAddress !== 'Chưa cấp quyền vị trí') {
-        setAddress(currentAddress);
-      }
-
-      if (storeLat && storeLng) {
-        const cur = { latitude: storeLat, longitude: storeLng };
-        setCoords(cur);
-        fetchNearbyProviders(cur.latitude, cur.longitude);
-      } else {
-        refreshLocation();
-      }
+      loadInitialAddressAndProviders();
     } else {
       clearAllTimers();
       setStep('IDLE');
       setSelectedProvider(null);
     }
-  }, [visible, currentAddress, storeLat, storeLng]);
+  }, [visible]);
+
+  const loadInitialAddressAndProviders = async () => {
+    try {
+      // 1. Thử lấy địa chỉ mặc định từ Sổ địa chỉ khách hàng
+      const savedAddresses = await customerAddressService.getSavedAddresses();
+      if (Array.isArray(savedAddresses) && savedAddresses.length > 0) {
+        const defaultAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+        if (defaultAddr && defaultAddr.latitude && defaultAddr.longitude) {
+          setAddress(defaultAddr.addressLine);
+          const cur = { latitude: defaultAddr.latitude, longitude: defaultAddr.longitude };
+          setCoords(cur);
+          fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius);
+          return;
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi, tiếp tục fallback GPS
+    }
+
+    // 2. Fallback sang GPS thiết bị
+    if (currentAddress && currentAddress !== 'Đang xác định vị trí...' && currentAddress !== 'Chưa cấp quyền vị trí') {
+      setAddress(currentAddress);
+    }
+
+    if (storeLat && storeLng) {
+      const cur = { latitude: storeLat, longitude: storeLng };
+      setCoords(cur);
+      fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius);
+    } else {
+      refreshLocation();
+    }
+  };
 
   const refreshLocation = async () => {
     try {
       setIsLocating(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => true);
+      if (!servicesEnabled) {
+        Alert.alert('GPS Chưa Bật', 'Vui lòng bật dịch vụ định vị GPS trong cài đặt thiết bị để tìm thợ gần bạn.');
+        return;
+      }
+
+      let { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        const req = await Location.requestForegroundPermissionsAsync();
+        status = req.status;
+      }
+
       if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        const cur = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-        setCoords(cur);
-        await fetchCurrentLocation();
-        await fetchNearbyProviders(cur.latitude, cur.longitude);
+        let loc = null;
+        try {
+          loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        } catch {
+          loc = await Location.getLastKnownPositionAsync();
+        }
+
+        if (loc?.coords) {
+          const cur = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setCoords(cur);
+          // Cập nhật ngay địa chỉ văn bản từ GPS thực tế
+          const geoRes = await mapsService.reverseGeocode(cur.latitude, cur.longitude);
+          if (geoRes?.formattedAddress) {
+            setAddress(geoRes.formattedAddress);
+          }
+          await fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } else {
+        Alert.alert('Quyền Vị Trí', 'Vui lòng cấp quyền truy cập vị trí để tự động định vị.');
       }
     } catch (e) {
       console.warn('Không thể định vị GPS khách hàng:', e);
@@ -396,7 +447,11 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
                       b.status === 'IN_PROGRESS'
                   );
                   if (active) {
-                    router.push(`/booking/tracking/${active.id}` as any);
+                    if (active.status === 'ACCEPTED' && !active.isDepositPaid) {
+                      router.push(`/booking/instant-matched/${active.id}` as any);
+                    } else {
+                      router.push(`/booking/tracking/${active.id}` as any);
+                    }
                   } else {
                     router.push('/bookings' as any);
                   }
@@ -612,20 +667,37 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
               {/* 3. ĐỊA CHỈ TIẾP ĐÓN */}
               <View style={styles.addressHeaderRow}>
                 <Text style={styles.sectionHeading}>3. Địa Chỉ Trang Điểm Tận Nơi:</Text>
-                <TouchableOpacity
-                  style={styles.detectBtn}
-                  onPress={refreshLocation}
-                  disabled={isLocating}
-                >
-                  {isLocating ? (
-                    <ActivityIndicator size="small" color="#2563EB" />
-                  ) : (
-                    <>
-                      <Ionicons name="locate" size={13} color="#2563EB" />
-                      <Text style={styles.detectBtnText}>Lấy GPS</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                <View style={styles.addressActionBtnRow}>
+                  {/* Nút 1: Mở Sổ Địa Chỉ Đã Lưu */}
+                  <TouchableOpacity
+                    style={styles.addressBookBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setIsSavedAddressModalVisible(true);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="bookmarks" size={13} color="#7C3AED" />
+                    <Text style={styles.addressBookBtnText}>Sổ địa chỉ</Text>
+                  </TouchableOpacity>
+
+                  {/* Nút 2: Lấy GPS vị trí hiện tại */}
+                  <TouchableOpacity
+                    style={styles.detectBtn}
+                    onPress={refreshLocation}
+                    disabled={isLocating}
+                    activeOpacity={0.75}
+                  >
+                    {isLocating ? (
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    ) : (
+                      <>
+                        <Ionicons name="locate" size={13} color="#2563EB" />
+                        <Text style={styles.detectBtnText}>GPS</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={styles.addressInputBox}>
@@ -845,6 +917,20 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* SỔ ĐỊA CHỈ KHÁCH HÀNG (TÍCH HỢP TỪ PROFILE ĐÃ LƯU) */}
+      <SavedAddressModal
+        visible={isSavedAddressModalVisible}
+        onClose={() => setIsSavedAddressModalVisible(false)}
+        onSelectAddress={(selected) => {
+          setAddress(selected.addressLine);
+          const newCoords = { latitude: selected.latitude, longitude: selected.longitude };
+          setCoords(newCoords);
+          fetchNearbyProviders(selected.latitude, selected.longitude, searchRadius);
+          setIsSavedAddressModalVisible(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }}
+      />
     </Modal>
   );
 };
@@ -1101,11 +1187,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
+  addressActionBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addressBookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  addressBookBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
   detectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,

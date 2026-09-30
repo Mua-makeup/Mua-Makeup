@@ -1,7 +1,7 @@
 import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, AppState, AppStateStatus } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { useAuthStore } from '@/store/auth.store';
@@ -10,6 +10,8 @@ SplashScreen.preventAutoHideAsync();
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
+import { AccountModal } from '@/components/common/AccountModal';
+import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
 import { setupAlertPolyfill } from '@/store/popup.store';
 import { useWorkstationStore } from '@/store/workstation.store';
 
@@ -35,6 +37,25 @@ export default function RootLayout() {
       .finally(() => {
         SplashScreen.hideAsync();
       });
+
+    // Lắng nghe khi app quay lại từ nền (Background -> Active Foreground)
+    const appStateSub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        const state = useAuthStore.getState();
+        const isMuaOrStaff =
+          state.userInfo?.roles?.some((r) => r === 'ROLE_FREELANCE_MUA' || r === 'ROLE_AGENCY_STAFF') ||
+          Boolean(state.userInfo?.muaId);
+
+        if (state.isAuthenticated && isMuaOrStaff) {
+          console.log('[_layout] App đã active, kiểm tra ngay ca khẩn cấp đang chờ...');
+          useWorkstationStore.getState().checkPendingOffer();
+        }
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+    };
   }, [initializeAuth]);
 
   return (
@@ -58,9 +79,16 @@ export default function RootLayout() {
           <Stack.Screen name="mua/packages/[id]/add-showcase" options={{ presentation: 'card' }} />
           <Stack.Screen name="mua/workstation" options={{ presentation: 'card' }} />
           <Stack.Screen name="job-execution/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="booking/detail/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="booking/tracking/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="booking/instant-matched/[id]" options={{ presentation: 'card' }} />
         </Stack>
         {/* Modal Popup toàn cục hiển thị đẹp mắt trên cả Web Laptop & Điện thoại */}
         <GlobalPopupModal />
+        {/* Modal Tài Khoản toàn cục mở tức thì trên mọi màn hình */}
+        <AccountModal />
+        {/* Modal Ca Khẩn Cấp 30s Toàn Cục (Hiện ngay trên mọi màn hình khi mở app) */}
+        <CountdownAcceptModal />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

@@ -305,6 +305,17 @@ public class BookingMapper {
             }
         }
 
+        boolean isDepositPaid = false;
+        if (entity.getStatus() == BookingStatus.ACCEPTED) {
+            isDepositPaid = entity.getDepositExpiredAt() == null;
+        } else if (entity.getStatus() == BookingStatus.ON_THE_WAY
+                || entity.getStatus() == BookingStatus.ARRIVED
+                || entity.getStatus() == BookingStatus.IN_PROGRESS
+                || entity.getStatus() == BookingStatus.COMPLETED
+                || entity.getStatus() == BookingStatus.PAID_OUT) {
+            isDepositPaid = true;
+        }
+
         return CustomerBookingItemRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -323,6 +334,7 @@ public class BookingMapper {
                 .depositAmount(entity.getDepositAmount())
                 .remainingAmount(remainingAmount)
                 .note(entity.getEmergencyReason())
+                .isDepositPaid(isDepositPaid)
                 .createdAt(entity.getCreatedAt())
                 .build();
     }

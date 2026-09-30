@@ -11,6 +11,7 @@ import {
 } from '@/services/pricing.service';
 import { PreviewInvoicePayload } from '@/schemas/pricing-preview.schema';
 import { CreateBookingFormValues } from '@/schemas/booking-create.schema';
+import { getTodayVN } from '@/utils/date';
 
 interface BookingStoreState {
   // Form State
@@ -61,7 +62,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   packageId: null,
   providerId: null,
   providerType: 'FREELANCER',
-  selectedDate: new Date().toISOString().split('T')[0],
+  selectedDate: getTodayVN(),
   selectedTimeSlot: '09:00',
   destinationAddress: '',
   destinationLatitude: 0,
@@ -241,6 +242,20 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
           history.push(item);
         }
       }
+
+      // Sắp xếp đơn sắp tới: Sắp xếp tăng dần theo thời gian hẹn (cuốc gần nhất lên đầu)
+      upcoming.sort((a, b) => {
+        const timeA = a.bookingTime ? new Date(a.bookingTime).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.bookingTime ? new Date(b.bookingTime).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeA - timeB;
+      });
+
+      // Sắp xếp lịch sử đơn hàng: Sắp xếp giảm dần theo thời gian hẹn (đơn mới nhất lên đầu)
+      history.sort((a, b) => {
+        const timeA = a.bookingTime ? new Date(a.bookingTime).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const timeB = b.bookingTime ? new Date(b.bookingTime).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return timeB - timeA;
+      });
 
       set({
         upcomingBookings: upcoming,

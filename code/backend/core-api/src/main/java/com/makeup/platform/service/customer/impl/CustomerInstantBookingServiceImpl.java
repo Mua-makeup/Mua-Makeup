@@ -49,6 +49,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -172,8 +173,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 .destinationAddress(req.getDestinationAddress())
                 .destinationLatitude(req.getDestinationLatitude())
                 .destinationLongitude(req.getDestinationLongitude())
-                .bookingDate(LocalDate.now())
-                .startTime(LocalTime.now())
+                .bookingDate(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))
+                .startTime(LocalTime.now(ZoneId.of("Asia/Ho_Chi_Minh")))
                 .serviceSubtotal(basePrice)
                 .distanceFee(BigDecimal.ZERO)
                 .surchargeFee(totalSurchargeFee)
@@ -541,6 +542,61 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     .build());
         }
         return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> getPendingOfferForMua(Long muaUserId) {
+        if (muaUserId == null) {
+            return null;
+        }
+        MuaProfileEntity mua = muaProfileRepository.findByUserId(muaUserId).orElse(null);
+        if (mua == null) {
+            return null;
+        }
+        Long muaId = mua.getId();
+        String bookingIdStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.candidateLease(muaId));
+        if (bookingIdStr == null) {
+            return null;
+        }
+
+        Long bookingId;
+        try {
+            bookingId = Long.parseLong(bookingIdStr);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+
+        String currentTargetStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
+        if (currentTargetStr == null || !currentTargetStr.equals(String.valueOf(muaId))) {
+            return null;
+        }
+
+        BookingEntity booking = bookingRepository.findById(bookingId).orElse(null);
+        if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
+            return null;
+        }
+
+        String sentAtStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.sentAt(bookingId));
+        int remainingSeconds = OFFER_TIMEOUT_SECONDS;
+        if (sentAtStr != null) {
+            try {
+                long sentAt = Long.parseLong(sentAtStr);
+                long elapsed = (System.currentTimeMillis() - sentAt) / 1000;
+                remainingSeconds = Math.max(1, (int) (OFFER_TIMEOUT_SECONDS - elapsed));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        UserEntity customer = booking.getCustomer();
+        Map<String, Object> offerPayload = createOfferPayload(
+                booking,
+                muaId,
+                customer != null ? customer.getFullName() : "Khách hàng",
+                customer != null ? customer.getPhoneNumber() : ""
+        );
+        offerPayload.put("countdownSeconds", remainingSeconds);
+        return offerPayload;
     }
 
     @Override

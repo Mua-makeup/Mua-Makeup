@@ -5,6 +5,8 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { CustomerBookingItem, BookingStatusType } from '@/services/booking.service';
+import { formatDateTimeVN } from '@/utils/date';
+import { router } from 'expo-router';
 
 interface Props {
   booking: CustomerBookingItem;
@@ -51,19 +53,7 @@ export const BookingHistoryCard: React.FC<Props> = ({
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
-  const formatBookingTime = (isoTime: string) => {
-    try {
-      const d = new Date(isoTime);
-      const hours = String(d.getHours()).padStart(2, '0');
-      const mins = String(d.getMinutes()).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      return `${hours}:${mins} - ${day}/${month}/${year}`;
-    } catch {
-      return isoTime;
-    }
-  };
+  const formatBookingTime = formatDateTimeVN;
 
   const handleCall = () => {
     Haptics.selectionAsync();
@@ -76,71 +66,88 @@ export const BookingHistoryCard: React.FC<Props> = ({
 
   return (
     <View style={styles.card}>
-      {/* HEADER: MÃ ĐƠN & STATUS */}
-      <View style={styles.headerRow}>
-        <View style={styles.codeRow}>
-          <Text style={styles.codeLabel}>Mã đơn:</Text>
-          <Text style={styles.codeText}>{booking.bookingCode || `#BK-${booking.id}`}</Text>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => router.push(`/booking/detail/${booking.id}` as any)}
+      >
+        {/* HEADER: MÃ ĐƠN & STATUS */}
+        <View style={styles.headerRow}>
+          <View style={styles.codeRow}>
+            <Text style={styles.codeLabel}>Mã đơn:</Text>
+            <Text style={styles.codeText}>{booking.bookingCode || `#BK-${booking.id}`}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.statusBadgeText, { color: badge.color }]}>{badge.label}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
-          <Text style={[styles.statusBadgeText, { color: badge.color }]}>{badge.label}</Text>
-        </View>
-      </View>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      {/* THÔNG TIN DỊCH VỤ & THỢ */}
-      <View style={styles.bodyRow}>
-        <Image
-          source={{
-            uri:
-              booking.packageCoverUrl ||
-              booking.muaAvatarUrl ||
-              'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?q=80&w=400',
-          }}
-          style={styles.thumbImage}
-          contentFit="cover"
-        />
-        <View style={styles.bodyContent}>
-          <Text style={styles.packageName} numberOfLines={1}>
-            {booking.packageName}
-          </Text>
-
-          <View style={styles.muaRow}>
-            <Ionicons name="person-outline" size={13} color="#64748B" />
-            <Text style={styles.muaName} numberOfLines={1}>
-              Thợ: {booking.muaName || 'Chuyên viên trang điểm'}
+        {/* THÔNG TIN DỊCH VỤ & THỢ */}
+        <View style={styles.bodyRow}>
+          <Image
+            source={{
+              uri:
+                booking.packageCoverUrl ||
+                booking.muaAvatarUrl ||
+                'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?q=80&w=400',
+            }}
+            style={styles.thumbImage}
+            contentFit="cover"
+          />
+          <View style={styles.bodyContent}>
+            <Text style={styles.packageName} numberOfLines={1}>
+              {booking.packageName}
             </Text>
-          </View>
 
-          <View style={styles.detailRow}>
-            <Ionicons name="time-outline" size={13} color="#64748B" />
-            <Text style={styles.detailText}>{formatBookingTime(booking.bookingTime)}</Text>
-          </View>
+            <View style={styles.muaRow}>
+              <Ionicons name="person-outline" size={13} color="#64748B" />
+              <Text style={styles.muaName} numberOfLines={1}>
+                Thợ: {booking.muaName || 'Chuyên viên trang điểm'}
+              </Text>
+            </View>
 
-          <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={13} color="#64748B" />
-            <Text style={styles.detailText} numberOfLines={1}>
-              {booking.destinationAddress || 'Trang điểm tại nhà'}
-            </Text>
+            <View style={styles.detailRow}>
+              <Ionicons name="time-outline" size={13} color="#64748B" />
+              <Text style={styles.detailText}>{formatBookingTime(booking.bookingTime)}</Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Ionicons name="location-outline" size={13} color="#64748B" />
+              <Text style={styles.detailText} numberOfLines={1}>
+                {booking.destinationAddress || 'Trang điểm tại nhà'}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* PHẦN TÀI CHÍNH */}
-      <View style={styles.financeRow}>
-        <View style={styles.depositBox}>
-          <Text style={styles.depositLabel}>Đã cọc Escrow:</Text>
-          <Text style={styles.depositAmount}>{formatPrice(booking.depositAmount || 0)}</Text>
+        {/* PHẦN TÀI CHÍNH */}
+        <View style={styles.financeRow}>
+          <View style={styles.depositBox}>
+            <Text style={styles.depositLabel}>Đã cọc Escrow:</Text>
+            <Text style={styles.depositAmount}>{formatPrice(booking.depositAmount || 0)}</Text>
+          </View>
+          <View style={styles.totalBox}>
+            <Text style={styles.totalLabel}>Tổng tiền:</Text>
+            <Text style={styles.totalAmount}>{formatPrice(booking.totalAmount)}</Text>
+          </View>
         </View>
-        <View style={styles.totalBox}>
-          <Text style={styles.totalLabel}>Tổng tiền:</Text>
-          <Text style={styles.totalAmount}>{formatPrice(booking.totalAmount)}</Text>
-        </View>
-      </View>
+      </TouchableOpacity>
 
       {/* FOOTER ACTIONS THEO TRẠNG THÁI */}
       <View style={styles.actionsRow}>
+        <TouchableOpacity
+          style={styles.detailActionBtn}
+          onPress={() => router.push(`/booking/detail/${booking.id}` as any)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="document-text-outline" size={14} color="#1E293B" />
+          <Text style={styles.detailActionText}>Chi Tiết</Text>
+        </TouchableOpacity>
+
         {booking.status === 'REQUESTED' || booking.status === 'ACCEPTED' ? (
           <TouchableOpacity
             style={styles.cancelActionBtn}
@@ -151,7 +158,18 @@ export const BookingHistoryCard: React.FC<Props> = ({
           </TouchableOpacity>
         ) : null}
 
-        {booking.status === 'ON_THE_WAY' && (
+        {booking.status === 'ACCEPTED' && !booking.isDepositPaid && (
+          <TouchableOpacity
+            style={styles.depositActionBtn}
+            onPress={() => onTrackPress && onTrackPress(booking)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="card-outline" size={14} color="#FFFFFF" />
+            <Text style={styles.depositActionText}>Thanh Toán Cọc</Text>
+          </TouchableOpacity>
+        )}
+
+        {(booking.status === 'ON_THE_WAY' || (booking.status === 'ACCEPTED' && booking.isDepositPaid)) && (
           <TouchableOpacity
             style={styles.trackActionBtn}
             onPress={() => onTrackPress && onTrackPress(booking)}
@@ -355,6 +373,20 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontWeight: '600',
   },
+  depositActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#D97706',
+  },
+  depositActionText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   trackActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -396,5 +428,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  detailActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailActionText: {
+    fontSize: 12,
+    color: '#1E293B',
+    fontWeight: '600',
   },
 });

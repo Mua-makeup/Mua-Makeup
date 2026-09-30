@@ -14,7 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -27,6 +27,7 @@ import { telemetryService } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { useWorkstationStore } from '@/store/workstation.store';
 import * as Location from 'expo-location';
+import { getTodayVN } from '@/utils/date';
 
 function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth radius in meters
@@ -78,6 +79,7 @@ export default function JobExecutionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
   const { profile } = useWorkstationStore();
+  const insets = useSafeAreaInsets();
 
   const [booking, setBooking] = useState<ExtendedBookingItem | null>(null);
   const [currentStatus, setCurrentStatus] = useState<BookingStatusType>('ACCEPTED');
@@ -151,7 +153,7 @@ export default function JobExecutionScreen() {
           accuracy: lastLoc.coords.accuracy || 10,
         });
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Luồng phát sóng GPS thời gian thực của Thợ MUA khi đang di chuyển (ON_THE_WAY)
@@ -273,6 +275,19 @@ export default function JobExecutionScreen() {
     // Subscribe to STOMP Realtime
     const statusTopic = `/topic/booking-status/${bookingId}`;
     websocketService.subscribe(statusTopic, (msg: any) => {
+      if (msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' || msg?.isDepositPaid) {
+        setIsDepositPaid(true);
+        setIsDepositTimeout(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setDepositSuccessData({
+          visible: true,
+          depositAmount: msg.depositAmount || 0,
+          earningsAmount: msg.earningsAmount || 0,
+          addOnNames: msg.addOnNames || [],
+          addOnTotal: msg.addOnTotal || 0,
+        });
+        loadBookingDetail();
+      }
       if (msg?.status && msg.status !== currentStatus) {
         setCurrentStatus(msg.status);
         if (msg.status === 'CANCELLED') {
@@ -369,7 +384,7 @@ export default function JobExecutionScreen() {
           destinationAddress: detail.destinationAddress || 'Địa chỉ khách hàng',
           destinationLatitude: detail.destinationLatitude ? Number(detail.destinationLatitude) : 21.0285,
           destinationLongitude: detail.destinationLongitude ? Number(detail.destinationLongitude) : 105.8542,
-          bookingDate: new Date().toISOString().split('T')[0],
+          bookingDate: getTodayVN(),
           startTime: '09:00',
           serviceSubtotal: detail.serviceSubtotal ? Number(detail.serviceSubtotal) : 0,
           surchargeFee: detail.surchargeFee ? Number(detail.surchargeFee) : 150000,
@@ -570,7 +585,7 @@ export default function JobExecutionScreen() {
                   {Math.floor(depositSecondsLeft / 60)}:{(depositSecondsLeft % 60).toString().padStart(2, '0')}
                 </Text>
                 <Text style={styles.timerBigUnit}>
-                  {isDepositTimeout ? 'ĐÃ HẾT GIỜ' : 'thời gian giữ chỗ'}
+                  {isDepositTimeout ? 'Đã hết giờ' : 'Thời gian đợi'}
                 </Text>
               </View>
 
@@ -678,9 +693,9 @@ export default function JobExecutionScreen() {
             {currentStatus === 'ON_THE_WAY' && booking && (
               <View style={styles.driverMapBox}>
                 <View style={styles.driverMapHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 }}>
                     <Ionicons name="navigate" size={16} color="#E11D48" />
-                    <Text style={styles.driverMapTitle}>Lộ Trình Tới Khách Hàng (Live GPS)</Text>
+                    <Text style={styles.driverMapTitle} numberOfLines={1}>Lộ Trình Tới Khách</Text>
                   </View>
                   <View
                     style={[
@@ -690,8 +705,15 @@ export default function JobExecutionScreen() {
                           driverStreamMode === 'APPROACHING'
                             ? '#ECFDF5'
                             : driverStreamMode === 'STOPPED'
-                            ? '#FEF3C7'
-                            : '#F0F9FF',
+                              ? '#FEF3C7'
+                              : '#F0F9FF',
+                        borderColor:
+                          driverStreamMode === 'APPROACHING'
+                            ? '#A7F3D0'
+                            : driverStreamMode === 'STOPPED'
+                              ? '#FDE68A'
+                              : '#BAE6FD',
+                        borderWidth: 1,
                       },
                     ]}
                   >
@@ -703,16 +725,16 @@ export default function JobExecutionScreen() {
                             driverStreamMode === 'APPROACHING'
                               ? '#059669'
                               : driverStreamMode === 'STOPPED'
-                              ? '#D97706'
-                              : '#0284C7',
+                                ? '#D97706'
+                                : '#0284C7',
                         },
                       ]}
                     >
                       {driverStreamMode === 'APPROACHING'
-                        ? 'SẮP TỚI (<300m • 3s)'
+                        ? 'SẮP TỚI (3s)'
                         : driverStreamMode === 'STOPPED'
-                        ? 'ĐANG DỪNG (20s)'
-                        : 'DI CHUYỂN (5s)'}
+                          ? 'DỪNG ĐÈN (20s)'
+                          : 'DI CHUYỂN (5s)'}
                     </Text>
                   </View>
                 </View>
@@ -824,7 +846,7 @@ export default function JobExecutionScreen() {
       </ScrollView>
 
       {/* Floating Bottom Action Bar based on current Status */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         {currentStatus === 'ACCEPTED' && !isDepositPaid ? (
           /* ========================================================================= */
           /* NÚT HÀNH ĐỘNG KHI ĐANG CHỜ KHÁCH ĐẶT CỌC:                                 */
@@ -1356,9 +1378,15 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 8,
   },
   actionRow: {
     flexDirection: 'row',
@@ -1373,8 +1401,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF1F2',
     borderWidth: 1,
     borderColor: '#FECDD3',
-    height: 48,
+    minHeight: 52,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 12,
   },
   cancelSecondaryBtnText: {
@@ -1388,7 +1417,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#E11D48',
-    height: 48,
+    minHeight: 52,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 12,
     shadowColor: '#E11D48',
     shadowOffset: { width: 0, height: 4 },
@@ -1402,7 +1433,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#059669',
-    height: 48,
+    minHeight: 52,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 12,
     shadowColor: '#059669',
     shadowOffset: { width: 0, height: 4 },
@@ -1418,6 +1451,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   completedBadgeBar: {
     flexDirection: 'row',

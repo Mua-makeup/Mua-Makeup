@@ -6,6 +6,7 @@ import { telemetryService } from '@/services/telemetry.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { websocketService } from '@/services/websocket.service';
 import { soundManager } from '@/utils/sound';
+import { getTodayVN } from '@/utils/date';
 
 export interface InstantBookingOffer {
   bookingId: number;
@@ -67,6 +68,7 @@ interface WorkstationState {
   triggerInstantOffer: (offer: InstantBookingOffer) => void;
   dismissOffer: (shouldSkipBackend?: boolean) => Promise<void>;
   acceptActiveOffer: () => Promise<number | null>;
+  checkPendingOffer: () => Promise<void>;
 }
 
 let heartbeatTimer: any = null;
@@ -111,7 +113,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   fetchWorkstationData: async () => {
     try {
       set({ isLoading: true });
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getTodayVN();
 
       const [profile, bookings] = await Promise.all([
         muaProfileService.getMyProfile().catch(() => null),
@@ -122,17 +124,19 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       const completed = bookings.filter((b) => b.status === 'COMPLETED' || b.status === 'PAID_OUT');
       const earnings = completed.reduce((acc, b) => acc + (b.earningsAmount || 0), 0);
 
-      // Giữ nguyên trạng thái isOnline hiện tại nếu profile từ API chưa kịp cập nhật hoặc undefined
+      // QUY TẮC: Trạng thái isOnline CHỈ do thợ tự tay bật/tắt trong phiên làm việc hiện tại.
+      // Khi fetchWorkstationData được gọi (load app, reload màn hình...) LUÔN GIỮ NGUYÊN
+      // giá trị isOnline hiện tại trong store (không ghi đè từ backend).
+      // Mặc định store khởi tạo là false (Offline) — thợ phải tự bật lên.
       const currentOnline = get().isOnline;
-      const isOnline = (profile as any)?.isOnline !== undefined
-        ? Boolean((profile as any).isOnline || (profile as any).availabilityStatus === 'AVAILABLE')
-        : currentOnline;
 
       const effectiveMuaId = profile?.muaId || (profile as any)?.id;
 
       set({
         profile,
-        isOnline,
+        // Giữ nguyên giá trị isOnline trong store, không đọc từ backend để thợ
+        // luôn bắt đầu ở trạng thái "Đang Tạm Nghỉ" khi vừa đăng nhập vào
+        isOnline: currentOnline,
         todayBookings: bookings,
         stats: {
           completedToday: completed.length,
@@ -142,9 +146,9 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         },
       });
 
-      // Tự động kết nối WebSocket và lắng nghe đơn khẩn cấp ngay khi có profile thợ
+      // Kết nối WebSocket để nhận đơn khẩn cấp (kể cả khi đang Offline vì thợ có thể bật Online bất kỳ lúc)
       if (effectiveMuaId) {
-        if (isOnline) {
+        if (currentOnline) {
           // Lấy tọa độ GPS mới nhất từ thiết bị và đồng bộ ngay lên Backend
           Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
             .then(async (loc) => {
@@ -176,6 +180,11 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
             get().dismissOffer(false);
           }
         });
+
+        // Kiểm tra ngay nếu có ca khẩn cấp đang chờ thợ phản hồi (kể cả khi vừa mở app hoặc từ nền vào)
+        if (currentOnline) {
+          await get().checkPendingOffer();
+        }
       }
     } catch (e) {
       console.error('Lỗi nạp dữ liệu Bàn làm việc:', e);
@@ -304,6 +313,22 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
     } catch (err) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       throw err;
+    }
+  },
+
+  checkPendingOffer: async () => {
+    // Nếu modal đang hiển thị với đơn này rồi thì không ghi đè
+    if (get().isAcceptModalVisible && get().activeOffer) {
+      return;
+    }
+    try {
+      const pendingOffer = await freelancerBookingService.getPendingInstantOffer();
+      if (pendingOffer && pendingOffer.bookingId) {
+        console.log('[WorkstationStore] Phát hiện ca khẩn cấp đang chờ duyệt:', pendingOffer);
+        get().triggerInstantOffer(pendingOffer);
+      }
+    } catch (e) {
+      console.warn('[WorkstationStore] Lỗi kiểm tra ca khẩn cấp đang chờ:', e);
     }
   },
 }));

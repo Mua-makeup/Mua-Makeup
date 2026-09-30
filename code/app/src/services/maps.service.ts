@@ -44,11 +44,15 @@ class MapsService {
     try {
       const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (geo) {
+        const streetNumber = geo.streetNumber || geo.name;
+        const street = geo.street;
+        const district = geo.district || geo.subregion;
+        const city = geo.city || geo.region;
         const parts = [
-          geo.streetNumber,
-          geo.street,
-          geo.subregion || geo.district,
-          geo.city || geo.region,
+          streetNumber && streetNumber !== street ? streetNumber : null,
+          street,
+          district,
+          city,
         ].filter(Boolean);
 
         if (parts.length > 0) {

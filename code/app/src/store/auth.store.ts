@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { authService, LoginReq, RegisterReq, UserInfo, UserRegisterRes } from '@/services/auth.service';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/utils/storage';
+import { useWorkstationStore } from '@/store/workstation.store';
+import { useBookingStore } from '@/store/booking.store';
+import { websocketService } from '@/services/websocket.service';
 
 interface AuthState {
   accessToken: string | null;
@@ -121,6 +124,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await authService.logout(refreshToken);
     } finally {
       await clearTokens();
+
+      // 1. Ngắt WebSocket HOÀN TOÀN: Xóa sạch registeredHandlers + deactivate client
+      //    Ngăn WebSocket tự reconnect và re-subscribe topic thợ cũ sau khi đổi tài khoản
+      websocketService.disconnectAll();
+
+      // Reset toàn bộ workstation state để tránh lộ dữ liệu thợ sang tài khoản khác
+      useWorkstationStore.setState({
+        isOnline: false,
+        isLoading: false,
+        currentCoords: null,
+        profile: null,
+        todayBookings: [],
+        activeOffer: null,
+        isAcceptModalVisible: false,
+        stats: { completedToday: 0, ratingAverage: 5.0, totalReviews: 0, dailyEarnings: 0 },
+      });
+
+      // Reset booking store của khách hàng
+      useBookingStore.setState({
+        upcomingBookings: [],
+        historyBookings: [],
+      });
+
       set({
         accessToken: null,
         refreshToken: null,
