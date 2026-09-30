@@ -18,8 +18,8 @@ public class MapsApiConfig {
     @Bean
     public RestClient mapsRestClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(800); // 800ms connect timeout
-        factory.setReadTimeout(800);    // 800ms read timeout
+        factory.setConnectTimeout(3000); // 3000ms connect timeout
+        factory.setReadTimeout(3500);    // 3500ms read timeout
 
         return RestClient.builder()
                 .baseUrl(goongBaseUrl)

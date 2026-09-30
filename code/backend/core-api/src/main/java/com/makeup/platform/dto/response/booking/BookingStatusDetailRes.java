@@ -24,8 +24,20 @@ public class BookingStatusDetailRes {
     private String muaName;
     private String muaPhone;
     private String muaAvatar;
+    private String customerName;
+    private String customerPhone;
+    private String customerAvatar;
+    private String packageName;
     private BigDecimal rating;
     private BigDecimal totalAmount;
+    private BigDecimal depositAmount;
+    private BigDecimal serviceSubtotal;
+    private BigDecimal surchargeFee;
+    private BigDecimal distanceFee;
+    private BigDecimal platformFee;
+    private BigDecimal earningsAmount;
     private String completionPhotoUrl;
+    private Boolean isDepositPaid;
+    private Integer depositTimeoutSeconds;
     private LocalDateTime updatedAt;
 }

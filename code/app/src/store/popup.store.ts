@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 export interface PopupButton {
   text: string;
@@ -79,15 +79,21 @@ export const showGlobalPopup = (
 };
 
 /**
- * Gắn đè Alert.alert để toàn bộ mã nguồn gọi Alert.alert() trên cả Web và Mobile
- * đều tự động nảy popup sang trọng chuẩn Luxury Beauty.
+ * Gắn đè Alert.alert CHỈ TRÊN WEB (Laptop/PC).
+ * Trên Điện thoại (Android/iOS), GIỮ NGUYÊN Alert.alert Native gốc của hệ điều hành.
+ * Lý do: Trên điện thoại thật, hệ điều hành Android/iOS không hỗ trợ 2 thẻ React Native <Modal>
+ * mở cùng lúc (Modal tài khoản mở trước sẽ nuốt mất Modal popup mở sau).
+ * Alert.alert Native của hệ điều hành là Native OS Dialog, luôn luôn nổi lên trên mọi Modal.
  */
 let isPolyfilled = false;
 export const setupAlertPolyfill = () => {
   if (isPolyfilled) return;
   isPolyfilled = true;
 
-  Alert.alert = (title: string, message?: string, buttons?: any, options?: any) => {
-    showGlobalPopup(title, message, buttons, options);
-  };
+  if (Platform.OS === 'web') {
+    Alert.alert = (title: string, message?: string, buttons?: any, options?: any) => {
+      showGlobalPopup(title, message, buttons, options);
+    };
+  }
 };
+

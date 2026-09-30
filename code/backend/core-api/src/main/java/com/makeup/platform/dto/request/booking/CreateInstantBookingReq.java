@@ -21,6 +21,16 @@ public class CreateInstantBookingReq {
 
     private Long packageId;
 
+    @NotNull(message = "{validation.master_category_required}")
+    private Integer masterCategoryId;
+
+    private Integer styleId;
+
+    @DecimalMin(value = "1.0", message = "{validation.radius_invalid}")
+    @DecimalMax(value = "30.0", message = "{validation.radius_invalid}")
+    @Builder.Default
+    private Double radiusKm = 10.0;
+
     @NotBlank(message = "{validation.booking_destination_address_required}")
     @Size(max = 500, message = "{validation.booking_destination_address_size}")
     private String destinationAddress;

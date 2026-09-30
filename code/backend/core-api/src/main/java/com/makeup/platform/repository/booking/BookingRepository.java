@@ -20,6 +20,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -49,6 +50,55 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
     List<BookingEntity> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
     List<BookingEntity> findByMuaIdOrderByCreatedAtDesc(Long muaId);
+
+    @Query("""
+            SELECT DISTINCT b FROM BookingEntity b
+            LEFT JOIN FETCH b.customer c
+            LEFT JOIN FETCH b.mua m
+            LEFT JOIN FETCH m.user mu
+            LEFT JOIN FETCH b.servicePackage sp
+            LEFT JOIN FETCH b.style st
+            WHERE b.mua.id = :muaId
+              AND (
+                  b.bookingDate = :date
+                  OR b.status IN (
+                      com.makeup.platform.entity.booking.BookingStatus.ACCEPTED,
+                      com.makeup.platform.entity.booking.BookingStatus.ON_THE_WAY,
+                      com.makeup.platform.entity.booking.BookingStatus.ARRIVED,
+                      com.makeup.platform.entity.booking.BookingStatus.IN_PROGRESS
+                  )
+              )
+            ORDER BY b.createdAt DESC
+            """)
+    List<BookingEntity> findFreelancerBookingsByDate(
+            @Param("muaId") Long muaId,
+            @Param("date") LocalDate date);
+
+    @Query("""
+            SELECT DISTINCT b FROM BookingEntity b
+            LEFT JOIN FETCH b.customer c
+            LEFT JOIN FETCH b.mua m
+            LEFT JOIN FETCH m.user mu
+            LEFT JOIN FETCH b.servicePackage sp
+            LEFT JOIN FETCH b.style st
+            WHERE b.mua.id = :muaId
+            ORDER BY b.createdAt DESC
+            """)
+    List<BookingEntity> findAllFreelancerBookings(
+            @Param("muaId") Long muaId);
+
+    @Query("""
+            SELECT DISTINCT b FROM BookingEntity b
+            LEFT JOIN FETCH b.customer c
+            LEFT JOIN FETCH b.mua m
+            LEFT JOIN FETCH m.user mu
+            LEFT JOIN FETCH b.servicePackage sp
+            LEFT JOIN FETCH b.style st
+            WHERE b.customer.id = :customerId
+            ORDER BY b.createdAt DESC
+            """)
+    List<BookingEntity> findCustomerBookings(
+            @Param("customerId") Long customerId);
 
     List<BookingEntity> findByAgencyIdOrderByCreatedAtDesc(Long agencyId);
 
@@ -139,6 +189,14 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
                 ORDER BY b.needsEmergencyReassignment DESC, b.createdAt ASC
             """)
     List<BookingEntity> findPendingDispatchBookingsByAgencyId(@Param("agencyId") Long agencyId);
+
+    @Query("SELECT b.destinationAddress, b.destinationLatitude, b.destinationLongitude, MAX(b.createdAt), COUNT(b.id) " +
+           "FROM BookingEntity b " +
+           "WHERE b.customer.id = :customerId AND b.destinationAddress IS NOT NULL " +
+           "GROUP BY b.destinationAddress, b.destinationLatitude, b.destinationLongitude " +
+           "ORDER BY MAX(b.createdAt) DESC")
+    List<Object[]> findRecentAddressesByCustomerId(@Param("customerId") Long customerId, Pageable pageable);
+
     @Query("""
             SELECT b.id FROM BookingEntity b
             WHERE b.customer.id = :customerId AND b.bookingType = :type AND b.status = :status
@@ -155,6 +213,7 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
     List<Long> findPendingInstantIds(@Param("type") BookingType type,
             @Param("status") BookingStatus status, @Param("afterId") Long afterId,
             @Param("maxId") Long maxId, Pageable pageable);
+
     @Query("""
             SELECT m.id AS muaId, b.totalAmount AS totalAmount FROM BookingEntity b
             LEFT JOIN b.mua m
@@ -164,6 +223,7 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             """)
     List<BookingRevenueRow> findCompletedRevenueByAgencyId(
             @Param("agencyId") Long agencyId);
+
     @Query("SELECT MAX(b.id) FROM BookingEntity b WHERE b.bookingType = :type AND b.status = :status")
     Long findPendingScanUpperBound(@Param("type") BookingType type, @Param("status") BookingStatus status);
 }

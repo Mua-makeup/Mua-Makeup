@@ -39,8 +39,7 @@ public class SecurityConfig {
             "https://*.ngrok-free.app",
             "https://*.ngrok-free.dev",
             "https://*.loca.lt",
-            "*"
-    );
+            "*");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
@@ -125,6 +124,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/pricing/**").permitAll()
                         .requestMatchers("/api/v1/payments/ipn/**", "/api/v1/payments/*/ipn").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/gateways").permitAll()
+                        .requestMatchers("/api/v1/maps/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
                         // All other endpoints require authentication
                         .anyRequest().authenticated())

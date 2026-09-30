@@ -18,6 +18,17 @@
   - [ ] [APP-CUST-01] Màn hình Khám Phá & Bộ Lọc Đa Tiêu Chí (`explore.tsx`, `CategoryFilterBar.tsx`, `ServicePackageCard.tsx`).
   - [ ] [APP-CUST-02] Màn hình Chi Tiết Hồ Sơ Thợ MUA & Dịch Vụ Đi Kèm Ảnh Mẫu (`mua-detail/[id].tsx`, `ServiceSampleGallery.tsx`).
   - [ ] [APP-CUST-03] Trình Xem Ảnh Mẫu Cận Cảnh Của Dịch Vụ Đang Chọn (`ShowcaseGalleryModal.tsx`, `PhotoZoomViewer.tsx`).
-  - [ ] [APP-CUST-04] Màn hình Cập Nhật Hồ Sơ Cá Nhân Khách Hàng (`profile/edit.tsx`, `SavedAddressModal.tsx`).
-
+- [ ] [SPRINT-M2] [Đặt Lịch Hẹn Trước, Báo Giá Động & Quản Lý Đơn Hàng (ROLE_CUSTOMER)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_customer_booking_and_order_management.md)
+  - [ ] [APP-BOOK-01] Màn hình Đặt Lịch & Chọn Bước Làm Đẹp Mua Thêm (`create.tsx`, `PackageItemPicker.tsx`, `DestinationAddressPicker.tsx`).
+  - [ ] [APP-BOOK-02] Báo Giá Động Realtime & Bảng Chi Tiết Hóa Đơn Minh Bạch (`InvoiceSummaryCard.tsx`, `pricing.service.ts`).
+  - [ ] [APP-BOOK-03] Màn hình Quản Lý Lịch Hẹn Đa Trạng Thái (`bookings.tsx`, `BookingHistoryCard.tsx`).
+- [ ] [SPRINT-M3-CUST] [Radar Quét Thợ Thật, Bản Đồ Live GPS Tracking & Stepper Tự Động (ROLE_CUSTOMER)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_customer_radar_live_gps_and_service_stepper.md)
+  - [ ] [APP-CUST-RT-01] Radar Quét Thợ Thật Quanh Vị Trí (`GET /telemetry/nearby`, `InstantRadarModal.tsx`, `RadarScannerCanvas.tsx`).
+  - [ ] [APP-CUST-RT-02] Tạo Đơn Khẩn Cấp & Đếm Ngược Tìm Thợ 45s (`POST /api/v1/customer/bookings/instant`, Waterfall Dispatch).
+  - [ ] [APP-CUST-RT-03] Màn Hình Bản Đồ Live GPS Tracking Xe Thợ Chạy (`GET /telemetry/trip/{id}/live`, `/topic/gps-stream/{bookingId}`).
+  - [ ] [APP-CUST-RT-04] Cập Nhật Stepper Tiến Trình Dịch Vụ Tự Động (`/topic/booking-status/{bookingId}`, `BookingProgressStepper.tsx`).
+- [ ] [SPRINT-M3-MUA] [Bàn Làm Việc Thợ, Nhận Đơn Khẩn Cấp 30s & Tiến Trình Ca Làm Nghiệm Thu (ROLE_FREELANCE_MUA & ROLE_AGENCY_STAFF)](file:///c:/Users/Asus/Documents/Mua-Makeup/docs/backlogs/sprint6/spec_mua_workstation_instant_booking_and_job_execution.md)
+  - [ ] [APP-MUA-01] Màn hình Bàn Làm Việc Thợ (`workstation.tsx`, `WorkstationHeader.tsx`, `TodayBookingCard.tsx`).
+  - [ ] [APP-MUA-02] Modal Đĩa Quay Đếm Ngược 30s Nhận Ca Cấp Tốc (`CountdownAcceptModal.tsx`, Redisson Distributed Lock).
+  - [ ] [APP-MUA-03] Tiến Trình Thực Hiện Ca Làm 4 Bước & Nghiệm Thu Ảnh (`job-execution/[id].tsx`, `ProofCameraModal.tsx`).
 

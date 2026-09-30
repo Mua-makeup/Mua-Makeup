@@ -56,14 +56,7 @@ public class CatalogOwnerHelper {
 
         Optional<MuaProfileEntity> muaOpt = muaProfileRepository.findByUserId(userId);
         if (muaOpt.isPresent()) {
-            MuaProfileEntity mua = muaOpt.get();
-            boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
-                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
-            if (!hasVerifiedCert) {
-                throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
-                        "mua.certificate_not_verified_cannot_operate", HttpStatus.FORBIDDEN);
-            }
-            return new OwnerContext(null, mua);
+            return new OwnerContext(null, muaOpt.get());
         }
 
         throw new CustomBusinessException(
@@ -71,5 +64,16 @@ public class CatalogOwnerHelper {
                 "ERR_PROFILE_NOT_FOUND",
                 HttpStatus.FORBIDDEN
         );
+    }
+
+    /**
+     * Kiểm tra xem thợ MUA có ít nhất 1 chứng chỉ bằng cấp đã được phê duyệt xác thực hay không.
+     */
+    public boolean hasVerifiedCertificate(MuaProfileEntity mua) {
+        if (mua == null || mua.getCertificates() == null) {
+            return false;
+        }
+        return mua.getCertificates().stream()
+                .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
     }
 }

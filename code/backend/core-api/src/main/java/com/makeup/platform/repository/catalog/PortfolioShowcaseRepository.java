@@ -61,4 +61,15 @@ public interface PortfolioShowcaseRepository extends JpaRepository<PortfolioShow
     @Modifying
     @Query(value = "DELETE FROM catalog_schema.portfolio_showcases WHERE id = :id", nativeQuery = true)
     void hardDeleteById(@Param("id") Long id);
+
+    @Query("SELECT p.imageUrl FROM PortfolioShowcaseEntity p " +
+            "WHERE p.servicePackage.id = :packageId AND p.isVisible = true AND p.isDeleted = false " +
+            "ORDER BY p.isFeatured DESC, p.createdAt DESC")
+    List<String> findCoverImagesByPackageId(@Param("packageId") Long packageId, Pageable pageable);
+
+    @Query(value = "SELECT DISTINCT ON (package_id) package_id, image_url " +
+            "FROM catalog_schema.portfolio_showcases " +
+            "WHERE package_id IN (:packageIds) AND is_visible = true AND is_deleted = false " +
+            "ORDER BY package_id, is_featured DESC, created_at DESC", nativeQuery = true)
+    List<Object[]> findCoverImagesByPackageIds(@Param("packageIds") List<Long> packageIds);
 }

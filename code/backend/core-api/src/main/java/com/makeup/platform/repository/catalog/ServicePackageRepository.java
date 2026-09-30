@@ -33,7 +33,7 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackageEn
 
     Optional<ServicePackageEntity> findByIdAndMuaId(Long id, Long muaId);
 
-    @Query("SELECT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id")
+    @Query("SELECT DISTINCT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id")
     Optional<ServicePackageEntity> findByIdWithDetails(@Param("id") Long id);
     @Query("""
             SELECT p.mua.id AS muaId, MIN(p.price) AS startingPrice
@@ -42,4 +42,33 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackageEn
             GROUP BY p.mua.id
             """)
     List<MuaStartingPrice> findStartingPrices(@Param("muaIds") Collection<Long> muaIds);
+
+    @Query("""
+            SELECT DISTINCT p.mua.id
+            FROM ServicePackageEntity p
+            LEFT JOIN p.styles s
+            WHERE p.mua.id IN :muaIds
+              AND p.masterCategory.id = :categoryId
+              AND p.isAvailable = TRUE
+              AND (:styleId IS NULL OR s.id = :styleId)
+            """)
+    List<Long> findMuaIdsByCandidateIdsAndCategoryAndStyle(
+            @Param("muaIds") Collection<Long> muaIds,
+            @Param("categoryId") Integer categoryId,
+            @Param("styleId") Integer styleId);
+
+    @Query("""
+            SELECT DISTINCT p
+            FROM ServicePackageEntity p
+            LEFT JOIN FETCH p.styles s
+            WHERE p.mua.id = :muaId
+              AND p.masterCategory.id = :categoryId
+              AND p.isAvailable = TRUE
+              AND (:styleId IS NULL OR s.id = :styleId)
+            ORDER BY p.price ASC
+            """)
+    List<ServicePackageEntity> findCandidatePackagesForMua(
+            @Param("muaId") Long muaId,
+            @Param("categoryId") Integer categoryId,
+            @Param("styleId") Integer styleId);
 }

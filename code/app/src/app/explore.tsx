@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -16,7 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { useExploreStore } from '@/store/explore.store';
 import { CategoryFilterBar } from '@/components/customer/CategoryFilterBar';
+import { SearchSuggestionsOverlay } from '@/components/customer/SearchSuggestionsOverlay';
 import { ServicePackageCard } from '@/components/customer/ServicePackageCard';
+import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { PackageSummary } from '@/services/package.service';
 
 const RADIUS_OPTIONS = [
@@ -50,7 +53,9 @@ export default function ExploreScreen() {
     resetFilters,
   } = useExploreStore();
 
+  const [headerHeight, setHeaderHeight] = useState(64);
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [tempRadius, setTempRadius] = useState<number | null>(selectedRadiusKm);
   const [tempMinPrice, setTempMinPrice] = useState(minPrice);
   const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice);
@@ -60,6 +65,23 @@ export default function ExploreScreen() {
   }, [initExplore]);
 
   const handleSearchSubmit = () => {
+    setIsSearchFocused(false);
+    fetchPackages(true);
+  };
+
+  const handleSelectSuggestion = (
+    suggestionText: string,
+    categoryId?: number | null,
+    styleId?: number | null
+  ) => {
+    setIsSearchFocused(false);
+    setKeyword(suggestionText);
+    if (categoryId !== undefined) {
+      setSelectedCategory(categoryId);
+    }
+    if (styleId !== undefined) {
+      setSelectedStyle(styleId);
+    }
     fetchPackages(true);
   };
 
@@ -85,59 +107,121 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* HEADER TÌM KIẾM */}
-      <View style={styles.header}>
+      <View
+        style={styles.header}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => {
+            if (isSearchFocused) {
+              setIsSearchFocused(false);
+              Keyboard.dismiss();
+              return;
+            }
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={22} color={BrandColors.slateHeading} />
+        </TouchableOpacity>
+
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={20} color="#94A3B8" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm dịch vụ, phong cách make-up..."
+            placeholder="Tìm thợ, dịch vụ, phong cách..."
             placeholderTextColor="#94A3B8"
             value={keyword}
             onChangeText={setKeyword}
+            onFocus={() => setIsSearchFocused(true)}
             onSubmitEditing={handleSearchSubmit}
             returnKeyType="search"
           />
           {keyword.length > 0 && (
-            <TouchableOpacity onPress={() => setKeyword('')}>
+            <TouchableOpacity
+              onPress={() => {
+                setKeyword('');
+                fetchPackages(true);
+              }}
+            >
               <Ionicons name="close-circle" size={18} color="#94A3B8" />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* NÚT BỘ LỌC GPS & GIÁ */}
-        <TouchableOpacity
-          style={[
-            styles.filterBtn,
-            (selectedRadiusKm !== null || minPrice > 200000) && styles.filterBtnActive,
-          ]}
-          onPress={() => {
-            setTempRadius(selectedRadiusKm);
-            setTempMinPrice(minPrice);
-            setTempMaxPrice(maxPrice);
-            setIsFilterModalVisible(true);
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="options-outline"
-            size={20}
-            color={
-              selectedRadiusKm !== null || minPrice > 200000
-                ? '#FFFFFF'
-                : BrandColors.slateHeading
-            }
-          />
-        </TouchableOpacity>
+        {/* KHI ĐANG FOCUS TÌM KIẾM: HIỆN NÚT HỦY RÕ RÀNG / KHI KHÔNG FOCUS: HIỆN NÚT BỘ LỌC */}
+        {isSearchFocused ? (
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={() => {
+              setIsSearchFocused(false);
+              Keyboard.dismiss();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelBtnText}>Hủy</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.filterBtn,
+              (selectedRadiusKm !== null || minPrice > 200000 || selectedCategoryId !== null || selectedStyleId !== null) &&
+                styles.filterBtnActive,
+            ]}
+            onPress={() => {
+              setTempRadius(selectedRadiusKm);
+              setTempMinPrice(minPrice);
+              setTempMaxPrice(maxPrice);
+              setIsFilterModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="options-outline"
+              size={19}
+              color={
+                selectedRadiusKm !== null || minPrice > 200000 || selectedCategoryId !== null || selectedStyleId !== null
+                  ? '#FFFFFF'
+                  : '#475569'
+              }
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* THANH CUỘN LỌC DANH MỤC & PHONG CÁCH 2 TẦNG */}
+      {/* OVERLAY GỢI Ý KHI NHẤN VÀO TÌM KIẾM (5 LOẠI HÌNH MAKEUP CHUẨN DB + PHONG CÁCH) */}
+      <SearchSuggestionsOverlay
+        visible={isSearchFocused}
+        topOffset={headerHeight}
+        keyword={keyword}
+        categories={categories}
+        styles={availableStyles}
+        onSelectSuggestion={handleSelectSuggestion}
+        onClose={() => {
+          setIsSearchFocused(false);
+          Keyboard.dismiss();
+        }}
+      />
+
+      {/* THANH LỌC THÔNG MINH 1 HÀNG DUY NHẤT (SMART QUICK-FILTER) */}
       <CategoryFilterBar
         categories={categories}
         makeupStyles={availableStyles}
         selectedCategoryId={selectedCategoryId}
         selectedStyleId={selectedStyleId}
+        selectedRadiusKm={selectedRadiusKm}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
         onSelectCategory={setSelectedCategory}
         onSelectStyle={setSelectedStyle}
+        onSelectRadius={setSelectedRadius}
+        onSelectPriceRange={setPriceRange}
+        onResetAll={resetFilters}
       />
 
       {/* DANH SÁCH GÓI DỊCH VỤ */}
@@ -274,6 +358,9 @@ export default function ExploreScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* THANH ĐIỀU HƯỚNG DƯỚI CÙNG (BOTTOM NAVIGATION BAR) */}
+      <AppBottomNavBar activeTab="explore" />
     </SafeAreaView>
   );
 }
@@ -289,6 +376,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 10,
+    backgroundColor: '#FFFFFF',
+    zIndex: 100,
+    elevation: 6,
+  },
+  cancelBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BrandColors.primary,
   },
   searchBar: {
     flex: 1,
@@ -306,19 +407,28 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   filterBtn: {
-    width: 44,
+    width: 42,
     height: 44,
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   filterBtnActive: {
     backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
+  },
+  backBtn: {
+    width: 36,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 85,
   },
   loadingContainer: {
     flex: 1,

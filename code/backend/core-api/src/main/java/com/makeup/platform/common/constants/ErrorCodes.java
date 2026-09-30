@@ -148,6 +148,9 @@ public final class ErrorCodes {
     public static final String ERR_PAYMENT_ALREADY_PROCESSED = "ERR_PAYMENT_ALREADY_PROCESSED";
     public static final String ERR_PAYMENT_CHECKOUT_FAILED = "ERR_PAYMENT_CHECKOUT_FAILED";
     public static final String ERR_PAYMENT_UNAUTHORIZED = "ERR_PAYMENT_UNAUTHORIZED";
+
+    // Phân hệ Sổ địa chỉ khách hàng (Customer Address Book)
+    public static final String ERR_ADDRESS_NOT_FOUND = "ERR_ADDRESS_NOT_FOUND";
 }
 
 

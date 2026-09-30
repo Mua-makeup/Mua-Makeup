@@ -27,6 +27,10 @@ import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+
+
+import jakarta.persistence.MapsId;
+
 @Entity
 @Table(name = "mua_profiles", schema = "mua_schema")
 @Getter

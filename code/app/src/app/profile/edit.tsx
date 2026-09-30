@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { customerProfileService } from '@/services/customer-profile.service';
+import { bookingService } from '@/services/booking.service';
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 import { SavedAddress, customerProfileSchema } from '@/schemas/customer-profile.schema';
 import { parseApiError } from '@/utils/error';
@@ -50,7 +51,26 @@ export default function UserProfileEditScreen() {
 
   useEffect(() => {
     if (isCustomer) {
-      customerProfileService.getSavedAddresses().then(setAddresses);
+      customerProfileService.getSavedAddresses().then((saved) => {
+        if (saved && saved.length > 0) {
+          setAddresses(saved);
+        } else {
+          // Tự động đồng bộ các địa chỉ từ đơn hàng gần nhất qua backend API
+          bookingService.getRecentAddresses()
+            .then((recent) => {
+              if (recent && recent.length > 0) {
+                const mapped: SavedAddress[] = recent.map((r, i) => ({
+                  id: `recent-${i}`,
+                  label: r.orderCount && r.orderCount > 1 ? `Đã đặt ${r.orderCount} lần` : 'Đơn gần đây',
+                  addressLine: r.address,
+                  isDefault: i === 0,
+                }));
+                setAddresses(mapped);
+              }
+            })
+            .catch(() => {});
+        }
+      });
     }
   }, [isCustomer]);
 
@@ -188,7 +208,7 @@ export default function UserProfileEditScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />

@@ -307,6 +307,8 @@
     "booking_destination_address_size": "Destination address cannot exceed 500 characters.",
     "booking_latitude_required": "Destination latitude cannot be blank.",
     "booking_longitude_required": "Destination longitude cannot be blank.",
+    "master_category_required": "Please select a service category.",
+    "radius_invalid": "Search radius must be between 1.0 and 30.0 km.",
     "commission_rate_required": "Commission rate cannot be blank.",
     "commission_rate_min": "Commission rate must be at least 0%.",
     "commission_rate_max": "Commission rate cannot exceed 100%.",
@@ -500,6 +502,24 @@
     "intent_created_success": "Payment intent initialized successfully.",
     "gateway_list_success": "Available payment gateways retrieved successfully.",
     "detail_success": "Payment transaction details retrieved successfully."
+  },
+  "booking": {
+    "create_success": "Booking created successfully!",
+    "cancel_success": "Booking cancelled successfully!",
+    "recent_addresses_fetch_success": "Recent addresses fetched successfully.",
+    "reject_provider_success": "Provider rejected. Searching for another makeup artist.",
+    "deposit_success": "Deposit confirmed successfully!",
+    "not_found": "Booking not found.",
+    "unauthorized_transition": "Unauthorized booking status transition.",
+    "invalid_status": "Invalid booking status for this operation."
+  },
+  "customer_address": {
+    "fetch_success": "Saved addresses fetched successfully.",
+    "create_success": "Saved address created successfully.",
+    "update_success": "Saved address updated successfully.",
+    "delete_success": "Saved address deleted successfully.",
+    "set_default_success": "Default address set successfully.",
+    "not_found": "Saved address not found or unauthorized access."
   }
 }
 

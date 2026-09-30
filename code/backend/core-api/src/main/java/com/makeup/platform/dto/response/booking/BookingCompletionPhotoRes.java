@@ -19,4 +19,8 @@ public class BookingCompletionPhotoRes {
     private String thumbnailUrl;
     private String publicId;
     private LocalDateTime uploadedAt;
+
+    public String getPhotoUrl() {
+        return completionPhotoUrl;
+    }
 }
