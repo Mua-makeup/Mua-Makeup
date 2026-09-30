@@ -48,6 +48,9 @@ export default function MuaWorkProfileScreen() {
   const [certImageUri, setCertImageUri] = useState<string | null>(null);
   const [isUploadingCert, setIsUploadingCert] = useState(false);
 
+  // Modal Xem trước ảnh phóng to (Chứng chỉ & Portfolio)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
   useEffect(() => {
     loadMuaProfile();
   }, []);
@@ -475,31 +478,50 @@ export default function MuaWorkProfileScreen() {
               </View>
             ) : (
               <View style={styles.certList}>
-                {certificates.map((c) => (
-                  <View key={`cert-${c.id}`} style={styles.certCard}>
-                    {c.certificateImageUrl ? (
-                      <Image
-                        source={{ uri: c.certificateImageUrl }}
-                        style={styles.certThumb}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <View style={styles.certThumbPlaceholder}>
-                        <Ionicons name="image-outline" size={20} color={BrandColors.slateMuted} />
-                      </View>
-                    )}
-                    <View style={styles.certInfo}>
-                      <Text style={styles.certTitle} numberOfLines={1}>{c.certificateName}</Text>
-                      <View style={styles.certBadgeRow}>
-                        <View style={[styles.certStatusBadge, c.isVerified ? styles.certVerified : styles.certPending]}>
-                          <Text style={[styles.certStatusText, c.isVerified ? styles.certVerifiedText : styles.certPendingText]}>
-                            {c.isVerified ? '✓ Đã xác thực' : 'Đang duyệt'}
-                          </Text>
+                {certificates.map((c, idx) => {
+                  const certImg = c.imageUrl || c.certificateImageUrl;
+                  const certTitle = c.certName || c.certificateName || 'Chứng chỉ nghề nghiệp';
+                  const isVerified = c.isVerified || c.status === 'VERIFIED';
+
+                  return (
+                    <TouchableOpacity
+                      key={`cert-${c.id || idx}`}
+                      style={styles.certCard}
+                      activeOpacity={certImg ? 0.75 : 1}
+                      onPress={() => {
+                        if (certImg) setPreviewImageUrl(certImg);
+                      }}
+                    >
+                      {certImg ? (
+                        <Image
+                          source={{ uri: certImg }}
+                          style={styles.certThumb}
+                          contentFit="cover"
+                          transition={200}
+                        />
+                      ) : (
+                        <View style={styles.certThumbPlaceholder}>
+                          <Ionicons name="image-outline" size={20} color={BrandColors.slateMuted} />
+                        </View>
+                      )}
+                      <View style={styles.certInfo}>
+                        <Text style={styles.certTitle} numberOfLines={1}>
+                          {certTitle}
+                        </Text>
+                        <View style={styles.certBadgeRow}>
+                          <View style={[styles.certStatusBadge, isVerified ? styles.certVerified : styles.certPending]}>
+                            <Text style={[styles.certStatusText, isVerified ? styles.certVerifiedText : styles.certPendingText]}>
+                              {isVerified ? '✓ Đã xác thực' : 'Đang duyệt'}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                  </View>
-                ))}
+                      {certImg && (
+                        <Ionicons name="scan-outline" size={16} color={BrandColors.slateMuted} style={{ marginLeft: 6 }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -542,7 +564,13 @@ export default function MuaWorkProfileScreen() {
               <View style={styles.portfolioGrid}>
                 {portfolioImages.map((url, idx) => (
                   <View key={`pf-${idx}-${url}`} style={styles.portfolioGridItem}>
-                    <Image source={{ uri: url }} style={styles.portfolioImageThumb} contentFit="cover" />
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => setPreviewImageUrl(url)}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <Image source={{ uri: url }} style={styles.portfolioImageThumb} contentFit="cover" />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.deletePortfolioItemBtn}
                       onPress={() => handleDeletePortfolioImage(url)}
@@ -634,6 +662,31 @@ export default function MuaWorkProfileScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
+      <Modal
+        visible={!!previewImageUrl}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPreviewImageUrl(null)}
+      >
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity
+            style={styles.imageViewerCloseBtn}
+            onPress={() => setPreviewImageUrl(null)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          {previewImageUrl && (
+            <Image
+              source={{ uri: previewImageUrl }}
+              style={styles.imageViewerFull}
+              contentFit="contain"
+            />
+          )}
         </View>
       </Modal>
     </SafeAreaView>
@@ -1079,5 +1132,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  imageViewerCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageViewerFull: {
+    width: '100%',
+    height: '80%',
+    borderRadius: 8,
   },
 });

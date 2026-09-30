@@ -9,6 +9,7 @@ import com.makeup.platform.entity.mua.MuaStyleEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -29,7 +30,9 @@ public class MuaProfileMapper {
         }
         return CertificateRes.builder()
                 .certName(cert.getCertName())
+                .certificateName(cert.getCertName())
                 .imageUrl(cert.getImageUrl())
+                .certificateImageUrl(cert.getImageUrl())
                 .isVerified(cert.getIsVerified())
                 .status(status)
                 .notes(cert.getNotes())
@@ -45,6 +48,10 @@ public class MuaProfileMapper {
     }
 
     public MuaProfileRes toProfileRes(MuaProfileEntity mua, List<MuaStyleEntity> styles) {
+        return toProfileRes(mua, styles, null);
+    }
+
+    public MuaProfileRes toProfileRes(MuaProfileEntity mua, List<MuaStyleEntity> styles, BigDecimal startingPrice) {
         if (mua == null) {
             return null;
         }
@@ -73,6 +80,7 @@ public class MuaProfileMapper {
                 .baseAddressLat(mua.getBaseAddressLat())
                 .baseAddressLng(mua.getBaseAddressLng())
                 .isSurgeEnabled(mua.getIsSurgeEnabled())
+                .startingPrice(startingPrice)
                 .isOnline(mua.getIsOnline())
                 .availabilityStatus(mua.getAvailabilityStatus() != null ? mua.getAvailabilityStatus().name() : null)
                 .updatedAt(mua.getUpdatedAt())

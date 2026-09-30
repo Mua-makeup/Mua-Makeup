@@ -359,4 +359,15 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
 
         return agencyProfileMapper.toRes(savedAgency);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AgencyProfileRes> getPublicAgencies(Integer limit) {
+        int max = (limit != null && limit > 0 && limit <= 50) ? limit : 20;
+        List<AgencyProfileEntity> list = agencyProfileRepository.findAll();
+        return list.stream()
+                .limit(max)
+                .map(agencyProfileMapper::toRes)
+                .toList();
+    }
 }

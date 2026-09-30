@@ -11,6 +11,7 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
+  Image,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,12 +33,21 @@ import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  targetMua?: NearbyProviderRes | null;
 }
 
 const RADIUS_OPTIONS = [5, 10, 15, 30];
 
-export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
+export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua }) => {
   const { currentAddress, latitude: storeLat, longitude: storeLng, fetchCurrentLocation } = useLocationStore();
+  
+  const [currentTargetMua, setCurrentTargetMua] = useState<NearbyProviderRes | null>(targetMua || null);
+
+  useEffect(() => {
+    if (visible) {
+      setCurrentTargetMua(targetMua || null);
+    }
+  }, [visible, targetMua]);
   
   // Dữ liệu danh mục và phong cách thật từ Database
   const [categories, setCategories] = useState<MasterCategory[]>([]);
@@ -366,6 +376,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
 
       const res = await bookingService.createInstantBooking({
         masterCategoryId: selectedCategory.id,
+        targetMuaId: currentTargetMua?.providerId,
         styleId: selectedStyle?.id,
         radiusKm: searchRadius,
         destinationAddress: sendAddress,
@@ -602,6 +613,44 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingBottom: 180 }}
             >
+              {/* BANNER ĐẶT ĐÍCH DANH THỢ NẾU CHỌN TỪ DANH SÁCH ONLINE */}
+              {currentTargetMua && (
+                <View style={styles.targetedMuaCard}>
+                  <View style={styles.targetedAvatarWrapper}>
+                    {currentTargetMua.avatarUrl ? (
+                      <Image source={{ uri: currentTargetMua.avatarUrl }} style={styles.targetedAvatar} />
+                    ) : (
+                      <View style={styles.targetedAvatarPlaceholder}>
+                        <Text style={styles.targetedAvatarInitial}>
+                          {currentTargetMua.fullName?.charAt(0).toUpperCase() || 'M'}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.targetedGreenDot} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Text style={styles.targetedTag}>ƯU TIÊN ĐẶT THỢ</Text>
+                      <Ionicons name="flash" size={11} color="#BE185D" />
+                    </View>
+                    <Text style={styles.targetedName} numberOfLines={1}>{currentTargetMua.fullName}</Text>
+                    <Text style={styles.targetedMeta}>
+                      ⭐ {currentTargetMua.ratingAvg ? Number(currentTargetMua.ratingAvg).toFixed(1) : '5.0'} • Cự ly: {currentTargetMua.distanceKm != null ? `${currentTargetMua.distanceKm} km` : 'Gần bạn'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.targetedCloseBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setCurrentTargetMua(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#94A3B8" />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* 1. CHỌN DANH MỤC DỊCH VỤ THẬT TỪ DATABASE */}
               <Text style={styles.sectionHeading}>1. Gói Dịch Vụ Cần Gấp:</Text>
               {isLoadingTaxonomy ? (
@@ -758,8 +807,10 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
                 onPress={handleStartScan}
                 activeOpacity={0.88}
               >
-                <Ionicons name="radio-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.startScanBtnText}>Bắt Đầu Quét Tìm Thợ Gần Nhất</Text>
+                <Ionicons name={currentTargetMua ? "flash" : "radio-outline"} size={18} color="#FFFFFF" />
+                <Text style={styles.startScanBtnText}>
+                  {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
+                </Text>
               </TouchableOpacity>
             </ScrollView>
           )}
@@ -773,12 +824,18 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose }) => {
 
               <View style={styles.scanningStatusBadge}>
                 <Ionicons name="radio" size={13} color={BrandColors.primary} />
-                <Text style={styles.scanningStatusBadgeText}>Đang Phát Tín Hiệu Thác Nước Tới Thợ...</Text>
+                <Text style={styles.scanningStatusBadgeText}>
+                  {currentTargetMua ? `Đang Phát Tín Hiệu Ưu Tiên Tới ${currentTargetMua.fullName}...` : 'Đang Phát Tín Hiệu Thác Nước Tới Thợ...'}
+                </Text>
               </View>
 
-              <Text style={styles.scanningTitle}>Đang Kết Nối Chuyên Viên Gần Bạn</Text>
+              <Text style={styles.scanningTitle}>
+                {currentTargetMua ? `Đang Kết Nối Với ${currentTargetMua.fullName}` : 'Đang Kết Nối Chuyên Viên Gần Bạn'}
+              </Text>
               <Text style={styles.scanningDesc}>
-                Hệ thống đang quét các chuyên viên trong bán kính {searchRadius}km. Thợ gần bạn nhất đang nhận được thông báo chuông và có 20s để bấm nhận ca.
+                {currentTargetMua
+                  ? `Cuốc hẹn khẩn cấp đã được gửi ưu tiên trực tiếp tới ${currentTargetMua.fullName}. Thợ có 30s để bấm nhận ca.`
+                  : `Hệ thống đang quét các chuyên viên trong bán kính ${searchRadius}km. Thợ gần bạn nhất đang nhận được thông báo chuông và có 20s để bấm nhận ca.`}
               </Text>
 
               {/* CARD TÓM TẮT ĐƠN HÀNG */}
@@ -1561,5 +1618,68 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     marginTop: 2,
+  },
+  targetedMuaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1.5,
+    borderColor: '#FDA4AF',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 16,
+  },
+  targetedAvatarWrapper: {
+    position: 'relative',
+  },
+  targetedAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F1F5F9',
+  },
+  targetedAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFE4E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  targetedAvatarInitial: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: BrandColors.primary,
+  },
+  targetedGreenDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  targetedTag: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#BE185D',
+    letterSpacing: 0.5,
+  },
+  targetedName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  targetedMeta: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 1,
+  },
+  targetedCloseBtn: {
+    padding: 4,
+    marginLeft: 4,
   },
 });

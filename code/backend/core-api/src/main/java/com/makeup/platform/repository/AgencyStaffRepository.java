@@ -46,4 +46,7 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
     @Query("SELECT s FROM AgencyStaffEntity s JOIN FETCH s.mua WHERE s.agency.id = :agencyId AND s.mua.id IN :muaIds")
     List<AgencyStaffEntity> findCommissionRates(@Param("agencyId") Long agencyId,
             @Param("muaIds") Collection<Long> muaIds);
+
+    @Query("SELECT s.mua.id FROM AgencyStaffEntity s WHERE s.isActive = true AND s.status = 'ACTIVE'")
+    List<Long> findAllActiveStaffMuaIds();
 }
