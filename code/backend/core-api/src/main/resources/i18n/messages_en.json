@@ -511,7 +511,17 @@
     "deposit_success": "Deposit confirmed successfully!",
     "not_found": "Booking not found.",
     "unauthorized_transition": "Unauthorized booking status transition.",
-    "invalid_status": "Invalid booking status for this operation."
+    "invalid_status": "Invalid booking status for this operation.",
+    "deposit_already_paid": "Deposit for this booking has already been paid.",
+    "deposit_expired": "Deposit window has expired (15 minutes).",
+    "deposit_not_found": "No deposit obligation found for this booking.",
+    "deposit_pricing_version_mismatch": "Pricing version has changed, please refresh.",
+    "deposit_not_freelancer_direct": "MoMo/VNPay deposit is currently only applicable for Freelancer bookings.",
+    "deposit_idempotency_conflict": "Duplicate payment request with conflicting payload.",
+    "deposit_intent_created": "Deposit intent created successfully.",
+    "deposit_status_retrieved": "Deposit status retrieved successfully.",
+    "deposit_deprecated": "Direct deposit confirmation endpoint has been deprecated. Please use deposit-intents API.",
+    "deposit_not_paid": "Cannot start trip: Customer deposit has not been paid."
   },
   "customer_address": {
     "fetch_success": "Saved addresses fetched successfully.",
@@ -520,6 +530,18 @@
     "delete_success": "Saved address deleted successfully.",
     "set_default_success": "Default address set successfully.",
     "not_found": "Saved address not found or unauthorized access."
+  },
+  "wallet": {
+    "info_retrieved": "Freelancer wallet information retrieved successfully.",
+    "cash_confirmed": "Cash payment confirmed successfully.",
+    "cash_already_confirmed": "Cash payment for this booking has already been confirmed.",
+    "cash_invoice_mismatch": "Invoice version mismatch.",
+    "cash_receipt_not_found": "No cash receipt record found for this booking.",
+    "cash_idempotency_conflict": "Cash receipt idempotency conflict.",
+    "settlement_completed": "Booking settlement completed successfully.",
+    "settlement_already_exists": "Booking has already been settled.",
+    "settlement_prerequisite_not_met": "Settlement prerequisites not met: dual cash confirmation and service completion required.",
+    "insufficient_balance": "Insufficient wallet balance."
   }
 }
 

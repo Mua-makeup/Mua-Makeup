@@ -16,9 +16,11 @@ import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
+import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingStateMachineService;
 import com.makeup.platform.service.media.MediaStorageService;
@@ -57,6 +59,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final MediaStorageService mediaStorageService;
     private final MUACalendarService muaCalendarService;
     private final StringRedisTemplate stringRedisTemplate;
+    private final BookingDepositRepository bookingDepositRepository;
 
     @Override
     @Transactional
@@ -90,6 +93,14 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         validateActorAuthorization(booking, user, targetStatus);
 
         // 3. Validate condition prerequisites
+        if (targetStatus == BookingStatus.ON_THE_WAY) {
+            if (!isDepositPaidInternal(booking)) {
+                log.warn("[StateMachine] Cannot start trip: Deposit not paid for bookingId={}", bookingId);
+                throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_PAID,
+                        "booking.deposit_not_paid", HttpStatus.BAD_REQUEST);
+            }
+        }
+
         if (targetStatus == BookingStatus.COMPLETED) {
             String photoUrl = req.getEffectiveCompletionPhotoUrl();
             if (StringUtils.hasText(photoUrl)) {
@@ -430,26 +441,15 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         BigDecimal platformFee = serviceSubtotal.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal earningsAmount = serviceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
 
-        boolean isDepositPaid = false;
+        boolean isDepositPaid = isDepositPaidInternal(booking);
         Integer depositTimeoutSeconds = null;
-        if (booking.getStatus() == BookingStatus.ACCEPTED) {
-            Boolean hasRedisFlag = stringRedisTemplate != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey("booking:deposit_paid:" + booking.getId()));
-            if (Boolean.TRUE.equals(hasRedisFlag)) {
-                isDepositPaid = true;
+        if (!isDepositPaid && booking.getStatus() == BookingStatus.ACCEPTED) {
+            if (booking.getDepositExpiredAt() != null) {
+                long remaining = Duration.between(OffsetDateTime.now(), booking.getDepositExpiredAt()).getSeconds();
+                depositTimeoutSeconds = (int) Math.max(0, remaining);
             } else {
-                if (booking.getDepositExpiredAt() != null) {
-                    long remaining = Duration.between(OffsetDateTime.now(), booking.getDepositExpiredAt()).getSeconds();
-                    depositTimeoutSeconds = (int) Math.max(0, remaining);
-                } else {
-                    depositTimeoutSeconds = 0;
-                }
+                depositTimeoutSeconds = 0;
             }
-        } else if (booking.getStatus() == BookingStatus.ON_THE_WAY
-                || booking.getStatus() == BookingStatus.ARRIVED
-                || booking.getStatus() == BookingStatus.IN_PROGRESS
-                || booking.getStatus() == BookingStatus.COMPLETED
-                || booking.getStatus() == BookingStatus.PAID_OUT) {
-            isDepositPaid = true;
         }
 
         String styleName = null;
@@ -508,4 +508,28 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
                 .build();
     }
+
+    private boolean isDepositPaidInternal(BookingEntity booking) {
+        if (booking.getStatus() == BookingStatus.ON_THE_WAY
+                || booking.getStatus() == BookingStatus.ARRIVED
+                || booking.getStatus() == BookingStatus.IN_PROGRESS
+                || booking.getStatus() == BookingStatus.COMPLETED
+                || booking.getStatus() == BookingStatus.PAID_OUT) {
+            return true;
+        }
+        if (bookingDepositRepository != null) {
+            var depositOpt = bookingDepositRepository.findByBookingId(booking.getId());
+            if (depositOpt.isPresent()) {
+                return "PAID".equals(depositOpt.get().getStatus());
+            }
+        }
+        if (booking.getDepositExpiredAt() == null && booking.getStatus() == BookingStatus.ACCEPTED) {
+            return true;
+        }
+        if (stringRedisTemplate != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey("booking:deposit_paid:" + booking.getId()))) {
+            return true;
+        }
+        return false;
+    }
 }
+

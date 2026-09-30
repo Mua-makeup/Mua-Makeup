@@ -4,6 +4,7 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.entity.payment.PaymentTransactionEntity;
 import com.makeup.platform.repository.payment.PaymentTransactionRepository;
+import com.makeup.platform.service.payment.BookingDepositService;
 import com.makeup.platform.service.payment.PaymentWebhookProcessor;
 import com.makeup.platform.service.payment.gateway.GatewayPaymentResult;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayRegistry;
@@ -26,6 +27,7 @@ public class PaymentWebhookProcessorImpl implements PaymentWebhookProcessor {
 
     private final PaymentGatewayRegistry gatewayRegistry;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final BookingDepositService bookingDepositService;
 
     @Override
     @Transactional
@@ -59,14 +61,26 @@ public class PaymentWebhookProcessorImpl implements PaymentWebhookProcessor {
         if (result.isSuccessful()) {
             transaction.setStatus("SUCCESS");
             transaction.setPaidAt(result.getPaidAt() != null ? result.getPaidAt() : OffsetDateTime.now(VIETNAM_ZONE));
-            // Lưu ý: walletPostingStatus vẫn giữ nguyên là NOT_POSTED (chờ hạch toán sổ cái ở Mốc 2)
-            log.info("Payment {} confirmed SUCCESS from gateway {}. Ready for ledger posting.", transaction.getPaymentCode(), gatewayCode);
+            log.info("Payment {} confirmed SUCCESS from gateway {}. Ready for deposit application.", transaction.getPaymentCode(), gatewayCode);
         } else {
             transaction.setStatus("FAILED");
             log.warn("Payment {} FAILED from gateway {}. Response code: {}", transaction.getPaymentCode(), gatewayCode, result.getResponseCode());
         }
 
-        paymentTransactionRepository.save(transaction);
+        PaymentTransactionEntity savedTransaction = paymentTransactionRepository.save(transaction);
+
+        // Áp dụng cọc nếu là BOOKING_DEPOSIT và SUCCESS
+        if (result.isSuccessful() && "BOOKING_DEPOSIT".equals(savedTransaction.getPurpose())) {
+            try {
+                bookingDepositService.applyDepositFromPayment(savedTransaction.getId());
+            } catch (Exception e) {
+                // Lỗi ghi sổ: giữ bằng chứng gateway đã thu, retry qua scheduler
+                log.error("Failed to apply deposit for payment {}. Marking REVIEW_REQUIRED.", savedTransaction.getId(), e);
+                savedTransaction.setApplicationStatus("REVIEW_REQUIRED");
+                savedTransaction.setApplicationError(e.getMessage() != null ? e.getMessage().substring(0, Math.min(255, e.getMessage().length())) : "unknown_error");
+                paymentTransactionRepository.save(savedTransaction);
+            }
+        }
 
         return strategy.callbackAcknowledgement(result);
     }

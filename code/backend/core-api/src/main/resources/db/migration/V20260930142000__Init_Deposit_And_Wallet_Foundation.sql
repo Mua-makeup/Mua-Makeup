@@ -19,9 +19,20 @@ ALTER TABLE wallet_schema.payment_transactions
     ADD COLUMN IF NOT EXISTS application_error TEXT,
     ADD COLUMN IF NOT EXISTS applied_at       TIMESTAMP WITH TIME ZONE;
 
+-- Đồng bộ giá trị purpose cũ về TOP_UP trước khi áp dụng check constraint
+UPDATE wallet_schema.payment_transactions
+    SET purpose = 'TOP_UP'
+    WHERE purpose IS NULL OR purpose = 'WALLET_TOPUP';
+
+ALTER TABLE wallet_schema.payment_transactions
+    DROP CONSTRAINT IF EXISTS chk_payment_application_status;
+
 ALTER TABLE wallet_schema.payment_transactions
     ADD CONSTRAINT chk_payment_application_status
         CHECK (application_status IN ('PENDING','APPLIED','REFUND_REQUIRED','REVIEW_REQUIRED'));
+
+ALTER TABLE wallet_schema.payment_transactions
+    DROP CONSTRAINT IF EXISTS chk_payment_purpose;
 
 ALTER TABLE wallet_schema.payment_transactions
     ADD CONSTRAINT chk_payment_purpose
@@ -47,8 +58,28 @@ ALTER TABLE booking_schema.bookings
     ADD COLUMN IF NOT EXISTS remaining_payment_method VARCHAR(20) DEFAULT NULL;
 
 ALTER TABLE booking_schema.bookings
+    DROP CONSTRAINT IF EXISTS chk_booking_remaining_payment_method;
+
+ALTER TABLE booking_schema.bookings
     ADD CONSTRAINT chk_booking_remaining_payment_method
         CHECK (remaining_payment_method IS NULL OR remaining_payment_method IN ('CASH','ONLINE'));
+
+-- ===========================================================================
+-- DỌN DẸP BẢNG PHÁC THẢO CŨ TRƯỚC KHI TẠO CẤU TRÚC CHUẨN SPRINT 5
+-- ===========================================================================
+
+DROP TABLE IF EXISTS wallet_schema.booking_addon_snapshots CASCADE;
+DROP TABLE IF EXISTS wallet_schema.booking_quotes CASCADE;
+DROP TABLE IF EXISTS wallet_schema.payment_outbox CASCADE;
+DROP TABLE IF EXISTS wallet_schema.payment_refunds CASCADE;
+DROP TABLE IF EXISTS wallet_schema.wallet_transactions CASCADE;
+
+DROP TABLE IF EXISTS wallet_schema.wallet_holds CASCADE;
+DROP TABLE IF EXISTS wallet_schema.booking_deposits CASCADE;
+DROP TABLE IF EXISTS wallet_schema.ledger_entries CASCADE;
+DROP TABLE IF EXISTS wallet_schema.booking_cash_receipts CASCADE;
+DROP TABLE IF EXISTS wallet_schema.booking_settlements CASCADE;
+DROP TABLE IF EXISTS wallet_schema.wallets CASCADE;
 
 -- ===========================================================================
 -- 3. BẢNG booking_deposits — MỘT NGHĨA VỤ CỌC / BOOKING (wallet_schema)

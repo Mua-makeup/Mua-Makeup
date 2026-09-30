@@ -137,12 +137,15 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
 
     @Override
     public GatewayPaymentResult verifyAndParseCallback(Map<String, String> queryParams, String rawBody) {
-        if (rawBody == null || rawBody.isBlank()) {
-            throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_SIGNATURE_INVALID, "ERR_PAYMENT_SIGNATURE_INVALID");
-        }
-
+        Map<String, Object> bodyMap;
         try {
-            Map<String, Object> bodyMap = objectMapper.readValue(rawBody, new TypeReference<Map<String, Object>>() {});
+            if (rawBody != null && !rawBody.isBlank()) {
+                bodyMap = objectMapper.readValue(rawBody, new TypeReference<Map<String, Object>>() {});
+            } else if (queryParams != null && !queryParams.isEmpty()) {
+                bodyMap = new HashMap<>(queryParams);
+            } else {
+                throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_SIGNATURE_INVALID, "ERR_PAYMENT_SIGNATURE_INVALID");
+            }
 
             String partnerCode = String.valueOf(bodyMap.getOrDefault("partnerCode", ""));
             String orderId = String.valueOf(bodyMap.getOrDefault("orderId", ""));
@@ -152,7 +155,14 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
             String orderType = String.valueOf(bodyMap.getOrDefault("orderType", ""));
             String transId = String.valueOf(bodyMap.getOrDefault("transId", ""));
             Object resultCodeObj = bodyMap.get("resultCode");
-            int resultCode = (resultCodeObj instanceof Number) ? ((Number) resultCodeObj).intValue() : -1;
+            int resultCode = -1;
+            if (resultCodeObj instanceof Number) {
+                resultCode = ((Number) resultCodeObj).intValue();
+            } else if (resultCodeObj instanceof String) {
+                try {
+                    resultCode = Integer.parseInt(((String) resultCodeObj).trim());
+                } catch (NumberFormatException ignored) {}
+            }
             String message = String.valueOf(bodyMap.getOrDefault("message", ""));
             String payType = String.valueOf(bodyMap.getOrDefault("payType", ""));
             String responseTime = String.valueOf(bodyMap.getOrDefault("responseTime", ""));

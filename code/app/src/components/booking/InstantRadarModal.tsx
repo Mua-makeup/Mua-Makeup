@@ -75,6 +75,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
   const [step, setStep] = useState<'IDLE' | 'SCANNING' | 'MATCHED' | 'TIMEOUT'>('IDLE');
   const [secondsLeft, setSecondsLeft] = useState(45);
+  const [isSubmittingScan, setIsSubmittingScan] = useState(false);
   const [createdBooking, setCreatedBooking] = useState<InstantBookingCreatedRes | null>(null);
   const [matchedMua, setMatchedMua] = useState<{
     name: string;
@@ -300,26 +301,28 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
   useEffect(() => {
     if (step === 'SCANNING') {
-      timerRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current!);
-            handleTimeout();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+      const totalSec = createdBooking?.searchTimeoutSeconds || 45;
+      const endTime = Date.now() + totalSec * 1000;
+      setSecondsLeft(totalSec);
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [step]);
+      const interval = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+        setSecondsLeft(remaining);
+        if (remaining <= 0) {
+          clearInterval(interval);
+          handleTimeout();
+        }
+      }, 1000);
+      timerRef.current = interval;
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [step, createdBooking?.searchTimeoutSeconds]);
 
   const handleStartScan = async () => {
+    if (isSubmittingScan) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     // Kiểm tra nếu danh sách thợ rỗng trước khi gửi đơn
@@ -337,6 +340,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     }
 
     try {
+      setIsSubmittingScan(true);
       let targetLat = coords?.latitude || storeLat;
       let targetLng = coords?.longitude || storeLng;
 
@@ -477,6 +481,8 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
         Alert.alert('Không Thể Tìm Thợ', parsed.message);
       }
       setStep('IDLE');
+    } finally {
+      setIsSubmittingScan(false);
     }
   };
 
@@ -516,7 +522,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     setStep('IDLE');
     onClose();
     if (createdBooking?.bookingId) {
-      router.push(`/booking/tracking/${createdBooking.bookingId}` as any);
+      router.push(`/booking/deposit/${createdBooking.bookingId}` as any);
     } else {
       router.push('/bookings');
     }
@@ -803,14 +809,21 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
               {/* NÚT KÍCH HOẠT QUÉT THỢ */}
               <TouchableOpacity
-                style={styles.startScanBtn}
+                style={[styles.startScanBtn, isSubmittingScan && { opacity: 0.6 }]}
                 onPress={handleStartScan}
+                disabled={isSubmittingScan}
                 activeOpacity={0.88}
               >
-                <Ionicons name={currentTargetMua ? "flash" : "radio-outline"} size={18} color="#FFFFFF" />
-                <Text style={styles.startScanBtnText}>
-                  {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
-                </Text>
+                {isSubmittingScan ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name={currentTargetMua ? "flash" : "radio-outline"} size={18} color="#FFFFFF" />
+                    <Text style={styles.startScanBtnText}>
+                      {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </ScrollView>
           )}
@@ -932,8 +945,8 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   onPress={handleGoToTracking}
                   activeOpacity={0.88}
                 >
-                  <Ionicons name="navigate" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.viewTripBtnText}>Xem Bản Đồ Live Tracking</Text>
+                  <Ionicons name="card-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.viewTripBtnText}>Tiến Hành Đặt Cọc (30% Escrow)</Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>

@@ -121,7 +121,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/telemetry/nearby").permitAll()
                         .requestMatchers("/api/v1/pricing/**").permitAll()
-                        .requestMatchers("/api/v1/payments/ipn/**", "/api/v1/payments/*/ipn").permitAll()
+                        .requestMatchers("/api/v1/payments/ipn/**", "/api/v1/payments/*/ipn", "/api/v1/payments/return/**", "/api/v1/payments/*/return").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/gateways").permitAll()
                         .requestMatchers("/api/v1/maps/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")

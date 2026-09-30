@@ -56,6 +56,7 @@ export const CountdownAcceptModal: React.FC = () => {
     ]).start();
 
     const initialSec = activeOffer.countdownSeconds || 20;
+    const endTime = Date.now() + initialSec * 1000;
     setSecondsLeft(initialSec);
 
     // Pulse animation
@@ -85,18 +86,14 @@ export const CountdownAcceptModal: React.FC = () => {
 
     // Countdown interval & haptic
     const timer = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          dismissOffer(true);
-          return 0;
-        }
-        // Haptic heartbeat every 2 seconds
-        if (prev % 2 === 0) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        }
-        return prev - 1;
-      });
+      const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        dismissOffer(true);
+      } else if (remaining % 2 === 0) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }
     }, 1000);
 
     return () => {

@@ -10,6 +10,7 @@ import com.makeup.platform.service.booking.ScheduledBookingService;
 import com.makeup.platform.service.customer.CustomerBookingQueryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,11 +49,20 @@ public class CustomerScheduledBookingController extends BaseController {
         return createdWithKey(res, "booking.scheduled_created_success");
     }
 
+    /**
+     * @deprecated Endpoint này đã bị thay thế bởi POST /deposit-intents
+     * Trả 410 Gone để client chuyển sang API cọc mới.
+     */
     @PostMapping("/{bookingId}/deposit")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<Void>> confirmDepositPayment(
             @PathVariable Long bookingId) {
-        scheduledBookingService.confirmDepositPayment(bookingId);
-        return okWithKey(null, "booking.deposit_confirmed_success");
+        ApiResponse<Void> errorRes = ApiResponse.<Void>builder()
+                .success(false)
+                .errorCode("ERR_DEPRECATED")
+                .message("Endpoint này đã bị thay thế. Vui lòng dùng POST /api/v1/customer/bookings/"
+                        + bookingId + "/deposit-intents")
+                .build();
+        return ResponseEntity.status(HttpStatus.GONE).body(errorRes);
     }
 }

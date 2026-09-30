@@ -19,8 +19,10 @@ import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.InstantBookingMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
+import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
+import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingMessagePublisher;
 import com.makeup.platform.service.customer.CustomerInstantBookingService;
@@ -47,9 +49,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,6 +88,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final StringRedisTemplate stringRedisTemplate;
     private final MuaProfileRepository muaProfileRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final BookingDepositRepository bookingDepositRepository;
 
     @Override
     @Transactional
@@ -94,12 +100,17 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
                         "auth.user_not_found", HttpStatus.NOT_FOUND));
 
-        // 0. Quét dọn và tự động hủy tất cả đơn cũ còn ở trạng thái REQUESTED của khách hàng này
-        // Khi khách bấm "Đặt Lại" hoặc tạo yêu cầu mới, các đơn cũ chưa có thợ nhận sẽ được hủy ngay để không chặn khách
+        // 0. Quét dọn và tự động hủy tất cả đơn cũ còn ở trạng thái REQUESTED của khách hàng này (chỉ hủy đơn > 10s để tránh giết nhầm request gần nhau)
         List<Long> customerBookings = bookingRepository.findCustomerPendingIds(
                 customerId, BookingType.REALTIME_INSTANT, BookingStatus.REQUESTED);
         for (Long previousBookingId : customerBookings) {
-            expireInstantBooking(previousBookingId);
+            var prevOpt = bookingRepository.findById(previousBookingId);
+            if (prevOpt.isPresent()) {
+                BookingEntity prev = prevOpt.get();
+                if (prev.getCreatedAt() != null && prev.getCreatedAt().isBefore(LocalDateTime.now().minusSeconds(10))) {
+                    expireInstantBooking(previousBookingId, "Hủy do khách hàng tạo yêu cầu tìm thợ mới.");
+                }
+            }
         }
 
         // Chặn tạo đơn tức thì nếu khách hàng đang có đơn ĐÃ ĐƯỢC THỢ NHẬN VÀ ĐANG THỰC HIỆN
@@ -310,7 +321,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             return true;
         } else {
             log.info("[SequentialDispatch] No more candidate MUAs available for bookingId={}", bookingId);
-            expireInstantBooking(bookingId);
+            expireInstantBooking(bookingId, "Hiện không có chuyên viên trang điểm nào khả dụng trong khu vực để nhận ca.");
             return false;
         }
     }
@@ -353,6 +364,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     @Override
     @Transactional
     public boolean expireInstantBooking(Long bookingId) {
+        return expireInstantBooking(bookingId, "Đã hết thời gian tìm kiếm (45 giây). Đơn đã tự động hủy do không có thợ nhận.");
+    }
+
+    @Transactional
+    public boolean expireInstantBooking(Long bookingId, String timeoutMessage) {
         BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId).orElse(null);
         if (booking == null || booking.getStatus() != BookingStatus.REQUESTED) {
             log.info(
@@ -361,8 +377,12 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             return false;
         }
 
+        String effectiveMessage = (timeoutMessage != null && !timeoutMessage.trim().isEmpty())
+                ? timeoutMessage.trim()
+                : "Hết thời gian tìm kiếm thợ trang điểm (45s timeout)";
+
         booking.setStatus(BookingStatus.CANCELLED);
-        booking.setCancellationReason("Hết thời gian tìm kiếm thợ trang điểm (45s timeout)");
+        booking.setCancellationReason(effectiveMessage);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         // Giải phóng khóa thợ đang giữ (nếu có) và clear redis keys
@@ -370,7 +390,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         // Audit log
         bookingAuditService.logTransition(savedBooking, BookingStatus.REQUESTED, BookingStatus.CANCELLED, null,
-                "Hệ thống tự động hủy đơn sau 45s không có thợ nhận");
+                effectiveMessage);
 
         // Publish Spring event
         eventPublisher.publishEvent(new BookingStateChangedEvent(
@@ -387,7 +407,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         timeoutPayload.put("bookingId", bookingId);
         timeoutPayload.put("bookingCode", savedBooking.getBookingCode());
         timeoutPayload.put("status", "CANCELLED");
-        timeoutPayload.put("message", "Đã hết thời gian tìm kiếm (45 giây). Đơn đã tự động hủy do không có thợ nhận.");
+        timeoutPayload.put("message", effectiveMessage);
         timeoutPayload.put("timestamp", System.currentTimeMillis());
 
         messagePublisher.send("/topic/booking-matched/" + bookingId, timeoutPayload);
@@ -396,7 +416,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         // Dismiss any lingering popup on MUAs
         dismissBookingOffers(bookingId, "TIMEOUT_EXPIRED");
 
-        log.info("[InstantBookingTimeout] Successfully cancelled booking id={} due to 45s timeout", bookingId);
+        log.info("[InstantBookingTimeout] Successfully cancelled booking id={} with message: {}", bookingId, effectiveMessage);
         return true;
     }
 
@@ -420,13 +440,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         BookingStatus previousStatus = booking.getStatus();
         booking.setStatus(BookingStatus.CANCELLED);
-        String cancelReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim()
+        String defaultReason = (previousStatus == BookingStatus.ACCEPTED)
+                ? "Khách hàng đã hủy yêu cầu làm đẹp"
                 : "Khách hàng chủ động hủy tìm kiếm";
+        String cancelReason = (reason != null && !reason.trim().isEmpty() && !reason.contains("chủ động hủy tìm kiếm"))
+                ? reason.trim() : defaultReason;
         booking.setCancellationReason(cancelReason);
 
         // Release MUA busy state if already accepted
+        Long acceptedMuaId = null;
         if (booking.getMua() != null) {
             MuaProfileEntity mua = booking.getMua();
+            acceptedMuaId = mua.getId();
             mua.setIsBusy(false);
             if (Boolean.TRUE.equals(mua.getIsOnline())) {
                 mua.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
@@ -465,6 +490,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         messagePublisher.send("/topic/booking-matched/" + bookingId, cancelPayload);
         messagePublisher.send("/topic/booking-status/" + bookingId, cancelPayload);
+        if (acceptedMuaId != null) {
+            messagePublisher.send("/topic/booking-customer-rejected/" + acceptedMuaId, cancelPayload);
+        }
 
         // Dismiss MUAs
         dismissBookingOffers(bookingId, "CUSTOMER_CANCELLED");
@@ -712,11 +740,22 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             booking.setDepositAmount(booking.getDepositAmount().add(extraDeposit));
         }
 
-        // Đã thanh toán cọc thành công -> xóa hạn đếm ngược cọc
-        booking.setDepositExpiredAt(null);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
-        stringRedisTemplate.opsForValue().set("booking:deposit_paid:" + bookingId, "true", Duration.ofDays(7));
+        // Tạo hoặc cập nhật nghĩa vụ cọc trong booking_deposits (chưa đánh dấu PAID, chờ IPN MoMo/VNPay)
+        if (bookingDepositRepository != null) {
+            BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
+                    .orElseGet(() -> BookingDepositEntity.builder()
+                            .booking(savedBooking)
+                            .pricingVersion(LocalDate.now().toString() + ":" + savedBooking.getVersion())
+                            .expiresAt(savedBooking.getDepositExpiredAt() != null
+                                    ? savedBooking.getDepositExpiredAt()
+                                    : OffsetDateTime.now(ZoneOffset.ofHours(7)).plusMinutes(15))
+                            .status("UNPAID")
+                            .build());
+            deposit.setRequiredAmount(savedBooking.getDepositAmount());
+            bookingDepositRepository.save(deposit);
+        }
 
         // Đọc cấu hình % chiết khấu Freelancer động từ Redis (mặc định 20%)
         BigDecimal commissionRate = new BigDecimal("0.20");
@@ -733,10 +772,10 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         BigDecimal surchargeFee = savedBooking.getSurchargeFee() != null ? savedBooking.getSurchargeFee() : BigDecimal.ZERO;
         BigDecimal earningsAmount = finalServiceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
 
-        // Bắn WebSocket thông báo thợ đã được khách chốt & cập nhật bill chi tiết
+        // Bắn WebSocket thông báo thợ đã được khách chốt dịch vụ thêm & đang chờ cọc
         if (savedBooking.getMua() != null) {
             Map<String, Object> confirmPayload = new HashMap<>();
-            confirmPayload.put("type", "CUSTOMER_CONFIRMED_DEPOSIT");
+            confirmPayload.put("type", "CUSTOMER_CONFIRMED_ADDONS");
             confirmPayload.put("bookingId", bookingId);
             confirmPayload.put("bookingCode", savedBooking.getBookingCode());
             confirmPayload.put("addOnNames", addOnNames != null ? addOnNames : List.of());
@@ -745,7 +784,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             confirmPayload.put("depositAmount", savedBooking.getDepositAmount());
             confirmPayload.put("platformFee", platformFee);
             confirmPayload.put("earningsAmount", earningsAmount);
-            confirmPayload.put("message", "Khách hàng đã chốt đơn & đặt cọc 30%. Bạn có thể bấm bắt đầu di chuyển!");
+            confirmPayload.put("message", "Khách hàng đã chốt dịch vụ thêm và đang tiến hành thanh toán cọc 30%.");
             confirmPayload.put("timestamp", System.currentTimeMillis());
 
             messagePublisher.send("/topic/booking-customer-confirmed/" + savedBooking.getMua().getId(), confirmPayload);

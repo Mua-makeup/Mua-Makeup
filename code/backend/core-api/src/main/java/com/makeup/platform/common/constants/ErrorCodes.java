@@ -151,6 +151,24 @@ public final class ErrorCodes {
 
     // Phân hệ Sổ địa chỉ khách hàng (Customer Address Book)
     public static final String ERR_ADDRESS_NOT_FOUND = "ERR_ADDRESS_NOT_FOUND";
+
+    // Phân hệ Cọc Booking & Ví (Booking Deposit & Wallet)
+    public static final String ERR_DEPOSIT_ALREADY_PAID = "ERR_DEPOSIT_ALREADY_PAID";
+    public static final String ERR_DEPOSIT_EXPIRED = "ERR_DEPOSIT_EXPIRED";
+    public static final String ERR_DEPOSIT_NOT_FOUND = "ERR_DEPOSIT_NOT_FOUND";
+    public static final String ERR_DEPOSIT_PRICING_VERSION_MISMATCH = "ERR_DEPOSIT_PRICING_VERSION_MISMATCH";
+    public static final String ERR_DEPOSIT_NOT_FREELANCER_DIRECT = "ERR_DEPOSIT_NOT_FREELANCER_DIRECT";
+    public static final String ERR_DEPOSIT_IDEMPOTENCY_CONFLICT = "ERR_DEPOSIT_IDEMPOTENCY_CONFLICT";
+    public static final String ERR_DEPOSIT_NOT_APPLICABLE = "ERR_DEPOSIT_NOT_APPLICABLE";
+    public static final String ERR_WALLET_NOT_FOUND = "ERR_WALLET_NOT_FOUND";
+    public static final String ERR_WALLET_INSUFFICIENT_BALANCE = "ERR_WALLET_INSUFFICIENT_BALANCE";
+    public static final String ERR_CASH_RECEIPT_NOT_FOUND = "ERR_CASH_RECEIPT_NOT_FOUND";
+    public static final String ERR_CASH_RECEIPT_INVOICE_VERSION_MISMATCH = "ERR_CASH_RECEIPT_INVOICE_VERSION_MISMATCH";
+    public static final String ERR_CASH_RECEIPT_ALREADY_CONFIRMED = "ERR_CASH_RECEIPT_ALREADY_CONFIRMED";
+    public static final String ERR_CASH_RECEIPT_IDEMPOTENCY_CONFLICT = "ERR_CASH_RECEIPT_IDEMPOTENCY_CONFLICT";
+    public static final String ERR_SETTLEMENT_ALREADY_EXISTS = "ERR_SETTLEMENT_ALREADY_EXISTS";
+    public static final String ERR_SETTLEMENT_PREREQUISITE_NOT_MET = "ERR_SETTLEMENT_PREREQUISITE_NOT_MET";
+    public static final String ERR_DEPOSIT_NOT_PAID = "ERR_DEPOSIT_NOT_PAID";
 }
 
 

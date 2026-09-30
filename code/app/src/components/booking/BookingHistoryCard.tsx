@@ -158,10 +158,10 @@ export const BookingHistoryCard: React.FC<Props> = ({
           </TouchableOpacity>
         ) : null}
 
-        {booking.status === 'ACCEPTED' && !booking.isDepositPaid && (
+        {((booking.status === 'ACCEPTED' || (booking.status as any) === 'PENDING_DEPOSIT') && !booking.isDepositPaid) && (
           <TouchableOpacity
             style={styles.depositActionBtn}
-            onPress={() => onTrackPress && onTrackPress(booking)}
+            onPress={() => router.push(`/booking/deposit/${booking.id}` as any)}
             activeOpacity={0.7}
           >
             <Ionicons name="card-outline" size={14} color="#FFFFFF" />

@@ -517,7 +517,17 @@
     "deposit_success": "Xác nhận đặt cọc thành công!",
     "not_found": "Không tìm thấy thông tin đơn đặt lịch.",
     "unauthorized_transition": "Bạn không có quyền thay đổi trạng thái đơn đặt lịch này.",
-    "invalid_status": "Trạng thái đơn hàng không hợp lệ cho thao tác này."
+    "invalid_status": "Trạng thái đơn hàng không hợp lệ cho thao tác này.",
+    "deposit_already_paid": "Khoản cọc cho đơn hẹn này đã được thanh toán trước đó.",
+    "deposit_expired": "Khoản cọc đã quá thời hạn thanh toán (15 phút).",
+    "deposit_not_found": "Không tìm thấy nghĩa vụ cọc cho đơn đặt lịch này.",
+    "deposit_pricing_version_mismatch": "Phiên bản giá đã thay đổi, vui lòng thử lại.",
+    "deposit_not_freelancer_direct": "Chức năng cọc MoMo/VNPay này hiện chỉ áp dụng cho thợ tự do (Freelancer).",
+    "deposit_idempotency_conflict": "Yêu cầu thanh toán trùng lặp nhưng nội dung cổng thanh toán không khớp.",
+    "deposit_intent_created": "Tạo yêu cầu thanh toán cọc thành công.",
+    "deposit_status_retrieved": "Lấy trạng thái cọc thành công.",
+    "deposit_deprecated": "Endpoint xác nhận cọc trực tiếp đã bị vô hiệu hóa. Vui lòng tạo yêu cầu thanh toán qua deposit-intents.",
+    "deposit_not_paid": "Không thể bắt đầu di chuyển: Khách hàng chưa hoàn tất thanh toán cọc."
   },
   "customer_address": {
     "fetch_success": "Lấy danh sách địa chỉ thân quen thành công.",
@@ -526,6 +536,18 @@
     "delete_success": "Xóa địa chỉ thành công.",
     "set_default_success": "Đặt địa chỉ mặc định thành công.",
     "not_found": "Địa chỉ không tồn tại hoặc không thuộc quyền sở hữu của bạn."
+  },
+  "wallet": {
+    "info_retrieved": "Lấy thông tin ví thợ thành công.",
+    "cash_confirmed": "Xác nhận tiền mặt thành công.",
+    "cash_already_confirmed": "Bạn đã xác nhận tiền mặt cho đơn này trước đó.",
+    "cash_invoice_mismatch": "Phiên bản hóa đơn không khớp.",
+    "cash_receipt_not_found": "Không tìm thấy yêu cầu biên nhận tiền mặt cho đơn này.",
+    "cash_idempotency_conflict": "Xung đột khóa xử lý biên nhận tiền mặt.",
+    "settlement_completed": "Quyết toán đơn hàng thành công.",
+    "settlement_already_exists": "Đơn hàng đã được quyết toán trước đó.",
+    "settlement_prerequisite_not_met": "Chưa đủ điều kiện quyết toán: cần cả hai bên xác nhận tiền mặt và dịch vụ hoàn tất.",
+    "insufficient_balance": "Số dư ví không đủ để thực hiện giao dịch."
   }
 }
 

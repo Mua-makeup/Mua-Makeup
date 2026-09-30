@@ -20,6 +20,7 @@ public class PaymentCheckoutRes {
     private String gatewayCode;
     private BigDecimal amount;
     private String paymentUrl;
+    private String checkoutUrl;
     private String qrCodeUrl;
     private String deepLink;
     private OffsetDateTime expiresAt;

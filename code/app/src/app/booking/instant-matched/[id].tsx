@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
@@ -50,17 +50,21 @@ export default function InstantMatchedScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingDetail, setBookingDetail] = useState<BookingStatusDetailRes | null>(null);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
-  const [secondsLeft, setSecondsLeft] = useState<number>(300); // 5 phút kiểm tra & chọn dịch vụ
+  const [secondsLeft, setSecondsLeft] = useState<number>(600); // 10 phút kiểm tra & giữ chỗ (đồng bộ thợ)
   const [isExpired, setIsExpired] = useState(false);
 
   // Modal Từ chối thợ (Kèm lý do)
   const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  // Modal Thanh Toán Đặt Cọc 30% (Chuyên biệt)
-  const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'WALLET' | 'VNPAY'>('WALLET');
-  const [depositPaymentSecondsLeft, setDepositPaymentSecondsLeft] = useState(300); // 5 phút thanh toán cọc
+  // Tự động kiểm tra lại trạng thái khi màn hình được focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (bookingId) {
+        loadBookingData();
+      }
+    }, [bookingId])
+  );
 
   useEffect(() => {
     if (!bookingId) return;
@@ -73,6 +77,20 @@ export default function InstantMatchedScreen() {
         Alert.alert('Đơn Đã Hủy', 'Ca đặt lịch đã được hủy.', [
           { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
         ]);
+        return;
+      }
+
+      // Nếu đơn đã cọc hoặc thợ đã nhận / di chuyển -> lập tức chuyển sang chi tiết đơn
+      if (
+        msg?.status === 'ACCEPTED' ||
+        msg?.isDepositPaid === true ||
+        msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
+        msg?.type === 'PAYMENT_COMPLETED' ||
+        msg?.status === 'ON_THE_WAY' ||
+        msg?.status === 'ARRIVED' ||
+        msg?.status === 'IN_PROGRESS'
+      ) {
+        router.replace(`/booking/detail/${bookingId}` as any);
       }
     });
 
@@ -81,7 +99,7 @@ export default function InstantMatchedScreen() {
     };
   }, [bookingId]);
 
-  // Countdown timer 5 phút ở màn kiểm tra
+  // Countdown timer 10 phút ở màn kiểm tra
   useEffect(() => {
     if (isExpired || isLoading) return;
     const interval = setInterval(() => {
@@ -97,33 +115,24 @@ export default function InstantMatchedScreen() {
     return () => clearInterval(interval);
   }, [isExpired, isLoading]);
 
-  // Countdown timer 5 phút ở bước thanh toán cọc
-  useEffect(() => {
-    if (!isDepositModalVisible) return;
-    const interval = setInterval(() => {
-      setDepositPaymentSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setIsDepositModalVisible(false);
-          Alert.alert('Hết Thời Hạn Đặt Cọc', 'Thời hạn thanh toán tiền cọc giữ chỗ đã kết thúc.', [
-            { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
-          ]);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isDepositModalVisible]);
 
   const loadBookingData = async () => {
     try {
       setIsLoading(true);
       const res = await bookingService.getBookingStatus(bookingId);
       if (res) {
+        // NẾU ĐƠN ĐÃ CỌC HOẶC THỢ ĐÃ ĐƯỢC CHẤP NHẬN / DI CHUYỂN -> CHUYỂN NGAY SANG CHI TIẾT ĐƠN
+        if (
+          Boolean(res.isDepositPaid) ||
+          (res.status && res.status !== 'REQUESTED')
+        ) {
+          router.replace(`/booking/detail/${bookingId}` as any);
+          return;
+        }
+
         setBookingDetail(res);
         if (res.depositTimeoutSeconds !== undefined && res.depositTimeoutSeconds !== null) {
-          setSecondsLeft(Math.min(300, res.depositTimeoutSeconds));
+          setSecondsLeft(Math.max(0, res.depositTimeoutSeconds));
           if (res.depositTimeoutSeconds <= 0) {
             setIsExpired(true);
           }
@@ -131,7 +140,6 @@ export default function InstantMatchedScreen() {
       }
     } catch (err: any) {
       console.warn('Lỗi tải thông tin thợ đã khớp:', err);
-      Alert.alert('Lỗi', 'Không thể tải thông tin ca làm việc.');
     } finally {
       setIsLoading(false);
     }
@@ -184,43 +192,30 @@ export default function InstantMatchedScreen() {
     }
   };
 
-  // Khách bấm ĐẶT CỌC NGAY -> Mở Màn hình / Modal thanh toán cọc 30%
-  const handleOpenDepositModal = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsDepositModalVisible(true);
-  };
-
-  // Xác nhận thanh toán cọc trong Modal Đặt Cọc
-  const handleConfirmAndDeposit = async () => {
+  // Khách bấm ĐẶT CỌC NGAY -> Lưu add-ons (nếu có) và chuyển sang Màn hình chọn MoMo / VNPay
+  const handleProceedToDeposit = async () => {
     try {
       setIsSubmitting(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const addOnNames = selectedAddons.map((a) => a.name);
-      await bookingService.confirmDeposit(bookingId, {
-        addOnNames,
-        addOnTotal: addonsTotal,
-      });
+      if (addonsTotal > 0) {
+        const addOnNames = selectedAddons.map((a) => a.name);
+        await bookingService.confirmDeposit(bookingId, {
+          addOnNames,
+          addOnTotal: addonsTotal,
+        });
+      }
 
-      setIsDepositModalVisible(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '🎉 Đặt Cọc 30% Giữ Chỗ Thành Công!',
-        `Số tiền ${formatVnd(depositAmount)} đã được khóa an toàn trong quỹ Escrow. Chuyên viên make-up đang bắt đầu di chuyển tới điểm hẹn!`,
-        [
-          {
-            text: 'Theo Dõi Trực Tiếp Xe Thợ',
-            onPress: () => router.replace(`/booking/tracking/${bookingId}` as any),
-          },
-        ]
-      );
+      // Điều hướng trực tiếp sang màn hình thanh toán cọc MoMo / VNPay (dùng replace để xóa màn hình match tạm thời)
+      router.replace(`/booking/deposit/${bookingId}` as any);
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Không thể đặt cọc giữ chỗ.';
-      Alert.alert('Đặt Cọc Thất Bại', msg);
+      const msg = err.response?.data?.message || err.message || 'Không thể chuẩn bị đơn cọc.';
+      Alert.alert('Lỗi', msg);
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   if (isLoading) {
     return (
@@ -420,7 +415,7 @@ export default function InstantMatchedScreen() {
             onPress={() => router.replace('/')}
           >
             <Ionicons name="home-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.acceptBtnText}>ĐƠN ĐÃ QUÁ HẠN 5 PHÚT - VỀ TRANG CHỦ</Text>
+            <Text style={styles.acceptBtnText}>ĐƠN ĐÃ QUÁ HẠN 10 PHÚT - VỀ TRANG CHỦ</Text>
           </TouchableOpacity>
         ) : (
           <>
@@ -435,12 +430,12 @@ export default function InstantMatchedScreen() {
 
             <TouchableOpacity
               style={[styles.acceptBtn, isSubmitting && styles.disabledBtn]}
-              onPress={handleOpenDepositModal}
+              onPress={handleProceedToDeposit}
               disabled={isSubmitting}
             >
               <Ionicons name="shield-checkmark" size={18} color="#FFFFFF" />
               <Text style={styles.acceptBtnText}>
-                ĐẶT CỌC NGAY ({formatVnd(depositAmount)})
+                {isSubmitting ? 'ĐANG CHUYỂN TRANG...' : `ĐẶT CỌC NGAY (${formatVnd(depositAmount)})`}
               </Text>
             </TouchableOpacity>
           </>
@@ -526,161 +521,6 @@ export default function InstantMatchedScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* MODAL 2: MÀN HÌNH / MODAL THANH TOÁN ĐẶT CỌC 30% (DEPOSIT CHECKOUT)       */}
-      {/* ========================================================================= */}
-      <Modal visible={isDepositModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="shield-checkmark" size={20} color="#059669" />
-                <Text style={styles.modalTitle}>Thanh Toán Cọc Giữ Chỗ (30%)</Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsDepositModalVisible(false)}>
-                <Ionicons name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Đồng hồ đếm ngược thanh toán cọc */}
-              <View style={styles.depositTimerBar}>
-                <Ionicons name="time" size={16} color="#D97706" />
-                <Text style={styles.depositTimerText}>
-                  Thời hạn thanh toán còn lại:{' '}
-                  <Text style={{ fontWeight: '900', color: '#B45309' }}>
-                    {Math.floor(depositPaymentSecondsLeft / 60)}:
-                    {(depositPaymentSecondsLeft % 60).toString().padStart(2, '0')}
-                  </Text>
-                </Text>
-              </View>
-
-              {/* Tóm tắt hóa đơn cuối cùng */}
-              <View style={styles.checkoutSummaryCard}>
-                <Text style={styles.checkoutSummaryTitle}>Tóm Tắt Hóa Đơn Dịch Vụ</Text>
-
-                <View style={styles.checkoutRow}>
-                  <Text style={styles.checkoutLabel}>Giá gói make-up chính:</Text>
-                  <Text style={styles.checkoutValue}>{formatVnd(baseServicePrice)}</Text>
-                </View>
-
-                <View style={styles.checkoutRow}>
-                  <Text style={styles.checkoutLabel}>Phụ phí ca khẩn cấp (30-45p):</Text>
-                  <Text style={styles.checkoutValue}>+{formatVnd(emergencySurcharge)}</Text>
-                </View>
-
-                {distanceFee > 0 && (
-                  <View style={styles.checkoutRow}>
-                    <Text style={styles.checkoutLabel}>Phí di chuyển:</Text>
-                    <Text style={styles.checkoutValue}>+{formatVnd(distanceFee)}</Text>
-                  </View>
-                )}
-
-                {selectedAddons.length > 0 && (
-                  <View style={styles.checkoutAddonsBox}>
-                    <Text style={styles.checkoutAddonsTitle}>
-                      Dịch vụ bổ sung ({selectedAddons.length}):
-                    </Text>
-                    {selectedAddons.map((ad, idx) => (
-                      <View key={idx} style={styles.checkoutAddonRow}>
-                        <Text style={styles.checkoutAddonName}>• {ad.name}</Text>
-                        <Text style={styles.checkoutAddonPrice}>+{formatVnd(ad.price)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                <View style={styles.checkoutDivider} />
-
-                <View style={styles.checkoutRowTotal}>
-                  <Text style={styles.checkoutLabelTotal}>TỔNG HÓA ĐƠN:</Text>
-                  <Text style={styles.checkoutValueTotal}>{formatVnd(totalAmount)}</Text>
-                </View>
-
-                <View style={styles.depositHighlightBox}>
-                  <View>
-                    <Text style={styles.depositHighlightTitle}>Tiền Cọc Cần Thanh Toán (30%):</Text>
-                    <Text style={styles.depositHighlightSub}>Khóa trong quỹ Escrow an toàn</Text>
-                  </View>
-                  <Text style={styles.depositHighlightValue}>{formatVnd(depositAmount)}</Text>
-                </View>
-              </View>
-
-              {/* Lựa chọn phương thức thanh toán */}
-              <Text style={styles.paymentMethodTitle}>Chọn Phương Thức Thanh Toán Cọc</Text>
-
-              <TouchableOpacity
-                style={[
-                  styles.paymentMethodCard,
-                  selectedPaymentMethod === 'WALLET' && styles.paymentMethodCardSelected,
-                ]}
-                onPress={() => setSelectedPaymentMethod('WALLET')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.paymentMethodRadio}>
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      selectedPaymentMethod === 'WALLET' && styles.radioCircleActive,
-                    ]}
-                  />
-                </View>
-                <View style={styles.paymentMethodIconCircle}>
-                  <Ionicons name="wallet" size={20} color="#059669" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.paymentMethodName}>Ví Escrow Cá Nhân</Text>
-                  <Text style={styles.paymentMethodSub}>Trừ trực tiếp số dư • Cọc ngay lập tức</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.paymentMethodCard,
-                  selectedPaymentMethod === 'VNPAY' && styles.paymentMethodCardSelected,
-                ]}
-                onPress={() => setSelectedPaymentMethod('VNPAY')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.paymentMethodRadio}>
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      selectedPaymentMethod === 'VNPAY' && styles.radioCircleActive,
-                    ]}
-                  />
-                </View>
-                <View style={[styles.paymentMethodIconCircle, { backgroundColor: '#EFF6FF' }]}>
-                  <Ionicons name="card" size={20} color="#2563EB" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.paymentMethodName}>Cổng VNPay / QR Ngân Hàng</Text>
-                  <Text style={styles.paymentMethodSub}>Thanh toán quét mã QR đa ngân hàng</Text>
-                </View>
-              </TouchableOpacity>
-
-              <View style={styles.depositActionRow}>
-                <TouchableOpacity
-                  style={[styles.confirmDepositBtn, isSubmitting && styles.disabledBtn]}
-                  onPress={handleConfirmAndDeposit}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
-                      <Text style={styles.confirmDepositBtnText}>
-                        XÁC NHẬN THANH TOÁN CỌC {formatVnd(depositAmount)}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

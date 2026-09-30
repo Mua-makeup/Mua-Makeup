@@ -140,18 +140,13 @@ export default function CreateBookingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      await submitBooking();
+      const newBooking = await submitBooking();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Đặt Lịch Thành Công! 🎉',
-        'Yêu cầu trang điểm của bạn đã được gửi tới chuyên viên MUA. Vui lòng theo dõi tiến trình tại mục Lịch Hẹn.',
-        [
-          {
-            text: 'Xem Lịch Hẹn',
-            onPress: () => router.replace('/bookings'),
-          },
-        ]
-      );
+      if (newBooking?.id) {
+        router.replace(`/booking/deposit/${newBooking.id}` as any);
+      } else {
+        router.replace('/bookings');
+      }
     } catch (err: any) {
       // 2. Phân tích lỗi theo chuẩn hệ thống (project-rules.md Mục 5.3)
       const parsed = parseApiError(err);

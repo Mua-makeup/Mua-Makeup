@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -26,4 +27,10 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     Optional<PaymentTransactionEntity> findByPaymentGatewayAndGatewayTransactionId(String paymentGateway, String gatewayTransactionId);
 
     Page<PaymentTransactionEntity> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
+    @Query("SELECT p FROM PaymentTransactionEntity p WHERE p.booking.id = :bookingId AND p.status = :status ORDER BY p.createdAt DESC")
+    List<PaymentTransactionEntity> findByBookingIdAndStatus(@Param("bookingId") Long bookingId, @Param("status") String status);
+
+    Optional<PaymentTransactionEntity> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
 }
+
