@@ -937,6 +937,22 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                         req.getMasterCategoryId(), req.getStyleId(), candidateMuaIds.size());
             }
 
+            // Ưu tiên chỉ định đích danh Thợ MUA nếu khách bấm "Đặt Ngay" từ danh sách Online
+            if (req.getTargetMuaId() != null) {
+                if (candidateMuaIds.contains(req.getTargetMuaId())) {
+                    candidateMuaIds.remove(req.getTargetMuaId());
+                    candidateMuaIds.add(0, req.getTargetMuaId());
+                    log.info("[CandidateFilter] Prioritized targeted MUA #0: {}", req.getTargetMuaId());
+                } else {
+                    muaProfileRepository.findById(req.getTargetMuaId()).ifPresent(targetMua -> {
+                        if (Boolean.TRUE.equals(targetMua.getIsOnline()) && !Boolean.TRUE.equals(targetMua.getIsBusy())) {
+                            candidateMuaIds.add(0, targetMua.getId());
+                            log.info("[CandidateFilter] Added targeted MUA to priority #0: {}", targetMua.getId());
+                        }
+                    });
+                }
+            }
+
         } catch (RuntimeException ex) {
             log.warn("Unable to load instant booking candidates", ex);
         }

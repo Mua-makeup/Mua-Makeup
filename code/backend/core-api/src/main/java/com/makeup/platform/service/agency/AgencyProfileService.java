@@ -29,5 +29,7 @@ public interface AgencyProfileService {
     AgencyProfileRes uploadLogo(Long userId, org.springframework.web.multipart.MultipartFile file);
 
     AgencyProfileRes createAgencyByAdmin(AdminCreateAgencyReq req);
+
+    java.util.List<AgencyProfileRes> getPublicAgencies(Integer limit);
 }
 

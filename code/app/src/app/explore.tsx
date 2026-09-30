@@ -10,12 +10,18 @@ import {
   RefreshControl,
   Modal,
   Keyboard,
+  Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { useExploreStore } from '@/store/explore.store';
+import { useLocationStore } from '@/store/location.store';
+import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
+import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { CategoryFilterBar } from '@/components/customer/CategoryFilterBar';
 import { SearchSuggestionsOverlay } from '@/components/customer/SearchSuggestionsOverlay';
 import { ServicePackageCard } from '@/components/customer/ServicePackageCard';
@@ -23,14 +29,48 @@ import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { PackageSummary } from '@/services/package.service';
 
 const RADIUS_OPTIONS = [
+  { label: 'Tất cả', value: null },
   { label: '1 km', value: 1 },
   { label: '3 km', value: 3 },
   { label: '5 km', value: 5 },
   { label: '10 km', value: 10 },
-  { label: 'Tất cả', value: null },
 ];
 
+const getDistanceKm = (
+  lat1?: number | null,
+  lon1?: number | null,
+  lat2?: number | null,
+  lon2?: number | null
+): number | null => {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371; // km
+  const dLat = ((Number(lat2) - Number(lat1)) * Math.PI) / 180;
+  const dLon = ((Number(lon2) - Number(lon1)) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((Number(lat1) * Math.PI) / 180) *
+      Math.cos((Number(lat2) * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+};
+
 export default function ExploreScreen() {
+  const params = useLocalSearchParams<{ tab?: string; search?: string }>();
+  const [providerTab, setProviderTab] = useState<'FREELANCE' | 'STUDIO'>(
+    params.tab === 'STUDIO' ? 'STUDIO' : 'FREELANCE'
+  );
+
+  const { latitude, longitude } = useLocationStore();
+  const [muaList, setMuaList] = useState<MuaPublicProfile[]>([]);
+  const [isLoadingMuas, setIsLoadingMuas] = useState(false);
+  const [isRefreshingMuas, setIsRefreshingMuas] = useState(false);
+
+  const [studios, setStudios] = useState<AgencyPublicProfile[]>([]);
+  const [isLoadingStudios, setIsLoadingStudios] = useState(false);
+  const [isRefreshingStudios, setIsRefreshingStudios] = useState(false);
+
   const {
     keyword,
     selectedCategoryId,
@@ -40,16 +80,12 @@ export default function ExploreScreen() {
     maxPrice,
     categories,
     styles: availableStyles,
-    packages,
-    isLoading,
-    isRefreshing,
     setKeyword,
     setSelectedCategory,
     setSelectedStyle,
     setSelectedRadius,
     setPriceRange,
     initExplore,
-    fetchPackages,
     resetFilters,
   } = useExploreStore();
 
@@ -60,13 +96,58 @@ export default function ExploreScreen() {
   const [tempMinPrice, setTempMinPrice] = useState(minPrice);
   const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice);
 
+  const fetchMuas = async () => {
+    try {
+      setIsLoadingMuas(true);
+      const data = await muaProfileService.getPublicMuas({
+        categoryId: selectedCategoryId && selectedCategoryId > 0 ? selectedCategoryId : undefined,
+        limit: 50,
+      });
+      setMuaList(data);
+    } catch (e) {
+      console.warn('Failed to load public MUAs:', e);
+    } finally {
+      setIsLoadingMuas(false);
+      setIsRefreshingMuas(false);
+    }
+  };
+
+  const fetchStudios = async () => {
+    try {
+      setIsLoadingStudios(true);
+      const data = await agencyService.getPublicAgencies(50);
+      setStudios(data);
+    } catch (e) {
+      console.warn('Failed to load studios:', e);
+    } finally {
+      setIsLoadingStudios(false);
+      setIsRefreshingStudios(false);
+    }
+  };
+
   useEffect(() => {
     initExplore();
+    fetchStudios();
   }, [initExplore]);
+
+  useEffect(() => {
+    fetchMuas();
+  }, [selectedCategoryId, selectedStyleId, selectedRadiusKm, keyword]);
+
+  useEffect(() => {
+    if (params.search && params.search.length > 0) {
+      setKeyword(params.search);
+    }
+    if (params.tab === 'STUDIO') {
+      setProviderTab('STUDIO');
+    }
+  }, [params.search, params.tab]);
 
   const handleSearchSubmit = () => {
     setIsSearchFocused(false);
-    fetchPackages(true);
+    if (providerTab === 'FREELANCE') {
+      fetchMuas();
+    }
   };
 
   const handleSelectSuggestion = (
@@ -82,7 +163,6 @@ export default function ExploreScreen() {
     if (styleId !== undefined) {
       setSelectedStyle(styleId);
     }
-    fetchPackages(true);
   };
 
   const handleApplyFilters = () => {
@@ -91,18 +171,241 @@ export default function ExploreScreen() {
     setIsFilterModalVisible(false);
   };
 
-  const handleCardPress = (item: PackageSummary) => {
-    // Ưu tiên muaId, fallback id
-    const targetId = item.muaId || item.id || 1;
-    router.push({
-      pathname: '/mua-detail/[id]',
-      params: { id: targetId.toString() },
-    });
+  const renderMuaItem = ({ item: mua }: { item: MuaPublicProfile }) => {
+    const dist = getDistanceKm(latitude, longitude, mua.baseAddressLat, mua.baseAddressLng);
+    const formattedPrice = new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(mua.startingPrice || 350000);
+    const hasVerifiedCert = mua.certificates?.some((c) => c.isVerified);
+    const specialtyText =
+      mua.styles && mua.styles.length > 0
+        ? mua.styles.map((s) => s.styleName).slice(0, 2).join(' • ')
+        : mua.bio || 'Chuyên viên make-up tự do';
+
+    return (
+      <TouchableOpacity
+        key={mua.muaId}
+        style={styles.muaCard}
+        onPress={() => {
+          router.push({
+            pathname: '/mua-detail/[id]',
+            params: { id: mua.muaId.toString() },
+          });
+        }}
+        activeOpacity={0.88}
+      >
+        {/* Avatar + Info */}
+        <View style={styles.muaCardTop}>
+          {mua.avatarUrl ? (
+            <Image source={{ uri: mua.avatarUrl }} style={styles.muaAvatar} />
+          ) : (
+            <View style={[styles.muaAvatar, styles.muaAvatarFallback]}>
+              <Text style={styles.muaAvatarInitial}>
+                {mua.fullName ? mua.fullName.charAt(0).toUpperCase() : 'M'}
+              </Text>
+            </View>
+          )}
+          <View style={styles.muaInfoCol}>
+            <View style={styles.muaNameRow}>
+              <Text style={styles.muaName} numberOfLines={1}>
+                {mua.fullName}
+              </Text>
+              {hasVerifiedCert && (
+                <Ionicons name="checkmark-circle" size={16} color={BrandColors.primary} />
+              )}
+            </View>
+            <Text style={styles.muaCategory} numberOfLines={1}>
+              {specialtyText}
+            </Text>
+
+            <View style={styles.ratingAndDistRow}>
+              <View style={styles.ratingBox}>
+                <Ionicons name="star" size={13} color="#F59E0B" />
+                <Text style={styles.ratingText}>
+                  {mua.ratingAverage != null ? Number(mua.ratingAverage).toFixed(1) : '5.0'}
+                </Text>
+                <Text style={styles.reviewsCount}>
+                  ({mua.totalCompletedJobs != null && mua.totalCompletedJobs > 0 ? `${mua.totalCompletedJobs} ca` : 'Mới'})
+                </Text>
+              </View>
+              {dist != null ? (
+                <>
+                  <Text style={styles.dotSeparator}>•</Text>
+                  <View style={styles.distBox}>
+                    <Ionicons name="navigate-outline" size={12} color={BrandColors.slateMuted} />
+                    <Text style={styles.distText}>{dist} km</Text>
+                  </View>
+                </>
+              ) : mua.baseAddressText ? (
+                <>
+                  <Text style={styles.dotSeparator}>•</Text>
+                  <View style={styles.distBox}>
+                    <Ionicons name="location-outline" size={12} color={BrandColors.slateMuted} />
+                    <Text style={styles.distText} numberOfLines={1}>
+                      {mua.baseAddressText.split(',')[0]}
+                    </Text>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        {/* Badges tags: Phân loại rõ ràng THỢ TỰ DO */}
+        <View style={styles.badgesRow}>
+          <View style={[styles.badgeItem, styles.badgeFreelance]}>
+            <Ionicons name="sparkles" size={11} color="#BE185D" />
+            <Text style={[styles.badgeItemText, styles.badgeFreelanceText]}>Thợ Tự Do</Text>
+          </View>
+          {hasVerifiedCert && (
+            <View style={[styles.badgeItem, styles.badgeVerified]}>
+              <Ionicons name="shield-checkmark" size={11} color="#059669" />
+              <Text style={[styles.badgeItemText, styles.badgeVerifiedText]}>Đã xác thực</Text>
+            </View>
+          )}
+          {mua.experienceYears != null && mua.experienceYears > 0 && (
+            <View style={styles.badgeItem}>
+              <Text style={styles.badgeItemText}>{mua.experienceYears} năm KN</Text>
+            </View>
+          )}
+          <View style={styles.badgeItem}>
+            <Text style={styles.badgeItemText}>
+              {mua.isOnline ? '🟢 Đang trực tuyến' : '📅 Nhận hẹn trước'}
+            </Text>
+          </View>
+          {mua.styles?.slice(0, 1).map((s) => (
+            <View key={`style-${s.id || s.styleId}`} style={styles.badgeItem}>
+              <Text style={styles.badgeItemText}>{s.styleName}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Bottom Price & Action */}
+        <View style={styles.muaCardBottom}>
+          <View>
+            <Text style={styles.priceLabel}>Giá khởi điểm từ</Text>
+            <Text style={styles.priceValue}>{formattedPrice}</Text>
+          </View>
+
+          <View style={styles.bookNowButton}>
+            <Text style={styles.bookNowButtonText}>Đặt Lịch</Text>
+            <Ionicons name="calendar-outline" size={14} color="#FFFFFF" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
-  const renderItem = ({ item }: { item: PackageSummary }) => (
-    <ServicePackageCard item={item} onPress={() => handleCardPress(item)} />
-  );
+  const filteredMuas = muaList.filter((m) => {
+    if (selectedStyleId && selectedStyleId > 0) {
+      const hasStyle = m.styles?.some((s) => (s.id || s.styleId) === selectedStyleId);
+      if (!hasStyle) return false;
+    }
+    if (selectedRadiusKm && latitude && longitude && m.baseAddressLat && m.baseAddressLng) {
+      const d = getDistanceKm(latitude, longitude, m.baseAddressLat, m.baseAddressLng);
+      if (d != null && d > selectedRadiusKm) return false;
+    }
+    if (keyword.trim()) {
+      const q = keyword.toLowerCase().trim();
+      const matchName = m.fullName.toLowerCase().includes(q);
+      const matchBio = m.bio?.toLowerCase().includes(q);
+      const matchStyle = m.styles?.some((s) => s.styleName.toLowerCase().includes(q));
+      if (!matchName && !matchBio && !matchStyle) return false;
+    }
+    return true;
+  });
+
+  const filteredStudios = studios.filter((s) => {
+    if (!keyword.trim()) return true;
+    const q = keyword.toLowerCase().trim();
+    return (
+      s.agencyName.toLowerCase().includes(q) ||
+      (s.addressStreet && s.addressStreet.toLowerCase().includes(q)) ||
+      (s.district && s.district.toLowerCase().includes(q)) ||
+      (s.city && s.city.toLowerCase().includes(q))
+    );
+  });
+
+  const renderStudioItem = ({ item }: { item: AgencyPublicProfile }) => {
+    const dist = getDistanceKm(latitude, longitude, item.latitude, item.longitude);
+    const fullAddress = [item.addressStreet, item.district, item.city].filter(Boolean).join(', ');
+
+    return (
+      <View style={styles.studioCard}>
+        <View style={styles.studioCardTop}>
+          {item.logoUrl ? (
+            <Image source={{ uri: item.logoUrl }} style={styles.studioLogo} />
+          ) : (
+            <View style={styles.studioLogoFallback}>
+              <Ionicons name="business" size={24} color={BrandColors.primary} />
+            </View>
+          )}
+
+          <View style={styles.studioInfoCol}>
+            <View style={styles.studioNameRow}>
+              <Text style={styles.studioName} numberOfLines={1}>
+                {item.agencyName}
+              </Text>
+              <Ionicons name="checkmark-circle" size={16} color="#2563EB" style={{ marginLeft: 4 }} />
+            </View>
+
+            <View style={styles.studioRatingAndDistRow}>
+              <View style={styles.ratingBox}>
+                <Ionicons name="star" size={13} color="#F59E0B" />
+                <Text style={styles.ratingText}>
+                  {item.ratingAvg != null ? Number(item.ratingAvg).toFixed(1) : '5.0'}
+                </Text>
+              </View>
+              {dist != null && (
+                <>
+                  <Text style={styles.dotSeparator}>•</Text>
+                  <View style={styles.distBox}>
+                    <Ionicons name="navigate-outline" size={12} color={BrandColors.slateMuted} />
+                    <Text style={styles.distText}>{dist} km</Text>
+                  </View>
+                </>
+              )}
+            </View>
+
+            {fullAddress ? (
+              <View style={styles.studioAddressRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={13}
+                  color={BrandColors.slateMuted}
+                  style={{ marginTop: 1 }}
+                />
+                <Text style={styles.studioAddressText} numberOfLines={2}>
+                  {fullAddress}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.studioCardBottom}>
+          <View style={styles.studioTypeBadge}>
+            <Ionicons name="business-outline" size={12} color="#7C3AED" />
+            <Text style={styles.studioTypeBadgeText}>Cơ sở / Viện Áo Cưới</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.exploreStudioBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setProviderTab('FREELANCE');
+              setKeyword(item.agencyName);
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.exploreStudioBtnText}>Xem Dịch Vụ</Text>
+            <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -146,7 +449,6 @@ export default function ExploreScreen() {
             <TouchableOpacity
               onPress={() => {
                 setKeyword('');
-                fetchPackages(true);
               }}
             >
               <Ionicons name="close-circle" size={18} color="#94A3B8" />
@@ -208,55 +510,179 @@ export default function ExploreScreen() {
         }}
       />
 
-      {/* THANH LỌC THÔNG MINH 1 HÀNG DUY NHẤT (SMART QUICK-FILTER) */}
-      <CategoryFilterBar
-        categories={categories}
-        makeupStyles={availableStyles}
-        selectedCategoryId={selectedCategoryId}
-        selectedStyleId={selectedStyleId}
-        selectedRadiusKm={selectedRadiusKm}
-        minPrice={minPrice}
-        maxPrice={maxPrice}
-        onSelectCategory={setSelectedCategory}
-        onSelectStyle={setSelectedStyle}
-        onSelectRadius={setSelectedRadius}
-        onSelectPriceRange={setPriceRange}
-        onResetAll={resetFilters}
-      />
-
-      {/* DANH SÁCH GÓI DỊCH VỤ */}
-      {isLoading && packages.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang quét các gói làm đẹp xung quanh bạn...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={packages}
-          keyExtractor={(item) => `pkg-${item.id}`}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => fetchPackages(true)}
-              colors={[BrandColors.primary]}
+      {/* THANH CHUYỂN ĐỔI: THỢ MUA TỰ DO vs STUDIO & VIỆN ÁO CƯỚI */}
+      <View style={styles.segmentSwitchWrapper}>
+        <View style={styles.segmentSwitchBox}>
+          <TouchableOpacity
+            style={[styles.segmentBtn, providerTab === 'FREELANCE' && styles.segmentBtnActive]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setProviderTab('FREELANCE');
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="sparkles"
+              size={14}
+              color={providerTab === 'FREELANCE' ? '#FFFFFF' : '#64748B'}
             />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="sparkles-outline" size={48} color="#CBD5E1" />
-              <Text style={styles.emptyTitle}>Không tìm thấy gói dịch vụ phù hợp</Text>
-              <Text style={styles.emptySubtitle}>
-                Thử thay đổi danh mục hoặc nới rộng bán kính tìm kiếm GPS của bạn.
+            <Text
+              style={[
+                styles.segmentBtnText,
+                providerTab === 'FREELANCE' && styles.segmentBtnTextActive,
+              ]}
+            >
+              Thợ MUA Tự Do
+            </Text>
+            <View
+              style={[
+                styles.segmentBadge,
+                providerTab === 'FREELANCE' && styles.segmentBadgeActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segmentBadgeText,
+                  providerTab === 'FREELANCE' && styles.segmentBadgeTextActive,
+                ]}
+              >
+                {filteredMuas.length}
               </Text>
-              <TouchableOpacity style={styles.resetBtn} onPress={resetFilters}>
-                <Text style={styles.resetBtnText}>Đặt lại bộ lọc</Text>
-              </TouchableOpacity>
             </View>
-          }
-        />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.segmentBtn, providerTab === 'STUDIO' && styles.segmentBtnActive]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setProviderTab('STUDIO');
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name="business"
+              size={14}
+              color={providerTab === 'STUDIO' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text
+              style={[
+                styles.segmentBtnText,
+                providerTab === 'STUDIO' && styles.segmentBtnTextActive,
+              ]}
+            >
+              Studio & Viện Cưới
+            </Text>
+            <View
+              style={[
+                styles.segmentBadge,
+                providerTab === 'STUDIO' && styles.segmentBadgeActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segmentBadgeText,
+                  providerTab === 'STUDIO' && styles.segmentBadgeTextActive,
+                ]}
+              >
+                {filteredStudios.length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* NỘI DUNG THEO TAB ĐƯỢC CHỌN */}
+      {providerTab === 'FREELANCE' ? (
+        <>
+          {/* THANH LỌC THÔNG MINH 1 HÀNG DUY NHẤT (SMART QUICK-FILTER) */}
+          <CategoryFilterBar
+            categories={categories}
+            makeupStyles={availableStyles}
+            selectedCategoryId={selectedCategoryId}
+            selectedStyleId={selectedStyleId}
+            selectedRadiusKm={selectedRadiusKm}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onSelectCategory={setSelectedCategory}
+            onSelectStyle={setSelectedStyle}
+            onSelectRadius={setSelectedRadius}
+            onSelectPriceRange={setPriceRange}
+            onResetAll={resetFilters}
+          />
+
+          {/* DANH SÁCH CHUYÊN VIÊN TRANG ĐIỂM TỰ DO (DỮ LIỆU THỰC TẾ BACKEND) */}
+          {isLoadingMuas && muaList.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={BrandColors.primary} />
+              <Text style={styles.loadingText}>Đang tải danh sách chuyên viên make-up tự do...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredMuas}
+              keyExtractor={(item) => `mua-${item.muaId}`}
+              renderItem={renderMuaItem}
+              contentContainerStyle={styles.muaListContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshingMuas}
+                  onRefresh={() => {
+                    setIsRefreshingMuas(true);
+                    fetchMuas();
+                  }}
+                  colors={[BrandColors.primary]}
+                />
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="sparkles-outline" size={48} color="#CBD5E1" />
+                  <Text style={styles.emptyTitle}>Chưa có chuyên viên nào phù hợp</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Thử thay đổi danh mục hoặc nới rộng bán kính tìm kiếm GPS của bạn.
+                  </Text>
+                  <TouchableOpacity style={styles.resetBtn} onPress={resetFilters}>
+                    <Text style={styles.resetBtnText}>Đặt lại bộ lọc</Text>
+                  </TouchableOpacity>
+                </View>
+              }
+            />
+          )}
+        </>
+      ) : (
+        /* TAB 2: STUDIO & VIỆN ÁO CƯỚI */
+        isLoadingStudios && studios.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={BrandColors.primary} />
+            <Text style={styles.loadingText}>Đang tải danh sách Studio & Viện Áo Cưới...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredStudios}
+            keyExtractor={(item) => `agency-${item.id}`}
+            renderItem={renderStudioItem}
+            contentContainerStyle={styles.studioListContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshingStudios}
+                onRefresh={() => {
+                  setIsRefreshingStudios(true);
+                  fetchStudios();
+                }}
+                colors={[BrandColors.primary]}
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="business-outline" size={48} color="#CBD5E1" />
+                <Text style={styles.emptyTitle}>Không tìm thấy Studio phù hợp</Text>
+                <Text style={styles.emptySubtitle}>
+                  Thử tìm kiếm theo tên khác hoặc kiểm tra lại kết nối mạng.
+                </Text>
+              </View>
+            }
+          />
+        )
       )}
 
       {/* MODAL BỘ LỌC GPS & KHOẢNG GIÁ */}
@@ -340,7 +766,7 @@ export default function ExploreScreen() {
               <TouchableOpacity
                 style={styles.modalResetBtn}
                 onPress={() => {
-                  setTempRadius(5);
+                  setTempRadius(null);
                   setTempMinPrice(200000);
                   setTempMaxPrice(5000000);
                 }}
@@ -579,5 +1005,350 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  segmentSwitchWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  segmentSwitchBox: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    padding: 4,
+    gap: 6,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  segmentBtnActive: {
+    backgroundColor: BrandColors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: BrandColors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  segmentBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  segmentBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  segmentBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+  },
+  segmentBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  segmentBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  segmentBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  studioListContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 90,
+    gap: 12,
+  },
+  studioCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  studioCardTop: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  studioLogo: {
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+  },
+  studioLogoFallback: {
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    backgroundColor: '#FFE4E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studioInfoCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  studioNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  studioName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  studioRatingAndDistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  ratingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BrandColors.slateHeading,
+  },
+  dotSeparator: {
+    color: BrandColors.slateMuted,
+    fontSize: 10,
+  },
+  distBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  distText: {
+    fontSize: 11.5,
+    color: BrandColors.slateMuted,
+  },
+  studioAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  studioAddressText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+    flex: 1,
+  },
+  studioCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  studioTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  studioTypeBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  exploreStudioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: BrandColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  exploreStudioBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  muaListContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 90,
+    gap: 14,
+  },
+  muaCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  muaCardTop: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  muaAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F1F5F9',
+  },
+  muaAvatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFE4E6',
+  },
+  muaAvatarInitial: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: BrandColors.primary,
+  },
+  muaInfoCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  muaNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  muaName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: BrandColors.slateHeading,
+  },
+  muaCategory: {
+    fontSize: 12,
+    color: BrandColors.slateMuted,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  ratingAndDistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  reviewsCount: {
+    fontSize: 11,
+    color: BrandColors.slateMuted,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  badgeItem: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  badgeItemText: {
+    fontSize: 10.5,
+    color: BrandColors.slateBody,
+    fontWeight: '500',
+  },
+  badgeFreelance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FCE7F3',
+    borderColor: '#FBCFE8',
+    borderWidth: 0.8,
+  },
+  badgeFreelanceText: {
+    color: '#BE185D',
+    fontWeight: '700',
+  },
+  badgeVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+  },
+  badgeVerifiedText: {
+    color: '#059669',
+    fontWeight: '600',
+  },
+  muaCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  priceLabel: {
+    fontSize: 11,
+    color: BrandColors.slateMuted,
+  },
+  priceValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: BrandColors.primary,
+  },
+  bookNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BrandColors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  bookNowButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    flexShrink: 1,
   },
 });

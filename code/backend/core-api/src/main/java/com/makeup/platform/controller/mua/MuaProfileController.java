@@ -28,12 +28,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/muas")
 @RequiredArgsConstructor
 public class MuaProfileController extends BaseController {
 
     private final MuaProfileService muaProfileService;
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<MuaProfileRes>>> getPublicMuas(
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false, defaultValue = "10") Integer limit) {
+        List<MuaProfileRes> res = muaProfileService.getPublicMuas(categoryId, limit);
+        return ok(res, "mua.profile_get_success");
+    }
 
     @GetMapping("/{muaId}/profile")
     public ResponseEntity<ApiResponse<MuaProfileRes>> getPublicProfile(@PathVariable Long muaId) {

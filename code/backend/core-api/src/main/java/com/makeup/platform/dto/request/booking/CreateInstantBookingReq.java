@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class CreateInstantBookingReq {
 
+    private Long targetMuaId;
+
     private Long packageId;
 
     @NotNull(message = "{validation.master_category_required}")

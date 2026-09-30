@@ -9,6 +9,9 @@ import {
   Switch,
   Alert,
   Modal,
+  ActivityIndicator,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -18,6 +21,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLocationStore } from '@/store/location.store';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { InstantRadarModal } from '@/components/booking/InstantRadarModal';
+import { OnlineMuaListModal } from '@/components/booking/OnlineMuaListModal';
+import { NearbyProviderRes } from '@/services/telemetry.service';
 import { WorkstationHeader } from '@/components/mua/WorkstationHeader';
 import { WorkstationStatCards } from '@/components/mua/WorkstationStatCards';
 import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
@@ -26,62 +31,50 @@ import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { hasSeenOnboarding } from '@/utils/storage';
 import { useAccountModalStore } from '@/store/account-modal.store';
+import { taxonomyService, MasterCategory } from '@/services/taxonomy.service';
+import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
+import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
 import * as Haptics from 'expo-haptics';
 
-interface MuaArtist {
-  id: number;
-  name: string;
-  avatar: string;
-  category: string;
-  rating: number;
-  reviewsCount: number;
-  distanceKm: number;
-  startingPrice: string;
-  badges: string[];
-  isAvailable: boolean;
-}
+const getCategoryIcon = (categoryName?: string): keyof typeof Ionicons.glyphMap => {
+  if (!categoryName) return 'sparkles';
+  const name = categoryName.toLowerCase();
+  if (name.includes('cô dâu') || name.includes('cưới')) return 'heart';
+  if (name.includes('tiệc') || name.includes('party')) return 'wine';
+  if (name.includes('kỷ yếu') || name.includes('học')) return 'school';
+  if (name.includes('douyin') || name.includes('trend')) return 'color-wand';
+  if (name.includes('daily') || name.includes('chơi') || name.includes('nhẹ')) return 'sunny';
+  return 'sparkles';
+};
 
-const FEATURED_MUAS: MuaArtist[] = [
-  {
-    id: 1,
-    name: 'MUA Nguyễn Hương Ly',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    category: 'Cô Dâu Luxury • Tone Thái VIP',
-    rating: 5.0,
-    reviewsCount: 142,
-    distanceKm: 1.2,
-    startingPrice: '2.500.000đ',
-    badges: ['Top 1 Quận 1', 'Đã xác thực', 'Mỹ phẩm Chanel'],
-    isAvailable: true,
-  },
-  {
-    id: 4,
-    name: 'MUA Trần Thanh Tâm',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
-    category: 'Dạ Tiệc • Douyin Hot Trend',
-    rating: 4.95,
-    reviewsCount: 98,
-    distanceKm: 2.5,
-    startingPrice: '2.500.000đ',
-    badges: ['Nhiệt tình', 'Mỹ phẩm Dior'],
-    isAvailable: true,
-  },
-];
-
-const CATEGORIES = [
-  { id: 'all', label: 'Tất cả', icon: 'sparkles' as const },
-  { id: 'bride', label: 'Cô Dâu VIP', icon: 'heart' as const },
-  { id: 'party', label: 'Dạ Tiệc', icon: 'wine' as const },
-  { id: 'student', label: 'Kỷ Yếu', icon: 'school' as const },
-  { id: 'douyin', label: 'Douyin Trend', icon: 'color-wand' as const },
-  { id: 'daily', label: 'Đi Chơi Daily', icon: 'sunny' as const },
-];
+const getDistanceKm = (
+  lat1?: number | null,
+  lon1?: number | null,
+  lat2?: number | null,
+  lon2?: number | null
+): number | null => {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371; // km
+  const dLat = ((Number(lat2) - Number(lat1)) * Math.PI) / 180;
+  const dLon = ((Number(lon2) - Number(lon1)) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((Number(lat1) * Math.PI) / 180) *
+      Math.cos((Number(lat2) * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isSmallDevice = width < 375;
+
   const { userInfo, isAuthenticated, logout } = useAuthStore();
-  const { currentAddress, fetchCurrentLocation, isLoading: isLocating } = useLocationStore();
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const { currentAddress, latitude, longitude, fetchCurrentLocation, isLoading: isLocating } = useLocationStore();
+  
   const [isReadyToWork, setIsReadyToWork] = useState(true);
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
@@ -145,15 +138,40 @@ export default function HomeScreen() {
   );
 
   const [isRadarModalVisible, setIsRadarModalVisible] = useState(false);
+  const [isOnlineListModalVisible, setIsOnlineListModalVisible] = useState(false);
+  const [selectedTargetMua, setSelectedTargetMua] = useState<NearbyProviderRes | null>(null);
 
-  const handleBookingPress = (mua: MuaArtist) => {
+  const handleBookingPress = (muaId: number) => {
     router.push({
       pathname: '/mua-detail/[id]',
-      params: { id: mua.id },
+      params: { id: muaId.toString() },
     });
   };
 
-  const handleEmergencyBooking = () => {
+  // Nút 1: Đặt thợ khẩn cấp ngẫu nhiên gần nhất
+  const handleRandomEmergencyBooking = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedTargetMua(null);
+    setIsRadarModalVisible(true);
+  };
+
+  // Nút 2: Mở danh sách thợ đang online quanh vị trí của khách
+  const handleOpenOnlineList = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsOnlineListModalVisible(true);
+  };
+
+  // Khi chọn "Đặt Ngay" trên một thợ online cụ thể
+  const handleSelectOnlineMua = (mua: NearbyProviderRes) => {
+    setIsOnlineListModalVisible(false);
+    setSelectedTargetMua(mua);
+    setIsRadarModalVisible(true);
+  };
+
+  // Fallback từ modal online sang quét tự động
+  const handleFallbackRandomScan = () => {
+    setIsOnlineListModalVisible(false);
+    setSelectedTargetMua(null);
     setIsRadarModalVisible(true);
   };
 
@@ -429,19 +447,6 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Quick Search Bar to Explore Screen */}
-            <TouchableOpacity
-              style={styles.searchBarBox}
-              onPress={() => router.push('/explore')}
-              activeOpacity={0.85}>
-              <Ionicons name="search" size={18} color={BrandColors.slateMuted} />
-              <Text style={styles.searchBarPlaceholder}>
-                Tìm kiếm gói dịch vụ, thợ trang điểm...
-              </Text>
-              <View style={styles.searchFilterPill}>
-                <Ionicons name="options-outline" size={14} color={BrandColors.primary} />
-              </View>
-            </TouchableOpacity>
 
             {/* VIP Promo Banner */}
             <View style={styles.promoBanner}>
@@ -464,137 +469,137 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* 30s Instant Emergency Booking Card */}
-            <TouchableOpacity
-              style={styles.emergencyCard}
-              onPress={handleEmergencyBooking}
-              activeOpacity={0.9}>
-              <View style={styles.emergencyGlowBg} />
-              <View style={styles.emergencyContent}>
-                <View style={styles.emergencyHeaderRow}>
-                  <View style={styles.emergencyBadge}>
-                    <Ionicons name="flash" size={14} color="#FFFFFF" />
-                    <Text style={styles.emergencyBadgeText}>ĐẶT KHẨN CẤP 30S</Text>
+            {/* ========================================================================= */}
+            {/* KHỐI PHÂN BIỆT 2 HÌNH THỨC ĐẶT LỊCH: CẤP TỐC 30S vs HẸN THEO NGÀY         */}
+            {/* ========================================================================= */}
+            <View style={styles.bookingModesSection}>
+              <View style={styles.bookingModesHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
+                  <Text style={styles.bookingModesSectionTitle}>Chọn Hình Thức Đặt Lịch</Text>
+                </View>
+                <Text style={styles.bookingModesSectionSub}>
+                  Phân biệt rõ ràng giữa ca khẩn cấp cần thợ đến ngay và đặt lịch hẹn trước
+                </Text>
+              </View>
+
+              {/* HÌNH THỨC 1: ĐẶT CẤP TỐC (KHẨN CẤP / CÓ THỢ NGAY) */}
+              <View style={styles.emergencyCard}>
+                <View style={styles.emergencyGlowBg} />
+                <View style={styles.emergencyContent}>
+                  <View style={styles.emergencyHeaderRow}>
+                    <View style={styles.emergencyBadge}>
+                      <Ionicons name="flash" size={14} color="#FFFFFF" />
+                      <Text style={styles.emergencyBadgeText}>1. ĐẶT CẤP TỐC (KHẨN CẤP)</Text>
+                    </View>
+                    <View style={styles.emergencyLiveTag}>
+                      <View style={styles.emergencyPulseDot} />
+                      <Text style={styles.emergencyLiveText}>⚡ Có thợ ngay 15-30p</Text>
+                    </View>
                   </View>
-                  <View style={styles.countdownPill}>
-                    <Text style={styles.countdownText}>⚡ Có thợ ngay</Text>
+
+                  <Text style={styles.emergencyTitle}>Bạn Cần Trang Điểm Gấp?</Text>
+                  <Text style={styles.emergencyDesc}>
+                    Hệ thống quét radar thợ MUA đang trực tuyến quanh bạn • Thợ nhận ca tức thì sau 30s • Phù hợp tiệc gấp hoặc sự cố đột xuất
+                  </Text>
+
+                  <View style={styles.featureChipsRow}>
+                    <View style={styles.featureChip}>
+                      <Ionicons name="timer-outline" size={12} color="#FFFFFF" />
+                      <Text style={styles.featureChipText}>30s Nhận ca</Text>
+                    </View>
+                    <View style={styles.featureChip}>
+                      <Ionicons name="navigate-outline" size={12} color="#FFFFFF" />
+                      <Text style={styles.featureChipText}>Thợ gần nhất</Text>
+                    </View>
+                    <View style={styles.featureChip}>
+                      <Ionicons name="shield-checkmark-outline" size={12} color="#FFFFFF" />
+                      <Text style={styles.featureChipText}>Cọc an toàn 30%</Text>
+                    </View>
+                  </View>
+
+                  {/* 2 NÚT HÀNH ĐỘNG RIÊNG BIỆT */}
+                  <View style={styles.emergencyActionsRow}>
+                    {/* NÚT 1: ĐẶT NGẪU NHIÊN GẦN ĐÂY */}
+                    <TouchableOpacity
+                      style={styles.randomBookingBtn}
+                      onPress={handleRandomEmergencyBooking}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.btnIconCircle}>
+                        <Ionicons name="flash" size={13} color="#FFFFFF" />
+                      </View>
+                      <View style={styles.btnTextWrapper}>
+                        <Text style={styles.randomBookingBtnText} numberOfLines={1}>
+                          Đặt Ngẫu Nhiên
+                        </Text>
+                        <Text style={styles.randomBookingBtnSub} numberOfLines={1}>
+                          Quét radar gần nhất
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* NÚT 2: THỢ ĐANG ONLINE VÀ ĐẶT NGAY */}
+                    <TouchableOpacity
+                      style={styles.onlineListBtn}
+                      onPress={handleOpenOnlineList}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.onlineBtnGlowDot} />
+                      <View style={styles.btnTextWrapper}>
+                        <Text style={styles.onlineListBtnText} numberOfLines={1}>
+                          Thợ Đang Online
+                        </Text>
+                        <Text style={styles.onlineListBtnSub} numberOfLines={1}>
+                          Xem thợ & Đặt ngay
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* HÌNH THỨC 2: ĐẶT LỊCH THEO NGÀY (HẸN TRƯỚC / THONG THẢ CHỌN) */}
+              <TouchableOpacity
+                style={styles.scheduledCard}
+                onPress={() => router.push('/explore')}
+                activeOpacity={0.88}
+              >
+                <View style={styles.scheduledHeaderRow}>
+                  <View style={styles.scheduledBadge}>
+                    <Ionicons name="calendar" size={14} color="#7C3AED" />
+                    <Text style={styles.scheduledBadgeText}>2. ĐẶT LỊCH THEO NGÀY (HẸN TRƯỚC)</Text>
+                  </View>
+                  <View style={styles.scheduledTag}>
+                    <Text style={styles.scheduledTagText}>Lên lịch trước</Text>
                   </View>
                 </View>
 
-                <Text style={styles.emergencyTitle}>Bạn Cần Trang Điểm Gấp?</Text>
-                <Text style={styles.emergencyDesc}>
-                  Hệ thống quét thợ MUA rảnh quanh bạn qua GPS • Thợ nhận ca tức thì trong 30s
+                <Text style={styles.scheduledTitle}>Lên Kế Hoạch Ngày Cưới & Sự Kiện</Text>
+                <Text style={styles.scheduledDesc}>
+                  Thong thả chọn chuyên viên yêu thích, xem album tác phẩm thực tế, chọn gói makeup và đặt lịch hẹn theo ngày giờ bạn muốn.
                 </Text>
 
-                <View style={styles.emergencyCtaBtn}>
-                  <Text style={styles.emergencyCtaText}>ĐẶT THỢ CẤP TỐC NGAY</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <View style={styles.scheduledChipsRow}>
+                  <View style={styles.scheduledChip}>
+                    <Ionicons name="sparkles" size={12} color="#7C3AED" />
+                    <Text style={styles.scheduledChipText}>Thợ MUA Tự Do</Text>
+                  </View>
+                  <View style={styles.scheduledChip}>
+                    <Ionicons name="business" size={12} color="#7C3AED" />
+                    <Text style={styles.scheduledChipText}>Studio & Viện Cưới</Text>
+                  </View>
+                  <View style={styles.scheduledChip}>
+                    <Ionicons name="images-outline" size={12} color="#7C3AED" />
+                    <Text style={styles.scheduledChipText}>Album thực tế</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
 
-            {/* Categories Chips */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Phong Cách Nổi Bật</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/explore')}>
-                <Text style={styles.viewAllText}>Xem tất cả</Text>
+                <View style={styles.scheduledActionBtn}>
+                  <Text style={styles.scheduledActionBtnText}>Khám Phá Thợ & Studio Ngay</Text>
+                  <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
+                </View>
               </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryScroll}>
-              {CATEGORIES.map((cat) => {
-                const isSelected = selectedCategory === cat.id;
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
-                    onPress={() => {
-                      setSelectedCategory(cat.id);
-                      router.push('/explore');
-                    }}
-                    activeOpacity={0.8}>
-                    <Ionicons
-                      name={cat.icon}
-                      size={15}
-                      color={isSelected ? '#FFFFFF' : BrandColors.slateHeading}
-                    />
-                    <Text
-                      style={[styles.categoryChipText, isSelected && styles.categoryChipTextActive]}>
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Featured MUAs List */}
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <Text style={styles.sectionTitle}>Thợ Make-up Được Yêu Thích</Text>
-                <View style={styles.verifiedCountBadge}>
-                  <Text style={styles.verifiedCountText}>Gần bạn</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.muaListContainer}>
-              {FEATURED_MUAS.map((mua) => (
-                <TouchableOpacity
-                  key={mua.id}
-                  style={styles.muaCard}
-                  onPress={() => handleBookingPress(mua)}
-                  activeOpacity={0.85}>
-                  {/* Avatar + Info */}
-                  <View style={styles.muaCardTop}>
-                    <Image source={{ uri: mua.avatar }} style={styles.muaAvatar} />
-                    <View style={styles.muaInfoCol}>
-                      <View style={styles.muaNameRow}>
-                        <Text style={styles.muaName}>{mua.name}</Text>
-                        <Ionicons name="checkmark-circle" size={16} color={BrandColors.primary} />
-                      </View>
-                      <Text style={styles.muaCategory}>{mua.category}</Text>
-
-                      <View style={styles.ratingAndDistRow}>
-                        <View style={styles.ratingBox}>
-                          <Ionicons name="star" size={13} color="#F59E0B" />
-                          <Text style={styles.ratingText}>{mua.rating}</Text>
-                          <Text style={styles.reviewsCount}>({mua.reviewsCount})</Text>
-                        </View>
-                        <Text style={styles.dotSeparator}>•</Text>
-                        <View style={styles.distBox}>
-                          <Ionicons name="navigate-outline" size={13} color={BrandColors.slateMuted} />
-                          <Text style={styles.distText}>{mua.distanceKm} km</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Badges tags */}
-                  <View style={styles.badgesRow}>
-                    {mua.badges.map((badge, idx) => (
-                      <View key={idx} style={styles.badgeItem}>
-                        <Text style={styles.badgeItemText}>{badge}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Bottom Price & Action */}
-                  <View style={styles.muaCardBottom}>
-                    <View>
-                      <Text style={styles.priceLabel}>Giá khởi điểm</Text>
-                      <Text style={styles.priceValue}>{mua.startingPrice}</Text>
-                    </View>
-
-                    <View style={styles.bookNowButton}>
-                      <Text style={styles.bookNowButtonText}>Đặt Lịch</Text>
-                      <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
             </View>
 
             {/* Platform Trust & Escrow Guarantee Card */}
@@ -635,7 +640,19 @@ export default function HomeScreen() {
       {/* MODAL RADAR TÌM THỢ KHẨN CẤP 30S (SPRINT M-2) */}
       <InstantRadarModal
         visible={isRadarModalVisible}
-        onClose={() => setIsRadarModalVisible(false)}
+        targetMua={selectedTargetMua}
+        onClose={() => {
+          setIsRadarModalVisible(false);
+          setSelectedTargetMua(null);
+        }}
+      />
+
+      {/* MODAL DANH SÁCH THỢ MUA ĐANG TRỰC TUYẾN & ĐẶT NGAY */}
+      <OnlineMuaListModal
+        visible={isOnlineListModalVisible}
+        onClose={() => setIsOnlineListModalVisible(false)}
+        onSelectMua={handleSelectOnlineMua}
+        onFallbackRandomScan={handleFallbackRandomScan}
       />
 
       {/* Bottom Navigation Bar */}
@@ -964,12 +981,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: BrandColors.primary,
   },
+  bookingModesSection: {
+    marginBottom: 20,
+  },
+  bookingModesHeader: {
+    marginBottom: 12,
+  },
+  bookingModesSectionTitle: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: BrandColors.slateHeading,
+  },
+  bookingModesSectionSub: {
+    fontSize: 11.5,
+    color: BrandColors.slateMuted,
+    marginTop: 2,
+    lineHeight: 16,
+  },
   emergencyCard: {
     borderRadius: 16,
-    backgroundColor: BrandColors.primary,
+    backgroundColor: '#9F1239',
     overflow: 'hidden',
-    marginBottom: 20,
-    shadowColor: BrandColors.primary,
+    marginBottom: 12,
+    shadowColor: '#9F1239',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -977,8 +1011,8 @@ const styles = StyleSheet.create({
   },
   emergencyGlowBg: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: BrandColors.hover,
-    opacity: 0.2,
+    backgroundColor: '#BE123C',
+    opacity: 0.4,
   },
   emergencyContent: {
     padding: 16,
@@ -988,11 +1022,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   emergencyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -1000,20 +1036,29 @@ const styles = StyleSheet.create({
   },
   emergencyBadgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  countdownPill: {
+  emergencyLiveTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 12,
+    gap: 5,
   },
-  countdownText: {
-    fontSize: 11,
+  emergencyPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E11D48',
+  },
+  emergencyLiveText: {
+    fontSize: 10.5,
     fontWeight: '700',
-    color: BrandColors.primary,
+    color: '#BE123C',
   },
   emergencyTitle: {
     fontSize: 16,
@@ -1025,30 +1070,202 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFE4E6',
     lineHeight: 17,
+    marginBottom: 12,
+  },
+  featureChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
     marginBottom: 14,
   },
-  emergencyCtaBtn: {
+  featureChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  featureChipText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  emergencyActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  randomBookingBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#881337',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    gap: 6,
+  },
+  btnIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnTextWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  randomBookingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  randomBookingBtnSub: {
+    color: '#FFE4E6',
+    fontSize: 9.5,
+    marginTop: 1,
+  },
+  onlineListBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.55)',
+    gap: 6,
+  },
+  onlineBtnGlowDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  onlineListBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  onlineListBtnSub: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    marginTop: 1,
+    opacity: 0.95,
+  },
+  scheduledCard: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  scheduledHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  scheduledBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  scheduledBadgeText: {
+    color: '#7C3AED',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  scheduledTag: {
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  scheduledTagText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#6D28D9',
+  },
+  scheduledTitle: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#1E1B4B',
+    marginBottom: 4,
+  },
+  scheduledDesc: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  scheduledChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  scheduledChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  scheduledChipText: {
+    fontSize: 11,
+    color: '#6D28D9',
+    fontWeight: '600',
+  },
+  scheduledActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#9F1239',
-    paddingVertical: 10,
-    borderRadius: 10,
+    backgroundColor: '#7C3AED',
+    paddingVertical: 11,
+    borderRadius: 12,
     gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginTop: 12,
   },
-  emergencyCtaText: {
+  scheduledActionBtnText: {
     color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: '700',
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  sectionSub: {
+    fontSize: 11.5,
+    color: BrandColors.slateMuted,
+    marginTop: 2,
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -1199,6 +1416,197 @@ const styles = StyleSheet.create({
     color: BrandColors.slateBody,
     fontWeight: '500',
   },
+  providerTypeSwitchWrapper: {
+    marginBottom: 16,
+  },
+  providerTypeSwitchBox: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    padding: 4,
+    gap: 6,
+  },
+  providerTypeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  providerTypeBtnActive: {
+    backgroundColor: BrandColors.primary,
+    ...Platform.select({
+      ios: {
+        shadowColor: BrandColors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  providerTypeBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  providerTypeBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  switchBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+  },
+  switchBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  switchBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  switchBadgeTextActive: {
+    color: '#FFFFFF',
+  },
+  badgeFreelance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FCE7F3',
+    borderColor: '#FBCFE8',
+    borderWidth: 0.8,
+  },
+  badgeFreelanceText: {
+    color: '#BE185D',
+    fontWeight: '700',
+  },
+  studioSectionWrapper: {
+    marginTop: 4,
+  },
+  studioSectionSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 17,
+    marginBottom: 14,
+    marginTop: -8,
+  },
+  studioListContainer: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  studioCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  studioCardTop: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  studioLogo: {
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+  },
+  studioLogoFallback: {
+    width: 60,
+    height: 60,
+    borderRadius: 14,
+    backgroundColor: '#FFE4E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studioInfoCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  studioNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  studioName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  studioRatingAndDistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  studioAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  studioAddressText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+    flex: 1,
+  },
+  studioCardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  studioTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  studioTypeBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  exploreStudioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: BrandColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  exploreStudioBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   muaCardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1230,6 +1638,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+    flexShrink: 1,
+  },
+  muaAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFE4E6',
+  },
+  muaAvatarInitial: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: BrandColors.primary,
+  },
+  badgeVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+  },
+  badgeVerifiedText: {
+    color: '#059669',
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 12.5,
+    color: BrandColors.slateMuted,
+    fontWeight: '500',
+  },
+  emptyMuasBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    gap: 6,
+  },
+  emptyMuasTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  emptyMuasSub: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  resetFilterBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: BrandColors.primary,
+    borderRadius: 8,
+  },
+  resetFilterText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   trustCard: {
     backgroundColor: '#F8FAFC',

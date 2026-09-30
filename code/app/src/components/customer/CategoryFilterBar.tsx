@@ -60,11 +60,11 @@ export const getCategoryDisplayInfo = (catName?: string) => {
 };
 
 const RADIUS_OPTIONS = [
+  { label: 'Toàn thành phố (Mặc định)', value: null, shortLabel: 'Tất cả' },
   { label: 'Bán kính 1 km', value: 1, shortLabel: '1 km' },
   { label: 'Bán kính 3 km (Khuyên dùng)', value: 3, shortLabel: '3 km' },
   { label: 'Bán kính 5 km', value: 5, shortLabel: '5 km' },
   { label: 'Bán kính 10 km', value: 10, shortLabel: '10 km' },
-  { label: 'Toàn thành phố', value: null, shortLabel: 'Tất cả' },
 ];
 
 const PRICE_OPTIONS = [
@@ -97,7 +97,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
   let activeFilterCount = 0;
   if (selectedCategoryId !== null) activeFilterCount++;
   if (selectedStyleId !== null) activeFilterCount++;
-  if (selectedRadiusKm !== null && selectedRadiusKm !== 5) activeFilterCount++;
+  if (selectedRadiusKm !== null) activeFilterCount++;
   if (minPrice > 200000 || maxPrice < 5000000) activeFilterCount++;
 
   // Lấy nhãn hiển thị cho từng Chip
@@ -190,7 +190,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
         <TouchableOpacity
           style={[
             styles.chip,
-            selectedRadiusKm !== null && selectedRadiusKm !== 5 && styles.chipActive,
+            selectedRadiusKm !== null && styles.chipActive,
           ]}
           onPress={() => setActiveSheet('RADIUS')}
           activeOpacity={0.7}
@@ -199,7 +199,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
             name="navigate-outline"
             size={14}
             color={
-              selectedRadiusKm !== null && selectedRadiusKm !== 5
+              selectedRadiusKm !== null
                 ? BrandColors.primary
                 : '#475569'
             }
@@ -207,7 +207,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
           <Text
             style={[
               styles.chipText,
-              selectedRadiusKm !== null && selectedRadiusKm !== 5 && styles.chipTextActive,
+              selectedRadiusKm !== null && styles.chipTextActive,
             ]}
           >
             {radiusChipLabel}
@@ -216,7 +216,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
             name="chevron-down"
             size={12}
             color={
-              selectedRadiusKm !== null && selectedRadiusKm !== 5
+              selectedRadiusKm !== null
                 ? BrandColors.primary
                 : '#94A3B8'
             }
