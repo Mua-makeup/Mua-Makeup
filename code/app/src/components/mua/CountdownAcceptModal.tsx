@@ -13,12 +13,20 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useWorkstationStore } from '@/store/workstation.store';
+import { useAuthStore } from '@/store/auth.store';
 import { soundManager } from '@/utils/sound';
 
 export const CountdownAcceptModal: React.FC = () => {
   const { isAcceptModalVisible, activeOffer, dismissOffer, acceptActiveOffer } = useWorkstationStore();
+  const { userInfo } = useAuthStore();
   const [secondsLeft, setSecondsLeft] = useState<number>(20);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // GUARD: Chỉ cho phép hiển thị modal này với tài khoản Thợ MUA / Agency Staff
+  // Tuyệt đối không để modal nhận ca hiện ra với tài khoản Khách Hàng
+  const isMuaOrStaff =
+    userInfo?.roles?.some((r) => r === 'ROLE_FREELANCE_MUA' || r === 'ROLE_AGENCY_STAFF') ||
+    Boolean(userInfo?.muaId);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
@@ -98,7 +106,7 @@ export const CountdownAcceptModal: React.FC = () => {
     };
   }, [isAcceptModalVisible, activeOffer]);
 
-  if (!isAcceptModalVisible || !activeOffer) {
+  if (!isAcceptModalVisible || !activeOffer || !isMuaOrStaff) {
     return null;
   }
 

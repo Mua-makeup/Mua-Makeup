@@ -82,6 +82,20 @@ export default function BookingsScreen() {
         }
       }
 
+      // Sắp xếp đơn thợ sắp tới: Tăng dần theo thời gian hẹn
+      upcoming.sort((a, b) => {
+        const timeA = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
+        const timeB = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
+        return timeA - timeB;
+      });
+
+      // Sắp xếp lịch sử ca làm của thợ: Giảm dần theo thời gian hẹn
+      history.sort((a, b) => {
+        const timeA = new Date(`${a.bookingDate}T${a.startTime || '00:00:00'}`).getTime();
+        const timeB = new Date(`${b.bookingDate}T${b.startTime || '00:00:00'}`).getTime();
+        return timeB - timeA;
+      });
+
       setFreelancerUpcoming(upcoming);
       setFreelancerHistory(history);
     } catch {
@@ -136,7 +150,11 @@ export default function BookingsScreen() {
   };
 
   const handleTrack = (booking: CustomerBookingItem) => {
-    router.push(`/booking/tracking/${booking.id}` as any);
+    if (booking.status === 'ACCEPTED' && !booking.isDepositPaid) {
+      router.push(`/booking/instant-matched/${booking.id}` as any);
+    } else {
+      router.push(`/booking/tracking/${booking.id}` as any);
+    }
   };
 
   const handleReview = (booking: CustomerBookingItem) => {

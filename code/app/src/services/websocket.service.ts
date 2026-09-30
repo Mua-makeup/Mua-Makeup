@@ -111,6 +111,17 @@ class WebSocketService {
   }
 
   /**
+   * Ngắt kết nối HOÀN TOÀN khi người dùng Đăng Xuất.
+   * Xóa sạch TẤT CẢ registeredHandlers để WebSocket không tự reconnect
+   * và re-subscribe lại các topic của phiên thợ cũ sau khi đổi tài khoản.
+   */
+  disconnectAll(): void {
+    console.log('[WebSocket-STOMP] Đang ngắt kết nối HOÀN TOÀN (logout)...');
+    this.registeredHandlers.clear();
+    this.disconnect();
+  }
+
+  /**
    * Đăng ký lắng nghe (Subscribe) 1 topic cụ thể
    */
   subscribe(topic: string, callback: (payload: any) => void): () => void {

@@ -6,7 +6,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -28,6 +31,12 @@ public class BookingStatusDetailRes {
     private String customerPhone;
     private String customerAvatar;
     private String packageName;
+    private String styleName;
+    private String bookingType;
+    private LocalDate bookingDate;
+    private LocalTime startTime;
+    private Integer estimatedDurationMinutes;
+    private List<String> packageItems;
     private BigDecimal rating;
     private BigDecimal totalAmount;
     private BigDecimal depositAmount;
@@ -37,6 +46,7 @@ public class BookingStatusDetailRes {
     private BigDecimal platformFee;
     private BigDecimal earningsAmount;
     private String completionPhotoUrl;
+    private String cancellationReason;
     private Boolean isDepositPaid;
     private Integer depositTimeoutSeconds;
     private LocalDateTime updatedAt;

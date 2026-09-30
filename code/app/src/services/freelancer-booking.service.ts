@@ -88,6 +88,18 @@ export const freelancerBookingService = {
   },
 
   /**
+   * Kiểm tra xem thợ hiện tại có ca khẩn cấp nào đang chờ xác nhận không (0ms Redis)
+   */
+  async getPendingInstantOffer(): Promise<any | null> {
+    try {
+      const response = await apiClient.get('/freelancer/bookings/instant/pending-offer');
+      return response.data?.data || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
    * Chuyển trạng thái ca làm việc tuần tự (ON_THE_WAY -> ARRIVED -> IN_PROGRESS -> COMPLETED)
    */
   async transitionBookingState(

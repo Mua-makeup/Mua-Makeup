@@ -51,6 +51,7 @@ export interface CustomerBookingItem {
   remainingAmount: number;
   addOnNames?: string[];
   note?: string;
+  isDepositPaid?: boolean;
   createdAt: string;
 }
 
@@ -80,6 +81,9 @@ export interface BookingStatusDetailRes {
   earningsAmount?: number;
   styleName?: string;
   packageName?: string;
+  bookingType?: string;
+  bookingDate?: string;
+  startTime?: string;
   packageItems?: string[];
   estimatedDurationMinutes?: number;
   emergencyProofUrl?: string;

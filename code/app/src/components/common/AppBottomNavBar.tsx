@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
+import { useAccountModalStore } from '@/store/account-modal.store';
 
 export type BottomNavTab = 'home' | 'explore' | 'appointments' | 'messages' | 'account';
 
@@ -62,8 +63,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
         } else if (onAccountPress) {
           onAccountPress();
         } else {
-          // Khi đang ở trang khác (như Explore), quay về Trang chủ để mở menu tài khoản
-          router.replace('/');
+          useAccountModalStore.getState().openAccountModal();
         }
         break;
     }
@@ -74,8 +74,9 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
       style={[
         styles.bottomNav,
         {
-          height: 54 + (insets.bottom > 0 ? insets.bottom : 8),
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
+          height: 62 + (insets.bottom > 0 ? insets.bottom : 10),
+          paddingBottom: insets.bottom > 0 ? insets.bottom + 4 : 10,
+          paddingTop: 8,
         },
       ]}
     >

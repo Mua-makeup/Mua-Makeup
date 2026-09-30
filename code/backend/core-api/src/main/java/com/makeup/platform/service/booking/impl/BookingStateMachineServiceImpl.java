@@ -31,6 +31,8 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -450,6 +452,26 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             isDepositPaid = true;
         }
 
+        String styleName = null;
+        if (booking.getStyle() != null) {
+            styleName = booking.getStyle().getStyleName();
+        }
+
+        List<String> packageItems = new ArrayList<>();
+        Integer estimatedDuration = 60;
+        if (booking.getServicePackage() != null) {
+            if (booking.getServicePackage().getEstimatedDurationMinutes() != null) {
+                estimatedDuration = booking.getServicePackage().getEstimatedDurationMinutes();
+            }
+            if (booking.getServicePackage().getPackageItems() != null) {
+                for (var item : booking.getServicePackage().getPackageItems()) {
+                    if (item != null && item.getItemName() != null) {
+                        packageItems.add(item.getItemName());
+                    }
+                }
+            }
+        }
+
         return BookingStatusDetailRes.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -465,6 +487,12 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .customerPhone(booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : null)
                 .customerAvatar(booking.getCustomer() != null ? booking.getCustomer().getAvatarUrl() : null)
                 .packageName(booking.getServicePackage() != null ? booking.getServicePackage().getPackageName() : "Trang Điểm Khẩn Cấp")
+                .styleName(styleName)
+                .bookingType(booking.getBookingType() != null ? booking.getBookingType().name() : null)
+                .bookingDate(booking.getBookingDate())
+                .startTime(booking.getStartTime())
+                .estimatedDurationMinutes(estimatedDuration)
+                .packageItems(packageItems)
                 .rating(rating)
                 .serviceSubtotal(serviceSubtotal)
                 .surchargeFee(surchargeFee)
@@ -474,6 +502,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .platformFee(platformFee)
                 .earningsAmount(earningsAmount)
                 .completionPhotoUrl(booking.getCompletionPhotoUrl())
+                .cancellationReason(booking.getCancellationReason())
                 .isDepositPaid(isDepositPaid)
                 .depositTimeoutSeconds(depositTimeoutSeconds)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())

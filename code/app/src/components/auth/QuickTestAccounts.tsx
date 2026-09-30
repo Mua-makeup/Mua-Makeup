@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 
 interface QuickTestAccountsProps {
-  onSelectAccount: (phone: string, roleName: string) => void;
+  onSelectAccount: (phone: string, roleName: string, password?: string) => void;
 }
 
 export const QuickTestAccounts: React.FC<QuickTestAccountsProps> = ({ onSelectAccount }) => {
@@ -16,31 +16,31 @@ export const QuickTestAccounts: React.FC<QuickTestAccountsProps> = ({ onSelectAc
         {/* Role 1: Khách Hàng */}
         <TouchableOpacity
           style={styles.card}
-          onPress={() => onSelectAccount('0912345678', 'Khách Hàng')}
+          onPress={() => onSelectAccount('0123456789', 'Khách Hàng', '123456')}
           activeOpacity={0.75}>
           <Ionicons name="person" size={16} color={BrandColors.primary} style={styles.icon} />
           <Text style={styles.roleName}>Khách Hàng</Text>
-          <Text style={styles.phoneText}>0912345678</Text>
+          <Text style={styles.phoneText}>0123456789</Text>
         </TouchableOpacity>
 
-        {/* Role 2: Thợ MUA Tự Do */}
+        {/* Role 2: Thợ MUA Hoàng Linh */}
         <TouchableOpacity
           style={styles.card}
-          onPress={() => onSelectAccount('0987654321', 'Thợ MUA')}
+          onPress={() => onSelectAccount('0123456781', 'MUA Hoàng Linh', '123456')}
           activeOpacity={0.75}>
           <Ionicons name="brush" size={16} color="#F59E0B" style={styles.icon} />
-          <Text style={styles.roleName}>Thợ MUA</Text>
-          <Text style={styles.phoneText}>0987654321</Text>
+          <Text style={styles.roleName}>MUA H. Linh</Text>
+          <Text style={styles.phoneText}>0123456781</Text>
         </TouchableOpacity>
 
         {/* Role 3: Nhân Viên Agency */}
         <TouchableOpacity
           style={styles.card}
-          onPress={() => onSelectAccount('0933112233', 'NV Agency')}
+          onPress={() => onSelectAccount('0123456783', 'NV Agency', '123456')}
           activeOpacity={0.75}>
           <Ionicons name="business" size={16} color="#3B82F6" style={styles.icon} />
           <Text style={styles.roleName}>NV Agency</Text>
-          <Text style={styles.phoneText}>0933112233</Text>
+          <Text style={styles.phoneText}>0123456783</Text>
         </TouchableOpacity>
       </View>
     </View>

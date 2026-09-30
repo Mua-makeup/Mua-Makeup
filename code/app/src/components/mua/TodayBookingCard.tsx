@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { FreelancerBookingItem } from '@/services/freelancer-booking.service';
 import { BookingStatusType } from '@/services/booking.service';
+import { formatBookingSchedule } from '@/utils/date';
 
 interface Props {
   booking: FreelancerBookingItem;
@@ -72,7 +73,7 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
           <View style={styles.timeTag}>
             <Ionicons name="time-outline" size={13} color="#64748B" />
             <Text style={styles.timeText}>
-              {booking.startTime?.slice(0, 5) || 'Trong ngày'}
+              {formatBookingSchedule(booking.bookingDate, booking.startTime)}
             </Text>
           </View>
         </View>
@@ -163,14 +164,17 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
+  headerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
   bookingCode: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -184,16 +188,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   timeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#475569',
   },
   badge: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 8,
   },
   badgeText: {
