@@ -251,6 +251,32 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     userId
             ));
 
+            // 7b. Broadcast realtime notification to Admin if DISPUTED
+            if (targetStatus == BookingStatus.DISPUTED && messagingTemplate != null) {
+                try {
+                    Map<String, Object> disputePayload = new HashMap<>();
+                    disputePayload.put("type", "BOOKING_DISPUTE");
+                    disputePayload.put("id", savedBooking.getId());
+                    disputePayload.put("bookingId", savedBooking.getId());
+                    disputePayload.put("bookingCode", savedBooking.getBookingCode());
+                    disputePayload.put("title", "Khiếu Nại Ca Làm #" + savedBooking.getBookingCode());
+                    disputePayload.put("content", "Báo cáo sự cố: " + (savedBooking.getEmergencyReason() != null ? savedBooking.getEmergencyReason() : "Yêu cầu can thiệp từ quản trị viên"));
+                    disputePayload.put("reason", savedBooking.getEmergencyReason());
+                    disputePayload.put("proofUrl", savedBooking.getEmergencyProofUrl());
+                    disputePayload.put("customerName", savedBooking.getCustomer() != null ? savedBooking.getCustomer().getFullName() : null);
+                    disputePayload.put("muaName", savedBooking.getMua() != null && savedBooking.getMua().getUser() != null ? savedBooking.getMua().getUser().getFullName() : null);
+                    disputePayload.put("depositAmount", savedBooking.getDepositAmount());
+                    disputePayload.put("totalAmount", savedBooking.getTotalAmount());
+                    disputePayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/admin/notifications", disputePayload);
+                    messagingTemplate.convertAndSend("/topic/admin/disputes", disputePayload);
+                    log.info("[StateMachine] Broadcasted BOOKING_DISPUTE event to /topic/admin/notifications for bookingId={}", bookingId);
+                } catch (Exception ex) {
+                    log.error("[StateMachine] Failed to broadcast BOOKING_DISPUTE STOMP event: {}", ex.getMessage());
+                }
+            }
+
             log.info("[StateMachine] Successfully transitioned bookingId={} from {} to {} by userId={}",
                     bookingId, currentStatus, targetStatus, userId);
 
@@ -517,6 +543,17 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
+        Integer inProgressElapsedSeconds = null;
+        if (booking.getStatus() == BookingStatus.IN_PROGRESS) {
+            LocalDateTime startedAt = booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt();
+            if (startedAt != null) {
+                long elapsed = Duration.between(startedAt, LocalDateTime.now()).getSeconds();
+                inProgressElapsedSeconds = (int) Math.max(0, elapsed);
+            } else {
+                inProgressElapsedSeconds = 0;
+            }
+        }
+
         return BookingStatusDetailRes.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -550,6 +587,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .cancellationReason(booking.getCancellationReason())
                 .isDepositPaid(isDepositPaid)
                 .depositTimeoutSeconds(depositTimeoutSeconds)
+                .inProgressElapsedSeconds(inProgressElapsedSeconds)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
                 .build();
     }

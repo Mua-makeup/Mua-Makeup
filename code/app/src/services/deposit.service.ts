@@ -115,6 +115,36 @@ export const depositService = {
   },
 
   /**
+   * Tạo / lấy lại checkout URL để thanh toán 70% còn lại qua MoMo hoặc VNPay
+   */
+  async createFinalPaymentIntent(
+    bookingId: number,
+    payload: CreateDepositIntentPayload | 'MOMO' | 'VNPAY',
+    idempotencyKey?: string
+  ): Promise<DepositCheckoutResult> {
+    const body = typeof payload === 'string' ? { gatewayCode: payload } : payload;
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    const res = await apiClient.post(
+      `/customer/bookings/${bookingId}/final-payment-intents`,
+      body,
+      { headers }
+    );
+    const data = res.data?.data;
+    if (data) {
+      if (!data.checkoutUrl && data.paymentUrl) {
+        data.checkoutUrl = data.paymentUrl;
+      }
+      if (!data.paymentUrl && data.checkoutUrl) {
+        data.paymentUrl = data.checkoutUrl;
+      }
+    }
+    return data;
+  },
+
+  /**
    * Khách hàng xác nhận đã trả tiền mặt trực tiếp cho thợ
    */
   async confirmCustomerCashPayment(
@@ -122,13 +152,15 @@ export const depositService = {
     invoiceVersion: string = 'v1',
     idempotencyKey?: string
   ): Promise<CashReceiptStatus> {
-    const headers: Record<string, string> = {};
-    if (idempotencyKey) {
-      headers['Idempotency-Key'] = idempotencyKey;
-    }
+    const finalKey =
+      idempotencyKey ||
+      `cash_cust_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const headers: Record<string, string> = {
+      'Idempotency-Key': finalKey,
+    };
     const res = await apiClient.post(
-      `/customer/bookings/${bookingId}/cash-payment-confirmation`,
-      { invoiceVersion },
+      `/customer/bookings/${bookingId}/cash-confirmation`,
+      { invoiceVersion, idempotencyKey: finalKey },
       { headers }
     );
     return res.data?.data;
@@ -142,13 +174,15 @@ export const depositService = {
     invoiceVersion: string = 'v1',
     idempotencyKey?: string
   ): Promise<CashReceiptStatus> {
-    const headers: Record<string, string> = {};
-    if (idempotencyKey) {
-      headers['Idempotency-Key'] = idempotencyKey;
-    }
+    const finalKey =
+      idempotencyKey ||
+      `cash_fl_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const headers: Record<string, string> = {
+      'Idempotency-Key': finalKey,
+    };
     const res = await apiClient.post(
-      `/freelancer/bookings/${bookingId}/cash-receipt-confirmation`,
-      { invoiceVersion },
+      `/freelancer/bookings/${bookingId}/cash-confirmation`,
+      { invoiceVersion, idempotencyKey: finalKey },
       { headers }
     );
     return res.data?.data;

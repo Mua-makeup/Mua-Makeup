@@ -20,6 +20,7 @@ import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import com.makeup.platform.service.payment.BookingDepositService;
+import com.makeup.platform.service.wallet.BookingSettlementService;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayRegistry;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayStrategy;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     private final RedissonClient redissonClient;
     private final SimpMessagingTemplate messagingTemplate;
     private final StringRedisTemplate stringRedisTemplate;
+    private final BookingSettlementService bookingSettlementService;
 
     @Override
     @Transactional
@@ -368,6 +370,10 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 .build();
         walletHoldRepository.save(hold);
 
+        BigDecimal currentFrozen = customerWallet.getFrozenBalance() != null ? customerWallet.getFrozenBalance() : BigDecimal.ZERO;
+        customerWallet.setFrozenBalance(currentFrozen.add(holdAmount));
+        walletRepository.save(customerWallet);
+
         // Cập nhật deposit -> PAID
         deposit.setStatus("PAID");
         deposit.setPaidAmount(payment.getAmount());
@@ -472,6 +478,129 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 .qrCodeUrl(payment.getQrCodeUrl())
                 .expiresAt(payment.getExpiresAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public PaymentCheckoutRes createFinalPaymentIntent(Long bookingId, Long customerId,
+                                                        CreateDepositIntentReq req,
+                                                        String idempotencyKey, String clientIp) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (!booking.getCustomer().getId().equals(customerId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
+                    "booking.access_denied", HttpStatus.FORBIDDEN);
+        }
+
+        BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_FOUND,
+                        "booking.deposit_not_found", HttpStatus.NOT_FOUND));
+
+        if (!"PAID".equals(deposit.getStatus())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_PAID,
+                    "settlement.deposit_not_paid", HttpStatus.BAD_REQUEST);
+        }
+
+        BigDecimal remainingAmount = booking.getTotalAmount().subtract(deposit.getPaidAmount());
+        if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_AMOUNT_MISMATCH,
+                    "payment.no_remaining_amount", HttpStatus.BAD_REQUEST);
+        }
+
+        // Tái sử dụng payment PENDING nếu có
+        List<PaymentTransactionEntity> pendingPayments = paymentTransactionRepository
+                .findByBookingIdAndStatus(bookingId, "PENDING");
+        for (PaymentTransactionEntity p : pendingPayments) {
+            if ("BOOKING_FINAL_PAYMENT".equals(p.getPurpose())) {
+                if (p.getExpiresAt() != null && p.getExpiresAt().isAfter(OffsetDateTime.now(VIETNAM_OFFSET))) {
+                    return buildCheckoutResFromExistingPayment(p);
+                }
+                p.setStatus("FAILED");
+                paymentTransactionRepository.save(p);
+            }
+        }
+
+        PaymentGatewayStrategy strategy = gatewayRegistry.getStrategy(req.getGatewayCode());
+        String paymentCode = generatePaymentCode();
+
+        PaymentTransactionEntity newPayment = PaymentTransactionEntity.builder()
+                .paymentCode(paymentCode)
+                .user(booking.getCustomer())
+                .booking(booking)
+                .paymentGateway(req.getGatewayCode())
+                .amount(remainingAmount)
+                .status("PENDING")
+                .walletPostingStatus("NOT_POSTED")
+                .purpose("BOOKING_FINAL_PAYMENT")
+                .idempotencyKey(idempotencyKey)
+                .pricingVersion(deposit.getPricingVersion())
+                .applicationStatus("PENDING")
+                .build();
+
+        newPayment = paymentTransactionRepository.save(newPayment);
+
+        PaymentCheckoutRes checkoutRes = strategy.createCheckout(newPayment, clientIp);
+        checkoutRes.setCheckoutUrl(checkoutRes.getPaymentUrl());
+
+        newPayment.setPaymentUrl(checkoutRes.getPaymentUrl());
+        newPayment.setQrCodeUrl(checkoutRes.getQrCodeUrl());
+        newPayment.setExpiresAt(checkoutRes.getExpiresAt());
+        paymentTransactionRepository.save(newPayment);
+
+        log.info("[FinalPayment] Created final payment {} for booking {} via {} amount={}",
+                paymentCode, bookingId, req.getGatewayCode(), remainingAmount);
+        return checkoutRes;
+    }
+
+    @Override
+    @Transactional
+    public void applyFinalPayment(Long paymentId) {
+        PaymentTransactionEntity payment = paymentTransactionRepository.findById(paymentId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PAYMENT_TRANSACTION_NOT_FOUND,
+                        "payment.not_found", HttpStatus.NOT_FOUND));
+
+        if (!"SUCCESS".equals(payment.getStatus())) {
+            return;
+        }
+
+        if (payment.getBooking() == null) {
+            return;
+        }
+
+        Long bookingId = payment.getBooking().getId();
+        BigDecimal defaultCommissionRate = new BigDecimal("0.20");
+
+        bookingSettlementService.settleBookingOnlinePayment(bookingId, defaultCommissionRate);
+
+        payment.setApplicationStatus("APPLIED");
+        payment.setAppliedAt(OffsetDateTime.now(VIETNAM_OFFSET));
+        paymentTransactionRepository.save(payment);
+
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "PAYMENT_COMPLETED");
+            payload.put("bookingId", bookingId);
+            payload.put("bookingCode", payment.getBooking().getBookingCode());
+            payload.put("status", "PAID_OUT");
+            payload.put("isDepositPaid", true);
+            payload.put("paymentMethod", payment.getPaymentGateway());
+            payload.put("paidAmount", payment.getAmount());
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+            messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, payload);
+
+            if (payment.getBooking().getMua() != null) {
+                Long muaId = payment.getBooking().getMua().getId();
+                messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, payload);
+            }
+        } catch (Exception ex) {
+            log.warn("[FinalPayment] Failed to broadcast PAYMENT_COMPLETED for booking {}: {}", bookingId, ex.getMessage());
+        }
+
+        log.info("[FinalPayment] Successfully settled online final payment for bookingId={}", bookingId);
     }
 
     private WalletEntity createWalletForUser(Long userId, com.makeup.platform.entity.auth.UserEntity user) {

@@ -378,7 +378,17 @@
     "bookings_fetch_success": "Lấy danh sách đơn hàng toàn sàn thành công.",
     "booking_detail_fetch_success": "Lấy thông tin chi tiết đơn hàng thành công.",
     "users_fetch_success": "Lấy danh sách người dùng thành công.",
-    "user_status_update_success": "Cập nhật trạng thái người dùng thành công!"
+    "user_status_update_success": "Cập nhật trạng thái người dùng thành công!",
+    "disputes_fetch_success": "Lấy danh sách khiếu nại thành công.",
+    "dispute_stats_fetch_success": "Lấy thống kê khiếu nại thành công.",
+    "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
+    "dispute_resolved_success": "Phân xử khiếu nại thành công!"
+  },
+  "dispute": {
+    "not_in_disputed_state": "Đơn hàng không nằm ở trạng thái tranh chấp (DISPUTED).",
+    "invalid_resolution_type": "Loại phán quyết không hợp lệ. Phải là APPROVE_REFUND_CUSTOMER hoặc REJECT_AND_PAYOUT_MUA.",
+    "resolution_required": "Quyết định phân xử không được để trống.",
+    "note_required": "Ghi chú phân xử của Admin không được để trống."
   },
   "category": {
     "code_required": "Mã danh mục không được để trống.",

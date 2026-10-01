@@ -18,4 +18,10 @@ public interface BookingDepositService {
     void applyDepositFromPayment(Long paymentId);
 
     BookingDepositStatusRes syncDepositPayment(Long bookingId, Long customerId);
+
+    PaymentCheckoutRes createFinalPaymentIntent(Long bookingId, Long customerId,
+                                                CreateDepositIntentReq req,
+                                                String idempotencyKey, String clientIp);
+
+    void applyFinalPayment(Long paymentId);
 }

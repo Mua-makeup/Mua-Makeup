@@ -82,6 +82,18 @@ public class PaymentWebhookProcessorImpl implements PaymentWebhookProcessor {
             }
         }
 
+        // Quyết toán online nếu là BOOKING_FINAL_PAYMENT và SUCCESS
+        if (result.isSuccessful() && "BOOKING_FINAL_PAYMENT".equals(savedTransaction.getPurpose())) {
+            try {
+                bookingDepositService.applyFinalPayment(savedTransaction.getId());
+            } catch (Exception e) {
+                log.error("Failed to apply final payment for payment {}. Marking REVIEW_REQUIRED.", savedTransaction.getId(), e);
+                savedTransaction.setApplicationStatus("REVIEW_REQUIRED");
+                savedTransaction.setApplicationError(e.getMessage() != null ? e.getMessage().substring(0, Math.min(255, e.getMessage().length())) : "unknown_error");
+                paymentTransactionRepository.save(savedTransaction);
+            }
+        }
+
         return strategy.callbackAcknowledgement(result);
     }
 }

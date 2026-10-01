@@ -174,8 +174,97 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
             log.info("[Settlement] Released wallet hold {} for booking {}", hold.getId(), bookingId);
         });
 
+        booking.setStatus(BookingStatus.PAID_OUT);
+        bookingRepository.save(booking);
+
         log.info("[Settlement] Booking {} settled. T={} D={} C={} F={} E={} N={} Status={}",
                 bookingId, T, D, C, F, E, N, settlementStatus);
+    }
+
+    @Override
+    @Transactional
+    public void settleBookingOnlinePayment(Long bookingId, BigDecimal commissionRate) {
+        if (settlementRepository.existsByBookingId(bookingId)) {
+            log.info("[SettlementOnline] Booking {} already settled, skipping", bookingId);
+            return;
+        }
+
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_FOUND,
+                        "booking.deposit_not_found", HttpStatus.NOT_FOUND));
+
+        BigDecimal T = booking.getTotalAmount();
+        BigDecimal D = deposit.getPaidAmount() != null ? deposit.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal C = BigDecimal.ZERO;
+        BigDecimal F = T.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal E = T.subtract(F);
+        BigDecimal N = E;
+
+        BookingSettlementEntity settlement = BookingSettlementEntity.builder()
+                .booking(booking)
+                .totalAmount(T)
+                .depositAmount(D)
+                .cashAmount(C)
+                .commissionAmount(F)
+                .freelancerEarnings(E)
+                .walletCreditedAmount(N)
+                .commissionRate(commissionRate)
+                .status("SETTLED")
+                .settledAt(OffsetDateTime.now(VIETNAM_OFFSET))
+                .build();
+        settlementRepository.save(settlement);
+
+        if (E.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null) {
+            Long freelancerUserId = booking.getMua().getUser().getId();
+            WalletEntity freelancerWallet = walletRepository.findByUserIdWithLock(freelancerUserId)
+                    .orElseGet(() -> {
+                        WalletEntity newWallet = WalletEntity.builder()
+                                .user(booking.getMua().getUser())
+                                .availableBalance(BigDecimal.ZERO)
+                                .frozenBalance(BigDecimal.ZERO)
+                                .currency("VND")
+                                .build();
+                        return walletRepository.save(newWallet);
+                    });
+
+            String ledgerKey = "settle:credit:online:" + bookingId + ":" + freelancerUserId;
+            if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
+                BigDecimal balanceBefore = freelancerWallet.getAvailableBalance();
+                freelancerWallet.setAvailableBalance(balanceBefore.add(E));
+                walletRepository.save(freelancerWallet);
+
+                LedgerEntryEntity credit = LedgerEntryEntity.builder()
+                        .referenceType("BOOKING_SETTLEMENT")
+                        .referenceId(bookingId)
+                        .wallet(freelancerWallet)
+                        .entryType("CREDIT")
+                        .amount(E)
+                        .balanceAfter(freelancerWallet.getAvailableBalance())
+                        .description("Quyết toán online booking #" + booking.getBookingCode())
+                        .idempotencyKey(ledgerKey)
+                        .build();
+                ledgerEntryRepository.save(credit);
+                log.info("[SettlementOnline] Credited full earnings {} VND to freelancer wallet (userId={}) for booking {}",
+                        E, freelancerUserId, bookingId);
+            }
+        }
+
+        // Release wallet hold
+        walletHoldRepository.findActiveHoldByBookingId(bookingId).ifPresent(hold -> {
+            hold.setStatus("CONSUMED");
+            hold.setReleasedAt(OffsetDateTime.now(VIETNAM_OFFSET));
+            walletHoldRepository.save(hold);
+            log.info("[SettlementOnline] Released wallet hold {} for booking {}", hold.getId(), bookingId);
+        });
+
+        booking.setStatus(BookingStatus.PAID_OUT);
+        bookingRepository.save(booking);
+
+        log.info("[SettlementOnline] Booking {} settled online. T={} D={} F={} E={}", bookingId, T, D, F, E);
     }
 
     @Override

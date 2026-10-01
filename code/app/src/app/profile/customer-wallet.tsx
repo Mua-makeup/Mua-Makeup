@@ -105,7 +105,7 @@ export default function CustomerWalletScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
       >
-        {/* Thẻ Số Dư Khả Dụng - Luxury Beauty Aesthetics */}
+        {/* Thẻ Số Dư Ví & Ký Quỹ Escrow - Luxury Beauty Aesthetics */}
         <View style={styles.balanceCard}>
           <View style={styles.balanceCardHeader}>
             <View style={styles.walletIconCircle}>
@@ -116,11 +116,22 @@ export default function CustomerWalletScreen() {
               <Text style={styles.escrowBadgeText}>Bảo Chứng Escrow 100%</Text>
             </View>
           </View>
-          <Text style={styles.walletLabel}>Số dư ví khả dụng</Text>
-          <Text style={styles.balanceAmount}>{formatVnd(wallet?.availableBalance || 0)}</Text>
-          <Text style={styles.balanceSub}>
-            Tiền hoàn cọc từ thợ và các khoản tích lũy được bảo lưu an toàn
-          </Text>
+
+          <View style={styles.balanceRowTwoCol}>
+            <View style={styles.balanceCol}>
+              <Text style={styles.walletLabel}>Số dư khả dụng</Text>
+              <Text style={styles.balanceAmount}>{formatVnd(wallet?.availableBalance || 0)}</Text>
+              <Text style={styles.balanceSub}>Tiền hoàn cọc / Khả dụng rút</Text>
+            </View>
+            <View style={styles.balanceColDivider} />
+            <View style={styles.balanceCol}>
+              <Text style={styles.walletLabel}>Đang Ký Quỹ Escrow</Text>
+              <Text style={[styles.balanceAmount, { color: '#38BDF8' }]}>
+                {formatVnd(wallet?.frozenBalance || 0)}
+              </Text>
+              <Text style={styles.balanceSub}>Tiền cọc giữ chỗ ca làm</Text>
+            </View>
+          </View>
         </View>
 
         {/* Banner Quyền Lợi Bảo Vệ Khách Hàng */}
@@ -129,7 +140,7 @@ export default function CustomerWalletScreen() {
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.infoBannerTitle}>Chính Sách Hoàn Cọc Tự Động</Text>
             <Text style={styles.infoBannerDesc}>
-              Khi Thợ make-up hủy ca hẹn đã cọc, hệ thống Escrow sẽ tự động hoàn 100% tiền cọc về ví của bạn ngay lập tức.
+              Khi Thợ make-up hủy ca hẹn đã cọc, hệ thống Escrow sẽ tự động hoàn 100% tiền cọc về Ví khả dụng của bạn ngay lập tức.
             </Text>
           </View>
         </View>
@@ -150,37 +161,62 @@ export default function CustomerWalletScreen() {
           </View>
         ) : (
           transactions.map((item) => {
-            const isCredit = item.entryType === 'CREDIT';
             const isRefund = item.referenceType === 'BOOKING_REFUND';
+            const isDepositHold = item.referenceType === 'BOOKING_DEPOSIT';
+            const isCredit = item.entryType === 'CREDIT' && !isDepositHold;
 
             return (
               <View key={item.id} style={styles.txCard}>
                 <View
                   style={[
                     styles.txIconCircle,
-                    { backgroundColor: isCredit ? '#DCFCE7' : '#FEE2E2' },
+                    {
+                      backgroundColor: isRefund
+                        ? '#DCFCE7'
+                        : isDepositHold
+                        ? '#E0F2FE'
+                        : isCredit
+                        ? '#DCFCE7'
+                        : '#FEE2E2',
+                    },
                   ]}
                 >
                   <MaterialCommunityIcons
-                    name={isRefund ? 'cash-refund' : isCredit ? 'arrow-down-left' : 'arrow-up-right'}
+                    name={
+                      isRefund
+                        ? 'cash-refund'
+                        : isDepositHold
+                        ? 'shield-lock-outline'
+                        : isCredit
+                        ? 'arrow-down-left'
+                        : 'arrow-up-right'
+                    }
                     size={22}
-                    color={isCredit ? '#10B981' : '#EF4444'}
+                    color={isRefund ? '#10B981' : isDepositHold ? '#0284C7' : isCredit ? '#10B981' : '#EF4444'}
                   />
                 </View>
 
                 <View style={styles.txInfo}>
                   <View style={styles.txTitleRow}>
                     <Text style={styles.txTitle} numberOfLines={1}>
-                      {isRefund ? 'Hoàn cọc hủy ca' : item.description || 'Giao dịch ví'}
+                      {isRefund
+                        ? 'Hoàn cọc hủy ca'
+                        : isDepositHold
+                        ? 'Ký quỹ tiền cọc đơn'
+                        : item.description || 'Giao dịch ví'}
                     </Text>
-                    {isRefund && (
+                    {isRefund ? (
                       <View style={styles.refundTag}>
                         <Text style={styles.refundTagText}>Hoàn Cọc</Text>
                       </View>
-                    )}
+                    ) : isDepositHold ? (
+                      <View style={[styles.refundTag, { backgroundColor: '#E0F2FE' }]}>
+                        <Text style={[styles.refundTagText, { color: '#0369A1' }]}>Ký Quỹ Escrow</Text>
+                      </View>
+                    ) : null}
                   </View>
                   <Text style={styles.txDate}>{formatDate(item.createdAt)}</Text>
-                  {item.description && !isRefund && (
+                  {item.description && (
                     <Text style={styles.txDesc} numberOfLines={2}>
                       {item.description}
                     </Text>
@@ -191,16 +227,21 @@ export default function CustomerWalletScreen() {
                   <Text
                     style={[
                       styles.txAmount,
-                      { color: isCredit ? '#10B981' : '#EF4444' },
+                      {
+                        color: isRefund ? '#10B981' : isDepositHold ? '#0284C7' : isCredit ? '#10B981' : '#EF4444',
+                      },
                     ]}
                   >
-                    {isCredit ? '+' : '-'}{formatVnd(item.amount)}
+                    {isRefund ? '+' : isDepositHold ? '🔒 ' : isCredit ? '+' : '-'}
+                    {formatVnd(item.amount)}
                   </Text>
-                  {item.balanceAfter != null && (
+                  {isDepositHold ? (
+                    <Text style={[styles.txBalanceAfter, { color: '#0284C7' }]}>Đang bảo lưu</Text>
+                  ) : item.balanceAfter != null ? (
                     <Text style={styles.txBalanceAfter}>
                       Dư: {formatVnd(item.balanceAfter)}
                     </Text>
-                  )}
+                  ) : null}
                 </View>
               </View>
             );
@@ -311,16 +352,33 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   balanceAmount: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.5,
-    marginBottom: 8,
+    marginVertical: 4,
+  },
+  balanceRowTwoCol: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  balanceCol: {
+    flex: 1,
+  },
+  balanceColDivider: {
+    width: 1,
+    height: '85%',
+    backgroundColor: '#334155',
+    marginHorizontal: 16,
+    alignSelf: 'center',
   },
   balanceSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
-    lineHeight: 18,
+    lineHeight: 16,
+    marginTop: 2,
   },
   infoBanner: {
     flexDirection: 'row',

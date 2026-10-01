@@ -103,6 +103,8 @@ export default function JobExecutionScreen() {
   const [cashReceiptConfirmed, setCashReceiptConfirmed] = useState(false);
   const [isConfirmingCash, setIsConfirmingCash] = useState(false);
   const [isBothCashConfirmed, setIsBothCashConfirmed] = useState(false);
+  const [isCashPromptModalVisible, setIsCashPromptModalVisible] = useState(false);
+  const [cashAmountExpected, setCashAmountExpected] = useState<number>(0);
 
   // Luxury Success Modal State when Customer deposits
   const [depositSuccessData, setDepositSuccessData] = useState<{
@@ -150,6 +152,7 @@ export default function JobExecutionScreen() {
   // Stopwatch state when IN_PROGRESS
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<any>(null);
+  const startedTimeRef = useRef<number | null>(null);
 
   // State for MUA GPS telemetry tracking - Khởi tạo tức thì từ store hoặc fallback để hiển thị Map ngay trong 0s
   const [driverCoords, setDriverCoords] = useState<{
@@ -322,8 +325,29 @@ export default function JobExecutionScreen() {
         });
         loadBookingDetail();
       }
+      if (msg?.type === 'CUSTOMER_CASH_PAID') {
+        const amt = msg?.cashAmount || (booking?.totalAmount ? Math.round(booking.totalAmount * 0.7) : 0);
+        setCashAmountExpected(amt);
+        setIsCashPromptModalVisible(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+
+      if (msg?.type === 'PAYMENT_COMPLETED' || msg?.status === 'PAID_OUT') {
+        setIsCashPromptModalVisible(false);
+        setIsBothCashConfirmed(true);
+        setCashReceiptConfirmed(true);
+        setCurrentStatus('PAID_OUT');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        loadBookingDetail();
+      }
+
       if (msg?.status && msg.status !== currentStatus) {
         setCurrentStatus(msg.status);
+        if (msg.status === 'IN_PROGRESS') {
+          startedTimeRef.current = Date.now();
+          setElapsedSeconds(0);
+        }
+        loadBookingDetail();
         if (msg.status === 'CANCELLED') {
           let cancelText = msg.message || 'Khách hàng hoặc hệ thống đã hủy ca làm này.';
           if (cancelText.includes('45 giây') || cancelText.includes('không có thợ nhận')) {
@@ -413,17 +437,26 @@ export default function JobExecutionScreen() {
 
   useEffect(() => {
     if (currentStatus === 'IN_PROGRESS') {
-      if (!timerRef.current) {
-        timerRef.current = setInterval(() => {
-          setElapsedSeconds((prev) => prev + 1);
-        }, 1000);
+      if (!startedTimeRef.current) {
+        startedTimeRef.current = Date.now() - elapsedSeconds * 1000;
       }
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        if (startedTimeRef.current) {
+          const elapsed = Math.max(0, Math.floor((Date.now() - startedTimeRef.current) / 1000));
+          setElapsedSeconds(elapsed);
+        }
+      }, 1000);
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      startedTimeRef.current = null;
     }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [currentStatus]);
 
   const loadBookingDetail = async () => {
@@ -461,6 +494,19 @@ export default function JobExecutionScreen() {
           createdAt: detail.updatedAt || new Date().toISOString(),
         });
         setCurrentStatus(detail.status as BookingStatusType);
+        if (detail.status === 'IN_PROGRESS') {
+          let elapsed = 0;
+          if (detail.inProgressElapsedSeconds !== undefined && detail.inProgressElapsedSeconds !== null) {
+            elapsed = detail.inProgressElapsedSeconds;
+          } else if (detail.updatedAt) {
+            const startMs = new Date(detail.updatedAt).getTime();
+            if (!isNaN(startMs)) {
+              elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+            }
+          }
+          startedTimeRef.current = Date.now() - elapsed * 1000;
+          setElapsedSeconds(elapsed);
+        }
       }
     } catch (e) {
       console.warn('Lỗi tải chi tiết đơn:', e);
@@ -506,12 +552,16 @@ export default function JobExecutionScreen() {
         completionPhotoUrl
       );
       setCurrentStatus(nextStatus);
+      if (nextStatus === 'IN_PROGRESS') {
+        startedTimeRef.current = Date.now();
+        setElapsedSeconds(0);
+      }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       if (nextStatus === 'COMPLETED') {
         Alert.alert(
-          '🎉 Ca Làm Hoàn Thành Xuất Sắc!',
-          'Hệ thống đã xác thực ảnh nghiệm thu và kích hoạt giải ngân tiền cọc vào Ví tài khoản của bạn.',
+          '🎉 Nghiệm Thu Thành Công!',
+          'Ca làm việc đã hoàn tất. Đơn hàng chuyển sang bước thanh toán phần còn lại. Tiền thực nhận sẽ được quyết toán vào Ví ngay sau khi khách hoàn tất thanh toán.',
           [
             {
               text: 'Về Bàn Làm Việc',
@@ -604,8 +654,10 @@ export default function JobExecutionScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const res = await depositService.confirmFreelancerCashReceipt(bookingId, 'v1');
       setCashReceiptConfirmed(true);
+      setIsCashPromptModalVisible(false);
       if (res?.settlementTriggered || res?.status === 'BOTH_CONFIRMED') {
         setIsBothCashConfirmed(true);
+        setCurrentStatus('PAID_OUT');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           'Quyết Toán Thành Công! 🎉',
@@ -622,6 +674,7 @@ export default function JobExecutionScreen() {
           'Bạn đã xác nhận đã nhận đủ tiền mặt. Khoản cọc sẽ tự động quyết toán vào ví ngay khi khách hàng xác nhận.'
         );
       }
+      loadBookingDetail();
     } catch (err: any) {
       Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể xác nhận tiền mặt.');
     } finally {
@@ -1337,6 +1390,69 @@ export default function JobExecutionScreen() {
               <Ionicons name="rocket" size={20} color="#FFFFFF" />
               <Text style={styles.startTripNowBtnText}>XUẤT PHÁT NGAY (BẮT ĐẦU DI CHUYỂN)</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Duy Nhất Xác Nhận Khách Đã Trả Tiền Mặt */}
+      <Modal visible={isCashPromptModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.depositSuccessCard}>
+            <View style={[styles.successIconCircle, { backgroundColor: '#DCFCE7' }]}>
+              <Ionicons name="cash" size={36} color="#059669" />
+            </View>
+            <Text style={styles.depositSuccessTitle}>💵 Khách Báo Đã Trả Tiền Mặt</Text>
+            <Text style={styles.depositSuccessSub}>
+              Khách hàng báo đã thanh toán{' '}
+              <Text style={{ fontWeight: '800', color: '#0F172A' }}>
+                {formatVnd(cashAmountExpected || (booking?.totalAmount ? Math.round(booking.totalAmount * 0.7) : 0))}
+              </Text>{' '}
+              tiền mặt trực tiếp cho bạn. Bạn đã nhận đủ tiền chưa?
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 20 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  backgroundColor: '#F1F5F9',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                }}
+                onPress={() => setIsCashPromptModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#64748B' }}>Chưa Nhận Được</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1.5,
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  backgroundColor: '#059669',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 6,
+                }}
+                onPress={handleConfirmCashReceipt}
+                disabled={isConfirmingCash}
+                activeOpacity={0.8}
+              >
+                {isConfirmingCash ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF' }}>Đã Nhận Đủ</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
