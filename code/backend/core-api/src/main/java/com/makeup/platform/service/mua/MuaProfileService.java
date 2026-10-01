@@ -3,6 +3,7 @@ package com.makeup.platform.service.mua;
 import com.makeup.platform.common.base.PageResponse;
 import com.makeup.platform.dto.request.admin.VerifyCertificateReq;
 import com.makeup.platform.dto.request.mua.UpdateMuaProfileReq;
+import com.makeup.platform.dto.request.mua.UpdateMuaRadiusReq;
 import com.makeup.platform.dto.request.mua.UploadCertificateReq;
 import com.makeup.platform.dto.response.admin.AdminMuaCertificateRes;
 import com.makeup.platform.dto.response.mua.CertificateRes;
@@ -21,6 +22,8 @@ public interface MuaProfileService {
     MuaProfileRes getMyProfile(Long userId);
 
     MuaProfileRes updateMyProfile(Long userId, UpdateMuaProfileReq req);
+
+    MuaProfileRes updateServiceRadius(Long userId, UpdateMuaRadiusReq req);
 
     CertificateRes uploadCertificate(Long userId, UploadCertificateReq req);
 

@@ -14,6 +14,7 @@ import {
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { telemetryService, NearbyProviderRes } from '@/services/telemetry.service';
@@ -35,7 +36,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   onFallbackRandomScan,
 }) => {
   const { latitude: storeLat, longitude: storeLng, currentAddress, fetchCurrentLocation } = useLocationStore();
-  const [radiusKm, setRadiusKm] = useState<number>(15);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
   const [providers, setProviders] = useState<NearbyProviderRes[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -56,13 +57,32 @@ export const OnlineMuaListModal: React.FC<Props> = ({
     })
   ).current;
 
+  const reqIdRef = useRef(0);
+
   useEffect(() => {
-    if (visible) {
+    if (!visible) {
+      reqIdRef.current++;
+      setProviders([]);
+      setRadiusKm(5);
+      return;
+    }
+
+    setProviders([]);
+    setRadiusKm(5);
+    if (storeLat == null || storeLng == null) {
+      fetchCurrentLocation();
+    }
+    loadOnlineProviders(5);
+  }, [visible]);
+
+  useEffect(() => {
+    if (visible && storeLat != null && storeLng != null) {
       loadOnlineProviders(radiusKm);
     }
-  }, [visible, radiusKm]);
+  }, [storeLat, storeLng]);
 
   const loadOnlineProviders = async (radius: number, isPullRefresh: boolean = false) => {
+    const currentReqId = ++reqIdRef.current;
     if (isPullRefresh) {
       setIsRefreshing(true);
     } else {
@@ -70,8 +90,25 @@ export const OnlineMuaListModal: React.FC<Props> = ({
     }
 
     try {
-      const lat = storeLat || 21.0285;
-      const lng = storeLng || 105.8542;
+      let lat = storeLat;
+      let lng = storeLng;
+
+      if (lat == null || lng == null) {
+        const state = useLocationStore.getState();
+        lat = state.latitude;
+        lng = state.longitude;
+      }
+
+      if (lat == null || lng == null) {
+        const lastPos = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (lastPos?.coords) {
+          lat = lastPos.coords.latitude;
+          lng = lastPos.coords.longitude;
+        } else {
+          lat = 21.0285;
+          lng = 105.8542;
+        }
+      }
 
       const list = await telemetryService.getNearbyProviders({
         latitude: lat,
@@ -79,24 +116,61 @@ export const OnlineMuaListModal: React.FC<Props> = ({
         radiusKm: radius,
       });
 
-      setProviders(list || []);
+      if (currentReqId === reqIdRef.current) {
+        setProviders(list || []);
+      }
     } catch (err) {
       console.warn('[OnlineMuaListModal] Lỗi tải thợ online:', err);
-      setProviders([]);
+      if (currentReqId === reqIdRef.current) {
+        setProviders([]);
+      }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (currentReqId === reqIdRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
   const handleSelectRadius = (r: number) => {
     Haptics.selectionAsync();
     setRadiusKm(r);
+    loadOnlineProviders(r);
   };
 
   const handleBookNow = (item: NearbyProviderRes) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onSelectMua(item);
+  };
+
+  const getHaversineDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const getEffectiveDistance = (item: NearbyProviderRes): number | null => {
+    if (item.distanceKm != null && item.distanceKm > 0) {
+      return item.distanceKm;
+    }
+    if (storeLat && storeLng && item.fuzzedLatitude && item.fuzzedLongitude) {
+      return getHaversineDistanceKm(storeLat, storeLng, item.fuzzedLatitude, item.fuzzedLongitude);
+    }
+    return item.distanceKm ?? null;
+  };
+
+  const formatDistance = (dist?: number | null) => {
+    if (dist == null) return 'Gần bạn';
+    if (dist < 0.1) return '< 100m';
+    return `${dist.toFixed(1)} km`;
   };
 
   const formatVnd = (amount?: number) => {
@@ -273,15 +347,26 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                       <View style={styles.distanceBadge}>
                         <Ionicons name="navigate" size={11} color="#059669" />
                         <Text style={styles.distanceText}>
-                          {item.distanceKm != null ? `${item.distanceKm} km` : 'Gần bạn'}
+                          {formatDistance(getEffectiveDistance(item))}
                         </Text>
                       </View>
                     </View>
 
-                    {/* Starting price */}
-                    <Text style={styles.priceText}>
-                      Giá từ: <Text style={styles.priceBold}>{formatVnd(item.startingPrice)}</Text>
-                    </Text>
+                    {/* Price & Service Radius */}
+                    <View style={styles.priceAndRadiusRow}>
+                      <Text style={styles.priceText}>
+                        Giá từ: <Text style={styles.priceBold}>{formatVnd(item.startingPrice)}</Text>
+                      </Text>
+
+                      {item.maxServiceRadiusKm != null && (
+                        <View style={styles.serviceRadiusBadge}>
+                          <Ionicons name="radio-outline" size={10} color="#2563EB" />
+                          <Text style={styles.serviceRadiusText}>
+                            Nhận {item.maxServiceRadiusKm}km
+                          </Text>
+                        </View>
+                      )}
+                    </View>
 
                     {/* Styles chips */}
                     {item.styles && item.styles.length > 0 && (
@@ -672,10 +757,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#047857',
   },
+  serviceRadiusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#BFDBFE',
+  },
+  serviceRadiusText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  priceAndRadiusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
   priceText: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#64748B',
-    marginBottom: 4,
   },
   priceBold: {
     fontWeight: '700',

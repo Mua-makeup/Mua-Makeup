@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandColors } from '@/constants/theme';
@@ -24,7 +24,8 @@ export default function MuaPackagesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadPackages = useCallback(async () => {
+  const loadPackages = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const data = await packageService.listMyPackages();
       setPackages(Array.isArray(data) ? data : []);
@@ -37,9 +38,11 @@ export default function MuaPackagesScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadPackages();
-  }, [loadPackages]);
+  useFocusEffect(
+    useCallback(() => {
+      loadPackages();
+    }, [loadPackages])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -105,13 +108,6 @@ export default function MuaPackagesScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={24} color={BrandColors.slateHeading} />
-        </TouchableOpacity>
-
         <View style={styles.headerTitleBox}>
           <Text style={styles.headerTitle}>Gói Dịch Vụ Của Tôi</Text>
           <Text style={styles.headerSubtitle}>{packages.length} gói đang quản lý</Text>
@@ -206,7 +202,6 @@ const styles = StyleSheet.create({
   },
   headerTitleBox: {
     flex: 1,
-    marginLeft: 12,
   },
   headerTitle: {
     fontSize: 17,

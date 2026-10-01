@@ -22,6 +22,7 @@ import {
 } from '@/services/customer-address.service';
 import { mapsService } from '@/services/maps.service';
 import { useLocationStore } from '@/store/location.store';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 
 interface Props {
   visible: boolean;
@@ -191,36 +192,22 @@ export const SavedAddressModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.backdrop}
+    <SwipeableBottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Sổ Địa Chỉ Trang Điểm"
+      subtitle={
+        onSelectAddress
+          ? 'Chạm vào địa chỉ để chọn làm điểm đến'
+          : 'Quản lý các địa chỉ make-up quen thuộc của bạn'
+      }
+    >
+      <ScrollView
+        style={styles.body}
+        contentContainerStyle={styles.bodyContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.sheet}>
-          {/* HEADER */}
-          <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="location" size={18} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>Sổ Địa Chỉ Trang Điểm</Text>
-                <Text style={styles.subtitle}>
-                  {onSelectAddress ? 'Chạm vào địa chỉ để chọn làm điểm đến' : 'Quản lý các địa chỉ make-up quen thuộc của bạn'}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={styles.bodyContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
             {/* NÚT THÊM ĐỊA CHỈ HOẶC FORM NHẬP */}
             {!isAdding ? (
               <TouchableOpacity
@@ -439,9 +426,7 @@ export const SavedAddressModal: React.FC<Props> = ({
               </View>
             )}
           </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SwipeableBottomSheet>
   );
 };
 

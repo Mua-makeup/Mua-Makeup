@@ -8,6 +8,7 @@ import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.common.utils.FileValidationUtils;
 import com.makeup.platform.dto.request.admin.VerifyCertificateReq;
 import com.makeup.platform.dto.request.mua.UpdateMuaProfileReq;
+import com.makeup.platform.dto.request.mua.UpdateMuaRadiusReq;
 import com.makeup.platform.dto.request.mua.UploadCertificateReq;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.dto.response.mua.CertificateRes;
@@ -39,6 +40,7 @@ import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.pricing.MapsClientService;
+import com.makeup.platform.service.telemetry.RedisGeoService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -63,6 +65,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
     private final NotificationService notificationService;
     private final AgencyStaffRepository agencyStaffRepository;
     private final MapsClientService mapsClientService;
+    private final RedisGeoService redisGeoService;
 
     @Override
     @Transactional(readOnly = true)
@@ -73,8 +76,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
             return Collections.emptyList();
         }
 
-        // Lọc loại bỏ hoàn toàn nhân viên Studio (ROLE_AGENCY_STAFF và active staff trong agency_staff)
-        // Đảm bảo chỉ hiển thị thợ MUA Tự Do (Freelance MUA) độc lập
+       
         Set<Long> activeStaffMuaIds = new HashSet<>(agencyStaffRepository.findAllActiveStaffMuaIds());
         List<MuaProfileEntity> freelanceMuas = muas.stream()
                 .filter(m -> {
@@ -191,6 +193,19 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         }
 
         MuaProfileEntity saved = muaProfileRepository.save(mua);
+        redisGeoService.removeMuaSummary(saved.getId());
+        List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(saved.getId());
+        return muaProfileMapper.toProfileRes(saved, styles);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "mua_portfolios", allEntries = true)
+    public MuaProfileRes updateServiceRadius(Long userId, UpdateMuaRadiusReq req) {
+        MuaProfileEntity mua = getMuaProfileByUserId(userId);
+        mua.setMaxServiceRadiusKm(req.getMaxServiceRadiusKm());
+        MuaProfileEntity saved = muaProfileRepository.save(mua);
+        redisGeoService.removeMuaSummary(saved.getId());
         List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(saved.getId());
         return muaProfileMapper.toProfileRes(saved, styles);
     }

@@ -38,5 +38,7 @@ public class NearbyProviderRes {
 
     private Double fuzzedLongitude;
 
+    private Double maxServiceRadiusKm;
+
     private List<String> styles;
 }

@@ -38,6 +38,26 @@ interface Props {
   onChooseAnotherMua: () => void;
 }
 
+const getDistanceKm = (
+  lat1?: number | null,
+  lon1?: number | null,
+  lat2?: number | null,
+  lon2?: number | null
+): number | null => {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371; // km
+  const dLat = ((Number(lat2) - Number(lat1)) * Math.PI) / 180;
+  const dLon = ((Number(lon2) - Number(lon1)) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((Number(lat1) * Math.PI) / 180) *
+      Math.cos((Number(lat2) * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+};
+
 export const DirectMuaBookingModal: React.FC<Props> = ({
   visible,
   targetMua,
@@ -165,6 +185,24 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
     return (amount || 0).toLocaleString('vi-VN') + ' đ';
   };
 
+  const formatDistance = (dist?: number | null) => {
+    if (dist == null) return 'Gần bạn';
+    if (dist < 0.1) return '< 100m';
+    return `${dist.toFixed(1)} km`;
+  };
+
+  const currentLat = coords?.latitude || storeLat;
+  const currentLng = coords?.longitude || storeLng;
+  const calculatedDist = getDistanceKm(currentLat, currentLng, targetMua?.fuzzedLatitude, targetMua?.fuzzedLongitude);
+  const effectiveDist = calculatedDist != null ? calculatedDist : targetMua?.distanceKm;
+
+  const muaMaxRadius = targetMua?.maxServiceRadiusKm || 5;
+  const isOutOfRadius = Boolean(
+    targetMua &&
+    effectiveDist != null &&
+    effectiveDist > muaMaxRadius
+  );
+
   // Đếm ngược 20s khi ở trạng thái SCANNING
   useEffect(() => {
     if (step === 'SCANNING') {
@@ -201,6 +239,14 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
     const lng = coords?.longitude || storeLng || 105.8542;
     const sendAddress = address?.trim() || currentAddress || 'Vị trí hiện tại của bạn';
 
+    if (effectiveDist != null && effectiveDist > muaMaxRadius) {
+      Alert.alert(
+        'Ngoài Bán Kính Phục Vụ',
+        `Điểm đón cách chuyên viên ${formatDistance(effectiveDist)}, vượt quá bán kính nhận ca tối đa (${muaMaxRadius} km) của chuyên viên này.`
+      );
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setTimeoutMessage(null);
@@ -210,7 +256,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
         packageId: selectedPackage.id,
         targetMuaId: targetMua.providerId,
         styleId: selectedStyle?.id,
-        radiusKm: 15,
+        radiusKm: muaMaxRadius,
         destinationAddress: sendAddress,
         destinationLatitude: lat,
         destinationLongitude: lng,
@@ -361,9 +407,13 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                       <Text style={styles.muaRating}>{targetMua.ratingAvg || '5.0'}</Text>
                       <Text style={styles.muaDot}>•</Text>
                       <Ionicons name="navigate-outline" size={11} color="#059669" />
-                      <Text style={styles.muaDistance}>{targetMua.distanceKm} km</Text>
-                      <Text style={styles.muaDot}>•</Text>
-                      <Text style={styles.muaEta}>~{Math.max(5, Math.round((targetMua.distanceKm || 1) * 3))}p tới</Text>
+                      <Text style={styles.muaDistance}>{formatDistance(effectiveDist)}</Text>
+                      {targetMua.maxServiceRadiusKm != null && (
+                        <>
+                          <Text style={styles.muaDot}>•</Text>
+                          <Text style={styles.muaEta}>Bán kính {targetMua.maxServiceRadiusKm}km</Text>
+                        </>
+                      )}
                     </View>
                     <View style={styles.timeTag}>
                       <Ionicons name="time" size={10} color="#0284C7" />
@@ -499,11 +549,21 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                 </View>
               </View>
 
+              {/* CẢNH BÁO NGOÀI BÁN KÍNH PHỤC VỤ NẾU CÓ */}
+              {isOutOfRadius && (
+                <View style={styles.outOfRadiusWarningBox}>
+                  <Ionicons name="warning" size={16} color="#DC2626" />
+                  <Text style={styles.outOfRadiusWarningText}>
+                    Điểm đón cách thợ {formatDistance(effectiveDist)}, vượt quá bán kính nhận ca tối đa ({targetMua?.maxServiceRadiusKm}km) của thợ này.
+                  </Text>
+                </View>
+              )}
+
               {/* NÚT GỬI YÊU CẦU */}
               <TouchableOpacity
-                style={[styles.submitBtn, isSubmitting && { opacity: 0.6 }]}
+                style={[styles.submitBtn, (isSubmitting || isOutOfRadius) && { opacity: 0.5, backgroundColor: '#94A3B8' }]}
                 onPress={handleSendDirectRequest}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isOutOfRadius}
                 activeOpacity={0.88}
               >
                 {isSubmitting ? (
@@ -512,7 +572,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                   <>
                     <Ionicons name="flash" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
                     <Text style={styles.submitBtnText}>
-                      Gửi Yêu Cầu Tới Thợ (20s)
+                      {isOutOfRadius ? 'Ngoài Bán Kính Phục Vụ' : 'Gửi Yêu Cầu Tới Thợ (20s)'}
                     </Text>
                   </>
                 )}
@@ -984,6 +1044,24 @@ const styles = StyleSheet.create({
   depositBannerText: {
     fontSize: 10.5,
     color: '#065F46',
+  },
+  outOfRadiusWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 12,
+  },
+  outOfRadiusWarningText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 16,
   },
   submitBtn: {
     flexDirection: 'row',

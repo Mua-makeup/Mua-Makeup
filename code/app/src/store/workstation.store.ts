@@ -7,6 +7,7 @@ import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.serv
 import { websocketService } from '@/services/websocket.service';
 import { soundManager } from '@/utils/sound';
 import { getTodayVN } from '@/utils/date';
+import { useLocationStore } from '@/store/location.store';
 
 export interface InstantBookingOffer {
   bookingId: number;
@@ -212,21 +213,37 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           throw new Error('Vui lòng cấp quyền truy cập vị trí để bật trạng thái nhận ca.');
         }
 
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
+        let loc = null;
+        try {
+          loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+        } catch {
+          loc = await Location.getLastKnownPositionAsync().catch(() => null);
+        }
 
-        const coords = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        };
+        const storeLoc = useLocationStore.getState();
+        const coords = loc?.coords
+          ? {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            }
+          : storeLoc.latitude && storeLoc.longitude
+          ? {
+              latitude: storeLoc.latitude,
+              longitude: storeLoc.longitude,
+            }
+          : {
+              latitude: 21.0285,
+              longitude: 105.8542,
+            };
 
         await telemetryService.toggleAvailability({
           isAvailable: true,
           latitude: coords.latitude,
           longitude: coords.longitude,
-          heading: loc.coords.heading || 0,
-          speed: loc.coords.speed || 0,
+          heading: loc?.coords?.heading || 0,
+          speed: loc?.coords?.speed || 0,
         });
 
         // Đăng ký nhận tin phân phối đơn khẩn cấp qua WebSocket STOMP

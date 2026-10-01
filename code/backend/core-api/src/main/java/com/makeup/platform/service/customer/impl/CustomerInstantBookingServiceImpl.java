@@ -1055,11 +1055,47 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                         "Chuyên viên trang điểm bạn chọn hiện đang bận hoặc không trực tuyến.", HttpStatus.BAD_REQUEST);
             }
 
+            // Kiểm tra bán kính phục vụ tối đa của thợ đích danh
+            Double muaLat = null;
+            Double muaLng = null;
+            try {
+                var posList = stringRedisTemplate.opsForGeo().position(TelemetryConstants.REDIS_KEY_MUA_GEO, String.valueOf(targetId));
+                if (posList != null && !posList.isEmpty() && posList.get(0) != null) {
+                    muaLng = posList.get(0).getX();
+                    muaLat = posList.get(0).getY();
+                }
+            } catch (Exception e) {
+                log.warn("Failed to get GEO position for target MUA {}: {}", targetId, e.getMessage());
+            }
+            if (muaLat == null || muaLng == null) {
+                if (targetMua.getBaseAddressLat() != null && targetMua.getBaseAddressLng() != null) {
+                    muaLat = targetMua.getBaseAddressLat().doubleValue();
+                    muaLng = targetMua.getBaseAddressLng().doubleValue();
+                }
+            }
+
+            if (muaLat != null && muaLng != null && req.getDestinationLatitude() != null && req.getDestinationLongitude() != null) {
+                double distanceKm = GeoDistanceUtils.calculateDistanceKm(
+                        req.getDestinationLatitude().doubleValue(),
+                        req.getDestinationLongitude().doubleValue(),
+                        muaLat, muaLng
+                );
+                double maxRadius = targetMua.getMaxServiceRadiusKm() != null ? targetMua.getMaxServiceRadiusKm().doubleValue() : 15.0;
+                if (distanceKm > maxRadius) {
+                    log.warn("[CandidateFilter] Targeted MUA id={} distance={:.2f}km exceeds maxServiceRadiusKm={:.0f}km",
+                            targetId, distanceKm, maxRadius);
+                    throw new CustomBusinessException(ErrorCodes.ERR_DISTANCE_EXCEEDS_MAX_RADIUS,
+                            "ERR_DISTANCE_EXCEEDS_MAX_RADIUS",
+                            new Object[]{String.format("%.1f", distanceKm), String.format("%.0f", maxRadius)},
+                            HttpStatus.BAD_REQUEST);
+                }
+            }
+
             log.info("[CandidateFilter] Targeted booking strictly for MUA id={}", targetId);
             return new ArrayList<>(List.of(targetId));
         }
 
-        // 2. Luồng đặt ngẫu nhiên / tìm thợ gần nhất (GIỮ NGUYÊN HOÀN TOÀN)
+        // 2. Luồng đặt ngẫu nhiên / tìm thợ gần nhất (Sequential Waterfall Dispatch)
         List<Long> candidateMuaIds = new ArrayList<>();
         double radiusKm = (req.getRadiusKm() != null && req.getRadiusKm() > 0) ? req.getRadiusKm() : 10.0;
         try {
@@ -1069,9 +1105,14 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 return candidateMuaIds;
             }
             List<Long> nearbyIds = new ArrayList<>();
+            Map<Long, Double> distanceMap = new HashMap<>();
             for (var item : geoResults.getContent()) {
                 try {
-                    nearbyIds.add(Long.valueOf(item.getContent().getName()));
+                    Long mId = Long.valueOf(item.getContent().getName());
+                    nearbyIds.add(mId);
+                    if (item.getDistance() != null) {
+                        distanceMap.put(mId, item.getDistance().getValue());
+                    }
                 } catch (NumberFormatException ex) {
                     log.warn("Ignoring malformed MUA id in GEO index: {}", item.getContent().getName());
                 }
@@ -1096,9 +1137,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 boolean verified = mua.getCertificates() != null && mua.getCertificates().stream()
                         .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
                 boolean leased = leases != null && leases.get(index) != null;
+
+                // Kiểm tra bán kính phục vụ tối đa của từng thợ: khoảng cách phải <= bán kính thợ cài đặt
+                Double distToCustomer = distanceMap.get(id);
+                double muaMaxRadius = mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0;
+                boolean withinMuaRadius = (distToCustomer == null || distToCustomer <= muaMaxRadius);
+
                 if (freelance && verified && Boolean.TRUE.equals(mua.getIsOnline())
-                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased) {
+                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && withinMuaRadius) {
                     candidateMuaIds.add(id);
+                } else if (!withinMuaRadius) {
+                    log.info("[CandidateFilter] Excluded MUA id={} because distance ({:.2f}km) exceeds MUA's maxServiceRadiusKm ({:.0f}km)",
+                            id, distToCustomer, muaMaxRadius);
                 }
             }
 

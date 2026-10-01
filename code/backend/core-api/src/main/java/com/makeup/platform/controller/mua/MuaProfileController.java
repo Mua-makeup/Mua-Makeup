@@ -3,6 +3,7 @@ package com.makeup.platform.controller.mua;
 import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.dto.request.mua.UpdateMuaProfileReq;
+import com.makeup.platform.dto.request.mua.UpdateMuaRadiusReq;
 import com.makeup.platform.dto.request.mua.UploadCertificateReq;
 import com.makeup.platform.dto.response.mua.CertificateRes;
 import com.makeup.platform.dto.response.mua.MuaProfileRes;
@@ -37,7 +38,7 @@ public class MuaProfileController extends BaseController {
 
     private final MuaProfileService muaProfileService;
 
-    @GetMapping
+    @GetMapping({"", "/public"})
     public ResponseEntity<ApiResponse<List<MuaProfileRes>>> getPublicMuas(
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false, defaultValue = "10") Integer limit) {
@@ -64,6 +65,15 @@ public class MuaProfileController extends BaseController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody UpdateMuaProfileReq req) {
         MuaProfileRes res = muaProfileService.updateMyProfile(userId, req);
+        return ok(res, "mua.profile_update_success");
+    }
+
+    @PutMapping("/my-profile/radius")
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<MuaProfileRes>> updateServiceRadius(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody UpdateMuaRadiusReq req) {
+        MuaProfileRes res = muaProfileService.updateServiceRadius(userId, req);
         return ok(res, "mua.profile_update_success");
     }
 

@@ -11,6 +11,7 @@ import com.makeup.platform.dto.request.telemetry.ToggleAvailabilityReq;
 import com.makeup.platform.dto.response.telemetry.LiveTrackingRes;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.entity.mua.MuaCertificateItem;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AdaptiveStreamMode;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
@@ -57,13 +58,24 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                         "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         if (Boolean.TRUE.equals(req.getIsAvailable())) {
-            boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
-                    .anyMatch(
-                            c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+            List<MuaCertificateItem> certs = mua.getCertificates();
+            boolean hasVerifiedCert = certs != null && certs.stream()
+                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
             if (!hasVerifiedCert) {
                 log.warn("MUA {} attempted to go ONLINE without verified certificates", mua.getId());
+                if (certs == null || certs.isEmpty()) {
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                            "mua.certificate_missing_cannot_operate", HttpStatus.FORBIDDEN);
+                }
+                boolean hasPending = certs.stream()
+                        .anyMatch(c -> "PENDING".equalsIgnoreCase(c.getStatus()) || (!Boolean.TRUE.equals(c.getIsVerified()) && !"REJECTED".equalsIgnoreCase(c.getStatus())));
+                if (hasPending) {
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                            "mua.certificate_pending_cannot_operate", HttpStatus.FORBIDDEN);
+                }
+                // All uploaded certificates are rejected
                 throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
-                        "mua.certificate_not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+                        "mua.certificate_rejected_cannot_operate", HttpStatus.FORBIDDEN);
             }
 
             if (req.getLatitude() == null || req.getLongitude() == null) {
@@ -280,6 +292,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                     .min(BigDecimal::compareTo)
                     .orElse(BigDecimal.valueOf(350000));
             summary.put("startingPrice", startingPrice.doubleValue());
+            summary.put("maxServiceRadiusKm", mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0);
 
             String json = objectMapper.writeValueAsString(summary);
             redisGeoService.setMuaSummary(mua.getId(), json, TelemetryConstants.SUMMARY_TTL_SECONDS);

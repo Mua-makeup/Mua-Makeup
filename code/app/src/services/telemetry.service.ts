@@ -54,6 +54,7 @@ export interface NearbyProviderRes {
   startingPrice: number;
   fuzzedLatitude: number;
   fuzzedLongitude: number;
+  maxServiceRadiusKm?: number;
   styles: string[];
 }
 

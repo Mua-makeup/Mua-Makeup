@@ -105,6 +105,14 @@ export const muaProfileService = {
     return res.data.data;
   },
 
+  /** Cập nhật riêng bán kính nhận ca hoạt động của thợ MUA */
+  async updateServiceRadius(maxServiceRadiusKm: number): Promise<MuaPublicProfile> {
+    const res = await apiClient.put<ApiResponse<MuaPublicProfile>>('/muas/my-profile/radius', {
+      maxServiceRadiusKm,
+    });
+    return res.data.data;
+  },
+
   /** Tải lên chứng chỉ bằng cấp nghề nghiệp */
   async uploadCertificate(formData: FormData): Promise<MuaCertificate> {
     const res = await apiClient.post<ApiResponse<MuaCertificate>>('/muas/my-profile/certificates', formData, {
