@@ -25,6 +25,7 @@ import { freelancerBookingService } from '@/services/freelancer-booking.service'
 import { bookingService, BookingStatusType } from '@/services/booking.service';
 import { telemetryService } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
+import { depositService } from '@/services/deposit.service';
 import { useWorkstationStore } from '@/store/workstation.store';
 import * as Location from 'expo-location';
 import { getTodayVN } from '@/utils/date';
@@ -98,6 +99,11 @@ export default function JobExecutionScreen() {
   const [depositSecondsLeft, setDepositSecondsLeft] = useState<number>(600);
   const [isDepositTimeout, setIsDepositTimeout] = useState<boolean>(false);
 
+  // Cash confirmation state
+  const [cashReceiptConfirmed, setCashReceiptConfirmed] = useState(false);
+  const [isConfirmingCash, setIsConfirmingCash] = useState(false);
+  const [isBothCashConfirmed, setIsBothCashConfirmed] = useState(false);
+
   // Luxury Success Modal State when Customer deposits
   const [depositSuccessData, setDepositSuccessData] = useState<{
     visible: boolean;
@@ -112,6 +118,34 @@ export default function JobExecutionScreen() {
     addOnNames: [],
     addOnTotal: 0,
   });
+
+  // Cờ chống hiển thị trùng lặp Alert hủy đơn 2 lần
+  const hasHandledCancelAlertRef = useRef(false);
+
+  // Cờ chống điều hướng trùng lặp nhiều lần gây chồng chéo trang
+  const hasNavigatedBackRef = useRef(false);
+
+  // Điều hướng an toàn tuyệt đối quay về bàn làm việc, pop màn hình ca làm thay vì tạo thêm trang mới gây gối đè 2 bàn làm việc
+  const navigateBackToWorkstation = () => {
+    if (hasNavigatedBackRef.current) return;
+    hasNavigatedBackRef.current = true;
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
+  // Hàm hiển thị Alert hủy đơn an toàn - bảo đảm CHỈ KÍCH HOẠT 1 LẦN DUY NHẤT
+  const triggerCancelAlert = (cancelText: string) => {
+    if (hasHandledCancelAlertRef.current) return;
+    hasHandledCancelAlertRef.current = true;
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert('Đơn Đã Bị Hủy', cancelText, [
+      { text: 'Về Bàn Làm Việc', onPress: navigateBackToWorkstation },
+    ]);
+  };
 
   // Stopwatch state when IN_PROGRESS
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -291,9 +325,11 @@ export default function JobExecutionScreen() {
       if (msg?.status && msg.status !== currentStatus) {
         setCurrentStatus(msg.status);
         if (msg.status === 'CANCELLED') {
-          Alert.alert('Đơn Đã Bị Hủy', msg.message || 'Khách hàng hoặc hệ thống đã hủy ca làm này.', [
-            { text: 'Về Bàn Làm Việc', onPress: () => router.replace('/mua/workstation') },
-          ]);
+          let cancelText = msg.message || 'Khách hàng hoặc hệ thống đã hủy ca làm này.';
+          if (cancelText.includes('45 giây') || cancelText.includes('không có thợ nhận')) {
+            cancelText = 'Khách hàng đã hủy yêu cầu làm đẹp này. Bạn đã được giải phóng sẵn sàng nhận ca mới.';
+          }
+          triggerCancelAlert(cancelText);
         }
       }
     });
@@ -319,6 +355,15 @@ export default function JobExecutionScreen() {
           loadBookingDetail();
         }
       });
+
+      const rejectTopic = `/topic/booking-customer-rejected/${profile.muaId}`;
+      websocketService.subscribe(rejectTopic, (msg: any) => {
+        if (msg?.bookingId === bookingId) {
+          setCurrentStatus('CANCELLED');
+          const cancelText = msg.message || 'Khách hàng đã hủy ca làm này. Bạn đã được giải phóng sẵn sàng nhận đơn mới.';
+          triggerCancelAlert(cancelText);
+        }
+      });
     }
 
     return () => {
@@ -326,11 +371,12 @@ export default function JobExecutionScreen() {
       websocketService.unsubscribe(statusTopic);
       if (profile?.muaId) {
         websocketService.unsubscribe(`/topic/booking-customer-confirmed/${profile.muaId}`);
+        websocketService.unsubscribe(`/topic/booking-customer-rejected/${profile.muaId}`);
       }
     };
   }, [bookingId, profile?.muaId]);
 
-  // Countdown timer 5 phút chờ khách đặt cọc
+  // Countdown timer 10 phút chờ khách đặt cọc
   useEffect(() => {
     if (currentStatus !== 'ACCEPTED' || isDepositPaid || isDepositTimeout) return;
     const interval = setInterval(() => {
@@ -345,6 +391,25 @@ export default function JobExecutionScreen() {
     }, 1000);
     return () => clearInterval(interval);
   }, [currentStatus, isDepositPaid, isDepositTimeout]);
+
+  // Polling dự phòng tự động kiểm tra cọc mỗi 2.5s khi đang ở ACCEPTED chờ cọc
+  useEffect(() => {
+    if (currentStatus !== 'ACCEPTED' || isDepositPaid) return;
+    const pollInterval = setInterval(async () => {
+      try {
+        const detail = await bookingService.getBookingStatus(bookingId);
+        if (detail?.isDepositPaid) {
+          setIsDepositPaid(true);
+          setIsDepositTimeout(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          loadBookingDetail();
+        }
+      } catch {
+        // bỏ qua lỗi polling ngầm
+      }
+    }, 2500);
+    return () => clearInterval(pollInterval);
+  }, [currentStatus, isDepositPaid, bookingId]);
 
   useEffect(() => {
     if (currentStatus === 'IN_PROGRESS') {
@@ -417,7 +482,7 @@ export default function JobExecutionScreen() {
       Alert.alert(
         'Đã Hủy Đơn Hàng',
         'Đơn hàng đã được hủy do quá thời hạn 5 phút khách hàng chưa thanh toán cọc. Hệ thống đã giải phóng bạn sẵn sàng nhận đơn mới!',
-        [{ text: 'Về Bàn Làm Việc', onPress: () => router.replace('/mua/workstation') }]
+        [{ text: 'Về Bàn Làm Việc', onPress: navigateBackToWorkstation }]
       );
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Không thể hủy đơn hàng.';
@@ -450,7 +515,7 @@ export default function JobExecutionScreen() {
           [
             {
               text: 'Về Bàn Làm Việc',
-              onPress: () => router.replace('/mua/workstation'),
+              onPress: navigateBackToWorkstation,
             },
           ]
         );
@@ -490,13 +555,13 @@ export default function JobExecutionScreen() {
         Alert.alert(
           'Đã Gửi Báo Cáo Sự Cố',
           'Ca làm việc đã chuyển sang trạng thái tranh chấp (DISPUTED). Bạn đã được giải phóng khỏi ca. Ban Quản Trị sẽ xác minh minh chứng để phân xử.',
-          [{ text: 'Về Bàn Làm Việc', onPress: () => router.replace('/mua/workstation') }]
+          [{ text: 'Về Bàn Làm Việc', onPress: navigateBackToWorkstation }]
         );
       } else {
         Alert.alert(
           'Đã Hủy Nhận Ca',
           'Bạn đã hủy nhận ca này. Hệ thống đã giải phóng trạng thái bận cho bạn.',
-          [{ text: 'Về Bàn Làm Việc', onPress: () => router.replace('/mua/workstation') }]
+          [{ text: 'Về Bàn Làm Việc', onPress: navigateBackToWorkstation }]
         );
       }
     } catch (err: any) {
@@ -531,6 +596,37 @@ export default function JobExecutionScreen() {
     const secs = totalSeconds % 60;
     const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
     return hrs > 0 ? `${pad(hrs)}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
+  };
+
+  const handleConfirmCashReceipt = async () => {
+    try {
+      setIsConfirmingCash(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const res = await depositService.confirmFreelancerCashReceipt(bookingId, 'v1');
+      setCashReceiptConfirmed(true);
+      if (res?.settlementTriggered || res?.status === 'BOTH_CONFIRMED') {
+        setIsBothCashConfirmed(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Quyết Toán Thành Công! 🎉',
+          'Khách hàng và thợ đều đã xác nhận tiền mặt. Khoản cọc Escrow đã được quyết toán vào ví của bạn.',
+          [
+            { text: 'Xem Ví Thợ', onPress: () => router.push('/profile/freelancer-wallet') },
+            { text: 'Đóng' }
+          ]
+        );
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Đã Xác Nhận Nhận Tiền',
+          'Bạn đã xác nhận đã nhận đủ tiền mặt. Khoản cọc sẽ tự động quyết toán vào ví ngay khi khách hàng xác nhận.'
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể xác nhận tiền mặt.');
+    } finally {
+      setIsConfirmingCash(false);
+    }
   };
 
   const formatVnd = (amount: number) => (amount || 0).toLocaleString('vi-VN') + ' đ';
@@ -688,6 +784,51 @@ export default function JobExecutionScreen() {
           <>
             {/* Step Progress Timeline */}
             <JobTimelineStep currentStatus={currentStatus} />
+
+            {/* THẺ QUỸ BẢO CHỨNG ESCROW & XÁC NHẬN CỌC DÀNH CHO THỢ */}
+            {isDepositPaid && (
+              <View style={styles.escrowSecurityCard}>
+                <View style={styles.escrowSecurityHeader}>
+                  <View style={styles.escrowShieldBadge}>
+                    <Ionicons name="shield-checkmark" size={22} color="#059669" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={styles.escrowSecurityTitle}>Quỹ Bảo Chứng Escrow</Text>
+                      <View style={styles.escrowStatusTag}>
+                        <Ionicons name="lock-closed" size={11} color="#065F46" style={{ marginRight: 3 }} />
+                        <Text style={styles.escrowStatusTagText}>ĐÃ KHÓA CỌC 30%</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.escrowSecuritySub}>Khách đã hoàn tất cọc • Tiền đang bảo lưu an toàn</Text>
+                  </View>
+                </View>
+
+                <View style={styles.escrowDivider} />
+
+                <View style={styles.escrowDetailsGrid}>
+                  <View style={styles.escrowDetailItem}>
+                    <Text style={styles.escrowDetailLabel}>Tiền cọc trong Escrow:</Text>
+                    <Text style={styles.escrowDetailValueHighlight}>
+                      {formatVnd(booking?.depositAmount || Math.round((booking?.totalAmount || 0) * 0.3))}
+                    </Text>
+                  </View>
+                  <View style={styles.escrowDetailItem}>
+                    <Text style={styles.escrowDetailLabel}>Tiền mặt thu khi xong (70%):</Text>
+                    <Text style={styles.escrowDetailValueCash}>
+                      {formatVnd(Math.max(0, (booking?.totalAmount || 0) - (booking?.depositAmount || Math.round((booking?.totalAmount || 0) * 0.3))))}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.escrowGuaranteeBox}>
+                  <Ionicons name="shield-outline" size={16} color="#047857" />
+                  <Text style={styles.escrowGuaranteeText}>
+                    Khoản cọc 30% và thu nhập ca làm ({formatVnd(booking?.earningsAmount || 0)}) được sàn bảo chứng 100%, tự động giải ngân vào Ví của bạn ngay sau khi hoàn thành buổi làm đẹp.
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* LỘ TRÌNH GOONG MAPS TRỰC QUAN KHI ĐANG DI CHUYỂN */}
             {currentStatus === 'ON_THE_WAY' && booking && (
@@ -907,7 +1048,7 @@ export default function JobExecutionScreen() {
             <View style={{ flex: 1 }}>
               {(currentStatus === 'ACCEPTED' || currentStatus === 'AGENCY_ASSIGNED') && (
                 <TouchableOpacity
-                  style={[styles.primaryActionBtn, isTransitioning && styles.disabledBtn]}
+                  style={[styles.primaryActionBtn, { backgroundColor: '#059669' }, isTransitioning && styles.disabledBtn]}
                   onPress={() => handleTransitionState('ON_THE_WAY')}
                   disabled={isTransitioning}
                 >
@@ -915,8 +1056,8 @@ export default function JobExecutionScreen() {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <>
-                      <Ionicons name="rocket" size={18} color="#FFFFFF" />
-                      <Text style={styles.btnText}>BẮT ĐẦU DI CHUYỂN (GPS ON)</Text>
+                      <Ionicons name="checkmark-done-circle" size={20} color="#FFFFFF" />
+                      <Text style={styles.btnText}>XÁC NHẬN ĐÃ CỌC & BẮT ĐẦU DI CHUYỂN (GPS)</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -968,9 +1109,53 @@ export default function JobExecutionScreen() {
               )}
 
               {(currentStatus === 'COMPLETED' || currentStatus === 'PAID_OUT') && (
-                <View style={styles.completedBadgeBar}>
-                  <Ionicons name="checkmark-circle" size={20} color="#059669" />
-                  <Text style={styles.completedBadgeText}>Đã hoàn thành & giải ngân!</Text>
+                <View style={{ gap: 10 }}>
+                  <View style={styles.completedBadgeBar}>
+                    <Ionicons name="checkmark-circle" size={20} color="#059669" />
+                    <Text style={styles.completedBadgeText}>
+                      {isBothCashConfirmed || currentStatus === 'PAID_OUT'
+                        ? 'Đã hoàn thành & quyết toán ví!'
+                        : 'Dịch vụ trang điểm đã hoàn tất!'}
+                    </Text>
+                  </View>
+
+                  {!cashReceiptConfirmed && currentStatus !== 'PAID_OUT' && (
+                    <TouchableOpacity
+                      style={[styles.primaryActionBtn, { backgroundColor: '#059669' }]}
+                      onPress={handleConfirmCashReceipt}
+                      disabled={isConfirmingCash}
+                    >
+                      {isConfirmingCash ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+                          <Text style={styles.btnText}>
+                            XÁC NHẬN ĐÃ NHẬN TIỀN MẶT ({formatVnd(booking?.totalAmount ? Math.round(booking.totalAmount * 0.7) : 0)})
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {cashReceiptConfirmed && !isBothCashConfirmed && currentStatus !== 'PAID_OUT' && (
+                    <View style={[styles.completedBadgeBar, { backgroundColor: '#FEF3C7' }]}>
+                      <Ionicons name="hourglass-outline" size={18} color="#D97706" />
+                      <Text style={[styles.completedBadgeText, { color: '#B45309' }]}>
+                        Đang chờ khách xác nhận tiền mặt để quyết toán ví...
+                      </Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={[styles.cancelSecondaryBtn, { borderColor: '#CBD5E1', marginTop: 4 }]}
+                    onPress={() => router.push('/profile/freelancer-wallet')}
+                  >
+                    <Ionicons name="wallet-outline" size={16} color="#475569" />
+                    <Text style={[styles.cancelSecondaryBtnText, { color: '#475569' }]}>
+                      Xem Ví & Khoản Cọc Của Tôi
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -1957,5 +2142,104 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  escrowSecurityCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  escrowSecurityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  escrowShieldBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+  },
+  escrowSecurityTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  escrowStatusTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  escrowStatusTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.2,
+  },
+  escrowSecuritySub: {
+    fontSize: 12,
+    color: '#047857',
+    marginTop: 2,
+  },
+  escrowDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 12,
+  },
+  escrowDetailsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  escrowDetailItem: {
+    flex: 1,
+  },
+  escrowDetailLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 3,
+  },
+  escrowDetailValueHighlight: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#059669',
+  },
+  escrowDetailValueCash: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  escrowGuaranteeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 10,
+    padding: 10,
+  },
+  escrowGuaranteeText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#065F46',
+    fontWeight: '500',
   },
 });

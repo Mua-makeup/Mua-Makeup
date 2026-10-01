@@ -55,8 +55,8 @@
     "portfolio_get_success": "Get portfolio detail successfully.",
     "portfolios_list_success": "Get portfolios list successfully.",
     "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed).",
-    "certificate_not_verified_cannot_accept": "Makeup artist has not been certified/verified, cannot accept bookings.",
-    "certificate_not_verified_cannot_operate": "Makeup artist has not been certified/verified, cannot go online to receive bookings.",
+    "certificate_not_verified_cannot_accept": "Your profile does not have a verified professional certificate yet. Please upload your certificate to accept bookings.",
+    "certificate_not_verified_cannot_operate": "Your profile does not have a verified professional certificate yet. Please upload your certificate in 'Professional Profile' to enable online booking mode.",
     "portfolio_files_empty": "Please select at least one image file to upload.",
     "portfolio_max_exceeded": "Maximum 30 portfolio images allowed.",
     "image_url_required": "Image URL to delete cannot be empty.",
@@ -152,6 +152,8 @@
     "completion_photo_required": "Completion photo URL is required when marking a booking as completed.",
     "cancellation_reason_required": "Cancellation reason is required when cancelling a booking.",
     "cannot_cancel_within_two_hours": "Cannot cancel booking within 2 hours of scheduled appointment. Please contact the Studio directly for emergency assistance.",
+    "cannot_cancel_while_mua_on_the_way": "Artist has confirmed and is already on the way or working, you cannot cancel now.",
+    "cannot_cancel_after_deposit": "Instant booking deposit has already been paid, you cannot cancel at this stage.",
     "already_taken": "Sorry! This booking has just been accepted by another artist.",
     "lock_timeout": "System is busy processing booking acceptance. Please try again in a moment.",
     "optimistic_lock_conflict": "Booking was updated by another concurrent operation. Please reload and retry.",
@@ -237,13 +239,19 @@
   "ERR_COMPLETION_PHOTO_REQUIRED": "Completion photo is required.",
   "ERR_CANCELLATION_REASON_REQUIRED": "Cancellation reason is required.",
   "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS": "Cannot cancel booking within 2 hours of scheduled appointment.",
+  "ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY": "Artist has confirmed and is already on the way or working, you cannot cancel now.",
+  "ERR_CANNOT_CANCEL_AFTER_DEPOSIT": "Instant booking deposit has already been paid, you cannot cancel at this stage.",
   "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Reporting emergency unavailability within 2 hours requires an incident proof document.",
   "ERR_BOOKING_ALREADY_TAKEN": "Booking already accepted by another artist.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Distributed lock acquisition timeout.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Optimistic lock version conflict.",
   "ERR_MUA_MUST_BE_ONLINE": "Makeup artist must be online to accept booking.",
   "ERR_MUA_ALREADY_BUSY": "Makeup artist is already busy with another job.",
+  "ERR_MUA_CERTIFICATE_NOT_VERIFIED": "Your profile does not have a verified professional certificate yet. Please upload your certificate in 'Professional Profile' to enable online booking mode.",
   "validation": {
+    "payment_amount_required": "Payment amount cannot be empty.",
+    "payment_amount_min": "Minimum deposit amount is 1,000 VND.",
+    "payment_gateway_required": "Payment gateway code cannot be blank.",
     "bio_size": "Bio cannot exceed 500 characters.",
     "experience_years_required": "Experience years cannot be blank.",
     "experience_years_min": "Minimum experience is 0 years.",
@@ -489,6 +497,19 @@
     "certificate_upload_title": "New Certificate to Verify!",
     "certificate_upload_content": "Makeup Artist {0} uploaded certificate '{1}' requiring Super Admin approval."
   },
+  "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Requested payment gateway was not found.",
+  "ERR_PAYMENT_GATEWAY_DISABLED": "This payment gateway is currently disabled.",
+  "ERR_PAYMENT_TRANSACTION_NOT_FOUND": "Payment transaction not found.",
+  "ERR_PAYMENT_SIGNATURE_INVALID": "Payment gateway cryptographic signature verification failed.",
+  "ERR_PAYMENT_AMOUNT_MISMATCH": "Actual paid amount does not match transaction amount.",
+  "ERR_PAYMENT_ALREADY_PROCESSED": "This payment transaction has already been processed.",
+  "ERR_PAYMENT_CHECKOUT_FAILED": "Failed to initialize payment session with gateway provider.",
+  "ERR_PAYMENT_UNAUTHORIZED": "You are not authorized to access this payment transaction.",
+  "payment": {
+    "intent_created_success": "Payment intent initialized successfully.",
+    "gateway_list_success": "Available payment gateways retrieved successfully.",
+    "detail_success": "Payment transaction details retrieved successfully."
+  },
   "booking": {
     "create_success": "Booking created successfully!",
     "cancel_success": "Booking cancelled successfully!",
@@ -497,7 +518,17 @@
     "deposit_success": "Deposit confirmed successfully!",
     "not_found": "Booking not found.",
     "unauthorized_transition": "Unauthorized booking status transition.",
-    "invalid_status": "Invalid booking status for this operation."
+    "invalid_status": "Invalid booking status for this operation.",
+    "deposit_already_paid": "Deposit for this booking has already been paid.",
+    "deposit_expired": "Deposit window has expired (15 minutes).",
+    "deposit_not_found": "No deposit obligation found for this booking.",
+    "deposit_pricing_version_mismatch": "Pricing version has changed, please refresh.",
+    "deposit_not_freelancer_direct": "MoMo/VNPay deposit is currently only applicable for Freelancer bookings.",
+    "deposit_idempotency_conflict": "Duplicate payment request with conflicting payload.",
+    "deposit_intent_created": "Deposit intent created successfully.",
+    "deposit_status_retrieved": "Deposit status retrieved successfully.",
+    "deposit_deprecated": "Direct deposit confirmation endpoint has been deprecated. Please use deposit-intents API.",
+    "deposit_not_paid": "Cannot start trip: Customer deposit has not been paid."
   },
   "customer_address": {
     "fetch_success": "Saved addresses fetched successfully.",
@@ -506,6 +537,19 @@
     "delete_success": "Saved address deleted successfully.",
     "set_default_success": "Default address set successfully.",
     "not_found": "Saved address not found or unauthorized access."
+  },
+  "wallet": {
+    "info_retrieved": "Freelancer wallet information retrieved successfully.",
+    "cash_confirmed": "Cash payment confirmed successfully.",
+    "cash_already_confirmed": "Cash payment for this booking has already been confirmed.",
+    "cash_invoice_mismatch": "Invoice version mismatch.",
+    "cash_receipt_not_found": "No cash receipt record found for this booking.",
+    "cash_idempotency_conflict": "Cash receipt idempotency conflict.",
+    "settlement_completed": "Booking settlement completed successfully.",
+    "settlement_already_exists": "Booking has already been settled.",
+    "settlement_prerequisite_not_met": "Settlement prerequisites not met: dual cash confirmation and service completion required.",
+    "insufficient_balance": "Insufficient wallet balance.",
+    "customer_wallet_ok": "Customer wallet retrieved successfully."
   }
 }
 

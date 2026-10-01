@@ -12,6 +12,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   Image,
+  PanResponder,
+  Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,6 +77,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
   const [step, setStep] = useState<'IDLE' | 'SCANNING' | 'MATCHED' | 'TIMEOUT'>('IDLE');
   const [secondsLeft, setSecondsLeft] = useState(45);
+  const [isSubmittingScan, setIsSubmittingScan] = useState(false);
   const [createdBooking, setCreatedBooking] = useState<InstantBookingCreatedRes | null>(null);
   const [matchedMua, setMatchedMua] = useState<{
     name: string;
@@ -82,6 +85,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     avatar?: string;
   } | null>(null);
   const [matchedData, setMatchedData] = useState<any>(null);
+  const [timeoutMessage, setTimeoutMessage] = useState<string | null>(null);
 
   const timerRef = useRef<any>(null);
   const statusPollRef = useRef<any>(null);
@@ -134,6 +138,22 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
       console.warn('Lỗi lấy tọa độ từ place detail:', e);
     }
   };
+
+  // Cử chỉ vuốt xuống (swipe down) để đóng modal
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dy > 8 && Math.abs(gestureState.dx) < gestureState.dy;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 40 || gestureState.vy > 0.5) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          handleCancel();
+        }
+      },
+    })
+  ).current;
 
   const clearAllTimers = () => {
     if (timerRef.current) {
@@ -300,27 +320,30 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
   useEffect(() => {
     if (step === 'SCANNING') {
-      timerRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current!);
-            handleTimeout();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+      const totalSec = createdBooking?.searchTimeoutSeconds || 45;
+      const endTime = Date.now() + totalSec * 1000;
+      setSecondsLeft(totalSec);
 
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [step]);
+      const interval = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+        setSecondsLeft(remaining);
+        if (remaining <= 0) {
+          clearInterval(interval);
+          handleTimeout();
+        }
+      }, 1000);
+      timerRef.current = interval;
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [step, createdBooking?.searchTimeoutSeconds]);
 
   const handleStartScan = async () => {
+    if (isSubmittingScan) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setTimeoutMessage(null);
 
     // Kiểm tra nếu danh sách thợ rỗng trước khi gửi đơn
     if (nearbyProviders.length === 0) {
@@ -337,6 +360,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     }
 
     try {
+      setIsSubmittingScan(true);
       let targetLat = coords?.latitude || storeLat;
       let targetLng = coords?.longitude || storeLng;
 
@@ -407,6 +431,9 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           handleMatched(res.bookingId);
         } else if (msg?.status === 'CANCELLED' || msg?.status === 'EXPIRED' || msg?.type === 'BOOKING_TIMEOUT') {
           clearAllTimers();
+          if (msg?.message) {
+            setTimeoutMessage(msg.message);
+          }
           handleTimeout();
         }
       });
@@ -425,6 +452,9 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
             handleMatched(res.bookingId);
           } else if (statusRes && (statusRes.status === 'CANCELLED' || statusRes.status === 'EXPIRED')) {
             clearAllTimers();
+            if (statusRes.cancellationReason) {
+              setTimeoutMessage(statusRes.cancellationReason);
+            }
             handleTimeout();
           }
         } catch {
@@ -477,6 +507,8 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
         Alert.alert('Không Thể Tìm Thợ', parsed.message);
       }
       setStep('IDLE');
+    } finally {
+      setIsSubmittingScan(false);
     }
   };
 
@@ -516,7 +548,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     setStep('IDLE');
     onClose();
     if (createdBooking?.bookingId) {
-      router.push(`/booking/tracking/${createdBooking.bookingId}` as any);
+      router.push(`/booking/deposit/${createdBooking.bookingId}` as any);
     } else {
       router.push('/bookings');
     }
@@ -524,23 +556,40 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
-      >
-        <View style={styles.modalCard}>
-          {/* HEADER */}
-          <View style={styles.modalHeader}>
-            <View style={styles.titleRow}>
-              <View style={styles.radarIconBox}>
-                <Ionicons name="radio" size={18} color={BrandColors.primary} />
+      <View style={styles.overlay}>
+        {/* Khoảng trống bên ngoài - ấn vào để đóng */}
+        <Pressable
+          style={styles.backdropPressable}
+          onPress={handleCancel}
+          accessibilityLabel="Đóng modal"
+        />
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          pointerEvents="box-none"
+          style={styles.keyboardAvoid}
+        >
+          <View style={styles.modalCard}>
+            {/* VÙNG KÉO VUỐT XUỐNG ĐÓNG & HEADER */}
+            <View {...panResponder.panHandlers} style={styles.dragArea}>
+              <View style={styles.dragHandleBar} />
+              <View style={styles.modalHeader}>
+                <View style={styles.titleRow}>
+                  <View style={styles.radarIconBox}>
+                    <Ionicons name="radio" size={18} color={BrandColors.primary} />
+                  </View>
+                  <Text style={styles.modalTitle}>Tìm Thợ Khẩn Cấp (30-45p)</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.closeBtn}
+                  onPress={handleCancel}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={20} color="#64748B" />
+                </TouchableOpacity>
               </View>
-              <Text style={styles.modalTitle}>Tìm Thợ Khẩn Cấp (30-45p)</Text>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={handleCancel} activeOpacity={0.7}>
-              <Ionicons name="close" size={20} color="#64748B" />
-            </TouchableOpacity>
-          </View>
 
           {/* BADGE THỐNG KÊ THỢ THẬT TỪ REDIS GEO & BỘ CHỌN BÁN KÍNH */}
           <View style={styles.statusBarRow}>
@@ -803,14 +852,21 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
               {/* NÚT KÍCH HOẠT QUÉT THỢ */}
               <TouchableOpacity
-                style={styles.startScanBtn}
+                style={[styles.startScanBtn, isSubmittingScan && { opacity: 0.6 }]}
                 onPress={handleStartScan}
+                disabled={isSubmittingScan}
                 activeOpacity={0.88}
               >
-                <Ionicons name={currentTargetMua ? "flash" : "radio-outline"} size={18} color="#FFFFFF" />
-                <Text style={styles.startScanBtnText}>
-                  {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
-                </Text>
+                {isSubmittingScan ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name={currentTargetMua ? "flash" : "radio-outline"} size={18} color="#FFFFFF" />
+                    <Text style={styles.startScanBtnText}>
+                      {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </ScrollView>
           )}
@@ -932,32 +988,52 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   onPress={handleGoToTracking}
                   activeOpacity={0.88}
                 >
-                  <Ionicons name="navigate" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.viewTripBtnText}>Xem Bản Đồ Live Tracking</Text>
+                  <Ionicons name="card-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.viewTripBtnText}>Tiến Hành Đặt Cọc (30% Escrow)</Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             </ScrollView>
           )}
 
-          {/* STEP 4: TIMEOUT HẾT 45 GIÂY */}
+          {/* STEP 4: TIMEOUT HẾT GIỜ / THỢ KHÔNG PHẢN HỒI */}
           {step === 'TIMEOUT' && (
             <View style={styles.timeoutBox}>
               <Ionicons name="time-outline" size={48} color="#F59E0B" />
-              <Text style={styles.timeoutTitle}>Chưa Tìm Thấy Thợ Nhận Ca</Text>
+              <Text style={styles.timeoutTitle}>
+                {currentTargetMua ? 'Thợ Không Phản Hồi' : 'Chưa Tìm Thấy Thợ Nhận Ca'}
+              </Text>
               <Text style={styles.timeoutSubtitle}>
-                Hiện các chuyên viên gần bạn đều đang bận thực hiện ca. Bạn có muốn thử quét lại hoặc đặt lịch hẹn trước?
+                {timeoutMessage
+                  ? timeoutMessage
+                  : currentTargetMua
+                  ? `Chuyên viên ${currentTargetMua.fullName} hiện không phản hồi yêu cầu. Bạn có muốn chuyển sang chế độ quét tìm thợ gần nhất quanh đây không?`
+                  : 'Hiện các chuyên viên gần bạn đều đang bận thực hiện ca. Bạn có muốn thử quét lại hoặc đặt lịch hẹn trước?'}
               </Text>
 
               <View style={styles.timeoutBtnRow}>
-                <TouchableOpacity
-                  style={styles.retryBtn}
-                  onPress={handleStartScan}
-                  activeOpacity={0.88}
-                >
-                  <Ionicons name="refresh" size={16} color="#FFFFFF" />
-                  <Text style={styles.retryBtnText}>Quét Lại ({searchRadius}km)</Text>
-                </TouchableOpacity>
+                {currentTargetMua ? (
+                  <TouchableOpacity
+                    style={styles.retryBtn}
+                    onPress={() => {
+                      setCurrentTargetMua(null);
+                      setStep('IDLE');
+                    }}
+                    activeOpacity={0.88}
+                  >
+                    <Ionicons name="radio-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.retryBtnText}>Quét Tìm Thợ Quanh Đây</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.retryBtn}
+                    onPress={handleStartScan}
+                    activeOpacity={0.88}
+                  >
+                    <Ionicons name="refresh" size={16} color="#FFFFFF" />
+                    <Text style={styles.retryBtnText}>Quét Lại ({searchRadius}km)</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                   style={styles.scheduleBtn}
@@ -974,6 +1050,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           )}
         </View>
       </KeyboardAvoidingView>
+    </View>
 
       {/* SỔ ĐỊA CHỈ KHÁCH HÀNG (TÍCH HỢP TỪ PROFILE ĐÃ LƯU) */}
       <SavedAddressModal
@@ -998,13 +1075,32 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.7)',
     justifyContent: 'flex-end',
   },
+  backdropPressable: {
+    ...StyleSheet.absoluteFill,
+  },
+  keyboardAvoid: {
+    justifyContent: 'flex-end',
+  },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 24 : 16,
-    maxHeight: '90%',
+    maxHeight: '88%',
+    overflow: 'hidden',
+  },
+  dragArea: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 8,
+  },
+  dragHandleBar: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 8,
   },
   scrollArea: {
     flexGrow: 0,

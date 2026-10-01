@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
+import { depositService } from '@/services/deposit.service';
 import { formatDateTimeVN } from '@/utils/date';
 
 const CANCEL_REASONS = [
@@ -39,6 +40,8 @@ export default function CustomerBookingDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [bookingDetail, setBookingDetail] = useState<BookingStatusDetailRes | null>(null);
+  const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
+  const [isConfirmingCash, setIsConfirmingCash] = useState(false);
 
   // Modal Hủy ca
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
@@ -165,9 +168,29 @@ export default function CustomerBookingDetailScreen() {
       Alert.alert('Đã Hủy Ca Hẹn', 'Yêu cầu hủy đơn trang điểm của bạn đã được ghi nhận thành công.');
       loadBookingData(true);
     } catch (err: any) {
-      Alert.alert('Lỗi Hủy Ca', err.message || 'Không thể hủy đơn tại thời điểm này.');
+      const msg = err.response?.data?.message || err.message || 'Không thể hủy đơn tại thời điểm này.';
+      Alert.alert('Lỗi Hủy Ca', msg);
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleConfirmCustomerCash = async () => {
+    try {
+      setIsConfirmingCash(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await depositService.confirmCustomerCashPayment(bookingId, 'v1');
+      setIsCashPaidConfirmed(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Đã Xác Nhận Trả Tiền Mặt',
+        'Cảm ơn bạn đã xác nhận thanh toán tiền mặt cho thợ. Khoản cọc sẽ được quyết toán hoàn tất.'
+      );
+      loadBookingData(true);
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể xác nhận trả tiền mặt.');
+    } finally {
+      setIsConfirmingCash(false);
     }
   };
 
@@ -186,7 +209,7 @@ export default function CustomerBookingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => router.replace('/' as any)} style={styles.backBtn} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={24} color="#1E293B" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Chi Tiết Đơn Đặt</Text>
@@ -195,7 +218,7 @@ export default function CustomerBookingDetailScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={54} color="#CBD5E1" />
           <Text style={styles.emptyTitle}>Không tìm thấy đơn hàng</Text>
-          <TouchableOpacity style={styles.goBackBtn} onPress={() => router.back()} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.goBackBtn} onPress={() => router.replace('/' as any)} activeOpacity={0.8}>
             <Text style={styles.goBackBtnText}>Quay Lại</Text>
           </TouchableOpacity>
         </View>
@@ -247,7 +270,17 @@ export default function CustomerBookingDetailScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* HEADER TOP BAR */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
+          }}
+          style={styles.backBtn}
+          activeOpacity={0.7}
+        >
           <Ionicons name="arrow-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -548,20 +581,59 @@ export default function CustomerBookingDetailScreen() {
 
         {/* NẾU ĐƠN ĐÃ BỊ HỦY */}
         {isCancelled && (
-          <View style={[styles.card, styles.cancelReasonCard]}>
-            <View style={styles.cancelReasonHeader}>
-              <Ionicons name="alert-circle" size={18} color="#DC2626" />
-              <Text style={styles.cancelReasonTitle}>Lý Do Hủy Đơn</Text>
+          <>
+            <View style={[styles.card, styles.cancelReasonCard]}>
+              <View style={styles.cancelReasonHeader}>
+                <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                <Text style={styles.cancelReasonTitle}>Lý Do Hủy Đơn</Text>
+              </View>
+              <Text style={styles.cancelReasonText}>
+                {bookingDetail.cancellationReason || 'Đơn đã hủy theo yêu cầu của khách hàng hoặc hết hạn xác nhận.'}
+              </Text>
             </View>
-            <Text style={styles.cancelReasonText}>
-              {bookingDetail.cancellationReason || 'Đơn đã hủy theo yêu cầu của khách hàng hoặc hết hạn xác nhận.'}
-            </Text>
-          </View>
+
+            {/* THÔNG BÁO HOÀN 100% CỌC VÀO VÍ CÁ NHÂN NẾU CÓ CỌC */}
+            {(bookingDetail.isDepositPaid || (bookingDetail.depositAmount && bookingDetail.depositAmount > 0)) && (
+              <View style={styles.refundCard}>
+                <View style={styles.refundHeader}>
+                  <View style={styles.refundIconBox}>
+                    <Ionicons name="shield-checkmark" size={20} color="#10B981" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.refundTitle}>Đã Hoàn 100% Cọc Vào Ví</Text>
+                    <Text style={styles.refundDesc}>
+                      Khoản tiền cọc {formatPrice(bookingDetail.depositAmount)} đã được tự động hoàn trả về Ví cá nhân của bạn do thợ hủy ca hẹn.
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.checkWalletBtn}
+                  onPress={() => router.push('/profile/customer-wallet')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="wallet-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.checkWalletBtnText}>Kiểm Tra Ví Cá Nhân</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
       {/* FOOTER ACTIONS BAR */}
       <View style={styles.footerBar}>
+        {/* NÚT XEM VÍ NẾU ĐƠN ĐÃ BỊ HỦY VÀ CÓ CỌC ĐƯỢC HOÀN */}
+        {isCancelled && (bookingDetail.isDepositPaid || (bookingDetail.depositAmount && bookingDetail.depositAmount > 0)) && (
+          <TouchableOpacity
+            style={[styles.primaryActionBtn, { backgroundColor: BrandColors.primary }]}
+            onPress={() => router.push('/profile/customer-wallet')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="wallet-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.primaryActionBtnText}>Xem Ví Cá Nhân & Tiền Hoàn Cọc</Text>
+          </TouchableOpacity>
+        )}
         {/* NÚT THEO DÕI LIVE GPS (NẾU THỢ ĐANG TRÊN ĐƯỜNG TỚI HOẶC ĐÃ ĐẾN) */}
         {(bookingDetail.status === 'ON_THE_WAY' || bookingDetail.status === 'ARRIVED') && (
           <TouchableOpacity
@@ -578,7 +650,7 @@ export default function CustomerBookingDetailScreen() {
         {bookingDetail.status === 'ACCEPTED' && !bookingDetail.isDepositPaid && (
           <TouchableOpacity
             style={styles.depositActionBtn}
-            onPress={() => router.push(`/booking/instant-matched/${bookingId}` as any)}
+            onPress={() => router.push(`/booking/deposit/${bookingId}` as any)}
             activeOpacity={0.85}
           >
             <Ionicons name="card" size={18} color="#FFFFFF" />
@@ -586,18 +658,40 @@ export default function CustomerBookingDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {/* NÚT ĐÁNH GIÁ (NẾU ĐÃ HOÀN THÀNH) */}
+        {/* NÚT XÁC NHẬN TRẢ TIỀN MẶT KHI HOÀN THÀNH */}
         {(bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT') && (
-          <TouchableOpacity
-            style={styles.reviewActionBtn}
-            onPress={() => {
-              Alert.alert('Đánh Giá Chuyên Viên ⭐', `Cảm ơn bạn đã sử dụng dịch vụ! Đơn ${bookingDetail.bookingCode} đã hoàn tất.`);
-            }}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="star" size={18} color="#FFFFFF" />
-            <Text style={styles.reviewActionBtnText}>Đánh Giá Chuyên Viên ⭐</Text>
-          </TouchableOpacity>
+          <View style={{ width: '100%', gap: 10 }}>
+            {!isCashPaidConfirmed && bookingDetail.status !== 'PAID_OUT' && (
+              <TouchableOpacity
+                style={[styles.primaryActionBtn, { backgroundColor: '#059669' }]}
+                onPress={handleConfirmCustomerCash}
+                disabled={isConfirmingCash}
+                activeOpacity={0.85}
+              >
+                {isConfirmingCash ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.primaryActionBtnText}>
+                      Xác Nhận Đã Trả Tiền Mặt ({formatPrice(remainingAmount)})
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.reviewActionBtn}
+              onPress={() => {
+                Alert.alert('Đánh Giá Chuyên Viên ⭐', `Cảm ơn bạn đã sử dụng dịch vụ! Đơn ${bookingDetail.bookingCode} đã hoàn tất.`);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="star" size={18} color="#FFFFFF" />
+              <Text style={styles.reviewActionBtnText}>Đánh Giá Chuyên Viên ⭐</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* NÚT HỦY ĐƠN (NẾU CÒN Ở GIAI ĐOẠN ĐẶT HOẶC CHỜ CỌC) */}
@@ -1362,5 +1456,57 @@ const styles = StyleSheet.create({
   photoModalImage: {
     width: '90%',
     height: '75%',
+  },
+  refundCard: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  refundHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  refundIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refundTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#15803D',
+    marginBottom: 4,
+  },
+  refundDesc: {
+    fontSize: 13,
+    color: '#166534',
+    lineHeight: 18,
+  },
+  checkWalletBtn: {
+    backgroundColor: '#15803D',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  checkWalletBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

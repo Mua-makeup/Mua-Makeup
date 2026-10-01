@@ -159,18 +159,25 @@ export const AccountModal: React.FC = () => {
                 </TouchableOpacity>
               )}
 
-              {/* 5. Ví Tiền & Điểm Thưởng */}
+              {/* 5. Ví Tiền & Cọc Escrow */}
               <TouchableOpacity
                 style={styles.modalActionRow}
-                onPress={() => {
-                  closeAccountModal();
-                  Alert.alert('Ví Tiền', 'Tính năng quản lý ví & cọc Escrow.');
-                }}
+                onPress={() =>
+                  handleNavigate(() => {
+                    if (isMUA) {
+                      router.push('/profile/freelancer-wallet');
+                    } else {
+                      router.push('/profile/customer-wallet');
+                    }
+                  })
+                }
                 activeOpacity={0.7}
               >
-                <Ionicons name="wallet-outline" size={22} color={BrandColors.slateHeading} />
-                <Text style={styles.modalActionText}>Ví Tiền & Điểm Thưởng</Text>
-                <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
+                <Ionicons name="wallet-outline" size={22} color={BrandColors.primary} />
+                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
+                  {isMUA ? 'Ví & Tài Chính Thợ' : 'Ví Cá Nhân Của Tôi'}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
               </TouchableOpacity>
 
               <View style={styles.modalDivider} />

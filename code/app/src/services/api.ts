@@ -3,14 +3,8 @@ import { Platform, NativeModules } from 'react-native';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/utils/storage';
 
-/**
- * Tự động trích xuất động địa chỉ IP của máy tính host đang chạy Backend / Metro:
- * 1. Trên Web Browser (Laptop): Dùng đúng hostname của trình duyệt (localhost hoặc IP Wi-Fi hiện tại)
- * 2. Trên Điện thoại thật (Expo Go): Đọc hostUri từ Metro bundler đang kết nối Wi-Fi
- * 3. Trên React Native Native Client: Đọc scriptURL của bundle đang tải
- * 4. Tránh hoàn toàn việc hardcode IP tĩnh khi đổi mạng Wi-Fi
- */
-const DEFAULT_DEV_HOST = '192.168.1.90';
+
+const DEFAULT_DEV_HOST = '192.168.1.122';
 
 const getDevApiBaseUrl = () => {
   // 1. Trình duyệt Web (laptop hoặc mobile browser)
@@ -54,6 +48,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    'Accept-Language': 'vi',
   },
 });
 

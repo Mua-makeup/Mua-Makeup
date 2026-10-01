@@ -70,6 +70,8 @@ export default function RootLayout() {
           <Stack.Screen name="mua/packages/index" options={{ animation: 'none' }} />
           <Stack.Screen name="mua-detail/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/customer-wallet" options={{ presentation: 'card' }} />
+          <Stack.Screen name="profile/freelancer-wallet" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/mua-profile" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/staff-profile" options={{ presentation: 'card' }} />
           <Stack.Screen name="mua/packages/create" options={{ presentation: 'card' }} />

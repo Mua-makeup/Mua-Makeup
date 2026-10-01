@@ -31,3 +31,20 @@ jwt:
   # Hỗ trợ nhận cookie cross-site khi test qua ngrok tunnel với Vercel
   cookie-secure: ${JWT_COOKIE_SECURE:true}
   cookie-same-site: ${JWT_COOKIE_SAME_SITE:None}
+
+payment:
+  gateways:
+    vnpay:
+      enabled: ${VNPAY_ENABLED:true}
+      tmn-code: ${VNPAY_TMN_CODE}
+      hash-secret: ${VNPAY_HASH_SECRET}
+      pay-url: ${VNPAY_API_URL}
+      return-url: ${VNPAY_RETURN_URL:http://192.168.1.122:8080/api/v1/payments/return/vnpay}
+    momo:
+      enabled: ${MOMO_ENABLED:true}
+      partner-code: ${MOMO_PARTNER_CODE}
+      access-key: ${MOMO_ACCESS_KEY}
+      secret-key: ${MOMO_SECRET_KEY}
+      endpoint-url: ${MOMO_ENDPOINT}
+      return-url: ${MOMO_REDIRECT_URL:http://192.168.1.122:8080/api/v1/payments/return/momo}
+      ipn-url: ${MOMO_IPN_URL}
