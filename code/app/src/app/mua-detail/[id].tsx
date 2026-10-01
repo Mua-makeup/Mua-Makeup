@@ -12,6 +12,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { useAuthStore } from '@/store/auth.store';
 import { useMuaDetailStore } from '@/store/mua-detail.store';
 import { MuaProfileHeader } from '@/components/customer/MuaProfileHeader';
 import { PackageSelectorList } from '@/components/customer/PackageSelectorList';
@@ -23,6 +24,7 @@ import { PortfolioShowcase } from '@/services/mua-profile.service';
 export default function MuaDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { userInfo, isAuthenticated } = useAuthStore();
 
   const {
     muaProfile,
@@ -40,9 +42,16 @@ export default function MuaDetailScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
 
+  const currentMuaId = Number(id) || 1;
+  const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
+  const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+  const isOwnProfile = isAuthenticated && (
+    (userInfo?.muaId && Number(userInfo.muaId) === currentMuaId) ||
+    (muaProfile?.muaId && Number(userInfo?.muaId) === Number(muaProfile.muaId))
+  );
+
   useEffect(() => {
-    const muaId = Number(id) || 1;
-    fetchMuaDetails(muaId);
+    fetchMuaDetails(currentMuaId);
     return () => resetDetail();
   }, [id, fetchMuaDetails, resetDetail]);
 
@@ -52,6 +61,19 @@ export default function MuaDetailScreen() {
   };
 
   const handleBookingPress = () => {
+    if (isOwnProfile) {
+      router.push('/profile/mua-profile');
+      return;
+    }
+
+    if (isMUA || isAgencyStaff) {
+      Alert.alert(
+        'Tài khoản đối tác',
+        'Bạn đang đăng nhập tài khoản Thợ MUA/Studio. Tính năng đặt lịch chỉ áp dụng cho tài khoản Khách Hàng.'
+      );
+      return;
+    }
+
     if (!selectedPackage) {
       Alert.alert('Thông báo', 'Vui lòng chọn một gói dịch vụ để đặt lịch.');
       return;
@@ -118,6 +140,13 @@ export default function MuaDetailScreen() {
           <Ionicons name="arrow-back" size={20} color="#0F172A" />
         </TouchableOpacity>
 
+        {isOwnProfile && (
+          <View style={styles.previewModeBadge}>
+            <Ionicons name="eye-outline" size={14} color="#BE185D" />
+            <Text style={styles.previewModeText}>Xem trước hồ sơ</Text>
+          </View>
+        )}
+
         <View style={styles.headerRightActions}>
           <TouchableOpacity style={styles.navCircleBtn} activeOpacity={0.7}>
             <Ionicons name="heart-outline" size={20} color="#0F172A" />
@@ -158,21 +187,34 @@ export default function MuaDetailScreen() {
       {/* STICKY BOTTOM ACTION BAR */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.priceContainer}>
-          <Text style={styles.priceNote}>Gói đang chọn:</Text>
+          <Text style={styles.priceNote}>
+            {isOwnProfile ? 'Hồ sơ của bạn:' : 'Gói đang chọn:'}
+          </Text>
           <Text style={styles.selectedPackageTitle} numberOfLines={1}>
-            {selectedPackage?.packageName || 'Chưa chọn gói'}
+            {isOwnProfile ? 'Chế độ xem trước' : (selectedPackage?.packageName || 'Chưa chọn gói')}
           </Text>
           <Text style={styles.priceText}>{formattedPrice}</Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.bookingBtn}
-          onPress={handleBookingPress}
-          activeOpacity={0.88}
-        >
-          <Text style={styles.bookingBtnText}>Đặt Lịch Gói Này</Text>
-          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-        </TouchableOpacity>
+        {isOwnProfile ? (
+          <TouchableOpacity
+            style={[styles.bookingBtn, styles.editProfileBtn]}
+            onPress={() => router.push('/profile/mua-profile')}
+            activeOpacity={0.88}
+          >
+            <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+            <Text style={styles.bookingBtnText}>Chỉnh Sửa Hồ Sơ</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.bookingBtn}
+            onPress={handleBookingPress}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.bookingBtnText}>Đặt Lịch Gói Này</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* MODAL XEM ẢNH TOÀN MÀN HÌNH PINCH-TO-ZOOM */}
@@ -325,5 +367,25 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  previewModeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FDF2F8',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FCE7F3',
+  },
+  previewModeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#BE185D',
+  },
+  editProfileBtn: {
+    backgroundColor: '#0F172A',
+    shadowColor: '#0F172A',
   },
 });

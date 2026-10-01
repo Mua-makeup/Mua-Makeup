@@ -76,6 +76,8 @@ export interface UpdateMuaProfileReq {
   experienceYears: number;
   maxServiceRadiusKm: number;
   baseAddressText?: string;
+  baseAddressLat?: number;
+  baseAddressLng?: number;
 }
 
 export const muaProfileService = {

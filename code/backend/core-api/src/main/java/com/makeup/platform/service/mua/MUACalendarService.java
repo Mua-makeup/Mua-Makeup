@@ -4,10 +4,15 @@ import com.makeup.platform.dto.request.mua.BlockCalendarSlotReq;
 import com.makeup.platform.dto.response.mua.AvailableTimeSlotRes;
 import com.makeup.platform.dto.response.mua.MUACalendarSlotRes;
 
+import com.makeup.platform.dto.response.mua.CalendarDayOverviewRes;
+
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public interface MUACalendarService {
+
+    List<CalendarDayOverviewRes> getCalendarDaysOverview(Long muaId, LocalDate startDate, Integer days, Integer durationMinutes);
 
     AvailableTimeSlotRes getAvailableSlots(Long muaId, LocalDate date, Integer durationMinutes, Integer stepMinutes);
 

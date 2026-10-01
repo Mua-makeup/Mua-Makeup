@@ -10,7 +10,8 @@ public final class PricingConstants {
     public static final BigDecimal DEFAULT_PRICE_PER_KM = new BigDecimal("15000.00");
     public static final BigDecimal DEFAULT_MAX_SERVICE_RADIUS_KM = new BigDecimal("30.0");
     public static final BigDecimal MAX_SURGE_MULTIPLIER = new BigDecimal("1.50");
-    public static final BigDecimal MIN_SURGE_MULTIPLIER = new BigDecimal("1.00");
+    public static final BigDecimal MIN_SURGE_MULTIPLIER = new BigDecimal("0.70");
+    public static final BigDecimal NORMAL_SURGE_MULTIPLIER = new BigDecimal("1.00");
     public static final BigDecimal ESCROW_DEPOSIT_RATIO = new BigDecimal("0.30"); // 30% tiền cọc
     public static final double HAVERSINE_ROAD_FACTOR = 1.35; // Hệ số uốn khúc đường bộ đô thị VN
     public static final double AVERAGE_DRIVING_SPEED_KMH = 25.0; // Tốc độ lái xe máy trung bình trong đô thị

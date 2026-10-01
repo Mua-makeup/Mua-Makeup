@@ -49,12 +49,12 @@ public class BookingTimeValidator implements ConstraintValidator<ValidBookingTim
                 return false;
             }
 
-            // 2. Kiểm tra thời điểm đặt phải ở tương lai tối thiểu 2 giờ
+            // 2. Kiểm tra thời điểm đặt phải ở tương lai tối thiểu 1 giờ
             LocalDateTime scheduledDateTime = LocalDateTime.of(bookingDate, startTime);
-            LocalDateTime minAllowedDateTime = LocalDateTime.now().plusHours(2);
+            LocalDateTime minAllowedDateTime = LocalDateTime.now().plusHours(1);
             if (scheduledDateTime.isBefore(minAllowedDateTime)) {
                 context.disableDefaultConstraintViolation();
-                context.buildConstraintViolationWithTemplate("booking.time_must_be_2h_future")
+                context.buildConstraintViolationWithTemplate("booking.time_must_be_1h_future")
                         .addPropertyNode("startTime")
                         .addConstraintViolation();
                 return false;

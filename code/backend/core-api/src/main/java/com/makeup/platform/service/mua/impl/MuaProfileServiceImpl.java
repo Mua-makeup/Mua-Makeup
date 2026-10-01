@@ -34,9 +34,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.makeup.platform.dto.response.maps.GeocodeRes;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.interaction.NotificationService;
+import com.makeup.platform.service.pricing.MapsClientService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -60,6 +62,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
     private final MuaProfileMapper muaProfileMapper;
     private final NotificationService notificationService;
     private final AgencyStaffRepository agencyStaffRepository;
+    private final MapsClientService mapsClientService;
 
     @Override
     @Transactional(readOnly = true)
@@ -162,8 +165,29 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         mua.setExperienceYears(req.getExperienceYears());
         mua.setMaxServiceRadiusKm(req.getMaxServiceRadiusKm());
 
+        if (req.getBaseAddressLat() != null && req.getBaseAddressLng() != null) {
+            mua.setBaseAddressLat(req.getBaseAddressLat());
+            mua.setBaseAddressLng(req.getBaseAddressLng());
+        }
+
         if (req.getBaseAddressText() != null) {
-            mua.setBaseAddressText(req.getBaseAddressText().trim());
+            String cleanText = req.getBaseAddressText().trim();
+            mua.setBaseAddressText(cleanText);
+
+            // Tự động chuyển đổi địa chỉ thành tọa độ GPS qua Goong Maps nếu Client chưa gửi tọa độ
+            if ((req.getBaseAddressLat() == null || req.getBaseAddressLng() == null) && StringUtils.hasText(cleanText)) {
+                try {
+                    GeocodeRes geocodeRes = mapsClientService.geocode(cleanText);
+                    if (geocodeRes != null && geocodeRes.getLatitude() != null && geocodeRes.getLongitude() != null) {
+                        mua.setBaseAddressLat(geocodeRes.getLatitude());
+                        mua.setBaseAddressLng(geocodeRes.getLongitude());
+                        log.info("Auto-geocoded MUA base address for muaId={}: lat={}, lng={}",
+                                mua.getId(), geocodeRes.getLatitude(), geocodeRes.getLongitude());
+                    }
+                } catch (Exception ex) {
+                    log.warn("Auto-geocode failed for address '{}': {}", cleanText, ex.getMessage());
+                }
+            }
         }
 
         MuaProfileEntity saved = muaProfileRepository.save(mua);

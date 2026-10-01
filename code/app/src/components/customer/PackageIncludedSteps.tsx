@@ -20,86 +20,15 @@ interface Props {
   selectedPackage: PackageDetail | null;
 }
 
-// Danh sách các bước làm đẹp mặc định fallback nếu gói chưa cấu hình items
-const DEFAULT_BEAUTY_STEPS: PackageItem[] = [
-  {
-    id: 101,
-    itemName: 'Làm sạch da & Cấp ẩm chuyên sâu',
-    description: 'Tẩy trang nhẹ nhàng, thoa toner cân bằng và serum dưỡng ẩm chống mốc nền.',
-    durationMinutes: 10,
-    itemType: 'INCLUDED',
-    isRequired: true,
-  },
-  {
-    id: 102,
-    itemName: 'Lót nền kiềm dầu & Đánh nền che khuyết điểm',
-    description: 'Đánh nền mỏng nhẹ, che thâm mụn, quầng mắt với kem nền chuyên dụng lâu trôi 12h.',
-    durationMinutes: 25,
-    itemType: 'INCLUDED',
-    isRequired: true,
-  },
-  {
-    id: 103,
-    itemName: 'Kẻ chân mày & Phối màu mắt chuẩn phong cách',
-    description: 'Tỉa chân mày, kẻ eyeliner sắc nét, đánh nhũ bắt sáng và chuốt mi cong tự nhiên.',
-    durationMinutes: 20,
-    itemType: 'INCLUDED',
-    isRequired: true,
-  },
-  {
-    id: 104,
-    itemName: 'Tạo khối gò má, sống mũi & Đánh son lòng môi',
-    description: 'Tạo khối thanh thoát gương mặt, má hồng hào và son bền màu dưỡng bóng căng mọng.',
-    durationMinutes: 15,
-    itemType: 'INCLUDED',
-    isRequired: true,
-  },
-  {
-    id: 105,
-    itemName: 'Tạo kiểu tóc đi kèm phù hợp trang phục',
-    description: 'Uốn xoăn sóng lơi, bới tóc cô dâu hoặc tết tóc dự tiệc theo yêu cầu.',
-    durationMinutes: 20,
-    itemType: 'INCLUDED',
-    isRequired: true,
-  },
-];
-
-const DEFAULT_ADDONS: PackageItem[] = [
-  {
-    id: 201,
-    itemName: 'Dán mi giả sợi 3D cao cấp gân trong',
-    description: 'Mi siêu nhẹ, mềm mượt tự nhiên, không cộm mắt.',
-    itemPrice: 70000,
-    durationMinutes: 10,
-    itemType: 'OPTIONAL_ADDON',
-  },
-  {
-    id: 202,
-    itemName: 'Đính đá / Ngọc trai nghệ thuật quanh mắt',
-    description: 'Tạo điểm nhấn lung linh cho concept tiệc đêm và chụp ảnh.',
-    itemPrice: 100000,
-    durationMinutes: 15,
-    itemType: 'OPTIONAL_ADDON',
-  },
-  {
-    id: 203,
-    itemName: 'Đánh phấn bắt sáng & Nền body cổ, vai, gáy',
-    description: 'Đều màu da toàn diện khi mặc váy hở vai hoặc đầm dạ hội.',
-    itemPrice: 150000,
-    durationMinutes: 15,
-    itemType: 'OPTIONAL_ADDON',
-  },
-];
-
 export const PackageIncludedSteps: React.FC<Props> = ({ selectedPackage }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   if (!selectedPackage) return null;
 
-  // Lấy các bước từ package nếu có, hoặc dùng danh sách fallback
-  const rawItems = selectedPackage.items && selectedPackage.items.length > 0
-    ? selectedPackage.items
-    : [...DEFAULT_BEAUTY_STEPS, ...DEFAULT_ADDONS];
+  // Lấy các bước trực tiếp từ package API thật của Backend
+  const rawItems = selectedPackage.items || [];
+
+  if (rawItems.length === 0) return null;
 
   const includedSteps = rawItems.filter(
     (i) => i.itemType === 'INCLUDED' || i.itemType === 'COMPONENT' || !i.itemPrice

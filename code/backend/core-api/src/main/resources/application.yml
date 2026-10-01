@@ -15,6 +15,8 @@ spring:
       max-request-size: 100MB
   jackson:
     time-zone: Asia/Ho_Chi_Minh
+    deserialization:
+      accept-empty-string-as-null-object: true
   data:
     web:
       pageable:

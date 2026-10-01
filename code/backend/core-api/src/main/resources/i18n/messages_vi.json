@@ -416,6 +416,7 @@
     "invalid_time_range": "Thời gian kết thúc phải sau thời gian bắt đầu.",
     "time_out_of_service": "Giờ bắt đầu ca hẹn phải nằm trong khung giờ phục vụ từ 03:00 đến 22:00.",
     "time_must_be_2h_future": "Thời gian đặt hẹn trước phải cách thời điểm hiện tại tối thiểu 2 giờ.",
+    "time_must_be_1h_future": "Thời gian đặt hẹn trước phải cách thời điểm hiện tại tối thiểu 1 giờ để thợ kịp chuẩn bị và di chuyển.",
     "date_too_far": "Thời gian đặt hẹn trước không được vượt quá 90 ngày trong tương lai.",
     "no_available_staff": "Hiện không có thợ trang điểm nào của Studio rảnh và đủ kỹ năng trong khung giờ này."
   },
@@ -423,6 +424,7 @@
     "slot_blocked_success": "Khóa khung giờ bận cá nhân thành công!",
     "slot_unblocked_success": "Mở lại khung giờ làm việc thành công!",
     "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
+    "days_fetch_success": "Lấy tổng quan lịch 30 ngày thành công.",
     "cannot_unblock_booked_slot": "Không thể mở khóa slot lịch đã được gắn với đơn đặt hẹn của khách hàng.",
     "slot_not_found": "Không tìm thấy khung giờ lịch làm việc."
   },

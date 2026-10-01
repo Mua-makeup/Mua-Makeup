@@ -26,8 +26,6 @@ public class PreviewInvoiceReq {
 
     private List<Long> addOnItemIds;
 
-    @NotNull(message = "{validation.pricing_booking_time_required}")
-    @Future(message = "{validation.pricing_booking_time_future}")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm[:ss][.SSS][XXX][X]")
     private LocalDateTime bookingTime;
 

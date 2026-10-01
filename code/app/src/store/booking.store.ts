@@ -62,8 +62,8 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   packageId: null,
   providerId: null,
   providerType: 'FREELANCER',
-  selectedDate: getTodayVN(),
-  selectedTimeSlot: '09:00',
+  selectedDate: '',
+  selectedTimeSlot: '',
   destinationAddress: '',
   destinationLatitude: 0,
   destinationLongitude: 0,
@@ -145,7 +145,9 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
     set({ isCalculatingPrice: true, priceError: null });
 
     try {
-      const bookingDateTime = `${selectedDate}T${selectedTimeSlot}:00`;
+      const hasValidDateTime = Boolean(selectedDate && selectedTimeSlot);
+      const bookingDateTime = hasValidDateTime ? `${selectedDate}T${selectedTimeSlot}:00` : null;
+
       const payload: PreviewInvoicePayload = {
         packageId,
         providerId,
@@ -192,6 +194,10 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
 
     if (!packageId || !providerId) {
       throw new Error('Chưa chọn gói dịch vụ');
+    }
+
+    if (!selectedDate || !selectedTimeSlot) {
+      throw new Error('Vui lòng chọn ngày và giờ đặt lịch');
     }
 
     const bookingDateTime = `${selectedDate}T${selectedTimeSlot}:00`;
@@ -278,6 +284,8 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
 
   resetBookingForm: () => {
     set({
+      selectedDate: '',
+      selectedTimeSlot: '',
       selectedAddOnIds: [],
       note: '',
       voucherCode: '',
