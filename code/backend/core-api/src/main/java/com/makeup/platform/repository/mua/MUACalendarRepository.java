@@ -36,6 +36,13 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
     @Query("SELECT c FROM MUACalendarEntity c WHERE c.mua.id = :muaId AND c.bookingDate = :date AND c.isLocked = true ORDER BY c.startAt ASC")
     List<MUACalendarEntity> findActiveSlotsByMuaIdAndDate(@Param("muaId") Long muaId, @Param("date") LocalDate date);
 
+    @Query("SELECT c FROM MUACalendarEntity c WHERE c.mua.id = :muaId AND c.bookingDate BETWEEN :startDate AND :endDate AND c.isLocked = true ORDER BY c.startAt ASC")
+    List<MUACalendarEntity> findActiveSlotsByMuaIdAndDateBetween(
+        @Param("muaId") Long muaId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
     /**
      * Giải phóng slot khóa khi đơn hàng bị hủy hoặc hết hạn thanh toán cọc 15 phút
      */

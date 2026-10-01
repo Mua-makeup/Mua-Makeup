@@ -65,6 +65,18 @@ export default function CreateBookingScreen() {
     resetBookingForm,
   } = useBookingStore();
 
+  const totalDurationMinutes = React.useMemo(() => {
+    let dur = packageDetail?.estimatedDurationMinutes || 60;
+    if (packageDetail?.items && selectedAddOnIds.length > 0) {
+      packageDetail.items.forEach((item) => {
+        if (selectedAddOnIds.includes(item.id) && item.durationMinutes) {
+          dur += item.durationMinutes;
+        }
+      });
+    }
+    return dur;
+  }, [packageDetail, selectedAddOnIds]);
+
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
@@ -106,9 +118,16 @@ export default function CreateBookingScreen() {
     return () => {
       resetBookingForm();
     };
-  }, [targetPackageId, targetMuaId, providerType, currentLat, currentLng]);
+  }, [targetPackageId, targetMuaId, providerType]);
 
   const handleSubmit = async () => {
+    // 0. Kiểm tra ngày & giờ đã chọn
+    if (!selectedDate || !selectedTimeSlot) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Chưa Chọn Lịch Hẹn', 'Vui lòng chọn ngày và giờ cần đặt lịch make-up trước khi tiếp tục.');
+      return;
+    }
+
     // 1. Validate Form 100% bằng Zod Schema
     const bookingTime = `${selectedDate}T${selectedTimeSlot}:00`;
     const validation = createBookingSchema.safeParse({
@@ -214,6 +233,8 @@ export default function CreateBookingScreen() {
 
         {/* 2. CHỌN NGÀY & KHUNG GIỜ */}
         <DateTimeSelector
+          muaId={targetMuaId}
+          durationMinutes={totalDurationMinutes}
           selectedDate={selectedDate}
           selectedTimeSlot={selectedTimeSlot}
           onSelectDate={setDate}

@@ -308,9 +308,12 @@ export default function ExploreScreen() {
     }
     if (keyword.trim()) {
       const q = keyword.toLowerCase().trim();
-      const matchName = m.fullName.toLowerCase().includes(q);
-      const matchBio = m.bio?.toLowerCase().includes(q);
-      const matchStyle = m.styles?.some((s) => s.styleName.toLowerCase().includes(q));
+      const matchName = m.fullName ? m.fullName.toLowerCase().includes(q) : false;
+      const matchBio = m.bio ? m.bio.toLowerCase().includes(q) : false;
+      const matchStyle = m.styles?.some((s: any) => {
+        const styleName = s?.styleName || s?.name || s?.style_name || (typeof s === 'string' ? s : '');
+        return styleName ? String(styleName).toLowerCase().includes(q) : false;
+      });
       if (!matchName && !matchBio && !matchStyle) return false;
     }
     return true;
@@ -320,10 +323,10 @@ export default function ExploreScreen() {
     if (!keyword.trim()) return true;
     const q = keyword.toLowerCase().trim();
     return (
-      s.agencyName.toLowerCase().includes(q) ||
-      (s.addressStreet && s.addressStreet.toLowerCase().includes(q)) ||
-      (s.district && s.district.toLowerCase().includes(q)) ||
-      (s.city && s.city.toLowerCase().includes(q))
+      (s.agencyName ? s.agencyName.toLowerCase().includes(q) : false) ||
+      (s.addressStreet ? s.addressStreet.toLowerCase().includes(q) : false) ||
+      (s.district ? s.district.toLowerCase().includes(q) : false) ||
+      (s.city ? s.city.toLowerCase().includes(q) : false)
     );
   });
 

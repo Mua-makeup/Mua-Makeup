@@ -182,7 +182,7 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
                 : (mua.getIsSurgeEnabled() == null || mua.getIsSurgeEnabled());
 
         InvoicePreviewRes.SurgePricingInfo surgeInfo;
-        if (isProviderSurgeEnabled) {
+        if (isProviderSurgeEnabled && req.getBookingTime() != null) {
             surgeInfo = surgePricingService.calculateSurge(
                     serviceSubtotal,
                     req.getBookingTime(),
@@ -194,36 +194,38 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
             surgeInfo = InvoicePreviewRes.SurgePricingInfo.builder()
                     .isSurgeApplied(false)
                     .multiplier(BigDecimal.valueOf(1.00).setScale(2, RoundingMode.HALF_UP))
-                    .surgeReason("Nhà cung cấp không áp dụng tăng giá cao điểm")
+                    .surgeReason(req.getBookingTime() == null ? "Chưa chọn khung giờ hẹn" : "Nhà cung cấp không áp dụng tăng giá cao điểm")
                     .surgeAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
                     .demandCount(0)
                     .supplyCount(0)
                     .demandRatio(BigDecimal.ONE)
-                    .surgeType("DISABLED_BY_PROVIDER")
+                    .surgeType(req.getBookingTime() == null ? "NO_BOOKING_TIME" : "DISABLED_BY_PROVIDER")
                     .build();
         }
 
         // 6. Tính phụ phí làm sớm (EARLY_MORNING) & ngày lễ (HOLIDAY) qua SurchargeService
-        CalculateSurchargeReq surchargeReq = CalculateSurchargeReq.builder()
-                .agencyId(isAgency ? req.getProviderId() : null)
-                .muaId(!isAgency ? req.getProviderId() : null)
-                .bookingTime(req.getBookingTime())
-                .distanceKm(matrix.getDistanceKm())
-                .build();
-
-        SurchargeCalculationRes surchargeCalc = surchargeService.calculateSurcharges(surchargeReq);
         List<SurchargeBreakdownItemRes> surchargesBreakdown = new ArrayList<>();
         BigDecimal totalSurchargesAmount = BigDecimal.ZERO;
 
-        if (surchargeCalc != null && surchargeCalc.getAppliedSurcharges() != null) {
-            for (SurchargeCalculationRes.AppliedSurchargeItem item : surchargeCalc.getAppliedSurcharges()) {
-                if (item.getSurchargeType() != SurchargeType.OUT_OF_RADIUS) {
-                    surchargesBreakdown.add(SurchargeBreakdownItemRes.builder()
-                            .type(item.getSurchargeType())
-                            .description(item.getDescription())
-                            .amount(item.getAmount())
-                            .build());
-                    totalSurchargesAmount = totalSurchargesAmount.add(item.getAmount());
+        if (req.getBookingTime() != null) {
+            CalculateSurchargeReq surchargeReq = CalculateSurchargeReq.builder()
+                    .agencyId(isAgency ? req.getProviderId() : null)
+                    .muaId(!isAgency ? req.getProviderId() : null)
+                    .bookingTime(req.getBookingTime())
+                    .distanceKm(matrix.getDistanceKm())
+                    .build();
+
+            SurchargeCalculationRes surchargeCalc = surchargeService.calculateSurcharges(surchargeReq);
+            if (surchargeCalc != null && surchargeCalc.getAppliedSurcharges() != null) {
+                for (SurchargeCalculationRes.AppliedSurchargeItem item : surchargeCalc.getAppliedSurcharges()) {
+                    if (item.getSurchargeType() != SurchargeType.OUT_OF_RADIUS) {
+                        surchargesBreakdown.add(SurchargeBreakdownItemRes.builder()
+                                .type(item.getSurchargeType())
+                                .description(item.getDescription())
+                                .amount(item.getAmount())
+                                .build());
+                        totalSurchargesAmount = totalSurchargesAmount.add(item.getAmount());
+                    }
                 }
             }
         }

@@ -40,7 +40,7 @@ public class CustomerScheduledBookingController extends BaseController {
         return ok(res, "booking.query_success");
     }
 
-    @PostMapping("/scheduled")
+    @PostMapping({"", "/scheduled"})
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<ScheduledBookingCreatedRes>> createScheduledBooking(
             @Valid @RequestBody CreateScheduledBookingReq req) {

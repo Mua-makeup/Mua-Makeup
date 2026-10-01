@@ -424,6 +424,7 @@
     "invalid_time_range": "End time must be after start time.",
     "time_out_of_service": "Booking start time must be within working hours (03:00 - 22:00).",
     "time_must_be_2h_future": "Scheduled booking time must be at least 2 hours in the future.",
+    "time_must_be_1h_future": "Scheduled booking time must be at least 1 hour in the future.",
     "date_too_far": "Booking date must not exceed 90 days in advance.",
     "no_available_staff": "No studio staff available for this service in the requested time slot."
   },
@@ -431,6 +432,7 @@
     "slot_blocked_success": "Personal busy slot blocked successfully!",
     "slot_unblocked_success": "Personal busy slot unblocked successfully!",
     "slots_fetch_success": "Available time slots retrieved successfully.",
+    "days_fetch_success": "Calendar 30-day overview retrieved successfully.",
     "cannot_unblock_booked_slot": "Cannot unblock a calendar slot assigned to an active customer booking.",
     "slot_not_found": "Calendar slot not found."
   },

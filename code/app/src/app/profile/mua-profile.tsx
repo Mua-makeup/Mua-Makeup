@@ -19,6 +19,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { muaProfileService, MuaPublicProfile, MuaCertificate } from '@/services/mua-profile.service';
+import { mapsService } from '@/services/maps.service';
+import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
 
 const QUICK_RADIUS_OPTIONS = [5, 10, 15, 20, 25, 30, 50];
@@ -35,6 +37,9 @@ export default function MuaWorkProfileScreen() {
   const [experienceYears, setExperienceYears] = useState('1');
   const [maxRadius, setMaxRadius] = useState('15');
   const [baseAddressText, setBaseAddressText] = useState('');
+  const [baseAddressLat, setBaseAddressLat] = useState<number | null>(null);
+  const [baseAddressLng, setBaseAddressLng] = useState<number | null>(null);
+  const [isLocatingAddress, setIsLocatingAddress] = useState(false);
   const [certificates, setCertificates] = useState<MuaCertificate[]>([]);
   const [portfolioImages, setPortfolioImages] = useState<string[]>([]);
   const [isUploadingPortfolio, setIsUploadingPortfolio] = useState(false);
@@ -70,6 +75,12 @@ export default function MuaWorkProfileScreen() {
       if (data.baseAddressText) {
         setBaseAddressText(data.baseAddressText);
       }
+      if (data.baseAddressLat !== undefined && data.baseAddressLat !== null) {
+        setBaseAddressLat(Number(data.baseAddressLat));
+      }
+      if (data.baseAddressLng !== undefined && data.baseAddressLng !== null) {
+        setBaseAddressLng(Number(data.baseAddressLng));
+      }
       if (data.certificates) {
         setCertificates(data.certificates);
       }
@@ -81,6 +92,32 @@ export default function MuaWorkProfileScreen() {
       console.warn('Lỗi tải hồ sơ MUA:', parsed.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      setIsLocatingAddress(true);
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền vị trí để lấy tọa độ hiện tại.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const lat = loc.coords.latitude;
+      const lng = loc.coords.longitude;
+      setBaseAddressLat(lat);
+      setBaseAddressLng(lng);
+
+      const geo = await mapsService.reverseGeocode(lat, lng);
+      if (geo?.formattedAddress) {
+        setBaseAddressText(geo.formattedAddress);
+      }
+      Alert.alert('Đã định vị GPS', `Đã nhận diện vị trí cơ sở thành công:\n${geo?.formattedAddress || `${lat}, ${lng}`}`);
+    } catch (e: any) {
+      Alert.alert('Lỗi định vị', e.message || 'Không thể lấy vị trí hiện tại');
+    } finally {
+      setIsLocatingAddress(false);
     }
   };
 
@@ -105,11 +142,31 @@ export default function MuaWorkProfileScreen() {
 
     setIsSubmitting(true);
     try {
+      let latToSend = baseAddressLat;
+      let lngToSend = baseAddressLng;
+
+      // Nếu thợ đã nhập địa chỉ chữ nhưng chưa có tọa độ GPS, tự động geocode ngay
+      if ((!latToSend || !lngToSend) && baseAddressText && baseAddressText.trim()) {
+        try {
+          const geo = await mapsService.geocode(baseAddressText.trim());
+          if (geo?.latitude && geo?.longitude) {
+            latToSend = geo.latitude;
+            lngToSend = geo.longitude;
+            setBaseAddressLat(latToSend);
+            setBaseAddressLng(lngToSend);
+          }
+        } catch {
+          // Bỏ qua lỗi geocode client, backend sẽ tự động fallback geocode
+        }
+      }
+
       await muaProfileService.updateMyProfile({
         bio: bio.trim(),
         experienceYears: expNum,
         maxServiceRadiusKm: radNum,
         baseAddressText: baseAddressText ? baseAddressText.trim() : undefined,
+        baseAddressLat: latToSend ?? undefined,
+        baseAddressLng: lngToSend ?? undefined,
       });
 
       Alert.alert('Thành công', 'Hồ sơ nghề nghiệp Thợ MUA đã được lưu thành công!');
@@ -359,16 +416,48 @@ export default function MuaWorkProfileScreen() {
 
             {/* Địa chỉ cơ sở / Điểm xuất phát nhận ca */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Địa Chỉ Cơ Sở / Điểm Nhận Ca</Text>
+              <View style={styles.addressLabelRow}>
+                <Text style={styles.fieldLabel}>Địa Chỉ Cơ Sở / Điểm Nhận Ca</Text>
+                <TouchableOpacity
+                  style={styles.gpsAutoBtn}
+                  onPress={handleUseCurrentLocation}
+                  disabled={isLocatingAddress}
+                  activeOpacity={0.7}
+                >
+                  {isLocatingAddress ? (
+                    <ActivityIndicator size="small" color={BrandColors.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="navigate-circle" size={15} color={BrandColors.primary} />
+                      <Text style={styles.gpsAutoBtnText}>Lấy GPS hiện tại</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
               <TextInput
                 style={styles.input}
                 placeholder="VD: 120 Hai Bà Trưng, Phường Bến Nghé, Quận 1, TP.HCM"
                 value={baseAddressText}
-                onChangeText={setBaseAddressText}
+                onChangeText={(text) => {
+                  setBaseAddressText(text);
+                  setBaseAddressLat(null);
+                  setBaseAddressLng(null);
+                }}
               />
-              <Text style={styles.helperText}>
-                Địa chỉ gốc để hệ thống tính khoảng cách km và điều phối ca trang điểm phù hợp nhất.
-              </Text>
+
+              {baseAddressLat && baseAddressLng ? (
+                <View style={styles.coordsBadge}>
+                  <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                  <Text style={styles.coordsBadgeText}>
+                    Tọa độ GPS đã ghim: ({Number(baseAddressLat).toFixed(4)}, {Number(baseAddressLng).toFixed(4)})
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.helperText}>
+                  Địa chỉ gốc để hệ thống tính khoảng cách km và điều phối ca trang điểm phù hợp nhất.
+                </Text>
+              )}
             </View>
 
             {/* 2 Cột: Kinh nghiệm & Bán kính */}
@@ -839,6 +928,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: BrandColors.slateHeading,
+  },
+  addressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  gpsAutoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    backgroundColor: '#FDF2F8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FCE7F3',
+  },
+  gpsAutoBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BrandColors.primary,
+  },
+  coordsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  coordsBadgeText: {
+    fontSize: 11,
+    color: '#065F46',
+    fontWeight: '600',
   },
   required: {
     color: BrandColors.primary,
