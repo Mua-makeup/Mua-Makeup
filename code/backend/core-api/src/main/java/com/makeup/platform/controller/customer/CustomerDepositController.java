@@ -58,4 +58,18 @@ public class CustomerDepositController extends BaseController {
         BookingDepositStatusRes res = bookingDepositService.syncDepositPayment(bookingId, customerId);
         return ok(res, "booking.deposit_synced");
     }
+
+    @PostMapping("/{bookingId}/final-payment-intents")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<PaymentCheckoutRes>> createFinalPaymentIntent(
+            @PathVariable Long bookingId,
+            @Valid @RequestBody CreateDepositIntentReq req,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            HttpServletRequest httpRequest) {
+        Long customerId = SecurityContextUtils.getCurrentUserId();
+        String clientIp = httpRequest.getRemoteAddr();
+        PaymentCheckoutRes res = bookingDepositService.createFinalPaymentIntent(
+                bookingId, customerId, req, idempotencyKey, clientIp);
+        return createdWithKey(res, "booking.final_payment_intent_created");
+    }
 }

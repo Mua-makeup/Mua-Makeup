@@ -90,6 +90,7 @@ export interface BookingStatusDetailRes {
   completionPhotoUrl?: string;
   isDepositPaid?: boolean;
   depositTimeoutSeconds?: number;
+  inProgressElapsedSeconds?: number;
   cancellationReason?: string;
   updatedAt: string;
 }

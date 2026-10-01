@@ -121,11 +121,13 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         freelancerBookingService.getMyAssignedBookings(todayStr, get().selectedFilter),
       ]);
 
-      // Tính toán thống kê trong ngày
+      // Tính toán thống kê trong ngày:
+      // Ca đã hoàn tất tay nghề: COMPLETED hoặc PAID_OUT
       const completed = bookings.filter((b) => b.status === 'COMPLETED' || b.status === 'PAID_OUT');
-      const earnings = completed.reduce((acc, b) => acc + (b.earningsAmount || 0), 0);
+      // Tiền thực nhận vào ví: CHỈ tính những ca khách ĐÃ THANH TOÁN (PAID_OUT)
+      const paidOut = bookings.filter((b) => b.status === 'PAID_OUT');
+      const earnings = paidOut.reduce((acc, b) => acc + (b.earningsAmount || 0), 0);
 
-    
       const currentOnline = get().isOnline;
 
       const effectiveMuaId = profile?.muaId || (profile as any)?.id;

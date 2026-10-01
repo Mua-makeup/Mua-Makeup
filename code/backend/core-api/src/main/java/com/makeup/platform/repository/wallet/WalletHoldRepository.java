@@ -22,4 +22,7 @@ public interface WalletHoldRepository extends JpaRepository<WalletHoldEntity, Lo
 
     @Query("SELECT h FROM WalletHoldEntity h WHERE h.booking.id = :bookingId AND h.status = 'ACTIVE'")
     Optional<WalletHoldEntity> findActiveHoldByBookingId(@Param("bookingId") Long bookingId);
+
+    @Query("SELECT COALESCE(SUM(h.amount), 0) FROM WalletHoldEntity h WHERE h.wallet.id = :walletId AND h.status = 'ACTIVE'")
+    BigDecimal sumActiveHoldsByWalletId(@Param("walletId") Long walletId);
 }

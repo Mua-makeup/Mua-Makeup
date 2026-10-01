@@ -378,7 +378,17 @@
     "bookings_fetch_success": "Retrieved platform bookings successfully.",
     "booking_detail_fetch_success": "Retrieved booking detail successfully.",
     "users_fetch_success": "Retrieved platform users successfully.",
-    "user_status_update_success": "Updated user status successfully!"
+    "user_status_update_success": "Updated user status successfully!",
+    "disputes_fetch_success": "Retrieved dispute reports successfully.",
+    "dispute_stats_fetch_success": "Retrieved dispute statistics successfully.",
+    "dispute_detail_fetch_success": "Retrieved dispute detail successfully.",
+    "dispute_resolved_success": "Resolved dispute successfully!"
+  },
+  "dispute": {
+    "not_in_disputed_state": "Booking is not in DISPUTED state.",
+    "invalid_resolution_type": "Invalid resolution type. Must be APPROVE_REFUND_CUSTOMER or REJECT_AND_PAYOUT_MUA.",
+    "resolution_required": "Dispute resolution cannot be blank.",
+    "note_required": "Admin resolution note cannot be blank."
   },
   "category": {
     "code_required": "Category code cannot be blank.",

@@ -23,8 +23,8 @@ public final class TelemetryConstants {
     public static final double MAX_RADIUS_KM = 30.0;
     public static final double MIN_RADIUS_KM = 0.5;
 
-    // GPS Quality & Noise Filtering
-    public static final double MAX_ACCURACY_METERS = 50.0;
+    // GPS Quality & Noise Filtering (allow up to 300m for urban/indoor & browser environments)
+    public static final double MAX_ACCURACY_METERS = 300.0;
     public static final double MAX_SPEED_KMH = 120.0;
 
     // Dead-Reckoning thresholds

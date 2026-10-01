@@ -1,5 +1,7 @@
 package com.makeup.platform.dto.request.wallet;
 
+import java.util.UUID;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,6 +20,12 @@ public class CashPaymentConfirmationReq {
     @NotBlank(message = "{validation.invoice_version_required}")
     private String invoiceVersion;
 
-    @NotBlank(message = "{validation.idempotency_key_required}")
     private String idempotencyKey;
+
+    public String getIdempotencyKey() {
+        if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
+            return UUID.randomUUID().toString();
+        }
+        return idempotencyKey.trim();
+    }
 }

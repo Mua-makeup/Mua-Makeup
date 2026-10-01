@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { apiClient } from './api';
 import { BookingStatusType } from './booking.service';
 
@@ -127,17 +128,19 @@ export const freelancerBookingService = {
     const match = /\.(\w+)$/.exec(filename);
     const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-    formData.append('file', {
-      uri: imageUri,
-      name: filename,
-      type,
-    } as any);
+    if (Platform.OS === 'web') {
+      const fetchRes = await fetch(imageUri);
+      const blob = await fetchRes.blob();
+      formData.append('file', blob, filename);
+    } else {
+      formData.append('file', {
+        uri: imageUri,
+        name: filename,
+        type,
+      } as any);
+    }
 
-    const response = await apiClient.post(`/bookings/${bookingId}/completion-photo`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await apiClient.post(`/bookings/${bookingId}/completion-photo`, formData);
 
     const data = response.data?.data;
     const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;

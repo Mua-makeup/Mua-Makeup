@@ -83,6 +83,7 @@ export default function BookingLiveTrackingScreen() {
   // Live Stopwatch for IN_PROGRESS state
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const sessionTimerRef = useRef<any>(null);
+  const sessionStartTimeRef = useRef<number | null>(null);
 
   // Review State for COMPLETED state
   const [ratingStars, setRatingStars] = useState(5);
@@ -99,11 +100,22 @@ export default function BookingLiveTrackingScreen() {
   // Live Timer effect when IN_PROGRESS
   useEffect(() => {
     if (status === 'IN_PROGRESS') {
+      if (!sessionStartTimeRef.current) {
+        sessionStartTimeRef.current = Date.now() - sessionSeconds * 1000;
+      }
+      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
       sessionTimerRef.current = setInterval(() => {
-        setSessionSeconds((prev) => prev + 1);
+        if (sessionStartTimeRef.current) {
+          const elapsed = Math.max(0, Math.floor((Date.now() - sessionStartTimeRef.current) / 1000));
+          setSessionSeconds(elapsed);
+        }
       }, 1000);
     } else {
-      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current);
+        sessionTimerRef.current = null;
+      }
+      sessionStartTimeRef.current = null;
     }
     return () => {
       if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
@@ -133,6 +145,19 @@ export default function BookingLiveTrackingScreen() {
 
           if (detailRes.status) {
             setStatus(detailRes.status);
+            if (detailRes.status === 'IN_PROGRESS') {
+              let elapsed = 0;
+              if (detailRes.inProgressElapsedSeconds !== undefined && detailRes.inProgressElapsedSeconds !== null) {
+                elapsed = detailRes.inProgressElapsedSeconds;
+              } else if (detailRes.updatedAt) {
+                const startMs = new Date(detailRes.updatedAt).getTime();
+                if (!isNaN(startMs)) {
+                  elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+                }
+              }
+              sessionStartTimeRef.current = Date.now() - elapsed * 1000;
+              setSessionSeconds(elapsed);
+            }
             if (detailRes.status === 'CANCELLED') {
               Alert.alert(
                 'Đơn Hàng Đã Bị Hủy',

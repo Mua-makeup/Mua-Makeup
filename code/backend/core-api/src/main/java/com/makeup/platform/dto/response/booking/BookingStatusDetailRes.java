@@ -49,5 +49,6 @@ public class BookingStatusDetailRes {
     private String cancellationReason;
     private Boolean isDepositPaid;
     private Integer depositTimeoutSeconds;
+    private Integer inProgressElapsedSeconds;
     private LocalDateTime updatedAt;
 }

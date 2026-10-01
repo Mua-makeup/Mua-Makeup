@@ -9,6 +9,7 @@ import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.mapper.wallet.CustomerWalletMapper;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.wallet.LedgerEntryRepository;
+import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.wallet.CustomerWalletService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import java.util.List;
 public class CustomerWalletServiceImpl implements CustomerWalletService {
 
     private final WalletRepository walletRepository;
+    private final WalletHoldRepository walletHoldRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final UserRepository userRepository;
     private final CustomerWalletMapper customerWalletMapper;
@@ -49,6 +51,13 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
                             .build();
                     return walletRepository.save(newWallet);
                 });
+
+        BigDecimal activeHolds = walletHoldRepository.sumActiveHoldsByWalletId(wallet.getId());
+        if (activeHolds != null) {
+            wallet.setFrozenBalance(activeHolds);
+        } else if (wallet.getFrozenBalance() == null) {
+            wallet.setFrozenBalance(BigDecimal.ZERO);
+        }
 
         Page<LedgerEntryEntity> recentEntriesPage = ledgerEntryRepository
                 .findAllByWalletIdOrderByCreatedAtDesc(wallet.getId(), PageRequest.of(0, 20));

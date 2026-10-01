@@ -23,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 @Slf4j
 @Service
@@ -38,6 +41,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     private final BookingCashReceiptRepository cashReceiptRepository;
     private final MuaProfileRepository muaProfileRepository;
     private final BookingSettlementService bookingSettlementService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -66,6 +70,24 @@ public class CashPaymentServiceImpl implements CashPaymentService {
 
         receipt = checkAndTriggerSettlement(receipt, bookingId);
         cashReceiptRepository.save(receipt);
+
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "CUSTOMER_CASH_PAID");
+            payload.put("bookingId", bookingId);
+            payload.put("bookingCode", receipt.getBooking() != null ? receipt.getBooking().getBookingCode() : null);
+            payload.put("expectedAmount", receipt.getExpectedAmount());
+            payload.put("status", receipt.getStatus());
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+            if (receipt.getBooking() != null && receipt.getBooking().getMua() != null) {
+                Long muaId = receipt.getBooking().getMua().getId();
+                messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, payload);
+            }
+        } catch (Exception ex) {
+            log.warn("[CashReceipt] Failed to broadcast CUSTOMER_CASH_PAID: {}", ex.getMessage());
+        }
 
         log.info("[CashReceipt] Customer {} confirmed cash for booking {}", customerId, bookingId);
         return mapToRes(receipt, bookingId);
@@ -164,6 +186,23 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             } catch (Exception e) {
                 // Settlement failure không block confirmation — log và retry sau
                 log.error("[CashReceipt] Settlement trigger failed for booking {}. Will retry.", bookingId, e);
+            }
+
+            try {
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("type", "PAYMENT_COMPLETED");
+                payload.put("bookingId", bookingId);
+                payload.put("status", "PAID_OUT");
+                payload.put("paymentMethod", "CASH");
+                payload.put("timestamp", System.currentTimeMillis());
+
+                messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+                if (receipt.getBooking() != null && receipt.getBooking().getMua() != null) {
+                    Long muaId = receipt.getBooking().getMua().getId();
+                    messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, payload);
+                }
+            } catch (Exception ex) {
+                log.warn("[CashReceipt] Failed to broadcast BOTH_CONFIRMED: {}", ex.getMessage());
             }
         }
         return receipt;
