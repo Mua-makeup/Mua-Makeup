@@ -55,9 +55,13 @@ export const CountdownAcceptModal: React.FC = () => {
       }),
     ]).start();
 
-    const initialSec = activeOffer.countdownSeconds || 20;
+    const serverTimestamp = activeOffer.timestamp ? Number(activeOffer.timestamp) : Date.now();
+    const elapsedSec = Math.max(0, Math.floor((Date.now() - serverTimestamp) / 1000));
+    const totalSec = activeOffer.countdownSeconds || 20;
+    const initialSec = Math.max(1, totalSec - elapsedSec);
     const endTime = Date.now() + initialSec * 1000;
     setSecondsLeft(initialSec);
+    console.log(`[CountdownModal] Bắt đầu đếm ngược đơn ${activeOffer.bookingCode || activeOffer.bookingId}: initialSec = ${initialSec}s (đã trôi qua ${elapsedSec}s từ lúc server phát đơn)`);
 
     // Pulse animation
     const pulseLoop = Animated.loop(
@@ -90,7 +94,8 @@ export const CountdownAcceptModal: React.FC = () => {
       setSecondsLeft(remaining);
       if (remaining <= 0) {
         clearInterval(timer);
-        dismissOffer(true);
+        console.warn(`[CountdownModal] HẾT GIỜ (remaining <= 0)! Tự động ẩn modal cho đơn ${activeOffer.bookingId}`);
+        dismissOffer(false);
       } else if (remaining % 2 === 0) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       }

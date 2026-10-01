@@ -21,6 +21,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useLocationStore } from '@/store/location.store';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { InstantRadarModal } from '@/components/booking/InstantRadarModal';
+import { DirectMuaBookingModal } from '@/components/booking/DirectMuaBookingModal';
 import { OnlineMuaListModal } from '@/components/booking/OnlineMuaListModal';
 import { NearbyProviderRes } from '@/services/telemetry.service';
 import { WorkstationHeader } from '@/components/mua/WorkstationHeader';
@@ -140,6 +141,8 @@ export default function HomeScreen() {
   const [isRadarModalVisible, setIsRadarModalVisible] = useState(false);
   const [isOnlineListModalVisible, setIsOnlineListModalVisible] = useState(false);
   const [selectedTargetMua, setSelectedTargetMua] = useState<NearbyProviderRes | null>(null);
+  const [isDirectModalVisible, setIsDirectModalVisible] = useState(false);
+  const [directTargetMua, setDirectTargetMua] = useState<NearbyProviderRes | null>(null);
 
   const handleBookingPress = (muaId: number) => {
     router.push({
@@ -148,7 +151,7 @@ export default function HomeScreen() {
     });
   };
 
-  // Nút 1: Đặt thợ khẩn cấp ngẫu nhiên gần nhất
+  // Nút 1: Đặt thợ khẩn cấp ngẫu nhiên gần nhất (Luồng Radar chuẩn)
   const handleRandomEmergencyBooking = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedTargetMua(null);
@@ -161,14 +164,14 @@ export default function HomeScreen() {
     setIsOnlineListModalVisible(true);
   };
 
-  // Khi chọn "Đặt Ngay" trên một thợ online cụ thể
+  // Khi chọn "Đặt Ngay" trên một thợ online cụ thể -> Mở Modal Đích Danh riêng biệt
   const handleSelectOnlineMua = (mua: NearbyProviderRes) => {
     setIsOnlineListModalVisible(false);
-    setSelectedTargetMua(mua);
-    setIsRadarModalVisible(true);
+    setDirectTargetMua(mua);
+    setIsDirectModalVisible(true);
   };
 
-  // Fallback từ modal online sang quét tự động
+  // Fallback từ modal online sang quét tự động ngẫu nhiên
   const handleFallbackRandomScan = () => {
     setIsOnlineListModalVisible(false);
     setSelectedTargetMua(null);
@@ -637,13 +640,33 @@ export default function HomeScreen() {
 
 
 
-      {/* MODAL RADAR TÌM THỢ KHẨN CẤP 30S (SPRINT M-2) */}
+      {/* MODAL RADAR TÌM THỢ KHẨN CẤP 30S (SPRINT M-2) - BẢO LƯU LUỒNG QUÉT TỰ ĐỘNG */}
       <InstantRadarModal
         visible={isRadarModalVisible}
-        targetMua={selectedTargetMua}
+        targetMua={null}
         onClose={() => {
           setIsRadarModalVisible(false);
           setSelectedTargetMua(null);
+        }}
+      />
+
+      {/* MODAL ĐẶT ĐÍCH DANH THỢ ONLINE (GIAO DIỆN RIÊNG BIỆT - CHỈ GÓI & PHONG CÁCH CỦA THỢ ĐÓ) */}
+      <DirectMuaBookingModal
+        visible={isDirectModalVisible}
+        targetMua={directTargetMua}
+        onClose={() => {
+          setIsDirectModalVisible(false);
+          setDirectTargetMua(null);
+        }}
+        onFallbackRandomScan={() => {
+          setIsDirectModalVisible(false);
+          setDirectTargetMua(null);
+          setIsRadarModalVisible(true);
+        }}
+        onChooseAnotherMua={() => {
+          setIsDirectModalVisible(false);
+          setDirectTargetMua(null);
+          setIsOnlineListModalVisible(true);
         }}
       />
 

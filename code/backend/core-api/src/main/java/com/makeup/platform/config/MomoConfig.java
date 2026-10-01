@@ -26,10 +26,10 @@ public class MomoConfig {
     @Value("${payment.gateways.momo.endpoint-url:https://test-payment.momo.vn/v2/gateway/api/create}")
     private String endpointUrl;
 
-    @Value("${payment.gateways.momo.return-url:http://localhost:8080/api/v1/payments/return/momo}")
+    @Value("${payment.gateways.momo.return-url:http://192.168.1.122:8080/api/v1/payments/return/momo}")
     private String returnUrl;
 
-    @Value("${payment.gateways.momo.ipn-url:http://localhost:8080/api/v1/payments/ipn/momo}")
+    @Value("${payment.gateways.momo.ipn-url:http://192.168.1.122:8080/api/v1/payments/ipn/momo}")
     private String ipnUrl;
 
     @Bean

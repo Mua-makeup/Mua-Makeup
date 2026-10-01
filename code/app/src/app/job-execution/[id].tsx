@@ -122,8 +122,13 @@ export default function JobExecutionScreen() {
   // Cờ chống hiển thị trùng lặp Alert hủy đơn 2 lần
   const hasHandledCancelAlertRef = useRef(false);
 
+  // Cờ chống điều hướng trùng lặp nhiều lần gây chồng chéo trang
+  const hasNavigatedBackRef = useRef(false);
+
   // Điều hướng an toàn tuyệt đối quay về bàn làm việc, pop màn hình ca làm thay vì tạo thêm trang mới gây gối đè 2 bàn làm việc
   const navigateBackToWorkstation = () => {
+    if (hasNavigatedBackRef.current) return;
+    hasNavigatedBackRef.current = true;
     if (router.canGoBack()) {
       router.back();
     } else {

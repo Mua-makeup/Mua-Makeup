@@ -199,6 +199,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                 stringRedisTemplate.delete(InstantBookingKeys.sentAt(bookingId));
                 stringRedisTemplate.delete(InstantBookingKeys.timer(bookingId, muaProfile.getId()));
                 stringRedisTemplate.delete(InstantBookingKeys.meta(bookingId));
+                stringRedisTemplate.delete(InstantBookingKeys.meta(bookingId) + ":total");
                 dispatchLeaseService.release(bookingId, String.valueOf(muaProfile.getId()));
 
                 log.info("[Redlock] Booking id={} successfully accepted by muaId={}", bookingId, muaProfile.getId());

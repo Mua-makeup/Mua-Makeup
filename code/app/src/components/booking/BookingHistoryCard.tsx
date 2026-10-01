@@ -139,15 +139,6 @@ export const BookingHistoryCard: React.FC<Props> = ({
 
       {/* FOOTER ACTIONS THEO TRẠNG THÁI */}
       <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.detailActionBtn}
-          onPress={() => router.push(`/booking/detail/${booking.id}` as any)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="document-text-outline" size={14} color="#1E293B" />
-          <Text style={styles.detailActionText}>Chi Tiết</Text>
-        </TouchableOpacity>
-
         {booking.status === 'REQUESTED' || booking.status === 'ACCEPTED' ? (
           <TouchableOpacity
             style={styles.cancelActionBtn}

@@ -55,8 +55,8 @@
     "portfolio_get_success": "Get portfolio detail successfully.",
     "portfolios_list_success": "Get portfolios list successfully.",
     "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed).",
-    "certificate_not_verified_cannot_accept": "Makeup artist has not been certified/verified, cannot accept bookings.",
-    "certificate_not_verified_cannot_operate": "Makeup artist has not been certified/verified, cannot go online to receive bookings.",
+    "certificate_not_verified_cannot_accept": "Your profile does not have a verified professional certificate yet. Please upload your certificate to accept bookings.",
+    "certificate_not_verified_cannot_operate": "Your profile does not have a verified professional certificate yet. Please upload your certificate in 'Professional Profile' to enable online booking mode.",
     "portfolio_files_empty": "Please select at least one image file to upload.",
     "portfolio_max_exceeded": "Maximum 30 portfolio images allowed.",
     "image_url_required": "Image URL to delete cannot be empty.",
@@ -152,6 +152,8 @@
     "completion_photo_required": "Completion photo URL is required when marking a booking as completed.",
     "cancellation_reason_required": "Cancellation reason is required when cancelling a booking.",
     "cannot_cancel_within_two_hours": "Cannot cancel booking within 2 hours of scheduled appointment. Please contact the Studio directly for emergency assistance.",
+    "cannot_cancel_while_mua_on_the_way": "Artist has confirmed and is already on the way or working, you cannot cancel now.",
+    "cannot_cancel_after_deposit": "Instant booking deposit has already been paid, you cannot cancel at this stage.",
     "already_taken": "Sorry! This booking has just been accepted by another artist.",
     "lock_timeout": "System is busy processing booking acceptance. Please try again in a moment.",
     "optimistic_lock_conflict": "Booking was updated by another concurrent operation. Please reload and retry.",
@@ -237,12 +239,15 @@
   "ERR_COMPLETION_PHOTO_REQUIRED": "Completion photo is required.",
   "ERR_CANCELLATION_REASON_REQUIRED": "Cancellation reason is required.",
   "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS": "Cannot cancel booking within 2 hours of scheduled appointment.",
+  "ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY": "Artist has confirmed and is already on the way or working, you cannot cancel now.",
+  "ERR_CANNOT_CANCEL_AFTER_DEPOSIT": "Instant booking deposit has already been paid, you cannot cancel at this stage.",
   "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Reporting emergency unavailability within 2 hours requires an incident proof document.",
   "ERR_BOOKING_ALREADY_TAKEN": "Booking already accepted by another artist.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Distributed lock acquisition timeout.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Optimistic lock version conflict.",
   "ERR_MUA_MUST_BE_ONLINE": "Makeup artist must be online to accept booking.",
   "ERR_MUA_ALREADY_BUSY": "Makeup artist is already busy with another job.",
+  "ERR_MUA_CERTIFICATE_NOT_VERIFIED": "Your profile does not have a verified professional certificate yet. Please upload your certificate in 'Professional Profile' to enable online booking mode.",
   "validation": {
     "payment_amount_required": "Payment amount cannot be empty.",
     "payment_amount_min": "Minimum deposit amount is 1,000 VND.",
@@ -541,7 +546,8 @@
     "settlement_completed": "Booking settlement completed successfully.",
     "settlement_already_exists": "Booking has already been settled.",
     "settlement_prerequisite_not_met": "Settlement prerequisites not met: dual cash confirmation and service completion required.",
-    "insufficient_balance": "Insufficient wallet balance."
+    "insufficient_balance": "Insufficient wallet balance.",
+    "customer_wallet_ok": "Customer wallet retrieved successfully."
   }
 }
 

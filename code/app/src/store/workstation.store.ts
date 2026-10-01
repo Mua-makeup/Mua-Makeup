@@ -38,6 +38,7 @@ export interface InstantBookingOffer {
   countdownSeconds: number;
   candidateIndex?: number;
   totalCandidates?: number;
+  timestamp?: number;
 }
 
 
@@ -124,10 +125,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       const completed = bookings.filter((b) => b.status === 'COMPLETED' || b.status === 'PAID_OUT');
       const earnings = completed.reduce((acc, b) => acc + (b.earningsAmount || 0), 0);
 
-      // QUY TẮC: Trạng thái isOnline CHỈ do thợ tự tay bật/tắt trong phiên làm việc hiện tại.
-      // Khi fetchWorkstationData được gọi (load app, reload màn hình...) LUÔN GIỮ NGUYÊN
-      // giá trị isOnline hiện tại trong store (không ghi đè từ backend).
-      // Mặc định store khởi tạo là false (Offline) — thợ phải tự bật lên.
+    
       const currentOnline = get().isOnline;
 
       const effectiveMuaId = profile?.muaId || (profile as any)?.id;
@@ -172,6 +170,16 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         websocketService.subscribe(`/topic/mua-offer/${effectiveMuaId}`, (offerPayload) => {
           console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
           get().triggerInstantOffer(offerPayload);
+        });
+
+        websocketService.subscribe(`/topic/mua-offer-revoked/${effectiveMuaId}`, (revokePayload) => {
+          console.log('[WorkstationStore] Đơn khẩn cấp đã bị thu hồi/chuyển tiếp:', revokePayload);
+          const currentOffer = get().activeOffer;
+          if (currentOffer && revokePayload?.bookingId && currentOffer.bookingId !== revokePayload.bookingId) {
+            console.warn(`[WorkstationStore] Bỏ qua tin thu hồi của đơn cũ #${revokePayload.bookingId} vì đang xử lý đơn #${currentOffer.bookingId}`);
+            return;
+          }
+          get().dismissOffer(false);
         });
 
         websocketService.subscribe('/topic/instant-dismiss', (dismissPayload) => {
@@ -233,6 +241,16 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
             get().triggerInstantOffer(offerPayload);
           });
 
+          websocketService.subscribe(`/topic/mua-offer-revoked/${effectiveMuaId}`, (revokePayload) => {
+            console.log('[WorkstationStore] Đơn khẩn cấp đã bị thu hồi/chuyển tiếp:', revokePayload);
+            const currentOffer = get().activeOffer;
+            if (currentOffer && revokePayload?.bookingId && currentOffer.bookingId !== revokePayload.bookingId) {
+              console.warn(`[WorkstationStore] Bỏ qua tin thu hồi của đơn cũ #${revokePayload.bookingId} vì đang xử lý đơn #${currentOffer.bookingId}`);
+              return;
+            }
+            get().dismissOffer(false);
+          });
+
           websocketService.subscribe('/topic/instant-dismiss', (dismissPayload) => {
             const currentOffer = get().activeOffer;
             if (currentOffer && (!dismissPayload?.bookingId || dismissPayload.bookingId === currentOffer.bookingId)) {
@@ -286,11 +304,13 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   },
 
   dismissOffer: async (shouldSkipBackend = true) => {
-    soundManager.stopJobAlertSound();
     const offer = get().activeOffer;
+    console.warn(`[WorkstationStore] dismissOffer ĐƯỢC GỌI! shouldSkipBackend=${shouldSkipBackend}, bookingId=${offer?.bookingId}`);
+    soundManager.stopJobAlertSound();
     set({ isAcceptModalVisible: false, activeOffer: null });
     if (shouldSkipBackend && offer?.bookingId) {
       try {
+        console.warn(`[WorkstationStore] Gửi request POST /skip cho bookingId=${offer.bookingId}`);
         await freelancerBookingService.skipInstantBooking(offer.bookingId);
       } catch (e) {
         console.warn('Lỗi skip booking:', e);

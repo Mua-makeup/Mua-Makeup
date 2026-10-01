@@ -5,6 +5,7 @@ public final class InstantBookingKeys {
     public static final String OFFER_TIMER_PREFIX = "booking:dispatch:timer:";
     private InstantBookingKeys() {}
     public static String candidates(Long bookingId) { return "booking:dispatch:candidates:" + bookingId; }
+    public static String queue(Long bookingId) { return "booking:dispatch:queue:" + bookingId; }
     public static String current(Long bookingId) { return "booking:dispatch:current:" + bookingId; }
     public static String skipped(Long bookingId) { return "booking:dispatch:skipped:" + bookingId; }
     public static String sentAt(Long bookingId) { return "booking:dispatch:sent_at:" + bookingId; }

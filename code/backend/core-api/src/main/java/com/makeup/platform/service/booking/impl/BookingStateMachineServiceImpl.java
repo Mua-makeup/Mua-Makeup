@@ -13,6 +13,7 @@ import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.booking.BookingType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
@@ -36,6 +37,16 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.makeup.platform.entity.wallet.LedgerEntryEntity;
+import com.makeup.platform.entity.wallet.WalletEntity;
+import com.makeup.platform.entity.wallet.WalletHoldEntity;
+import com.makeup.platform.repository.wallet.LedgerEntryRepository;
+import com.makeup.platform.repository.wallet.WalletHoldRepository;
+import com.makeup.platform.repository.wallet.WalletRepository;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -60,6 +71,10 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final MUACalendarService muaCalendarService;
     private final StringRedisTemplate stringRedisTemplate;
     private final BookingDepositRepository bookingDepositRepository;
+    private final WalletRepository walletRepository;
+    private final WalletHoldRepository walletHoldRepository;
+    private final LedgerEntryRepository ledgerEntryRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -119,21 +134,51 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                         "booking.cancellation_reason_required", HttpStatus.BAD_REQUEST);
             }
 
-            // Customer cancellation policy: cannot cancel within 2 hours of scheduled appointment
             boolean isCustomer = booking.getCustomer() != null && booking.getCustomer().getId().equals(userId);
             if (isCustomer) {
-                LocalDateTime scheduledStart = booking.getScheduledStartTime();
-                if (scheduledStart != null) {
-                    double hoursUntilBooking = Duration.between(LocalDateTime.now(), scheduledStart).toMinutes() / 60.0;
-                    if (hoursUntilBooking < 2.0) {
-                        log.warn("[StateMachine] Customer id={} attempted to cancel bookingId={} within 2 hours (hours remaining: {})",
-                                userId, bookingId, hoursUntilBooking);
-                        throw new CustomBusinessException(
-                                ErrorCodes.ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS,
-                                "booking.cannot_cancel_within_two_hours",
-                                HttpStatus.BAD_REQUEST
-                        );
+                // Khách không được hủy khi thợ đã bắt đầu di chuyển, đã đến nơi hoặc đang làm việc
+                if (booking.getStatus() == BookingStatus.ON_THE_WAY
+                        || booking.getStatus() == BookingStatus.ARRIVED
+                        || booking.getStatus() == BookingStatus.IN_PROGRESS) {
+                    log.warn("[StateMachine] Customer id={} attempted to cancel bookingId={} while MUA is on the way/arrived/in progress",
+                            userId, bookingId);
+                    throw new CustomBusinessException(
+                            ErrorCodes.ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY,
+                            "booking.cannot_cancel_while_mua_on_the_way",
+                            HttpStatus.BAD_REQUEST
+                    );
+                }
+
+                // Đối với đơn REALTIME_INSTANT: Khách chỉ được hủy khi thợ nhận đơn và CHƯA thanh toán cọc. Đã cọc thì không được hủy.
+                if (booking.getBookingType() == BookingType.REALTIME_INSTANT && isDepositPaidInternal(booking)) {
+                    log.warn("[StateMachine] Customer id={} attempted to cancel REALTIME_INSTANT bookingId={} after deposit was paid",
+                            userId, bookingId);
+                    throw new CustomBusinessException(
+                            ErrorCodes.ERR_CANNOT_CANCEL_AFTER_DEPOSIT,
+                            "booking.cannot_cancel_after_deposit",
+                            HttpStatus.BAD_REQUEST
+                    );
+                }
+
+                // Đối với đơn SCHEDULED đã cọc: không được hủy trong vòng 2 tiếng
+                if (booking.getBookingType() == BookingType.SCHEDULED && isDepositPaidInternal(booking)) {
+                    LocalDateTime scheduledStart = booking.getScheduledStartTime();
+                    if (scheduledStart != null) {
+                        double hoursUntilBooking = Duration.between(LocalDateTime.now(), scheduledStart).toMinutes() / 60.0;
+                        if (hoursUntilBooking < 2.0 && hoursUntilBooking >= 0) {
+                            log.warn("[StateMachine] Customer id={} attempted to cancel bookingId={} within 2 hours (hours remaining: {})",
+                                    userId, bookingId, hoursUntilBooking);
+                            throw new CustomBusinessException(
+                                    ErrorCodes.ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS,
+                                    "booking.cannot_cancel_within_two_hours",
+                                    HttpStatus.BAD_REQUEST
+                            );
+                        }
                     }
+                }
+            } else {
+                if (isDepositPaidInternal(booking)) {
+                    refundDepositToCustomer(booking, req.getReason().trim());
                 }
             }
 
@@ -530,6 +575,98 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             return true;
         }
         return false;
+    }
+
+    private void refundDepositToCustomer(BookingEntity booking, String reason) {
+        if (booking == null || booking.getCustomer() == null) {
+            return;
+        }
+        Long bookingId = booking.getId();
+        Long customerId = booking.getCustomer().getId();
+
+        Optional<WalletHoldEntity> holdOpt = walletHoldRepository.findActiveHoldByBookingId(bookingId);
+        BigDecimal refundAmount = BigDecimal.ZERO;
+
+        WalletEntity customerWallet = walletRepository.findByUserId(customerId)
+                .orElseGet(() -> {
+                    WalletEntity newWallet = WalletEntity.builder()
+                            .user(booking.getCustomer())
+                            .availableBalance(BigDecimal.ZERO)
+                            .frozenBalance(BigDecimal.ZERO)
+                            .currency("VND")
+                            .build();
+                    return walletRepository.save(newWallet);
+                });
+
+        if (holdOpt.isPresent()) {
+            WalletHoldEntity hold = holdOpt.get();
+            refundAmount = hold.getAmount();
+            hold.setStatus("REFUNDED");
+            hold.setReleasedAt(OffsetDateTime.now());
+            walletHoldRepository.save(hold);
+        } else if (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0) {
+            refundAmount = booking.getDepositAmount();
+        }
+
+        if (refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal currentBalance = customerWallet.getAvailableBalance() != null ? customerWallet.getAvailableBalance() : BigDecimal.ZERO;
+            BigDecimal newBalance = currentBalance.add(refundAmount);
+            customerWallet.setAvailableBalance(newBalance);
+            walletRepository.save(customerWallet);
+
+            String refundIdempotencyKey = "refund:booking:" + bookingId;
+            if (!ledgerEntryRepository.existsByIdempotencyKey(refundIdempotencyKey)) {
+                LedgerEntryEntity ledgerEntry = LedgerEntryEntity.builder()
+                        .referenceType("BOOKING_REFUND")
+                        .referenceId(bookingId)
+                        .wallet(customerWallet)
+                        .entryType("CREDIT")
+                        .amount(refundAmount)
+                        .balanceAfter(newBalance)
+                        .description("Hoàn tiền cọc do Thợ hủy ca #" + booking.getBookingCode())
+                        .idempotencyKey(refundIdempotencyKey)
+                        .build();
+                ledgerEntryRepository.save(ledgerEntry);
+            }
+
+            if (bookingDepositRepository != null) {
+                var depositOpt = bookingDepositRepository.findByBookingId(bookingId);
+                if (depositOpt.isPresent()) {
+                    BookingDepositEntity deposit = depositOpt.get();
+                    deposit.setStatus("REFUNDED");
+                    bookingDepositRepository.save(deposit);
+                }
+            }
+
+            try {
+                if (stringRedisTemplate != null) {
+                    stringRedisTemplate.delete("booking:deposit_paid:" + bookingId);
+                }
+            } catch (Exception ex) {
+                log.warn("[StateMachine] Failed to delete redis key booking:deposit_paid:{}: {}", bookingId, ex.getMessage());
+            }
+
+            try {
+                if (messagingTemplate != null) {
+                    Map<String, Object> refundPayload = new HashMap<>();
+                    refundPayload.put("type", "CUSTOMER_DEPOSIT_REFUNDED");
+                    refundPayload.put("bookingId", bookingId);
+                    refundPayload.put("bookingCode", booking.getBookingCode());
+                    refundPayload.put("refundAmount", refundAmount);
+                    refundPayload.put("newBalance", newBalance);
+                    refundPayload.put("reason", reason);
+                    refundPayload.put("message", "Thợ đã hủy ca. Khoản tiền cọc đã được hoàn về Ví của bạn.");
+                    refundPayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, refundPayload);
+                    messagingTemplate.convertAndSend("/topic/customer-wallet/" + customerId, refundPayload);
+                    log.info("[StateMachine] Successfully refunded {} VND to customer {} for cancelled bookingId {}",
+                            refundAmount, customerId, bookingId);
+                }
+            } catch (Exception ex) {
+                log.error("[StateMachine] Failed to broadcast refund notification via WebSocket: {}", ex.getMessage());
+            }
+        }
     }
 }
 

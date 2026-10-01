@@ -44,7 +44,33 @@ export const WorkstationHeader: React.FC = () => {
       setIsToggling(true);
       await toggleOnline(value);
     } catch (err: any) {
-      Alert.alert('Không Thể Bật Trực Tuyến', err.message || 'Vui lòng kiểm tra quyền vị trí và kết nối mạng.');
+      const errorCode = err?.response?.data?.errorCode;
+      const apiMessage = err?.response?.data?.message;
+
+      if (
+        errorCode === 'ERR_MUA_CERTIFICATE_NOT_VERIFIED' ||
+        apiMessage?.includes('chứng chỉ') ||
+        apiMessage?.includes('certificate') ||
+        apiMessage?.includes('certified')
+      ) {
+        Alert.alert(
+          'Yêu Cầu Xác Thực Chứng Chỉ',
+          'Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên ảnh chứng chỉ để kích hoạt nhận đơn trực tuyến.',
+          [
+            { text: 'Để Sau', style: 'cancel' },
+            {
+              text: 'Tải Chứng Chỉ Ngay',
+              onPress: () => router.push('/profile/mua-profile'),
+            },
+          ]
+        );
+      } else {
+        const displayMsg =
+          apiMessage ||
+          err?.message ||
+          'Vui lòng kiểm tra quyền vị trí và kết nối mạng.';
+        Alert.alert('Không Thể Bật Trực Tuyến', displayMsg);
+      }
     } finally {
       setIsToggling(false);
     }

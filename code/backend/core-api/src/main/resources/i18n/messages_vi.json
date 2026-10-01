@@ -55,8 +55,8 @@
     "portfolio_get_success": "Lấy chi tiết tác phẩm portfolio thành công.",
     "portfolios_list_success": "Lấy danh sách tác phẩm portfolio thành công.",
     "portfolio_featured_limit": "MUA đã đạt tối đa 3 tác phẩm nổi bật.",
-    "certificate_not_verified_cannot_accept": "Thợ trang điểm chưa được phê duyệt chứng chỉ hành nghề, không thể nhận đơn.",
-    "certificate_not_verified_cannot_operate": "Thợ trang điểm chưa được phê duyệt chứng chỉ hành nghề, không thể kích hoạt nhận đơn.",
+    "certificate_not_verified_cannot_accept": "Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên chứng chỉ để tiếp nhận đơn đặt lịch.",
+    "certificate_not_verified_cannot_operate": "Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên chứng chỉ tại mục 'Hồ Sơ Nghề Nghiệp' để kích hoạt nhận đơn trực tuyến.",
     "portfolio_files_empty": "Vui lòng chọn ít nhất một tệp ảnh để tải lên.",
     "portfolio_max_exceeded": "Số lượng ảnh trong bộ sưu tập portfolio không được vượt quá 30 ảnh.",
     "image_url_required": "Đường dẫn ảnh cần xóa không được để trống.",
@@ -152,6 +152,8 @@
     "completion_photo_required": "Bắt buộc phải đính kèm ảnh sản phẩm hoàn thiện khi hoàn thành đơn.",
     "cancellation_reason_required": "Bắt buộc phải cung cấp lý do hủy đơn hàng.",
     "cannot_cancel_within_two_hours": "Đơn hàng chỉ còn dưới 2 tiếng trước giờ hẹn, quý khách không thể tự hủy trên ứng dụng. Vui lòng liên hệ trực tiếp Studio để được hỗ trợ khẩn cấp.",
+    "cannot_cancel_while_mua_on_the_way": "Thợ make-up đã xác nhận và bắt đầu di chuyển, quý khách không thể hủy ca lúc này.",
+    "cannot_cancel_after_deposit": "Đơn khẩn cấp đã thanh toán cọc thành công, quý khách không thể tự hủy lúc này.",
     "already_taken": "Rất tiếc! Đơn hàng này vừa được một thợ khác tiếp nhận.",
     "lock_timeout": "Hệ thống đang quá tải khi xử lý nhận đơn. Vui lòng thử lại sau giây lát.",
     "optimistic_lock_conflict": "Đơn hàng đã được cập nhật bởi một thao tác khác. Vui lòng tải lại và thử lại.",
@@ -237,12 +239,15 @@
   "ERR_COMPLETION_PHOTO_REQUIRED": "Bắt buộc đính kèm ảnh sản phẩm hoàn thiện.",
   "ERR_CANCELLATION_REASON_REQUIRED": "Bắt buộc cung cấp lý do hủy đơn hàng.",
   "ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS": "Đơn hàng chỉ còn dưới 2 tiếng trước giờ hẹn, quý khách không thể tự hủy trên ứng dụng.",
+  "ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY": "Thợ make-up đã xác nhận và bắt đầu di chuyển, quý khách không thể hủy ca lúc này.",
+  "ERR_CANNOT_CANCEL_AFTER_DEPOSIT": "Đơn khẩn cấp đã thanh toán cọc thành công, quý khách không thể tự hủy lúc này.",
   "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
   "ERR_BOOKING_ALREADY_TAKEN": "Đơn hàng đã được thợ khác tiếp nhận trước.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Hết thời gian chờ giành khóa phân tán đơn hàng.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Xung đột cập nhật phiên bản đơn hàng.",
   "ERR_MUA_MUST_BE_ONLINE": "Thợ cần bật trạng thái trực tuyến (Online) để tiếp nhận đơn.",
   "ERR_MUA_ALREADY_BUSY": "Thợ đang bận trong ca làm việc khác.",
+  "ERR_MUA_CERTIFICATE_NOT_VERIFIED": "Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên chứng chỉ tại mục 'Hồ Sơ Nghề Nghiệp' để kích hoạt nhận đơn trực tuyến.",
   "validation": {
     "payment_amount_required": "Số tiền thanh toán không được để trống.",
     "payment_amount_min": "Số tiền nạp tối thiểu là 1,000 VNĐ.",
@@ -547,7 +552,8 @@
     "settlement_completed": "Quyết toán đơn hàng thành công.",
     "settlement_already_exists": "Đơn hàng đã được quyết toán trước đó.",
     "settlement_prerequisite_not_met": "Chưa đủ điều kiện quyết toán: cần cả hai bên xác nhận tiền mặt và dịch vụ hoàn tất.",
-    "insufficient_balance": "Số dư ví không đủ để thực hiện giao dịch."
+    "insufficient_balance": "Số dư ví không đủ để thực hiện giao dịch.",
+    "customer_wallet_ok": "Lấy thông tin ví cá nhân thành công."
   }
 }
 

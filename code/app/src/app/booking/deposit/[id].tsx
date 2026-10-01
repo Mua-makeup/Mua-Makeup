@@ -415,11 +415,7 @@ export default function BookingDepositScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
-            if (isDepositCompleted) {
-              router.replace(`/booking/detail/${bookingId}` as any);
-            } else {
-              router.replace('/' as any);
-            }
+            router.replace(`/booking/detail/${bookingId}` as any);
           }}
           style={styles.backBtn}
           activeOpacity={0.7}
@@ -524,7 +520,17 @@ export default function BookingDepositScreen() {
 
         {/* Chọn cổng thanh toán */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Phương Thức Thanh Toán Cọc</Text>
+          <View style={styles.paymentMethodHeader}>
+            <View style={styles.paymentMethodIconWrap}>
+              <Ionicons name="card" size={20} color={BrandColors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.paymentMethodTitle}>Phương Thức Thanh Toán Cọc</Text>
+              <Text style={styles.paymentMethodSubtitle}>
+                Bảo chứng an toàn 100% qua Quỹ Escrow
+              </Text>
+            </View>
+          </View>
 
           {/* Cổng MoMo */}
           <TouchableOpacity
@@ -838,6 +844,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 12,
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  paymentMethodIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+  },
+  paymentMethodTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  paymentMethodSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
   },
   priceRow: {
     flexDirection: 'row',

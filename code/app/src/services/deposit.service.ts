@@ -161,4 +161,32 @@ export const depositService = {
     const res = await apiClient.get('/freelancer/wallet');
     return res.data?.data;
   },
+
+  /**
+   * Lấy thông tin ví cá nhân của khách hàng (số dư khả dụng, lịch sử biến động/hoàn cọc)
+   */
+  async getCustomerWallet(): Promise<CustomerWalletInfo> {
+    const res = await apiClient.get('/customer/wallet');
+    return res.data?.data;
+  },
 };
+
+export interface CustomerWalletTransaction {
+  id: number;
+  entryType: 'CREDIT' | 'DEBIT';
+  amount: number;
+  balanceAfter: number;
+  referenceType: string;
+  referenceId: number;
+  description: string;
+  createdAt: string;
+}
+
+export interface CustomerWalletInfo {
+  walletId: number;
+  availableBalance: number;
+  frozenBalance: number;
+  currency: string;
+  recentTransactions: CustomerWalletTransaction[];
+}
+

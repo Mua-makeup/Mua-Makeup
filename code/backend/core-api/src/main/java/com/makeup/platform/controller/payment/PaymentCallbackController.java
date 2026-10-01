@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Optional;
 
@@ -52,7 +53,8 @@ public class PaymentCallbackController {
     @GetMapping(value = {"/return/{gateway}", "/{gateway}/return"}, produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> handleReturnCallback(
             @PathVariable String gateway,
-            @RequestParam Map<String, String> queryParams) {
+            @RequestParam Map<String, String> queryParams,
+            HttpServletRequest request) {
         log.info("Received GET Return callback for gateway: {} with params: {}", gateway, queryParams.keySet());
 
         try {
@@ -92,9 +94,18 @@ public class PaymentCallbackController {
             isSuccess = true;
         }
 
+        String hostHeader = request.getHeader("Host");
+        String host = "192.168.1.122";
+        if (hostHeader != null && !hostHeader.isBlank()) {
+            String clientHost = hostHeader.split(":")[0];
+            if (!"127.0.0.1".equals(clientHost) && !"localhost".equalsIgnoreCase(clientHost)) {
+                host = clientHost;
+            }
+        }
+
         String targetRedirectUrl = bookingId != null
-                ? "http://localhost:8081/booking/deposit/" + bookingId + "?status=success"
-                : "http://localhost:8081/";
+                ? "http://" + host + ":8081/booking/deposit/" + bookingId + "?status=success"
+                : "http://" + host + ":8081/";
 
         String html = buildReturnHtmlPage(isSuccess, gateway, paymentCode, bookingCode, amountFormatted, targetRedirectUrl, bookingId);
         return ResponseEntity.ok(html);

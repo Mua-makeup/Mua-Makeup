@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  PanResponder,
+  Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +39,22 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   const [providers, setProviders] = useState<NearbyProviderRes[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  // Cử chỉ vuốt xuống (swipe down) để đóng modal
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dy > 8 && Math.abs(gestureState.dx) < gestureState.dy;
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 40 || gestureState.vy > 0.5) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onClose();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     if (visible) {
@@ -89,30 +107,44 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
+        {/* Khoảng trống bên ngoài - ấn vào để đóng */}
+        <Pressable
+          style={styles.backdropPressable}
+          onPress={onClose}
+          accessibilityLabel="Đóng modal"
+        />
+
         <View style={styles.sheetContainer}>
-          {/* Top handle bar */}
-          <View style={styles.handleBar} />
+          {/* Top drag area with handle bar (vuốt xuống để đóng) */}
+          <View {...panResponder.panHandlers} style={styles.dragArea}>
+            <View style={styles.handleBar} />
 
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <View style={styles.headerTitleCol}>
-              <View style={styles.titleWithBadge}>
-                <Text style={styles.headerTitle}>Thợ MUA Đang Trực Tuyến</Text>
-                <View style={styles.liveIndicator}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.liveText}>LIVE</Text>
+            {/* Header */}
+            <View style={styles.headerRow}>
+              <View style={styles.headerTitleCol}>
+                <View style={styles.titleWithBadge}>
+                  <Text style={styles.headerTitle}>Thợ MUA Đang Trực Tuyến</Text>
+                  <View style={styles.liveIndicator}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveText}>LIVE</Text>
+                  </View>
                 </View>
+                <Text style={styles.headerSub}>
+                  {providers.length > 0
+                    ? `Tìm thấy ${providers.length} chuyên viên đang online quanh bạn`
+                    : 'Chuyên viên sẵn sàng nhận ca cấp tốc ngay'}
+                </Text>
               </View>
-              <Text style={styles.headerSub}>
-                {providers.length > 0
-                  ? `Tìm thấy ${providers.length} chuyên viên đang online quanh bạn`
-                  : 'Chuyên viên sẵn sàng nhận ca cấp tốc ngay'}
-              </Text>
-            </View>
 
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
-              <Ionicons name="close" size={20} color="#64748B" />
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={onClose}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Bán kính quét */}
@@ -292,6 +324,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'flex-end',
   },
+  backdropPressable: {
+    ...StyleSheet.absoluteFill,
+  },
   sheetContainer: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
@@ -299,6 +334,7 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     minHeight: '55%',
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -310,6 +346,11 @@ const styles = StyleSheet.create({
         elevation: 16,
       },
     }),
+  },
+  dragArea: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   handleBar: {
     width: 44,
