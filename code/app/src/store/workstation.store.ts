@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import { FreelancerBookingItem, freelancerBookingService } from '@/services/freelancer-booking.service';
+import { FreelancerBookingItem, ScheduledOfferItem, freelancerBookingService } from '@/services/freelancer-booking.service';
 import { telemetryService } from '@/services/telemetry.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { websocketService } from '@/services/websocket.service';
@@ -59,9 +59,17 @@ interface WorkstationState {
   stats: WorkstationStats;
   selectedFilter: 'ALL' | 'UPCOMING' | 'COMPLETED';
 
-  // 30s Countdown Modal state
+  // 30s Countdown Modal state (Khẩn cấp)
   activeOffer: InstantBookingOffer | null;
   isAcceptModalVisible: boolean;
+
+  // Modal Tiếp nhận Đơn hẹn trước (Scheduled)
+  activeScheduledOffer: ScheduledOfferItem | null;
+  isScheduledModalVisible: boolean;
+  isScheduledModalUrgent: boolean;
+  pendingScheduledOffers: ScheduledOfferItem[];
+  dismissedScheduledOfferIds: number[];
+  warned30PercentOfferIds: number[];
 
   // Actions
   fetchWorkstationData: () => Promise<void>;
@@ -71,9 +79,17 @@ interface WorkstationState {
   dismissOffer: (shouldSkipBackend?: boolean) => Promise<void>;
   acceptActiveOffer: () => Promise<number | null>;
   checkPendingOffer: () => Promise<void>;
+
+  // Scheduled Actions
+  triggerScheduledOffer: (offer: ScheduledOfferItem, isUrgent?: boolean) => void;
+  dismissScheduledOffer: () => void;
+  confirmActiveScheduledOffer: () => Promise<number | null>;
+  rejectActiveScheduledOffer: (reason?: string) => Promise<void>;
+  checkPendingScheduledOffers: (isAppResumeOrLogin?: boolean) => Promise<void>;
 }
 
 let heartbeatTimer: any = null;
+let scheduledCheckInterval: any = null;
 
 const startHeartbeat = () => {
   if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -111,6 +127,12 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   },
   activeOffer: null,
   isAcceptModalVisible: false,
+  activeScheduledOffer: null,
+  isScheduledModalVisible: false,
+  isScheduledModalUrgent: false,
+  pendingScheduledOffers: [],
+  dismissedScheduledOfferIds: [],
+  warned30PercentOfferIds: [],
 
   fetchWorkstationData: async () => {
     try {
@@ -192,7 +214,29 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           }
         });
 
-        // Kiểm tra ngay nếu có ca khẩn cấp đang chờ thợ phản hồi (kể cả khi vừa mở app hoặc từ nền vào)
+        // Đăng ký nhận tin đơn đặt lịch hẹn trước (Scheduled Offer)
+        websocketService.subscribe(`/topic/mua-scheduled-offer/${effectiveMuaId}`, (offerPayload) => {
+          console.log('[WorkstationStore] Nhận thông báo ca hẹn trước mới qua STOMP:', offerPayload);
+          get().triggerScheduledOffer(offerPayload, false);
+          get().checkPendingScheduledOffers(false);
+        });
+
+        websocketService.subscribe(`/topic/mua-scheduled-revoked/${effectiveMuaId}`, (revokePayload) => {
+          console.log('[WorkstationStore] Ca hẹn trước đã bị hủy hoặc thu hồi:', revokePayload);
+          const currentScheduled = get().activeScheduledOffer;
+          if (currentScheduled && (!revokePayload?.bookingId || currentScheduled.bookingId === revokePayload.bookingId)) {
+            get().dismissScheduledOffer();
+          }
+        });
+
+        // Luôn quét kiểm tra ca hẹn trước chờ duyệt (đánh dấu isAppResumeOrLogin = true khi vừa đăng nhập/vào app)
+        await get().checkPendingScheduledOffers(true);
+        if (scheduledCheckInterval) clearInterval(scheduledCheckInterval);
+        scheduledCheckInterval = setInterval(() => {
+          get().checkPendingScheduledOffers(false);
+        }, 10000);
+
+        // Kiểm tra ngay nếu có ca khẩn cấp đang chờ thợ phản hồi
         if (currentOnline) {
           await get().checkPendingOffer();
         }
@@ -368,6 +412,140 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       }
     } catch (e) {
       console.warn('[WorkstationStore] Lỗi kiểm tra ca khẩn cấp đang chờ:', e);
+    }
+  },
+
+  triggerScheduledOffer: (offer, isUrgent = false) => {
+    if (isUrgent) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    set({
+      activeScheduledOffer: offer,
+      isScheduledModalVisible: true,
+      isScheduledModalUrgent: isUrgent,
+    });
+  },
+
+  dismissScheduledOffer: () => {
+    const current = get().activeScheduledOffer;
+    if (current?.bookingId) {
+      const dismissed = get().dismissedScheduledOfferIds;
+      if (!dismissed.includes(current.bookingId)) {
+        set({ dismissedScheduledOfferIds: [...dismissed, current.bookingId] });
+      }
+    }
+    set({
+      isScheduledModalVisible: false,
+      activeScheduledOffer: null,
+      isScheduledModalUrgent: false,
+    });
+  },
+
+  confirmActiveScheduledOffer: async () => {
+    const offer = get().activeScheduledOffer;
+    if (!offer?.bookingId) return null;
+
+    try {
+      await freelancerBookingService.confirmScheduledBooking(offer.bookingId);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const confirmedId = offer.bookingId;
+      set((s) => ({
+        isScheduledModalVisible: false,
+        activeScheduledOffer: null,
+        isScheduledModalUrgent: false,
+        pendingScheduledOffers: s.pendingScheduledOffers.filter((o) => o.bookingId !== confirmedId),
+        dismissedScheduledOfferIds: s.dismissedScheduledOfferIds.filter((id) => id !== confirmedId),
+        warned30PercentOfferIds: s.warned30PercentOfferIds.filter((id) => id !== confirmedId),
+      }));
+      get().fetchWorkstationData();
+      return confirmedId;
+    } catch (err) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      throw err;
+    }
+  },
+
+  rejectActiveScheduledOffer: async (reason?: string) => {
+    const offer = get().activeScheduledOffer;
+    if (!offer?.bookingId) return;
+
+    try {
+      await freelancerBookingService.rejectScheduledBooking(offer.bookingId, reason);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const rejectedId = offer.bookingId;
+      set((s) => ({
+        isScheduledModalVisible: false,
+        activeScheduledOffer: null,
+        isScheduledModalUrgent: false,
+        pendingScheduledOffers: s.pendingScheduledOffers.filter((o) => o.bookingId !== rejectedId),
+        dismissedScheduledOfferIds: s.dismissedScheduledOfferIds.filter((id) => id !== rejectedId),
+        warned30PercentOfferIds: s.warned30PercentOfferIds.filter((id) => id !== rejectedId),
+      }));
+      get().fetchWorkstationData();
+    } catch (err) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      throw err;
+    }
+  },
+
+  checkPendingScheduledOffers: async (isAppResumeOrLogin = false) => {
+    try {
+      const offers = await freelancerBookingService.getPendingScheduledOffers();
+      const nowMs = Date.now();
+
+      // Lọc các đơn còn hạn thời gian
+      const validOffers = (offers || []).filter((o) => {
+        if (!o.confirmDeadline) return (o.confirmTimeoutSeconds || 0) > 0;
+        return new Date(o.confirmDeadline).getTime() > nowMs;
+      });
+
+      set({ pendingScheduledOffers: validOffers });
+
+      if (validOffers.length === 0) {
+        if (get().isScheduledModalVisible) {
+          set({ isScheduledModalVisible: false, activeScheduledOffer: null, isScheduledModalUrgent: false });
+        }
+        return;
+      }
+
+      // 1. Khi THỢ ĐĂNG NHẬP hoặc VÀO LẠI APP (Foreground):
+      // Ưu tiên hiển thị modal với ca hẹn còn hạn đầu tiên
+      if (isAppResumeOrLogin) {
+        // Nếu modal chưa mở hoặc đang hiển thị ca khác
+        const firstOffer = validOffers[0];
+        console.log('[WorkstationStore] Vào lại app / Đăng nhập: Mở modal ca hẹn trước #', firstOffer.bookingId);
+        get().triggerScheduledOffer(firstOffer, false);
+        return;
+      }
+
+      // 2. Khi đang thao tác trong app:
+      // Chỉ tự động nhảy lại modal khi thời gian còn lại <= 30% và chưa cảnh báo cho ca này
+      const warnedIds = get().warned30PercentOfferIds;
+
+      for (const offer of validOffers) {
+        const deadlineMs = offer.confirmDeadline ? new Date(offer.confirmDeadline).getTime() : 0;
+        if (!deadlineMs) continue;
+
+        const remainingSec = Math.max(0, Math.floor((deadlineMs - nowMs) / 1000));
+        // Mặc định tổng thời lượng xác nhận là 15 phút nếu không có createdAt
+        const createdAtMs = offer.createdAt ? Number(offer.createdAt) : deadlineMs - 15 * 60 * 1000;
+        const totalSec = Math.max(60, Math.floor((deadlineMs - createdAtMs) / 1000));
+        const ratio = remainingSec / totalSec;
+
+        // Nếu còn <= 30% thời gian phản hồi (chưa cảnh báo 30%)
+        if (ratio <= 0.3 && !warnedIds.includes(offer.bookingId)) {
+          console.log(`[WorkstationStore] Ca #${offer.bookingId} còn <= 30% thời gian (${remainingSec}s/${totalSec}s). Hiện modal cảnh báo khẩn cấp!`);
+          set((s) => ({
+            warned30PercentOfferIds: [...s.warned30PercentOfferIds, offer.bookingId],
+          }));
+          get().triggerScheduledOffer(offer, true);
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('[WorkstationStore] Lỗi kiểm tra ca hẹn trước:', e);
     }
   },
 }));

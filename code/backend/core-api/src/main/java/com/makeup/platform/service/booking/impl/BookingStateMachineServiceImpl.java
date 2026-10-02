@@ -34,6 +34,7 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -75,6 +76,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final WalletHoldRepository walletHoldRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final SimpMessagingTemplate messagingTemplate;
+
+    private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
     @Override
     @Transactional
@@ -227,11 +230,13 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 }
             }
 
-            // 5b. Release calendar slot upon cancellation
-            if (targetStatus == BookingStatus.CANCELLED) {
+            // 5b. Release calendar slot upon cancellation or expiration
+            if (targetStatus == BookingStatus.CANCELLED
+                    || targetStatus == BookingStatus.CANCELLED_EXPIRED) {
                 try {
                     muaCalendarService.releaseSlotByBookingId(savedBooking.getId());
-                    log.info("[StateMachine] Released calendar slots for bookingId={} upon cancellation", bookingId);
+                    log.info("[StateMachine] Released calendar slots for bookingId={} upon reaching terminal status {}",
+                            bookingId, targetStatus);
                 } catch (Exception ex) {
                     log.warn("[StateMachine] Failed to release calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
                 }
@@ -554,6 +559,12 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
+        Integer confirmTimeoutSeconds = null;
+        if (booking.getStatus() == BookingStatus.REQUESTED && booking.getConfirmDeadline() != null) {
+            long remaining = Duration.between(OffsetDateTime.now(VIETNAM_OFFSET), booking.getConfirmDeadline()).getSeconds();
+            confirmTimeoutSeconds = (int) Math.max(0, remaining);
+        }
+
         return BookingStatusDetailRes.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -587,6 +598,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .cancellationReason(booking.getCancellationReason())
                 .isDepositPaid(isDepositPaid)
                 .depositTimeoutSeconds(depositTimeoutSeconds)
+                .confirmDeadline(booking.getConfirmDeadline())
+                .confirmTimeoutSeconds(confirmTimeoutSeconds)
                 .inProgressElapsedSeconds(inProgressElapsedSeconds)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
                 .build();
@@ -615,7 +628,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         return false;
     }
 
-    private void refundDepositToCustomer(BookingEntity booking, String reason) {
+    @Override
+    public void refundDepositToCustomer(BookingEntity booking, String reason) {
         if (booking == null || booking.getCustomer() == null) {
             return;
         }

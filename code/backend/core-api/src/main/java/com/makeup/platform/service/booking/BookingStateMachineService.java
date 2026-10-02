@@ -5,6 +5,7 @@ import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
 import com.makeup.platform.dto.response.booking.BookingStatusDetailRes;
 
+import com.makeup.platform.entity.booking.BookingEntity;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface BookingStateMachineService {
@@ -14,4 +15,6 @@ public interface BookingStateMachineService {
     BookingCompletionPhotoRes uploadCompletionPhoto(Long bookingId, Long userId, MultipartFile file);
 
     BookingStatusDetailRes getBookingStatusDetail(Long bookingId);
+
+    void refundDepositToCustomer(BookingEntity booking, String reason);
 }

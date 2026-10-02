@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/customer/bookings")
@@ -64,5 +65,16 @@ public class CustomerScheduledBookingController extends BaseController {
                         + bookingId + "/deposit-intents")
                 .build();
         return ResponseEntity.status(HttpStatus.GONE).body(errorRes);
+    }
+
+    @PostMapping("/{bookingId}/cancel-requested")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Void>> cancelRequestedBooking(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long customerId = SecurityContextUtils.getCurrentUserId();
+        String reason = body != null ? body.get("reason") : null;
+        scheduledBookingService.cancelRequestedBookingByCustomer(bookingId, customerId, reason);
+        return ok(null, "booking.cancel_requested_success");
     }
 }

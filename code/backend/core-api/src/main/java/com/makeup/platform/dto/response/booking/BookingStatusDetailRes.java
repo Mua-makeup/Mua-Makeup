@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -49,6 +50,8 @@ public class BookingStatusDetailRes {
     private String cancellationReason;
     private Boolean isDepositPaid;
     private Integer depositTimeoutSeconds;
+    private OffsetDateTime confirmDeadline;
+    private Integer confirmTimeoutSeconds;
     private Integer inProgressElapsedSeconds;
     private LocalDateTime updatedAt;
 }

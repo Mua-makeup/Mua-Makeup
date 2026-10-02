@@ -58,6 +58,27 @@ export interface BookingCompletionPhotoRes {
   uploadedAt: string;
 }
 
+export interface ScheduledOfferItem {
+  bookingId: number;
+  bookingCode: string;
+  customerName: string;
+  customerPhone?: string;
+  customerAvatar?: string;
+  packageName?: string;
+  styleName?: string;
+  bookingDate: string;
+  startTime: string;
+  destinationAddress: string;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
+  totalAmount: number;
+  depositAmount: number;
+  earningsAmount: number;
+  confirmDeadline?: string;
+  confirmTimeoutSeconds?: number;
+  createdAt?: number;
+}
+
 export const freelancerBookingService = {
   /**
    * Lấy danh sách ca hẹn được chỉ định hoặc tiếp nhận của Thợ MUA
@@ -98,6 +119,32 @@ export const freelancerBookingService = {
     } catch {
       return null;
     }
+  },
+
+  /**
+   * Lấy danh sách ca đặt lịch hẹn trước đang chờ thợ xác nhận tiếp nhận
+   */
+  async getPendingScheduledOffers(): Promise<ScheduledOfferItem[]> {
+    try {
+      const response = await apiClient.get('/freelancer/bookings/scheduled/pending-offers');
+      return response.data?.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Thợ xác nhận tiếp nhận đơn đặt trước
+   */
+  async confirmScheduledBooking(bookingId: number): Promise<void> {
+    await apiClient.post(`/freelancer/bookings/${bookingId}/confirm-scheduled`);
+  },
+
+  /**
+   * Thợ từ chối đơn đặt trước (hoàn cọc tự động về ví khách)
+   */
+  async rejectScheduledBooking(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/freelancer/bookings/${bookingId}/reject-scheduled`, { reason });
   },
 
   /**

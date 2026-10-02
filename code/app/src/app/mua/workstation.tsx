@@ -44,6 +44,7 @@ export default function MuaWorkstationScreen() {
     { key: 'COMPLETED', label: 'Đã xong' },
   ];
 
+  const pendingRequestedJob = todayBookings.find((b) => b.status === 'REQUESTED');
   const activeJob = todayBookings.find((b) =>
     ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)
   );
@@ -73,8 +74,36 @@ export default function MuaWorkstationScreen() {
             {/* Header with Avatar & Online Switch */}
             <WorkstationHeader />
 
-            {/* Banner nổi bật khi Thợ đang có ca làm dang dở (1 Chạm Vào Ca Làm Ngay) */}
-            {activeJob && (
+            {/* Banner nổi bật khi có đơn hẹn mới đang chờ xác nhận */}
+            {pendingRequestedJob ? (
+              <TouchableOpacity
+                style={styles.pendingRequestedBanner}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/job-execution/${pendingRequestedJob.id}` as any)}
+              >
+                <View style={styles.pendingRequestedIconBox}>
+                  <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.pendingRequestedPulseDot} />
+                    <Text style={styles.pendingRequestedBadge}>
+                      LỊCH HẸN MỚI CHỜ TIẾP NHẬN
+                    </Text>
+                  </View>
+                  <Text style={styles.pendingRequestedTitle} numberOfLines={1}>
+                    {pendingRequestedJob.customerName} • Mã {pendingRequestedJob.bookingCode}
+                  </Text>
+                  <Text style={styles.pendingRequestedSub} numberOfLines={1}>
+                    {pendingRequestedJob.destinationAddress || 'Chạm để xem chi tiết và tiếp nhận đơn'}
+                  </Text>
+                </View>
+                <View style={styles.pendingRequestedBtn}>
+                  <Text style={styles.pendingRequestedBtnText}>Xem Ngay</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            ) : activeJob ? (
               <TouchableOpacity
                 style={styles.activeJobBanner}
                 activeOpacity={0.9}
@@ -93,22 +122,24 @@ export default function MuaWorkstationScreen() {
                         ? 'ĐÃ TỚI ĐIỂM HẸN KHÁCH HÀNG'
                         : activeJob.status === 'IN_PROGRESS'
                         ? 'ĐANG TRANG ĐIỂM CHO KHÁCH'
-                        : 'CA LÀM ĐÃ ĐƯỢC XÁC NHẬN'}
+                        : 'LỊCH HẸN ĐÃ XÁC NHẬN'}
                     </Text>
                   </View>
                   <Text style={styles.activeJobTitle} numberOfLines={1}>
                     {activeJob.customerName} • Mã {activeJob.bookingCode}
                   </Text>
                   <Text style={styles.activeJobSub} numberOfLines={1}>
-                    {activeJob.destinationAddress || 'Chạm để tiếp tục tiến trình ca làm việc'}
+                    {activeJob.destinationAddress || 'Chạm để xem chi tiết lịch hẹn'}
                   </Text>
                 </View>
                 <View style={styles.activeJobBtn}>
-                  <Text style={styles.activeJobBtnText}>Vào Ca</Text>
+                  <Text style={styles.activeJobBtnText}>
+                    {activeJob.status === 'ACCEPTED' ? 'Chi Tiết' : 'Tiến Trình'}
+                  </Text>
                   <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
-            )}
+            ) : null}
 
             {/* 3 Metric Stat Cards */}
             <WorkstationStatCards />
@@ -392,6 +423,74 @@ const styles = StyleSheet.create({
   activeJobBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '800',
+  },
+  pendingRequestedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 10,
+    marginBottom: 10,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#E11D48',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  pendingRequestedIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pendingRequestedPulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#FB7185',
+  },
+  pendingRequestedBadge: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#FDA4AF',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  pendingRequestedTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  pendingRequestedSub: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  pendingRequestedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pendingRequestedBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
     fontWeight: '800',
   },
 });

@@ -19,6 +19,8 @@ public interface BookingDepositService {
 
     BookingDepositStatusRes syncDepositPayment(Long bookingId, Long customerId);
 
+    BookingDepositStatusRes mockPayDeposit(Long bookingId, Long customerId);
+
     PaymentCheckoutRes createFinalPaymentIntent(Long bookingId, Long customerId,
                                                 CreateDepositIntentReq req,
                                                 String idempotencyKey, String clientIp);

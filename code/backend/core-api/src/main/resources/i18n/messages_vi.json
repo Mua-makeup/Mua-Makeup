@@ -168,7 +168,9 @@
     "create_success": "Tạo đơn hàng đặt lịch thành công!",
     "query_success": "Truy vấn thông tin đơn hàng thành công.",
     "skip_success": "Đã bỏ qua ca, hệ thống chuyển tiếp cho thợ tiếp theo.",
-    "status_retrieved": "Lấy thông tin trạng thái đơn hàng thành công."
+    "status_retrieved": "Lấy thông tin trạng thái đơn hàng thành công.",
+    "pending_offer_checked": "Kiểm tra đơn hàng chờ tiếp nhận thành công.",
+    "pending_scheduled_offers_checked": "Kiểm tra danh sách đơn đặt lịch hẹn chờ tiếp nhận thành công."
   },
   "ERR_USER_NOT_FOUND": "Không tìm thấy người dùng trong hệ thống.",
   "ERR_PHONE_ALREADY_EXISTS": "Số điện thoại đã được đăng ký tài khoản.",
@@ -548,7 +550,11 @@
     "deposit_intent_created": "Tạo yêu cầu thanh toán cọc thành công.",
     "deposit_status_retrieved": "Lấy trạng thái cọc thành công.",
     "deposit_deprecated": "Endpoint xác nhận cọc trực tiếp đã bị vô hiệu hóa. Vui lòng tạo yêu cầu thanh toán qua deposit-intents.",
-    "deposit_not_paid": "Không thể bắt đầu di chuyển: Khách hàng chưa hoàn tất thanh toán cọc."
+    "deposit_not_paid": "Không thể bắt đầu di chuyển: Khách hàng chưa hoàn tất thanh toán cọc.",
+    "confirm_scheduled_success": "Chuyên viên xác nhận nhận ca hẹn trước thành công!",
+    "reject_scheduled_success": "Từ chối tiếp nhận ca hẹn trước thành công.",
+    "cancel_requested_success": "Hủy ca hẹn thành công. Tiền cọc đã được hoàn về Ví của bạn.",
+    "confirm_deadline_expired": "Ca hẹn đã quá thời hạn xác nhận và đã tự động bị hủy."
   },
   "customer_address": {
     "fetch_success": "Lấy danh sách địa chỉ thân quen thành công.",

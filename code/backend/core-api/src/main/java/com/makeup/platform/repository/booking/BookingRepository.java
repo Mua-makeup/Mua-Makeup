@@ -22,6 +22,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -103,6 +104,19 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
     List<BookingEntity> findByAgencyIdOrderByCreatedAtDesc(Long agencyId);
 
     List<BookingEntity> findByStatus(BookingStatus status);
+
+    @Query("""
+            SELECT b FROM BookingEntity b
+            LEFT JOIN FETCH b.customer c
+            LEFT JOIN FETCH b.servicePackage sp
+            LEFT JOIN FETCH b.style st
+            WHERE b.mua.id = :muaId
+              AND b.bookingType = com.makeup.platform.entity.booking.BookingType.SCHEDULED
+              AND b.status = com.makeup.platform.entity.booking.BookingStatus.REQUESTED
+              AND (b.confirmDeadline IS NULL OR b.confirmDeadline > CURRENT_TIMESTAMP)
+            ORDER BY b.confirmDeadline ASC NULLS LAST, b.createdAt ASC
+            """)
+    List<BookingEntity> findPendingRequestedScheduledBookingsByMuaId(@Param("muaId") Long muaId);
 
     boolean existsByCustomerIdAndBookingTypeAndStatusIn(
             Long customerId,
@@ -226,4 +240,12 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
 
     @Query("SELECT MAX(b.id) FROM BookingEntity b WHERE b.bookingType = :type AND b.status = :status")
     Long findPendingScanUpperBound(@Param("type") BookingType type, @Param("status") BookingStatus status);
+
+    @Query("""
+            SELECT b FROM BookingEntity b
+            WHERE b.status = com.makeup.platform.entity.booking.BookingStatus.REQUESTED
+              AND b.confirmDeadline IS NOT NULL
+              AND b.confirmDeadline < :now
+            """)
+    List<BookingEntity> findExpiredRequestedBookings(@Param("now") OffsetDateTime now);
 }

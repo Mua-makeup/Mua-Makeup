@@ -159,10 +159,11 @@ export default function CreateBookingScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const newBooking = await submitBooking();
+      const newBooking: any = await submitBooking();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (newBooking?.id) {
-        router.replace(`/booking/deposit/${newBooking.id}` as any);
+      const targetBookingId = newBooking?.id || newBooking?.bookingId || newBooking?.booking_id;
+      if (targetBookingId) {
+        router.replace(`/booking/deposit/${targetBookingId}` as any);
       } else {
         router.replace('/bookings');
       }

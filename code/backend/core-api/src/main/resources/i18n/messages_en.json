@@ -168,7 +168,9 @@
     "create_success": "Booking created successfully!",
     "query_success": "Booking details retrieved successfully.",
     "skip_success": "Booking skipped, cascaded to next candidate MUA.",
-    "status_retrieved": "Booking status retrieved successfully."
+    "status_retrieved": "Booking status retrieved successfully.",
+    "pending_offer_checked": "Pending instant booking offer retrieved successfully.",
+    "pending_scheduled_offers_checked": "Pending scheduled booking offers retrieved successfully."
   },
   "ERR_USER_NOT_FOUND": "User not found.",
   "ERR_PHONE_ALREADY_EXISTS": "Phone number is already registered.",
@@ -542,7 +544,11 @@
     "deposit_intent_created": "Deposit intent created successfully.",
     "deposit_status_retrieved": "Deposit status retrieved successfully.",
     "deposit_deprecated": "Direct deposit confirmation endpoint has been deprecated. Please use deposit-intents API.",
-    "deposit_not_paid": "Cannot start trip: Customer deposit has not been paid."
+    "deposit_not_paid": "Cannot start trip: Customer deposit has not been paid.",
+    "confirm_scheduled_success": "Scheduled booking confirmed successfully!",
+    "reject_scheduled_success": "Scheduled booking rejected successfully.",
+    "cancel_requested_success": "Booking cancelled successfully. Deposit refunded to your wallet.",
+    "confirm_deadline_expired": "This booking has exceeded the confirmation deadline and has been expired."
   },
   "customer_address": {
     "fetch_success": "Saved addresses fetched successfully.",

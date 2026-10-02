@@ -3,6 +3,7 @@ import { CreateBookingFormValues } from '@/schemas/booking-create.schema';
 import { CreateInstantBookingPayload } from '@/schemas/instant-booking.schema';
 
 export type BookingStatusType =
+  | 'PENDING_DEPOSIT'
   | 'REQUESTED'
   | 'PENDING_AGENCY_DISPATCH'
   | 'AGENCY_ASSIGNED'
@@ -15,6 +16,61 @@ export type BookingStatusType =
   | 'CANCELLED'
   | 'EXPIRED'
   | 'DISPUTED';
+
+export interface ScheduledBookingCreatedRes {
+  bookingId?: number;
+  booking_id?: number;
+  id?: number;
+  bookingCode?: string;
+  booking_code?: string;
+  status: BookingStatusType;
+  depositExpiredAt?: string;
+  deposit_expired_at?: string;
+  bookingType?: string;
+  booking_type?: string;
+  bookingPartner?: string;
+  booking_partner?: string;
+  bookingDate?: string;
+  booking_date?: string;
+  startTime?: string;
+  start_time?: string;
+  estimatedEndTime?: string;
+  estimated_end_time?: string;
+  packageName?: string;
+  package_name?: string;
+  scheduleSummary?: string;
+  schedule_summary?: string;
+  totalAmount?: number;
+  total_amount?: number;
+  depositAmount?: number;
+  deposit_amount?: number;
+  assignedMua?: {
+    muaId?: number;
+    mua_id?: number;
+    fullName?: string;
+    full_name?: string;
+    phoneNumber?: string;
+    phone_number?: string;
+    avatarUrl?: string;
+    avatar_url?: string;
+  };
+  financialSummary?: {
+    serviceSubtotal?: number;
+    service_subtotal?: number;
+    distanceFee?: number;
+    distance_fee?: number;
+    surchargeFee?: number;
+    surcharge_fee?: number;
+    discountAmount?: number;
+    discount_amount?: number;
+    totalAmount?: number;
+    total_amount?: number;
+    depositAmount?: number;
+    deposit_amount?: number;
+    remainingAmount?: number;
+    remaining_amount?: number;
+  };
+}
 
 export interface InstantBookingCreatedRes {
   bookingId: number;
@@ -90,6 +146,8 @@ export interface BookingStatusDetailRes {
   completionPhotoUrl?: string;
   isDepositPaid?: boolean;
   depositTimeoutSeconds?: number;
+  confirmDeadline?: string;
+  confirmTimeoutSeconds?: number;
   inProgressElapsedSeconds?: number;
   cancellationReason?: string;
   updatedAt: string;
@@ -112,9 +170,15 @@ export const bookingService = {
   /**
    * Tạo đơn đặt lịch theo hẹn thông thường
    */
-  async createScheduledBooking(payload: CreateBookingFormValues): Promise<CustomerBookingItem> {
+  async createScheduledBooking(payload: CreateBookingFormValues): Promise<ScheduledBookingCreatedRes & { id: number; bookingId: number }> {
     const response = await apiClient.post('/customer/bookings', payload);
-    return response.data.data;
+    const data = response.data?.data || {};
+    const bookingId = Number(data.booking_id || data.bookingId || data.id || 0);
+    return {
+      ...data,
+      id: bookingId,
+      bookingId,
+    };
   },
 
   /**
@@ -164,6 +228,15 @@ export const bookingService = {
       targetStatus: 'CANCELLED',
       reason: finalReason,
       reasonText: finalReason,
+    });
+  },
+
+  /**
+   * Khách hàng hủy đơn hẹn đang chờ chuyên viên xác nhận & hoàn cọc tự động về ví
+   */
+  async cancelRequestedBooking(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/cancel-requested`, {
+      reason: reason?.trim() || 'Khách hàng hủy ca khi chuyên viên chưa xác nhận',
     });
   },
 

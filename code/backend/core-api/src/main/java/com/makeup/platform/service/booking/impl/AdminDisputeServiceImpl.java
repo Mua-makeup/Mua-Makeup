@@ -23,6 +23,7 @@ import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.booking.AdminDisputeService;
 import com.makeup.platform.service.booking.BookingAuditService;
+import com.makeup.platform.service.mua.MUACalendarService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +60,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     private final BookingSettlementService bookingSettlementService;
     private final AdminDisputeMapper adminDisputeMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MUACalendarService muaCalendarService;
 
     @Override
     @Transactional(readOnly = true)
@@ -279,6 +281,16 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 mua.setAvailabilityStatus(AvailabilityStatus.OFFLINE);
             }
             muaProfileRepository.save(mua);
+        }
+
+        // 3b. Release calendar slot if dispute cancelled booking
+        if (targetStatus == BookingStatus.CANCELLED) {
+            try {
+                muaCalendarService.releaseSlotByBookingId(savedBooking.getId());
+                log.info("[AdminDispute] Released calendar slots for bookingId={} upon dispute refund cancellation", bookingId);
+            } catch (Exception ex) {
+                log.warn("[AdminDispute] Failed to release calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
+            }
         }
 
         // 4. Audit transition

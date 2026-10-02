@@ -55,6 +55,75 @@ export default function CustomerBookingDetailScreen() {
   // Modal Phóng to ảnh nghiệm thu
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
 
+  // Bộ đếm đếm ngược chuyên viên phản hồi (REQUESTED)
+  const [confirmSecondsRemaining, setConfirmSecondsRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    if (bookingDetail?.status === 'REQUESTED') {
+      let initialSeconds = bookingDetail.confirmTimeoutSeconds || 0;
+      if (!initialSeconds && bookingDetail.confirmDeadline) {
+        const deadlineMs = new Date(bookingDetail.confirmDeadline).getTime();
+        const nowMs = Date.now();
+        initialSeconds = Math.max(0, Math.floor((deadlineMs - nowMs) / 1000));
+      }
+      setConfirmSecondsRemaining(initialSeconds);
+    }
+  }, [bookingDetail?.status, bookingDetail?.confirmTimeoutSeconds, bookingDetail?.confirmDeadline]);
+
+  useEffect(() => {
+    if (bookingDetail?.status !== 'REQUESTED' || confirmSecondsRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setConfirmSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          loadBookingData(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [bookingDetail?.status, confirmSecondsRemaining]);
+
+  const formatCountdown = (seconds: number) => {
+    if (seconds <= 0) return '00:00';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}h ${minutes.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+    }
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleCancelRequested = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Hủy Đơn & Hoàn Cọc',
+      'Bạn có chắc chắn muốn hủy đơn hẹn đang chờ chuyên viên xác nhận? Toàn bộ 100% tiền cọc sẽ được hoàn trả về ví tài khoản của bạn ngay lập tức.',
+      [
+        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        {
+          text: 'Xác Nhận Hủy',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoading(true);
+              await bookingService.cancelRequestedBooking(bookingId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Thành Công', 'Đã hủy đơn hẹn và hoàn tiền cọc vào ví của bạn thành công.');
+              await loadBookingData(true);
+            } catch (err: any) {
+              Alert.alert('Lỗi Hủy Đơn', err?.response?.data?.message || err?.message || 'Không thể hủy đơn hẹn.');
+            } finally {
+              setIsLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const loadBookingData = async (refresh = false) => {
     if (!bookingId) return;
     if (refresh) setIsRefreshing(true);
@@ -122,8 +191,10 @@ export default function CustomerBookingDetailScreen() {
 
   const getStatusBadge = (status?: BookingStatusType) => {
     switch (status) {
+      case 'PENDING_DEPOSIT':
+        return { label: 'Chờ Đặt Cọc', color: '#D97706', bg: '#FEF3C7', icon: 'card-outline' };
       case 'REQUESTED':
-        return { label: 'Chờ Xác Nhận', color: '#D97706', bg: '#FEF3C7', icon: 'hourglass-outline' };
+        return { label: 'Chờ Chuyên Viên Tiếp Nhận', color: '#D97706', bg: '#FEF3C7', icon: 'hourglass-outline' };
       case 'PENDING_AGENCY_DISPATCH':
         return { label: 'Đang Điều Thợ', color: '#D97706', bg: '#FEF3C7', icon: 'sync-outline' };
       case 'AGENCY_ASSIGNED':
@@ -350,17 +421,92 @@ export default function CustomerBookingDetailScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.statusBannerTitle, { color: badge.color }]}>{badge.label}</Text>
               <Text style={styles.statusBannerDesc}>
+                {bookingDetail.status === 'PENDING_DEPOSIT' && 'Đơn hàng đang chờ thanh toán đặt cọc 30% để xác nhận giữ chỗ'}
                 {bookingDetail.status === 'ON_THE_WAY' && 'Chuyên viên MUA đang trên đường tới điểm hẹn'}
                 {bookingDetail.status === 'ARRIVED' && 'Chuyên viên đã đến điểm hẹn, sẵn sàng đồ nghề'}
                 {bookingDetail.status === 'IN_PROGRESS' && 'Đang trong quá trình thực hiện gói trang điểm'}
                 {bookingDetail.status === 'COMPLETED' && 'Ca trang điểm đã hoàn thành xuất sắc'}
                 {bookingDetail.status === 'ACCEPTED' && (bookingDetail.isDepositPaid ? 'Đã đặt cọc, chờ thợ khởi hành' : 'Vui lòng thanh toán cọc để giữ lịch thợ')}
-                {bookingDetail.status === 'REQUESTED' && 'Hệ thống đang điều phối chuyên viên phù hợp nhất'}
+                {bookingDetail.status === 'REQUESTED' && 'Khoản cọc 30% đã được bảo chứng an toàn trong Quỹ Escrow. Đang chờ chuyên viên tiếp nhận ca hẹn.'}
                 {isCancelled && (bookingDetail.cancellationReason || 'Đơn đã hủy theo yêu cầu')}
               </Text>
             </View>
           </View>
         </View>
+
+        {/* BANNER HÀNH ĐỘNG ĐẶT CỌC DÀNH CHO ĐƠN PENDING_DEPOSIT */}
+        {bookingDetail.status === 'PENDING_DEPOSIT' && (
+          <View style={styles.pendingDepositCtaCard}>
+            <View style={styles.pendingDepositCtaHeader}>
+              <View style={styles.pendingDepositCtaIconWrap}>
+                <Ionicons name="shield-checkmark" size={24} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingDepositCtaTitle}>Cần Đặt Cọc 30% Giữ Chỗ</Text>
+                <Text style={styles.pendingDepositCtaSubtitle}>
+                  Chuyên viên đã được tạm giữ lịch. Vui lòng thanh toán cọc trong 15 phút để bảo chứng đơn.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.pendingDepositCtaAmountBox}>
+              <Text style={styles.pendingDepositCtaAmountLabel}>Số tiền cọc Escrow (30%):</Text>
+              <Text style={styles.pendingDepositCtaAmountValue}>
+                {formatPrice(bookingDetail.depositAmount || Math.round((bookingDetail.totalAmount || 0) * 0.3))}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.pendingDepositCtaBtn}
+              onPress={() => router.push(`/booking/deposit/${bookingId}` as any)}
+              activeOpacity={0.88}
+            >
+              <Ionicons name="card-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.pendingDepositCtaBtnText}>Thanh Toán Cọc Ngay</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* BANNER ĐANG CHỜ CHUYÊN VIÊN TIẾP NHẬN DÀNH CHO ĐƠN REQUESTED */}
+        {bookingDetail.status === 'REQUESTED' && (
+          <View style={styles.pendingRequestedCtaCard}>
+            <View style={styles.pendingRequestedHeader}>
+              <View style={styles.pendingRequestedIconWrap}>
+                <Ionicons name="hourglass" size={24} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingRequestedTitle}>Chờ Chuyên Viên Tiếp Nhận</Text>
+                <Text style={styles.pendingRequestedSubtitle}>
+                  Khoản cọc 30% đã được khóa bảo chứng an toàn trong Quỹ Escrow. Chuyên viên đang kiểm tra lịch hẹn.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.pendingRequestedTimerBox}>
+              <View style={styles.pendingRequestedTimerLeft}>
+                <Ionicons name="time-outline" size={18} color="#B45309" />
+                <Text style={styles.pendingRequestedTimerLabel}>Thời gian phản hồi còn lại:</Text>
+              </View>
+              <Text style={styles.pendingRequestedTimerValue}>
+                {formatCountdown(confirmSecondsRemaining)}
+              </Text>
+            </View>
+
+            <Text style={styles.pendingRequestedNote}>
+              Nếu chuyên viên không xác nhận trước khi hết giờ, hệ thống sẽ tự động hủy đơn và hoàn 100% tiền cọc về ví tài khoản của bạn.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.cancelRequestedBtn}
+              onPress={handleCancelRequested}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+              <Text style={styles.cancelRequestedBtnText}>Hủy Chờ & Rút Cọc Về Ví Ngay</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* LỘ TRÌNH TIẾN ĐỘ THỰC HIỆN (STEPPER) */}
         {!isCancelled && (
@@ -807,15 +953,16 @@ export default function CustomerBookingDetailScreen() {
 
         {/* NÚT HỦY ĐƠN (NẾU CÒN Ở GIAI ĐOẠN ĐẶT HOẶC CHỜ CỌC) */}
         {(bookingDetail.status === 'REQUESTED' ||
+          bookingDetail.status === 'PENDING_DEPOSIT' ||
           (bookingDetail.status === 'ACCEPTED' && !bookingDetail.isDepositPaid)) && (
-          <TouchableOpacity
-            style={styles.secondaryCancelBtn}
-            onPress={() => setIsCancelModalVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.secondaryCancelBtnText}>Hủy Lịch Hẹn</Text>
-          </TouchableOpacity>
-        )}
+            <TouchableOpacity
+              style={styles.secondaryCancelBtn}
+              onPress={() => setIsCancelModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.secondaryCancelBtnText}>Hủy Lịch Hẹn</Text>
+            </TouchableOpacity>
+          )}
       </View>
 
       {/* MODAL HỦY ĐƠN */}
@@ -1720,5 +1867,173 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
+  },
+  pendingDepositCtaCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  pendingDepositCtaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  pendingDepositCtaIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingDepositCtaTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  pendingDepositCtaSubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  pendingDepositCtaAmountBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pendingDepositCtaAmountLabel: {
+    fontSize: 13,
+    color: '#78350F',
+    fontWeight: '600',
+  },
+  pendingDepositCtaAmountValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: BrandColors.primary,
+  },
+  pendingDepositCtaBtn: {
+    backgroundColor: BrandColors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+    shadowColor: BrandColors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  pendingDepositCtaBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  pendingRequestedCtaCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  pendingRequestedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  pendingRequestedIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingRequestedTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  pendingRequestedSubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  pendingRequestedTimerBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pendingRequestedTimerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pendingRequestedTimerLabel: {
+    fontSize: 13,
+    color: '#78350F',
+    fontWeight: '600',
+  },
+  pendingRequestedTimerValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#D97706',
+    fontVariant: ['tabular-nums'],
+  },
+  pendingRequestedNote: {
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+    marginBottom: 14,
+    fontStyle: 'italic',
+  },
+  cancelRequestedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelRequestedBtnText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

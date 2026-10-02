@@ -24,6 +24,8 @@ const STEPS: StepItem[] = [
 export const JobTimelineStep: React.FC<Props> = ({ currentStatus }) => {
   const getStepIndex = (status: BookingStatusType): number => {
     switch (status) {
+      case 'REQUESTED':
+      case 'PENDING_DEPOSIT':
       case 'ACCEPTED':
       case 'AGENCY_ASSIGNED':
         return 0; // Chưa bắt đầu nấc 1

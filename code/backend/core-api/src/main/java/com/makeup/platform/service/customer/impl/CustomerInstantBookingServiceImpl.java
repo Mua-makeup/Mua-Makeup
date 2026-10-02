@@ -47,9 +47,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import com.makeup.platform.service.mua.MUACalendarService;
 import java.math.RoundingMode;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -91,6 +91,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final ApplicationEventPublisher eventPublisher;
     private final BookingDepositRepository bookingDepositRepository;
     private final ObjectMapper objectMapper;
+    private final MUACalendarService muaCalendarService;
 
     @Override
     @Transactional
@@ -464,6 +465,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         // Giải phóng khóa thợ đang giữ (nếu có) và clear redis keys
         clearDispatchState(bookingId);
 
+        // Giải phóng slot khóa lịch nếu có
+        try {
+            muaCalendarService.releaseSlotByBookingId(bookingId);
+        } catch (Exception ex) {
+            log.warn("[InstantBookingTimeout] Failed to release calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
+        }
+
         // Audit log
         bookingAuditService.logTransition(savedBooking, BookingStatus.REQUESTED, BookingStatus.CANCELLED, null,
                 effectiveMessage);
@@ -546,6 +554,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         // Giải phóng khóa thợ đang giữ (nếu có) và clear redis keys
         clearDispatchState(bookingId);
+
+        // Giải phóng slot khóa lịch nếu có
+        try {
+            muaCalendarService.releaseSlotByBookingId(bookingId);
+        } catch (Exception ex) {
+            log.warn("[CustomerCancel] Failed to release calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
+        }
 
         // Audit log
         bookingAuditService.logTransition(savedBooking, previousStatus, BookingStatus.CANCELLED, customerUserId,

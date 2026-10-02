@@ -89,6 +89,8 @@ export default function HomeScreen() {
     selectedFilter,
     setFilter,
     fetchWorkstationData,
+    pendingScheduledOffers,
+    triggerScheduledOffer,
   } = useWorkstationStore();
 
   useEffect(() => {
@@ -130,10 +132,18 @@ export default function HomeScreen() {
     }, [isAuthenticated, isWorkstationRole, isCustomer])
   );
 
-  const activeCustomerTrip = upcomingBookings.find((b) =>
-    ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)
-  );
+  // Xác định đơn hàng active nổi bật của khách hàng theo thứ tự ưu tiên nghiệp vụ:
+  // 1. Chuyến đi / Đang làm việc: ON_THE_WAY, ARRIVED, IN_PROGRESS
+  // 2. Chờ khách đặt cọc 30%: PENDING_DEPOSIT
+  // 3. Đã đặt cọc Escrow 30% chờ thợ nhận: REQUESTED
+  // 4. Thợ đã tiếp nhận ca: ACCEPTED
+  const activeCustomerTrip =
+    upcomingBookings.find((b) => ['ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)) ||
+    upcomingBookings.find((b) => b.status === 'PENDING_DEPOSIT') ||
+    upcomingBookings.find((b) => b.status === 'REQUESTED') ||
+    upcomingBookings.find((b) => b.status === 'ACCEPTED');
 
+  const pendingRequestedJob = todayBookings.find((b) => b.status === 'REQUESTED');
   const activeMuaJob = todayBookings.find((b) =>
     ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)
   );
@@ -293,8 +303,45 @@ export default function HomeScreen() {
               <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
 
-            {/* Banner nổi bật khi Thợ đang có ca làm dang dở (1 Chạm Vào Ca Làm Ngay) */}
-            {activeMuaJob && (
+            {/* Banner nổi bật khi có đơn hẹn mới đang chờ xác nhận hoặc có ca làm */}
+            {pendingRequestedJob ? (
+              <TouchableOpacity
+                style={styles.pendingRequestedBanner}
+                activeOpacity={0.9}
+                onPress={() => {
+                  const matchingScheduled = pendingScheduledOffers?.find(
+                    (o) => o.bookingId === pendingRequestedJob.id
+                  );
+                  if (matchingScheduled) {
+                    triggerScheduledOffer(matchingScheduled, false);
+                  } else {
+                    router.push(`/job-execution/${pendingRequestedJob.id}` as any);
+                  }
+                }}
+              >
+                <View style={styles.pendingRequestedIconBox}>
+                  <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.pendingRequestedPulseDot} />
+                    <Text style={styles.pendingRequestedBadge}>
+                      LỊCH HẸN MỚI CHỜ TIẾP NHẬN
+                    </Text>
+                  </View>
+                  <Text style={styles.pendingRequestedTitle} numberOfLines={1}>
+                    {pendingRequestedJob.customerName} • Mã {pendingRequestedJob.bookingCode}
+                  </Text>
+                  <Text style={styles.pendingRequestedSub} numberOfLines={1}>
+                    {pendingRequestedJob.destinationAddress || 'Chạm để xem chi tiết và tiếp nhận đơn'}
+                  </Text>
+                </View>
+                <View style={styles.pendingRequestedBtn}>
+                  <Text style={styles.pendingRequestedBtnText}>Xem Ngay</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            ) : activeMuaJob ? (
               <TouchableOpacity
                 style={styles.activeJobBanner}
                 activeOpacity={0.9}
@@ -313,22 +360,24 @@ export default function HomeScreen() {
                         ? 'ĐÃ TỚI ĐIỂM HẸN KHÁCH HÀNG'
                         : activeMuaJob.status === 'IN_PROGRESS'
                         ? 'ĐANG TRANG ĐIỂM CHO KHÁCH'
-                        : 'CA LÀM ĐÃ ĐƯỢC XÁC NHẬN'}
+                        : 'LỊCH HẸN ĐÃ XÁC NHẬN'}
                     </Text>
                   </View>
                   <Text style={styles.activeJobTitle} numberOfLines={1}>
                     {activeMuaJob.customerName} • Mã {activeMuaJob.bookingCode}
                   </Text>
                   <Text style={styles.activeJobSub} numberOfLines={1}>
-                    {activeMuaJob.destinationAddress || 'Chạm để tiếp tục tiến trình ca làm việc'}
+                    {activeMuaJob.destinationAddress || 'Chạm để xem chi tiết lịch hẹn'}
                   </Text>
                 </View>
                 <View style={styles.activeJobBtn}>
-                  <Text style={styles.activeJobBtnText}>Vào Ca</Text>
+                  <Text style={styles.activeJobBtnText}>
+                    {activeMuaJob.status === 'ACCEPTED' ? 'Chi Tiết' : 'Tiến Trình'}
+                  </Text>
                   <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
-            )}
+            ) : null}
 
             {/* Bộ lọc Ca Làm Hôm Nay */}
             <View style={styles.workstationSectionHeader}>
@@ -397,7 +446,7 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* BANNER THEO DÕI XE THỢ REALTIME DÀNH CHO KHÁCH (NẾU ĐANG CÓ CHUYẾN ĐI) */}
+            {/* BANNER THEO DÕI ĐƠN HÀNG / TRẠNG THÁI TIẾN ĐỘ REALTIME DÀNH CHO KHÁCH */}
             {activeCustomerTrip && (
               <TouchableOpacity
                 style={styles.activeTripBanner}
@@ -405,23 +454,58 @@ export default function HomeScreen() {
                 onPress={() => {
                   if (activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid) {
                     router.push(`/booking/instant-matched/${activeCustomerTrip.id}` as any);
+                  } else if (['PENDING_DEPOSIT', 'REQUESTED', 'ACCEPTED'].includes(activeCustomerTrip.status)) {
+                    router.push(`/booking/detail/${activeCustomerTrip.id}` as any);
                   } else {
                     router.push(`/booking/tracking/${activeCustomerTrip.id}` as any);
                   }
                 }}
               >
-                <View style={[styles.activeTripIconBox, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' }]}>
+                <View
+                  style={[
+                    styles.activeTripIconBox,
+                    activeCustomerTrip.status === 'PENDING_DEPOSIT' && { backgroundColor: '#D97706' },
+                    activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
+                    activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
+                  ]}
+                >
                   <Ionicons
-                    name={activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid ? 'card' : 'navigate'}
+                    name={
+                      activeCustomerTrip.status === 'PENDING_DEPOSIT'
+                        ? 'wallet'
+                        : activeCustomerTrip.status === 'REQUESTED'
+                        ? 'shield-checkmark'
+                        : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
+                        ? 'card'
+                        : 'navigate'
+                    }
                     size={20}
                     color="#FFFFFF"
                   />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={[styles.activePulseDot, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#F59E0B' }]} />
-                    <Text style={[styles.activeTripBadge, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { color: '#D97706' }]}>
-                      {activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
+                    <View
+                      style={[
+                        styles.activePulseDot,
+                        activeCustomerTrip.status === 'PENDING_DEPOSIT' && { backgroundColor: '#F59E0B' },
+                        activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#10B981' },
+                        activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#F59E0B' },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.activeTripBadge,
+                        activeCustomerTrip.status === 'PENDING_DEPOSIT' && { color: '#F59E0B' },
+                        activeCustomerTrip.status === 'REQUESTED' && { color: '#34D399' },
+                        activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { color: '#F59E0B' },
+                      ]}
+                    >
+                      {activeCustomerTrip.status === 'PENDING_DEPOSIT'
+                        ? 'ĐƠN HẸN CHỜ ĐẶT CỌC 30%'
+                        : activeCustomerTrip.status === 'REQUESTED'
+                        ? 'ĐÃ CỌC ESCROW 30% • CHỜ THỢ XÁC NHẬN'
+                        : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
                         ? 'THỢ ĐÃ NHẬN • CHỜ BẠN ĐẶT CỌC'
                         : activeCustomerTrip.status === 'ON_THE_WAY'
                         ? 'THỢ ĐANG TRÊN ĐƯỜNG ĐẾN'
@@ -429,21 +513,40 @@ export default function HomeScreen() {
                         ? 'THỢ ĐÃ TỚI ĐIỂM HẸN'
                         : activeCustomerTrip.status === 'IN_PROGRESS'
                         ? 'ĐANG TRANG ĐIỂM'
-                        : 'CHUYÊN VIÊN ĐÃ NHẬN CA'}
+                        : 'CHUYÊN VIÊN ĐÃ TIẾP NHẬN CA'}
                     </Text>
                   </View>
                   <Text style={styles.activeTripTitle} numberOfLines={1}>
-                    {activeCustomerTrip.muaName || 'Chuyên viên make-up'} • Mã {activeCustomerTrip.bookingCode}
+                    {activeCustomerTrip.packageName || 'Make-up chuyên nghiệp'} • {activeCustomerTrip.muaName ? 'Thợ: ' + activeCustomerTrip.muaName : 'Mã: ' + activeCustomerTrip.bookingCode}
                   </Text>
                   <Text style={styles.activeTripSub} numberOfLines={1}>
-                    {activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
+                    {activeCustomerTrip.status === 'PENDING_DEPOSIT'
+                      ? 'Vui lòng hoàn tất cọc 30% trong 15 phút để bảo lưu lịch hẹn'
+                      : activeCustomerTrip.status === 'REQUESTED'
+                      ? 'Tiền cọc đã bảo chứng an toàn. Chuyên viên đang phản hồi.'
+                      : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
                       ? 'Chạm để kiểm tra thợ & thanh toán cọc giữ chỗ 30%'
                       : activeCustomerTrip.destinationAddress || 'Chạm để theo dõi trực tiếp vị trí Live GPS'}
                   </Text>
                 </View>
-                <View style={[styles.activeTripBtn, activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' }]}>
+                <View
+                  style={[
+                    styles.activeTripBtn,
+                    activeCustomerTrip.status === 'PENDING_DEPOSIT' && { backgroundColor: '#D97706' },
+                    activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
+                    activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
+                  ]}
+                >
                   <Text style={styles.activeTripBtnText}>
-                    {activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid ? 'Đặt Cọc' : 'Theo Dõi'}
+                    {activeCustomerTrip.status === 'PENDING_DEPOSIT'
+                      ? 'Đặt Cọc'
+                      : activeCustomerTrip.status === 'REQUESTED'
+                      ? 'Xem Chi Tiết'
+                      : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
+                      ? 'Đặt Cọc'
+                      : activeCustomerTrip.status === 'ACCEPTED'
+                      ? 'Xem Lịch'
+                      : 'Theo Dõi'}
                   </Text>
                   <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
                 </View>
@@ -2039,6 +2142,74 @@ const styles = StyleSheet.create({
   activeJobBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '800',
+  },
+  pendingRequestedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 10,
+    marginBottom: 10,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#E11D48',
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  pendingRequestedIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#E11D48',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pendingRequestedPulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#FB7185',
+  },
+  pendingRequestedBadge: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#FDA4AF',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  pendingRequestedTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  pendingRequestedSub: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  pendingRequestedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 4,
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pendingRequestedBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
     fontWeight: '800',
   },
 });

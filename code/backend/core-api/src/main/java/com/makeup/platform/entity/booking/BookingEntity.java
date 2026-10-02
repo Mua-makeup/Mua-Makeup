@@ -144,6 +144,9 @@ public class BookingEntity extends BaseEntity {
     @Column(name = "deposit_expired_at")
     private OffsetDateTime depositExpiredAt;
 
+    @Column(name = "confirm_deadline")
+    private OffsetDateTime confirmDeadline;
+
     @Column(name = "reminder_24h_sent", nullable = false)
     @Builder.Default
     private Boolean reminder24hSent = false;

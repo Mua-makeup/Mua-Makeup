@@ -12,8 +12,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
 import { AccountModal } from '@/components/common/AccountModal';
 import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
+import { ScheduledOfferModal } from '@/components/mua/ScheduledOfferModal';
 import { setupAlertPolyfill } from '@/store/popup.store';
 import { useWorkstationStore } from '@/store/workstation.store';
+import { useBookingStore } from '@/store/booking.store';
 
 // Kích hoạt hệ thống Luxury Popup tự động cho toàn bộ Alert.alert trong app
 setupAlertPolyfill();
@@ -47,8 +49,11 @@ export default function RootLayout() {
           Boolean(state.userInfo?.muaId);
 
         if (state.isAuthenticated && isMuaOrStaff) {
-          console.log('[_layout] App đã active, kiểm tra ngay ca khẩn cấp đang chờ...');
-          useWorkstationStore.getState().checkPendingOffer();
+          console.log('[_layout] App đã active, kiểm tra ca hẹn trước đang chờ...');
+          useWorkstationStore.getState().checkPendingScheduledOffers(true);
+        } else if (state.isAuthenticated) {
+          console.log('[_layout] App đã active, làm mới danh sách đơn của khách hàng...');
+          useBookingStore.getState().fetchMyBookings(true);
         }
       }
     });
@@ -91,6 +96,8 @@ export default function RootLayout() {
         <AccountModal />
         {/* Modal Ca Khẩn Cấp 30s Toàn Cục (Hiện ngay trên mọi màn hình khi mở app) */}
         <CountdownAcceptModal />
+        {/* Modal Lịch Hẹn Đặt Trước Toàn Cục (Hiện ngay khi khách cọc hoặc mở app) */}
+        <ScheduledOfferModal />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

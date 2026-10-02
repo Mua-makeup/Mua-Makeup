@@ -1,20 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { FreelancerBookingItem } from '@/services/freelancer-booking.service';
+import * as Haptics from 'expo-haptics';
+import { FreelancerBookingItem, freelancerBookingService } from '@/services/freelancer-booking.service';
 import { BookingStatusType } from '@/services/booking.service';
 import { formatBookingSchedule } from '@/utils/date';
+import { useWorkstationStore } from '@/store/workstation.store';
 
 interface Props {
   booking: FreelancerBookingItem;
 }
 
 export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
+  const { pendingScheduledOffers, triggerScheduledOffer, fetchWorkstationData } = useWorkstationStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const getStatusBadge = (status: BookingStatusType) => {
     switch (status) {
+      case 'REQUESTED':
+        return { label: 'Chờ Tiếp Nhận', bg: '#FFF1F2', text: '#E11D48', icon: 'hourglass-outline' };
       case 'ACCEPTED':
-        return { label: 'Đã Nhận Đơn', bg: '#EFF6FF', text: '#2563EB', icon: 'checkmark-circle' };
+        return { label: 'Đã Tiếp Nhận', bg: '#EFF6FF', text: '#2563EB', icon: 'checkmark-circle' };
       case 'ON_THE_WAY':
         return { label: 'Đang Di Chuyển', bg: '#FEF3C7', text: '#B45309', icon: 'navigate' };
       case 'ARRIVED':
@@ -60,12 +67,76 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
     });
   };
 
+  // Tiếp nhận ca hẹn đang chờ (REQUESTED)
+  const handleAcceptRequested = async () => {
+    if (isSubmitting) return;
+    const matchingOffer = pendingScheduledOffers?.find((o) => o.bookingId === booking.id);
+    if (matchingOffer) {
+      triggerScheduledOffer(matchingOffer);
+      return;
+    }
+
+    Alert.alert(
+      'Tiếp Nhận Ca Hẹn',
+      `Bạn có muốn tiếp nhận ca hẹn #${booking.bookingCode} của khách ${booking.customerName}?`,
+      [
+        { text: 'Để Sau', style: 'cancel' },
+        {
+          text: 'Tiếp Nhận',
+          onPress: async () => {
+            try {
+              setIsSubmitting(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              await freelancerBookingService.confirmScheduledBooking(booking.id);
+              await fetchWorkstationData();
+              Alert.alert('Thành Công', `Đã tiếp nhận ca hẹn #${booking.bookingCode}.`);
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.response?.data?.message || err.message);
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Từ chối ca hẹn đang chờ (REQUESTED)
+  const handleRejectRequested = () => {
+    if (isSubmitting) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Từ Chối Ca Hẹn',
+      `Bạn có chắc muốn từ chối ca hẹn #${booking.bookingCode}? Tiền cọc sẽ hoàn lại 100% cho khách hàng.`,
+      [
+        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        {
+          text: 'Từ Chối',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsSubmitting(true);
+              await freelancerBookingService.rejectScheduledBooking(booking.id, 'Thợ bận lịch không thể nhận');
+              await fetchWorkstationData();
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.response?.data?.message || err.message);
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const formatVnd = (amount: number) => {
     return (amount || 0).toLocaleString('vi-VN') + ' đ';
   };
 
+  const isRequested = booking.status === 'REQUESTED';
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, isRequested && styles.cardRequested]}>
       {/* Header: Mã đơn + Thời gian + Status badge */}
       <View style={styles.cardHeader}>
         <View style={styles.headerLeft}>
@@ -121,16 +192,54 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
         </View>
 
         <View style={styles.actionsGroup}>
-          <TouchableOpacity style={styles.mapBtn} onPress={handleOpenMaps}>
-            <Ionicons name="navigate-outline" size={15} color="#1E293B" />
-            <Text style={styles.mapBtnText}>Dẫn đường</Text>
-          </TouchableOpacity>
+          {isRequested ? (
+            /* Đơn chưa tiếp nhận: CHỈ hiện nút Từ Chối và Tiếp Nhận Ca (KHÔNG hiện Vào ca hay Dẫn đường) */
+            <>
+              <TouchableOpacity
+                style={styles.rejectCardBtn}
+                onPress={handleRejectRequested}
+                disabled={isSubmitting}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="close-circle-outline" size={14} color="#E11D48" />
+                <Text style={styles.rejectCardBtnText}>Từ chối</Text>
+              </TouchableOpacity>
 
-          {booking.status !== 'COMPLETED' && booking.status !== 'PAID_OUT' && booking.status !== 'CANCELLED' ? (
-            <TouchableOpacity style={styles.executeBtn} onPress={handleEnterJob}>
-              <Ionicons name="flash" size={14} color="#FFFFFF" />
-              <Text style={styles.executeBtnText}>Vào ca</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.acceptCardBtn}
+                onPress={handleAcceptRequested}
+                disabled={isSubmitting}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-circle-outline" size={15} color="#FFFFFF" />
+                <Text style={styles.acceptCardBtnText}>Tiếp nhận ca</Text>
+              </TouchableOpacity>
+            </>
+          ) : booking.status === 'ACCEPTED' ? (
+            /* Đơn đã tiếp nhận nhưng chưa tới giờ di chuyển */
+            <>
+              <TouchableOpacity style={styles.mapBtn} onPress={handleOpenMaps}>
+                <Ionicons name="navigate-outline" size={15} color="#1E293B" />
+                <Text style={styles.mapBtnText}>Dẫn đường</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.viewDetailBtn} onPress={handleEnterJob}>
+                <Text style={styles.viewDetailText}>Chi tiết ca</Text>
+              </TouchableOpacity>
+            </>
+          ) : booking.status === 'ON_THE_WAY' || booking.status === 'ARRIVED' || booking.status === 'IN_PROGRESS' ? (
+            /* Đang trong hành trình di chuyển hoặc đang trang điểm */
+            <>
+              <TouchableOpacity style={styles.mapBtn} onPress={handleOpenMaps}>
+                <Ionicons name="navigate-outline" size={15} color="#1E293B" />
+                <Text style={styles.mapBtnText}>Dẫn đường</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.executeBtn} onPress={handleEnterJob}>
+                <Ionicons name="flash" size={14} color="#FFFFFF" />
+                <Text style={styles.executeBtnText}>Tiến trình</Text>
+              </TouchableOpacity>
+            </>
           ) : (
             <TouchableOpacity style={styles.viewDetailBtn} onPress={handleEnterJob}>
               <Text style={styles.viewDetailText}>Chi tiết</Text>
@@ -328,5 +437,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#475569',
+  },
+  cardRequested: {
+    borderWidth: 1.5,
+    borderColor: '#FECDD3',
+    backgroundColor: '#FFFDFD',
+  },
+  rejectCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 10,
+    paddingVertical: 7.5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  rejectCardBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E11D48',
+  },
+  acceptCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 12,
+    paddingVertical: 7.5,
+    borderRadius: 10,
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  acceptCardBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

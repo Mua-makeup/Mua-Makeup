@@ -28,7 +28,7 @@ import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
 import { useWorkstationStore } from '@/store/workstation.store';
 import * as Location from 'expo-location';
-import { getTodayVN } from '@/utils/date';
+import { getTodayVN, formatDateVN } from '@/utils/date';
 
 function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth radius in meters
@@ -622,6 +622,64 @@ export default function JobExecutionScreen() {
     }
   };
 
+  const handleConfirmScheduled = async () => {
+    try {
+      setIsTransitioning(true);
+      await freelancerBookingService.confirmScheduledBooking(bookingId);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Tiếp Nhận Thành Công', 'Bạn đã đồng ý tiếp nhận ca hẹn này.');
+      await loadBookingDetail();
+      useWorkstationStore.getState().fetchWorkstationData();
+    } catch (err: any) {
+      Alert.alert('Lỗi Tiếp Nhận', err?.response?.data?.message || err?.message || 'Không thể tiếp nhận ca hẹn.');
+    } finally {
+      setIsTransitioning(false);
+    }
+  };
+
+  const handleRejectScheduled = () => {
+    Alert.alert(
+      'Từ Chối Đơn Hẹn',
+      'Bạn có chắc chắn muốn từ chối ca hẹn trang điểm này? Khoản tiền cọc bảo chứng sẽ được hoàn lại cho khách hàng.',
+      [
+        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        {
+          text: 'Từ Chối',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsTransitioning(true);
+              await freelancerBookingService.rejectScheduledBooking(bookingId, 'Thợ bận lịch đột xuất không thể nhận');
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              useWorkstationStore.getState().fetchWorkstationData();
+              navigateBackToWorkstation();
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể từ chối ca.');
+            } finally {
+              setIsTransitioning(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStartMoving = () => {
+    const isFutureDate = booking?.bookingDate && booking.bookingDate > getTodayVN();
+    if (isFutureDate) {
+      Alert.alert(
+        'Bắt Đầu Di Chuyển?',
+        `Ca hẹn này được lên lịch vào ngày ${formatDateVN(booking.bookingDate)} lúc ${booking.startTime || ''}. Bạn có chắc chắn muốn bắt đầu di chuyển ngay lúc này không?`,
+        [
+          { text: 'Chưa, Để Sau', style: 'cancel' },
+          { text: 'Bắt Đầu Đi Ngay', onPress: () => handleTransitionState('ON_THE_WAY') },
+        ]
+      );
+    } else {
+      handleTransitionState('ON_THE_WAY');
+    }
+  };
+
   const handleOpenMaps = () => {
     if (booking?.destinationLatitude && booking?.destinationLongitude) {
       Linking.openURL(
@@ -695,6 +753,7 @@ export default function JobExecutionScreen() {
 
   const isDisputeMode = currentStatus === 'ARRIVED' || currentStatus === 'IN_PROGRESS';
   const canCancelOrDispute =
+    currentStatus !== 'REQUESTED' &&
     currentStatus !== 'COMPLETED' &&
     currentStatus !== 'PAID_OUT' &&
     currentStatus !== 'CANCELLED' &&
@@ -717,6 +776,32 @@ export default function JobExecutionScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ========================================================================= */}
+        {/* GIAO DIỆN CHUYÊN BIỆT: YÊU CẦU ĐẶT HẸN TRƯỚC CHỜ THỢ XÁC NHẬN (REQUESTED)  */}
+        {/* ========================================================================= */}
+        {currentStatus === 'REQUESTED' && (
+          <View style={styles.waitingContainer}>
+            <View style={[styles.waitingTimerBox, { borderColor: '#FDE68A', backgroundColor: '#FFFBEB' }]}>
+              <View style={[styles.timerCircleBig, { borderColor: '#D97706', backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="calendar" size={28} color="#D97706" />
+                <Text style={[styles.timerBigNumber, { color: '#B45309', fontSize: 16, marginTop: 4 }]}>
+                  {booking?.bookingDate ? formatDateVN(booking.bookingDate) : 'Lịch Hẹn'}
+                </Text>
+                <Text style={[styles.timerBigUnit, { color: '#B45309' }]}>
+                  {booking?.startTime ? `Giờ: ${booking.startTime}` : 'Chờ Tiếp Nhận'}
+                </Text>
+              </View>
+
+              <Text style={[styles.waitingNoticeTitle, { color: '#92400E' }]}>
+                Khách hàng đã đặt cọc Escrow 30% và đang chờ bạn tiếp nhận!
+              </Text>
+              <Text style={styles.waitingNoticeSub}>
+                Khoản cọc đã được khóa bảo chứng an toàn. Vui lòng kiểm tra lịch trình và bấm TIẾP NHẬN CA HẸN bên dưới để xác nhận phục vụ khách hàng.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* ========================================================================= */}
         {/* GIAO DIỆN CHUYÊN BIỆT: CHỜ KHÁCH HÀNG KIỂM TRA ĐƠN & ĐẶT CỌC 30% (10 PHÚT)*/}
         {/* ========================================================================= */}
@@ -1041,7 +1126,37 @@ export default function JobExecutionScreen() {
 
       {/* Floating Bottom Action Bar based on current Status */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {currentStatus === 'ACCEPTED' && !isDepositPaid ? (
+        {currentStatus === 'REQUESTED' ? (
+          /* ========================================================================= */
+          /* NÚT HÀNH ĐỘNG KHI ĐƠN HẸN ĐANG CHỜ THỢ XÁC NHẬN (REQUESTED)                */
+          /* ========================================================================= */
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.cancelSecondaryBtn}
+              onPress={handleRejectScheduled}
+              disabled={isTransitioning}
+            >
+              <Ionicons name="close-circle-outline" size={16} color="#DC2626" />
+              <Text style={styles.cancelSecondaryBtnText}>Từ Chối</Text>
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                style={[styles.primaryActionBtn, { backgroundColor: '#059669' }, isTransitioning && styles.disabledBtn]}
+                onPress={handleConfirmScheduled}
+                disabled={isTransitioning}
+              >
+                {isTransitioning ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.btnText}>TIẾP NHẬN CA HẸN</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : currentStatus === 'ACCEPTED' && !isDepositPaid ? (
           /* ========================================================================= */
           /* NÚT HÀNH ĐỘNG KHI ĐANG CHỜ KHÁCH ĐẶT CỌC:                                 */
           /* Trong 10 phút: Khóa nút di chuyển, hiện "ĐANG CHỜ KHÁCH CỌC..."           */
@@ -1102,15 +1217,15 @@ export default function JobExecutionScreen() {
               {(currentStatus === 'ACCEPTED' || currentStatus === 'AGENCY_ASSIGNED') && (
                 <TouchableOpacity
                   style={[styles.primaryActionBtn, { backgroundColor: '#059669' }, isTransitioning && styles.disabledBtn]}
-                  onPress={() => handleTransitionState('ON_THE_WAY')}
+                  onPress={handleStartMoving}
                   disabled={isTransitioning}
                 >
                   {isTransitioning ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <>
-                      <Ionicons name="checkmark-done-circle" size={20} color="#FFFFFF" />
-                      <Text style={styles.btnText}>XÁC NHẬN ĐÃ CỌC & BẮT ĐẦU DI CHUYỂN (GPS)</Text>
+                      <Ionicons name="bicycle-outline" size={20} color="#FFFFFF" />
+                      <Text style={styles.btnText}>BẮT ĐẦU DI CHUYỂN (GPS)</Text>
                     </>
                   )}
                 </TouchableOpacity>

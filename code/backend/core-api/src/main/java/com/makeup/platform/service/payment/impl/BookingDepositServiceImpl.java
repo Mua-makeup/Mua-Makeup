@@ -2,12 +2,14 @@ package com.makeup.platform.service.payment.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.common.utils.BookingConfirmationTimeoutHelper;
 import com.makeup.platform.dto.request.payment.CreateDepositIntentReq;
 import com.makeup.platform.dto.response.payment.BookingDepositStatusRes;
 import com.makeup.platform.dto.response.payment.PaymentCheckoutRes;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.booking.BookingType;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.entity.payment.PaymentTransactionEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
@@ -19,6 +21,7 @@ import com.makeup.platform.repository.payment.PaymentTransactionRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.LedgerEntryRepository;
+import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.payment.BookingDepositService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayRegistry;
@@ -39,6 +42,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +72,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     private final SimpMessagingTemplate messagingTemplate;
     private final StringRedisTemplate stringRedisTemplate;
     private final BookingSettlementService bookingSettlementService;
+    private final BookingAuditService bookingAuditService;
 
     @Override
     @Transactional
@@ -280,6 +285,48 @@ public class BookingDepositServiceImpl implements BookingDepositService {
 
     @Override
     @Transactional
+    public BookingDepositStatusRes mockPayDeposit(Long bookingId, Long customerId) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (!booking.getCustomer().getId().equals(customerId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
+                    "booking.access_denied", HttpStatus.FORBIDDEN);
+        }
+
+        BookingDepositEntity deposit = bookingDepositRepository.findByBookingIdWithLock(bookingId)
+                .orElseGet(() -> createBookingDeposit(booking));
+
+        if ("PAID".equals(deposit.getStatus())) {
+            return getDepositStatus(bookingId, customerId);
+        }
+
+        String paymentCode = generatePaymentCode();
+        PaymentTransactionEntity mockPayment = PaymentTransactionEntity.builder()
+                .paymentCode(paymentCode)
+                .user(booking.getCustomer())
+                .booking(booking)
+                .paymentGateway("MOMO_SIMULATED")
+                .amount(deposit.getRequiredAmount())
+                .status("SUCCESS")
+                .walletPostingStatus("NOT_POSTED")
+                .purpose("BOOKING_DEPOSIT")
+                .pricingVersion(deposit.getPricingVersion())
+                .applicationStatus("PENDING")
+                .paidAt(OffsetDateTime.now(VIETNAM_OFFSET))
+                .build();
+
+        mockPayment = paymentTransactionRepository.save(mockPayment);
+
+        applyDepositFromPayment(mockPayment.getId());
+
+        log.info("[MockPay] Successfully simulated deposit payment {} for booking {}", paymentCode, bookingId);
+        return getDepositStatus(bookingId, customerId);
+    }
+
+    @Override
+    @Transactional
     public void applyDepositFromPayment(Long paymentId) {
         PaymentTransactionEntity payment = paymentTransactionRepository.findById(paymentId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PAYMENT_TRANSACTION_NOT_FOUND,
@@ -388,16 +435,42 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         payment.setWalletPostedAt(OffsetDateTime.now(VIETNAM_OFFSET));
         paymentTransactionRepository.save(payment);
 
-        // Chuyển booking status PENDING_DEPOSIT -> ACCEPTED (chỉ cho SCHEDULED)
+        // Chuyển booking status sau khi khách cọc thành công
         BookingEntity booking = payment.getBooking();
-        if (booking.getStatus() == BookingStatus.PENDING_DEPOSIT) {
-            booking.setStatus(BookingStatus.ACCEPTED);
-            log.info("[Deposit] Booking {} auto-transitioned PENDING_DEPOSIT -> ACCEPTED after deposit paid", bookingId);
+        BookingStatus prevStatus = booking.getStatus();
+        BookingStatus nextStatus;
+        OffsetDateTime confirmDeadline = null;
+
+        if (booking.getBookingType() == BookingType.SCHEDULED) {
+            if (booking.getBookingPartner() == BookingPartner.AGENCY_DISPATCH) {
+                nextStatus = BookingStatus.PENDING_AGENCY_DISPATCH;
+            } else {
+                // Thợ tự do: Tính confirm_deadline theo Ma trận Lead Time động, chuyển sang REQUESTED chờ thợ xác nhận
+                OffsetDateTime now = OffsetDateTime.now(VIETNAM_OFFSET);
+                OffsetDateTime scheduledStartAt = booking.getScheduledStartTime().atOffset(VIETNAM_OFFSET);
+                confirmDeadline = BookingConfirmationTimeoutHelper.calculateConfirmDeadline(now, scheduledStartAt);
+                booking.setConfirmDeadline(confirmDeadline);
+                nextStatus = BookingStatus.REQUESTED;
+            }
+        } else {
+            nextStatus = BookingStatus.ACCEPTED;
         }
 
-        // Xóa hạn giờ đếm ngược cọc vì khách đã hoàn tất cọc thành công
-        booking.setDepositExpiredAt(null);
-        bookingRepository.save(booking);
+        if (booking.getStatus() == BookingStatus.PENDING_DEPOSIT) {
+            booking.setStatus(nextStatus);
+            booking.setDepositExpiredAt(null);
+            bookingRepository.save(booking);
+            bookingAuditService.logTransition(booking.getId(), prevStatus, nextStatus,
+                    booking.getCustomer().getId(),
+                    nextStatus == BookingStatus.REQUESTED
+                            ? "Khách hàng thanh toán tiền cọc thành công. Chuyển sang chờ thợ xác nhận tiếp nhận ca."
+                            : "Khách hàng thanh toán tiền cọc thành công. Ca làm được xác nhận.");
+            log.info("[Deposit] Booking {} transitioned {} -> {} after deposit paid (confirmDeadline={})",
+                    bookingId, prevStatus, nextStatus, confirmDeadline);
+        } else {
+            booking.setDepositExpiredAt(null);
+            bookingRepository.save(booking);
+        }
 
         // Lưu Redis flag để các query check tức thì không cần đợi DB lag
         try {
@@ -417,6 +490,12 @@ public class BookingDepositServiceImpl implements BookingDepositService {
 
         // Bắn WebSocket thông báo Khách & Thợ: ĐÃ CỌC THÀNH CÔNG VÀO QUỸ ESCROW!
         try {
+            Long confirmTimeoutSeconds = null;
+            if (confirmDeadline != null) {
+                long diff = ChronoUnit.SECONDS.between(OffsetDateTime.now(VIETNAM_OFFSET), confirmDeadline);
+                confirmTimeoutSeconds = Math.max(0, diff);
+            }
+
             Map<String, Object> depositSuccessPayload = new HashMap<>();
             depositSuccessPayload.put("type", "CUSTOMER_CONFIRMED_DEPOSIT");
             depositSuccessPayload.put("bookingId", bookingId);
@@ -425,6 +504,8 @@ public class BookingDepositServiceImpl implements BookingDepositService {
             depositSuccessPayload.put("isDepositPaid", true);
             depositSuccessPayload.put("depositAmount", deposit.getPaidAmount());
             depositSuccessPayload.put("earningsAmount", earningsAmount);
+            depositSuccessPayload.put("confirmDeadline", confirmDeadline != null ? confirmDeadline.toString() : null);
+            depositSuccessPayload.put("confirmTimeoutSeconds", confirmTimeoutSeconds);
             depositSuccessPayload.put("timestamp", System.currentTimeMillis());
 
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, depositSuccessPayload);
@@ -432,8 +513,34 @@ public class BookingDepositServiceImpl implements BookingDepositService {
 
             if (booking.getMua() != null) {
                 Long muaId = booking.getMua().getId();
+                // Bắn topic xác nhận cọc cho MUA
                 messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, depositSuccessPayload);
-                log.info("[Deposit] Broadcasted CUSTOMER_CONFIRMED_DEPOSIT to MUA topic /topic/booking-customer-confirmed/{}", muaId);
+
+                // Nếu là đơn đặt hẹn trước chờ xác nhận: Bắn modal offer nổi bật sang app Thợ
+                if (booking.getStatus() == BookingStatus.REQUESTED) {
+                    Map<String, Object> scheduledOfferPayload = new HashMap<>();
+                    scheduledOfferPayload.put("type", "NEW_SCHEDULED_OFFER");
+                    scheduledOfferPayload.put("bookingId", bookingId);
+                    scheduledOfferPayload.put("bookingCode", booking.getBookingCode());
+                    scheduledOfferPayload.put("customerName", booking.getCustomer() != null ? booking.getCustomer().getFullName() : null);
+                    scheduledOfferPayload.put("customerPhone", booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : null);
+                    scheduledOfferPayload.put("customerAvatar", booking.getCustomer() != null ? booking.getCustomer().getAvatarUrl() : null);
+                    scheduledOfferPayload.put("packageName", booking.getServicePackage() != null ? booking.getServicePackage().getPackageName() : null);
+                    scheduledOfferPayload.put("styleName", booking.getStyle() != null ? booking.getStyle().getStyleName() : null);
+                    scheduledOfferPayload.put("bookingDate", booking.getBookingDate() != null ? booking.getBookingDate().toString() : null);
+                    scheduledOfferPayload.put("startTime", booking.getStartTime() != null ? booking.getStartTime().toString() : null);
+                    scheduledOfferPayload.put("destinationAddress", booking.getDestinationAddress());
+                    scheduledOfferPayload.put("totalAmount", booking.getTotalAmount());
+                    scheduledOfferPayload.put("depositAmount", deposit.getPaidAmount());
+                    scheduledOfferPayload.put("earningsAmount", earningsAmount);
+                    scheduledOfferPayload.put("confirmDeadline", confirmDeadline != null ? confirmDeadline.toString() : null);
+                    scheduledOfferPayload.put("confirmTimeoutSeconds", confirmTimeoutSeconds);
+                    scheduledOfferPayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/mua-offer/" + muaId, scheduledOfferPayload);
+                    messagingTemplate.convertAndSend("/topic/mua-scheduled-offer/" + muaId, scheduledOfferPayload);
+                    log.info("[Deposit] Broadcasted NEW_SCHEDULED_OFFER to MUA topic /topic/mua-scheduled-offer/{}", muaId);
+                }
             }
             log.info("[Deposit] Broadcasted deposit paid event for bookingId={}", bookingId);
         } catch (Exception e) {

@@ -5,8 +5,10 @@ import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.common.utils.SecurityContextUtils;
 import com.makeup.platform.dto.response.booking.BookingAcceptanceRes;
 import com.makeup.platform.dto.response.booking.FreelancerBookingItemRes;
+import com.makeup.platform.dto.response.booking.ScheduledOfferRes;
 import com.makeup.platform.service.booking.DistributedLockService;
 import com.makeup.platform.service.booking.FreelancerBookingService;
+import com.makeup.platform.service.booking.ScheduledBookingService;
 import com.makeup.platform.service.customer.CustomerInstantBookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -15,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,6 +35,7 @@ public class BookingAcceptanceController extends BaseController {
     private final DistributedLockService distributedLockService;
     private final CustomerInstantBookingService customerInstantBookingService;
     private final FreelancerBookingService freelancerBookingService;
+    private final ScheduledBookingService scheduledBookingService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')")
@@ -51,6 +55,25 @@ public class BookingAcceptanceController extends BaseController {
         return ok(res, "booking.accept_success");
     }
 
+    @PostMapping({ "/{bookingId}/confirm-scheduled", "/{bookingId}/confirm" })
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<Void>> confirmScheduledBooking(@PathVariable Long bookingId) {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        scheduledBookingService.confirmScheduledBookingByMua(bookingId, userId);
+        return ok(null, "booking.confirm_scheduled_success");
+    }
+
+    @PostMapping({ "/{bookingId}/reject-scheduled", "/{bookingId}/reject" })
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<Void>> rejectScheduledBooking(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        String reason = body != null ? body.get("reason") : null;
+        scheduledBookingService.rejectScheduledBookingByMua(bookingId, userId, reason);
+        return ok(null, "booking.reject_scheduled_success");
+    }
+
     @PostMapping("/{bookingId}/skip")
     @PreAuthorize("hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> skipBooking(@PathVariable Long bookingId) {
@@ -68,5 +91,13 @@ public class BookingAcceptanceController extends BaseController {
         Long userId = SecurityContextUtils.getCurrentUserId();
         Map<String, Object> res = customerInstantBookingService.getPendingOfferForMua(userId);
         return ok(res, "booking.pending_offer_checked");
+    }
+
+    @GetMapping("/scheduled/pending-offers")
+    @PreAuthorize("hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<List<ScheduledOfferRes>>> getPendingScheduledOffers() {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        List<ScheduledOfferRes> res = scheduledBookingService.getPendingScheduledOffersForMua(userId);
+        return ok(res, "booking.pending_scheduled_offers_checked");
     }
 }

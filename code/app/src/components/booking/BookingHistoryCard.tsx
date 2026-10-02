@@ -25,6 +25,8 @@ export const BookingHistoryCard: React.FC<Props> = ({
 }) => {
   const getStatusBadge = (status: BookingStatusType) => {
     switch (status) {
+      case 'PENDING_DEPOSIT':
+        return { label: 'Chờ Đặt Cọc', color: '#D97706', bg: '#FEF3C7' };
       case 'REQUESTED':
         return { label: 'Chờ Xác Nhận', color: '#D97706', bg: '#FEF3C7' };
       case 'AGENCY_ASSIGNED':

@@ -3,6 +3,7 @@ import {
   bookingService,
   CustomerBookingItem,
   BookingStatusType,
+  ScheduledBookingCreatedRes,
 } from '@/services/booking.service';
 import {
   pricingService,
@@ -52,7 +53,7 @@ interface BookingStoreState {
 
   // API Triggers
   fetchInvoicePreview: () => Promise<void>;
-  submitBooking: () => Promise<CustomerBookingItem>;
+  submitBooking: () => Promise<ScheduledBookingCreatedRes & { id: number; bookingId: number }>;
   fetchMyBookings: (isRefresh?: boolean) => Promise<void>;
   cancelBooking: (bookingId: number, reason: string) => Promise<void>;
   resetBookingForm: () => void;
@@ -232,6 +233,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
       const history: CustomerBookingItem[] = [];
 
       const upcomingStatuses: BookingStatusType[] = [
+        'PENDING_DEPOSIT',
         'REQUESTED',
         'PENDING_AGENCY_DISPATCH',
         'AGENCY_ASSIGNED',

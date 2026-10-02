@@ -17,7 +17,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { soundManager } from '@/utils/sound';
 
 export const CountdownAcceptModal: React.FC = () => {
-  const { isAcceptModalVisible, activeOffer, dismissOffer, acceptActiveOffer } = useWorkstationStore();
+  const { isAcceptModalVisible, activeOffer, dismissOffer, acceptActiveOffer, isScheduledModalVisible } = useWorkstationStore();
   const { userInfo } = useAuthStore();
   const [secondsLeft, setSecondsLeft] = useState<number>(20);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,7 +108,7 @@ export const CountdownAcceptModal: React.FC = () => {
     };
   }, [isAcceptModalVisible, activeOffer]);
 
-  if (!isAcceptModalVisible || !activeOffer || !isMuaOrStaff) {
+  if (!isAcceptModalVisible || !activeOffer || !isMuaOrStaff || isScheduledModalVisible) {
     return null;
   }
 
