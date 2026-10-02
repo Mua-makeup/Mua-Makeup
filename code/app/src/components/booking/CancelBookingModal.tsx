@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,9 +54,8 @@ export const CancelBookingModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.overlay}>
-          <View style={styles.modalBox}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
             <View style={styles.iconCircle}>
               <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
             </View>
@@ -127,9 +127,8 @@ export const CancelBookingModal: React.FC<Props> = ({
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </TouchableWithoutFeedback>
+          </Pressable>
+        </Pressable>
     </Modal>
   );
 };

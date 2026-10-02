@@ -16,12 +16,15 @@ import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { muaProfileService, MuaPublicProfile, MuaCertificate } from '@/services/mua-profile.service';
 import { mapsService } from '@/services/maps.service';
 import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
+import { useWorkstationStore } from '@/store/workstation.store';
 
 const QUICK_RADIUS_OPTIONS = [5, 10, 15, 20, 25, 30, 50];
 
@@ -169,6 +172,11 @@ export default function MuaWorkProfileScreen() {
         baseAddressLng: lngToSend ?? undefined,
       });
 
+      // Đồng bộ bán kính vừa lưu vào Workstation Store
+      useWorkstationStore.setState((state) => ({
+        profile: state.profile ? { ...state.profile, maxServiceRadiusKm: radNum } : null,
+      }));
+
       Alert.alert('Thành công', 'Hồ sơ nghề nghiệp Thợ MUA đã được lưu thành công!');
     } catch (err: any) {
       const parsed = parseApiError(err);
@@ -314,13 +322,29 @@ export default function MuaWorkProfileScreen() {
     });
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
+  const handleSelectQuickRadius = (km: number) => {
+    Haptics.selectionAsync();
+    setMaxRadius(String(km));
+    if (fieldErrors.maxRadius) {
+      setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />
@@ -524,7 +548,7 @@ export default function MuaWorkProfileScreen() {
                     <TouchableOpacity
                       key={`rad-${km}`}
                       style={[styles.radiusChip, isSelected && styles.radiusChipActive]}
-                      onPress={() => setMaxRadius(String(km))}
+                      onPress={() => handleSelectQuickRadius(km)}
                       activeOpacity={0.7}
                     >
                       <Text
@@ -571,11 +595,12 @@ export default function MuaWorkProfileScreen() {
                   const certImg = c.imageUrl || c.certificateImageUrl;
                   const certTitle = c.certName || c.certificateName || 'Chứng chỉ nghề nghiệp';
                   const isVerified = c.isVerified || c.status === 'VERIFIED';
+                  const isRejected = c.status === 'REJECTED';
 
                   return (
                     <TouchableOpacity
                       key={`cert-${c.id || idx}`}
-                      style={styles.certCard}
+                      style={[styles.certCard, isRejected && styles.certCardRejected]}
                       activeOpacity={certImg ? 0.75 : 1}
                       onPress={() => {
                         if (certImg) setPreviewImageUrl(certImg);
@@ -598,12 +623,35 @@ export default function MuaWorkProfileScreen() {
                           {certTitle}
                         </Text>
                         <View style={styles.certBadgeRow}>
-                          <View style={[styles.certStatusBadge, isVerified ? styles.certVerified : styles.certPending]}>
-                            <Text style={[styles.certStatusText, isVerified ? styles.certVerifiedText : styles.certPendingText]}>
-                              {isVerified ? '✓ Đã xác thực' : 'Đang duyệt'}
+                          <View
+                            style={[
+                              styles.certStatusBadge,
+                              isVerified
+                                ? styles.certVerified
+                                : isRejected
+                                ? styles.certRejected
+                                : styles.certPending,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.certStatusText,
+                                isVerified
+                                  ? styles.certVerifiedText
+                                  : isRejected
+                                  ? styles.certRejectedText
+                                  : styles.certPendingText,
+                              ]}
+                            >
+                              {isVerified ? '✓ Đã xác thực' : isRejected ? '✕ Đã từ chối' : '⏳ Đang duyệt'}
                             </Text>
                           </View>
                         </View>
+                        {isRejected && c.notes ? (
+                          <Text style={styles.certRejectionReason} numberOfLines={2}>
+                            Lý do: {c.notes}
+                          </Text>
+                        ) : null}
                       </View>
                       {certImg && (
                         <Ionicons name="scan-outline" size={16} color={BrandColors.slateMuted} style={{ marginLeft: 6 }} />
@@ -632,8 +680,7 @@ export default function MuaWorkProfileScreen() {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="cloud-upload-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.addCertBtnText}>+ Thêm ảnh</Text>
+                    <Text style={styles.addCertBtnText}>+ Thêm Ảnh</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -696,63 +743,56 @@ export default function MuaWorkProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* MODAL THÊM CHỨNG CHỈ */}
-      <Modal
+      {/* MODAL THÊM CHỨNG CHỈ (HỖ TRỢ CLICK RA NGOÀI & KÉO TRƯỢT XUỐNG ĐỂ ĐÓNG) */}
+      <SwipeableBottomSheet
         visible={isCertModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsCertModalVisible(false)}
+        onClose={() => setIsCertModalVisible(false)}
+        title="Thêm Chứng Chỉ Nghề Nghiệp"
+        subtitle="Tải lên bằng cấp để xác thực hồ sơ và kích hoạt nhận đơn trực tuyến"
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.certModalCard}>
-            <View style={styles.certModalHeader}>
-              <Text style={styles.certModalTitle}>Thêm Chứng Chỉ Nghề Nghiệp</Text>
-              <TouchableOpacity onPress={() => setIsCertModalVisible(false)}>
-                <Ionicons name="close" size={22} color={BrandColors.slateHeading} />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.certModalBody}>
+          <Text style={styles.fieldLabel}>
+            Tên Chứng Chỉ / Bằng Cấp <Text style={styles.required}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="VD: Chứng chỉ Makeup Cô dâu Chuyên nghiệp"
+            value={certName}
+            onChangeText={setCertName}
+          />
 
-            <View style={styles.certModalBody}>
-              <Text style={styles.fieldLabel}>Tên Chứng Chỉ / Bằng Cấp <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={styles.input}
-                placeholder="VD: Chứng chỉ Makeup Cô dâu Chuyên nghiệp"
-                value={certName}
-                onChangeText={setCertName}
-              />
+          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>
+            Ảnh Chụp Chứng Chỉ <Text style={styles.required}>*</Text>
+          </Text>
+          <TouchableOpacity
+            style={styles.certImageUploadBox}
+            onPress={handlePickCertImage}
+            activeOpacity={0.7}
+          >
+            {certImageUri ? (
+              <Image source={{ uri: certImageUri }} style={styles.certUploadedPreview} contentFit="contain" />
+            ) : (
+              <View style={styles.certUploadPlaceholder}>
+                <Ionicons name="cloud-upload-outline" size={28} color={BrandColors.primary} />
+                <Text style={styles.certUploadPlaceholderText}>Chạm để chọn ảnh từ thư viện</Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Ảnh Chụp Chứng Chỉ <Text style={styles.required}>*</Text></Text>
-              <TouchableOpacity
-                style={styles.certImageUploadBox}
-                onPress={handlePickCertImage}
-                activeOpacity={0.7}
-              >
-                {certImageUri ? (
-                  <Image source={{ uri: certImageUri }} style={styles.certUploadedPreview} contentFit="contain" />
-                ) : (
-                  <View style={styles.certUploadPlaceholder}>
-                    <Ionicons name="cloud-upload-outline" size={28} color={BrandColors.primary} />
-                    <Text style={styles.certUploadPlaceholderText}>Chạm để chọn ảnh từ thư viện</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.submitCertBtn, isUploadingCert && styles.saveButtonDisabled]}
-                onPress={handleUploadCertificate}
-                disabled={isUploadingCert}
-                activeOpacity={0.8}
-              >
-                {isUploadingCert ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitCertBtnText}>Tải Lên Chứng Chỉ</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={[styles.submitCertBtn, isUploadingCert && styles.saveButtonDisabled]}
+            onPress={handleUploadCertificate}
+            disabled={isUploadingCert}
+            activeOpacity={0.8}
+          >
+            {isUploadingCert ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitCertBtnText}>Tải Lên Chứng Chỉ</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      </Modal>
+      </SwipeableBottomSheet>
 
       {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
       <Modal
@@ -761,7 +801,11 @@ export default function MuaWorkProfileScreen() {
         animationType="fade"
         onRequestClose={() => setPreviewImageUrl(null)}
       >
-        <View style={styles.imageViewerOverlay}>
+        <TouchableOpacity
+          style={styles.imageViewerOverlay}
+          activeOpacity={1}
+          onPress={() => setPreviewImageUrl(null)}
+        >
           <TouchableOpacity
             style={styles.imageViewerCloseBtn}
             onPress={() => setPreviewImageUrl(null)}
@@ -776,7 +820,7 @@ export default function MuaWorkProfileScreen() {
               contentFit="contain"
             />
           )}
-        </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -1134,6 +1178,9 @@ const styles = StyleSheet.create({
   certPending: {
     backgroundColor: '#FEF3C7',
   },
+  certRejected: {
+    backgroundColor: '#FFE4E6',
+  },
   certStatusText: {
     fontSize: 10,
     fontWeight: '700',
@@ -1143,6 +1190,19 @@ const styles = StyleSheet.create({
   },
   certPendingText: {
     color: '#B45309',
+  },
+  certRejectedText: {
+    color: '#E11D48',
+  },
+  certCardRejected: {
+    borderColor: '#FECDD3',
+    backgroundColor: '#FFF1F2',
+  },
+  certRejectionReason: {
+    fontSize: 11,
+    color: '#E11D48',
+    marginTop: 3,
+    fontWeight: '500',
   },
   footer: {
     padding: 16,

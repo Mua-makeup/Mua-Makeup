@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { MasterCategory, MakeupStyle } from '@/services/taxonomy.service';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -262,37 +263,21 @@ export const CategoryFilterBar: React.FC<Props> = ({
       </ScrollView>
 
       {/* BOTTOM SHEET CHỌN NHANH TIÊU CHÍ */}
-      <Modal
+      <SwipeableBottomSheet
         visible={activeSheet !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setActiveSheet(null)}
+        onClose={() => setActiveSheet(null)}
+        title={
+          activeSheet === 'CATEGORY'
+            ? 'Chọn Dịp / Mục Đích Make-up'
+            : activeSheet === 'RADIUS'
+            ? 'Chọn Khoảng Cách Tìm Thợ'
+            : activeSheet === 'STYLE'
+            ? 'Chọn Phong Cách Sở Trường'
+            : activeSheet === 'PRICE'
+            ? 'Chọn Ngân Sách Dịch Vụ'
+            : ''
+        }
       >
-        <View style={styles.sheetBackdrop}>
-          <TouchableOpacity
-            style={styles.backdropClickable}
-            activeOpacity={1}
-            onPress={() => setActiveSheet(null)}
-          />
-          <SafeAreaView style={styles.sheetContainer}>
-            {/* SHEET HEADER */}
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetHandleBar} />
-              <View style={styles.sheetTitleRow}>
-                <Text style={styles.sheetTitle}>
-                  {activeSheet === 'CATEGORY' && 'Chọn Dịp / Mục Đích Make-up'}
-                  {activeSheet === 'RADIUS' && 'Chọn Khoảng Cách Tìm Thợ'}
-                  {activeSheet === 'STYLE' && 'Chọn Phong Cách Sở Trường'}
-                  {activeSheet === 'PRICE' && 'Chọn Ngân Sách Dịch Vụ'}
-                </Text>
-                <TouchableOpacity
-                  style={styles.sheetCloseBtn}
-                  onPress={() => setActiveSheet(null)}
-                >
-                  <Ionicons name="close" size={20} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-            </View>
 
             {/* SHEET BODY - CATEGORY */}
             {activeSheet === 'CATEGORY' && (
@@ -471,9 +456,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
                 })}
               </View>
             )}
-          </SafeAreaView>
-        </View>
-      </Modal>
+      </SwipeableBottomSheet>
     </View>
   );
 };

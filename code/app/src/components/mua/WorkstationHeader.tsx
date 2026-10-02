@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { muaProfileService } from '@/services/mua-profile.service';
 import { router } from 'expo-router';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 
 const RADIUS_OPTIONS = [
   { km: 5, label: '5 km', desc: 'Bán kính gần (Nội quận, 10–15 phút di chuyển)' },
@@ -31,11 +32,16 @@ export const WorkstationHeader: React.FC = () => {
   const [currentRadius, setCurrentRadius] = useState<number>(
     profile?.maxServiceRadiusKm ? Number(profile.maxServiceRadiusKm) : 15
   );
+  const [selectedRadius, setSelectedRadius] = useState<number>(
+    profile?.maxServiceRadiusKm ? Number(profile.maxServiceRadiusKm) : 15
+  );
   const [isUpdatingRadius, setIsUpdatingRadius] = useState(false);
 
   useEffect(() => {
     if (profile?.maxServiceRadiusKm) {
-      setCurrentRadius(Number(profile.maxServiceRadiusKm));
+      const rad = Number(profile.maxServiceRadiusKm);
+      setCurrentRadius(rad);
+      setSelectedRadius(rad);
     }
   }, [profile?.maxServiceRadiusKm]);
 
@@ -47,23 +53,66 @@ export const WorkstationHeader: React.FC = () => {
       const errorCode = err?.response?.data?.errorCode;
       const apiMessage = err?.response?.data?.message;
 
+      const certs = profile?.certificates || [];
+      const hasVerified = certs.some((c) => c.isVerified || c.status === 'VERIFIED');
+      const hasRejected = certs.length > 0 && certs.some((c) => c.status === 'REJECTED');
+      const hasPending = certs.length > 0 && certs.some((c) => c.status === 'PENDING' || (!c.isVerified && c.status !== 'REJECTED'));
+
       if (
         errorCode === 'ERR_MUA_CERTIFICATE_NOT_VERIFIED' ||
         apiMessage?.includes('chứng chỉ') ||
         apiMessage?.includes('certificate') ||
         apiMessage?.includes('certified')
       ) {
-        Alert.alert(
-          'Yêu Cầu Xác Thực Chứng Chỉ',
-          'Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên ảnh chứng chỉ để kích hoạt nhận đơn trực tuyến.',
-          [
-            { text: 'Để Sau', style: 'cancel' },
-            {
-              text: 'Tải Chứng Chỉ Ngay',
-              onPress: () => router.push('/profile/mua-profile'),
-            },
-          ]
-        );
+        if (
+          hasRejected ||
+          apiMessage?.includes('từ chối') ||
+          apiMessage?.includes('rejected')
+        ) {
+          Alert.alert(
+            'Chứng Chỉ Bị Từ Chối',
+            apiMessage ||
+              'Chứng chỉ hành nghề của bạn đã bị từ chối phê duyệt. Vui lòng vào mục Hồ Sơ Nghề Nghiệp kiểm tra lý do và tải lên lại chứng chỉ hợp lệ.',
+            [
+              { text: 'Để Sau', style: 'cancel' },
+              {
+                text: 'Kiểm Tra & Tải Lại',
+                onPress: () => router.push('/profile/mua-profile'),
+              },
+            ]
+          );
+        } else if (
+          hasPending ||
+          apiMessage?.includes('chờ') ||
+          apiMessage?.includes('pending') ||
+          apiMessage?.includes('xét duyệt')
+        ) {
+          Alert.alert(
+            'Chứng Chỉ Đang Xét Duyệt',
+            apiMessage ||
+              'Chứng chỉ hành nghề của bạn đang trong quá trình xét duyệt bởi Ban Quản Trị. Bạn sẽ có thể kích hoạt nhận đơn trực tuyến ngay khi chứng chỉ được phê duyệt.',
+            [
+              { text: 'Đã Hiểu', style: 'cancel' },
+              {
+                text: 'Xem Hồ Sơ',
+                onPress: () => router.push('/profile/mua-profile'),
+              },
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Yêu Cầu Xác Thực Chứng Chỉ',
+            apiMessage ||
+              'Hồ sơ của bạn chưa có chứng chỉ hành nghề. Vui lòng tải lên ảnh chứng chỉ để kích hoạt nhận đơn trực tuyến.',
+            [
+              { text: 'Để Sau', style: 'cancel' },
+              {
+                text: 'Tải Chứng Chỉ Ngay',
+                onPress: () => router.push('/profile/mua-profile'),
+              },
+            ]
+          );
+        }
       } else {
         const displayMsg =
           apiMessage ||
@@ -84,12 +133,8 @@ export const WorkstationHeader: React.FC = () => {
       setCurrentRadius(newRadius);
       setIsUpdatingRadius(true);
 
-      // Cập nhật CSDL PostgreSQL Backend qua API
-      await muaProfileService.updateMyProfile({
-        maxServiceRadiusKm: newRadius,
-        experienceYears: profile?.experienceYears || 1,
-        bio: profile?.bio || '',
-      });
+      // Cập nhật CSDL PostgreSQL Backend qua API chuyên biệt cho bán kính
+      await muaProfileService.updateServiceRadius(newRadius);
 
       // Cập nhật store cục bộ
       useWorkstationStore.setState((state) => ({
@@ -101,6 +146,7 @@ export const WorkstationHeader: React.FC = () => {
       console.warn('Lỗi cập nhật bán kính:', e.message);
       if (profile?.maxServiceRadiusKm) {
         setCurrentRadius(Number(profile.maxServiceRadiusKm));
+        setSelectedRadius(Number(profile.maxServiceRadiusKm));
       }
     } finally {
       setIsUpdatingRadius(false);
@@ -108,8 +154,20 @@ export const WorkstationHeader: React.FC = () => {
   };
 
   const handleAdjustRadius = (delta: number) => {
-    const next = Math.max(1, Math.min(50, currentRadius + delta));
-    handleUpdateRadius(next);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedRadius((prev) => Math.max(1, Math.min(50, prev + delta)));
+  };
+
+  const handleSelectPreset = (km: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedRadius(km);
+  };
+
+  const handleConfirmRadius = async () => {
+    if (selectedRadius !== currentRadius) {
+      await handleUpdateRadius(selectedRadius);
+    }
+    setShowRadiusModal(false);
   };
 
   const avatarUrl =
@@ -190,7 +248,10 @@ export const WorkstationHeader: React.FC = () => {
       <TouchableOpacity
         style={styles.radiusSelectorBar}
         activeOpacity={0.7}
-        onPress={() => setShowRadiusModal(true)}
+        onPress={() => {
+          setSelectedRadius(currentRadius);
+          setShowRadiusModal(true);
+        }}
       >
         <View style={styles.radiusBarLeft}>
           <View style={styles.radiusIconBadge}>
@@ -208,104 +269,93 @@ export const WorkstationHeader: React.FC = () => {
         </View>
       </TouchableOpacity>
 
-      {/* Bottom Sheet / Dropdown Modal Thiết Lập Bán Kính */}
-      <Modal visible={showRadiusModal} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={() => setShowRadiusModal(false)}
-          />
-          <View style={styles.radiusModalContent}>
-            <View style={styles.modalHandle} />
-
-            <View style={styles.modalHeaderRow}>
-              <View style={styles.modalHeaderTitleCol}>
-                <Text style={styles.modalTitle}>Thiết Lập Bán Kính Nhận Ca</Text>
-                <Text style={styles.modalSubtitle}>
-                  Phạm vi phát sóng GPS nhận ca cấp tốc & hẹn lịch
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setShowRadiusModal(false)}
-              >
-                <Ionicons name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Current Value Display with +/- adjust */}
-            <View style={styles.adjustRow}>
-              <TouchableOpacity
-                style={styles.adjustBtn}
-                onPress={() => handleAdjustRadius(-1)}
-                disabled={currentRadius <= 1 || isUpdatingRadius}
-              >
-                <Ionicons name="remove" size={20} color={currentRadius <= 1 ? '#CBD5E1' : '#0F172A'} />
-              </TouchableOpacity>
-
-              <View style={styles.largeRadiusBox}>
-                <Text style={styles.largeRadiusNum}>{currentRadius}</Text>
-                <Text style={styles.largeRadiusUnit}>km</Text>
-                {isUpdatingRadius && (
-                  <ActivityIndicator size="small" color="#2563EB" style={{ marginLeft: 6 }} />
-                )}
-              </View>
-
-              <TouchableOpacity
-                style={styles.adjustBtn}
-                onPress={() => handleAdjustRadius(1)}
-                disabled={currentRadius >= 50 || isUpdatingRadius}
-              >
-                <Ionicons name="add" size={20} color={currentRadius >= 50 ? '#CBD5E1' : '#0F172A'} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Quick Option Dropdown List */}
-            <Text style={styles.presetHeading}>MỐC BÁN KÍNH PHỔ BIẾN</Text>
-            <View style={styles.presetList}>
-              {RADIUS_OPTIONS.map((opt) => {
-                const isSelected = currentRadius === opt.km;
-                return (
-                  <TouchableOpacity
-                    key={opt.km}
-                    style={[styles.presetRow, isSelected && styles.presetRowActive]}
-                    onPress={() => handleUpdateRadius(opt.km)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.presetTextCol}>
-                      <View style={styles.presetTitleRow}>
-                        <Text style={[styles.presetKmText, isSelected && styles.presetKmTextActive]}>
-                          {opt.label}
-                        </Text>
-                        {opt.km === 15 && (
-                          <View style={styles.recommendBadge}>
-                            <Text style={styles.recommendText}>Khuyên dùng</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.presetDesc}>{opt.desc}</Text>
-                    </View>
-
-                    <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
-                      {isSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Save Button */}
+      {/* Bottom Sheet Thiết Lập Bán Kính (Chỉ lưu khi bấm Xác Nhận & Đóng) */}
+      <SwipeableBottomSheet
+        visible={showRadiusModal}
+        onClose={() => {
+          setSelectedRadius(currentRadius);
+          setShowRadiusModal(false);
+        }}
+        title="Thiết Lập Bán Kính Nhận Ca"
+        subtitle="Phạm vi phát sóng GPS nhận ca cấp tốc & hẹn lịch"
+      >
+        <View style={styles.radiusModalContent}>
+          {/* Current Value Display with +/- adjust */}
+          <View style={styles.adjustRow}>
             <TouchableOpacity
-              style={styles.saveRadiusBtn}
-              onPress={() => setShowRadiusModal(false)}
-              activeOpacity={0.85}
+              style={styles.adjustBtn}
+              onPress={() => handleAdjustRadius(-1)}
+              disabled={selectedRadius <= 1 || isUpdatingRadius}
             >
-              <Text style={styles.saveRadiusText}>Xác Nhận & Đóng</Text>
+              <Ionicons name="remove" size={20} color={selectedRadius <= 1 ? '#CBD5E1' : '#0F172A'} />
+            </TouchableOpacity>
+
+            <View style={styles.largeRadiusBox}>
+              <Text style={styles.largeRadiusNum}>{selectedRadius}</Text>
+              <Text style={styles.largeRadiusUnit}>km</Text>
+              {isUpdatingRadius && (
+                <ActivityIndicator size="small" color="#2563EB" style={{ marginLeft: 6 }} />
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.adjustBtn}
+              onPress={() => handleAdjustRadius(1)}
+              disabled={selectedRadius >= 50 || isUpdatingRadius}
+            >
+              <Ionicons name="add" size={20} color={selectedRadius >= 50 ? '#CBD5E1' : '#0F172A'} />
             </TouchableOpacity>
           </View>
+
+          {/* Quick Option Dropdown List */}
+          <Text style={styles.presetHeading}>MỐC BÁN KÍNH PHỔ BIẾN</Text>
+          <View style={styles.presetList}>
+            {RADIUS_OPTIONS.map((opt) => {
+              const isSelected = selectedRadius === opt.km;
+              return (
+                <TouchableOpacity
+                  key={opt.km}
+                  style={[styles.presetRow, isSelected && styles.presetRowActive]}
+                  onPress={() => handleSelectPreset(opt.km)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.presetTextCol}>
+                    <View style={styles.presetTitleRow}>
+                      <Text style={[styles.presetKmText, isSelected && styles.presetKmTextActive]}>
+                        {opt.label}
+                      </Text>
+                      {opt.km === 15 && (
+                        <View style={styles.recommendBadge}>
+                          <Text style={styles.recommendText}>Khuyên dùng</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.presetDesc}>{opt.desc}</Text>
+                  </View>
+
+                  <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                    {isSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Save Button: Bắt buộc bấm mới lưu */}
+          <TouchableOpacity
+            style={styles.saveRadiusBtn}
+            onPress={handleConfirmRadius}
+            disabled={isUpdatingRadius}
+            activeOpacity={0.85}
+          >
+            {isUpdatingRadius ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.saveRadiusText}>Xác Nhận & Đóng</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      </Modal>
+      </SwipeableBottomSheet>
     </View>
   );
 };

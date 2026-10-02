@@ -17,6 +17,7 @@ import {
   CalendarDayOverview,
   TimeSlotItem,
 } from '@/services/mua-calendar.service';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 
 type TimePeriod = 'early' | 'morning' | 'afternoon' | 'evening';
 
@@ -553,46 +554,15 @@ export const DateTimeSelector: React.FC<Props> = ({
       )}
 
       {/* 4. MODAL CHỌN KHUNG GIỜ MAKEUP (POPUP BOTTOMSHEET SANG TRỌNG) */}
-      <Modal
+      <SwipeableBottomSheet
         visible={isTimeModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsTimeModalVisible(false)}
+        onClose={() => setIsTimeModalVisible(false)}
+        title="Chọn Khung Giờ Phục Vụ"
+        subtitle={`${formatDayOfWeekVietnamese(selectedDate)} • ${
+          totalAvailable > 0 ? `${totalAvailable} ca khả dụng` : 'Hết ca trống'
+        }`}
       >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdropDismiss}
-            activeOpacity={1}
-            onPress={() => setIsTimeModalVisible(false)}
-          />
-
-          <View style={styles.modalContentSheet}>
-            {/* Thanh kéo nhỏ (Handle bar) */}
-            <View style={styles.sheetHandleBar} />
-
-            {/* Header Modal */}
-            <View style={styles.modalHeaderRow}>
-              <View style={styles.modalHeaderInfo}>
-                <View style={styles.modalHeaderTitleRow}>
-                  <Ionicons name="time" size={18} color={BrandColors.primary} />
-                  <Text style={styles.modalHeaderTitle}>Chọn Khung Giờ Phục Vụ</Text>
-                </View>
-                <Text style={styles.modalHeaderSub}>
-                  {formatDayOfWeekVietnamese(selectedDate)} •{' '}
-                  <Text style={styles.modalHeaderCount}>
-                    {totalAvailable > 0 ? `${totalAvailable} ca khả dụng` : 'Hết ca trống'}
-                  </Text>
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setIsTimeModalVisible(false)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
+        <View style={{ paddingTop: 6 }}>
 
             {/* BỘ CHỌN 4 BUỔI CỐ ĐỊNH (SEGMENTED CONTROL 100% WIDTH - KHÔNG CUỘN NGANG) */}
             <View style={styles.modalSegmentContainer}>
@@ -906,8 +876,7 @@ export const DateTimeSelector: React.FC<Props> = ({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
+      </SwipeableBottomSheet>
     </View>
   );
 };

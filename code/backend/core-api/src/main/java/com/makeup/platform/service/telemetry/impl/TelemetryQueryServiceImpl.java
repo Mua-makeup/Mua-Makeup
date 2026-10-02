@@ -74,6 +74,8 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             radiusKm = TelemetryConstants.MAX_RADIUS_KM;
         }
 
+        log.info("[NearbyQuery] lat={}, lng={}, radiusKm={}", req.getLatitude(), req.getLongitude(), radiusKm);
+
         List<NearbyProviderRes> results = new ArrayList<>();
 
         // 1. Quét thợ tự do (Freelance MUA) trên Redis GEO (100% In-Memory < 5ms)
@@ -135,15 +137,27 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             for (Long muaId : muaIds) {
                 NearbyProviderRes providerRes = providers.get(muaId);
                 if (providerRes != null) {
+                    Point pt = coordMap.get(muaId);
                     Double dist = distanceMap.get(muaId);
+                    if ((dist == null || dist <= 0.001) && pt != null) {
+                        dist = GeoDistanceUtils.calculateDistanceKm(req.getLatitude(), req.getLongitude(), pt.getY(), pt.getX());
+                    }
                     providerRes.setDistanceKm(dist != null ? BigDecimal.valueOf(dist).setScale(2, RoundingMode.HALF_UP).doubleValue() : null);
 
                     // 3. Bảo vệ riêng tư (Privacy Fuzzing / Jittering +/- 30-50m) cho tọa độ công khai trên radar
-                    org.springframework.data.geo.Point pt = coordMap.get(muaId);
                     if (pt != null) {
                         double[] fuzzed = GeoDistanceUtils.applyPrivacyFuzzing(pt.getY(), pt.getX());
                         providerRes.setFuzzedLatitude(fuzzed[0]);
                         providerRes.setFuzzedLongitude(fuzzed[1]);
+                    }
+
+                    // Không hiển thị thợ nếu khoảng cách vượt quá bán kính nhận ca tối đa của thợ đó
+                    Double muaMaxRadius = providerRes.getMaxServiceRadiusKm();
+                    log.info("[NearbyQuery] MUA {}: dist={}km, maxRadius={}km, coord=({}, {})",
+                            muaId, dist, muaMaxRadius, pt != null ? pt.getY() : null, pt != null ? pt.getX() : null);
+                    if (muaMaxRadius != null && dist != null && dist > muaMaxRadius) {
+                        log.info("[NearbyQuery] Excluded MUA {} because dist {}km > maxRadius {}km", muaId, dist, muaMaxRadius);
+                        continue;
                     }
 
                     // Lọc theo rating tối thiểu nếu có yêu cầu
@@ -332,6 +346,7 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
             summary.put("ratingAvg", mua.getRatingAvg() != null ? mua.getRatingAvg().doubleValue() : 5.0);
 
             summary.put("startingPrice", startingPrice.doubleValue());
+            summary.put("maxServiceRadiusKm", mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0);
 
             String json = objectMapper.writeValueAsString(summary);
             redisGeoService.setMuaSummary(mua.getId(), json, TelemetryConstants.SUMMARY_TTL_SECONDS);

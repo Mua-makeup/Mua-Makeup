@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { useAccountModalStore } from '@/store/account-modal.store';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 
 export const AccountModal: React.FC = () => {
   const { isOpen, closeAccountModal } = useAccountModalStore();
@@ -48,18 +49,13 @@ export const AccountModal: React.FC = () => {
   if (!isOpen) return null;
 
   return (
-    <Modal
+    <SwipeableBottomSheet
       visible={isOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={closeAccountModal}
+      onClose={closeAccountModal}
+      showCloseButton={false}
+      showHandleBar={true}
     >
-      <TouchableWithoutFeedback onPress={closeAccountModal}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modalSheet}>
-              {/* Thanh gạt handle */}
-              <View style={styles.modalHandle} />
+      <View style={styles.modalSheet}>
 
               {/* Thông tin User Header */}
               <View style={styles.modalHeader}>
@@ -203,10 +199,7 @@ export const AccountModal: React.FC = () => {
                 <Text style={styles.closeModalBtnText}>Đóng</Text>
               </TouchableOpacity>
             </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+    </SwipeableBottomSheet>
   );
 };
 
@@ -217,11 +210,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingBottom: Platform.OS === 'ios' ? 14 : 6,
   },
   modalHandle: {
     width: 40,

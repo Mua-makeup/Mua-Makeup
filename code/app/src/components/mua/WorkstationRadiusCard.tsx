@@ -36,12 +36,8 @@ export const WorkstationRadiusCard: React.FC = () => {
       setIsUpdating(true);
       setSavedSuccess(false);
 
-      // Cập nhật CSDL PostgreSQL Backend qua API
-      await muaProfileService.updateMyProfile({
-        maxServiceRadiusKm: newRadius,
-        experienceYears: profile?.experienceYears || 1,
-        bio: profile?.bio || '',
-      });
+      // Cập nhật CSDL PostgreSQL Backend qua API chuyên biệt cho bán kính
+      await muaProfileService.updateServiceRadius(newRadius);
 
       // Cập nhật store cục bộ để header hiển thị ngay
       useWorkstationStore.setState((state) => ({

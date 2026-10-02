@@ -57,6 +57,9 @@
     "portfolio_featured_limit": "MUA has reached maximum featured portfolios limit (maximum 3 allowed).",
     "certificate_not_verified_cannot_accept": "Your profile does not have a verified professional certificate yet. Please upload your certificate to accept bookings.",
     "certificate_not_verified_cannot_operate": "Your profile does not have a verified professional certificate yet. Please upload your certificate in 'Professional Profile' to enable online booking mode.",
+    "certificate_missing_cannot_operate": "Your profile does not have any professional certificate. Please upload your certificate in 'Professional Profile' to enable online booking mode.",
+    "certificate_pending_cannot_operate": "Your certificate is currently under review by administrators. Please wait for approval before turning on online mode.",
+    "certificate_rejected_cannot_operate": "Your certificate has been rejected. Please check the rejection reason and re-upload a valid certificate in your Professional Profile.",
     "portfolio_files_empty": "Please select at least one image file to upload.",
     "portfolio_max_exceeded": "Maximum 30 portfolio images allowed.",
     "image_url_required": "Image URL to delete cannot be empty.",
@@ -248,6 +251,7 @@
   "ERR_MUA_MUST_BE_ONLINE": "Makeup artist must be online to accept booking.",
   "ERR_MUA_ALREADY_BUSY": "Makeup artist is already busy with another job.",
   "ERR_MUA_CERTIFICATE_NOT_VERIFIED": "Your profile does not have a verified professional certificate yet. Please upload your certificate in 'Professional Profile' to enable online booking mode.",
+  "ERR_DISTANCE_EXCEEDS_MAX_RADIUS": "The distance to your location ({0} km) exceeds this specialist''s maximum service radius ({1} km).",
   "validation": {
     "payment_amount_required": "Payment amount cannot be empty.",
     "payment_amount_min": "Minimum deposit amount is 1,000 VND.",

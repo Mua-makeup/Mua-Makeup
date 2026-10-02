@@ -57,6 +57,9 @@
     "portfolio_featured_limit": "MUA đã đạt tối đa 3 tác phẩm nổi bật.",
     "certificate_not_verified_cannot_accept": "Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên chứng chỉ để tiếp nhận đơn đặt lịch.",
     "certificate_not_verified_cannot_operate": "Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên chứng chỉ tại mục 'Hồ Sơ Nghề Nghiệp' để kích hoạt nhận đơn trực tuyến.",
+    "certificate_missing_cannot_operate": "Hồ sơ của bạn chưa có chứng chỉ hành nghề. Vui lòng tải lên ảnh chứng chỉ tại mục 'Hồ Sơ Nghề Nghiệp' để kích hoạt nhận đơn trực tuyến.",
+    "certificate_pending_cannot_operate": "Chứng chỉ hành nghề của bạn đang trong quá trình chờ phê duyệt bởi Ban Quản Trị. Vui lòng chờ xét duyệt để bật trực tuyến nhận đơn.",
+    "certificate_rejected_cannot_operate": "Chứng chỉ hành nghề của bạn đã bị từ chối phê duyệt. Vui lòng kiểm tra lý do và tải lên lại chứng chỉ hợp lệ tại mục 'Hồ Sơ Nghề Nghiệp'.",
     "portfolio_files_empty": "Vui lòng chọn ít nhất một tệp ảnh để tải lên.",
     "portfolio_max_exceeded": "Số lượng ảnh trong bộ sưu tập portfolio không được vượt quá 30 ảnh.",
     "image_url_required": "Đường dẫn ảnh cần xóa không được để trống.",
@@ -248,6 +251,7 @@
   "ERR_MUA_MUST_BE_ONLINE": "Thợ cần bật trạng thái trực tuyến (Online) để tiếp nhận đơn.",
   "ERR_MUA_ALREADY_BUSY": "Thợ đang bận trong ca làm việc khác.",
   "ERR_MUA_CERTIFICATE_NOT_VERIFIED": "Hồ sơ của bạn chưa có chứng chỉ hành nghề được phê duyệt. Vui lòng tải lên chứng chỉ tại mục 'Hồ Sơ Nghề Nghiệp' để kích hoạt nhận đơn trực tuyến.",
+  "ERR_DISTANCE_EXCEEDS_MAX_RADIUS": "Khoảng cách đến vị trí của bạn ({0} km) vượt quá bán kính nhận ca tối đa ({1} km) của chuyên viên này.",
   "validation": {
     "payment_amount_required": "Số tiền thanh toán không được để trống.",
     "payment_amount_min": "Số tiền nạp tối thiểu là 1,000 VNĐ.",

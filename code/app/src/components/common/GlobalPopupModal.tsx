@@ -112,40 +112,55 @@ export const GlobalPopupModal: React.FC = () => {
           {Boolean(message) && <Text style={styles.message}>{message}</Text>}
 
           {/* Action Buttons */}
-          <View
-            style={[
-              styles.buttonsContainer,
-              buttons.length === 2 ? styles.buttonsRow : styles.buttonsColumn,
-            ]}
-          >
-            {buttons.map((btn, index) => {
-              const isCancel = btn.style === 'cancel';
-              const isDestructive = btn.style === 'destructive';
+          {(() => {
+            const hasLongText = buttons.some((b) => (b.text || '').length > 12);
+            const isColumn = buttons.length > 2 || hasLongText;
+            // Nếu xếp dạng cột và nút đầu là nút Hủy, đảo để nút hành động chính ở trên
+            const displayButtons =
+              isColumn && buttons.length === 2 && buttons[0].style === 'cancel'
+                ? [buttons[1], buttons[0]]
+                : buttons;
 
-              return (
-                <TouchableOpacity
-                  key={index}
-                  activeOpacity={0.8}
-                  style={[
-                    styles.button,
-                    buttons.length === 2 ? styles.buttonHalf : styles.buttonFull,
-                    isCancel
-                      ? styles.cancelButton
-                      : isDestructive
-                      ? styles.destructiveButton
-                      : styles.primaryButton,
-                  ]}
-                  onPress={() => handleButtonPress(btn)}
-                >
-                  <Text
-                    style={isCancel ? styles.cancelButtonText : styles.primaryButtonText}
-                  >
-                    {btn.text}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+            return (
+              <View
+                style={[
+                  styles.buttonsContainer,
+                  isColumn ? styles.buttonsColumn : styles.buttonsRow,
+                ]}
+              >
+                {displayButtons.map((btn, index) => {
+                  const isCancel = btn.style === 'cancel';
+                  const isDestructive = btn.style === 'destructive';
+
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.button,
+                        isColumn ? styles.buttonFull : styles.buttonHalf,
+                        isCancel
+                          ? styles.cancelButton
+                          : isDestructive
+                          ? styles.destructiveButton
+                          : styles.primaryButton,
+                      ]}
+                      onPress={() => handleButtonPress(btn)}
+                    >
+                      <Text
+                        style={[
+                          isCancel ? styles.cancelButtonText : styles.primaryButtonText,
+                          styles.buttonTextBase,
+                        ]}
+                      >
+                        {btn.text}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            );
+          })()}
         </Pressable>
       </Pressable>
     </Modal>
@@ -213,7 +228,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   button: {
-    height: 46,
+    minHeight: 46,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -244,6 +261,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  buttonTextBase: {
+    textAlign: 'center',
+    lineHeight: 20,
   },
   primaryButtonText: {
     color: '#FFFFFF',

@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -828,6 +829,7 @@ export default function CustomerBookingDetailScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsCancelModalVisible(false)} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Ionicons name="warning-outline" size={24} color="#DC2626" />
@@ -907,7 +909,11 @@ export default function CustomerBookingDetailScreen() {
         animationType="fade"
         onRequestClose={() => setIsPhotoModalVisible(false)}
       >
-        <View style={styles.photoModalOverlay}>
+        <TouchableOpacity
+          style={styles.photoModalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsPhotoModalVisible(false)}
+        >
           <TouchableOpacity
             style={styles.photoModalCloseBtn}
             onPress={() => setIsPhotoModalVisible(false)}
@@ -922,7 +928,7 @@ export default function CustomerBookingDetailScreen() {
               contentFit="contain"
             />
           )}
-        </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );

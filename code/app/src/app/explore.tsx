@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
@@ -134,6 +134,13 @@ export default function ExploreScreen() {
     fetchMuas();
   }, [selectedCategoryId, selectedStyleId, selectedRadiusKm, keyword]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchMuas();
+      fetchStudios();
+    }, [selectedCategoryId, selectedStyleId, selectedRadiusKm, keyword])
+  );
+
   useEffect(() => {
     if (params.search && params.search.length > 0) {
       setKeyword(params.search);
@@ -234,7 +241,7 @@ export default function ExploreScreen() {
                   <Text style={styles.dotSeparator}>•</Text>
                   <View style={styles.distBox}>
                     <Ionicons name="navigate-outline" size={12} color={BrandColors.slateMuted} />
-                    <Text style={styles.distText}>{dist} km</Text>
+                    <Text style={styles.distText}>{dist < 0.1 ? '< 100m' : `${dist} km`}</Text>
                   </View>
                 </>
               ) : mua.baseAddressText ? (
@@ -248,6 +255,15 @@ export default function ExploreScreen() {
                   </View>
                 </>
               ) : null}
+              {mua.maxServiceRadiusKm != null && (
+                <>
+                  <Text style={styles.dotSeparator}>•</Text>
+                  <View style={styles.distBox}>
+                    <Ionicons name="radio-outline" size={12} color="#2563EB" />
+                    <Text style={[styles.distText, { color: '#2563EB' }]}>Nhận {mua.maxServiceRadiusKm}km</Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </View>
@@ -305,6 +321,10 @@ export default function ExploreScreen() {
     if (selectedRadiusKm && latitude && longitude && m.baseAddressLat && m.baseAddressLng) {
       const d = getDistanceKm(latitude, longitude, m.baseAddressLat, m.baseAddressLng);
       if (d != null && d > selectedRadiusKm) return false;
+    }
+    if (m.maxServiceRadiusKm != null && latitude && longitude && m.baseAddressLat && m.baseAddressLng) {
+      const d = getDistanceKm(latitude, longitude, m.baseAddressLat, m.baseAddressLng);
+      if (d != null && d > m.maxServiceRadiusKm) return false;
     }
     if (keyword.trim()) {
       const q = keyword.toLowerCase().trim();
@@ -417,25 +437,6 @@ export default function ExploreScreen() {
         style={styles.header}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (isSearchFocused) {
-              setIsSearchFocused(false);
-              Keyboard.dismiss();
-              return;
-            }
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/');
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={22} color={BrandColors.slateHeading} />
-        </TouchableOpacity>
-
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={20} color="#94A3B8" />
           <TextInput

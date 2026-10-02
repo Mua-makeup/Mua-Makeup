@@ -396,13 +396,24 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
         targetLng = 105.8542;
       }
 
+      if (currentTargetMua) {
+        const muaMaxRadius = currentTargetMua.maxServiceRadiusKm || 15;
+        if (currentTargetMua.distanceKm && currentTargetMua.distanceKm > muaMaxRadius) {
+          Alert.alert(
+            'Ngoài Bán Kính Phục Vụ',
+            `Vị trí của bạn cách chuyên viên ${currentTargetMua.fullName} ${currentTargetMua.distanceKm} km, vượt quá bán kính nhận ca tối đa (${muaMaxRadius} km) của chuyên viên này.`
+          );
+          return;
+        }
+      }
+
       const sendAddress = address?.trim() || currentAddress || 'Vị trí hiện tại của bạn';
 
       const res = await bookingService.createInstantBooking({
         masterCategoryId: selectedCategory.id,
         targetMuaId: currentTargetMua?.providerId,
         styleId: selectedStyle?.id,
-        radiusKm: searchRadius,
+        radiusKm: currentTargetMua?.maxServiceRadiusKm || searchRadius,
         destinationAddress: sendAddress,
         destinationLatitude: targetLat,
         destinationLongitude: targetLng,
