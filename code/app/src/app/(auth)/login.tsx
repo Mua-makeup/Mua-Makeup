@@ -113,7 +113,7 @@ export default function LoginScreen() {
             <View style={styles.switchRow}>
               <Text style={styles.switchText}>Chưa có tài khoản? </Text>
               <TouchableOpacity
-                onPress={() => router.push('/(auth)/register')}
+                onPress={() => router.replace('/(auth)/register')}
                 activeOpacity={0.7}>
                 <Text style={styles.registerLink}>Đăng ký ngay</Text>
               </TouchableOpacity>
@@ -123,7 +123,7 @@ export default function LoginScreen() {
           {/* Back to Home Link */}
           <TouchableOpacity
             style={styles.backHomeLink}
-            onPress={() => router.replace('/')}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
             activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={16} color={BrandColors.slateMuted} />
             <Text style={styles.backHomeText}>Quay lại Trang Chủ</Text>

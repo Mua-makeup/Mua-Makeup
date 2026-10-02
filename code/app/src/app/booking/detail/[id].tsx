@@ -106,6 +106,16 @@ export default function CustomerBookingDetailScreen() {
       const topic = `/topic/booking-status/${bookingId}`;
       websocketService.subscribe(topic, (msg: any) => {
         if (msg) {
+          if (
+            msg.status === 'PAID_OUT' ||
+            msg.type === 'PAYMENT_COMPLETED' ||
+            msg.isDepositPaid ||
+            msg.status === 'ACCEPTED'
+          ) {
+            try {
+              WebBrowser.dismissBrowser();
+            } catch {}
+          }
           loadBookingData(true);
         }
       });
@@ -213,10 +223,17 @@ export default function CustomerBookingDetailScreen() {
       if (Platform.OS === 'web') {
         window.open(paymentLink, '_blank');
       } else {
-        await WebBrowser.openBrowserAsync(paymentLink, {
-          presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-          toolbarColor: '#0F172A',
-        });
+        try {
+          const authRes = await WebBrowser.openAuthSessionAsync(paymentLink, 'app://');
+          if (authRes.type === 'success') {
+            loadBookingData(true);
+          }
+        } catch {
+          await WebBrowser.openBrowserAsync(paymentLink, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+            toolbarColor: '#0F172A',
+          });
+        }
       }
       loadBookingData(true);
     } catch (err: any) {
@@ -242,7 +259,17 @@ export default function CustomerBookingDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace('/' as any)} style={styles.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            }}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+          >
             <Ionicons name="arrow-back" size={24} color="#1E293B" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Chi Tiết Đơn Đặt</Text>
@@ -251,7 +278,17 @@ export default function CustomerBookingDetailScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={54} color="#CBD5E1" />
           <Text style={styles.emptyTitle}>Không tìm thấy đơn hàng</Text>
-          <TouchableOpacity style={styles.goBackBtn} onPress={() => router.replace('/' as any)} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.goBackBtn}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            }}
+            activeOpacity={0.8}
+          >
             <Text style={styles.goBackBtnText}>Quay Lại</Text>
           </TouchableOpacity>
         </View>
@@ -671,7 +708,7 @@ export default function CustomerBookingDetailScreen() {
         {(bookingDetail.status === 'ON_THE_WAY' || bookingDetail.status === 'ARRIVED') && (
           <TouchableOpacity
             style={styles.primaryActionBtn}
-            onPress={() => router.push(`/booking/tracking/${bookingId}` as any)}
+            onPress={() => router.replace(`/booking/tracking/${bookingId}` as any)}
             activeOpacity={0.85}
           >
             <Ionicons name="map" size={18} color="#FFFFFF" />
@@ -683,7 +720,7 @@ export default function CustomerBookingDetailScreen() {
         {bookingDetail.status === 'ACCEPTED' && !bookingDetail.isDepositPaid && (
           <TouchableOpacity
             style={styles.depositActionBtn}
-            onPress={() => router.push(`/booking/deposit/${bookingId}` as any)}
+            onPress={() => router.replace(`/booking/deposit/${bookingId}` as any)}
             activeOpacity={0.85}
           >
             <Ionicons name="card" size={18} color="#FFFFFF" />

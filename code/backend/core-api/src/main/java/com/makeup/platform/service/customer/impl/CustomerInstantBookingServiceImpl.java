@@ -40,6 +40,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -1106,12 +1107,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             }
             List<Long> nearbyIds = new ArrayList<>();
             Map<Long, Double> distanceMap = new HashMap<>();
+            Map<Long, Point> coordMap = new HashMap<>();
             for (var item : geoResults.getContent()) {
                 try {
                     Long mId = Long.valueOf(item.getContent().getName());
                     nearbyIds.add(mId);
                     if (item.getDistance() != null) {
                         distanceMap.put(mId, item.getDistance().getValue());
+                    }
+                    if (item.getContent().getPoint() != null) {
+                        coordMap.put(mId, item.getContent().getPoint());
                     }
                 } catch (NumberFormatException ex) {
                     log.warn("Ignoring malformed MUA id in GEO index: {}", item.getContent().getName());
@@ -1138,17 +1143,45 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                         .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
                 boolean leased = leases != null && leases.get(index) != null;
 
-                // Kiểm tra bán kính phục vụ tối đa của từng thợ: khoảng cách phải <= bán kính thợ cài đặt
+                // Tính khoảng cách chính xác từ thợ đến điểm đón của khách hàng (chuẩn xác như bên đặt đích danh)
                 Double distToCustomer = distanceMap.get(id);
+                Point pt = coordMap.get(id);
+                if ((distToCustomer == null || distToCustomer <= 0.001) && pt != null) {
+                    distToCustomer = GeoDistanceUtils.calculateDistanceKm(
+                            req.getDestinationLatitude().doubleValue(),
+                            req.getDestinationLongitude().doubleValue(),
+                            pt.getY(), pt.getX()
+                    );
+                }
+                if (distToCustomer == null) {
+                    Double muaLat = null;
+                    Double muaLng = null;
+                    if (mua.getLastKnownLat() != null && mua.getLastKnownLng() != null) {
+                        muaLat = mua.getLastKnownLat().doubleValue();
+                        muaLng = mua.getLastKnownLng().doubleValue();
+                    } else if (mua.getBaseAddressLat() != null && mua.getBaseAddressLng() != null) {
+                        muaLat = mua.getBaseAddressLat().doubleValue();
+                        muaLng = mua.getBaseAddressLng().doubleValue();
+                    }
+                    if (muaLat != null && muaLng != null) {
+                        distToCustomer = GeoDistanceUtils.calculateDistanceKm(
+                                req.getDestinationLatitude().doubleValue(),
+                                req.getDestinationLongitude().doubleValue(),
+                                muaLat, muaLng
+                        );
+                    }
+                }
+
+                // Kiểm tra bán kính phục vụ tối đa của từng thợ: khoảng cách phải <= bán kính thợ cài đặt (giống đặt đích danh)
                 double muaMaxRadius = mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0;
-                boolean withinMuaRadius = (distToCustomer == null || distToCustomer <= muaMaxRadius);
+                boolean withinMuaRadius = (distToCustomer != null && distToCustomer <= muaMaxRadius);
 
                 if (freelance && verified && Boolean.TRUE.equals(mua.getIsOnline())
                         && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && withinMuaRadius) {
                     candidateMuaIds.add(id);
                 } else if (!withinMuaRadius) {
-                    log.info("[CandidateFilter] Excluded MUA id={} because distance ({:.2f}km) exceeds MUA's maxServiceRadiusKm ({:.0f}km)",
-                            id, distToCustomer, muaMaxRadius);
+                    log.info("[CandidateFilter] Excluded MUA id={} because distance ({}km) exceeds MUA's maxServiceRadiusKm ({:.0f}km)",
+                            id, distToCustomer != null ? String.format("%.2f", distToCustomer) : "unknown", muaMaxRadius);
                 }
             }
 

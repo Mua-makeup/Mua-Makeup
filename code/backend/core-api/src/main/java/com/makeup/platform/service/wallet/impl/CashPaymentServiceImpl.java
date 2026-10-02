@@ -189,16 +189,32 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             }
 
             try {
+                var booking = receipt.getBooking();
+                java.math.BigDecimal totalAmount = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal depositAmount = booking != null && booking.getDepositAmount() != null ? booking.getDepositAmount() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, java.math.RoundingMode.HALF_UP);
+                java.math.BigDecimal earningsAmount = totalAmount.subtract(commission);
+
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("type", "PAYMENT_COMPLETED");
                 payload.put("bookingId", bookingId);
+                payload.put("bookingCode", booking != null ? booking.getBookingCode() : null);
                 payload.put("status", "PAID_OUT");
+                payload.put("isDepositPaid", true);
                 payload.put("paymentMethod", "CASH");
+                payload.put("totalAmount", totalAmount);
+                payload.put("depositAmount", depositAmount);
+                payload.put("finalAmount", receipt.getExpectedAmount());
+                payload.put("paidAmount", receipt.getExpectedAmount());
+                payload.put("earningsAmount", earningsAmount);
+                payload.put("customerName", booking != null && booking.getCustomer() != null ? booking.getCustomer().getFullName() : null);
+                payload.put("customerPhone", booking != null && booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : null);
+                payload.put("destinationAddress", booking != null ? booking.getDestinationAddress() : null);
                 payload.put("timestamp", System.currentTimeMillis());
 
                 messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
-                if (receipt.getBooking() != null && receipt.getBooking().getMua() != null) {
-                    Long muaId = receipt.getBooking().getMua().getId();
+                if (booking != null && booking.getMua() != null) {
+                    Long muaId = booking.getMua().getId();
                     messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, payload);
                 }
             } catch (Exception ex) {

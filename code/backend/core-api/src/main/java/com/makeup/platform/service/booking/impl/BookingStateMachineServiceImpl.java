@@ -227,6 +227,16 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 }
             }
 
+            // 5a. Khi hoàn tất ca làm (COMPLETED), giải phóng hold ký quỹ
+            if (targetStatus == BookingStatus.COMPLETED) {
+                walletHoldRepository.findActiveHoldByBookingId(savedBooking.getId()).ifPresent(hold -> {
+                    hold.setStatus("CONSUMED");
+                    hold.setReleasedAt(OffsetDateTime.now());
+                    walletHoldRepository.save(hold);
+                    log.info("[StateMachine] Released wallet hold {} for completed booking {}", hold.getId(), savedBooking.getId());
+                });
+            }
+
             // 5b. Release calendar slot upon cancellation
             if (targetStatus == BookingStatus.CANCELLED) {
                 try {

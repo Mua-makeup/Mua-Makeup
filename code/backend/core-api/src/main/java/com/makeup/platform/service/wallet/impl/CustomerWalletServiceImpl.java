@@ -4,10 +4,15 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.response.wallet.CustomerWalletRes;
 import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.wallet.LedgerEntryEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
+import com.makeup.platform.entity.wallet.WalletHoldEntity;
 import com.makeup.platform.mapper.wallet.CustomerWalletMapper;
 import com.makeup.platform.repository.UserRepository;
+import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
@@ -21,7 +26,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -30,8 +39,10 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
 
     private final WalletRepository walletRepository;
     private final WalletHoldRepository walletHoldRepository;
+    private final BookingDepositRepository bookingDepositRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
     private final CustomerWalletMapper customerWalletMapper;
 
     @Override
@@ -52,18 +63,65 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
                     return walletRepository.save(newWallet);
                 });
 
-        BigDecimal activeHolds = walletHoldRepository.sumActiveHoldsByWalletId(wallet.getId());
-        if (activeHolds != null) {
-            wallet.setFrozenBalance(activeHolds);
-        } else if (wallet.getFrozenBalance() == null) {
-            wallet.setFrozenBalance(BigDecimal.ZERO);
+        // 1. Đồng bộ và xác nhận lại trạng thái của các khoản cọc/hold nếu đơn đã xong hoặc hủy
+        List<WalletHoldEntity> rawActiveHolds = walletHoldRepository.findAllByWalletIdAndStatus(wallet.getId(), "ACTIVE");
+        for (WalletHoldEntity hold : rawActiveHolds) {
+            BookingEntity b = hold.getBooking();
+            if (b != null) {
+                if (b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT) {
+                    hold.setStatus("CONSUMED");
+                    hold.setReleasedAt(OffsetDateTime.now());
+                    walletHoldRepository.save(hold);
+                } else if (b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED) {
+                    hold.setStatus("REFUNDED");
+                    hold.setReleasedAt(OffsetDateTime.now());
+                    walletHoldRepository.save(hold);
+                    if (hold.getDeposit() != null && !"REFUNDED".equals(hold.getDeposit().getStatus())) {
+                        hold.getDeposit().setStatus("REFUNDED");
+                        bookingDepositRepository.save(hold.getDeposit());
+                    }
+                }
+            }
         }
 
+        // 2. CHỈ tính tổng tiền đang cọc của các đơn ĐANG HOẠT ĐỘNG (chưa hoàn thành)
+        BigDecimal activeHolds = walletHoldRepository.sumActiveHoldsByWalletId(wallet.getId());
+        wallet.setFrozenBalance(activeHolds != null ? activeHolds : BigDecimal.ZERO);
+        walletRepository.save(wallet);
+
+        // 3. Nạp lịch sử biến động số dư kèm trạng thái cọc
         Page<LedgerEntryEntity> recentEntriesPage = ledgerEntryRepository
                 .findAllByWalletIdOrderByCreatedAtDesc(wallet.getId(), PageRequest.of(0, 20));
 
         List<LedgerEntryEntity> entries = recentEntriesPage.getContent();
 
-        return customerWalletMapper.toWalletRes(wallet, entries);
+        Map<Long, String> bookingHoldStatusMap = new HashMap<>();
+        for (LedgerEntryEntity entry : entries) {
+            if ("BOOKING_DEPOSIT".equals(entry.getReferenceType()) && entry.getReferenceId() != null) {
+                Long bookingId = entry.getReferenceId();
+                String resolvedStatus = null;
+
+                Optional<BookingEntity> bOpt = bookingRepository.findById(bookingId);
+                if (bOpt.isPresent()) {
+                    BookingStatus bStatus = bOpt.get().getStatus();
+                    if (bStatus == BookingStatus.COMPLETED || bStatus == BookingStatus.PAID_OUT) {
+                        resolvedStatus = "CONSUMED";
+                    } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
+                        resolvedStatus = "REFUNDED";
+                    }
+                }
+
+                // 2. Nếu chưa xác định thì tra cứu theo WalletHoldEntity
+                if (resolvedStatus == null) {
+                    resolvedStatus = walletHoldRepository.findTopByBookingIdOrderByIdDesc(bookingId)
+                            .map(WalletHoldEntity::getStatus)
+                            .orElse("ACTIVE");
+                }
+
+                bookingHoldStatusMap.put(bookingId, resolvedStatus);
+            }
+        }
+
+        return customerWalletMapper.toWalletRes(wallet, entries, bookingHoldStatusMap);
     }
 }

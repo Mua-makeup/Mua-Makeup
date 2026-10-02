@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
 import { AccountModal } from '@/components/common/AccountModal';
 import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
+import { DepositConfirmedModal } from '@/components/mua/DepositConfirmedModal';
 import { setupAlertPolyfill } from '@/store/popup.store';
 import { useWorkstationStore } from '@/store/workstation.store';
 
@@ -82,6 +83,7 @@ export default function RootLayout() {
           <Stack.Screen name="mua/workstation" options={{ presentation: 'card' }} />
           <Stack.Screen name="job-execution/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="booking/detail/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="booking/deposit/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="booking/tracking/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="booking/instant-matched/[id]" options={{ presentation: 'card' }} />
         </Stack>
@@ -91,6 +93,8 @@ export default function RootLayout() {
         <AccountModal />
         {/* Modal Ca Khẩn Cấp 30s Toàn Cục (Hiện ngay trên mọi màn hình khi mở app) */}
         <CountdownAcceptModal />
+        {/* Modal Thông Báo Nhận Cọc Khách Toàn Cục Cho Thợ */}
+        <DepositConfirmedModal />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

@@ -45,6 +45,17 @@ export interface FreelancerBookingDepositItem {
   createdAt: string;
 }
 
+export interface FreelancerTransactionItem {
+  id: number;
+  entryType: 'CREDIT' | 'DEBIT' | string;
+  amount: number;
+  balanceAfter: number;
+  referenceType: string;
+  referenceId?: number;
+  description?: string;
+  createdAt: string;
+}
+
 export interface FreelancerWalletInfo {
   walletId: number;
   userId: number;
@@ -53,6 +64,7 @@ export interface FreelancerWalletInfo {
   bookingDepositsHeld: number;
   currency: string;
   heldDeposits: FreelancerBookingDepositItem[];
+  recentTransactions?: FreelancerTransactionItem[];
 }
 
 export interface CashReceiptStatus {
@@ -213,6 +225,7 @@ export interface CustomerWalletTransaction {
   referenceType: string;
   referenceId: number;
   description: string;
+  holdStatus?: 'ACTIVE' | 'CONSUMED' | 'REFUNDED' | string;
   createdAt: string;
 }
 

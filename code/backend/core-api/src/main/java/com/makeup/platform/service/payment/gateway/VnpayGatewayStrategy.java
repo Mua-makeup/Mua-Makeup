@@ -75,7 +75,7 @@ public class VnpayGatewayStrategy implements PaymentGatewayStrategy {
         vnpParams.put("vnp_OrderInfo", "Nap tien vi Makeup Platform " + txn.getPaymentCode());
         vnpParams.put("vnp_OrderType", "other");
         vnpParams.put("vnp_Locale", "vn");
-        vnpParams.put("vnp_ReturnUrl", vnpayConfig.getReturnUrl());
+        vnpParams.put("vnp_ReturnUrl", resolveReturnUrl(vnpayConfig.getReturnUrl()));
         vnpParams.put("vnp_IpAddr", (clientIp != null && !clientIp.isBlank()) ? clientIp : "127.0.0.1");
         vnpParams.put("vnp_CreateDate", createDate);
         vnpParams.put("vnp_ExpireDate", expireDate);
@@ -184,5 +184,17 @@ public class VnpayGatewayStrategy implements PaymentGatewayStrategy {
             response.put("Message", "Unknown Error");
         }
         return response;
+    }
+
+    private String resolveReturnUrl(String baseReturnUrl) {
+        if (baseReturnUrl == null || baseReturnUrl.isBlank()) {
+            return "";
+        }
+        if (baseReturnUrl.contains("ngrok-free.dev") && !baseReturnUrl.contains("ngrok-skip-browser-warning")) {
+            return baseReturnUrl.contains("?")
+                    ? baseReturnUrl + "&ngrok-skip-browser-warning=69420"
+                    : baseReturnUrl + "?ngrok-skip-browser-warning=69420";
+        }
+        return baseReturnUrl;
     }
 }

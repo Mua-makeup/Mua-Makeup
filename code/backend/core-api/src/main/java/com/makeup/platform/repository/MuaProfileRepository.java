@@ -27,6 +27,22 @@ public interface MuaProfileRepository extends JpaRepository<MuaProfileEntity, Lo
     @Query("SELECT m FROM MuaProfileEntity m LEFT JOIN FETCH m.user u LEFT JOIN FETCH u.role WHERE m.id IN :ids")
     List<MuaProfileEntity> findDispatchCandidatesByIdIn(@Param("ids") Collection<Long> ids);
 
+    @Query("""
+            SELECT DISTINCT m FROM MuaProfileEntity m
+            LEFT JOIN FETCH m.user u
+            LEFT JOIN FETCH u.role
+            WHERE m.id IN :ids
+              AND EXISTS (
+                SELECT 1 FROM ServicePackageEntity sp
+                WHERE sp.mua.id = m.id
+                  AND sp.masterCategory.id = :categoryId
+                  AND sp.isAvailable = true
+              )
+            """)
+    List<MuaProfileEntity> findDispatchCandidatesByIdInAndCategory(
+            @Param("ids") Collection<Long> ids,
+            @Param("categoryId") Long categoryId);
+
     @Query("SELECT m FROM MuaProfileEntity m LEFT JOIN FETCH m.user WHERE m.id = :id")
     Optional<MuaProfileEntity> findWithUserById(@Param("id") Long id);
 

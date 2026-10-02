@@ -17,7 +17,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
-import { BrandColors } from '@/constants/theme';
+import { BrandColors, Fonts } from '@/constants/theme';
 import { depositService, BookingDepositStatus, DepositCheckoutResult } from '@/services/deposit.service';
 import { bookingService, BookingStatusDetailRes } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
@@ -48,6 +48,21 @@ export default function BookingDepositScreen() {
 
   const pollIntervalRef = useRef<any>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const hasNavigatedRef = useRef<boolean>(false);
+
+  const navigateToBookingDetail = (delay: number = 800) => {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    try {
+      WebBrowser.dismissBrowser();
+    } catch {}
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    setPaymentPolling(false);
+    setIsPaidSuccess(true);
+    setTimeout(() => {
+      router.replace(`/booking/detail/${bookingId}` as any);
+    }, delay);
+  };
 
   // 1. Tải thông tin cọc và booking
   const loadData = async () => {
@@ -97,12 +112,7 @@ export default function BookingDepositScreen() {
         msg?.type === 'PAYMENT_COMPLETED'
       ) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setIsPaidSuccess(true);
-        setPaymentPolling(false);
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setTimeout(() => {
-          router.replace(`/booking/detail/${bookingId}` as any);
-        }, 1200);
+        navigateToBookingDetail(600);
       }
     });
 
@@ -146,12 +156,7 @@ export default function BookingDepositScreen() {
       const status = await depositService.getDepositStatus(bookingId);
       if (status?.depositStatus === 'PAID') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setIsPaidSuccess(true);
-        setPaymentPolling(false);
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setTimeout(() => {
-          router.replace(`/booking/detail/${bookingId}` as any);
-        }, 1200);
+        navigateToBookingDetail(600);
       }
     } catch {
       // Bỏ qua lỗi polling nền
@@ -165,12 +170,7 @@ export default function BookingDepositScreen() {
       const res = await depositService.syncDepositPayment(bookingId);
       if (res?.depositStatus === 'PAID') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setIsPaidSuccess(true);
-        setPaymentPolling(false);
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setTimeout(() => {
-          router.replace(`/booking/detail/${bookingId}` as any);
-        }, 1200);
+        navigateToBookingDetail(600);
       } else {
         await checkDepositStatusOnce();
       }
@@ -197,12 +197,7 @@ export default function BookingDepositScreen() {
         const res = await depositService.syncDepositPayment(bookingId);
         if (res?.depositStatus === 'PAID') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setIsPaidSuccess(true);
-          setPaymentPolling(false);
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setTimeout(() => {
-            router.replace(`/booking/detail/${bookingId}` as any);
-          }, 1200);
+          navigateToBookingDetail(600);
         }
       } catch {
         await checkDepositStatusOnce();
@@ -252,12 +247,20 @@ export default function BookingDepositScreen() {
       if (Platform.OS === 'web') {
         window.open(paymentLink, '_blank');
       } else {
-        await WebBrowser.openBrowserAsync(paymentLink, {
-          presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
-          toolbarColor: '#0F172A',
-        });
-        // Sau khi đóng web browser, kiểm tra ngay trạng thái
-        checkDepositStatusOnce();
+        try {
+          const authRes = await WebBrowser.openAuthSessionAsync(paymentLink, 'app://');
+          if (authRes.type === 'success') {
+            handleManualSync();
+          } else {
+            checkDepositStatusOnce();
+          }
+        } catch {
+          await WebBrowser.openBrowserAsync(paymentLink, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+            toolbarColor: '#0F172A',
+          });
+          checkDepositStatusOnce();
+        }
       }
     } catch (err: any) {
       Alert.alert(
@@ -299,11 +302,17 @@ export default function BookingDepositScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.replace('/')}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            }}
             style={styles.backBtn}
             activeOpacity={0.7}
           >
-            <Ionicons name="home-outline" size={22} color="#0F172A" />
+            <Ionicons name="arrow-back" size={22} color="#0F172A" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Trạng Thái Đặt Cọc</Text>
           <View style={{ width: 40 }} />
@@ -398,7 +407,7 @@ export default function BookingDepositScreen() {
 
           <TouchableOpacity
             style={styles.paidSecondaryBtn}
-            onPress={() => router.push(`/booking/tracking/${bookingId}` as any)}
+            onPress={() => router.replace(`/booking/tracking/${bookingId}` as any)}
             activeOpacity={0.85}
           >
             <Ionicons name="navigate-outline" size={18} color="#2563EB" />
@@ -415,7 +424,11 @@ export default function BookingDepositScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
-            router.replace(`/booking/detail/${bookingId}` as any);
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
           }}
           style={styles.backBtn}
           activeOpacity={0.7}
@@ -579,7 +592,9 @@ export default function BookingDepositScreen() {
           >
             <View style={styles.gatewayLeft}>
               <View style={[styles.gatewayIconBox, { backgroundColor: '#005BAA' }]}>
-                <Text style={styles.gatewayIconText}>VNPAY</Text>
+                <Text style={[styles.gatewayIconText, { fontSize: 10 }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit>VNPAY</Text>
               </View>
               <View style={styles.gatewayMeta}>
                 <Text style={styles.gatewayName}>Cổng Thanh Toán VNPAY</Text>

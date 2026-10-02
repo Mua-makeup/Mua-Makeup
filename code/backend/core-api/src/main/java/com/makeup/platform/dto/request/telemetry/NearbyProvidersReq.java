@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.request.telemetry;
 
+import com.makeup.platform.entity.telemetry.ProviderType;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -36,6 +37,8 @@ public class NearbyProvidersReq {
 
     private BigDecimal minRating;
 
+    private ProviderType providerType;
+
     public void setRadius_km(Double radiusKm) {
         this.radiusKm = radiusKm;
     }
@@ -46,5 +49,14 @@ public class NearbyProvidersReq {
 
     public void setMin_rating(BigDecimal minRating) {
         this.minRating = minRating;
+    }
+
+    public void setProvider_type(String providerType) {
+        if (providerType != null && !providerType.trim().isEmpty()) {
+            try {
+                this.providerType = ProviderType.valueOf(providerType.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
     }
 }

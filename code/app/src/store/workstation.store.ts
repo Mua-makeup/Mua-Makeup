@@ -43,6 +43,23 @@ export interface InstantBookingOffer {
 }
 
 
+export interface DepositConfirmedNotice {
+  type?: 'CUSTOMER_CONFIRMED_DEPOSIT' | 'PAYMENT_COMPLETED' | string;
+  status?: string;
+  bookingId: number;
+  bookingCode: string;
+  customerName?: string;
+  customerPhone?: string;
+  destinationAddress?: string;
+  totalAmount?: number;
+  depositAmount: number;
+  finalAmount?: number;
+  earningsAmount: number;
+  paymentMethod?: string;
+  addOnNames?: string[];
+  addOnTotal?: number;
+}
+
 export interface WorkstationStats {
   completedToday: number;
   ratingAverage: number;
@@ -63,6 +80,10 @@ interface WorkstationState {
   activeOffer: InstantBookingOffer | null;
   isAcceptModalVisible: boolean;
 
+  // Modal thông báo khách đã cọc tiền vào Escrow
+  depositNotice: DepositConfirmedNotice | null;
+  isDepositModalVisible: boolean;
+
   // Actions
   fetchWorkstationData: () => Promise<void>;
   toggleOnline: (enable: boolean) => Promise<boolean>;
@@ -71,6 +92,8 @@ interface WorkstationState {
   dismissOffer: (shouldSkipBackend?: boolean) => Promise<void>;
   acceptActiveOffer: () => Promise<number | null>;
   checkPendingOffer: () => Promise<void>;
+  showDepositNotice: (notice: DepositConfirmedNotice) => void;
+  dismissDepositNotice: () => void;
 }
 
 let heartbeatTimer: any = null;
@@ -111,6 +134,8 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   },
   activeOffer: null,
   isAcceptModalVisible: false,
+  depositNotice: null,
+  isDepositModalVisible: false,
 
   fetchWorkstationData: async () => {
     try {
@@ -189,6 +214,30 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           const currentOffer = get().activeOffer;
           if (currentOffer && (!dismissPayload?.bookingId || dismissPayload.bookingId === currentOffer.bookingId)) {
             get().dismissOffer(false);
+          }
+        });
+
+        // Lắng nghe realtime khi khách đặt cọc thành công vào Quỹ Escrow hoặc thanh toán hoàn tất
+        websocketService.subscribe(`/topic/booking-customer-confirmed/${effectiveMuaId}`, (depositPayload) => {
+          console.log('[WorkstationStore] Realtime nhận cọc / thanh toán hoàn tất:', depositPayload);
+          if (depositPayload?.bookingId) {
+            get().showDepositNotice({
+              type: depositPayload.type || (depositPayload.status === 'PAID_OUT' ? 'PAYMENT_COMPLETED' : 'CUSTOMER_CONFIRMED_DEPOSIT'),
+              status: depositPayload.status,
+              bookingId: depositPayload.bookingId,
+              bookingCode: depositPayload.bookingCode,
+              customerName: depositPayload.customerName,
+              customerPhone: depositPayload.customerPhone,
+              destinationAddress: depositPayload.destinationAddress,
+              totalAmount: depositPayload.totalAmount,
+              depositAmount: depositPayload.depositAmount || 0,
+              finalAmount: depositPayload.finalAmount || depositPayload.paidAmount,
+              earningsAmount: depositPayload.earningsAmount || 0,
+              paymentMethod: depositPayload.paymentMethod,
+              addOnNames: depositPayload.addOnNames,
+              addOnTotal: depositPayload.addOnTotal,
+            });
+            get().fetchWorkstationData();
           }
         });
 
@@ -274,6 +323,29 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
             const currentOffer = get().activeOffer;
             if (currentOffer && (!dismissPayload?.bookingId || dismissPayload.bookingId === currentOffer.bookingId)) {
               get().dismissOffer(false);
+            }
+          });
+
+          websocketService.subscribe(`/topic/booking-customer-confirmed/${effectiveMuaId}`, (depositPayload) => {
+            console.log('[WorkstationStore] Online nhận cọc / thanh toán hoàn tất:', depositPayload);
+            if (depositPayload?.bookingId) {
+              get().showDepositNotice({
+                type: depositPayload.type || (depositPayload.status === 'PAID_OUT' ? 'PAYMENT_COMPLETED' : 'CUSTOMER_CONFIRMED_DEPOSIT'),
+                status: depositPayload.status,
+                bookingId: depositPayload.bookingId,
+                bookingCode: depositPayload.bookingCode,
+                customerName: depositPayload.customerName,
+                customerPhone: depositPayload.customerPhone,
+                destinationAddress: depositPayload.destinationAddress,
+                totalAmount: depositPayload.totalAmount,
+                depositAmount: depositPayload.depositAmount || 0,
+                finalAmount: depositPayload.finalAmount || depositPayload.paidAmount,
+                earningsAmount: depositPayload.earningsAmount || 0,
+                paymentMethod: depositPayload.paymentMethod,
+                addOnNames: depositPayload.addOnNames,
+                addOnTotal: depositPayload.addOnTotal,
+              });
+              get().fetchWorkstationData();
             }
           });
         }
@@ -369,5 +441,15 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
     } catch (e) {
       console.warn('[WorkstationStore] Lỗi kiểm tra ca khẩn cấp đang chờ:', e);
     }
+  },
+
+  showDepositNotice: (notice) => {
+    soundManager.playJobAlertSound();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    set({ depositNotice: notice, isDepositModalVisible: true });
+  },
+
+  dismissDepositNotice: () => {
+    set({ isDepositModalVisible: false, depositNotice: null });
   },
 }));

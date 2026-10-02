@@ -165,7 +165,7 @@ export default function BookingsScreen() {
   };
 
   const handleRebook = () => {
-    router.push('/explore');
+    router.replace('/explore');
   };
 
   return (
@@ -248,7 +248,7 @@ export default function BookingsScreen() {
                   if (isWorkstationRole) {
                     router.replace('/');
                   } else {
-                    router.push('/explore');
+                    router.replace('/explore');
                   }
                 }}
                 activeOpacity={0.88}

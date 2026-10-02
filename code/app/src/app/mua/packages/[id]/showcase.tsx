@@ -140,7 +140,7 @@ export default function PackageShowcaseScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace(`/mua/packages` as any))}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={24} color={BrandColors.slateHeading} />
         </TouchableOpacity>

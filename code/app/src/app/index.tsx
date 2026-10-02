@@ -464,7 +464,7 @@ export default function HomeScreen() {
                 </Text>
                 <TouchableOpacity
                   style={styles.promoButton}
-                  onPress={() => router.push('/explore')}
+                  onPress={() => router.replace('/explore')}
                   activeOpacity={0.8}>
                   <Text style={styles.promoButtonText}>Khám Phá Ngay</Text>
                   <Ionicons name="arrow-forward" size={14} color={BrandColors.primary} />
@@ -565,7 +565,7 @@ export default function HomeScreen() {
               {/* HÌNH THỨC 2: ĐẶT LỊCH THEO NGÀY (HẸN TRƯỚC / THONG THẢ CHỌN) */}
               <TouchableOpacity
                 style={styles.scheduledCard}
-                onPress={() => router.push('/explore')}
+                onPress={() => router.replace('/explore')}
                 activeOpacity={0.88}
               >
                 <View style={styles.scheduledHeaderRow}>

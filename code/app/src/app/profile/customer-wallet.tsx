@@ -210,8 +210,38 @@ export default function CustomerWalletScreen() {
                         <Text style={styles.refundTagText}>Hoàn Cọc</Text>
                       </View>
                     ) : isDepositHold ? (
-                      <View style={[styles.refundTag, { backgroundColor: '#E0F2FE' }]}>
-                        <Text style={[styles.refundTagText, { color: '#0369A1' }]}>Ký Quỹ Escrow</Text>
+                      <View
+                        style={[
+                          styles.refundTag,
+                          {
+                            backgroundColor:
+                              item.holdStatus === 'REFUNDED'
+                                ? '#FEF2F2'
+                                : item.holdStatus === 'CONSUMED'
+                                ? '#ECFDF5'
+                                : '#E0F2FE',
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.refundTagText,
+                            {
+                              color:
+                                item.holdStatus === 'REFUNDED'
+                                  ? '#EF4444'
+                                  : item.holdStatus === 'CONSUMED'
+                                  ? '#059669'
+                                  : '#0369A1',
+                            },
+                          ]}
+                        >
+                          {item.holdStatus === 'REFUNDED'
+                            ? 'Đã Hoàn Cọc'
+                            : item.holdStatus === 'CONSUMED'
+                            ? 'Đã Quyết Toán'
+                            : 'Ký Quỹ Escrow'}
+                        </Text>
                       </View>
                     ) : null}
                   </View>
@@ -228,15 +258,51 @@ export default function CustomerWalletScreen() {
                     style={[
                       styles.txAmount,
                       {
-                        color: isRefund ? '#10B981' : isDepositHold ? '#0284C7' : isCredit ? '#10B981' : '#EF4444',
+                        color: isRefund
+                          ? '#10B981'
+                          : isDepositHold
+                          ? item.holdStatus === 'REFUNDED'
+                            ? '#64748B'
+                            : item.holdStatus === 'CONSUMED'
+                            ? '#059669'
+                            : '#0284C7'
+                          : isCredit
+                          ? '#10B981'
+                          : '#EF4444',
                       },
                     ]}
                   >
-                    {isRefund ? '+' : isDepositHold ? '🔒 ' : isCredit ? '+' : '-'}
+                    {isRefund
+                      ? '+'
+                      : isDepositHold
+                      ? item.holdStatus === 'ACTIVE' || !item.holdStatus
+                        ? '🔒 '
+                        : ''
+                      : isCredit
+                      ? '+'
+                      : '-'}
                     {formatVnd(item.amount)}
                   </Text>
                   {isDepositHold ? (
-                    <Text style={[styles.txBalanceAfter, { color: '#0284C7' }]}>Đang bảo lưu</Text>
+                    <Text
+                      style={[
+                        styles.txBalanceAfter,
+                        {
+                          color:
+                            item.holdStatus === 'REFUNDED'
+                              ? '#64748B'
+                              : item.holdStatus === 'CONSUMED'
+                              ? '#059669'
+                              : '#0284C7',
+                        },
+                      ]}
+                    >
+                      {item.holdStatus === 'REFUNDED'
+                        ? 'Đã hoàn cọc'
+                        : item.holdStatus === 'CONSUMED'
+                        ? 'Đã hoàn tất'
+                        : 'Đang bảo lưu'}
+                    </Text>
                   ) : item.balanceAfter != null ? (
                     <Text style={styles.txBalanceAfter}>
                       Dư: {formatVnd(item.balanceAfter)}

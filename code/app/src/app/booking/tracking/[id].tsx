@@ -18,8 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { BrandColors } from '@/constants/theme';
 import { bookingService } from '@/services/booking.service';
+import { depositService } from '@/services/deposit.service';
 import { telemetryService, LiveTrackingRes } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { BookingProgressStepper } from '@/components/booking/BookingProgressStepper';
@@ -90,6 +92,12 @@ export default function BookingLiveTrackingScreen() {
   const [selectedReviewTags, setSelectedReviewTags] = useState<string[]>(['Đúng giờ ⏱️', 'Make cực xinh 💖']);
   const [reviewComment, setReviewComment] = useState('');
   const [isReviewSubmitted, setIsReviewSubmitted] = useState(false);
+
+  // Final Payment State for COMPLETED state (70% còn lại)
+  const [isConfirmingCash, setIsConfirmingCash] = useState(false);
+  const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
+  const [isPayingOnline, setIsPayingOnline] = useState(false);
+  const [onlineGatewayPaying, setOnlineGatewayPaying] = useState<'MOMO' | 'VNPAY' | null>(null);
 
   // Cancellation Modal State
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
@@ -280,6 +288,11 @@ export default function BookingLiveTrackingScreen() {
         // Trạng thái đơn hàng với Pop-up thông báo tức thời cho khách hàng
         websocketService.subscribe(statusTopic, (statusMsg: any) => {
           const nextStatus = statusMsg?.currentStatus || statusMsg?.status;
+          if (nextStatus === 'PAID_OUT' || statusMsg?.type === 'PAYMENT_COMPLETED') {
+            try {
+              WebBrowser.dismissBrowser();
+            } catch {}
+          }
           if (nextStatus && isMounted) {
             setStatus(nextStatus);
 
@@ -316,13 +329,23 @@ export default function BookingLiveTrackingScreen() {
                 title: '💄 Bắt Đầu Buổi Trang Điểm!',
                 message: 'Chuyên viên đã chính thức bắt đầu ca làm đẹp cho bạn. Hãy thư giãn và tận hưởng dịch vụ!',
               });
-            } else if (nextStatus === 'COMPLETED' || nextStatus === 'PAID_OUT') {
+            } else if (nextStatus === 'COMPLETED') {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               setStatusPopup({
                 visible: true,
                 type: 'COMPLETED',
                 title: '🎉 Buổi Make-up Đã Hoàn Tất!',
-                message: 'Chúc mừng bạn! Buổi make-up đã hoàn thành xuất sắc. Vui lòng ngắm nhìn diện mạo mới và đánh giá dịch vụ nhé!',
+                message: 'Chuyên viên đã hoàn tất make-up. Vui lòng thanh toán phần còn lại (70%) để hoàn tất hợp đồng dịch vụ!',
+              });
+            } else if (nextStatus === 'PAID_OUT' || statusMsg?.type === 'PAYMENT_COMPLETED') {
+              setStatus('PAID_OUT');
+              setIsCashPaidConfirmed(false);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              setStatusPopup({
+                visible: true,
+                type: 'COMPLETED',
+                title: '✨ Quyết Toán Thành Công!',
+                message: 'Khoản thanh toán dịch vụ đã hoàn tất thành công. Hãy đánh giá dịch vụ để ủng hộ chuyên viên nhé!',
               });
             } else {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -342,6 +365,61 @@ export default function BookingLiveTrackingScreen() {
       websocketService.unsubscribe(statusTopic);
     };
   }, [bookingId]);
+
+  const handleConfirmCustomerCash = async () => {
+    try {
+      setIsConfirmingCash(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await depositService.confirmCustomerCashPayment(bookingId, 'v1');
+      setIsCashPaidConfirmed(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Đã Báo Gửi Tiền Mặt',
+        'Vui lòng đưa đủ số tiền mặt cho chuyên viên trang điểm. Chuyên viên sẽ xác nhận sau khi nhận đủ tiền.'
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể xác nhận trả tiền mặt.');
+    } finally {
+      setIsConfirmingCash(false);
+    }
+  };
+
+  const handlePayRemainingOnline = async (gateway: 'MOMO' | 'VNPAY') => {
+    try {
+      setIsPayingOnline(true);
+      setOnlineGatewayPaying(gateway);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const res = await depositService.createFinalPaymentIntent(bookingId, gateway);
+      const paymentLink = res?.paymentUrl;
+      if (!paymentLink) {
+        throw new Error('Cổng thanh toán không trả về liên kết thanh toán.');
+      }
+
+      if (Platform.OS === 'web') {
+        window.open(paymentLink, '_blank');
+      } else {
+        try {
+          const authRes = await WebBrowser.openAuthSessionAsync(paymentLink, 'app://');
+          if (authRes.type === 'success') {
+            bookingService.getBookingStatus(bookingId).then((refreshed) => {
+              if (refreshed) setBookingDetail(refreshed);
+            }).catch(() => {});
+          }
+        } catch {
+          await WebBrowser.openBrowserAsync(paymentLink, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+            toolbarColor: '#0F172A',
+          });
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi Thanh Toán', err?.response?.data?.message || err?.message || 'Không thể tạo liên kết thanh toán.');
+    } finally {
+      setIsPayingOnline(false);
+      setOnlineGatewayPaying(null);
+    }
+  };
 
   const handleCallMua = () => {
     const phone = bookingDetail?.muaPhone || '0988123456';
@@ -433,7 +511,17 @@ export default function BookingLiveTrackingScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* TOP BAR HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <Ionicons name="arrow-back" size={20} color="#0F172A" />
         </TouchableOpacity>
 
@@ -523,7 +611,7 @@ export default function BookingLiveTrackingScreen() {
 
               <TouchableOpacity
                 style={styles.detailBtn}
-                onPress={() => router.push(`/booking/detail/${bookingId}` as any)}
+                onPress={() => router.replace(`/booking/detail/${bookingId}` as any)}
                 activeOpacity={0.8}
               >
                 <Ionicons name="document-text-outline" size={16} color="#334155" />
@@ -736,9 +824,9 @@ export default function BookingLiveTrackingScreen() {
             </View>
           )}
 
-          {/* TÓM TẮT THANH TOÁN */}
+          {/* TÓM TẮT CHI TIẾT THANH TOÁN & TIỀN CỌC */}
           <View style={styles.cardBox}>
-            <Text style={styles.cardHeaderTitle}>Chi Tiết Thanh Toán</Text>
+            <Text style={styles.cardHeaderTitle}>Chi Tiết Thanh Toán & Cọc</Text>
             <View style={styles.billRow}>
               <Text style={styles.billLabel}>Gói dịch vụ:</Text>
               <Text style={styles.billVal}>{formatVnd(bookingDetail?.serviceSubtotal || bookingDetail?.totalAmount || 0)}</Text>
@@ -753,11 +841,169 @@ export default function BookingLiveTrackingScreen() {
               <Text style={styles.billLabelBold}>Tổng thanh toán:</Text>
               <Text style={styles.billValTotal}>{formatVnd(bookingDetail?.totalAmount || 0)}</Text>
             </View>
-            <View style={styles.paidBadgeBox}>
-              <Ionicons name="checkmark-circle" size={16} color="#059669" />
-              <Text style={styles.paidBadgeText}>Đã quyết toán an toàn qua Escrow ví</Text>
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Tiền cọc Escrow (30%):</Text>
+              <Text style={[styles.billVal, { color: '#059669', fontWeight: '700' }]}>
+                {formatVnd(bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))} (Đã cọc ✓)
+              </Text>
+            </View>
+            <View style={[styles.billRow, { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 8, marginTop: 4 }]}>
+              <Text style={[styles.billLabelBold, { color: '#E11D48' }]}>Còn lại cần thanh toán (70%):</Text>
+              <Text style={[styles.billValTotal, { color: '#E11D48' }]}>
+                {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))))}
+              </Text>
             </View>
           </View>
+
+          {/* KHỐI THANH TOÁN 70% CÒN LẠI HOẶC HUY HIỆU ĐÃ QUYẾT TOÁN */}
+          {status === 'PAID_OUT' ? (
+            <View style={[styles.cardBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Ionicons name="checkmark-done-circle" size={28} color="#059669" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#065F46' }}>
+                    Đơn Hàng Đã Quyết Toán & Hoàn Tất
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#047857', marginTop: 2 }}>
+                    Bạn đã thanh toán đầy đủ 100% tiền dịch vụ. Khoản tiền đã được quyết toán cho chuyên viên thành công.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : isCashPaidConfirmed ? (
+            <View style={[styles.cardBox, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A', borderWidth: 1 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Ionicons name="time" size={28} color="#D97706" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#92400E' }}>
+                    Đang Chờ Chuyên Viên Xác Nhận Tiền Mặt
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#B45309', marginTop: 2 }}>
+                    Bạn đã bấm báo gửi tiền mặt {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))))}. Vui lòng nhờ chuyên viên bấm xác nhận trên ứng dụng của họ để hoàn tất đơn.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.cardBox, { borderColor: '#E2E8F0', borderWidth: 1 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Ionicons name="wallet" size={20} color={BrandColors.primary} />
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>
+                  Thanh Toán Phần Còn Lại (70%):{' '}
+                  <Text style={{ color: '#E11D48' }}>
+                    {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))))}
+                  </Text>
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 14 }}>
+                Vui lòng chọn 1 hình thức thanh toán sau để hoàn tất hợp đồng:
+              </Text>
+
+              <View style={{ gap: 10 }}>
+                {/* 1. Tiền Mặt Trực Tiếp */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#ECFDF5',
+                    borderColor: '#10B981',
+                    borderWidth: 1.5,
+                    borderRadius: 14,
+                    padding: 14,
+                    gap: 12,
+                  }}
+                  onPress={handleConfirmCustomerCash}
+                  disabled={isConfirmingCash || isPayingOnline}
+                  activeOpacity={0.8}
+                >
+                  {isConfirmingCash ? (
+                    <ActivityIndicator size="small" color="#059669" />
+                  ) : (
+                    <>
+                      <Ionicons name="cash" size={24} color="#059669" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: '#065F46' }}>
+                          Trả Tiền Mặt Trực Tiếp Cho Thợ
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#047857', marginTop: 2 }}>
+                          Đưa tiền mặt trực tiếp cho chuyên viên trang điểm
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#059669" />
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {/* 2. MoMo Online */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#FDF2F8',
+                    borderColor: '#D82D8B',
+                    borderWidth: 1.5,
+                    borderRadius: 14,
+                    padding: 14,
+                    gap: 12,
+                  }}
+                  onPress={() => handlePayRemainingOnline('MOMO')}
+                  disabled={isConfirmingCash || isPayingOnline}
+                  activeOpacity={0.8}
+                >
+                  {isPayingOnline && onlineGatewayPaying === 'MOMO' ? (
+                    <ActivityIndicator size="small" color="#D82D8B" />
+                  ) : (
+                    <>
+                      <Ionicons name="phone-portrait" size={24} color="#D82D8B" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: '#9D174D' }}>
+                          Ví Điện Tử MoMo (Online)
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#BE185D', marginTop: 2 }}>
+                          Thanh toán tức thì online qua App MoMo
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#D82D8B" />
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {/* 3. VNPay Online */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#F0F9FF',
+                    borderColor: '#005BAA',
+                    borderWidth: 1.5,
+                    borderRadius: 14,
+                    padding: 14,
+                    gap: 12,
+                  }}
+                  onPress={() => handlePayRemainingOnline('VNPAY')}
+                  disabled={isConfirmingCash || isPayingOnline}
+                  activeOpacity={0.8}
+                >
+                  {isPayingOnline && onlineGatewayPaying === 'VNPAY' ? (
+                    <ActivityIndicator size="small" color="#005BAA" />
+                  ) : (
+                    <>
+                      <Ionicons name="qr-code" size={24} color="#005BAA" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: '#075985' }}>
+                          Cổng VNPay (App Ngân Hàng / QR)
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#0369A1', marginTop: 2 }}>
+                          Quét mã VNPAY-QR từ bất kỳ App ngân hàng nào
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#005BAA" />
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* ĐÁNH GIÁ 5 SAO CHO CHUYÊN VIÊN */}
           <View style={styles.cardBox}>

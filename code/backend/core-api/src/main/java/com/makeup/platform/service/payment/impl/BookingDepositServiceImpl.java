@@ -12,6 +12,7 @@ import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.entity.payment.PaymentTransactionEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.entity.wallet.WalletHoldEntity;
+import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.wallet.LedgerEntryEntity;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
@@ -426,6 +427,9 @@ public class BookingDepositServiceImpl implements BookingDepositService {
             depositSuccessPayload.put("depositAmount", deposit.getPaidAmount());
             depositSuccessPayload.put("earningsAmount", earningsAmount);
             depositSuccessPayload.put("timestamp", System.currentTimeMillis());
+            depositSuccessPayload.put("customerName", booking.getCustomer() != null ? booking.getCustomer().getFullName() : "Khách hàng");
+            depositSuccessPayload.put("customerPhone", booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : "");
+            depositSuccessPayload.put("destinationAddress", booking.getDestinationAddress());
 
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, depositSuccessPayload);
             messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, depositSuccessPayload);
@@ -434,6 +438,10 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 Long muaId = booking.getMua().getId();
                 messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, depositSuccessPayload);
                 log.info("[Deposit] Broadcasted CUSTOMER_CONFIRMED_DEPOSIT to MUA topic /topic/booking-customer-confirmed/{}", muaId);
+                if (booking.getMua().getUser() != null) {
+                    Long muaUserId = booking.getMua().getUser().getId();
+                    messagingTemplate.convertAndSend("/topic/booking-customer-confirmed-user/" + muaUserId, depositSuccessPayload);
+                }
             }
             log.info("[Deposit] Broadcasted deposit paid event for bookingId={}", bookingId);
         } catch (Exception e) {
@@ -579,21 +587,34 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         paymentTransactionRepository.save(payment);
 
         try {
+            var booking = payment.getBooking();
+            java.math.BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : java.math.BigDecimal.ZERO;
+            java.math.BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal earningsAmount = totalAmount.subtract(commission);
+
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "PAYMENT_COMPLETED");
             payload.put("bookingId", bookingId);
-            payload.put("bookingCode", payment.getBooking().getBookingCode());
+            payload.put("bookingCode", booking.getBookingCode());
             payload.put("status", "PAID_OUT");
             payload.put("isDepositPaid", true);
             payload.put("paymentMethod", payment.getPaymentGateway());
+            payload.put("totalAmount", totalAmount);
+            payload.put("depositAmount", depositAmount);
+            payload.put("finalAmount", payment.getAmount());
             payload.put("paidAmount", payment.getAmount());
+            payload.put("earningsAmount", earningsAmount);
+            payload.put("customerName", booking.getCustomer() != null ? booking.getCustomer().getFullName() : null);
+            payload.put("customerPhone", booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : null);
+            payload.put("destinationAddress", booking.getDestinationAddress());
             payload.put("timestamp", System.currentTimeMillis());
 
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
             messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, payload);
 
-            if (payment.getBooking().getMua() != null) {
-                Long muaId = payment.getBooking().getMua().getId();
+            if (booking.getMua() != null) {
+                Long muaId = booking.getMua().getId();
                 messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, payload);
             }
         } catch (Exception ex) {
@@ -603,7 +624,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         log.info("[FinalPayment] Successfully settled online final payment for bookingId={}", bookingId);
     }
 
-    private WalletEntity createWalletForUser(Long userId, com.makeup.platform.entity.auth.UserEntity user) {
+    private WalletEntity createWalletForUser(Long userId, UserEntity user) {
         WalletEntity wallet = WalletEntity.builder()
                 .user(user)
                 .availableBalance(BigDecimal.ZERO)

@@ -167,12 +167,13 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         }
 
         // Giải phóng wallet_hold
-        walletHoldRepository.findActiveHoldByBookingId(bookingId).ifPresent(hold -> {
+        List<WalletHoldEntity> activeHolds = walletHoldRepository.findAllByBookingIdAndStatus(bookingId, "ACTIVE");
+        for (WalletHoldEntity hold : activeHolds) {
             hold.setStatus("CONSUMED");
             hold.setReleasedAt(OffsetDateTime.now(VIETNAM_OFFSET));
             walletHoldRepository.save(hold);
             log.info("[Settlement] Released wallet hold {} for booking {}", hold.getId(), bookingId);
-        });
+        }
 
         booking.setStatus(BookingStatus.PAID_OUT);
         bookingRepository.save(booking);
@@ -254,12 +255,13 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         }
 
         // Release wallet hold
-        walletHoldRepository.findActiveHoldByBookingId(bookingId).ifPresent(hold -> {
+        List<WalletHoldEntity> activeHolds = walletHoldRepository.findAllByBookingIdAndStatus(bookingId, "ACTIVE");
+        for (WalletHoldEntity hold : activeHolds) {
             hold.setStatus("CONSUMED");
             hold.setReleasedAt(OffsetDateTime.now(VIETNAM_OFFSET));
             walletHoldRepository.save(hold);
             log.info("[SettlementOnline] Released wallet hold {} for booking {}", hold.getId(), bookingId);
-        });
+        }
 
         booking.setStatus(BookingStatus.PAID_OUT);
         bookingRepository.save(booking);

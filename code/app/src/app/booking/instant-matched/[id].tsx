@@ -236,7 +236,16 @@ export default function InstantMatchedScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
+          }}
+        >
           <Ionicons name="close" size={22} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.headerTitleGroup}>
