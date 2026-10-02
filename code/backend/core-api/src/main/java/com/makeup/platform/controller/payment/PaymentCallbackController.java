@@ -5,6 +5,8 @@ import com.makeup.platform.repository.payment.PaymentTransactionRepository;
 import com.makeup.platform.service.payment.PaymentWebhookProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -103,16 +105,22 @@ public class PaymentCallbackController {
             }
         }
 
-        String targetRedirectUrl = bookingId != null
-                ? "http://" + host + ":8081/booking/deposit/" + bookingId + "?status=success"
-                : "http://" + host + ":8081/";
+        String expoUrl = bookingId != null
+                ? "exp://" + host + ":8081/--/booking/detail/" + bookingId
+                : "exp://" + host + ":8081";
 
-        String html = buildReturnHtmlPage(isSuccess, gateway, paymentCode, bookingCode, amountFormatted, targetRedirectUrl, bookingId);
-        return ResponseEntity.ok(html);
+        String nativeUrl = bookingId != null
+                ? "app://booking/detail/" + bookingId
+                : "app://";
+
+        String html = buildReturnHtmlPage(isSuccess, gateway, paymentCode, bookingCode, amountFormatted, expoUrl, nativeUrl, bookingId);
+        HttpHeaders responseHeaders = new HttpHeaders();
+        responseHeaders.add("ngrok-skip-browser-warning", "69420");
+        return ResponseEntity.ok().headers(responseHeaders).body(html);
     }
 
     private String buildReturnHtmlPage(boolean isSuccess, String gateway, String paymentCode,
-                                       String bookingCode, String amountFormatted, String targetRedirectUrl, Long bookingId) {
+                                       String bookingCode, String amountFormatted, String expoUrl, String nativeUrl, Long bookingId) {
         String title = isSuccess ? "Thanh Toán Đặt Cọc Thành Công!" : "Thanh Toán Chưa Hoàn Tất";
         String statusColor = isSuccess ? "#059669" : "#DC2626";
         String statusBg = isSuccess ? "#ECFDF5" : "#FEF2F2";
@@ -121,7 +129,7 @@ public class PaymentCallbackController {
                 : "<svg width='64' height='64' viewBox='0 0 24 24' fill='none' stroke='#DC2626' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><line x1='15' y1='9' x2='9' y2='15'></line><line x1='9' y1='9' x2='15' y2='15'></line></svg>";
 
         String message = isSuccess
-                ? "Khoản cọc 30% đã được ghi nhận vào Quỹ Bảo Chứng Escrow an toàn. Hệ thống đang tự động đưa bạn quay lại ứng dụng..."
+                ? "Khoản cọc 30% đã được ghi nhận vào Quỹ Bảo Chứng Escrow an toàn. Hệ thống đã xác nhận thanh toán."
                 : "Giao dịch không thành công hoặc đã bị huỷ. Vui lòng thử lại hoặc chọn phương thức thanh toán khác.";
 
         return "<!DOCTYPE html>\n" +
@@ -129,23 +137,23 @@ public class PaymentCallbackController {
                 "<head>\n" +
                 "    <meta charset='UTF-8'>\n" +
                 "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n" +
-                "    <meta http-equiv='refresh' content='2;url=" + targetRedirectUrl + "'>\n" +
                 "    <title>" + title + "</title>\n" +
                 "    <style>\n" +
                 "        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }\n" +
                 "        body { background: #0F172A; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; color: #1E293B; }\n" +
-                "        .card { background: #FFFFFF; border-radius: 24px; padding: 40px 28px; width: 100%; max-width: 440px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }\n" +
-                "        .icon-circle { width: 96px; height: 96px; border-radius: 48px; background: " + statusBg + "; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }\n" +
-                "        h1 { font-size: 22px; font-weight: 800; color: #0F172A; margin-bottom: 12px; }\n" +
-                "        p { font-size: 14px; line-height: 1.6; color: #64748B; margin-bottom: 24px; }\n" +
-                "        .meta-box { background: #F8FAFC; border-radius: 16px; padding: 16px; margin-bottom: 24px; text-align: left; border: 1px solid #E2E8F0; }\n" +
+                "        .card { background: #FFFFFF; border-radius: 24px; padding: 36px 24px; width: 100%; max-width: 440px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }\n" +
+                "        .icon-circle { width: 92px; height: 92px; border-radius: 46px; background: " + statusBg + "; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; }\n" +
+                "        h1 { font-size: 21px; font-weight: 800; color: #0F172A; margin-bottom: 10px; }\n" +
+                "        p { font-size: 14px; line-height: 1.5; color: #64748B; margin-bottom: 20px; }\n" +
+                "        .meta-box { background: #F8FAFC; border-radius: 16px; padding: 14px; margin-bottom: 20px; text-align: left; border: 1px solid #E2E8F0; }\n" +
                 "        .meta-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n" +
                 "        .meta-row:last-child { margin-bottom: 0; }\n" +
                 "        .meta-label { color: #64748B; }\n" +
                 "        .meta-value { font-weight: 700; color: #0F172A; }\n" +
-                "        .btn { display: block; width: 100%; padding: 15px; border-radius: 14px; background: #E11D48; color: #FFFFFF; font-weight: 700; font-size: 15px; text-decoration: none; border: none; cursor: pointer; transition: all 0.2s ease; }\n" +
-                "        .btn:hover { background: #BE123C; transform: translateY(-1px); }\n" +
-                "        .loader { font-size: 12px; color: #94A3B8; margin-top: 16px; }\n" +
+                "        .btn-expo { display: block; width: 100%; padding: 15px; border-radius: 14px; background: #059669; color: #FFFFFF; font-weight: 700; font-size: 15px; text-decoration: none; border: none; cursor: pointer; margin-bottom: 10px; }\n" +
+                "        .btn-expo:hover { background: #047857; }\n" +
+                "        .btn-native { display: block; width: 100%; padding: 12px; border-radius: 14px; background: #F1F5F9; color: #334155; font-weight: 700; font-size: 13px; text-decoration: none; border: 1px solid #CBD5E1; cursor: pointer; }\n" +
+                "        .tip-box { background: #EFF6FF; border-radius: 12px; padding: 12px; margin-top: 18px; font-size: 12px; color: #1E40AF; line-height: 1.5; text-align: left; border: 1px solid #BFDBFE; }\n" +
                 "    </style>\n" +
                 "</head>\n" +
                 "<body>\n" +
@@ -159,8 +167,9 @@ public class PaymentCallbackController {
                 "            " + (!bookingCode.isEmpty() ? "<div class='meta-row'><span class='meta-label'>Lịch hẹn:</span><span class='meta-value'>" + bookingCode + "</span></div>\n" : "") +
                 "            " + (!amountFormatted.isEmpty() ? "<div class='meta-row'><span class='meta-label'>Số tiền cọc:</span><span class='meta-value' style='color: #E11D48;'>" + amountFormatted + "</span></div>\n" : "") +
                 "        </div>\n" +
-                "        <a href='" + targetRedirectUrl + "' class='btn'>Quay Lại Ứng Dụng Ngay</a>\n" +
-                "        <div class='loader'>Tự động quay lại ứng dụng sau 2 giây...</div>\n" +
+                "        <a href='" + expoUrl + "' class='btn-expo'>Mở Lại Ứng Dụng (Expo Go)</a>\n" +
+                "        <a href='" + nativeUrl + "' class='btn-native'>Mở Bản Cài Đặt (Standalone App)</a>\n" +
+                "        <div class='tip-box'>💡 <b>Mẹo:</b> Khi thanh toán xong, hệ thống đã tự động ghi nhận cọc vào đơn. Bạn có thể vuốt mép dưới iPhone để chuyển về Expo Go ngay lập tức!</div>\n" +
                 "    </div>\n" +
                 "    <script>\n" +
                 "        try {\n" +
@@ -169,8 +178,8 @@ public class PaymentCallbackController {
                 "            }\n" +
                 "        } catch(e) {}\n" +
                 "        setTimeout(function() {\n" +
-                "            window.location.href = '" + targetRedirectUrl + "';\n" +
-                "        }, 1800);\n" +
+                "            window.location.href = '" + expoUrl + "';\n" +
+                "        }, 400);\n" +
                 "    </script>\n" +
                 "</body>\n" +
                 "</html>";

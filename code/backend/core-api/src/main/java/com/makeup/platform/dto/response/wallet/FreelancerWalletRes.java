@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-
+import java.util.List;
 
 @Getter
 @Setter
@@ -21,4 +21,6 @@ public class FreelancerWalletRes {
     private BigDecimal frozenBalance;
     private BigDecimal bookingDepositsHeld;
     private String currency;
+    private List<FreelancerBookingDepositItemRes> heldDeposits;
+    private List<CustomerWalletTransactionRes> recentTransactions;
 }

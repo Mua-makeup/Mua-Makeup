@@ -18,12 +18,14 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Location from 'expo-location';
 import { BrandColors } from '@/constants/theme';
 import { bookingService, InstantBookingCreatedRes } from '@/services/booking.service';
 import { NearbyProviderRes } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { packageService, PackageSummary } from '@/services/package.service';
 import { MakeupStyle } from '@/services/taxonomy.service';
+import { mapsService, PlaceSuggestion } from '@/services/maps.service';
 import { soundManager } from '@/utils/sound';
 import { useLocationStore } from '@/store/location.store';
 import { parseApiError } from '@/utils/error';
@@ -77,6 +79,11 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [addressNote, setAddressNote] = useState('');
   const [isSavedAddressModalVisible, setIsSavedAddressModalVisible] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const searchTimeoutRef = useRef<any>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [step, setStep] = useState<'IDLE' | 'SCANNING' | 'MATCHED' | 'TIMEOUT'>('IDLE');
   const [secondsLeft, setSecondsLeft] = useState(20);
@@ -88,6 +95,67 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const timerRef = useRef<any>(null);
   const statusPollRef = useRef<any>(null);
   const activeTopicRef = useRef<string | null>(null);
+
+  const handleAddressChange = (text: string) => {
+    setAddress(text);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (text.trim().length >= 2) {
+      searchTimeoutRef.current = setTimeout(async () => {
+        setIsSearchingPlaces(true);
+        try {
+          const list = await mapsService.getPlaceSuggestions(
+            text,
+            coords?.latitude || storeLat,
+            coords?.longitude || storeLng
+          );
+          setSuggestions(list || []);
+        } catch {
+          setSuggestions([]);
+        } finally {
+          setIsSearchingPlaces(false);
+        }
+      }, 350);
+    } else {
+      setSuggestions([]);
+    }
+  };
+
+  const handleSelectSuggestion = async (item: PlaceSuggestion) => {
+    Haptics.selectionAsync();
+    setAddress(item.description);
+    setSuggestions([]);
+    try {
+      const detail = await mapsService.getPlaceDetail(item.placeId);
+      if (detail && detail.latitude && detail.longitude) {
+        setCoords({ latitude: detail.latitude, longitude: detail.longitude });
+      }
+    } catch (e) {
+      console.warn('Lỗi lấy tọa độ từ place detail:', e);
+    }
+  };
+
+  const refreshLocation = async () => {
+    try {
+      setIsLocating(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const cur = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        setCoords(cur);
+        const geoRes = await mapsService.reverseGeocode(cur.latitude, cur.longitude);
+        if (geoRes?.formattedAddress) {
+          setAddress(geoRes.formattedAddress);
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert('Quyền Vị Trí', 'Vui lòng cấp quyền truy cập vị trí để tự động định vị.');
+      }
+    } catch (e) {
+      console.warn('Không thể định vị GPS khách hàng:', e);
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   // Cử chỉ kéo xuống (swipe down) để đóng modal
   const panResponder = useRef(
@@ -386,7 +454,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
 
             {/* STEP 1: FORM CHỌN DỊCH VỤ & GỬI YÊU CẦU */}
             {step === 'IDLE' && (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+              <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* PROFILE CARD CỦA THỢ */}
                 <View style={styles.muaProfileCard}>
                   <Image
@@ -505,24 +573,103 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                 </>
               )}
 
-              {/* PHẦN 3: ĐỊA CHỈ ĐÓN */}
-              <View style={[styles.sectionHeader, { marginTop: 18 }]}>
-                <Ionicons name="location" size={16} color="#E11D48" />
-                <Text style={styles.sectionTitle}>Địa Điểm Thực Hiện</Text>
+              {/* PHẦN 3: ĐỊA CHỈ THỰC HIỆN MAKE-UP */}
+              <View style={styles.addressHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Ionicons name="location" size={16} color="#E11D48" />
+                  <Text style={styles.sectionTitle}>Địa Điểm Thực Hiện</Text>
+                </View>
+
+                {/* Các nút tiện ích: Sổ địa chỉ & Định vị GPS */}
+                <View style={styles.addressActionBtnRow}>
+                  <TouchableOpacity
+                    style={styles.addressBookBtn}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setIsSavedAddressModalVisible(true);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="bookmarks" size={12} color="#7C3AED" />
+                    <Text style={styles.addressBookBtnText}>Sổ địa chỉ</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.detectBtn}
+                    onPress={refreshLocation}
+                    disabled={isLocating}
+                    activeOpacity={0.75}
+                  >
+                    {isLocating ? (
+                      <ActivityIndicator size="small" color="#2563EB" />
+                    ) : (
+                      <>
+                        <Ionicons name="locate" size={12} color="#2563EB" />
+                        <Text style={styles.detectBtnText}>GPS</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              <View style={styles.addressBox}>
-                <Ionicons name="pin" size={16} color="#E11D48" style={{ marginTop: 2, marginRight: 8 }} />
-                <Text style={styles.addressText} numberOfLines={2}>
-                  {address || currentAddress || 'Đang lấy vị trí của bạn...'}
-                </Text>
+              <View style={styles.addressInputBox}>
+                <Ionicons name="pin" size={16} color="#E11D48" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.addressInput}
+                  value={address}
+                  onChangeText={handleAddressChange}
+                  placeholder="Nhập địa chỉ làm đẹp của bạn..."
+                  placeholderTextColor="#94A3B8"
+                />
+                {isSearchingPlaces && <ActivityIndicator size="small" color="#2563EB" />}
+              </View>
+
+              {suggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {suggestions.slice(0, 4).map((sugg) => (
+                    <TouchableOpacity
+                      key={sugg.placeId}
+                      style={styles.suggestionItem}
+                      onPress={() => handleSelectSuggestion(sugg)}
+                    >
+                      <Ionicons name="pin" size={14} color="#64748B" style={{ marginTop: 2, marginRight: 8 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.suggestionMainText}>{sugg.mainText}</Text>
+                        {sugg.secondaryText ? (
+                          <Text style={styles.suggestionSecText} numberOfLines={1}>
+                            {sugg.secondaryText}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* THÔNG TIN BÁN KÍNH DỰA THEO ĐỊA CHỈ ĐÃ CHỌN */}
+              <View style={styles.radiusIndicatorRow}>
+                {isOutOfRadius ? (
+                  <View style={styles.outOfRadiusBadge}>
+                    <Ionicons name="close-circle" size={13} color="#DC2626" />
+                    <Text style={styles.outOfRadiusBadgeText}>
+                      Ngoài bán kính nhận ca (Cách {formatDistance(effectiveDist)} / Thợ nhận {muaMaxRadius}km)
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.withinRadiusBadge}>
+                    <Ionicons name="checkmark-circle" size={13} color="#059669" />
+                    <Text style={styles.withinRadiusBadgeText}>
+                      Trong bán kính nhận ca (Cách {formatDistance(effectiveDist)} / Thợ nhận {muaMaxRadius}km)
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <TextInput
                 style={styles.noteInput}
                 value={addressNote}
                 onChangeText={setAddressNote}
-                placeholder="Ghi chú thêm: Tòa nhà, số tầng, căn hộ, lưu ý da mặt..."
+                placeholder="Ghi chú thêm: Tòa nhà, số tầng, căn hộ, mang tone gì..."
                 placeholderTextColor="#94A3B8"
               />
 
@@ -966,21 +1113,132 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
-  addressBox: {
+  addressHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  addressActionBtnRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF1F2',
-    borderRadius: 10,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#FECDD3',
+    gap: 6,
   },
-  addressText: {
-    fontSize: 11.5,
-    color: '#9F1239',
-    fontWeight: '600',
+  addressBookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 7,
+  },
+  addressBookBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  detectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 7,
+  },
+  detectBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  addressInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  addressInput: {
     flex: 1,
-    lineHeight: 15,
+    fontSize: 12,
+    color: '#0F172A',
+    padding: 0,
+  },
+  suggestionsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+    marginBottom: 6,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  suggestionMainText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  suggestionSecText: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  radiusIndicatorRow: {
+    marginTop: 6,
+  },
+  withinRadiusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  withinRadiusBadgeText: {
+    fontSize: 10.5,
+    color: '#065F46',
+    fontWeight: '600',
+  },
+  outOfRadiusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  outOfRadiusBadgeText: {
+    fontSize: 10.5,
+    color: '#991B1B',
+    fontWeight: '600',
   },
   noteInput: {
     backgroundColor: '#F8FAFC',

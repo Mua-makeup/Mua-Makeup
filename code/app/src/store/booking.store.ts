@@ -251,17 +251,17 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
         }
       }
 
-      // Sắp xếp đơn sắp tới: Sắp xếp tăng dần theo thời gian hẹn (cuốc gần nhất lên đầu)
+      // Sắp xếp mặc định: Đơn tạo gần nhất trong ngày lên đầu (createdAt giảm dần)
       upcoming.sort((a, b) => {
-        const timeA = a.bookingTime ? new Date(a.bookingTime).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-        const timeB = b.bookingTime ? new Date(b.bookingTime).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        return timeA - timeB;
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a.bookingTime ? new Date(a.bookingTime).getTime() : 0);
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.bookingTime ? new Date(b.bookingTime).getTime() : 0);
+        return timeB - timeA;
       });
 
-      // Sắp xếp lịch sử đơn hàng: Sắp xếp giảm dần theo thời gian hẹn (đơn mới nhất lên đầu)
+      // Sắp xếp lịch sử đơn hàng: Đơn tạo mới nhất lên đầu (createdAt giảm dần)
       history.sort((a, b) => {
-        const timeA = a.bookingTime ? new Date(a.bookingTime).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-        const timeB = b.bookingTime ? new Date(b.bookingTime).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a.bookingTime ? new Date(a.bookingTime).getTime() : 0);
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b.bookingTime ? new Date(b.bookingTime).getTime() : 0);
         return timeB - timeA;
       });
 

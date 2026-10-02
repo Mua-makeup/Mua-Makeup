@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { BrandColors } from '@/constants/theme';
 import { JobTimelineStep } from '@/components/mua/JobTimelineStep';
 import { ProofCameraModal } from '@/components/mua/ProofCameraModal';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
@@ -105,21 +106,6 @@ export default function JobExecutionScreen() {
   const [isBothCashConfirmed, setIsBothCashConfirmed] = useState(false);
   const [isCashPromptModalVisible, setIsCashPromptModalVisible] = useState(false);
   const [cashAmountExpected, setCashAmountExpected] = useState<number>(0);
-
-  // Luxury Success Modal State when Customer deposits
-  const [depositSuccessData, setDepositSuccessData] = useState<{
-    visible: boolean;
-    depositAmount: number;
-    earningsAmount: number;
-    addOnNames: string[];
-    addOnTotal: number;
-  }>({
-    visible: false,
-    depositAmount: 0,
-    earningsAmount: 0,
-    addOnNames: [],
-    addOnTotal: 0,
-  });
 
   // Cờ chống hiển thị trùng lặp Alert hủy đơn 2 lần
   const hasHandledCancelAlertRef = useRef(false);
@@ -245,10 +231,6 @@ export default function JobExecutionScreen() {
           distRemaining = 0;
         }
 
-        // Xác định Adaptive Sampling Mode theo chuẩn backend TelemetryConstants:
-        // - APPROACHING (<300m): bắn websocket 3s
-        // - STOPPED (<3km/h): bắn websocket 20s
-        // - MOVING (còn lại): bắn websocket 5s
         let mode: 'APPROACHING' | 'MOVING' | 'STOPPED';
         let nextIntervalMs: number;
         if (distRemaining < 300) {
@@ -316,13 +298,6 @@ export default function JobExecutionScreen() {
         setIsDepositPaid(true);
         setIsDepositTimeout(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setDepositSuccessData({
-          visible: true,
-          depositAmount: msg.depositAmount || 0,
-          earningsAmount: msg.earningsAmount || 0,
-          addOnNames: msg.addOnNames || [],
-          addOnTotal: msg.addOnTotal || 0,
-        });
         loadBookingDetail();
       }
       if (msg?.type === 'CUSTOMER_CASH_PAID') {
@@ -365,16 +340,6 @@ export default function JobExecutionScreen() {
           setIsDepositPaid(true);
           setIsDepositTimeout(false);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-          // Hiển thị Custom Luxury Modal thay vì Alert mặc định
-          setDepositSuccessData({
-            visible: true,
-            depositAmount: msg.depositAmount || 0,
-            earningsAmount: msg.earningsAmount || 0,
-            addOnNames: msg.addOnNames || [],
-            addOnTotal: msg.addOnTotal || 0,
-          });
-
           // Cập nhật lại bill
           loadBookingDetail();
         }
@@ -561,11 +526,11 @@ export default function JobExecutionScreen() {
       if (nextStatus === 'COMPLETED') {
         Alert.alert(
           '🎉 Nghiệm Thu Thành Công!',
-          'Ca làm việc đã hoàn tất. Đơn hàng chuyển sang bước thanh toán phần còn lại. Tiền thực nhận sẽ được quyết toán vào Ví ngay sau khi khách hoàn tất thanh toán.',
+          'Ca làm việc đã hoàn tất. Khách hàng đang thực hiện thanh toán 70% còn lại (Tiền mặt hoặc qua Ví MoMo/VNPay). Bạn hãy theo dõi trạng thái thanh toán ngay tại màn hình này.',
           [
             {
-              text: 'Về Bàn Làm Việc',
-              onPress: navigateBackToWorkstation,
+              text: 'Theo Dõi Thanh Toán Tại Đây',
+              style: 'default',
             },
           ]
         );
@@ -763,7 +728,7 @@ export default function JobExecutionScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={navigateBackToWorkstation}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.headerTitleGroup}>
@@ -1278,14 +1243,31 @@ export default function JobExecutionScreen() {
 
               {(currentStatus === 'COMPLETED' || currentStatus === 'PAID_OUT') && (
                 <View style={{ gap: 10 }}>
-                  <View style={styles.completedBadgeBar}>
-                    <Ionicons name="checkmark-circle" size={20} color="#059669" />
-                    <Text style={styles.completedBadgeText}>
-                      {isBothCashConfirmed || currentStatus === 'PAID_OUT'
-                        ? 'Đã hoàn thành & quyết toán ví!'
-                        : 'Dịch vụ trang điểm đã hoàn tất!'}
-                    </Text>
-                  </View>
+                  {currentStatus === 'PAID_OUT' ? (
+                    <View style={[styles.completedBadgeBar, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1 }]}>
+                      <Ionicons name="checkmark-done-circle" size={24} color="#059669" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.completedBadgeText, { color: '#065F46', fontWeight: '800' }]}>
+                          Đã Hoàn Tất & Quyết Toán 100%!
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#047857', marginTop: 2 }}>
+                          Thu nhập dịch vụ đã được cộng thành công vào Ví khả dụng của bạn.
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={[styles.completedBadgeBar, { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD', borderWidth: 1 }]}>
+                      <Ionicons name="time" size={20} color="#0284C7" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.completedBadgeText, { color: '#0369A1', fontWeight: '800' }]}>
+                          Chờ Khách Thanh Toán 70% Còn Lại
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#0284C7', marginTop: 2 }}>
+                          Khách có thể trả tiền mặt hoặc quét ví MoMo/VNPay. Hệ thống sẽ tự động quyết toán vào Ví ngay khi nhận được.
+                        </Text>
+                      </View>
+                    </View>
+                  )}
 
                   {!cashReceiptConfirmed && currentStatus !== 'PAID_OUT' && (
                     <TouchableOpacity
@@ -1315,13 +1297,23 @@ export default function JobExecutionScreen() {
                     </View>
                   )}
 
+                  {currentStatus === 'PAID_OUT' ? (
+                    <TouchableOpacity
+                      style={[styles.primaryActionBtn, { backgroundColor: BrandColors.primary }]}
+                      onPress={navigateBackToWorkstation}
+                    >
+                      <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
+                      <Text style={styles.btnText}>HOÀN TẤT & VỀ BÀN LÀM VIỆC</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
                   <TouchableOpacity
                     style={[styles.cancelSecondaryBtn, { borderColor: '#CBD5E1', marginTop: 4 }]}
                     onPress={() => router.push('/profile/freelancer-wallet')}
                   >
                     <Ionicons name="wallet-outline" size={16} color="#475569" />
                     <Text style={[styles.cancelSecondaryBtnText, { color: '#475569' }]}>
-                      Xem Ví & Khoản Cọc Của Tôi
+                      Kiểm Tra Ví Thợ & Số Dư
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1451,63 +1443,7 @@ export default function JobExecutionScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Modal Chúc Mừng Khách Cọc Thành Công & Hiển Thị Dịch Vụ Mua Thêm (Custom Luxury Modal) */}
-      <Modal visible={depositSuccessData.visible} transparent animationType="fade">
-        <View style={styles.modalOverlayCenter}>
-          <View style={styles.depositSuccessCard}>
-            <View style={styles.successIconCircle}>
-              <Ionicons name="sparkles" size={36} color="#059669" />
-            </View>
-            <Text style={styles.depositSuccessTitle}>🎉 Khách Hàng Đã Đặt Cọc 30%!</Text>
-            <Text style={styles.depositSuccessSub}>
-              Tiền cọc đã được ký quỹ Escrow bảo vệ an toàn. Bạn có thể sẵn sàng xuất phát tới điểm hẹn!
-            </Text>
 
-            {/* Khối Dịch Vụ Bổ Sung Nếu Khách Có Mua Thêm */}
-            {depositSuccessData.addOnNames && depositSuccessData.addOnNames.length > 0 && (
-              <View style={styles.addOnSectionBox}>
-                <View style={styles.addOnSectionHeader}>
-                  <Ionicons name="gift" size={16} color="#E11D48" />
-                  <Text style={styles.addOnSectionTitle}>
-                    Khách đã mua thêm {depositSuccessData.addOnNames.length} dịch vụ mới:
-                  </Text>
-                </View>
-                <View style={styles.addOnItemsList}>
-                  {depositSuccessData.addOnNames.map((name, idx) => (
-                    <View key={idx} style={styles.addOnItemRow}>
-                      <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                      <Text style={styles.addOnItemText}>{name}</Text>
-                    </View>
-                  ))}
-                </View>
-                {depositSuccessData.addOnTotal > 0 && (
-                  <Text style={styles.addOnTotalText}>
-                    Tổng tiền dịch vụ thêm: +{formatVnd(depositSuccessData.addOnTotal)}
-                  </Text>
-                )}
-              </View>
-            )}
-
-            <View style={styles.successEarningsCard}>
-              <Text style={styles.successEarningsLabel}>Thu Nhập Thực Nhận Của Bạn:</Text>
-              <Text style={styles.successEarningsValue}>
-                {formatVnd(depositSuccessData.earningsAmount)}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.startTripNowBtn}
-              onPress={() => {
-                setDepositSuccessData((prev) => ({ ...prev, visible: false }));
-                handleTransitionState('ON_THE_WAY');
-              }}
-            >
-              <Ionicons name="rocket" size={20} color="#FFFFFF" />
-              <Text style={styles.startTripNowBtnText}>XUẤT PHÁT NGAY (BẮT ĐẦU DI CHUYỂN)</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Modal Duy Nhất Xác Nhận Khách Đã Trả Tiền Mặt */}
       <Modal visible={isCashPromptModalVisible} transparent animationType="fade">
@@ -2338,6 +2274,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  checkWalletDepositBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    marginTop: 10,
+  },
+  checkWalletDepositBtnText: {
+    color: '#1E293B',
+    fontSize: 13,
+    fontWeight: '700',
   },
   driverMapBox: {
     backgroundColor: '#FFFFFF',

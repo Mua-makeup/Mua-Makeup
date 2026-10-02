@@ -114,10 +114,16 @@ export const OnlineMuaListModal: React.FC<Props> = ({
         latitude: lat,
         longitude: lng,
         radiusKm: radius,
+        providerType: 'FREELANCE_MUA',
       });
 
       if (currentReqId === reqIdRef.current) {
-        setProviders(list || []);
+        const freelanceOnly = (list || []).filter(
+          (p) =>
+            (!p.providerType || p.providerType === 'FREELANCE_MUA') &&
+            (p.distanceKm == null || p.maxServiceRadiusKm == null || p.distanceKm <= p.maxServiceRadiusKm)
+        );
+        setProviders(freelanceOnly);
       }
     } catch (err) {
       console.warn('[OnlineMuaListModal] Lỗi tải thợ online:', err);

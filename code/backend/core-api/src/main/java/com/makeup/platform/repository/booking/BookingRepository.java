@@ -96,7 +96,7 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             LEFT JOIN FETCH b.servicePackage sp
             LEFT JOIN FETCH b.style st
             WHERE b.customer.id = :customerId
-            ORDER BY b.bookingDate DESC, b.startTime DESC, b.createdAt DESC
+            ORDER BY b.createdAt DESC, b.bookingDate DESC, b.startTime DESC
             """)
     List<BookingEntity> findCustomerBookings(
             @Param("customerId") Long customerId);

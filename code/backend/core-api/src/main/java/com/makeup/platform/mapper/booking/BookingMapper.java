@@ -261,6 +261,7 @@ public class BookingMapper {
                 .note(entity.getEmergencyReason())
                 .completionPhotoUrl(entity.getCompletionPhotoUrl())
                 .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 
@@ -336,6 +337,7 @@ public class BookingMapper {
                 .note(entity.getEmergencyReason())
                 .isDepositPaid(isDepositPaid)
                 .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
                 .build();
     }
 }

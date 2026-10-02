@@ -191,7 +191,7 @@ export default function AddShowcaseScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace(`/mua/packages` as any))}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={24} color={BrandColors.slateHeading} />
         </TouchableOpacity>
@@ -328,7 +328,7 @@ export default function AddShowcaseScreen() {
             {submitting ? (
               <View style={styles.loadingSubmit}>
                 <ActivityIndicator size="small" color="#FFFFFF" />
-                <Text style={styles.submitButtonText}>Đang tải ảnh lên Cloudinary...</Text>
+                <Text style={styles.submitButtonText}>Đang tải ảnh lên ...</Text>
               </View>
             ) : (
               <Text style={styles.submitButtonText}>Đăng Tác Phẩm Lên Album Gói</Text>

@@ -44,7 +44,7 @@ export default function StaffWorkProfileScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />

@@ -41,6 +41,7 @@ export interface NearbyProvidersReq {
   radiusKm?: number;
   masterCategoryId?: number;
   minRating?: number;
+  providerType?: 'FREELANCE_MUA' | 'AGENCY_STUDIO';
 }
 
 export interface NearbyProviderRes {

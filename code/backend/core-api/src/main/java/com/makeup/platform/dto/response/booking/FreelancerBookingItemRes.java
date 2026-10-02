@@ -34,4 +34,5 @@ public class FreelancerBookingItemRes {
     private String note;
     private String completionPhotoUrl;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

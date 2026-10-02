@@ -186,22 +186,37 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   const loadTaxonomy = async () => {
     try {
       setIsLoadingTaxonomy(true);
-      const [cats, styles] = await Promise.all([
-        taxonomyService.getActiveCategories(),
-        taxonomyService.getActiveStyles(),
-      ]);
+      const cats = await taxonomyService.getActiveCategories();
       setCategories(cats || []);
-      if (cats && cats.length > 0) {
-        setSelectedCategory((prev) => prev || cats[0]);
-      }
-      setStylesList(styles || []);
-      if (styles && styles.length > 0) {
-        setSelectedStyle((prev) => prev || styles[0]);
+      const firstCat = cats && cats.length > 0 ? cats[0] : null;
+      if (firstCat) {
+        setSelectedCategory((prev) => prev || firstCat);
+        const styles = await taxonomyService.getActiveStyles();
+        setStylesList(styles || []);
+        setSelectedStyle(null);
       }
     } catch (e) {
       console.warn('Lỗi tải danh mục / phong cách:', e);
     } finally {
       setIsLoadingTaxonomy(false);
+    }
+  };
+
+  // Reload styles + re-fetch thợ khi đổi category
+  const handleSelectCategory = async (cat: typeof categories[0]) => {
+    setSelectedCategory(cat);
+    setSelectedStyle(null);
+    Haptics.selectionAsync();
+    // Tải lại styles cho category mới
+    try {
+      const styles = await taxonomyService.getActiveStyles();
+      setStylesList(styles || []);
+    } catch {
+      // giữ styles cũ nếu lỗi
+    }
+    // Re-fetch thợ theo category mới
+    if (coords) {
+      fetchNearbyProviders(coords.latitude, coords.longitude, searchRadius, cat.id);
     }
   };
 
@@ -226,7 +241,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           setAddress(defaultAddr.addressLine);
           const cur = { latitude: defaultAddr.latitude, longitude: defaultAddr.longitude };
           setCoords(cur);
-          fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius);
+          fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
           return;
         }
       }
@@ -242,7 +257,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     if (storeLat && storeLng) {
       const cur = { latitude: storeLat, longitude: storeLng };
       setCoords(cur);
-      fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius);
+      fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
     } else {
       refreshLocation();
     }
@@ -295,19 +310,31 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   const handleSelectRadius = (r: number) => {
     setSearchRadius(r);
     if (coords) {
-      fetchNearbyProviders(coords.latitude, coords.longitude, r);
+      fetchNearbyProviders(coords.latitude, coords.longitude, r, selectedCategory?.id);
     }
   };
 
-  const fetchNearbyProviders = async (lat: number, lng: number, radius: number = searchRadius) => {
+  const fetchNearbyProviders = async (
+    lat: number,
+    lng: number,
+    radius: number = searchRadius,
+    categoryId?: number
+  ) => {
     try {
       setIsLoadingProviders(true);
       const list = await telemetryService.getNearbyProviders({
         latitude: lat,
         longitude: lng,
         radiusKm: radius,
+        providerType: 'FREELANCE_MUA',
+        masterCategoryId: categoryId,
       });
-      setNearbyProviders(list || []);
+      const freelanceOnly = (list || []).filter(
+        (p) =>
+          (!p.providerType || p.providerType === 'FREELANCE_MUA') &&
+          (p.distanceKm == null || p.maxServiceRadiusKm == null || p.distanceKm <= p.maxServiceRadiusKm)
+      );
+      setNearbyProviders(freelanceOnly);
     } catch (err) {
       console.warn('Lỗi gọi API thợ quanh đây:', err);
       setNearbyProviders([]);
@@ -640,12 +667,14 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
             {/* GỢI Ý MỞ RỘNG BÁN KÍNH KHI 0 THỢ */}
             {nearbyProviders.length === 0 && !isLoadingProviders && (
-              <View style={styles.expansionBanner}>
+              <View style={[styles.expansionBanner, { marginBottom: 8 }]}>
                 <Ionicons name="alert-circle" size={18} color="#D97706" style={{ marginTop: 2 }} />
                 <View style={{ flex: 1, marginLeft: 8 }}>
-                  <Text style={styles.expansionTitle}>Chưa có chuyên viên trong bán kính {searchRadius}km</Text>
+                  <Text style={styles.expansionTitle}>
+                    Chưa có chuyên viên{selectedCategory ? ` dịch vụ ${selectedCategory.categoryName}` : ''} trong {searchRadius}km
+                  </Text>
                   <Text style={styles.expansionDesc}>
-                    Hãy thử mở rộng bán kính quét để kết nối với nhiều chuyên viên trang điểm hơn nhé!
+                    Hãy thử mở rộng bán kính quét hoặc chọn danh mục dịch vụ khác để kết nối với nhiều chuyên viên hơn!
                   </Text>
                   <View style={styles.expansionBtnRow}>
                     {searchRadius < 15 && (
@@ -728,7 +757,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                       <TouchableOpacity
                         key={cat.id}
                         style={[styles.pkgCard, isSelected && styles.pkgCardSelected]}
-                        onPress={() => setSelectedCategory(cat)}
+                        onPress={() => handleSelectCategory(cat)}
                         activeOpacity={0.75}
                       >
                         <View style={[styles.pkgIconBox, isSelected && styles.pkgIconBoxSelected]}>
@@ -755,15 +784,34 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
               )}
 
               {/* 2. CHỌN PHONG CÁCH MAKE-UP THẬT TỪ DATABASE */}
-              <Text style={styles.sectionHeading}>2. Phong Cách Trang Điểm:</Text>
-              <View style={styles.stylePillRow}>
+              <View style={styles.styleSectionHeader}>
+                <Text style={styles.sectionHeading}>2. Phong Cách Trang Điểm:</Text>
+                <Text style={styles.styleOptionalBadge}>Tuỳ chọn</Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.stylePillScrollContent}
+                style={styles.stylePillScroll}
+              >
+                {/* Chip "Tất cả / Bất kỳ" */}
+                <TouchableOpacity
+                  style={[styles.stylePill, selectedStyle === null && styles.stylePillSelected]}
+                  onPress={() => setSelectedStyle(null)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.stylePillText, selectedStyle === null && styles.stylePillTextSelected]}>
+                    🎨 Bất kỳ
+                  </Text>
+                </TouchableOpacity>
                 {stylesList.map((st) => {
                   const isSelected = st.id === selectedStyle?.id;
                   return (
                     <TouchableOpacity
                       key={st.id}
                       style={[styles.stylePill, isSelected && styles.stylePillSelected]}
-                      onPress={() => setSelectedStyle(st)}
+                      onPress={() => setSelectedStyle(isSelected ? null : st)}
+                      activeOpacity={0.75}
                     >
                       <Text style={[styles.stylePillText, isSelected && styles.stylePillTextSelected]}>
                         {st.styleName}
@@ -771,7 +819,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </ScrollView>
 
               {/* 3. ĐỊA CHỈ TIẾP ĐÓN */}
               <View style={styles.addressHeaderRow}>
@@ -1050,7 +1098,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   style={styles.scheduleBtn}
                   onPress={() => {
                     onClose();
-                    router.push('/explore');
+                    router.replace('/explore');
                   }}
                   activeOpacity={0.7}
                 >
@@ -1296,13 +1344,38 @@ const styles = StyleSheet.create({
   },
   stylePillRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
     marginBottom: 8,
   },
+  stylePillScroll: {
+    marginBottom: 10,
+  },
+  stylePillScrollContent: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingRight: 16,
+  },
+  styleSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  styleOptionalBadge: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
   stylePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#CBD5E1',
@@ -1312,7 +1385,7 @@ const styles = StyleSheet.create({
     borderColor: BrandColors.primary,
   },
   stylePillText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: '#475569',
   },
@@ -1646,7 +1719,9 @@ const styles = StyleSheet.create({
   },
   timeoutBox: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 36,
+    paddingHorizontal: 8,
   },
   timeoutTitle: {
     fontSize: 17,

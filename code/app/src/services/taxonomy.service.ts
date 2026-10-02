@@ -31,4 +31,20 @@ export const taxonomyService = {
     const res = await apiClient.get<ApiResponse<MakeupStyle[]>>('/makeup-styles');
     return res.data?.data || [];
   },
+
+  /**
+   * Lấy phong cách trang điểm theo danh mục dịch vụ.
+   * Lấy tất cả styles nếu không có categoryId, hoặc không có kết quả riêng.
+   */
+  async getStylesByCategory(categoryId?: number): Promise<MakeupStyle[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<MakeupStyle[]>>('/makeup-styles', {
+        params: categoryId ? { categoryId } : undefined,
+      });
+      return res.data?.data || [];
+    } catch {
+      return [];
+    }
+  },
 };
+

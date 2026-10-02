@@ -71,7 +71,7 @@ export default function FreelancerWalletScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           style={styles.backBtn}
           activeOpacity={0.7}
         >
@@ -169,13 +169,76 @@ export default function FreelancerWalletScreen() {
             ))
           )
         ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={48} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>Chưa có biến động số dư</Text>
-            <Text style={styles.emptyDesc}>
-              Bút toán cộng tiền vào ví sẽ được ghi nhận sau khi đơn hoàn tất và cả 2 bên xác nhận tiền mặt.
-            </Text>
-          </View>
+          (wallet?.recentTransactions || []).length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="receipt-outline" size={48} color="#94A3B8" />
+              <Text style={styles.emptyTitle}>Chưa có biến động số dư</Text>
+              <Text style={styles.emptyDesc}>
+                Bút toán cộng tiền vào ví khả dụng sẽ được ghi nhận sau khi đơn hoàn tất và quyết toán thành công.
+              </Text>
+            </View>
+          ) : (
+            (wallet?.recentTransactions || []).map((item) => {
+              const isCredit = item.entryType === 'CREDIT';
+              return (
+                <View key={item.id} style={styles.txCard}>
+                  <View
+                    style={[
+                      styles.txIconCircle,
+                      { backgroundColor: isCredit ? '#ECFDF5' : '#FEF2F2' },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={isCredit ? 'cash-plus' : 'cash-minus'}
+                      size={22}
+                      color={isCredit ? '#059669' : '#EF4444'}
+                    />
+                  </View>
+
+                  <View style={styles.txInfo}>
+                    <View style={styles.txTitleRow}>
+                      <Text style={styles.txTitle} numberOfLines={1}>
+                        {item.description || (isCredit ? 'Cộng tiền quyết toán đơn' : 'Giao dịch ví')}
+                      </Text>
+                      <View
+                        style={[
+                          styles.txTag,
+                          { backgroundColor: isCredit ? '#D1FAE5' : '#FEE2E2' },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.txTagText,
+                            { color: isCredit ? '#065F46' : '#991B1B' },
+                          ]}
+                        >
+                          {isCredit ? 'Thu Nhập' : 'Khấu Trừ'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.txDate}>
+                      {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : ''}
+                    </Text>
+
+                    <View style={styles.txBalanceRow}>
+                      <Text style={styles.txBalanceAfter}>
+                        Số dư sau GD: {formatVnd(item.balanceAfter)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.txAmount,
+                          { color: isCredit ? '#059669' : '#EF4444' },
+                        ]}
+                      >
+                        {isCredit ? '+' : '-'}{formatVnd(item.amount)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )
         )}
       </ScrollView>
     </SafeAreaView>
@@ -407,5 +470,71 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 18,
+  },
+  txCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  txIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  txInfo: {
+    flex: 1,
+  },
+  txTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  txTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginRight: 8,
+  },
+  txTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  txTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  txDate: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 6,
+  },
+  txBalanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  txBalanceAfter: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  txAmount: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 
@@ -21,8 +22,11 @@ public class FreelancerBookingDepositItemRes {
     private Long bookingId;
     private String bookingCode;
     private String bookingType;
+    private String customerName;
+    private BigDecimal amount;
     private BigDecimal depositAmount;
     private String depositStatus;
     private OffsetDateTime paidAt;
     private OffsetDateTime expiresAt;
+    private LocalDateTime createdAt;
 }

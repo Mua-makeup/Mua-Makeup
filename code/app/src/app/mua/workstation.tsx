@@ -53,7 +53,10 @@ export default function MuaWorkstationScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top Navbar */}
       <View style={styles.navBar}>
-        <TouchableOpacity style={styles.navBackBtn} onPress={() => router.replace('/')}>
+        <TouchableOpacity
+          style={styles.navBackBtn}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+        >
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.navTitle}>Bàn Làm Việc Thợ MUA</Text>

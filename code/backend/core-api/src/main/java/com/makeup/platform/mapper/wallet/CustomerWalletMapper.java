@@ -13,6 +13,10 @@ import java.util.List;
 public class CustomerWalletMapper {
 
     public CustomerWalletRes toWalletRes(WalletEntity wallet, List<LedgerEntryEntity> entries) {
+        return toWalletRes(wallet, entries, null);
+    }
+
+    public CustomerWalletRes toWalletRes(WalletEntity wallet, List<LedgerEntryEntity> entries, java.util.Map<Long, String> bookingHoldStatusMap) {
         if (wallet == null) {
             return null;
         }
@@ -21,7 +25,11 @@ public class CustomerWalletMapper {
         if (entries != null) {
             for (LedgerEntryEntity entry : entries) {
                 if (entry != null) {
-                    txResList.add(toTransactionRes(entry));
+                    String holdStatus = null;
+                    if ("BOOKING_DEPOSIT".equals(entry.getReferenceType()) && entry.getReferenceId() != null && bookingHoldStatusMap != null) {
+                        holdStatus = bookingHoldStatusMap.get(entry.getReferenceId());
+                    }
+                    txResList.add(toTransactionRes(entry, holdStatus));
                 }
             }
         }
@@ -36,6 +44,10 @@ public class CustomerWalletMapper {
     }
 
     public CustomerWalletTransactionRes toTransactionRes(LedgerEntryEntity entry) {
+        return toTransactionRes(entry, null);
+    }
+
+    public CustomerWalletTransactionRes toTransactionRes(LedgerEntryEntity entry, String holdStatus) {
         if (entry == null) {
             return null;
         }
@@ -48,6 +60,7 @@ public class CustomerWalletMapper {
                 .referenceType(entry.getReferenceType())
                 .referenceId(entry.getReferenceId())
                 .description(entry.getDescription())
+                .holdStatus(holdStatus)
                 .createdAt(entry.getCreatedAt())
                 .build();
     }

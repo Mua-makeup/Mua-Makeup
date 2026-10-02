@@ -65,6 +65,8 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
         String requestType = "captureWallet";
         String extraData = "";
 
+        String effectiveReturnUrl = resolveReturnUrl(momoConfig.getReturnUrl());
+
         String rawSignature = "accessKey=" + momoConfig.getAccessKey() +
                 "&amount=" + amount +
                 "&extraData=" + extraData +
@@ -72,7 +74,7 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
                 "&orderId=" + orderId +
                 "&orderInfo=" + orderInfo +
                 "&partnerCode=" + momoConfig.getPartnerCode() +
-                "&redirectUrl=" + momoConfig.getReturnUrl() +
+                "&redirectUrl=" + effectiveReturnUrl +
                 "&requestId=" + requestId +
                 "&requestType=" + requestType;
 
@@ -86,7 +88,7 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
         requestPayload.put("amount", amount);
         requestPayload.put("orderId", orderId);
         requestPayload.put("orderInfo", orderInfo);
-        requestPayload.put("redirectUrl", momoConfig.getReturnUrl());
+        requestPayload.put("redirectUrl", effectiveReturnUrl);
         requestPayload.put("ipnUrl", momoConfig.getIpnUrl());
         requestPayload.put("lang", "vi");
         requestPayload.put("extraData", extraData);
@@ -216,5 +218,17 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
     public Object callbackAcknowledgement(GatewayPaymentResult result) {
         // MoMo expects HTTP 204 No Content
         return Collections.emptyMap();
+    }
+
+    private String resolveReturnUrl(String baseReturnUrl) {
+        if (baseReturnUrl == null || baseReturnUrl.isBlank()) {
+            return "";
+        }
+        if (baseReturnUrl.contains("ngrok-free.dev") && !baseReturnUrl.contains("ngrok-skip-browser-warning")) {
+            return baseReturnUrl.contains("?")
+                    ? baseReturnUrl + "&ngrok-skip-browser-warning=69420"
+                    : baseReturnUrl + "?ngrok-skip-browser-warning=69420";
+        }
+        return baseReturnUrl;
     }
 }

@@ -62,7 +62,11 @@ export default function MuaDetailScreen() {
 
   const handleBookingPress = () => {
     if (isOwnProfile) {
-      router.push('/profile/mua-profile');
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/profile/mua-profile');
+      }
       return;
     }
 
@@ -199,7 +203,13 @@ export default function MuaDetailScreen() {
         {isOwnProfile ? (
           <TouchableOpacity
             style={[styles.bookingBtn, styles.editProfileBtn]}
-            onPress={() => router.push('/profile/mua-profile')}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/profile/mua-profile');
+              }
+            }}
             activeOpacity={0.88}
           >
             <Ionicons name="create-outline" size={16} color="#FFFFFF" />

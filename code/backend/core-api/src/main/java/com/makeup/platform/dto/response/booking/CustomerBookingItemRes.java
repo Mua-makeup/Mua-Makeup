@@ -32,4 +32,5 @@ public class CustomerBookingItemRes {
     private String note;
     private Boolean isDepositPaid;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

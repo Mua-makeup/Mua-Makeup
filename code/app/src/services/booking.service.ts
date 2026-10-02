@@ -109,6 +109,7 @@ export interface CustomerBookingItem {
   note?: string;
   isDepositPaid?: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface BookingStatusDetailRes {

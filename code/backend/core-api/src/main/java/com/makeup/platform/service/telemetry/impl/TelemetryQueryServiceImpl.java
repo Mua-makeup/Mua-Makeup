@@ -79,111 +79,124 @@ public class TelemetryQueryServiceImpl implements TelemetryQueryService {
         List<NearbyProviderRes> results = new ArrayList<>();
 
         // 1. Quét thợ tự do (Freelance MUA) trên Redis GEO (100% In-Memory < 5ms)
-        GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults = redisGeoService.searchNearbyActiveMuas(
-                req.getLatitude(), req.getLongitude(), radiusKm
-        );
+        boolean includeFreelanceMua = req.getProviderType() == null || req.getProviderType() == ProviderType.FREELANCE_MUA;
+        if (includeFreelanceMua) {
+            GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults = redisGeoService.searchNearbyActiveMuas(
+                    req.getLatitude(), req.getLongitude(), radiusKm
+            );
 
-        if (geoResults != null && !geoResults.getContent().isEmpty()) {
-            List<Long> muaIds = new ArrayList<>();
-            Map<Long, Double> distanceMap = new HashMap<>();
-            Map<Long, Point> coordMap = new HashMap<>();
+            if (geoResults != null && !geoResults.getContent().isEmpty()) {
+                List<Long> muaIds = new ArrayList<>();
+                Map<Long, Double> distanceMap = new HashMap<>();
+                Map<Long, Point> coordMap = new HashMap<>();
 
-            for (GeoResult<RedisGeoCommands.GeoLocation<String>> res : geoResults.getContent()) {
-                try {
-                    Long muaId = Long.parseLong(res.getContent().getName());
-                    muaIds.add(muaId);
-                    if (res.getDistance() != null) {
-                        distanceMap.put(muaId, res.getDistance().getValue());
-                    }
-                    if (res.getContent().getPoint() != null) {
-                        coordMap.put(muaId, res.getContent().getPoint());
-                    }
-                } catch (NumberFormatException e) {
-                    log.warn("Invalid MUA id in Redis GEO: {}", res.getContent().getName());
-                }
-            }
-
-            // 2. Lấy profile tóm tắt siêu tốc qua MGET Redis String
-            List<String> summaries = redisGeoService.getMuaSummaries(muaIds);
-
-            Map<Long, NearbyProviderRes> providers = new HashMap<>();
-            List<Long> cacheMisses = new ArrayList<>();
-            for (int i = 0; i < muaIds.size(); i++) {
-                Long muaId = muaIds.get(i);
-                String summaryJson = summaries != null && i < summaries.size() ? summaries.get(i) : null;
-                if (summaryJson != null) {
+                for (GeoResult<RedisGeoCommands.GeoLocation<String>> res : geoResults.getContent()) {
                     try {
-                        Map<String, Object> summary = objectMapper.readValue(summaryJson, new TypeReference<>() {});
-                        NearbyProviderRes provider = telemetryProviderMapper.fromSummaryMap(summary);
-                        if (provider != null) providers.put(muaId, provider);
-                    } catch (Exception ex) {
-                        log.warn("Invalid cached summary for MUA {}", muaId, ex);
+                        Long muaId = Long.parseLong(res.getContent().getName());
+                        muaIds.add(muaId);
+                        if (res.getDistance() != null) {
+                            distanceMap.put(muaId, res.getDistance().getValue());
+                        }
+                        if (res.getContent().getPoint() != null) {
+                            coordMap.put(muaId, res.getContent().getPoint());
+                        }
+                    } catch (NumberFormatException e) {
+                        log.warn("Invalid MUA id in Redis GEO: {}", res.getContent().getName());
                     }
                 }
-                if (!providers.containsKey(muaId)) cacheMisses.add(muaId);
-            }
-            for (int offset = 0; offset < cacheMisses.size(); offset += 250) {
-                List<Long> batch = cacheMisses.subList(offset, Math.min(offset + 250, cacheMisses.size()));
-                Map<Long, BigDecimal> prices = new HashMap<>();
-                for (var price : servicePackageRepository.findStartingPrices(batch)) {
-                    if (price.getStartingPrice() != null) prices.put(price.getMuaId(), price.getStartingPrice());
+
+                // 2. Lấy profile tóm tắt siêu tốc qua MGET Redis String
+                List<String> summaries = redisGeoService.getMuaSummaries(muaIds);
+
+                Map<Long, NearbyProviderRes> providers = new HashMap<>();
+                List<Long> cacheMisses = new ArrayList<>();
+                for (int i = 0; i < muaIds.size(); i++) {
+                    Long muaId = muaIds.get(i);
+                    String summaryJson = summaries != null && i < summaries.size() ? summaries.get(i) : null;
+                    if (summaryJson != null) {
+                        try {
+                            Map<String, Object> summary = objectMapper.readValue(summaryJson, new TypeReference<>() {});
+                            NearbyProviderRes provider = telemetryProviderMapper.fromSummaryMap(summary);
+                            if (provider != null) providers.put(muaId, provider);
+                        } catch (Exception ex) {
+                            log.warn("Invalid cached summary for MUA {}", muaId, ex);
+                        }
+                    }
+                    if (!providers.containsKey(muaId)) cacheMisses.add(muaId);
                 }
-                for (MuaProfileEntity mua : muaProfileRepository.findDispatchCandidatesByIdIn(batch)) {
-                    BigDecimal startingPrice = prices.getOrDefault(mua.getId(), BigDecimal.valueOf(350000));
-                    providers.put(mua.getId(), telemetryProviderMapper.fromMuaEntity(mua, startingPrice));
-                    cacheMuaSummary(mua, startingPrice);
+                for (int offset = 0; offset < cacheMisses.size(); offset += 250) {
+                    List<Long> batch = cacheMisses.subList(offset, Math.min(offset + 250, cacheMisses.size()));
+                    Map<Long, BigDecimal> prices = new HashMap<>();
+                    for (var price : servicePackageRepository.findStartingPrices(batch)) {
+                        if (price.getStartingPrice() != null) prices.put(price.getMuaId(), price.getStartingPrice());
+                    }
+                    List<MuaProfileEntity> candidates;
+                    if (req.getMasterCategoryId() != null) {
+                        // Lọc chỉ thợ có gói dịch vụ thuộc category được yêu cầu
+                        candidates = muaProfileRepository.findDispatchCandidatesByIdInAndCategory(batch, req.getMasterCategoryId());
+                    } else {
+                        candidates = muaProfileRepository.findDispatchCandidatesByIdIn(batch);
+                    }
+                    for (MuaProfileEntity mua : candidates) {
+                        BigDecimal startingPrice = prices.getOrDefault(mua.getId(), BigDecimal.valueOf(350000));
+                        providers.put(mua.getId(), telemetryProviderMapper.fromMuaEntity(mua, startingPrice));
+                        cacheMuaSummary(mua, startingPrice);
+                    }
                 }
-            }
-            for (Long muaId : muaIds) {
-                NearbyProviderRes providerRes = providers.get(muaId);
-                if (providerRes != null) {
-                    Point pt = coordMap.get(muaId);
-                    Double dist = distanceMap.get(muaId);
-                    if ((dist == null || dist <= 0.001) && pt != null) {
-                        dist = GeoDistanceUtils.calculateDistanceKm(req.getLatitude(), req.getLongitude(), pt.getY(), pt.getX());
-                    }
-                    providerRes.setDistanceKm(dist != null ? BigDecimal.valueOf(dist).setScale(2, RoundingMode.HALF_UP).doubleValue() : null);
+                for (Long muaId : muaIds) {
+                    NearbyProviderRes providerRes = providers.get(muaId);
+                    if (providerRes != null) {
+                        Point pt = coordMap.get(muaId);
+                        Double dist = distanceMap.get(muaId);
+                        if ((dist == null || dist <= 0.001) && pt != null) {
+                            dist = GeoDistanceUtils.calculateDistanceKm(req.getLatitude(), req.getLongitude(), pt.getY(), pt.getX());
+                        }
+                        providerRes.setDistanceKm(dist != null ? BigDecimal.valueOf(dist).setScale(2, RoundingMode.HALF_UP).doubleValue() : null);
 
-                    // 3. Bảo vệ riêng tư (Privacy Fuzzing / Jittering +/- 30-50m) cho tọa độ công khai trên radar
-                    if (pt != null) {
-                        double[] fuzzed = GeoDistanceUtils.applyPrivacyFuzzing(pt.getY(), pt.getX());
-                        providerRes.setFuzzedLatitude(fuzzed[0]);
-                        providerRes.setFuzzedLongitude(fuzzed[1]);
-                    }
+                        // 3. Bảo vệ riêng tư (Privacy Fuzzing / Jittering +/- 30-50m) cho tọa độ công khai trên radar
+                        if (pt != null) {
+                            double[] fuzzed = GeoDistanceUtils.applyPrivacyFuzzing(pt.getY(), pt.getX());
+                            providerRes.setFuzzedLatitude(fuzzed[0]);
+                            providerRes.setFuzzedLongitude(fuzzed[1]);
+                        }
 
-                    // Không hiển thị thợ nếu khoảng cách vượt quá bán kính nhận ca tối đa của thợ đó
-                    Double muaMaxRadius = providerRes.getMaxServiceRadiusKm();
-                    log.info("[NearbyQuery] MUA {}: dist={}km, maxRadius={}km, coord=({}, {})",
-                            muaId, dist, muaMaxRadius, pt != null ? pt.getY() : null, pt != null ? pt.getX() : null);
-                    if (muaMaxRadius != null && dist != null && dist > muaMaxRadius) {
-                        log.info("[NearbyQuery] Excluded MUA {} because dist {}km > maxRadius {}km", muaId, dist, muaMaxRadius);
-                        continue;
-                    }
+                        // Không hiển thị thợ nếu khoảng cách vượt quá bán kính nhận ca tối đa của thợ đó
+                        Double muaMaxRadius = providerRes.getMaxServiceRadiusKm();
+                        log.info("[NearbyQuery] MUA {}: dist={}km, maxRadius={}km, coord=({}, {})",
+                                muaId, dist, muaMaxRadius, pt != null ? pt.getY() : null, pt != null ? pt.getX() : null);
+                        if (muaMaxRadius != null && dist != null && dist > muaMaxRadius) {
+                            log.info("[NearbyQuery] Excluded MUA {} because dist {}km > maxRadius {}km", muaId, dist, muaMaxRadius);
+                            continue;
+                        }
 
-                    // Lọc theo rating tối thiểu nếu có yêu cầu
-                    if (req.getMinRating() == null || (providerRes.getRatingAvg() != null && providerRes.getRatingAvg().compareTo(req.getMinRating()) >= 0)) {
-                        results.add(providerRes);
+                        // Lọc theo rating tối thiểu nếu có yêu cầu
+                        if (req.getMinRating() == null || (providerRes.getRatingAvg() != null && providerRes.getRatingAvg().compareTo(req.getMinRating()) >= 0)) {
+                            results.add(providerRes);
+                        }
                     }
                 }
             }
         }
 
-        // 4. Bổ sung các Chi nhánh Studio / Agency cố định gần nhất
-        List<AgencyBranchEntity> branches = agencyBranchRepository.findByIsActiveTrue();
-        for (AgencyBranchEntity branch : branches) {
-            double dist = GeoDistanceUtils.calculateDistanceKm(
-                    req.getLatitude(), req.getLongitude(),
-                    branch.getLatitude().doubleValue(), branch.getLongitude().doubleValue()
-            );
-
-            if (dist <= radiusKm) {
-                double[] fuzzed = GeoDistanceUtils.applyPrivacyFuzzing(
+        // 4. Bổ sung các Chi nhánh Studio / Agency cố định gần nhất (chỉ khi không yêu cầu lọc riêng FREELANCE_MUA)
+        boolean includeAgencyStudio = req.getProviderType() == null || req.getProviderType() == ProviderType.AGENCY_STUDIO;
+        if (includeAgencyStudio) {
+            List<AgencyBranchEntity> branches = agencyBranchRepository.findByIsActiveTrue();
+            for (AgencyBranchEntity branch : branches) {
+                double dist = GeoDistanceUtils.calculateDistanceKm(
+                        req.getLatitude(), req.getLongitude(),
                         branch.getLatitude().doubleValue(), branch.getLongitude().doubleValue()
                 );
 
-                NearbyProviderRes branchRes = telemetryProviderMapper.fromAgencyBranch(branch, dist, fuzzed);
-                if (req.getMinRating() == null || branchRes.getRatingAvg().compareTo(req.getMinRating()) >= 0) {
-                    results.add(branchRes);
+                if (dist <= radiusKm) {
+                    double[] fuzzed = GeoDistanceUtils.applyPrivacyFuzzing(
+                            branch.getLatitude().doubleValue(), branch.getLongitude().doubleValue()
+                    );
+
+                    NearbyProviderRes branchRes = telemetryProviderMapper.fromAgencyBranch(branch, dist, fuzzed);
+                    if (req.getMinRating() == null || branchRes.getRatingAvg().compareTo(req.getMinRating()) >= 0) {
+                        results.add(branchRes);
+                    }
                 }
             }
         }

@@ -22,6 +22,7 @@ export interface FreelancerBookingItem {
   note?: string;
   completionPhotoUrl?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface BookingAcceptanceRes {

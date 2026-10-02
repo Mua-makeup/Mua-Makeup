@@ -109,7 +109,7 @@ export const AccountModal: React.FC = () => {
               {isMUA && (
                 <TouchableOpacity
                   style={styles.modalActionRow}
-                  onPress={() => handleNavigate(() => router.push('/mua/packages' as any))}
+                  onPress={() => handleNavigate(() => router.replace('/mua/packages' as any))}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="briefcase-outline" size={22} color={BrandColors.primary} />
