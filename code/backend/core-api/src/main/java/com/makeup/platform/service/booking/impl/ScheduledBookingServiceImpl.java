@@ -465,11 +465,18 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         if (booking.getMua() != null) {
             try {
                 Long muaId = booking.getMua().getId();
+                Long muaUserId = (booking.getMua() != null && booking.getMua().getUser() != null)
+                        ? booking.getMua().getUser().getId()
+                        : null;
                 Map<String, Object> revokePayload = new HashMap<>();
                 revokePayload.put("type", "CUSTOMER_CANCELLED_REQUESTED_BOOKING");
                 revokePayload.put("bookingId", bookingId);
                 revokePayload.put("bookingCode", booking.getBookingCode());
                 revokePayload.put("timestamp", System.currentTimeMillis());
+
+                if (muaUserId != null) {
+                    messagingTemplate.convertAndSendToUser(String.valueOf(muaUserId), "/queue/offers", revokePayload);
+                }
                 messagingTemplate.convertAndSend("/topic/mua-offer-revoked/" + muaId, revokePayload);
                 messagingTemplate.convertAndSend("/topic/instant-dismiss", revokePayload);
             } catch (Exception ex) {

@@ -43,10 +43,12 @@ public class NotificationController extends BaseController {
     public ResponseEntity<ApiResponse<Page<NotificationRes>>> getNotifications(
             @AuthenticationPrincipal Long userId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Boolean isRead,
+            @RequestParam(required = false) String type) {
         Long agencyId = resolveAgencyId(userId);
         Pageable pageable = PageRequest.of(page, size);
-        Page<NotificationRes> result = notificationService.getNotificationsForUser(userId, agencyId, pageable);
+        Page<NotificationRes> result = notificationService.getNotificationsForUser(userId, agencyId, isRead, type, pageable);
         return ok(result);
     }
 

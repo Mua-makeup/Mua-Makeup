@@ -217,6 +217,38 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         }
         console.log('[WorkstationStore] Tự động kích hoạt WebSocket cho MUA id =', effectiveMuaId);
         await websocketService.connect();
+
+        // 1. Kênh tác vụ nhận đơn chuẩn P2P: /user/queue/offers
+        websocketService.subscribe('/user/queue/offers', (payload) => {
+          console.log('[WorkstationStore] P2P /user/queue/offers nhận payload:', payload);
+          if (
+            payload?.type === 'OFFER_REVOKED' ||
+            payload?.type === 'CUSTOMER_CANCELLED_REQUESTED_BOOKING' ||
+            payload?.action === 'REVOKE'
+          ) {
+            const currentOffer = get().activeOffer;
+            if (currentOffer && payload?.bookingId && currentOffer.bookingId !== payload.bookingId) {
+              console.warn(`[WorkstationStore] Bỏ qua tin thu hồi đơn #${payload.bookingId} vì đang xử lý đơn #${currentOffer.bookingId}`);
+              return;
+            }
+            get().dismissOffer(false);
+            const currentScheduled = get().activeScheduledOffer;
+            if (currentScheduled && (!payload?.bookingId || currentScheduled.bookingId === payload.bookingId)) {
+              get().dismissScheduledOffer();
+            }
+          } else if (
+            payload?.type === 'NEW_SCHEDULED_OFFER' ||
+            payload?.bookingType === 'SCHEDULED' ||
+            payload?.bookingType === 'APPOINTMENT'
+          ) {
+            get().triggerScheduledOffer(payload, false);
+            get().checkPendingScheduledOffers(false);
+          } else {
+            get().triggerInstantOffer(payload);
+          }
+        });
+
+        // 2. Kênh dự phòng tương thích ngược (Topic cũ)
         websocketService.subscribe(`/topic/mua-offer/${effectiveMuaId}`, (offerPayload) => {
           console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
           get().triggerInstantOffer(offerPayload);
@@ -349,6 +381,35 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         const effectiveMuaId = profile?.muaId || (profile as any)?.id;
         if (effectiveMuaId) {
           await websocketService.connect();
+
+          websocketService.subscribe('/user/queue/offers', (payload) => {
+            console.log('[WorkstationStore] Online P2P /user/queue/offers:', payload);
+            if (
+              payload?.type === 'OFFER_REVOKED' ||
+              payload?.type === 'CUSTOMER_CANCELLED_REQUESTED_BOOKING' ||
+              payload?.action === 'REVOKE'
+            ) {
+              const currentOffer = get().activeOffer;
+              if (currentOffer && payload?.bookingId && currentOffer.bookingId !== payload.bookingId) {
+                return;
+              }
+              get().dismissOffer(false);
+              const currentScheduled = get().activeScheduledOffer;
+              if (currentScheduled && (!payload?.bookingId || currentScheduled.bookingId === payload.bookingId)) {
+                get().dismissScheduledOffer();
+              }
+            } else if (
+              payload?.type === 'NEW_SCHEDULED_OFFER' ||
+              payload?.bookingType === 'SCHEDULED' ||
+              payload?.bookingType === 'APPOINTMENT'
+            ) {
+              get().triggerScheduledOffer(payload, false);
+              get().checkPendingScheduledOffers(false);
+            } else {
+              get().triggerInstantOffer(payload);
+            }
+          });
+
           websocketService.subscribe(`/topic/mua-offer/${effectiveMuaId}`, (offerPayload) => {
             console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
             get().triggerInstantOffer(offerPayload);
@@ -414,6 +475,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         if (effectiveMuaId) {
           websocketService.unsubscribe(`/topic/mua-offer/${effectiveMuaId}`);
         }
+        websocketService.unsubscribe('/user/queue/offers');
         websocketService.unsubscribe('/topic/instant-dismiss');
         soundManager.stopJobAlertSound();
 

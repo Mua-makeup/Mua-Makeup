@@ -266,10 +266,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             offerPayload.put("totalCandidates", potentialCount);
 
             if (firstTargetMuaId != null) {
-                // CHỈ GỬI VÀO DUY NHẤT KÊNH RIÊNG CỦA THỢ ĐƯỢC CHỌN (KHÔNG GỬI KÊNH CHUNG)
+                if (firstTargetUserId != null) {
+                    messagePublisher.sendToUser(String.valueOf(firstTargetUserId), "/queue/offers", offerPayload);
+                }
+                // Đồng thời gửi vào topic cũ để tương thích ngược
                 messagePublisher.send("/topic/mua-offer/" + firstTargetMuaId, offerPayload);
-                log.info("[InstantBooking] Dispatched offer strictly to closest MUA id={} (totalCandidates={}) for bookingId={}",
-                        firstTargetMuaId, potentialCount, savedBooking.getId());
+                log.info("[InstantBooking] Dispatched offer to closest MUA id={} (userId={}, totalCandidates={}) for bookingId={}",
+                        firstTargetMuaId, firstTargetUserId, potentialCount, savedBooking.getId());
             }
         } catch (Exception e) {
             log.warn("[InstantBooking] WebSocket send failed: {}", e.getMessage());
@@ -309,6 +312,12 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             revokePayload.put("bookingId", bookingId);
             revokePayload.put("targetMuaId", Long.valueOf(currentMuaIdStr));
             revokePayload.put("reason", "Ca làm việc đã được chuyển tiếp sang thợ tiếp theo.");
+
+            var currentMuaOpt = muaProfileRepository.findById(Long.valueOf(currentMuaIdStr));
+            Long currentUserId = currentMuaOpt.map(m -> m.getUser() != null ? m.getUser().getId() : null).orElse(null);
+            if (currentUserId != null) {
+                messagePublisher.sendToUser(String.valueOf(currentUserId), "/queue/offers", revokePayload);
+            }
             messagePublisher.send("/topic/mua-offer-revoked/" + currentMuaIdStr, revokePayload);
         }
         
@@ -362,10 +371,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             offerPayload.put("candidateIndex", candidateIndex);
             offerPayload.put("totalCandidates", totalCandidates);
 
-            // CHỈ GỬI VÀO DUY NHẤT KÊNH RIÊNG CỦA THỢ TIẾP THEO
+            var nextMuaOpt = muaProfileRepository.findById(nextMuaId);
+            Long nextUserId = nextMuaOpt.map(m -> m.getUser() != null ? m.getUser().getId() : null).orElse(null);
+            offerPayload.put("targetUserId", nextUserId);
+
+            if (nextUserId != null) {
+                messagePublisher.sendToUser(String.valueOf(nextUserId), "/queue/offers", offerPayload);
+            }
             messagePublisher.send("/topic/mua-offer/" + nextMuaId, offerPayload);
-            log.info("[SequentialDispatch] Cascaded bookingId={} strictly to next closest MUA id={} (candidateIndex={}/{})",
-                    bookingId, nextMuaId, candidateIndex, totalCandidates);
+            log.info("[SequentialDispatch] Cascaded bookingId={} to next closest MUA id={} (userId={}, candidateIndex={}/{})",
+                    bookingId, nextMuaId, nextUserId, candidateIndex, totalCandidates);
             return true;
         } else {
             log.info("[SequentialDispatch] No more candidate MUAs available for bookingId={}", bookingId);

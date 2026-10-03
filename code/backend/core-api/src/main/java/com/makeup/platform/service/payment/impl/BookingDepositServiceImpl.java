@@ -546,9 +546,15 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                     scheduledOfferPayload.put("confirmTimeoutSeconds", confirmTimeoutSeconds);
                     scheduledOfferPayload.put("timestamp", System.currentTimeMillis());
 
+                    Long muaUserId = (booking.getMua() != null && booking.getMua().getUser() != null)
+                            ? booking.getMua().getUser().getId()
+                            : null;
+                    if (muaUserId != null) {
+                        messagingTemplate.convertAndSendToUser(String.valueOf(muaUserId), "/queue/offers", scheduledOfferPayload);
+                    }
                     messagingTemplate.convertAndSend("/topic/mua-offer/" + muaId, scheduledOfferPayload);
                     messagingTemplate.convertAndSend("/topic/mua-scheduled-offer/" + muaId, scheduledOfferPayload);
-                    log.info("[Deposit] Broadcasted NEW_SCHEDULED_OFFER to MUA topic /topic/mua-scheduled-offer/{}", muaId);
+                    log.info("[Deposit] Dispatched NEW_SCHEDULED_OFFER P2P to MUA userId={} (muaId={})", muaUserId, muaId);
                 }
             }
             log.info("[Deposit] Broadcasted deposit paid event for bookingId={}", bookingId);
