@@ -14,6 +14,7 @@ export type BookingStatusType =
   | 'COMPLETED'
   | 'PAID_OUT'
   | 'CANCELLED'
+  | 'CANCELLED_EXPIRED'
   | 'EXPIRED'
   | 'DISPUTED';
 

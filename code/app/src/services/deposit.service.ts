@@ -126,13 +126,6 @@ export const depositService = {
     return res.data?.data;
   },
 
-  /**
-   * Giả lập thanh toán cọc thành công (Test / Dev fallback)
-   */
-  async mockPayDeposit(bookingId: number): Promise<BookingDepositStatus> {
-    const res = await apiClient.post(`/customer/bookings/${bookingId}/deposit/mock-pay`);
-    return res.data?.data;
-  },
 
   /**
    * Tạo / lấy lại checkout URL để thanh toán 70% còn lại qua MoMo hoặc VNPay

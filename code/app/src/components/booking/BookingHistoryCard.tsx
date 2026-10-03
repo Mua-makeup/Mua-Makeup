@@ -70,7 +70,14 @@ export const BookingHistoryCard: React.FC<Props> = ({
     <View style={styles.card}>
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => router.push(`/booking/detail/${booking.id}` as any)}
+        onPress={() => {
+          const isTerminalStatus = ['COMPLETED', 'PAID_OUT', 'CANCELLED', 'CANCELLED_EXPIRED', 'DISPUTED'].includes(booking.status);
+          if (isTerminalStatus) {
+            router.push(`/booking/history-detail/${booking.id}` as any);
+          } else {
+            router.push(`/booking/detail/${booking.id}` as any);
+          }
+        }}
       >
         {/* HEADER: MÃ ĐƠN & STATUS */}
         <View style={styles.headerRow}>

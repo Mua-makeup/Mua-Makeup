@@ -53,5 +53,7 @@ public class BookingStatusDetailRes {
     private OffsetDateTime confirmDeadline;
     private Integer confirmTimeoutSeconds;
     private Integer inProgressElapsedSeconds;
+    private Boolean isCancelRequested;
+    private String cancelRequestedReason;
     private LocalDateTime updatedAt;
 }

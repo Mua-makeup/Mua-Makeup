@@ -297,7 +297,13 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         // Lắng nghe realtime khi khách đặt cọc thành công vào Quỹ Escrow hoặc thanh toán hoàn tất
         websocketService.subscribe(`/topic/booking-customer-confirmed/${effectiveMuaId}`, (depositPayload) => {
           console.log('[WorkstationStore] Realtime nhận cọc / thanh toán hoàn tất:', depositPayload);
-          if (depositPayload?.bookingId) {
+          const isDepositOrSettled =
+            depositPayload?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
+            depositPayload?.type === 'PAYMENT_COMPLETED' ||
+            depositPayload?.status === 'PAID_OUT' ||
+            depositPayload?.isDepositPaid === true;
+
+          if (depositPayload?.bookingId && isDepositOrSettled && depositPayload?.type !== 'CUSTOMER_CONFIRMED_ADDONS') {
             get().showDepositNotice({
               type: depositPayload.type || (depositPayload.status === 'PAID_OUT' ? 'PAYMENT_COMPLETED' : 'CUSTOMER_CONFIRMED_DEPOSIT'),
               status: depositPayload.status,
@@ -314,8 +320,14 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
               addOnNames: depositPayload.addOnNames,
               addOnTotal: depositPayload.addOnTotal,
             });
-            get().fetchWorkstationData();
           }
+          get().fetchWorkstationData();
+        });
+
+        // Lắng nghe khi khách hàng chốt thêm dịch vụ phụ trội (add-ons)
+        websocketService.subscribe(`/topic/booking-customer-addons/${effectiveMuaId}`, (addonPayload) => {
+          console.log('[WorkstationStore] Realtime khách chốt dịch vụ thêm:', addonPayload);
+          get().fetchWorkstationData();
         });
 
         // Kiểm tra ngay nếu có ca khẩn cấp đang chờ thợ phản hồi (kể cả khi vừa mở app hoặc từ nền vào)
@@ -434,7 +446,13 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
 
           websocketService.subscribe(`/topic/booking-customer-confirmed/${effectiveMuaId}`, (depositPayload) => {
             console.log('[WorkstationStore] Online nhận cọc / thanh toán hoàn tất:', depositPayload);
-            if (depositPayload?.bookingId) {
+            const isDepositOrSettled =
+              depositPayload?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
+              depositPayload?.type === 'PAYMENT_COMPLETED' ||
+              depositPayload?.status === 'PAID_OUT' ||
+              depositPayload?.isDepositPaid === true;
+
+            if (depositPayload?.bookingId && isDepositOrSettled && depositPayload?.type !== 'CUSTOMER_CONFIRMED_ADDONS') {
               get().showDepositNotice({
                 type: depositPayload.type || (depositPayload.status === 'PAID_OUT' ? 'PAYMENT_COMPLETED' : 'CUSTOMER_CONFIRMED_DEPOSIT'),
                 status: depositPayload.status,
@@ -451,8 +469,13 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
                 addOnNames: depositPayload.addOnNames,
                 addOnTotal: depositPayload.addOnTotal,
               });
-              get().fetchWorkstationData();
             }
+            get().fetchWorkstationData();
+          });
+
+          websocketService.subscribe(`/topic/booking-customer-addons/${effectiveMuaId}`, (addonPayload) => {
+            console.log('[WorkstationStore] Online khách chốt dịch vụ thêm:', addonPayload);
+            get().fetchWorkstationData();
           });
         }
 

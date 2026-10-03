@@ -5,12 +5,15 @@ import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.service.customer.CustomerBookingQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -20,6 +23,7 @@ import java.util.Set;
 public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryService {
 
     private final BookingRepository bookingRepository;
+    private final BookingDepositRepository bookingDepositRepository;
     private final BookingMapper bookingMapper;
 
     @Override
@@ -55,8 +59,13 @@ public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryServ
             }
         }
 
+        List<Long> bookingIds = bookings.stream().map(BookingEntity::getId).toList();
+        Set<Long> paidBookingIds = bookingIds.isEmpty()
+                ? Collections.emptySet()
+                : new HashSet<>(bookingDepositRepository.findPaidBookingIds(bookingIds));
+
         return bookings.stream()
-                .map(bookingMapper::toCustomerBookingRes)
+                .map(b -> bookingMapper.toCustomerBookingRes(b, paidBookingIds.contains(b.getId())))
                 .toList();
     }
 }

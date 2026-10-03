@@ -628,9 +628,6 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 return "PAID".equals(depositOpt.get().getStatus());
             }
         }
-        if (booking.getDepositExpiredAt() == null && booking.getStatus() == BookingStatus.ACCEPTED) {
-            return true;
-        }
         if (stringRedisTemplate != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey("booking:deposit_paid:" + booking.getId()))) {
             return true;
         }
@@ -665,11 +662,12 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             hold.setStatus("REFUNDED");
             hold.setReleasedAt(OffsetDateTime.now());
             walletHoldRepository.save(hold);
-        } else if (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0) {
-            refundAmount = booking.getDepositAmount();
         }
 
         if (refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal currentFrozen = customerWallet.getFrozenBalance() != null ? customerWallet.getFrozenBalance() : BigDecimal.ZERO;
+            customerWallet.setFrozenBalance(currentFrozen.subtract(refundAmount).max(BigDecimal.ZERO));
+
             BigDecimal currentBalance = customerWallet.getAvailableBalance() != null ? customerWallet.getAvailableBalance() : BigDecimal.ZERO;
             BigDecimal newBalance = currentBalance.add(refundAmount);
             customerWallet.setAvailableBalance(newBalance);

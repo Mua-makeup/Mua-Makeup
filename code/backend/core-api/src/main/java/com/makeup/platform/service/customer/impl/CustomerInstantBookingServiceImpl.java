@@ -901,7 +901,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             confirmPayload.put("message", "Khách hàng đã chốt dịch vụ thêm và đang tiến hành thanh toán cọc 30%.");
             confirmPayload.put("timestamp", System.currentTimeMillis());
 
-            messagePublisher.send("/topic/booking-customer-confirmed/" + savedBooking.getMua().getId(), confirmPayload);
+            messagePublisher.send("/topic/booking-customer-addons/" + savedBooking.getMua().getId(), confirmPayload);
             messagePublisher.send("/topic/booking-status/" + bookingId, confirmPayload);
             messagePublisher.send("/topic/booking-matched/" + bookingId, confirmPayload);
         }
