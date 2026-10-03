@@ -266,6 +266,10 @@ public class BookingMapper {
     }
 
     public CustomerBookingItemRes toCustomerBookingRes(BookingEntity entity) {
+        return toCustomerBookingRes(entity, false);
+    }
+
+    public CustomerBookingItemRes toCustomerBookingRes(BookingEntity entity, boolean hasPaidDeposit) {
         if (entity == null) {
             return null;
         }
@@ -306,15 +310,15 @@ public class BookingMapper {
             }
         }
 
-        boolean isDepositPaid = false;
-        if (entity.getStatus() == BookingStatus.ACCEPTED) {
-            isDepositPaid = entity.getDepositExpiredAt() == null;
-        } else if (entity.getStatus() == BookingStatus.ON_THE_WAY
-                || entity.getStatus() == BookingStatus.ARRIVED
-                || entity.getStatus() == BookingStatus.IN_PROGRESS
-                || entity.getStatus() == BookingStatus.COMPLETED
-                || entity.getStatus() == BookingStatus.PAID_OUT) {
-            isDepositPaid = true;
+        boolean isDepositPaid = hasPaidDeposit;
+        if (!isDepositPaid) {
+            if (entity.getStatus() == BookingStatus.ON_THE_WAY
+                    || entity.getStatus() == BookingStatus.ARRIVED
+                    || entity.getStatus() == BookingStatus.IN_PROGRESS
+                    || entity.getStatus() == BookingStatus.COMPLETED
+                    || entity.getStatus() == BookingStatus.PAID_OUT) {
+                isDepositPaid = true;
+            }
         }
 
         return CustomerBookingItemRes.builder()

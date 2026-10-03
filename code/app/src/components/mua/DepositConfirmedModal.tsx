@@ -78,7 +78,12 @@ export const DepositConfirmedModal: React.FC = () => {
     return () => clearInterval(timer);
   }, [isDepositModalVisible, depositNotice]);
 
-  if (!isMuaOrStaff || !isDepositModalVisible || !depositNotice) {
+  if (
+    !isMuaOrStaff ||
+    !isDepositModalVisible ||
+    !depositNotice ||
+    depositNotice.type === 'CUSTOMER_CONFIRMED_ADDONS'
+  ) {
     return null;
   }
 

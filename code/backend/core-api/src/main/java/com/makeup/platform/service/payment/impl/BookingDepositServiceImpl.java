@@ -211,7 +211,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public BookingDepositStatusRes getDepositStatus(Long bookingId, Long customerId) {
         BookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
@@ -223,8 +223,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
 
         BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_FOUND,
-                        "booking.deposit_not_found", HttpStatus.NOT_FOUND));
+                .orElseGet(() -> createBookingDeposit(booking));
 
         // Lấy payment hiện tại (PENDING đầu tiên nếu có)
         List<PaymentTransactionEntity> pendingPayments = paymentTransactionRepository
@@ -284,47 +283,6 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         return getDepositStatus(bookingId, customerId);
     }
 
-    @Override
-    @Transactional
-    public BookingDepositStatusRes mockPayDeposit(Long bookingId, Long customerId) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
-                        "booking.not_found", HttpStatus.NOT_FOUND));
-
-        if (!booking.getCustomer().getId().equals(customerId)) {
-            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
-                    "booking.access_denied", HttpStatus.FORBIDDEN);
-        }
-
-        BookingDepositEntity deposit = bookingDepositRepository.findByBookingIdWithLock(bookingId)
-                .orElseGet(() -> createBookingDeposit(booking));
-
-        if ("PAID".equals(deposit.getStatus())) {
-            return getDepositStatus(bookingId, customerId);
-        }
-
-        String paymentCode = generatePaymentCode();
-        PaymentTransactionEntity mockPayment = PaymentTransactionEntity.builder()
-                .paymentCode(paymentCode)
-                .user(booking.getCustomer())
-                .booking(booking)
-                .paymentGateway("MOMO_SIMULATED")
-                .amount(deposit.getRequiredAmount())
-                .status("SUCCESS")
-                .walletPostingStatus("NOT_POSTED")
-                .purpose("BOOKING_DEPOSIT")
-                .pricingVersion(deposit.getPricingVersion())
-                .applicationStatus("PENDING")
-                .paidAt(OffsetDateTime.now(VIETNAM_OFFSET))
-                .build();
-
-        mockPayment = paymentTransactionRepository.save(mockPayment);
-
-        applyDepositFromPayment(mockPayment.getId());
-
-        log.info("[MockPay] Successfully simulated deposit payment {} for booking {}", paymentCode, bookingId);
-        return getDepositStatus(bookingId, customerId);
-    }
 
     @Override
     @Transactional

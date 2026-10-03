@@ -336,7 +336,12 @@ export default function JobExecutionScreen() {
     if (profile?.muaId) {
       const confirmTopic = `/topic/booking-customer-confirmed/${profile.muaId}`;
       websocketService.subscribe(confirmTopic, (msg: any) => {
-        if (msg?.bookingId === bookingId) {
+        if (
+          msg?.bookingId === bookingId &&
+          (msg?.isDepositPaid === true ||
+            msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
+            msg?.type === 'PAYMENT_COMPLETED')
+        ) {
           setIsDepositPaid(true);
           setIsDepositTimeout(false);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -429,6 +434,10 @@ export default function JobExecutionScreen() {
       setIsLoading(true);
       const detail = await bookingService.getBookingStatus(bookingId);
       if (detail) {
+        if (detail.status === 'PAID_OUT' || detail.status === 'CANCELLED' || detail.status === 'CANCELLED_EXPIRED') {
+          router.replace(`/booking/history-detail/${bookingId}` as any);
+          return;
+        }
         setIsDepositPaid(Boolean(detail.isDepositPaid));
         if (detail.depositTimeoutSeconds !== undefined && detail.depositTimeoutSeconds !== null) {
           setDepositSecondsLeft(detail.depositTimeoutSeconds);
@@ -1314,6 +1323,16 @@ export default function JobExecutionScreen() {
                     <Ionicons name="wallet-outline" size={16} color="#475569" />
                     <Text style={[styles.cancelSecondaryBtnText, { color: '#475569' }]}>
                       Kiểm Tra Ví Thợ & Số Dư
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.cancelSecondaryBtn, { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5', marginTop: 4 }]}
+                    onPress={() => router.push(`/booking/history-detail/${bookingId}` as any)}
+                  >
+                    <Ionicons name="receipt-outline" size={16} color="#059669" />
+                    <Text style={[styles.cancelSecondaryBtnText, { color: '#059669', fontWeight: '700' }]}>
+                      Xem Hóa Đơn & Chi Tiết Lịch Sử
                     </Text>
                   </TouchableOpacity>
                 </View>

@@ -106,7 +106,6 @@ export default function BookingDepositScreen() {
     // 2. Kết nối STOMP WebSocket để nhận tín hiệu thanh toán realtime
     const unsubWs = websocketService.subscribe(`/topic/booking-status/${bookingId}`, (msg: any) => {
       if (
-        msg?.status === 'ACCEPTED' ||
         msg?.isDepositPaid === true ||
         msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
         msg?.type === 'PAYMENT_COMPLETED'
@@ -217,29 +216,44 @@ export default function BookingDepositScreen() {
     }, 2500);
   };
 
-  // 4. Xử lý bấm Thanh toán cọc (Giả lập thanh toán thành công theo yêu cầu)
+  // 4. Xử lý bấm Thanh toán cọc qua Cổng MoMo / VNPay thật 100%
   const handleProceedPayment = async () => {
     try {
       setIsProcessing(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Gọi API giả lập thanh toán cọc thành công vào Quỹ Escrow trên CSDL
-      try {
-        await depositService.mockPayDeposit(bookingId);
-      } catch (mockErr: any) {
-        // Fallback im lặng nếu mạng local chậm, vẫn tiếp tục luồng thành công
-        console.warn('mockPayDeposit fallback:', mockErr?.message);
+      const checkout = await depositService.createDepositIntent(bookingId, {
+        gatewayCode: selectedGateway,
+        pricingVersion: depositData?.pricingVersion,
+      });
+
+      const paymentLink = checkout?.checkoutUrl || checkout?.paymentUrl;
+      if (!paymentLink) {
+        throw new Error('Cổng thanh toán không trả về liên kết thanh toán.');
       }
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setIsPaidSuccess(true);
-      setPaymentPolling(false);
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-      navigateToBookingDetail(800);
+      // Kích hoạt chu kỳ polling tự động xác nhận khi đang mở cổng thanh toán
+      startPolling();
+
+      if (Platform.OS === 'web') {
+        window.open(paymentLink, '_blank');
+      } else {
+        try {
+          const authRes = await WebBrowser.openAuthSessionAsync(paymentLink, 'app://');
+          if (authRes.type === 'success') {
+            await handleManualSync();
+          }
+        } catch {
+          await WebBrowser.openBrowserAsync(paymentLink, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+            toolbarColor: '#0F172A',
+          });
+        }
+      }
     } catch (err: any) {
       Alert.alert(
         'Lỗi Thanh Toán',
-        err?.response?.data?.message || err?.message || 'Không thể hoàn tất thanh toán cọc.'
+        err?.response?.data?.message || err?.message || 'Không thể tạo liên kết thanh toán.'
       );
     } finally {
       setIsProcessing(false);

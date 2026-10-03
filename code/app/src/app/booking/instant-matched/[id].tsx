@@ -80,9 +80,8 @@ export default function InstantMatchedScreen() {
         return;
       }
 
-      // Nếu đơn đã cọc hoặc thợ đã nhận / di chuyển -> lập tức chuyển sang chi tiết đơn
+      // Nếu đơn đã cọc hoặc thợ đã di chuyển/đang thực hiện -> lập tức chuyển sang chi tiết đơn
       if (
-        msg?.status === 'ACCEPTED' ||
         msg?.isDepositPaid === true ||
         msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
         msg?.type === 'PAYMENT_COMPLETED' ||
@@ -121,10 +120,14 @@ export default function InstantMatchedScreen() {
       setIsLoading(true);
       const res = await bookingService.getBookingStatus(bookingId);
       if (res) {
-        // NẾU ĐƠN ĐÃ CỌC HOẶC THỢ ĐÃ ĐƯỢC CHẤP NHẬN / DI CHUYỂN -> CHUYỂN NGAY SANG CHI TIẾT ĐƠN
+        // NẾU ĐƠN ĐÃ CỌC HOẶC THỢ ĐÃ BẮT ĐẦU DI CHUYỂN -> CHUYỂN NGAY SANG CHI TIẾT ĐƠN
         if (
           Boolean(res.isDepositPaid) ||
-          (res.status && res.status !== 'REQUESTED')
+          res.status === 'ON_THE_WAY' ||
+          res.status === 'ARRIVED' ||
+          res.status === 'IN_PROGRESS' ||
+          res.status === 'COMPLETED' ||
+          res.status === 'PAID_OUT'
         ) {
           router.replace(`/booking/detail/${bookingId}` as any);
           return;

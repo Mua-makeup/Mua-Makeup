@@ -131,6 +131,10 @@ export default function CustomerBookingDetailScreen() {
 
     try {
       const data = await bookingService.getBookingStatus(bookingId);
+      if (data?.status === 'PAID_OUT' || data?.status === 'CANCELLED' || data?.status === 'CANCELLED_EXPIRED') {
+        router.replace(`/booking/history-detail/${bookingId}` as any);
+        return;
+      }
       setBookingDetail(data);
     } catch {
       // Thử tìm trong danh sách my bookings nếu API status tạm thời gặp lỗi
@@ -984,6 +988,16 @@ export default function CustomerBookingDetailScreen() {
             >
               <Ionicons name="star" size={18} color="#FFFFFF" />
               <Text style={styles.reviewActionBtnText}>Đánh Giá Chuyên Viên ⭐</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryCancelBtn, { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }]}
+              onPress={() => router.push(`/booking/history-detail/${bookingId}` as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.secondaryCancelBtnText, { color: '#059669', fontWeight: '700' }]}>
+                Xem Hóa Đơn & Chi Tiết Lịch Sử
+              </Text>
             </TouchableOpacity>
           </View>
         )}

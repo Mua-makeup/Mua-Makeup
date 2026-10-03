@@ -24,5 +24,8 @@ public interface BookingDepositRepository extends JpaRepository<BookingDepositEn
     @Query("SELECT d FROM BookingDepositEntity d WHERE d.status IN ('UNPAID','PENDING') AND d.expiresAt <= :now")
     List<BookingDepositEntity> findExpiredDeposits(@Param("now") OffsetDateTime now);
 
+    @Query("SELECT d.booking.id FROM BookingDepositEntity d WHERE d.booking.id IN :bookingIds AND d.status = 'PAID'")
+    List<Long> findPaidBookingIds(@Param("bookingIds") List<Long> bookingIds);
+
     boolean existsByBookingId(Long bookingId);
 }

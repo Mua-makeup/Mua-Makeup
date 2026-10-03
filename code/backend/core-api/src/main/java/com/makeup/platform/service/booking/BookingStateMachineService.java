@@ -17,4 +17,10 @@ public interface BookingStateMachineService {
     BookingStatusDetailRes getBookingStatusDetail(Long bookingId);
 
     void refundDepositToCustomer(BookingEntity booking, String reason);
+
+    void requestCancelTripByCustomer(Long bookingId, Long customerUserId, String reason);
+
+    BookingStateTransitionRes confirmCancelCompensationByMua(Long bookingId, Long muaUserId);
+
+    void rejectCancelCompensationByMua(Long bookingId, Long muaUserId, String reason);
 }

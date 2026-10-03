@@ -454,10 +454,10 @@ export default function HomeScreen() {
                 onPress={() => {
                   if (activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid) {
                     router.push(`/booking/instant-matched/${activeCustomerTrip.id}` as any);
-                  } else if (['PENDING_DEPOSIT', 'REQUESTED', 'ACCEPTED'].includes(activeCustomerTrip.status)) {
-                    router.push(`/booking/detail/${activeCustomerTrip.id}` as any);
-                  } else {
+                  } else if (activeCustomerTrip.status === 'ON_THE_WAY') {
                     router.push(`/booking/tracking/${activeCustomerTrip.id}` as any);
+                  } else {
+                    router.push(`/booking/detail/${activeCustomerTrip.id}` as any);
                   }
                 }}
               >
@@ -467,6 +467,10 @@ export default function HomeScreen() {
                     activeCustomerTrip.status === 'PENDING_DEPOSIT' && { backgroundColor: '#D97706' },
                     activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
                     activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
+                    activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { backgroundColor: '#059669' },
+                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#7C3AED' },
+                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#C026D3' },
+                    activeCustomerTrip.status === 'IN_PROGRESS' && { backgroundColor: BrandColors.primary },
                   ]}
                 >
                   <Ionicons
@@ -477,7 +481,15 @@ export default function HomeScreen() {
                         ? 'shield-checkmark'
                         : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
                         ? 'card'
-                        : 'navigate'
+                        : activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid
+                        ? 'checkmark-circle'
+                        : activeCustomerTrip.status === 'ON_THE_WAY'
+                        ? 'navigate'
+                        : activeCustomerTrip.status === 'ARRIVED'
+                        ? 'location'
+                        : activeCustomerTrip.status === 'IN_PROGRESS'
+                        ? 'sparkles'
+                        : 'calendar'
                     }
                     size={20}
                     color="#FFFFFF"
@@ -491,6 +503,10 @@ export default function HomeScreen() {
                         activeCustomerTrip.status === 'PENDING_DEPOSIT' && { backgroundColor: '#F59E0B' },
                         activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#10B981' },
                         activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#F59E0B' },
+                        activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { backgroundColor: '#10B981' },
+                        activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#A78BFA' },
+                        activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#E879F9' },
+                        activeCustomerTrip.status === 'IN_PROGRESS' && { backgroundColor: '#FB7185' },
                       ]}
                     />
                     <Text
@@ -499,6 +515,10 @@ export default function HomeScreen() {
                         activeCustomerTrip.status === 'PENDING_DEPOSIT' && { color: '#F59E0B' },
                         activeCustomerTrip.status === 'REQUESTED' && { color: '#34D399' },
                         activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { color: '#F59E0B' },
+                        activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { color: '#34D399' },
+                        activeCustomerTrip.status === 'ON_THE_WAY' && { color: '#C4B5FD' },
+                        activeCustomerTrip.status === 'ARRIVED' && { color: '#F0ABFC' },
+                        activeCustomerTrip.status === 'IN_PROGRESS' && { color: '#FDA4AF' },
                       ]}
                     >
                       {activeCustomerTrip.status === 'PENDING_DEPOSIT'
@@ -507,12 +527,14 @@ export default function HomeScreen() {
                         ? 'ĐÃ CỌC ESCROW 30% • CHỜ THỢ XÁC NHẬN'
                         : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
                         ? 'THỢ ĐÃ NHẬN • CHỜ BẠN ĐẶT CỌC'
+                        : activeCustomerTrip.status === 'ACCEPTED'
+                        ? 'ĐÃ ĐẶT CỌC • CHỜ THỢ KHỞI HÀNH'
                         : activeCustomerTrip.status === 'ON_THE_WAY'
                         ? 'THỢ ĐANG TRÊN ĐƯỜNG ĐẾN'
                         : activeCustomerTrip.status === 'ARRIVED'
                         ? 'THỢ ĐÃ TỚI ĐIỂM HẸN'
                         : activeCustomerTrip.status === 'IN_PROGRESS'
-                        ? 'ĐANG TRANG ĐIỂM'
+                        ? 'ĐANG TRANG ĐIỂM CHO BẠN'
                         : 'CHUYÊN VIÊN ĐÃ TIẾP NHẬN CA'}
                     </Text>
                   </View>
@@ -526,6 +548,14 @@ export default function HomeScreen() {
                       ? 'Tiền cọc đã bảo chứng an toàn. Chuyên viên đang phản hồi.'
                       : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
                       ? 'Chạm để kiểm tra thợ & thanh toán cọc giữ chỗ 30%'
+                      : activeCustomerTrip.status === 'ACCEPTED'
+                      ? 'Đã bảo chứng cọc Escrow 30%. Chờ thợ bắt đầu di chuyển.'
+                      : activeCustomerTrip.status === 'ON_THE_WAY'
+                      ? 'Chạm để xem trực tiếp vị trí GPS thợ đang di chuyển'
+                      : activeCustomerTrip.status === 'ARRIVED'
+                      ? 'Thợ đã đến điểm hẹn, sẵn sàng dụng cụ làm đẹp'
+                      : activeCustomerTrip.status === 'IN_PROGRESS'
+                      ? 'Đang tiến hành các bước trang điểm chuyên nghiệp'
                       : activeCustomerTrip.destinationAddress || 'Chạm để theo dõi trực tiếp vị trí Live GPS'}
                   </Text>
                 </View>
@@ -535,18 +565,24 @@ export default function HomeScreen() {
                     activeCustomerTrip.status === 'PENDING_DEPOSIT' && { backgroundColor: '#D97706' },
                     activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
                     activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
+                    activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { backgroundColor: '#059669' },
+                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#7C3AED' },
+                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#C026D3' },
+                    activeCustomerTrip.status === 'IN_PROGRESS' && { backgroundColor: BrandColors.primary },
                   ]}
                 >
                   <Text style={styles.activeTripBtnText}>
                     {activeCustomerTrip.status === 'PENDING_DEPOSIT'
                       ? 'Đặt Cọc'
                       : activeCustomerTrip.status === 'REQUESTED'
-                      ? 'Xem Chi Tiết'
+                      ? 'Chi Tiết'
                       : activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid
                       ? 'Đặt Cọc'
                       : activeCustomerTrip.status === 'ACCEPTED'
-                      ? 'Xem Lịch'
-                      : 'Theo Dõi'}
+                      ? 'Chi Tiết'
+                      : activeCustomerTrip.status === 'ON_THE_WAY'
+                      ? 'Theo Dõi'
+                      : 'Chi Tiết'}
                   </Text>
                   <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
                 </View>

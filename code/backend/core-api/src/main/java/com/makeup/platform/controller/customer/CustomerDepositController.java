@@ -59,14 +59,6 @@ public class CustomerDepositController extends BaseController {
         return ok(res, "booking.deposit_synced");
     }
 
-    @PostMapping("/{bookingId}/deposit/mock-pay")
-    @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<ApiResponse<BookingDepositStatusRes>> mockPayDeposit(
-            @PathVariable Long bookingId) {
-        Long customerId = SecurityContextUtils.getCurrentUserId();
-        BookingDepositStatusRes res = bookingDepositService.mockPayDeposit(bookingId, customerId);
-        return ok(res, "booking.deposit_synced");
-    }
 
     @PostMapping("/{bookingId}/final-payment-intents")
     @PreAuthorize("hasRole('CUSTOMER')")

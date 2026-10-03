@@ -61,10 +61,18 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
   };
 
   const handleEnterJob = () => {
-    router.push({
-      pathname: '/job-execution/[id]',
-      params: { id: booking.id },
-    });
+    const isTerminalStatus = ['COMPLETED', 'PAID_OUT', 'CANCELLED', 'CANCELLED_EXPIRED', 'DISPUTED'].includes(booking.status);
+    if (isTerminalStatus) {
+      router.push({
+        pathname: '/booking/history-detail/[id]',
+        params: { id: booking.id },
+      } as any);
+    } else {
+      router.push({
+        pathname: '/job-execution/[id]',
+        params: { id: booking.id },
+      });
+    }
   };
 
   // Tiếp nhận ca hẹn đang chờ (REQUESTED)
@@ -242,7 +250,9 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
             </>
           ) : (
             <TouchableOpacity style={styles.viewDetailBtn} onPress={handleEnterJob}>
-              <Text style={styles.viewDetailText}>Chi tiết</Text>
+              <Text style={styles.viewDetailText}>
+                {booking.status === 'COMPLETED' || booking.status === 'PAID_OUT' ? 'Hóa đơn & Chi tiết' : 'Chi tiết'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
