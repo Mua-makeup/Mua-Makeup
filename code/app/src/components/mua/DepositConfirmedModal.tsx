@@ -27,6 +27,7 @@ export const DepositConfirmedModal: React.FC = () => {
   const { userInfo } = useAuthStore();
 
   const [countdown, setCountdown] = useState<number>(5);
+  const isPaymentCompleted = depositNotice?.type === 'PAYMENT_COMPLETED' || depositNotice?.status === 'PAID_OUT';
 
   const isMuaOrStaff =
     userInfo?.roles?.some((r) => r === 'ROLE_FREELANCE_MUA' || r === 'ROLE_AGENCY_STAFF') ||
@@ -59,7 +60,7 @@ export const DepositConfirmedModal: React.FC = () => {
 
   // Bộ đếm ngược 5s tự động đóng pop up
   useEffect(() => {
-    if (!isDepositModalVisible || !depositNotice) return;
+    if (!isDepositModalVisible || !depositNotice || isPaymentCompleted) return;
     setCountdown(5);
 
     const timer = setInterval(() => {
@@ -68,7 +69,12 @@ export const DepositConfirmedModal: React.FC = () => {
           clearInterval(timer);
           // Dùng setTimeout 0ms để defer setState ra ngoài render cycle
           // tránh lỗi "Cannot update a component while rendering a different component"
-          setTimeout(() => dismissDepositNotice(), 0);
+          setTimeout(() => {
+            // A deposit timer must never close a newer settlement notice.
+            if (useWorkstationStore.getState().depositNotice === depositNotice) {
+              dismissDepositNotice();
+            }
+          }, 0);
           return 0;
         }
         return prev - 1;
@@ -76,7 +82,7 @@ export const DepositConfirmedModal: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isDepositModalVisible, depositNotice]);
+  }, [isDepositModalVisible, depositNotice, isPaymentCompleted]);
 
   if (
     !isMuaOrStaff ||
@@ -86,11 +92,6 @@ export const DepositConfirmedModal: React.FC = () => {
   ) {
     return null;
   }
-
-  const isPaymentCompleted =
-    depositNotice.type === 'PAYMENT_COMPLETED' ||
-    depositNotice.status === 'PAID_OUT' ||
-    depositNotice.status === 'COMPLETED';
 
   const handleGoToWallet = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -208,6 +209,13 @@ export const DepositConfirmedModal: React.FC = () => {
               </View>
             )}
 
+            {isPaymentCompleted && depositNotice.finalAmount != null && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Đã nhận phần còn lại (70%):</Text>
+                <Text style={styles.detailValueBold}>{formatVnd(depositNotice.finalAmount)}</Text>
+              </View>
+            )}
+
             {depositNotice.customerPhone && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Số điện thoại:</Text>
@@ -238,7 +246,7 @@ export const DepositConfirmedModal: React.FC = () => {
                 activeOpacity={0.85}
               >
                 <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                <Text style={styles.jobButtonText}>Về Bàn Làm Việc</Text>
+                <Text style={styles.jobButtonText}>Đã Nhận Thông Báo Thanh Toán</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -258,7 +266,7 @@ export const DepositConfirmedModal: React.FC = () => {
               activeOpacity={0.7}
             >
               <Text style={styles.closeButtonText}>
-                Tự động đóng sau ({countdown}s)
+                {isPaymentCompleted ? 'Đóng' : `Tự động đóng sau (${countdown}s)`}
               </Text>
             </TouchableOpacity>
           </View>

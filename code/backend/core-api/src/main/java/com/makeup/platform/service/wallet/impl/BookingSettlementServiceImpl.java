@@ -48,6 +48,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     @Override
     @Transactional
     public void settleBooking(Long bookingId, BigDecimal commissionRate) {
+        bookingDepositRepository.findByBookingIdWithLock(bookingId).orElseThrow();
         // Idempotency check
         if (settlementRepository.existsByBookingId(bookingId)) {
             log.info("[Settlement] Booking {} already settled, skipping", bookingId);
@@ -185,6 +186,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     @Override
     @Transactional
     public void settleBookingOnlinePayment(Long bookingId, BigDecimal commissionRate) {
+        bookingDepositRepository.findByBookingIdWithLock(bookingId).orElseThrow();
         if (settlementRepository.existsByBookingId(bookingId)) {
             log.info("[SettlementOnline] Booking {} already settled, skipping", bookingId);
             return;
@@ -197,6 +199,11 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_FOUND,
                         "booking.deposit_not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getStatus() != BookingStatus.COMPLETED || !"PAID".equals(deposit.getStatus())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_SETTLEMENT_PREREQUISITE_NOT_MET,
+                    "settlement.booking_not_completed", HttpStatus.CONFLICT);
+        }
 
         BigDecimal T = booking.getTotalAmount();
         BigDecimal D = deposit.getPaidAmount() != null ? deposit.getPaidAmount() : BigDecimal.ZERO;

@@ -24,5 +24,6 @@ public class CustomerWalletTransactionRes {
     private Long referenceId;
     private String description;
     private String holdStatus;
+    private String bookingCode;
     private LocalDateTime createdAt;
 }

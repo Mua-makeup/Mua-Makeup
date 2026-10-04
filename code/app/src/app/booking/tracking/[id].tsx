@@ -104,6 +104,7 @@ export default function BookingLiveTrackingScreen() {
   const [selectedReasonChip, setSelectedReasonChip] = useState<string>('Bận việc đột xuất / Không thể tiếp tục');
   const [customReason, setCustomReason] = useState<string>('');
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isWaitingCancelConfirm, setIsWaitingCancelConfirm] = useState(false);
 
   // Live Timer effect when IN_PROGRESS
   useEffect(() => {
@@ -143,6 +144,9 @@ export default function BookingLiveTrackingScreen() {
         const detailRes = await bookingService.getBookingStatus(bookingId).catch(() => null);
         if (detailRes && isMounted) {
           setBookingDetail(detailRes);
+          if (detailRes.isCancelRequested) {
+            setIsWaitingCancelConfirm(true);
+          }
 
           // Nếu thợ đã nhận đơn (ACCEPTED) nhưng khách chưa thanh toán cọc 30%:
           // Tự động chuyển hướng khách sang màn hình kiểm tra thợ & thanh toán cọc
@@ -287,6 +291,24 @@ export default function BookingLiveTrackingScreen() {
 
         // Trạng thái đơn hàng với Pop-up thông báo tức thời cho khách hàng
         websocketService.subscribe(statusTopic, (statusMsg: any) => {
+          if (statusMsg?.type === 'CANCEL_REQUEST_REJECTED') {
+            setIsWaitingCancelConfirm(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert(
+              'Yêu Cầu Hủy Bị Từ Chối',
+              statusMsg?.message || 'Chuyên viên make-up đã từ chối yêu cầu hủy và vẫn đang tiếp tục di chuyển tới điểm hẹn.',
+              [{ text: 'Đã Hiểu' }]
+            );
+            bookingService.getBookingStatus(bookingId).then((refreshed) => {
+              if (refreshed && isMounted) setBookingDetail(refreshed);
+            }).catch(() => {});
+            return;
+          }
+
+          if (statusMsg?.type === 'CANCEL_REQUESTED') {
+            setIsWaitingCancelConfirm(true);
+          }
+
           const nextStatus = statusMsg?.currentStatus || statusMsg?.status;
           if (nextStatus === 'PAID_OUT' || statusMsg?.type === 'PAYMENT_COMPLETED') {
             try {
@@ -302,8 +324,10 @@ export default function BookingLiveTrackingScreen() {
             }).catch(() => {});
 
             if (nextStatus === 'CANCELLED') {
+              setIsWaitingCancelConfirm(false);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              const reason = statusMsg?.message || statusMsg?.cancellationReason || 'Chuyên viên make-up hoặc hệ thống đã hủy đơn hẹn này.';
+              const isCompensated = statusMsg?.type === 'CANCEL_COMPENSATED';
+              const reason = statusMsg?.message || statusMsg?.cancellationReason || (isCompensated ? 'Chuyên viên đã đồng ý yêu cầu hủy. 100% tiền cọc đã được chuyển bồi thường cho thợ.' : 'Chuyên viên make-up hoặc hệ thống đã hủy đơn hẹn này.');
               Alert.alert(
                 'Đơn Hàng Đã Bị Hủy',
                 reason,
@@ -365,6 +389,64 @@ export default function BookingLiveTrackingScreen() {
       websocketService.unsubscribe(statusTopic);
     };
   }, [bookingId]);
+
+  // Tự động kiểm tra định kỳ trạng thái đơn hàng khi đang chờ thợ duyệt hủy (fallback nếu WebSocket bị trễ/mất gói)
+  useEffect(() => {
+    if (!bookingId || (!isWaitingCancelConfirm && !bookingDetail?.isCancelRequested)) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const refreshed = await bookingService.getBookingStatus(bookingId);
+        if (refreshed) {
+          setBookingDetail(refreshed);
+          if (refreshed.status === 'CANCELLED') {
+            setIsWaitingCancelConfirm(false);
+            setStatus('CANCELLED');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert(
+              'Đơn Hàng Đã Bị Hủy',
+              refreshed.cancellationReason || 'Chuyên viên make-up đã đồng ý yêu cầu hủy. 100% tiền cọc đã được chuyển bồi thường cho thợ.',
+              [
+                { text: 'Tìm Thợ Khác', onPress: () => router.replace('/') },
+                { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
+              ],
+              { cancelable: false }
+            );
+          } else if (!refreshed.isCancelRequested) {
+            setIsWaitingCancelConfirm(false);
+          }
+        }
+      } catch (err) {}
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [bookingId, isWaitingCancelConfirm, bookingDetail?.isCancelRequested]);
+
+  // Reconcile on entry/reload and while waiting; no dependency on the gateway return URL.
+  useEffect(() => {
+    if (!bookingId || status !== 'COMPLETED') return;
+    let disposed = false;
+    let busy = false;
+    const sync = async () => {
+      if (busy || disposed) return;
+      busy = true;
+      try {
+        await depositService.syncFinalPayment(bookingId);
+        const detail = await bookingService.getBookingStatus(bookingId);
+        if (!disposed && detail) {
+          setBookingDetail(detail);
+          if (detail.status === 'PAID_OUT') {
+            setStatus('PAID_OUT');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        }
+      } catch (error) { console.warn('Chưa đối soát được thanh toán, sẽ thử lại.', error); }
+      finally { busy = false; }
+    };
+    void sync();
+    const timer = setInterval(sync, 5000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, [bookingId, status]);
 
   const handleConfirmCustomerCash = async () => {
     try {
@@ -440,6 +522,14 @@ export default function BookingLiveTrackingScreen() {
   };
 
   const handleCustomerCancelTrip = () => {
+    if (isWaitingCancelConfirm || bookingDetail?.isCancelRequested) {
+      Alert.alert(
+        'Đang Chờ Xác Nhận',
+        `Yêu cầu hủy đơn của bạn đang chờ chuyên viên xác nhận. Nếu chuyên viên đồng ý, 100% tiền cọc (${formatVnd(bookingDetail?.depositAmount || 0)}) sẽ được bồi thường cho thợ và đơn hẹn sẽ được hủy.`,
+        [{ text: 'Đã Hiểu' }]
+      );
+      return;
+    }
     setIsCancelModalVisible(true);
   };
 
@@ -450,14 +540,18 @@ export default function BookingLiveTrackingScreen() {
       const finalReason = customReason.trim()
         ? `${chosenReason}: ${customReason.trim()}`
         : chosenReason;
-      await bookingService.cancelBooking(bookingId, finalReason);
+
+      await bookingService.requestCancelTrip(bookingId, finalReason);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setIsCancelModalVisible(false);
-      Alert.alert('Đã Hủy Đơn', 'Đơn đặt lịch đã được hủy thành công.', [
-        { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
-      ]);
+      setIsWaitingCancelConfirm(true);
+      Alert.alert(
+        'Đã Gửi Yêu Cầu Hủy Chuyến',
+        `Yêu cầu hủy đơn đã được gửi tới chuyên viên make-up. Do thợ đang trên đường di chuyển, việc hủy đơn cần được thợ xác nhận và 100% tiền cọc (${formatVnd(bookingDetail?.depositAmount || 0)}) sẽ được chuyển bồi thường cho thợ.`,
+        [{ text: 'Đã Hiểu' }]
+      );
     } catch (e: any) {
-      Alert.alert('Không Thể Hủy', e.response?.data?.message || e.message);
+      Alert.alert('Không Thể Gửi Yêu Cầu Hủy', e.response?.data?.message || e.message);
     } finally {
       setIsCancelling(false);
     }
@@ -567,12 +661,25 @@ export default function BookingLiveTrackingScreen() {
               distanceRemainingMeters={distanceRemainingMeters ?? undefined}
               muaName={muaName}
               streamMode={streamMode}
+              role="CUSTOMER"
             />
           </View>
 
           {/* BOTTOM MUA PROFILE DRAWER */}
           <View style={styles.bottomDrawer}>
             <View style={styles.drawerHandle} />
+
+            {(isWaitingCancelConfirm || bookingDetail?.isCancelRequested) && (
+              <View style={styles.cancelPendingBanner}>
+                <Ionicons name="time" size={20} color="#D97706" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cancelPendingTitle}>Đang Chờ Thợ Duyệt Yêu Cầu Hủy</Text>
+                  <Text style={styles.cancelPendingText}>
+                    Bạn đã gửi yêu cầu hủy. Khi thợ xác nhận, đơn sẽ hủy và 100% tiền cọc ({formatVnd(bookingDetail?.depositAmount || 0)}) sẽ được bồi thường cho thợ.
+                  </Text>
+                </View>
+              </View>
+            )}
 
             <View style={styles.muaProfileRow}>
               <Image source={{ uri: muaAvatar }} style={styles.muaAvatar} />
@@ -595,18 +702,40 @@ export default function BookingLiveTrackingScreen() {
 
             {/* ACTION BUTTONS */}
             <View style={styles.actionBtnRow}>
-              <TouchableOpacity style={styles.callBtn} onPress={handleCallMua} activeOpacity={0.85}>
-                <Ionicons name="call" size={16} color="#FFFFFF" />
+              <TouchableOpacity
+                style={[
+                  styles.callBtn,
+                  (isWaitingCancelConfirm || bookingDetail?.isCancelRequested) && { flex: 1.1 },
+                ]}
+                onPress={handleCallMua}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="call" size={15} color="#FFFFFF" />
                 <Text style={styles.callBtnText} numberOfLines={1}>Gọi Cho Thợ</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.cancelTripBtn}
+                style={[
+                  styles.cancelTripBtn,
+                  (isWaitingCancelConfirm || bookingDetail?.isCancelRequested) && styles.cancelTripBtnWaiting,
+                ]}
                 onPress={handleCustomerCancelTrip}
                 activeOpacity={0.8}
               >
-                <Ionicons name="close-circle-outline" size={16} color="#E11D48" />
-                <Text style={styles.cancelTripBtnText} numberOfLines={1}>Hủy Đơn</Text>
+                <Ionicons
+                  name={isWaitingCancelConfirm || bookingDetail?.isCancelRequested ? 'time-outline' : 'close-circle-outline'}
+                  size={15}
+                  color={isWaitingCancelConfirm || bookingDetail?.isCancelRequested ? '#D97706' : '#E11D48'}
+                />
+                <Text
+                  style={[
+                    styles.cancelTripBtnText,
+                    (isWaitingCancelConfirm || bookingDetail?.isCancelRequested) && styles.cancelTripBtnWaitingText,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isWaitingCancelConfirm || bookingDetail?.isCancelRequested ? 'Chờ Duyệt Hủy' : 'Hủy Đơn'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -614,7 +743,7 @@ export default function BookingLiveTrackingScreen() {
                 onPress={() => router.replace(`/booking/detail/${bookingId}` as any)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="document-text-outline" size={16} color="#334155" />
+                <Ionicons name="document-text-outline" size={15} color="#334155" />
                 <Text style={styles.detailBtnText} numberOfLines={1}>Chi Tiết</Text>
               </TouchableOpacity>
             </View>
@@ -844,13 +973,13 @@ export default function BookingLiveTrackingScreen() {
             <View style={styles.billRow}>
               <Text style={styles.billLabel}>Tiền cọc Escrow (30%):</Text>
               <Text style={[styles.billVal, { color: '#059669', fontWeight: '700' }]}>
-                {formatVnd(bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))} (Đã cọc ✓)
+                {formatVnd(bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)} (Đã cọc ✓)
               </Text>
             </View>
             <View style={[styles.billRow, { borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 8, marginTop: 4 }]}>
               <Text style={[styles.billLabelBold, { color: '#E11D48' }]}>Còn lại cần thanh toán (70%):</Text>
               <Text style={[styles.billValTotal, { color: '#E11D48' }]}>
-                {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))))}
+                {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}
               </Text>
             </View>
           </View>
@@ -879,7 +1008,7 @@ export default function BookingLiveTrackingScreen() {
                     Đang Chờ Chuyên Viên Xác Nhận Tiền Mặt
                   </Text>
                   <Text style={{ fontSize: 13, color: '#B45309', marginTop: 2 }}>
-                    Bạn đã bấm báo gửi tiền mặt {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))))}. Vui lòng nhờ chuyên viên bấm xác nhận trên ứng dụng của họ để hoàn tất đơn.
+                    Bạn đã bấm báo gửi tiền mặt {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}. Vui lòng nhờ chuyên viên bấm xác nhận trên ứng dụng của họ để hoàn tất đơn.
                   </Text>
                 </View>
               </View>
@@ -891,7 +1020,7 @@ export default function BookingLiveTrackingScreen() {
                 <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>
                   Thanh Toán Phần Còn Lại (70%):{' '}
                   <Text style={{ color: '#E11D48' }}>
-                    {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount || Math.round((bookingDetail?.totalAmount || 0) * 0.3))))}
+                    {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}
                   </Text>
                 </Text>
               </View>
@@ -1175,8 +1304,23 @@ export default function BookingLiveTrackingScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View style={styles.cancelCompensationNotice}>
+                <Ionicons name="warning" size={20} color="#DC2626" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cancelCompensationNoticeTitle}>
+                    Chính Sách Hủy Ca Khi Thợ Đang Di Chuyển
+                  </Text>
+                  <Text style={styles.cancelCompensationNoticeText}>
+                    • Chuyên viên make-up đang trên đường tới điểm hẹn. Nếu hủy ca lúc này, bạn sẽ <Text style={{ fontWeight: '800', color: '#DC2626' }}>mất 100% tiền cọc ({formatVnd(bookingDetail?.depositAmount || 0)})</Text> để bồi thường chi phí di chuyển cho thợ.
+                  </Text>
+                  <Text style={styles.cancelCompensationNoticeText}>
+                    • Yêu cầu hủy cần được <Text style={{ fontWeight: '800', color: '#0F172A' }}>chuyên viên make-up xác nhận</Text> mới có hiệu lực hủy đơn 100%.
+                  </Text>
+                </View>
+              </View>
+
               <Text style={styles.modalSubtitle}>
-                Vui lòng chọn lý do bạn muốn hủy ca hẹn này. Hành động này sẽ giải phóng chuyên viên và kết thúc lịch trình.
+                Vui lòng chọn lý do bạn muốn hủy ca hẹn này:
               </Text>
 
               <View style={styles.reasonsList}>
@@ -1229,7 +1373,7 @@ export default function BookingLiveTrackingScreen() {
                   {isCancelling ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.modalSubmitBtnText}>Xác Nhận Hủy</Text>
+                    <Text style={styles.modalSubmitBtnText}>Gửi Yêu Cầu Hủy</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1377,18 +1521,18 @@ const styles = StyleSheet.create({
   },
   actionBtnRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   callBtn: {
-    flex: 1.35,
+    flex: 1.25,
     backgroundColor: '#10B981',
     borderRadius: 14,
     paddingVertical: 12,
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
@@ -1397,7 +1541,7 @@ const styles = StyleSheet.create({
   },
   callBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   cancelTripBtn: {
@@ -1405,6 +1549,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF1F2',
     borderRadius: 14,
     paddingVertical: 12,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1412,26 +1557,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FECDD3',
   },
+  cancelTripBtnWaiting: {
+    flex: 1.45,
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    paddingHorizontal: 4,
+  },
   cancelTripBtnText: {
     color: '#E11D48',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
+  cancelTripBtnWaitingText: {
+    color: '#B45309',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
   detailBtn: {
-    flex: 1,
+    flex: 0.9,
     backgroundColor: '#F1F5F9',
     borderRadius: 14,
     paddingVertical: 12,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   detailBtnText: {
     color: '#334155',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
   },
 
@@ -2031,5 +2189,50 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     opacity: 0.6,
+  },
+  cancelPendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    gap: 10,
+    marginBottom: 12,
+  },
+  cancelPendingTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  cancelPendingText: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  cancelCompensationNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    padding: 14,
+    gap: 10,
+    marginBottom: 14,
+  },
+  cancelCompensationNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#991B1B',
+    marginBottom: 4,
+  },
+  cancelCompensationNoticeText: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    lineHeight: 18,
+    marginTop: 2,
   },
 });

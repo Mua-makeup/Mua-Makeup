@@ -32,5 +32,11 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     List<PaymentTransactionEntity> findByBookingIdAndStatus(@Param("bookingId") Long bookingId, @Param("status") String status);
 
     Optional<PaymentTransactionEntity> findByUserIdAndIdempotencyKey(Long userId, String idempotencyKey);
+    @Query("SELECT p.paymentCode FROM PaymentTransactionEntity p WHERE p.booking.id = :bookingId AND p.user.id = :customerId AND p.purpose = 'BOOKING_FINAL_PAYMENT' ORDER BY p.createdAt DESC")
+    List<String> findFinalPaymentOwner(@Param("bookingId") Long bookingId, @Param("customerId") Long customerId);
+
+    @Query("SELECT p.paymentCode FROM PaymentTransactionEntity p WHERE p.purpose = 'BOOKING_FINAL_PAYMENT' AND (COALESCE(p.applicationStatus, '') <> 'APPLIED' OR COALESCE(p.walletPostingStatus, '') <> 'POSTED') AND p.createdAt >= :since AND p.paymentCode > :afterCode ORDER BY p.paymentCode")
+    List<String> findFinalPaymentsToReconcile(@Param("since") java.time.LocalDateTime since, @Param("afterCode") String afterCode, Pageable pageable);
+
 }
 

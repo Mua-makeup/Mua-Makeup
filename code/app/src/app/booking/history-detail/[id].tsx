@@ -750,7 +750,7 @@ export default function BookingHistoryDetailScreen() {
 
               <TouchableOpacity
                 style={styles.reviewBtn}
-                onPress={() => router.push('/profile/mua-profile' as any)}
+                onPress={() => router.push('/profile/freelancer-wallet')}
                 activeOpacity={0.8}
               >
                 <Ionicons name="wallet-outline" size={17} color={BrandColors.primary} />

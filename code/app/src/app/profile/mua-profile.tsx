@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,12 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
-import { useAuthStore } from '@/store/auth.store';
 import { muaProfileService, MuaPublicProfile, MuaCertificate } from '@/services/mua-profile.service';
 import { mapsService } from '@/services/maps.service';
 import * as Location from 'expo-location';
@@ -29,16 +28,15 @@ import { useWorkstationStore } from '@/store/workstation.store';
 const QUICK_RADIUS_OPTIONS = [5, 10, 15, 20, 25, 30, 50];
 
 export default function MuaWorkProfileScreen() {
-  const { userInfo } = useAuthStore();
-  const muaId = userInfo?.muaId || 4;
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState<MuaPublicProfile | null>(null);
 
   // Form fields nghề nghiệp
   const [bio, setBio] = useState('');
-  const [experienceYears, setExperienceYears] = useState('1');
-  const [maxRadius, setMaxRadius] = useState('15');
+  const [experienceYears, setExperienceYears] = useState('');
+  const [maxRadius, setMaxRadius] = useState('');
   const [baseAddressText, setBaseAddressText] = useState('');
   const [baseAddressLat, setBaseAddressLat] = useState<number | null>(null);
   const [baseAddressLng, setBaseAddressLng] = useState<number | null>(null);
@@ -59,40 +57,27 @@ export default function MuaWorkProfileScreen() {
   // Modal Xem trước ảnh phóng to (Chứng chỉ & Portfolio)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadMuaProfile();
-  }, []);
+  useFocusEffect(useCallback(() => {
+    void loadMuaProfile();
+  }, []));
 
   const loadMuaProfile = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await muaProfileService.getMyProfile();
       setProfile(data);
-      if (data.bio) setBio(data.bio);
-      if (data.experienceYears !== undefined && data.experienceYears !== null) {
-        setExperienceYears(String(data.experienceYears));
-      }
-      if (data.maxServiceRadiusKm !== undefined && data.maxServiceRadiusKm !== null) {
-        setMaxRadius(String(data.maxServiceRadiusKm));
-      }
-      if (data.baseAddressText) {
-        setBaseAddressText(data.baseAddressText);
-      }
-      if (data.baseAddressLat !== undefined && data.baseAddressLat !== null) {
-        setBaseAddressLat(Number(data.baseAddressLat));
-      }
-      if (data.baseAddressLng !== undefined && data.baseAddressLng !== null) {
-        setBaseAddressLng(Number(data.baseAddressLng));
-      }
-      if (data.certificates) {
-        setCertificates(data.certificates);
-      }
-      if (data.portfolioImages) {
-        setPortfolioImages(data.portfolioImages);
-      }
+      setBio(data.bio ?? '');
+      setExperienceYears(data.experienceYears == null ? '' : String(data.experienceYears));
+      setMaxRadius(data.maxServiceRadiusKm == null ? '' : String(data.maxServiceRadiusKm));
+      setBaseAddressText(data.baseAddressText ?? '');
+      setBaseAddressLat(data.baseAddressLat == null ? null : Number(data.baseAddressLat));
+      setBaseAddressLng(data.baseAddressLng == null ? null : Number(data.baseAddressLng));
+      setCertificates(data.certificates ?? []);
+      setPortfolioImages(data.portfolioImages ?? []);
     } catch (err: any) {
       const parsed = parseApiError(err);
-      console.warn('Lỗi tải hồ sơ MUA:', parsed.message);
+      setLoadError(parsed.message || 'Không thể tải hồ sơ.');
     } finally {
       setIsLoading(false);
     }
@@ -316,9 +301,10 @@ export default function MuaWorkProfileScreen() {
   };
 
   const handlePreviewPublicProfile = () => {
+    if (!profile?.muaId) return;
     router.push({
       pathname: '/mua-detail/[id]',
-      params: { id: muaId },
+      params: { id: profile.muaId },
     });
   };
 
@@ -364,6 +350,13 @@ export default function MuaWorkProfileScreen() {
           <ActivityIndicator size="large" color={BrandColors.primary} />
           <Text style={styles.loadingText}>Đang tải thông tin chuyên môn...</Text>
         </View>
+      ) : loadError ? (
+        <View style={styles.centerLoading}>
+          <Text style={styles.loadingText}>{loadError}</Text>
+          <TouchableOpacity onPress={loadMuaProfile}>
+            <Text style={styles.publicPreviewTitle}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <ScrollView
           style={styles.body}
@@ -394,21 +387,21 @@ export default function MuaWorkProfileScreen() {
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Mã định danh</Text>
                 <Text style={styles.statValHighlight}>
-                  {profile?.muaCode || `MUA-#${muaId}`}
+                  {profile?.muaCode ?? '—'}
                 </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Đánh giá</Text>
                 <Text style={styles.statVal}>
-                  ⭐ {profile?.ratingAverage ? profile.ratingAverage.toFixed(1) : '5.0'}
+                  ⭐ {profile?.totalReviews ? Number(profile.ratingAverage).toFixed(1) : 'Chưa có đánh giá'}
                 </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Đơn hoàn tất</Text>
                 <Text style={styles.statVal}>
-                  {profile?.totalCompletedJobs ?? 0}
+                  {profile?.totalCompletedJobs ?? '—'}
                 </Text>
               </View>
             </View>
@@ -729,7 +722,7 @@ export default function MuaWorkProfileScreen() {
         <TouchableOpacity
           style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
           onPress={handleSaveMuaProfile}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLoading || !!loadError || !profile}
           activeOpacity={0.8}
         >
           {isSubmitting ? (

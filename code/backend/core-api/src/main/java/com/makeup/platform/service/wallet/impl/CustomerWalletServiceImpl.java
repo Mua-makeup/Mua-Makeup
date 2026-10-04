@@ -6,6 +6,7 @@ import com.makeup.platform.dto.response.wallet.CustomerWalletRes;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.entity.wallet.LedgerEntryEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.entity.wallet.WalletHoldEntity;
@@ -73,13 +74,18 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
                     hold.setReleasedAt(OffsetDateTime.now());
                     walletHoldRepository.save(hold);
                 } else if (b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED) {
-                    hold.setStatus("REFUNDED");
+                    String depStatus = hold.getDeposit() != null ? hold.getDeposit().getStatus() : null;
+                    if ("COMPENSATED_TO_MUA".equalsIgnoreCase(depStatus) || "FORFEITED".equalsIgnoreCase(depStatus)) {
+                        hold.setStatus("COMPENSATED_TO_MUA");
+                    } else {
+                        hold.setStatus("REFUNDED");
+                        if (hold.getDeposit() != null && !"REFUNDED".equals(hold.getDeposit().getStatus())) {
+                            hold.getDeposit().setStatus("REFUNDED");
+                            bookingDepositRepository.save(hold.getDeposit());
+                        }
+                    }
                     hold.setReleasedAt(OffsetDateTime.now());
                     walletHoldRepository.save(hold);
-                    if (hold.getDeposit() != null && !"REFUNDED".equals(hold.getDeposit().getStatus())) {
-                        hold.getDeposit().setStatus("REFUNDED");
-                        bookingDepositRepository.save(hold.getDeposit());
-                    }
                 }
             }
         }
@@ -96,22 +102,40 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
         List<LedgerEntryEntity> entries = recentEntriesPage.getContent();
 
         Map<Long, String> bookingHoldStatusMap = new HashMap<>();
+        Map<Long, String> bookingCodeMap = new HashMap<>();
         for (LedgerEntryEntity entry : entries) {
-            if ("BOOKING_DEPOSIT".equals(entry.getReferenceType()) && entry.getReferenceId() != null) {
+            if (entry.getReferenceId() != null) {
                 Long bookingId = entry.getReferenceId();
                 String resolvedStatus = null;
 
-                Optional<BookingEntity> bOpt = bookingRepository.findById(bookingId);
-                if (bOpt.isPresent()) {
-                    BookingStatus bStatus = bOpt.get().getStatus();
-                    if (bStatus == BookingStatus.COMPLETED || bStatus == BookingStatus.PAID_OUT) {
-                        resolvedStatus = "CONSUMED";
-                    } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
+                // Ưu tiên tra cứu trạng thái chính thức trong bảng booking_deposits
+                Optional<BookingDepositEntity> depOpt = bookingDepositRepository.findByBookingId(bookingId);
+                if (depOpt.isPresent()) {
+                    String ds = depOpt.get().getStatus();
+                    if ("COMPENSATED_TO_MUA".equalsIgnoreCase(ds) || "FORFEITED".equalsIgnoreCase(ds)) {
+                        resolvedStatus = "COMPENSATED_TO_MUA";
+                    } else if ("REFUNDED".equalsIgnoreCase(ds)) {
                         resolvedStatus = "REFUNDED";
+                    } else if ("PAID".equalsIgnoreCase(ds) || "CONSUMED".equalsIgnoreCase(ds)) {
+                        resolvedStatus = "CONSUMED";
                     }
                 }
 
-                // 2. Nếu chưa xác định thì tra cứu theo WalletHoldEntity
+                // Tra cứu thông tin BookingEntity
+                Optional<BookingEntity> bOpt = bookingRepository.findById(bookingId);
+                if (bOpt.isPresent()) {
+                    bookingCodeMap.put(bookingId, bOpt.get().getBookingCode());
+                    if (resolvedStatus == null) {
+                        BookingStatus bStatus = bOpt.get().getStatus();
+                        if (bStatus == BookingStatus.COMPLETED || bStatus == BookingStatus.PAID_OUT) {
+                            resolvedStatus = "CONSUMED";
+                        } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
+                            resolvedStatus = "REFUNDED";
+                        }
+                    }
+                }
+
+                // Nếu chưa xác định thì tra cứu theo WalletHoldEntity
                 if (resolvedStatus == null) {
                     resolvedStatus = walletHoldRepository.findTopByBookingIdOrderByIdDesc(bookingId)
                             .map(WalletHoldEntity::getStatus)
@@ -122,6 +146,6 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
             }
         }
 
-        return customerWalletMapper.toWalletRes(wallet, entries, bookingHoldStatusMap);
+        return customerWalletMapper.toWalletRes(wallet, entries, bookingHoldStatusMap, bookingCodeMap);
     }
 }

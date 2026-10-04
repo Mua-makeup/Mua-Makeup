@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { DateRangePicker } from '@/components/common/DateRangePicker';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,13 +9,18 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { depositService, CustomerWalletInfo, CustomerWalletTransaction } from '@/services/deposit.service';
+import {
+  TransactionDetailModal,
+  TransactionDetailData,
+} from '@/components/common/TransactionDetailModal';
 
 function formatVnd(val?: number): string {
   if (!val && val !== 0) return '0 đ';
@@ -23,11 +29,28 @@ function formatVnd(val?: number): string {
     .replace('₫', 'đ');
 }
 
-function formatDate(isoStr?: string): string {
+function formatDateShort(isoStr?: string): string {
   if (!isoStr) return '';
   try {
     const d = new Date(isoStr);
-    return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${d.toLocaleDateString('vi-VN')}`;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return isoStr;
+  }
+}
+
+function formatDateTimeFull(isoStr?: string): string {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${time} ${day}/${month}/${year}`;
   } catch {
     return isoStr;
   }
@@ -37,6 +60,43 @@ export default function CustomerWalletScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [wallet, setWallet] = useState<CustomerWalletInfo | null>(null);
+  const [selectedTx, setSelectedTx] = useState<TransactionDetailData | null>(null);
+
+  // Filter state (icon phễu & khoảng ngày)
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<'ALL' | 'TODAY' | '7DAYS' | '30DAYS' | 'CUSTOM'>('ALL');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+
+  const applyPreset = (preset: 'ALL' | 'TODAY' | '7DAYS' | '30DAYS') => {
+    setSelectedPreset(preset);
+    const today = new Date();
+    const formatDateInput = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    if (preset === 'ALL') {
+      setFilterStartDate('');
+      setFilterEndDate('');
+    } else if (preset === 'TODAY') {
+      const str = formatDateInput(today);
+      setFilterStartDate(str);
+      setFilterEndDate(str);
+    } else if (preset === '7DAYS') {
+      const past = new Date();
+      past.setDate(today.getDate() - 7);
+      setFilterStartDate(formatDateInput(past));
+      setFilterEndDate(formatDateInput(today));
+    } else if (preset === '30DAYS') {
+      const past = new Date();
+      past.setDate(today.getDate() - 30);
+      setFilterStartDate(formatDateInput(past));
+      setFilterEndDate(formatDateInput(today));
+    }
+  };
 
   const fetchWallet = async (isRefresh = false) => {
     try {
@@ -53,9 +113,9 @@ export default function CustomerWalletScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchWallet();
-  }, []);
+  useFocusEffect(useCallback(() => {
+    void fetchWallet();
+  }, []));
 
   const onRefresh = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -81,11 +141,128 @@ export default function CustomerWalletScreen() {
     );
   }
 
-  const transactions = wallet?.recentTransactions || [];
+  const rawTransactions = wallet?.recentTransactions || [];
+
+  const filteredTransactions = rawTransactions.filter((item) => {
+    if (!item.createdAt) return true;
+    if (!filterStartDate && !filterEndDate) return true;
+    try {
+      const itemDate = new Date(item.createdAt);
+      if (filterStartDate) {
+        const start = new Date(filterStartDate + 'T00:00:00');
+        if (itemDate < start) return false;
+      }
+      if (filterEndDate) {
+        const end = new Date(filterEndDate + 'T23:59:59');
+        if (itemDate > end) return false;
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  });
+
+  const isFilterActive = Boolean(filterStartDate || filterEndDate || selectedPreset !== 'ALL');
+
+  const getTransactionViewModel = (item: CustomerWalletTransaction): {
+    code: string;
+    summary: string;
+    sign: '+' | '-' | '';
+    amountColor: string;
+    statusText: string;
+    statusBadgeColor: string;
+    statusTextColor: string;
+    transactionType: string;
+    fullDesc: string;
+  } => {
+    const isCompensated = item.holdStatus === 'COMPENSATED_TO_MUA' || item.holdStatus === 'FORFEITED';
+    const isRefund = item.referenceType === 'BOOKING_REFUND' || item.holdStatus === 'REFUNDED';
+    const isConsumed = item.holdStatus === 'CONSUMED';
+    const isActive = item.holdStatus === 'ACTIVE';
+
+    const code = item.bookingCode || (item.referenceId ? `BK-${item.referenceId}` : `TXN-${item.id}`);
+
+    if (item.referenceType === 'BOOKING_FINAL_PAYMENT') {
+      return { code, summary: `${code} - Thanh toán phần còn lại (70%)`, sign: '-',
+        amountColor: '#059669', statusText: 'Thanh Toán Thành Công', statusBadgeColor: '#ECFDF5',
+        statusTextColor: '#059669', transactionType: 'Thanh toán online phần còn lại',
+        fullDesc: item.description || 'Đã thanh toán phần còn lại qua cổng thanh toán.' };
+    }
+
+    if (isCompensated) {
+      return {
+        code,
+        summary: `${code} - Bồi thường cọc thợ`,
+        sign: '-',
+        amountColor: '#DC2626',
+        statusText: 'Bồi Thường Cho Thợ (Mất Cọc)',
+        statusBadgeColor: '#FEF2F2',
+        statusTextColor: '#DC2626',
+        transactionType: 'Khấu trừ cọc bồi thường',
+        fullDesc: `Khách hủy lịch sau khi chuyên viên make-up đã nhận đơn và đang di chuyển. 100% tiền cọc (${formatVnd(item.amount)}) được khấu trừ bồi thường chi phí di chuyển cho thợ make-up (Không hoàn cọc).`,
+      };
+    }
+
+    if (isRefund) {
+      return {
+        code,
+        summary: `${code} - Hoàn cọc hủy ca`,
+        sign: '+',
+        amountColor: '#059669',
+        statusText: 'Đã Hoàn Cọc Thành Công',
+        statusBadgeColor: '#ECFDF5',
+        statusTextColor: '#059669',
+        transactionType: 'Hoàn tiền cọc Escrow',
+        fullDesc: `Hoàn 100% tiền cọc (${formatVnd(item.amount)}) vào ví khả dụng của khách hàng do thợ hủy ca hoặc hủy theo quy định miễn phí của hệ thống.`,
+      };
+    }
+
+    if (isConsumed) {
+      return {
+        code,
+        summary: `${code} - Quyết toán dịch vụ`,
+        sign: '-',
+        amountColor: '#64748B',
+        statusText: 'Đã Quyết Toán Ca Make-up',
+        statusBadgeColor: '#F1F5F9',
+        statusTextColor: '#475569',
+        transactionType: 'Quyết toán hợp đồng dịch vụ',
+        fullDesc: `Khoản tiền cọc ký quỹ Escrow (${formatVnd(item.amount)}) đã được đối soát và quyết toán thành công vào hợp đồng dịch vụ khi ca làm hoàn tất 100%.`,
+      };
+    }
+
+    if (isActive) {
+      return {
+        code,
+        summary: `${code} - Ký quỹ cọc Escrow`,
+        sign: '',
+        amountColor: '#D97706',
+        statusText: 'Đang Giữ Trong Quỹ Escrow',
+        statusBadgeColor: '#FFFBEB',
+        statusTextColor: '#D97706',
+        transactionType: 'Ký quỹ bảo chứng Escrow',
+        fullDesc: `Tiền cọc (${formatVnd(item.amount)}) đang được hệ thống Escrow tạm giữ an toàn để bảo chứng ca làm cho chuyên viên và khách hàng.`,
+      };
+    }
+
+    // Giao dịch nạp / rút / phát sinh khác
+    const isCredit = item.entryType === 'CREDIT';
+    return {
+      code,
+      summary: item.description || (isCredit ? 'Cộng tiền vào ví' : 'Trừ tiền từ ví'),
+      sign: isCredit ? '+' : '-',
+      amountColor: isCredit ? '#059669' : '#DC2626',
+      statusText: isCredit ? 'Nạp Tiền Thành Công' : 'Thanh Toán Thành Công',
+      statusBadgeColor: isCredit ? '#ECFDF5' : '#FEF2F2',
+      statusTextColor: isCredit ? '#059669' : '#DC2626',
+      transactionType: isCredit ? 'Cộng tiền vào ví' : 'Trừ tiền ví',
+      fullDesc: item.description || `Giao dịch biến động số dư ví cá nhân số tiền ${formatVnd(item.amount)}.`,
+    };
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header Điều Hướng Chuẩn - Tránh Chồng Chéo */}
+      {/* Header Điều Hướng */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={handleBack}
@@ -145,175 +322,227 @@ export default function CustomerWalletScreen() {
           </View>
         </View>
 
-        {/* Lịch Sử Biến Động Số Dư */}
+        {/* Tiêu đề mục Biến Động Số Dư & Nút Lọc Phễu */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Lịch Sử Biến Động Số Dư</Text>
-          <Text style={styles.sectionCount}>({transactions.length} giao dịch gần nhất)</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Lịch Sử Biến Động Số Dư</Text>
+            <Text style={styles.sectionCount}>({filteredTransactions.length} giao dịch)</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.filterBtn, isFilterActive && styles.filterBtnActive]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsFilterModalOpen(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isFilterActive ? 'funnel' : 'funnel-outline'}
+              size={17}
+              color={isFilterActive ? '#FFFFFF' : '#475569'}
+            />
+            {isFilterActive && <View style={styles.filterDot} />}
+          </TouchableOpacity>
         </View>
 
-        {transactions.length === 0 ? (
+        {/* Banner Lọc Đang Hoạt Động (Nếu có) */}
+        {isFilterActive && (
+          <View style={styles.activeFilterTagRow}>
+            <View style={styles.activeFilterTagContent}>
+              <Ionicons name="calendar-outline" size={13} color="#0284C7" />
+              <Text style={styles.activeFilterTagText}>
+                {filterStartDate && filterEndDate
+                  ? `${formatDateShort(filterStartDate)} - ${formatDateShort(filterEndDate)}`
+                  : filterStartDate
+                  ? `Từ ${formatDateShort(filterStartDate)}`
+                  : `Đến ${formatDateShort(filterEndDate)}`}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                applyPreset('ALL');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              style={styles.clearFilterChip}
+            >
+              <Ionicons name="close-circle" size={15} color="#DC2626" />
+              <Text style={styles.clearFilterText}>Xóa lọc</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Danh Sách Biến Động Chuẩn Giao Diện Sáng Banking */}
+        {filteredTransactions.length === 0 ? (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="cash-clock" size={48} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>Chưa có biến động số dư</Text>
-            <Text style={styles.emptyDesc}>
-              Các giao dịch hoàn tiền cọc hoặc nạp/rút sẽ được hiển thị chi tiết tại đây.
+            <Text style={styles.emptyTitle}>
+              {isFilterActive ? 'Không tìm thấy giao dịch nào' : 'Chưa có biến động số dư'}
             </Text>
+            <Text style={styles.emptyDesc}>
+              {isFilterActive
+                ? 'Không có giao dịch nào khớp với khoảng thời gian đã chọn.'
+                : 'Các giao dịch hoàn tiền cọc hoặc nạp/rút sẽ được hiển thị chi tiết tại đây.'}
+            </Text>
+            {isFilterActive && (
+              <TouchableOpacity
+                onPress={() => applyPreset('ALL')}
+                style={styles.resetFilterActionBtn}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.resetFilterActionBtnText}>Xem Tất Cả Giao Dịch</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
-          transactions.map((item) => {
-            const isRefund = item.referenceType === 'BOOKING_REFUND';
-            const isDepositHold = item.referenceType === 'BOOKING_DEPOSIT';
-            const isCredit = item.entryType === 'CREDIT' && !isDepositHold;
+          <View style={styles.bankingListCard}>
+            {filteredTransactions.map((item, index) => {
+              const vm = getTransactionViewModel(item);
+              const isLast = index === filteredTransactions.length - 1;
 
-            return (
-              <View key={item.id} style={styles.txCard}>
-                <View
-                  style={[
-                    styles.txIconCircle,
-                    {
-                      backgroundColor: isRefund
-                        ? '#DCFCE7'
-                        : isDepositHold
-                        ? '#E0F2FE'
-                        : isCredit
-                        ? '#DCFCE7'
-                        : '#FEE2E2',
-                    },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={
-                      isRefund
-                        ? 'cash-refund'
-                        : isDepositHold
-                        ? 'shield-lock-outline'
-                        : isCredit
-                        ? 'arrow-down-left'
-                        : 'arrow-up-right'
-                    }
-                    size={22}
-                    color={isRefund ? '#10B981' : isDepositHold ? '#0284C7' : isCredit ? '#10B981' : '#EF4444'}
-                  />
-                </View>
-
-                <View style={styles.txInfo}>
-                  <View style={styles.txTitleRow}>
-                    <Text style={styles.txTitle} numberOfLines={1}>
-                      {isRefund
-                        ? 'Hoàn cọc hủy ca'
-                        : isDepositHold
-                        ? 'Ký quỹ tiền cọc đơn'
-                        : item.description || 'Giao dịch ví'}
-                    </Text>
-                    {isRefund ? (
-                      <View style={styles.refundTag}>
-                        <Text style={styles.refundTagText}>Hoàn Cọc</Text>
-                      </View>
-                    ) : isDepositHold ? (
-                      <View
-                        style={[
-                          styles.refundTag,
-                          {
-                            backgroundColor:
-                              item.holdStatus === 'REFUNDED'
-                                ? '#FEF2F2'
-                                : item.holdStatus === 'CONSUMED'
-                                ? '#ECFDF5'
-                                : '#E0F2FE',
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.refundTagText,
-                            {
-                              color:
-                                item.holdStatus === 'REFUNDED'
-                                  ? '#EF4444'
-                                  : item.holdStatus === 'CONSUMED'
-                                  ? '#059669'
-                                  : '#0369A1',
-                            },
-                          ]}
-                        >
-                          {item.holdStatus === 'REFUNDED'
-                            ? 'Đã Hoàn Cọc'
-                            : item.holdStatus === 'CONSUMED'
-                            ? 'Đã Quyết Toán'
-                            : 'Ký Quỹ Escrow'}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text style={styles.txDate}>{formatDate(item.createdAt)}</Text>
-                  {item.description && (
-                    <Text style={styles.txDesc} numberOfLines={2}>
-                      {item.description}
-                    </Text>
-                  )}
-                </View>
-
-                <View style={styles.txAmountCol}>
-                  <Text
-                    style={[
-                      styles.txAmount,
-                      {
-                        color: isRefund
-                          ? '#10B981'
-                          : isDepositHold
-                          ? item.holdStatus === 'REFUNDED'
-                            ? '#64748B'
-                            : item.holdStatus === 'CONSUMED'
-                            ? '#059669'
-                            : '#0284C7'
-                          : isCredit
-                          ? '#10B981'
-                          : '#EF4444',
-                      },
-                    ]}
+              return (
+                <View key={item.id}>
+                  <TouchableOpacity
+                    style={styles.bankingRow}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSelectedTx({
+                        transactionCode: vm.code,
+                        bookingCode: item.bookingCode,
+                        dateTime: formatDateTimeFull(item.createdAt),
+                        amount: item.amount,
+                        sign: vm.sign,
+                        amountColor: vm.amountColor,
+                        statusText: vm.statusText,
+                        statusBadgeColor: vm.statusBadgeColor,
+                        statusTextColor: vm.statusTextColor,
+                        transactionType: vm.transactionType,
+                        description: vm.fullDesc,
+                        balanceAfter: item.balanceAfter,
+                      });
+                    }}
                   >
-                    {isRefund
-                      ? '+'
-                      : isDepositHold
-                      ? item.holdStatus === 'ACTIVE' || !item.holdStatus
-                        ? '🔒 '
-                        : ''
-                      : isCredit
-                      ? '+'
-                      : '-'}
-                    {formatVnd(item.amount)}
-                  </Text>
-                  {isDepositHold ? (
-                    <Text
-                      style={[
-                        styles.txBalanceAfter,
-                        {
-                          color:
-                            item.holdStatus === 'REFUNDED'
-                              ? '#64748B'
-                              : item.holdStatus === 'CONSUMED'
-                              ? '#059669'
-                              : '#0284C7',
-                        },
-                      ]}
-                    >
-                      {item.holdStatus === 'REFUNDED'
-                        ? 'Đã hoàn cọc'
-                        : item.holdStatus === 'CONSUMED'
-                        ? 'Đã hoàn tất'
-                        : 'Đang bảo lưu'}
-                    </Text>
-                  ) : item.balanceAfter != null ? (
-                    <Text style={styles.txBalanceAfter}>
-                      Dư: {formatVnd(item.balanceAfter)}
-                    </Text>
-                  ) : null}
+                    {/* Cột trái: Ngày ở trên, Tên/Mã ở dưới */}
+                    <View style={styles.bankingRowLeft}>
+                      <Text style={styles.bankingDateText}>{formatDateShort(item.createdAt)}</Text>
+                      <Text style={styles.bankingCodeText} numberOfLines={1}>
+                        {vm.summary}
+                      </Text>
+                    </View>
+
+                    {/* Cột phải: Số tiền (+ hoặc -) và Mũi tên > */}
+                    <View style={styles.bankingRowRight}>
+                      <Text style={[styles.bankingAmountText, { color: vm.amountColor }]}>
+                        {vm.sign} {formatVnd(item.amount)}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={17} color="#94A3B8" style={{ marginLeft: 6 }} />
+                    </View>
+                  </TouchableOpacity>
+
+                  {!isLast && <View style={styles.bankingDivider} />}
                 </View>
-              </View>
-            );
-          })
+              );
+            })}
+          </View>
         )}
       </ScrollView>
+
+      {/* Modal Xem Chi Tiết Giao Dịch Chuẩn Banking */}
+      <TransactionDetailModal
+        visible={Boolean(selectedTx)}
+        data={selectedTx}
+        onClose={() => setSelectedTx(null)}
+      />
+
+      {/* MODAL LỌC GIAO DỊCH TỐI GIẢN */}
+      <Modal
+        visible={isFilterModalOpen}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsFilterModalOpen(false)}
+      >
+        <View style={styles.filterModalOverlay}>
+          <View style={styles.filterModalContent}>
+            {/* Header Modal */}
+            <View style={styles.filterModalHeader}>
+              <View style={styles.filterModalTitleGroup}>
+                <Ionicons name="funnel" size={18} color="#0F172A" />
+                <Text style={styles.filterModalTitle}>Lọc Giao Dịch</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsFilterModalOpen(false)}
+                style={styles.filterCloseBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Quick Presets */}
+              <Text style={styles.filterSectionLabel}>Khoảng thời gian nhanh</Text>
+              <View style={styles.presetChipsRow}>
+                {[
+                  { key: 'ALL', label: 'Tất cả' },
+                  { key: 'TODAY', label: 'Hôm nay' },
+                  { key: '7DAYS', label: '7 ngày qua' },
+                  { key: '30DAYS', label: '30 ngày qua' },
+                ].map((item) => {
+                  const isSelected = selectedPreset === item.key;
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                      onPress={() => applyPreset(item.key as any)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.presetChipText, isSelected && styles.presetChipTextActive]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Tùy chỉnh ngày */}
+              <Text style={[styles.filterSectionLabel, { marginTop: 18 }]}>
+                Hoặc chọn khoảng ngày
+              </Text>
+              <DateRangePicker start={filterStartDate} end={filterEndDate} onChange={(start, end) => {
+                setSelectedPreset('CUSTOM');
+                setFilterStartDate(start);
+                setFilterEndDate(end);
+              }} />
+            </ScrollView>
+
+            {/* Action Buttons */}
+            <View style={styles.filterActionRow}>
+              <TouchableOpacity
+                style={styles.resetFilterBtn}
+                onPress={() => {
+                  applyPreset('ALL');
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.resetFilterBtnText}>Đặt Lại</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.applyFilterBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setIsFilterModalOpen(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.applyFilterBtnText}>Áp Dụng ({filteredTransactions.length})</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -473,6 +702,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -481,6 +715,64 @@ const styles = StyleSheet.create({
   sectionCount: {
     fontSize: 12,
     color: '#64748B',
+  },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  filterBtnActive: {
+    backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
+  },
+  filterDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#EF4444',
+  },
+  activeFilterTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    marginBottom: 12,
+  },
+  activeFilterTagContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  activeFilterTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0369A1',
+  },
+  clearFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  clearFilterText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -505,75 +797,205 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 20,
   },
-  txCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  resetFilterActionBtn: {
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  resetFilterActionBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+
+  /* DANH SÁCH BIẾN ĐỘNG CHUẨN GIAO DIỆN SÁNG ELEGANT */
+  bankingListCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
+    borderColor: '#E2E8F0',
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  txIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  txInfo: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
-  },
-  txTitleRow: {
+  bankingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
+    justifyContent: 'space-between',
+    paddingVertical: 14,
   },
-  txTitle: {
+  bankingRowLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  bankingDateText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  bankingCodeText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
-    flexShrink: 1,
+    letterSpacing: -0.2,
   },
-  refundTag: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+  bankingRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-  refundTagText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#16A34A',
-  },
-  txDate: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
-  txDesc: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  txAmountCol: {
-    alignItems: 'flex-end',
-  },
-  txAmount: {
+  bankingAmountText: {
     fontSize: 15,
     fontWeight: '800',
+    letterSpacing: -0.3,
   },
-  txBalanceAfter: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
+  bankingDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+  },
+
+  /* MODAL LỌC GIAO DỊCH STYLES */
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  filterModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+    maxHeight: '80%',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 16,
+  },
+  filterModalTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  filterCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterSectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 10,
+  },
+  presetChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  presetChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetChipActive: {
+    backgroundColor: '#FFF1F2',
+    borderColor: BrandColors.primary,
+  },
+  presetChipText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  presetChipTextActive: {
+    color: BrandColors.primary,
+    fontWeight: '700',
+  },
+  dateInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  dateInputCol: {
+    flex: 1,
+  },
+  dateInputLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  dateTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  dateInputDivider: {
+    paddingTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  resetFilterBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resetFilterBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  applyFilterBtn: {
+    flex: 2,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: BrandColors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyFilterBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

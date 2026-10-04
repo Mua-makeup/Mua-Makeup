@@ -25,6 +25,7 @@ import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.payment.BookingDepositService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.payment.gateway.GatewayPaymentResult;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayRegistry;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayStrategy;
 import lombok.RequiredArgsConstructor;
@@ -267,7 +268,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
             return getDepositStatus(bookingId, customerId);
         }
 
-        // Kiểm tra xem có payment nào của booking đã được Gateway xác nhận SUCCESS (qua Webhook IPN hoặc Return callback) hay chưa
+        // 1. Kiểm tra xem có payment nào của booking đã được Gateway xác nhận SUCCESS (qua Webhook IPN hoặc Return callback) hay chưa
         List<PaymentTransactionEntity> successList = paymentTransactionRepository
                 .findByBookingIdAndStatus(bookingId, "SUCCESS");
 
@@ -277,7 +278,33 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                     successPayment.getPaymentCode(), bookingId);
             applyDepositFromPayment(successPayment.getId());
         } else {
-            log.debug("[SyncPayment] Booking {} deposit is still awaiting gateway payment confirmation", bookingId);
+            // 2. Nếu chưa có SUCCESS, kiểm tra các payment PENDING bằng cách query trực tiếp lên Payment Gateway (MoMo, VNPay)
+            List<PaymentTransactionEntity> pendingList = paymentTransactionRepository
+                    .findByBookingIdAndStatus(bookingId, "PENDING");
+
+            for (PaymentTransactionEntity pendingPayment : pendingList) {
+                try {
+                    PaymentGatewayStrategy strategy = gatewayRegistry.getStrategy(pendingPayment.getPaymentGateway());
+                    GatewayPaymentResult queryResult = strategy.queryTransaction(pendingPayment);
+                    if (queryResult != null && queryResult.isSuccessful()) {
+                        log.info("[SyncPayment] Gateway confirmed SUCCESS for payment {} (transId={})",
+                                pendingPayment.getPaymentCode(), queryResult.getGatewayTransactionId());
+                        pendingPayment.setStatus("SUCCESS");
+                        pendingPayment.setPaidAt(queryResult.getPaidAt() != null ? queryResult.getPaidAt() : OffsetDateTime.now(VIETNAM_OFFSET));
+                        pendingPayment.setGatewayTransactionId(queryResult.getGatewayTransactionId());
+                        if (queryResult.getGatewayRequestId() != null) {
+                            pendingPayment.setGatewayRequestId(queryResult.getGatewayRequestId());
+                        }
+                        paymentTransactionRepository.save(pendingPayment);
+
+                        applyDepositFromPayment(pendingPayment.getId());
+                        break;
+                    }
+                } catch (Exception e) {
+                    log.warn("[SyncPayment] Failed to query gateway status for payment {}: {}",
+                            pendingPayment.getPaymentCode(), e.getMessage());
+                }
+            }
         }
 
         return getDepositStatus(bookingId, customerId);
@@ -526,9 +553,9 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     // === Private helpers ===
 
     private BookingDepositEntity createBookingDeposit(BookingEntity booking) {
-        BigDecimal required = booking.getTotalAmount()
-                .multiply(DEPOSIT_RATE)
-                .setScale(0, RoundingMode.HALF_UP);
+        BigDecimal required = (booking.getDepositAmount() != null && booking.getDepositAmount().compareTo(BigDecimal.ZERO) > 0)
+                ? booking.getDepositAmount()
+                : booking.getTotalAmount().multiply(DEPOSIT_RATE).setScale(2, RoundingMode.HALF_UP);
 
         OffsetDateTime expiresAt = OffsetDateTime.now(VIETNAM_OFFSET).plusMinutes(15);
         if (booking.getDepositExpiredAt() != null) {
@@ -577,6 +604,11 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_FOUND,
                         "booking.deposit_not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getStatus() != BookingStatus.COMPLETED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_SETTLEMENT_PREREQUISITE_NOT_MET,
+                    "settlement.booking_not_completed", HttpStatus.CONFLICT);
+        }
 
         if (!"PAID".equals(deposit.getStatus())) {
             throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_PAID,
@@ -641,7 +673,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PAYMENT_TRANSACTION_NOT_FOUND,
                         "payment.not_found", HttpStatus.NOT_FOUND));
 
-        if (!"SUCCESS".equals(payment.getStatus())) {
+        if (!"SUCCESS".equals(payment.getStatus()) || !"BOOKING_FINAL_PAYMENT".equals(payment.getPurpose())) {
             return;
         }
 
@@ -650,10 +682,32 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
 
         Long bookingId = payment.getBooking().getId();
+        // Serialize different payment attempts for the same booking as well as retries.
+        BookingDepositEntity deposit = bookingDepositRepository.findByBookingIdWithLock(bookingId).orElseThrow();
+        if ("APPLIED".equals(payment.getApplicationStatus()) && "POSTED".equals(payment.getWalletPostingStatus())) return;
+        if (!"PAID".equals(deposit.getStatus()) ||
+                payment.getAmount().compareTo(payment.getBooking().getTotalAmount().subtract(deposit.getPaidAmount())) != 0) {
+            throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_AMOUNT_MISMATCH, "ERR_PAYMENT_AMOUNT_MISMATCH");
+        }
         BigDecimal defaultCommissionRate = new BigDecimal("0.20");
 
         bookingSettlementService.settleBookingOnlinePayment(bookingId, defaultCommissionRate);
 
+        WalletEntity customerWallet = walletRepository.findByUserIdWithLock(payment.getUser().getId())
+                .orElseGet(() -> createWalletForUser(payment.getUser().getId(), payment.getUser()));
+        String ledgerKey = "final:payment:" + paymentId;
+        if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
+            // Paid externally: record the expense without debiting the in-app available balance.
+            ledgerEntryRepository.save(LedgerEntryEntity.builder()
+                    .referenceType("BOOKING_FINAL_PAYMENT").referenceId(bookingId)
+                    .wallet(customerWallet).entryType("DEBIT").amount(payment.getAmount())
+                    .balanceAfter(customerWallet.getAvailableBalance())
+                    .description("Thanh toán phần còn lại qua " + payment.getPaymentGateway() + " - " + payment.getBooking().getBookingCode())
+                    .idempotencyKey(ledgerKey).build());
+        }
+        payment.setWalletPostingStatus("POSTED");
+        payment.setWalletPostedAt(OffsetDateTime.now(VIETNAM_OFFSET));
+        payment.setApplicationError(null);
         payment.setApplicationStatus("APPLIED");
         payment.setAppliedAt(OffsetDateTime.now(VIETNAM_OFFSET));
         paymentTransactionRepository.save(payment);
@@ -682,13 +736,26 @@ public class BookingDepositServiceImpl implements BookingDepositService {
             payload.put("destinationAddress", booking.getDestinationAddress());
             payload.put("timestamp", System.currentTimeMillis());
 
+            Runnable broadcast = () -> {
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
             messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, payload);
 
             if (booking.getMua() != null) {
                 Long muaId = booking.getMua().getId();
                 messagingTemplate.convertAndSend("/topic/booking-customer-confirmed/" + muaId, payload);
+                if (booking.getMua().getUser() != null) {
+                    messagingTemplate.convertAndSend("/topic/booking-customer-confirmed-user/" + booking.getMua().getUser().getId(), payload);
+                }
             }
+            };
+            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCommit() {
+                                try { broadcast.run(); } catch (Exception ex) { log.warn("Payment notification failed for {}", bookingId, ex); }
+                            }
+                        });
+            } else { broadcast.run(); }
         } catch (Exception ex) {
             log.warn("[FinalPayment] Failed to broadcast PAYMENT_COMPLETED for booking {}: {}", bookingId, ex.getMessage());
         }

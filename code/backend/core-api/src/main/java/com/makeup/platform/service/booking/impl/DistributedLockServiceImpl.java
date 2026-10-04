@@ -168,8 +168,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                         BigDecimal total = pkg.getPrice().add(emergencyFee).add(distanceFee);
                         booking.setTotalAmount(total);
                         BigDecimal rawDeposit = total.multiply(new BigDecimal("0.30"));
-                        BigDecimal deposit = rawDeposit.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
-                                .multiply(BigDecimal.valueOf(1000));
+                        BigDecimal deposit = rawDeposit.setScale(2, RoundingMode.HALF_UP);
                         booking.setDepositAmount(deposit);
                     }
                 }

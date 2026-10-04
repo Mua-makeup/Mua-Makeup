@@ -197,4 +197,50 @@ public class VnpayGatewayStrategy implements PaymentGatewayStrategy {
         }
         return baseReturnUrl;
     }
+
+    @Override
+    public GatewayPaymentResult queryTransaction(PaymentTransactionEntity txn) {
+        if (!vnpayConfig.isEnabled()) return null;
+        // Use the exact checkout timestamp, not the later query time.
+        String transactionDate = org.springframework.web.util.UriComponentsBuilder.fromUriString(txn.getPaymentUrl())
+                .build().getQueryParams().getFirst("vnp_CreateDate");
+        if (transactionDate == null) return null;
+        Map<String, String> request = new java.util.LinkedHashMap<>();
+        request.put("vnp_RequestId", java.util.UUID.randomUUID().toString().replace("-", ""));
+        request.put("vnp_Version", "2.1.0");
+        request.put("vnp_Command", "querydr");
+        request.put("vnp_TmnCode", vnpayConfig.getTmnCode());
+        request.put("vnp_TxnRef", txn.getPaymentCode());
+        request.put("vnp_TransactionDate", transactionDate);
+        request.put("vnp_CreateDate", OffsetDateTime.now(VIETNAM_ZONE).format(VNPAY_DATE_FORMAT));
+        request.put("vnp_IpAddr", "127.0.0.1");
+        request.put("vnp_OrderInfo", "Query payment " + txn.getPaymentCode());
+        request.put("vnp_SecureHash", HmacUtils.hmacSha512(vnpayConfig.getHashSecret(), String.join("|", request.values())));
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(5000);
+        Map<?, ?> response = org.springframework.web.client.RestClient.builder().requestFactory(factory).build()
+                .post().uri(vnpayConfig.getApiUrl()).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(request).retrieve().body(Map.class);
+        if (response == null) return null;
+        String[] signedFields = {"vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message",
+                "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount", "vnp_BankCode", "vnp_PayDate", "vnp_TransactionNo",
+                "vnp_TransactionType", "vnp_TransactionStatus", "vnp_OrderInfo", "vnp_PromotionCode", "vnp_PromotionAmount"};
+        String data = java.util.Arrays.stream(signedFields)
+                .map(key -> response.get(key) == null ? "" : String.valueOf(response.get(key)))
+                .collect(java.util.stream.Collectors.joining("|"));
+        String hash = String.valueOf(response.get("vnp_SecureHash"));
+        if (!HmacUtils.constantTimeEquals(HmacUtils.hmacSha512(vnpayConfig.getHashSecret(), data).toLowerCase(java.util.Locale.ROOT), hash.toLowerCase(java.util.Locale.ROOT)) ||
+                !vnpayConfig.getTmnCode().equals(response.get("vnp_TmnCode")) ||
+                !txn.getPaymentCode().equals(response.get("vnp_TxnRef"))) {
+            throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_SIGNATURE_INVALID, "ERR_PAYMENT_SIGNATURE_INVALID");
+        }
+        boolean success = "00".equals(response.get("vnp_ResponseCode")) && "00".equals(response.get("vnp_TransactionStatus"))
+                && "01".equals(response.get("vnp_TransactionType"));
+        return GatewayPaymentResult.builder().paymentCode(txn.getPaymentCode()).gatewayCode(GATEWAY_CODE)
+                .amount(response.get("vnp_Amount") == null ? null : new BigDecimal(String.valueOf(response.get("vnp_Amount"))).movePointLeft(2))
+                .gatewayTransactionId(String.valueOf(response.get("vnp_TransactionNo")))
+                .responseCode(String.valueOf(response.get("vnp_ResponseCode"))).successful(success)
+                .paidAt(success ? OffsetDateTime.now(VIETNAM_ZONE) : null).build();
+    }
 }

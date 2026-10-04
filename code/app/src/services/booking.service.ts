@@ -152,6 +152,8 @@ export interface BookingStatusDetailRes {
   confirmTimeoutSeconds?: number;
   inProgressElapsedSeconds?: number;
   cancellationReason?: string;
+  isCancelRequested?: boolean;
+  cancelRequestedReason?: string;
   updatedAt: string;
 }
 
@@ -240,6 +242,27 @@ export const bookingService = {
     await apiClient.post(`/customer/bookings/${bookingId}/cancel-requested`, {
       reason: reason?.trim() || 'Khách hàng hủy ca khi chuyên viên chưa xác nhận',
     });
+  },
+
+  /**
+   * Khách hàng gửi yêu cầu hủy ca khi thợ đang di chuyển (chấp nhận mất cọc 30% bồi thường thợ, cần thợ xác nhận)
+   */
+  async requestCancelTrip(bookingId: number, reason: string): Promise<void> {
+    await apiClient.post(`/bookings/${bookingId}/request-cancel-trip`, { reason });
+  },
+
+  /**
+   * Thợ xác nhận đồng ý hủy ca và nhận bồi thường 100% tiền cọc 30% vào Ví Thợ
+   */
+  async confirmCancelCompensation(bookingId: number): Promise<void> {
+    await apiClient.post(`/bookings/${bookingId}/confirm-cancel-compensation`);
+  },
+
+  /**
+   * Thợ từ chối yêu cầu hủy ca và tiếp tục di chuyển tới khách
+   */
+  async rejectCancelCompensation(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/bookings/${bookingId}/reject-cancel-compensation`, { reason });
   },
 
   /**

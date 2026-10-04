@@ -8,15 +8,22 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class CustomerWalletMapper {
 
     public CustomerWalletRes toWalletRes(WalletEntity wallet, List<LedgerEntryEntity> entries) {
-        return toWalletRes(wallet, entries, null);
+        return toWalletRes(wallet, entries, null, null);
     }
 
     public CustomerWalletRes toWalletRes(WalletEntity wallet, List<LedgerEntryEntity> entries, java.util.Map<Long, String> bookingHoldStatusMap) {
+        return toWalletRes(wallet, entries, bookingHoldStatusMap, null);
+    }
+
+    public CustomerWalletRes toWalletRes(WalletEntity wallet, List<LedgerEntryEntity> entries,
+                                        Map<Long, String> bookingHoldStatusMap,
+                                        Map<Long, String> bookingCodeMap) {
         if (wallet == null) {
             return null;
         }
@@ -26,10 +33,16 @@ public class CustomerWalletMapper {
             for (LedgerEntryEntity entry : entries) {
                 if (entry != null) {
                     String holdStatus = null;
-                    if ("BOOKING_DEPOSIT".equals(entry.getReferenceType()) && entry.getReferenceId() != null && bookingHoldStatusMap != null) {
-                        holdStatus = bookingHoldStatusMap.get(entry.getReferenceId());
+                    String bookingCode = null;
+                    if (entry.getReferenceId() != null) {
+                        if (bookingHoldStatusMap != null) {
+                            holdStatus = bookingHoldStatusMap.get(entry.getReferenceId());
+                        }
+                        if (bookingCodeMap != null) {
+                            bookingCode = bookingCodeMap.get(entry.getReferenceId());
+                        }
                     }
-                    txResList.add(toTransactionRes(entry, holdStatus));
+                    txResList.add(toTransactionRes(entry, holdStatus, bookingCode));
                 }
             }
         }
@@ -44,10 +57,14 @@ public class CustomerWalletMapper {
     }
 
     public CustomerWalletTransactionRes toTransactionRes(LedgerEntryEntity entry) {
-        return toTransactionRes(entry, null);
+        return toTransactionRes(entry, null, null);
     }
 
     public CustomerWalletTransactionRes toTransactionRes(LedgerEntryEntity entry, String holdStatus) {
+        return toTransactionRes(entry, holdStatus, null);
+    }
+
+    public CustomerWalletTransactionRes toTransactionRes(LedgerEntryEntity entry, String holdStatus, String bookingCode) {
         if (entry == null) {
             return null;
         }
@@ -60,7 +77,8 @@ public class CustomerWalletMapper {
                 .referenceType(entry.getReferenceType())
                 .referenceId(entry.getReferenceId())
                 .description(entry.getDescription())
-                .holdStatus(holdStatus)
+                .holdStatus("BOOKING_FINAL_PAYMENT".equals(entry.getReferenceType()) ? null : holdStatus)
+                .bookingCode(bookingCode)
                 .createdAt(entry.getCreatedAt())
                 .build();
     }

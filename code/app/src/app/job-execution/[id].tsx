@@ -68,7 +68,12 @@ interface ExtendedBookingItem {
   note?: string;
   completionPhotoUrl?: string;
   createdAt: string;
+  isCancelRequested?: boolean;
+  cancelRequestedReason?: string;
 }
+
+const formatVnd = (amount: number) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
 const DISPUTE_REASONS = [
   'Khách hàng không có mặt tại điểm hẹn',
@@ -94,6 +99,11 @@ export default function JobExecutionScreen() {
   const [cancelReason, setCancelReason] = useState('');
   const [disputeProofUrl, setDisputeProofUrl] = useState('');
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+
+  // Modal xác nhận yêu cầu hủy ca và nhận bồi thường cọc từ khách hàng
+  const [isCancelRequestModalVisible, setIsCancelRequestModalVisible] = useState(false);
+  const [customerCancelReason, setCustomerCancelReason] = useState<string>('');
+  const [isHandlingCancelAction, setIsHandlingCancelAction] = useState(false);
 
   // 10-minute deposit wait state (5p kiểm tra & dịch vụ thêm + 5p thanh toán cọc)
   const [isDepositPaid, setIsDepositPaid] = useState<boolean>(false);
@@ -294,10 +304,33 @@ export default function JobExecutionScreen() {
     // Subscribe to STOMP Realtime
     const statusTopic = `/topic/booking-status/${bookingId}`;
     websocketService.subscribe(statusTopic, (msg: any) => {
+      if (msg?.type === 'CANCEL_REQUESTED' || msg?.isCancelRequested) {
+        setCustomerCancelReason(msg?.reason || 'Khách hàng yêu cầu hủy đơn');
+        setIsCancelRequestModalVisible(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        loadBookingDetail();
+      }
+
+      if (msg?.type === 'CANCEL_REQUEST_REJECTED') {
+        setIsCancelRequestModalVisible(false);
+      }
+
+      if (msg?.type === 'CANCEL_COMPENSATED') {
+        setIsCancelRequestModalVisible(false);
+        triggerCancelAlert('Khách hàng đã hủy ca và 100% tiền cọc đã được chuyển bồi thường vào ví của bạn.');
+      }
+
       if (msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' || msg?.isDepositPaid) {
         setIsDepositPaid(true);
         setIsDepositTimeout(false);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' && msg?.status !== 'PAID_OUT') {
+          useWorkstationStore.getState().showDepositNotice({
+            ...msg, bookingId,
+            bookingCode: msg.bookingCode ?? booking?.bookingCode,
+            depositAmount: Number(msg.depositAmount ?? booking?.depositAmount ?? 0),
+            earningsAmount: Number(msg.earningsAmount ?? booking?.earningsAmount ?? 0),
+          });
+        }
         loadBookingDetail();
       }
       if (msg?.type === 'CUSTOMER_CASH_PAID') {
@@ -333,23 +366,19 @@ export default function JobExecutionScreen() {
       }
     });
 
-    if (profile?.muaId) {
-      const confirmTopic = `/topic/booking-customer-confirmed/${profile.muaId}`;
-      websocketService.subscribe(confirmTopic, (msg: any) => {
-        if (
-          msg?.bookingId === bookingId &&
-          (msg?.isDepositPaid === true ||
-            msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
-            msg?.type === 'PAYMENT_COMPLETED')
-        ) {
-          setIsDepositPaid(true);
-          setIsDepositTimeout(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          // Cập nhật lại bill
-          loadBookingDetail();
-        }
-      });
+    const cancelTopic = `/topic/booking-cancel-requested/${bookingId}`;
+    websocketService.subscribe(cancelTopic, (msg: any) => {
+      if (msg?.type === 'CANCEL_REQUESTED') {
+        setCustomerCancelReason(msg?.reason || 'Khách hàng yêu cầu hủy đơn');
+        setIsCancelRequestModalVisible(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        loadBookingDetail();
+      }
+    });
 
+    if (profile?.muaId) {
+      // Payment topics stay owned by the workstation store so leaving this
+      // screen does not unsubscribe the global payment modal.
       const rejectTopic = `/topic/booking-customer-rejected/${profile.muaId}`;
       websocketService.subscribe(rejectTopic, (msg: any) => {
         if (msg?.bookingId === bookingId) {
@@ -363,8 +392,8 @@ export default function JobExecutionScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       websocketService.unsubscribe(statusTopic);
+      websocketService.unsubscribe(cancelTopic);
       if (profile?.muaId) {
-        websocketService.unsubscribe(`/topic/booking-customer-confirmed/${profile.muaId}`);
         websocketService.unsubscribe(`/topic/booking-customer-rejected/${profile.muaId}`);
       }
     };
@@ -385,6 +414,34 @@ export default function JobExecutionScreen() {
     }, 1000);
     return () => clearInterval(interval);
   }, [currentStatus, isDepositPaid, isDepositTimeout]);
+
+  useEffect(() => {
+    if (currentStatus !== 'COMPLETED') return;
+    let disposed = false;
+    let busy = false;
+    const check = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const detail = await bookingService.getBookingStatus(bookingId);
+        if (!disposed && detail?.status === 'PAID_OUT') {
+          setCurrentStatus('PAID_OUT');
+          setIsCashPromptModalVisible(false);
+          setIsBothCashConfirmed(true);
+          setCashReceiptConfirmed(true);
+          useWorkstationStore.getState().showDepositNotice({ type: 'PAYMENT_COMPLETED', bookingId, status: 'PAID_OUT',
+              bookingCode: detail.bookingCode, totalAmount: Number(detail.totalAmount || 0),
+              depositAmount: Number(detail.depositAmount || 0),
+              finalAmount: Number(detail.totalAmount || 0) - Number(detail.depositAmount || 0),
+              earningsAmount: Number(detail.earningsAmount || 0),
+          });
+        }
+      } catch { /* Retry after reconnect. */ }
+      finally { busy = false; }
+    };
+    const timer = setInterval(check, 5000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, [bookingId, currentStatus]);
 
   // Polling dự phòng tự động kiểm tra cọc mỗi 2.5s khi đang ở ACCEPTED chờ cọc
   useEffect(() => {
@@ -434,6 +491,15 @@ export default function JobExecutionScreen() {
       setIsLoading(true);
       const detail = await bookingService.getBookingStatus(bookingId);
       if (detail) {
+        if (detail.status === 'PAID_OUT') {
+          useWorkstationStore.getState().showDepositNotice({
+            type: 'PAYMENT_COMPLETED', status: 'PAID_OUT', bookingId,
+            bookingCode: detail.bookingCode, totalAmount: Number(detail.totalAmount || 0),
+            depositAmount: Number(detail.depositAmount || 0),
+            finalAmount: Number(detail.totalAmount || 0) - Number(detail.depositAmount || 0),
+            earningsAmount: Number(detail.earningsAmount || 0),
+          });
+        }
         if (detail.status === 'PAID_OUT' || detail.status === 'CANCELLED' || detail.status === 'CANCELLED_EXPIRED') {
           router.replace(`/booking/history-detail/${bookingId}` as any);
           return;
@@ -444,6 +510,10 @@ export default function JobExecutionScreen() {
           if (detail.depositTimeoutSeconds <= 0 && !detail.isDepositPaid) {
             setIsDepositTimeout(true);
           }
+        }
+        if (detail.isCancelRequested) {
+          setCustomerCancelReason(detail.cancelRequestedReason || 'Khách hàng yêu cầu hủy đơn');
+          setIsCancelRequestModalVisible(true);
         }
         setBooking({
           id: detail.bookingId,
@@ -466,6 +536,8 @@ export default function JobExecutionScreen() {
           earningsAmount: detail.earningsAmount ? Number(detail.earningsAmount) : 0,
           completionPhotoUrl: detail.completionPhotoUrl || undefined,
           createdAt: detail.updatedAt || new Date().toISOString(),
+          isCancelRequested: detail.isCancelRequested,
+          cancelRequestedReason: detail.cancelRequestedReason,
         });
         setCurrentStatus(detail.status as BookingStatusType);
         if (detail.status === 'IN_PROGRESS') {
@@ -714,7 +786,45 @@ export default function JobExecutionScreen() {
     }
   };
 
-  const formatVnd = (amount: number) => (amount || 0).toLocaleString('vi-VN') + ' đ';
+  // Xử lý khi khách hàng yêu cầu hủy chuyến: Thợ Đồng ý và nhận 100% bồi thường cọc
+  const handleAcceptCustomerCancel = async () => {
+    try {
+      setIsHandlingCancelAction(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      await bookingService.confirmCancelCompensation(bookingId);
+      setIsCancelRequestModalVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Đã Đồng Ý Hủy & Nhận Bồi Thường',
+        `Bạn đã nhận được 100% tiền cọc (${formatVnd(booking?.depositAmount || 0)}) vào ví chuyên viên. Ca làm đã kết thúc và bạn sẵn sàng nhận đơn mới!`,
+        [{ text: 'Về Bàn Làm Việc', onPress: navigateBackToWorkstation }]
+      );
+    } catch (err: any) {
+      Alert.alert('Lỗi Xác Nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận hủy đơn.');
+    } finally {
+      setIsHandlingCancelAction(false);
+    }
+  };
+
+  // Xử lý khi khách hàng yêu cầu hủy chuyến: Thợ Từ chối hủy (tiếp tục di chuyển)
+  const handleRejectCustomerCancel = async () => {
+    try {
+      setIsHandlingCancelAction(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await bookingService.rejectCancelCompensation(bookingId, 'Chuyên viên make-up đang trên đường di chuyển và sắp tới điểm hẹn.');
+      setIsCancelRequestModalVisible(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Đã Từ Chối Hủy Đơn',
+        'Đã thông báo tới khách hàng. Ca làm vẫn tiếp tục, vui lòng tiếp tục di chuyển tới điểm hẹn theo lịch trình.'
+      );
+      loadBookingDetail();
+    } catch (err: any) {
+      Alert.alert('Lỗi Từ Chối', err?.response?.data?.message || err?.message || 'Không thể từ chối hủy.');
+    } finally {
+      setIsHandlingCancelAction(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -748,6 +858,23 @@ export default function JobExecutionScreen() {
           <Ionicons name="call" size={18} color="#059669" />
         </TouchableOpacity>
       </View>
+
+      {/* BANNER CẢNH BÁO NỔI KHI KHÁCH ĐANG YÊU CẦU HỦY ĐƠN */}
+      {booking?.isCancelRequested && !isCancelRequestModalVisible && (
+        <TouchableOpacity
+          style={styles.stickyCancelNoticeBar}
+          onPress={() => setIsCancelRequestModalVisible(true)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="alert-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.stickyCancelNoticeText} numberOfLines={1}>
+            Khách yêu cầu hủy (Bồi thường {formatVnd(booking?.depositAmount || 0)})
+          </Text>
+          <View style={styles.stickyCancelNoticeBtn}>
+            <Text style={styles.stickyCancelNoticeBtnText}>Xử Lý</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ========================================================================= */}
@@ -922,13 +1049,13 @@ export default function JobExecutionScreen() {
                   <View style={styles.escrowDetailItem}>
                     <Text style={styles.escrowDetailLabel}>Tiền cọc trong Escrow:</Text>
                     <Text style={styles.escrowDetailValueHighlight}>
-                      {formatVnd(booking?.depositAmount || Math.round((booking?.totalAmount || 0) * 0.3))}
+                      {formatVnd(booking?.depositAmount !== undefined && booking?.depositAmount !== null ? Number(booking.depositAmount) : (booking?.totalAmount || 0) * 0.3)}
                     </Text>
                   </View>
                   <View style={styles.escrowDetailItem}>
                     <Text style={styles.escrowDetailLabel}>Tiền mặt thu khi xong (70%):</Text>
                     <Text style={styles.escrowDetailValueCash}>
-                      {formatVnd(Math.max(0, (booking?.totalAmount || 0) - (booking?.depositAmount || Math.round((booking?.totalAmount || 0) * 0.3))))}
+                      {formatVnd(Math.max(0, (booking?.totalAmount || 0) - (booking?.depositAmount !== undefined && booking?.depositAmount !== null ? Number(booking.depositAmount) : (booking?.totalAmount || 0) * 0.3)))}
                     </Text>
                   </View>
                 </View>
@@ -1009,6 +1136,7 @@ export default function JobExecutionScreen() {
                     distanceRemainingMeters={driverDistanceMeters}
                     muaName="Vị trí của bạn"
                     streamMode={driverStreamMode}
+                    role="MUA"
                   />
                 </View>
               </View>
@@ -1526,6 +1654,94 @@ export default function JobExecutionScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL XÁC NHẬN YÊU CẦU HỦY CA & NHẬN BỒI THƯỜNG CỌC 100% TỪ KHÁCH HÀNG     */}
+      {/* ========================================================================= */}
+      <Modal visible={isCancelRequestModalVisible} transparent animationType="fade">
+        <View style={styles.cancelRequestOverlay}>
+          <View style={styles.cancelRequestCard}>
+            <View style={styles.cancelRequestHeader}>
+              <View style={styles.cancelRequestIconCircle}>
+                <Ionicons name="alert-circle" size={32} color="#DC2626" />
+              </View>
+              <Text style={styles.cancelRequestTitle}>Khách Hàng Yêu Cầu Hủy Ca</Text>
+              <Text style={styles.cancelRequestSubtitle}>
+                Khách hàng đề nghị hủy ca hẹn trong lúc bạn đang di chuyển
+              </Text>
+            </View>
+
+            <View style={styles.cancelCustomerBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {booking?.customerAvatar ? (
+                  <Image source={{ uri: booking.customerAvatar }} style={styles.cancelCustomerAvatar} />
+                ) : (
+                  <View style={styles.cancelCustomerAvatarFallback}>
+                    <Ionicons name="person" size={18} color="#64748B" />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cancelCustomerName}>{booking?.customerName || 'Khách hàng'}</Text>
+                  <Text style={styles.cancelCustomerPhone}>{booking?.customerPhone || 'SĐT khách hàng'}</Text>
+                </View>
+              </View>
+
+              <View style={styles.cancelReasonSection}>
+                <Text style={styles.cancelReasonLabel}>Lý do khách hàng đưa ra:</Text>
+                <Text style={styles.cancelReasonText}>
+                  "{customerCancelReason || 'Khách hàng có việc bận đột xuất'}"
+                </Text>
+              </View>
+            </View>
+
+            {/* HỘP BỒI THƯỜNG 100% CỌC */}
+            <View style={styles.cancelCompensationBox}>
+              <Ionicons name="shield-checkmark" size={24} color="#059669" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cancelCompensationTitle}>Quyền Lợi Bồi Thường 100%</Text>
+                <Text style={styles.cancelCompensationDesc}>
+                  Nếu bạn đồng ý hủy ca, toàn bộ số tiền cọc{' '}
+                  <Text style={{ fontWeight: '800', color: '#059669' }}>
+                    {formatVnd(booking?.depositAmount || 0)}
+                  </Text>{' '}
+                  sẽ được chuyển thẳng vào Ví chuyên viên của bạn để bù đắp chi phí di chuyển.
+                </Text>
+              </View>
+            </View>
+
+            {/* CẶP NÚT HÀNH ĐỘNG */}
+            <View style={styles.cancelActionRow}>
+              <TouchableOpacity
+                style={styles.cancelRejectBtn}
+                onPress={handleRejectCustomerCancel}
+                disabled={isHandlingCancelAction}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.cancelRejectBtnText}>Từ Chối Hủy</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelAcceptBtn}
+                onPress={handleAcceptCustomerCancel}
+                disabled={isHandlingCancelAction}
+                activeOpacity={0.85}
+              >
+                {isHandlingCancelAction ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                    <Text style={styles.cancelAcceptBtnText}>Đồng Ý & Nhận Cọc</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL POPUP THÔNG BÁO KHÁCH ĐÃ CỌC THÀNH CÔNG CHO THỢ */}
+
     </SafeAreaView>
   );
 }
@@ -2445,5 +2661,262 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#065F46',
     fontWeight: '500',
+  },
+  stickyCancelNoticeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  stickyCancelNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  stickyCancelNoticeBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  stickyCancelNoticeBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  cancelRequestOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  cancelRequestCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  cancelRequestHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  cancelRequestIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  cancelRequestTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  cancelRequestSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  cancelCustomerBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  cancelCustomerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  cancelCustomerAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelCustomerName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  cancelCustomerPhone: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  cancelReasonSection: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  cancelReasonLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  cancelReasonText: {
+    fontSize: 13,
+    color: '#334155',
+    fontStyle: 'italic',
+  },
+  cancelCompensationBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 18,
+  },
+  cancelCompensationTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#065F46',
+    marginBottom: 2,
+  },
+  cancelCompensationDesc: {
+    fontSize: 12,
+    color: '#047857',
+    lineHeight: 17,
+  },
+  cancelActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelRejectBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  cancelRejectBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  cancelAcceptBtn: {
+    flex: 1.6,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  cancelAcceptBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  depositModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  depositModalBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  depositModalIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#A7F3D0',
+    marginBottom: 16,
+  },
+  depositModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  depositModalSubtitle: {
+    fontSize: 13.5,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  depositModalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 20,
+  },
+  depositModalBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  depositModalBtn: {
+    width: '100%',
+    backgroundColor: '#059669',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  depositModalBtnText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

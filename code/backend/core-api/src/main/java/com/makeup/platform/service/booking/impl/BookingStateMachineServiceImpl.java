@@ -57,6 +57,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.concurrent.TimeUnit;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -521,6 +523,17 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
         BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
         BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+        if (bookingDepositRepository != null) {
+            Optional<BookingDepositEntity> depositOpt = bookingDepositRepository.findByBookingId(bookingId);
+            if (depositOpt.isPresent()) {
+                BookingDepositEntity dep = depositOpt.get();
+                if (dep.getPaidAmount() != null && dep.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    depositAmount = dep.getPaidAmount();
+                } else if (dep.getRequiredAmount() != null && dep.getRequiredAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    depositAmount = dep.getRequiredAmount();
+                }
+            }
+        }
 
         BigDecimal commissionRate = getFreelancerCommissionRate();
         BigDecimal platformFee = serviceSubtotal.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
@@ -574,6 +587,13 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             confirmTimeoutSeconds = (int) Math.max(0, remaining);
         }
 
+        boolean isCancelRequested = false;
+        String cancelRequestedReason = null;
+        if (stringRedisTemplate != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey("booking:cancel_request:" + booking.getId()))) {
+            isCancelRequested = true;
+            cancelRequestedReason = stringRedisTemplate.opsForValue().get("booking:cancel_request:" + booking.getId());
+        }
+
         return BookingStatusDetailRes.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -610,6 +630,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .confirmDeadline(booking.getConfirmDeadline())
                 .confirmTimeoutSeconds(confirmTimeoutSeconds)
                 .inProgressElapsedSeconds(inProgressElapsedSeconds)
+                .isCancelRequested(isCancelRequested)
+                .cancelRequestedReason(cancelRequestedReason)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
                 .build();
     }
@@ -726,6 +748,206 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 log.error("[StateMachine] Failed to broadcast refund notification via WebSocket: {}", ex.getMessage());
             }
         }
+    }
+
+    @Override
+    public void requestCancelTripByCustomer(Long bookingId, Long customerUserId, String reason) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerUserId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.ON_THE_WAY && booking.getStatus() != BookingStatus.ARRIVED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "booking.cannot_request_cancel_in_current_status", HttpStatus.BAD_REQUEST);
+        }
+
+        String cancelReason = StringUtils.hasText(reason) ? reason.trim() : "Khách yêu cầu hủy khi thợ đang di chuyển";
+
+        if (stringRedisTemplate != null) {
+            stringRedisTemplate.opsForValue().set("booking:cancel_request:" + bookingId, cancelReason, 1, TimeUnit.HOURS);
+        }
+
+        if (messagingTemplate != null) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "CANCEL_REQUESTED");
+            payload.put("bookingId", bookingId);
+            payload.put("bookingCode", booking.getBookingCode());
+            payload.put("customerName", booking.getCustomer().getFullName());
+            payload.put("customerPhone", booking.getCustomer().getPhoneNumber());
+            payload.put("reason", cancelReason);
+            payload.put("depositAmount", booking.getDepositAmount());
+            payload.put("isCancelRequested", true);
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+            messagingTemplate.convertAndSend("/topic/booking-cancel-requested/" + bookingId, payload);
+        }
+
+        log.info("[StateMachine] Customer {} requested cancellation for bookingId={} reason={}",
+                customerUserId, bookingId, cancelReason);
+    }
+
+    @Override
+    @Transactional
+    public BookingStateTransitionRes confirmCancelCompensationByMua(Long bookingId, Long muaUserId) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getMua() == null || booking.getMua().getUser() == null || !booking.getMua().getUser().getId().equals(muaUserId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.ON_THE_WAY && booking.getStatus() != BookingStatus.ARRIVED && booking.getStatus() != BookingStatus.ACCEPTED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "booking.invalid_transition", HttpStatus.BAD_REQUEST);
+        }
+
+        BookingStatus previousStatus = booking.getStatus();
+
+        // 1. Lấy số tiền cọc 30% để bồi thường cho thợ
+        BigDecimal compensationAmount = BigDecimal.ZERO;
+        Optional<BookingDepositEntity> depositOpt = bookingDepositRepository != null
+                ? bookingDepositRepository.findByBookingId(bookingId)
+                : Optional.empty();
+
+        if (depositOpt.isPresent()) {
+            BookingDepositEntity deposit = depositOpt.get();
+            compensationAmount = deposit.getPaidAmount() != null ? deposit.getPaidAmount() : deposit.getRequiredAmount();
+            deposit.setStatus("COMPENSATED_TO_MUA");
+            bookingDepositRepository.save(deposit);
+        } else if (booking.getDepositAmount() != null) {
+            compensationAmount = booking.getDepositAmount();
+        }
+
+        // 2. Chuyển tiền cọc vào Ví Thợ (MUA)
+        if (compensationAmount != null && compensationAmount.compareTo(BigDecimal.ZERO) > 0) {
+            WalletEntity muaWallet = walletRepository.findByUserIdWithLock(muaUserId)
+                    .orElseGet(() -> {
+                        WalletEntity newWallet = WalletEntity.builder()
+                                .user(booking.getMua().getUser())
+                                .availableBalance(BigDecimal.ZERO)
+                                .frozenBalance(BigDecimal.ZERO)
+                                .currency("VND")
+                                .build();
+                        return walletRepository.save(newWallet);
+                    });
+
+            BigDecimal currentBalance = muaWallet.getAvailableBalance() != null ? muaWallet.getAvailableBalance() : BigDecimal.ZERO;
+            BigDecimal newBalance = currentBalance.add(compensationAmount);
+            muaWallet.setAvailableBalance(newBalance);
+            walletRepository.save(muaWallet);
+
+            // Ghi sổ cái kế toán kép Ledger
+            String idempotencyKey = "compensation:booking:" + bookingId;
+            if (!ledgerEntryRepository.existsByIdempotencyKey(idempotencyKey)) {
+                LedgerEntryEntity ledgerEntry = LedgerEntryEntity.builder()
+                        .referenceType("BOOKING_COMPENSATION")
+                        .referenceId(bookingId)
+                        .wallet(muaWallet)
+                        .entryType("CREDIT")
+                        .amount(compensationAmount)
+                        .balanceAfter(newBalance)
+                        .description("Bồi thường 100% tiền cọc do khách hủy ca #" + booking.getBookingCode())
+                        .idempotencyKey(idempotencyKey)
+                        .build();
+                ledgerEntryRepository.save(ledgerEntry);
+            }
+
+            // Giải phóng hold khách (nếu có hold từ ví khách)
+            walletHoldRepository.findActiveHoldByBookingId(bookingId).ifPresent(hold -> {
+                hold.setStatus("CONSUMED");
+                hold.setReleasedAt(OffsetDateTime.now());
+                walletHoldRepository.save(hold);
+            });
+        }
+
+        // 3. Cập nhật trạng thái booking thành CANCELLED
+        String cancelReason = "Khách hủy khi thợ đang di chuyển. Thợ đã xác nhận hủy và nhận bồi thường 100% cọc.";
+        if (stringRedisTemplate != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey("booking:cancel_request:" + bookingId))) {
+            String clientReason = stringRedisTemplate.opsForValue().get("booking:cancel_request:" + bookingId);
+            if (StringUtils.hasText(clientReason)) {
+                cancelReason = clientReason + " (Thợ đã chấp nhận hủy & nhận bồi thường cọc)";
+            }
+            stringRedisTemplate.delete("booking:cancel_request:" + bookingId);
+            stringRedisTemplate.delete("booking:deposit_paid:" + bookingId);
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancellationReason(cancelReason);
+        BookingEntity savedBooking = bookingRepository.save(booking);
+
+        // 4. Giải phóng lịch & trạng thái bận của thợ
+        try {
+            muaCalendarService.releaseSlotByBookingId(bookingId);
+        } catch (Exception ex) {
+            log.warn("[StateMachine] Failed to release slot for bookingId={}: {}", bookingId, ex.getMessage());
+        }
+
+        if (savedBooking.getMua() != null) {
+            MuaProfileEntity mua = savedBooking.getMua();
+            mua.setIsBusy(false);
+            muaProfileRepository.save(mua);
+        }
+
+        // 5. Broadcast WebSocket STOMP
+        if (messagingTemplate != null) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "CANCEL_COMPENSATED");
+            payload.put("status", "CANCELLED");
+            payload.put("currentStatus", "CANCELLED");
+            payload.put("isCancelRequested", false);
+            payload.put("bookingId", bookingId);
+            payload.put("bookingCode", booking.getBookingCode());
+            payload.put("compensationAmount", compensationAmount);
+            payload.put("message", "Thợ đã xác nhận hủy. Đơn hàng kết thúc và tiền cọc đã bồi thường cho thợ.");
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+            messagingTemplate.convertAndSend("/topic/freelancer-wallet/" + muaUserId, payload);
+        }
+
+        log.info("[StateMachine] MUA {} confirmed cancel compensation for bookingId={}, compensatedAmount={}",
+                muaUserId, bookingId, compensationAmount);
+
+        return bookingMapper.toTransitionRes(savedBooking, previousStatus, muaUserId);
+    }
+
+    @Override
+    public void rejectCancelCompensationByMua(Long bookingId, Long muaUserId, String reason) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getMua() == null || booking.getMua().getUser() == null || !booking.getMua().getUser().getId().equals(muaUserId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
+        }
+
+        if (stringRedisTemplate != null) {
+            stringRedisTemplate.delete("booking:cancel_request:" + bookingId);
+        }
+
+        if (messagingTemplate != null) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "CANCEL_REQUEST_REJECTED");
+            payload.put("bookingId", bookingId);
+            payload.put("bookingCode", booking.getBookingCode());
+            payload.put("message", "Chuyên viên đã từ chối yêu cầu hủy và đang tiếp tục di chuyển tới bạn.");
+            payload.put("reason", reason);
+            payload.put("isCancelRequested", false);
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+        }
+
+        log.info("[StateMachine] MUA {} rejected cancel request for bookingId={}", muaUserId, bookingId);
     }
 }
 

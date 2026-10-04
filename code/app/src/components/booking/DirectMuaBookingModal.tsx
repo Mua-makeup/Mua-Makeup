@@ -31,6 +31,8 @@ import { useLocationStore } from '@/store/location.store';
 import { parseApiError } from '@/utils/error';
 import { InstantCountdownTimer } from './InstantCountdownTimer';
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
+import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
+import { showGlobalPopup } from '@/store/popup.store';
 
 interface Props {
   visible: boolean;
@@ -308,9 +310,18 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
     const sendAddress = address?.trim() || currentAddress || 'Vị trí hiện tại của bạn';
 
     if (effectiveDist != null && effectiveDist > muaMaxRadius) {
-      Alert.alert(
+      showGlobalPopup(
         'Ngoài Bán Kính Phục Vụ',
-        `Điểm đón cách chuyên viên ${formatDistance(effectiveDist)}, vượt quá bán kính nhận ca tối đa (${muaMaxRadius} km) của chuyên viên này.`
+        `Điểm đón cách chuyên viên ${formatDistance(effectiveDist)}, vượt quá bán kính nhận ca tối đa (${muaMaxRadius} km) của chuyên viên này.`,
+        [
+          {
+            text: 'Quét Thợ Quanh Đây',
+            onPress: () => onFallbackRandomScan(),
+            style: 'default',
+          },
+          { text: 'Đóng', style: 'cancel' },
+        ],
+        { autoCloseSeconds: 5 }
       );
       return;
     }
@@ -368,7 +379,19 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
 
     } catch (err: any) {
       const parsed = parseApiError(err);
-      Alert.alert('Không Thể Đặt Thợ', parsed.message);
+      showGlobalPopup(
+        'Không Thể Đặt Thợ',
+        parsed.message || 'Không thể gửi yêu cầu đặt lịch tới chuyên viên này.',
+        [
+          {
+            text: 'Quét Thợ Gần Nhất',
+            onPress: () => onFallbackRandomScan(),
+            style: 'default',
+          },
+          { text: 'Đóng', style: 'cancel' },
+        ],
+        { autoCloseSeconds: 5 }
+      );
       setStep('IDLE');
     } finally {
       setIsSubmitting(false);
@@ -390,8 +413,28 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
     clearAllTimers();
     soundManager.playTimeoutSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    setTimeoutMessage(reason || 'Chuyên viên trang điểm bạn chọn hiện không phản hồi.');
+    const msg = reason || 'Chuyên viên trang điểm bạn chọn hiện không phản hồi yêu cầu nhận ca.';
+    setTimeoutMessage(msg);
     setStep('TIMEOUT');
+
+    showGlobalPopup(
+      'Chuyên Viên Không Phản Hồi',
+      msg,
+      [
+        {
+          text: 'Quét Thợ Gần Nhất',
+          onPress: () => onFallbackRandomScan(),
+          style: 'default',
+        },
+        {
+          text: 'Chọn Thợ Khác',
+          onPress: () => onChooseAnotherMua(),
+          style: 'default',
+        },
+        { text: 'Đóng', style: 'cancel' },
+      ],
+      { autoCloseSeconds: 5 }
+    );
   };
 
   const handleCancelRequest = async () => {
@@ -408,7 +451,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const basePrice = selectedPackage?.price || targetMua?.startingPrice || 500000;
   const emergencySurcharge = 150000;
   const totalAmount = basePrice + emergencySurcharge;
-  const depositAmount = Math.round((totalAmount * 0.3) / 1000) * 1000;
+  const depositAmount = totalAmount * 0.3;
 
   if (!targetMua) return null;
 
@@ -836,6 +879,9 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
           setIsSavedAddressModalVisible(false);
         }}
       />
+
+      {/* POPUP ALERT TOÀN CỤC BÊN TRONG MODAL */}
+      <GlobalPopupOverlay />
     </Modal>
   );
 };

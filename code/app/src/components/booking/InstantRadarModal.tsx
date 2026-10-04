@@ -31,6 +31,8 @@ import { parseApiError } from '@/utils/error';
 import { InstantCountdownTimer } from './InstantCountdownTimer';
 import { customerAddressService, CustomerAddressItem } from '@/services/customer-address.service';
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
+import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
+import { showGlobalPopup } from '@/store/popup.store';
 
 interface Props {
   visible: boolean;
@@ -374,9 +376,29 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
     // Kiểm tra nếu danh sách thợ rỗng trước khi gửi đơn
     if (nearbyProviders.length === 0) {
-      Alert.alert(
+      showGlobalPopup(
         'Chưa Có Thợ Trực Tuyến',
-        `Hiện tại chưa có chuyên viên make-up nào đang online trong bán kính ${searchRadius}km quanh bạn. Bạn vui lòng mở rộng bán kính quét hoặc thử lại sau ít phút nhé!`
+        `Hiện tại chưa có chuyên viên make-up nào đang online trong bán kính ${searchRadius}km quanh bạn. Bạn vui lòng mở rộng bán kính quét hoặc đặt lịch hẹn trước nhé!`,
+        [
+          {
+            text: searchRadius < 30 ? `Mở rộng ${searchRadius < 15 ? 15 : 30}km` : 'Quét Lại',
+            onPress: () => {
+              const newRadius = searchRadius < 15 ? 15 : searchRadius < 30 ? 30 : 10;
+              handleSelectRadius(newRadius);
+            },
+            style: 'default',
+          },
+          {
+            text: 'Đặt Lịch Trước',
+            onPress: () => {
+              onClose();
+              router.push('/explore');
+            },
+            style: 'default',
+          },
+          { text: 'Đóng', style: 'cancel' },
+        ],
+        { autoCloseSeconds: 5 }
       );
       return;
     }
@@ -472,7 +494,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           if (msg?.message) {
             setTimeoutMessage(msg.message);
           }
-          handleTimeout();
+          handleTimeout(msg?.message);
         }
       });
 
@@ -493,7 +515,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
             if (statusRes.cancellationReason) {
               setTimeoutMessage(statusRes.cancellationReason);
             }
-            handleTimeout();
+            handleTimeout(statusRes.cancellationReason);
           }
         } catch {
           // Bỏ qua lỗi kết nối mạng tạm thời
@@ -542,7 +564,30 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           ]
         );
       } else {
-        Alert.alert('Không Thể Tìm Thợ', parsed.message);
+        showGlobalPopup(
+          'Không Thể Tìm Thợ',
+          parsed.message || 'Hiện tại không có chuyên viên trang điểm nào khả dụng trong khu vực của bạn.',
+          [
+            {
+              text: searchRadius < 30 ? `Mở rộng ${searchRadius < 15 ? 15 : 30}km` : 'Thử Lại',
+              onPress: () => {
+                const newRadius = searchRadius < 15 ? 15 : searchRadius < 30 ? 30 : 10;
+                handleSelectRadius(newRadius);
+              },
+              style: 'default',
+            },
+            {
+              text: 'Đặt Lịch Trước',
+              onPress: () => {
+                onClose();
+                router.push('/explore');
+              },
+              style: 'default',
+            },
+            { text: 'Đóng', style: 'cancel' },
+          ],
+          { autoCloseSeconds: 5 }
+        );
       }
       setStep('IDLE');
     } finally {
@@ -561,11 +606,47 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     }
   };
 
-  const handleTimeout = () => {
+  const handleTimeout = (customMsg?: string) => {
     clearAllTimers();
     soundManager.playTimeoutSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setStep('TIMEOUT');
+
+    const msg =
+      customMsg ||
+      timeoutMessage ||
+      (currentTargetMua
+        ? `Chuyên viên ${currentTargetMua.fullName} hiện không phản hồi yêu cầu nhận ca.`
+        : `Thời gian tìm kiếm đã kết thúc nhưng chưa có chuyên viên nào trong bán kính ${searchRadius}km nhận ca lúc này.`);
+
+    showGlobalPopup(
+      currentTargetMua ? 'Thợ Không Phản Hồi' : 'Không Tìm Thấy Chuyên Viên',
+      msg,
+      [
+        {
+          text: currentTargetMua ? 'Quét Thợ Gần Đây' : `Quét Lại (${searchRadius}km)`,
+          onPress: () => {
+            if (currentTargetMua) {
+              setCurrentTargetMua(null);
+              setStep('IDLE');
+            } else {
+              handleStartScan();
+            }
+          },
+          style: 'default',
+        },
+        {
+          text: 'Đặt Lịch Trước',
+          onPress: () => {
+            onClose();
+            router.push('/explore');
+          },
+          style: 'default',
+        },
+        { text: 'Đóng', style: 'cancel' },
+      ],
+      { autoCloseSeconds: 5 }
+    );
   };
 
   const handleCancel = async () => {
@@ -1124,6 +1205,9 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }}
       />
+
+      {/* POPUP ALERT TOÀN CỤC BÊN TRONG MODAL */}
+      <GlobalPopupOverlay />
     </Modal>
   );
 };

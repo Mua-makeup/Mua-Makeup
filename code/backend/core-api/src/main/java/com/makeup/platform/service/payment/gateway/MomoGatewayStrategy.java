@@ -37,6 +37,11 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
     private final ObjectMapper objectMapper;
 
     @Override
+    public BigDecimal normalizeAmount(BigDecimal amount) {
+        return amount.setScale(0, RoundingMode.HALF_UP);
+    }
+
+    @Override
     public String gatewayCode() {
         return GATEWAY_CODE;
     }
@@ -61,7 +66,7 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
         String requestId = "REQ-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
         String orderId = txn.getPaymentCode();
         String orderInfo = "Nap tien vi Makeup Platform " + txn.getPaymentCode();
-        long amount = txn.getAmount().setScale(0, RoundingMode.HALF_UP).longValue();
+        long amount = normalizeAmount(txn.getAmount()).longValueExact();
         String requestType = "captureWallet";
         String extraData = "";
 
@@ -230,5 +235,71 @@ public class MomoGatewayStrategy implements PaymentGatewayStrategy {
                     : baseReturnUrl + "?ngrok-skip-browser-warning=69420";
         }
         return baseReturnUrl;
+    }
+
+    @Override
+    public GatewayPaymentResult queryTransaction(PaymentTransactionEntity txn) {
+        if (!momoConfig.isEnabled()) {
+            return GatewayPaymentResult.builder().successful(false).message("MoMo disabled").build();
+        }
+
+        String orderId = txn.getPaymentCode();
+        String requestId = "QUERY-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
+        String partnerCode = momoConfig.getPartnerCode();
+
+        String rawSignature = "accessKey=" + momoConfig.getAccessKey() +
+                "&orderId=" + orderId +
+                "&partnerCode=" + partnerCode +
+                "&requestId=" + requestId;
+
+        String signature = HmacUtils.hmacSha256(momoConfig.getSecretKey(), rawSignature);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("partnerCode", partnerCode);
+        payload.put("requestId", requestId);
+        payload.put("orderId", orderId);
+        payload.put("signature", signature);
+        payload.put("lang", "vi");
+
+        String queryUrl = momoConfig.getEndpointUrl().replace("/create", "/query");
+
+        try {
+            Map<?, ?> response = momoRestClient.post()
+                    .uri(queryUrl)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .body(Map.class);
+
+            if (response == null) {
+                return GatewayPaymentResult.builder().successful(false).message("No response from MoMo query").build();
+            }
+
+            Object resultCodeObj = response.get("resultCode");
+            int resultCode = (resultCodeObj instanceof Number) ? ((Number) resultCodeObj).intValue() : -1;
+            boolean successful = resultCode == 0 && orderId.equals(response.get("orderId"))
+                    && partnerCode.equals(response.get("partnerCode"));
+            Object transIdObj = response.get("transId");
+            String transId = transIdObj != null ? String.valueOf(transIdObj) : "";
+            Object messageObj = response.get("message");
+            String message = messageObj != null ? String.valueOf(messageObj) : "";
+
+            log.info("[MoMo Query] orderId={} resultCode={} transId={} successful={}", orderId, resultCode, transId, successful);
+
+            return GatewayPaymentResult.builder()
+                    .paymentCode(orderId)
+                    .gatewayCode(GATEWAY_CODE)
+                    .gatewayRequestId(requestId)
+                    .gatewayTransactionId(transId)
+                    .amount(response.get("amount") == null ? null : new BigDecimal(String.valueOf(response.get("amount"))))
+                    .successful(successful)
+                    .responseCode(String.valueOf(resultCode))
+                    .message(message)
+                    .paidAt(successful ? OffsetDateTime.now(VIETNAM_ZONE) : null)
+                    .build();
+        } catch (Exception e) {
+            log.error("[MoMo Query] Failed to query status for order {}: {}", orderId, e.getMessage());
+            return GatewayPaymentResult.builder().successful(false).message(e.getMessage()).build();
+        }
     }
 }

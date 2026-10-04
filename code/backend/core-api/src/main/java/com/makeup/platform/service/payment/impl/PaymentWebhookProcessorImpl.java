@@ -50,7 +50,7 @@ public class PaymentWebhookProcessorImpl implements PaymentWebhookProcessor {
         }
 
         // Kiểm tra đối soát số tiền
-        if (result.getAmount() != null && transaction.getAmount().compareTo(result.getAmount()) != 0) {
+        if (result.getAmount() == null || strategy.normalizeAmount(transaction.getAmount()).compareTo(result.getAmount()) != 0) {
             log.error("Amount mismatch for payment {}: expected {}, received {}", transaction.getPaymentCode(), transaction.getAmount(), result.getAmount());
             throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_AMOUNT_MISMATCH, "ERR_PAYMENT_AMOUNT_MISMATCH");
         }

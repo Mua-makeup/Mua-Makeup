@@ -265,9 +265,7 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
         totalAmount = totalAmount.setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal rawDeposit = totalAmount.multiply(PricingConstants.ESCROW_DEPOSIT_RATIO);
-        BigDecimal depositRequiredAmount = rawDeposit.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(1000))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal depositRequiredAmount = rawDeposit.setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal remainingPayableAmount = totalAmount.subtract(depositRequiredAmount).setScale(2, RoundingMode.HALF_UP);
 

@@ -13,11 +13,20 @@ interface Props {
   muaName?: string;
   streamMode?: 'APPROACHING' | 'MOVING' | 'STOPPED';
   onRecenter?: () => void;
+  role?: 'CUSTOMER' | 'MUA';
 }
 
 const GOONG_KEY = 'NDdGHjR87yAkm1ana5TUw0bH2FtJ4dC61cueMuPc';
 
-function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: number, initMuaLng: number, initHeading: number): string {
+function buildLeafletHtml(
+  initCustLat: number,
+  initCustLng: number,
+  initMuaLat: number,
+  initMuaLng: number,
+  initHeading: number,
+  role: 'CUSTOMER' | 'MUA' = 'CUSTOMER'
+): string {
+  const isMuaRole = role === 'MUA';
   return `
     <!DOCTYPE html>
     <html>
@@ -28,6 +37,80 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
         <style>
           body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #E2E8F0; overflow: hidden; }
           #map { width: 100%; height: 100%; background: #E2E8F0; }
+
+          /* 1. MUA PERSPECTIVE STYLES */
+          .driver-marker-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+          }
+          .driver-pulse-ring {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(225, 29, 72, 0.35);
+            animation: driver-radar-pulse 2s infinite ease-out;
+          }
+          @keyframes driver-radar-pulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+          }
+          .driver-self-dot {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: #E11D48;
+            border: 3.5px solid #FFFFFF;
+            box-shadow: 0 0 14px rgba(225, 29, 72, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+          }
+          .driver-self-dot-inner {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #FFFFFF;
+          }
+
+          /* Destination Pin on MUA map */
+          .dest-pin-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .dest-pin-badge {
+            background: #0F172A;
+            color: #FFFFFF;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 10px;
+            border: 1.5px solid #FFFFFF;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            white-space: nowrap;
+            margin-bottom: 2px;
+          }
+          .dest-pin-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 15px;
+            background: #059669;
+            border: 2.5px solid #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 12px rgba(5, 150, 105, 0.7);
+            font-size: 15px;
+          }
+
+          /* 2. CUSTOMER PERSPECTIVE STYLES */
           .cust-marker {
             background: #E11D48;
             border: 3px solid #FFFFFF;
@@ -45,6 +128,7 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
             font-size: 20px;
             transition: transform 0.3s ease-out;
           }
+
           .leaflet-tile {
             filter: contrast(102%) brightness(98%);
           }
@@ -84,20 +168,23 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
           var custLng = ${initCustLng};
           var muaLat = ${initMuaLat};
           var muaLng = ${initMuaLng};
+          var isMuaView = ${isMuaRole};
+
+          var initialCenter = isMuaView ? [muaLat, muaLng] : [custLat, custLng];
 
           var map = L.map('map', { 
             zoomControl: false,
             attributionControl: false
-          }).setView([custLat, custLng], 15);
+          }).setView(initialCenter, 15);
 
-          // Sử dụng Google Maps raster tiles: Load tức thì <50ms tại Việt Nam, không bao giờ bị xám hay nghẽn như OSM
+          // Sử dụng Google Maps raster tiles
           L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             subdomains: ['0', '1', '2', '3'],
             maxZoom: 20,
             minZoom: 3
           }).addTo(map);
 
-          // Sửa triệt để lỗi màn hình xám/đen khi WebView vừa mount trong ScrollView
+          // Sửa lỗi map size khi WebView mount
           window.fixMapSize = function() {
             if (map) {
               map.invalidateSize();
@@ -109,20 +196,47 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
           setTimeout(window.fixMapSize, 2500);
           window.addEventListener('resize', window.fixMapSize);
 
-          // Customer Pin
-          var custIcon = L.divIcon({ className: 'cust-marker', iconSize: [22, 22], iconAnchor: [11, 11] });
-          var custMarker = L.marker([custLat, custLng], { icon: custIcon }).addTo(map);
+          // Setup Markers theo Role
+          var createDriverIcon;
+          var muaMarker;
+          var custMarker;
 
-          // MUA Vehicle Pin
-          var createMuaIcon = function(heading) {
-            return L.divIcon({
-              className: 'mua-marker',
-              iconSize: [36, 36],
-              iconAnchor: [18, 18],
-              html: '<span style="display:inline-block; transform: rotate(' + (heading || 0) + 'deg);">🛵</span>'
+          if (isMuaView) {
+            // MUA View: Thợ là CHẤM ĐỎ GPS CỦA THỢ (Vị trí hiện tại của thợ)
+            createDriverIcon = function(heading) {
+              return L.divIcon({
+                className: 'driver-marker-wrap',
+                iconSize: [48, 48],
+                iconAnchor: [24, 24],
+                html: '<div class="driver-pulse-ring"></div><div class="driver-self-dot"><div class="driver-self-dot-inner"></div></div>'
+              });
+            };
+            muaMarker = L.marker([muaLat, muaLng], { icon: createDriverIcon(${initHeading}) }).addTo(map);
+
+            // Khách hàng là ĐIỂM ĐẾN (Destination Pin)
+            var custIcon = L.divIcon({
+              className: 'dest-pin-container',
+              iconSize: [80, 50],
+              iconAnchor: [40, 50],
+              html: '<div class="dest-pin-badge">Điểm hẹn khách</div><div class="dest-pin-icon">📍</div>'
             });
-          };
-          var muaMarker = L.marker([muaLat, muaLng], { icon: createMuaIcon(${initHeading}) }).addTo(map);
+            custMarker = L.marker([custLat, custLng], { icon: custIcon }).addTo(map);
+          } else {
+            // Customer View: Khách hàng là chấm đỏ "Bạn ở đây"
+            var custIcon = L.divIcon({ className: 'cust-marker', iconSize: [22, 22], iconAnchor: [11, 11] });
+            custMarker = L.marker([custLat, custLng], { icon: custIcon }).addTo(map);
+
+            // Thợ là xe máy đang di chuyển tới
+            createDriverIcon = function(heading) {
+              return L.divIcon({
+                className: 'mua-marker',
+                iconSize: [36, 36],
+                iconAnchor: [18, 18],
+                html: '<span style="display:inline-block; transform: rotate(' + (heading || 0) + 'deg);">🛵</span>'
+              });
+            };
+            muaMarker = L.marker([muaLat, muaLng], { icon: createDriverIcon(${initHeading}) }).addTo(map);
+          }
 
           // Polyline route
           var routeLine = L.polyline([[muaLat, muaLng], [custLat, custLng]], {
@@ -139,17 +253,17 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
           var hasUserInteracted = false;
           var hasValidGoongRoute = false;
 
-          // Theo dõi cử chỉ người dùng: Khi khách tự tay vuốt hoặc phóng to, KHÔNG tự động zoom co nhỏ lại
           map.on('dragstart zoomstart touchstart', function() {
             hasUserInteracted = true;
           });
 
-          // Tái định tâm về vị trí thợ (Chức năng giống Google Maps)
-          window.recenterOnMua = function() {
+          // Tái định tâm chuẩn xác theo role
+          window.recenterOnLocation = function() {
             hasUserInteracted = false;
-            var pos = muaMarker.getLatLng();
+            var pos = isMuaView ? muaMarker.getLatLng() : custMarker.getLatLng();
             map.setView(pos, 17, { animate: true, duration: 0.6 });
           };
+          window.recenterOnMua = window.recenterOnLocation;
 
           function updateGoongRoute(originLat, originLng, destLat, destLng) {
             var url = 'https://rsapi.goong.io/Direction?origin=' + originLat + ',' + originLng + '&destination=' + destLat + ',' + destLng + '&vehicle=bike&api_key=${GOONG_KEY}';
@@ -183,23 +297,21 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
               });
           }
 
-          // Initial route fetch nếu tọa độ hợp lệ
           if (muaLat && muaLng && custLat && custLng) {
             updateGoongRoute(muaLat, muaLng, custLat, custLng);
             lastRouteFetchTime = Date.now();
           }
 
-          // Hàm cập nhật vị trí trực tiếp không qua reload trang (Google Maps Standard)
+          // Cập nhật vị trí trực tiếp
           window.handleIncomingUpdate = function(data) {
             try {
               if (!data || !data.lat || !data.lng) return;
               var newMuaLatLng = L.latLng(data.lat, data.lng);
               
-              // Di chuyển marker mượt mà
               muaMarker.setLatLng(newMuaLatLng);
 
-              if (data.heading !== undefined) {
-                muaMarker.setIcon(createMuaIcon(data.heading));
+              if (data.heading !== undefined && createDriverIcon) {
+                muaMarker.setIcon(createDriverIcon(data.heading));
               }
 
               if (data.custLat && data.custLng) {
@@ -208,23 +320,19 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
                 custMarker.setLatLng(L.latLng(custLat, custLng));
               }
 
-              // Cập nhật đầu của đường polyline theo xe
               var currentPts = routeLine.getLatLngs();
               if (currentPts && currentPts.length > 0) {
                 currentPts[0] = newMuaLatLng;
                 routeLine.setLatLngs(currentPts);
               }
 
-              // Nếu chưa từng fit bounds và chưa có tương tác
               if (!isInitialFitDone) {
                 map.fitBounds(L.latLngBounds([newMuaLatLng, L.latLng(custLat, custLng)]), { padding: [50, 50], maxZoom: 16 });
                 isInitialFitDone = true;
               } else if (!hasUserInteracted) {
-                // Nếu khách KHÔNG tương tác vuốt, camera tự động di chuyển theo xe (giữ zoom hiện tại)
                 map.panTo(newMuaLatLng, { animate: true, duration: 0.8 });
               }
 
-              // Vẽ lại lộ trình Goong Direction khi thợ đi xa hơn 60m hoặc lần đầu chưa vẽ được
               var now = Date.now();
               var distMoved = map.distance(lastRouteOrigin, newMuaLatLng);
               if (!hasValidGoongRoute || (distMoved > 60 && now - lastRouteFetchTime > 15000)) {
@@ -235,7 +343,6 @@ function buildLeafletHtml(initCustLat: number, initCustLng: number, initMuaLat: 
             } catch(err) {}
           };
 
-          // Dự phòng cho postMessage
           window.addEventListener('message', function(e) {
             try {
               var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
@@ -255,6 +362,7 @@ export const LiveTrackingMap: React.FC<Props> = ({
   distanceRemainingMeters = 0,
   muaName = 'Chuyên viên Make-up',
   streamMode,
+  role = 'CUSTOMER',
 }) => {
   const webViewRef = useRef<WebView>(null);
   const [isFollowing, setIsFollowing] = useState(true);
@@ -270,9 +378,10 @@ export const LiveTrackingMap: React.FC<Props> = ({
       customerCoords.longitude || 105.8542,
       muaCoords.latitude || 21.0285,
       muaCoords.longitude || 105.8542,
-      muaCoords.heading || 0
+      muaCoords.heading || 0,
+      role
     );
-  }, []); // Cố định mảng rỗng để không bao giờ reload lại HTML
+  }, [role]);
 
   // Gửi trực tiếp qua injectJavaScript để đảm bảo 100% không reload và không mất gói tin
   useEffect(() => {
@@ -306,7 +415,9 @@ export const LiveTrackingMap: React.FC<Props> = ({
   const handleRecenter = () => {
     setIsFollowing(true);
     webViewRef.current?.injectJavaScript(`
-      if (window.recenterOnMua) {
+      if (window.recenterOnLocation) {
+        window.recenterOnLocation();
+      } else if (window.recenterOnMua) {
         window.recenterOnMua();
       }
       true;
@@ -396,12 +507,13 @@ export const LiveTrackingMap: React.FC<Props> = ({
       {/* TOP FLOATING ETA PILL */}
       <View style={styles.floatingEtaCard}>
         <View style={styles.etaIconCircle}>
-          <Ionicons name="flash" size={16} color="#FFFFFF" />
+          <Ionicons name={role === 'MUA' ? 'navigate' : 'flash'} size={16} color="#FFFFFF" />
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <Text style={styles.etaTitle} numberOfLines={2}>
-              Thời gian dự kiến còn lại:{'\n'}<Text style={[styles.etaHighlight, isAtLocation && { color: '#4ADE80' }]}>{etaDisplayText}</Text>
+              {role === 'MUA' ? 'Lộ trình tới khách:' : 'Thời gian dự kiến còn lại:'}{'\n'}
+              <Text style={[styles.etaHighlight, isAtLocation && { color: '#4ADE80' }]}>{etaDisplayText}</Text>
             </Text>
             <View style={[styles.statusBadgePill, { backgroundColor: statusBadge.bg, borderColor: statusBadge.color, borderWidth: 0.8 }]}>
               <Text style={[styles.statusBadgeText, { color: statusBadge.color }]}>{statusBadge.text}</Text>

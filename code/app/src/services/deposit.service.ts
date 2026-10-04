@@ -53,6 +53,7 @@ export interface FreelancerTransactionItem {
   referenceType: string;
   referenceId?: number;
   description?: string;
+  bookingCode?: string;
   createdAt: string;
 }
 
@@ -130,6 +131,10 @@ export const depositService = {
   /**
    * Tạo / lấy lại checkout URL để thanh toán 70% còn lại qua MoMo hoặc VNPay
    */
+  async syncFinalPayment(bookingId: number): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/final-payment/sync`);
+  },
+
   async createFinalPaymentIntent(
     bookingId: number,
     payload: CreateDepositIntentPayload | 'MOMO' | 'VNPAY',
@@ -226,7 +231,8 @@ export interface CustomerWalletTransaction {
   referenceType: string;
   referenceId: number;
   description: string;
-  holdStatus?: 'ACTIVE' | 'CONSUMED' | 'REFUNDED' | string;
+  holdStatus?: 'ACTIVE' | 'CONSUMED' | 'REFUNDED' | 'COMPENSATED_TO_MUA' | 'FORFEITED' | string;
+  bookingCode?: string;
   createdAt: string;
 }
 

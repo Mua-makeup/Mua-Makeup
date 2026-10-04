@@ -30,6 +30,8 @@ import java.util.Optional;
 @Repository
 public interface BookingRepository extends JpaRepository<BookingEntity, Long>, JpaSpecificationExecutor<BookingEntity> {
 
+    long countByMuaIdAndStatusIn(Long muaId, Collection<BookingStatus> statuses);
+
     @Override
     @EntityGraph(attributePaths = {"customer", "mua.user", "agency", "servicePackage.masterCategory"})
     Page<BookingEntity> findAll(Specification<BookingEntity> spec, Pageable pageable);
@@ -248,4 +250,5 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
               AND b.confirmDeadline < :now
             """)
     List<BookingEntity> findExpiredRequestedBookings(@Param("now") OffsetDateTime now);
+    boolean existsByIdAndCustomerId(Long id, Long customerId);
 }

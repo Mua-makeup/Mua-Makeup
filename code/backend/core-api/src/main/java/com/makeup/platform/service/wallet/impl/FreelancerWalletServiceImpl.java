@@ -10,6 +10,7 @@ import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.entity.wallet.WalletHoldEntity;
 import com.makeup.platform.repository.UserRepository;
+import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
@@ -38,6 +39,7 @@ public class FreelancerWalletServiceImpl implements FreelancerWalletService {
     private final BookingDepositRepository bookingDepositRepository;
     private final UserRepository userRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
+    private final BookingRepository bookingRepository;
 
     @Override
     @Transactional
@@ -69,13 +71,18 @@ public class FreelancerWalletServiceImpl implements FreelancerWalletService {
                     hold.setReleasedAt(OffsetDateTime.now());
                     walletHoldRepository.save(hold);
                 } else if (b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED) {
-                    hold.setStatus("REFUNDED");
+                    String depStatus = hold.getDeposit() != null ? hold.getDeposit().getStatus() : null;
+                    if ("COMPENSATED_TO_MUA".equalsIgnoreCase(depStatus) || "FORFEITED".equalsIgnoreCase(depStatus)) {
+                        hold.setStatus("COMPENSATED_TO_MUA");
+                    } else {
+                        hold.setStatus("REFUNDED");
+                        if (hold.getDeposit() != null && !"REFUNDED".equals(hold.getDeposit().getStatus())) {
+                            hold.getDeposit().setStatus("REFUNDED");
+                            bookingDepositRepository.save(hold.getDeposit());
+                        }
+                    }
                     hold.setReleasedAt(OffsetDateTime.now());
                     walletHoldRepository.save(hold);
-                    if (hold.getDeposit() != null && !"REFUNDED".equals(hold.getDeposit().getStatus())) {
-                        hold.getDeposit().setStatus("REFUNDED");
-                        bookingDepositRepository.save(hold.getDeposit());
-                    }
                 }
             }
         }
@@ -107,16 +114,25 @@ public class FreelancerWalletServiceImpl implements FreelancerWalletService {
         List<CustomerWalletTransactionRes> recentTransactions = ledgerEntryRepository
                 .findAllByWalletIdOrderByCreatedAtDesc(wallet.getId(), PageRequest.of(0, 50))
                 .stream()
-                .map(e -> CustomerWalletTransactionRes.builder()
-                        .id(e.getId())
-                        .entryType(e.getEntryType())
-                        .amount(e.getAmount())
-                        .balanceAfter(e.getBalanceAfter())
-                        .referenceType(e.getReferenceType())
-                        .referenceId(e.getReferenceId())
-                        .description(e.getDescription())
-                        .createdAt(e.getCreatedAt())
-                        .build())
+                .map(e -> {
+                    String bCode = null;
+                    if (e.getReferenceId() != null) {
+                        bCode = bookingRepository.findById(e.getReferenceId())
+                                .map(BookingEntity::getBookingCode)
+                                .orElse(null);
+                    }
+                    return CustomerWalletTransactionRes.builder()
+                            .id(e.getId())
+                            .entryType(e.getEntryType())
+                            .amount(e.getAmount())
+                            .balanceAfter(e.getBalanceAfter())
+                            .referenceType(e.getReferenceType())
+                            .referenceId(e.getReferenceId())
+                            .bookingCode(bCode)
+                            .description(e.getDescription())
+                            .createdAt(e.getCreatedAt())
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         return FreelancerWalletRes.builder()

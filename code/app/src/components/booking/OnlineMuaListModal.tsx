@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { telemetryService, NearbyProviderRes } from '@/services/telemetry.service';
 import { useLocationStore } from '@/store/location.store';
+import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
+import { showGlobalPopup } from '@/store/popup.store';
 
 interface Props {
   visible: boolean;
@@ -405,6 +407,9 @@ export const OnlineMuaListModal: React.FC<Props> = ({
           )}
         </View>
       </View>
+
+      {/* POPUP ALERT TOÀN CỤC BÊN TRONG MODAL */}
+      <GlobalPopupOverlay />
     </Modal>
   );
 };

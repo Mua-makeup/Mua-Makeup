@@ -6,6 +6,8 @@ import com.makeup.platform.dto.response.mua.MuaStyleRes;
 import com.makeup.platform.entity.mua.MuaCertificateItem;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.mua.MuaStyleEntity;
+import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.repository.booking.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +21,7 @@ import java.util.List;
 public class MuaProfileMapper {
 
     private final MuaStyleMapper styleMapper;
+    private final BookingRepository bookingRepository;
 
     public CertificateRes toCertificateRes(MuaCertificateItem cert) {
         if (cert == null) {
@@ -72,7 +75,9 @@ public class MuaProfileMapper {
                 .maxServiceRadiusKm(mua.getMaxServiceRadiusKm())
                 .ratingAverage(mua.getRatingAvg())
                 .totalReviews(mua.getTotalReviews())
-                .totalCompletedJobs(mua.getTotalCompletedJobs())
+                .totalCompletedJobs(Math.toIntExact(bookingRepository.countByMuaIdAndStatusIn(mua.getId(), List.of(
+                        BookingStatus.COMPLETED,
+                        BookingStatus.PAID_OUT))))
                 .certificates(certResList)
                 .styles(styleResList)
                 .portfolioImages(mua.getPortfolioImages())

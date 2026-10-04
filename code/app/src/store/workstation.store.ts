@@ -9,6 +9,9 @@ import { soundManager } from '@/utils/sound';
 import { getTodayVN } from '@/utils/date';
 import { useLocationStore } from '@/store/location.store';
 
+const shownFinalPaymentNotices = new Set<number>();
+const shownDepositNotices = new Set<number>();
+
 export interface InstantBookingOffer {
   bookingId: number;
   bookingCode: string;
@@ -708,6 +711,14 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   },
 
   showDepositNotice: (notice) => {
+    if (notice.type === 'PAYMENT_COMPLETED' || notice.status === 'PAID_OUT') {
+      if (shownFinalPaymentNotices.has(notice.bookingId)) return;
+      shownFinalPaymentNotices.add(notice.bookingId);
+    } else {
+      // Ignore duplicate deposits and delayed deposits after final settlement.
+      if (shownFinalPaymentNotices.has(notice.bookingId) || shownDepositNotices.has(notice.bookingId)) return;
+      shownDepositNotices.add(notice.bookingId);
+    }
     soundManager.playJobAlertSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     set({ depositNotice: notice, isDepositModalVisible: true });

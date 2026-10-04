@@ -26,6 +26,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class CustomerDepositController extends BaseController {
 
     private final BookingDepositService bookingDepositService;
+    private final com.makeup.platform.service.payment.impl.FinalPaymentSyncService finalPaymentSyncService;
+
+    @PostMapping("/{bookingId}/final-payment/sync")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Boolean>> syncFinalPayment(@PathVariable Long bookingId) {
+        finalPaymentSyncService.syncBooking(bookingId, SecurityContextUtils.getCurrentUserId());
+        return ok(true, "booking.final_payment_synced");
+    }
+
 
     @PostMapping("/{bookingId}/deposit-intents")
     @PreAuthorize("hasRole('CUSTOMER')")

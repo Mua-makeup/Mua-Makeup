@@ -158,9 +158,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         BigDecimal totalAmount = basePrice.add(totalSurchargeFee).setScale(2, RoundingMode.HALF_UP);
         BigDecimal rawDeposit = totalAmount.multiply(DEPOSIT_RATE);
-        BigDecimal depositAmount = rawDeposit.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(1000))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal depositAmount = rawDeposit.setScale(2, RoundingMode.HALF_UP);
 
         double effectiveRadiusKm = (req.getRadiusKm() != null && req.getRadiusKm() > 0) ? req.getRadiusKm() : 10.0;
         // 2. Query potential online MUAs in Redis GEO sorted by distance ASC
@@ -850,7 +848,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         if (extra.compareTo(BigDecimal.ZERO) > 0) {
             booking.setServiceSubtotal((booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO).add(extra));
             booking.setTotalAmount(booking.getTotalAmount().add(extra));
-            BigDecimal extraDeposit = extra.multiply(DEPOSIT_RATE).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal extraDeposit = extra.multiply(DEPOSIT_RATE).setScale(2, RoundingMode.HALF_UP);
             booking.setDepositAmount(booking.getDepositAmount().add(extraDeposit));
         }
 
