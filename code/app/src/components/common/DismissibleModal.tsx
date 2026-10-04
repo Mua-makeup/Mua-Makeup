@@ -24,38 +24,64 @@ export function DismissibleSurface({ visible, onClose, dismissDisabled = false, 
   const latest = useRef({ onClose, dismissDisabled, visible, height, onDismissStart });
   latest.current = { onClose, dismissDisabled, visible, height, onDismissStart };
 
+  // Chỉ reset translateY về 0 khi modal bắt đầu mở (visible chuyển sang true).
+  // TUYỆT ĐỐI KHÔNG reset translateY về 0 khi visible chuyển sang false vì sẽ giật ngược modal lên màn hình trong lúc đang đóng!
   useEffect(() => {
-    translateY.stopAnimation();
-    translateY.setValue(0);
-    dismissing.current = false;
-    return () => translateY.stopAnimation();
-  }, [visible, translateY]);
+    if (visible) {
+      translateY.stopAnimation();
+      translateY.setValue(0);
+      dismissing.current = false;
+    }
+  }, [visible]);
 
-  const reset = () => Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3 }).start();
+  const reset = () => {
+    dismissing.current = false;
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3 }).start();
+  };
+
   const dismiss = () => {
     if (!latest.current.visible || latest.current.dismissDisabled || dismissing.current) return;
     dismissing.current = true;
     latest.current.onDismissStart?.();
-    Animated.timing(translateY, { toValue: latest.current.height, duration: 180, useNativeDriver: true }).start(async ({ finished }) => {
-      try {
-        if (finished && latest.current.visible && !latest.current.dismissDisabled) await latest.current.onClose();
-      } finally {
-        // A close handler may open a confirmation while keeping this modal visible.
-        translateY.setValue(0);
-        dismissing.current = false;
+    Animated.timing(translateY, { toValue: latest.current.height, duration: 160, useNativeDriver: true }).start(async ({ finished }) => {
+      if (finished && latest.current.visible && !latest.current.dismissDisabled) {
+        try {
+          await latest.current.onClose();
+        } catch {
+          reset();
+        }
       }
     });
   };
 
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gesture) => !latest.current.dismissDisabled && !dismissing.current && gesture.dy > 6 && gesture.dy > Math.abs(gesture.dx),
-    onPanResponderGrant: () => translateY.stopAnimation(),
-    onPanResponderMove: (_, gesture) => translateY.setValue(Math.max(0, gesture.dy)),
+    onMoveShouldSetPanResponder: (_, gesture) =>
+      !latest.current.dismissDisabled &&
+      !dismissing.current &&
+      gesture.dy > 4 &&
+      gesture.dy > Math.abs(gesture.dx),
+    onMoveShouldSetPanResponderCapture: (_, gesture) =>
+      !latest.current.dismissDisabled &&
+      !dismissing.current &&
+      gesture.dy > 4 &&
+      gesture.dy > Math.abs(gesture.dx),
+    onPanResponderGrant: () => {
+      translateY.stopAnimation();
+    },
+    onPanResponderMove: (_, gesture) => {
+      if (gesture.dy > 0) {
+        translateY.setValue(gesture.dy);
+      }
+    },
     onPanResponderRelease: (_, gesture) => {
-      if (latest.current.dismissDisabled) reset();
-      else if (gesture.dy > 70 || (gesture.dy > 15 && gesture.vy > 0.6)) dismiss();
-      else reset();
+      if (latest.current.dismissDisabled) {
+        reset();
+      } else if (gesture.dy > 35 || (gesture.dy > 8 && gesture.vy > 0.25)) {
+        dismiss();
+      } else {
+        reset();
+      }
     },
     onPanResponderTerminate: reset,
     onPanResponderTerminationRequest: () => false,
@@ -66,7 +92,13 @@ export function DismissibleSurface({ visible, onClose, dismissDisabled = false, 
       <View style={[styles.overlay, overlayStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} disabled={dismissDisabled} accessibilityRole="button" accessibilityLabel="Đóng cửa sổ" />
         <Animated.View style={[styles.surface, fullHeight && styles.fullHeight, contentStyle, { transform: [{ translateY }] }]} accessibilityViewIsModal>
-          <View {...pan.panHandlers} style={styles.dragArea} accessibilityLabel="Kéo xuống để đóng" onAccessibilityEscape={dismiss}>
+          <View
+            {...pan.panHandlers}
+            style={styles.dragArea}
+            hitSlop={{ top: 15, bottom: 25, left: 50, right: 50 }}
+            accessibilityLabel="Kéo xuống để đóng"
+            onAccessibilityEscape={dismiss}
+          >
             <View style={styles.handle} />
           </View>
           {children}
@@ -95,6 +127,6 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.55)', paddingTop: 28 },
   surface: { width: '100%', maxHeight: '92%', flexShrink: 1, backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
   fullHeight: { height: '94%' },
-  dragArea: { height: 28, width: '100%', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  handle: { height: 4, width: 40, borderRadius: 2, backgroundColor: '#CBD5E1' },
+  dragArea: { height: 32, width: '100%', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  handle: { height: 4, width: 42, borderRadius: 2, backgroundColor: '#CBD5E1' },
 });

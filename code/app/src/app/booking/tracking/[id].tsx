@@ -1206,7 +1206,12 @@ export default function BookingLiveTrackingScreen() {
           {/* NÚT VỀ TRANG CHỦ */}
           <TouchableOpacity
             style={styles.homeBtn}
-            onPress={() => router.replace('/')}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.dismissAll();
+              }
+              router.replace('/');
+            }}
             activeOpacity={0.85}
           >
             <Ionicons name="home" size={18} color="#E11D48" />

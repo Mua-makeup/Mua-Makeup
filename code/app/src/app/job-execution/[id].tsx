@@ -123,15 +123,14 @@ export default function JobExecutionScreen() {
   // Cờ chống điều hướng trùng lặp nhiều lần gây chồng chéo trang
   const hasNavigatedBackRef = useRef(false);
 
-  // Điều hướng an toàn tuyệt đối quay về bàn làm việc, pop màn hình ca làm thay vì tạo thêm trang mới gây gối đè 2 bàn làm việc
+  // Điều hướng an toàn tuyệt đối quay về bàn làm việc, pop toàn bộ stack màn hình ca làm để về thẳng root Bàn Làm Việc
   const navigateBackToWorkstation = () => {
     if (hasNavigatedBackRef.current) return;
     hasNavigatedBackRef.current = true;
     if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
+      router.dismissAll();
     }
+    router.replace('/');
   };
 
   // Hàm hiển thị Alert hủy đơn an toàn - bảo đảm CHỈ KÍCH HOẠT 1 LẦN DUY NHẤT

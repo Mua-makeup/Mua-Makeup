@@ -111,7 +111,10 @@ export const DepositConfirmedModal: React.FC = () => {
   const handleGoToWorkstation = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     dismissDepositNotice();
-    router.replace('/mua/workstation');
+    if (router.canGoBack()) {
+      router.dismissAll();
+    }
+    router.replace('/');
   };
 
   const handleClose = () => {
