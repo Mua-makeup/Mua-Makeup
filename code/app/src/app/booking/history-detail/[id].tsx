@@ -741,7 +741,12 @@ export default function BookingHistoryDetailScreen() {
             <>
               <TouchableOpacity
                 style={styles.rebookBtn}
-                onPress={() => router.replace('/')}
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.dismissAll();
+                  }
+                  router.replace('/');
+                }}
                 activeOpacity={0.85}
               >
                 <Ionicons name="home-outline" size={18} color="#FFFFFF" />
