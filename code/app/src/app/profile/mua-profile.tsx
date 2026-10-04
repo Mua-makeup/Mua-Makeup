@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { DismissibleModal } from '@/components/common/DismissibleModal';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,33 +9,40 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Modal,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { BrandColors } from '@/constants/theme';
-import { useAuthStore } from '@/store/auth.store';
 import { muaProfileService, MuaPublicProfile, MuaCertificate } from '@/services/mua-profile.service';
+import { mapsService } from '@/services/maps.service';
+import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
+import { useWorkstationStore } from '@/store/workstation.store';
 
-const QUICK_RADIUS_OPTIONS = [5, 10, 15, 20, 25, 30, 50];
+import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
 
 export default function MuaWorkProfileScreen() {
-  const { userInfo } = useAuthStore();
-  const muaId = userInfo?.muaId || 4;
 
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState<MuaPublicProfile | null>(null);
 
   // Form fields nghề nghiệp
   const [bio, setBio] = useState('');
-  const [experienceYears, setExperienceYears] = useState('1');
-  const [maxRadius, setMaxRadius] = useState('15');
+  const [experienceYears, setExperienceYears] = useState('');
+  const [maxRadius, setMaxRadius] = useState('');
+  const [savedRadius, setSavedRadius] = useState(15);
+  const experienceOptions = useMemo(() => Array.from({ length: Math.max(100, Number(experienceYears) || 0) + 1 }, (_, i) => i), [experienceYears]);
+  const radiusOptions = useMemo(() => [...new Set([...Array.from({ length: 50 }, (_, i) => i + 1), savedRadius])].sort((a, b) => a - b), [savedRadius]);
   const [baseAddressText, setBaseAddressText] = useState('');
+  const [baseAddressLat, setBaseAddressLat] = useState<number | null>(null);
+  const [baseAddressLng, setBaseAddressLng] = useState<number | null>(null);
+  const [isLocatingAddress, setIsLocatingAddress] = useState(false);
   const [certificates, setCertificates] = useState<MuaCertificate[]>([]);
   const [portfolioImages, setPortfolioImages] = useState<string[]>([]);
   const [isUploadingPortfolio, setIsUploadingPortfolio] = useState(false);
@@ -48,36 +56,57 @@ export default function MuaWorkProfileScreen() {
   const [certImageUri, setCertImageUri] = useState<string | null>(null);
   const [isUploadingCert, setIsUploadingCert] = useState(false);
 
-  useEffect(() => {
-    loadMuaProfile();
-  }, []);
+  // Modal Xem trước ảnh phóng to (Chứng chỉ & Portfolio)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    void loadMuaProfile();
+  }, []));
 
   const loadMuaProfile = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await muaProfileService.getMyProfile();
       setProfile(data);
-      if (data.bio) setBio(data.bio);
-      if (data.experienceYears !== undefined && data.experienceYears !== null) {
-        setExperienceYears(String(data.experienceYears));
-      }
-      if (data.maxServiceRadiusKm !== undefined && data.maxServiceRadiusKm !== null) {
-        setMaxRadius(String(data.maxServiceRadiusKm));
-      }
-      if (data.baseAddressText) {
-        setBaseAddressText(data.baseAddressText);
-      }
-      if (data.certificates) {
-        setCertificates(data.certificates);
-      }
-      if (data.portfolioImages) {
-        setPortfolioImages(data.portfolioImages);
-      }
+      setBio(data.bio ?? '');
+      setExperienceYears(String(data.experienceYears ?? 0));
+      setMaxRadius(String(data.maxServiceRadiusKm ?? 15));
+      setSavedRadius(Number(data.maxServiceRadiusKm ?? 15));
+      setBaseAddressText(data.baseAddressText ?? '');
+      setBaseAddressLat(data.baseAddressLat == null ? null : Number(data.baseAddressLat));
+      setBaseAddressLng(data.baseAddressLng == null ? null : Number(data.baseAddressLng));
+      setCertificates(data.certificates ?? []);
+      setPortfolioImages(data.portfolioImages ?? []);
     } catch (err: any) {
       const parsed = parseApiError(err);
-      console.warn('Lỗi tải hồ sơ MUA:', parsed.message);
+      setLoadError(parsed.message || 'Không thể tải hồ sơ.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    try {
+      setIsLocatingAddress(true);
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền vị trí để lấy tọa độ hiện tại.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const lat = loc.coords.latitude;
+      const lng = loc.coords.longitude;
+      const geo = await mapsService.reverseGeocode(lat, lng);
+      setBaseAddressLat(lat);
+      setBaseAddressLng(lng);
+      setFieldErrors((prev) => ({ ...prev, baseAddressText: '' }));
+      setBaseAddressText(geo?.formattedAddress || `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      Alert.alert('Đã định vị GPS', `Đã nhận diện vị trí cơ sở thành công:\n${geo?.formattedAddress || `${lat}, ${lng}`}`);
+    } catch (e: any) {
+      Alert.alert('Lỗi định vị', e.message || 'Không thể lấy vị trí hiện tại');
+    } finally {
+      setIsLocatingAddress(false);
     }
   };
 
@@ -95,6 +124,8 @@ export default function MuaWorkProfileScreen() {
       errors.maxRadius = 'Bán kính nhận ca phải từ 1.0 đến 50.0 km.';
     }
 
+    if (!baseAddressText.trim()) errors.baseAddressText = 'Vui lòng nhập địa điểm nhận ca.';
+
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -102,12 +133,42 @@ export default function MuaWorkProfileScreen() {
 
     setIsSubmitting(true);
     try {
-      await muaProfileService.updateMyProfile({
+      let latToSend = baseAddressLat;
+      let lngToSend = baseAddressLng;
+
+      // Nếu thợ đã nhập địa chỉ chữ nhưng chưa có tọa độ GPS, tự động geocode ngay
+      if ((latToSend == null || lngToSend == null) && baseAddressText && baseAddressText.trim()) {
+        try {
+          const geo = await mapsService.geocode(baseAddressText.trim());
+          if (geo?.latitude != null && geo?.longitude != null) {
+            latToSend = geo.latitude;
+            lngToSend = geo.longitude;
+            setBaseAddressLat(latToSend);
+            setBaseAddressLng(lngToSend);
+          }
+        } catch {
+          // Hiển thị hướng dẫn bên dưới nếu chưa xác định được tọa độ.
+        }
+      }
+
+      if (latToSend == null || lngToSend == null) {
+        setFieldErrors({ baseAddressText: 'Không xác định được tọa độ. Nhập địa chỉ đầy đủ hoặc dùng GPS tại cơ sở.' });
+        return;
+      }
+      const saved = await muaProfileService.updateMyProfile({
         bio: bio.trim(),
         experienceYears: expNum,
         maxServiceRadiusKm: radNum,
         baseAddressText: baseAddressText ? baseAddressText.trim() : undefined,
+        baseAddressLat: latToSend ?? undefined,
+        baseAddressLng: lngToSend ?? undefined,
       });
+
+      setProfile(saved);
+      setBaseAddressText(saved.baseAddressText ?? '');
+      setBaseAddressLat(saved.baseAddressLat == null ? null : Number(saved.baseAddressLat));
+      setBaseAddressLng(saved.baseAddressLng == null ? null : Number(saved.baseAddressLng));
+      useWorkstationStore.setState({ profile: saved });
 
       Alert.alert('Thành công', 'Hồ sơ nghề nghiệp Thợ MUA đã được lưu thành công!');
     } catch (err: any) {
@@ -248,24 +309,34 @@ export default function MuaWorkProfileScreen() {
   };
 
   const handlePreviewPublicProfile = () => {
+    if (!profile?.muaId) return;
     router.push({
       pathname: '/mua-detail/[id]',
-      params: { id: muaId },
+      params: { id: profile.muaId },
     });
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hồ Sơ Nghề Nghiệp MUA</Text>
+        <Text style={styles.headerTitle}>Hồ sơ nghề nghiệp</Text>
         <TouchableOpacity
           style={styles.previewIconBtn}
           onPress={handlePreviewPublicProfile}
@@ -279,6 +350,13 @@ export default function MuaWorkProfileScreen() {
         <View style={styles.centerLoading}>
           <ActivityIndicator size="large" color={BrandColors.primary} />
           <Text style={styles.loadingText}>Đang tải thông tin chuyên môn...</Text>
+        </View>
+      ) : loadError ? (
+        <View style={styles.centerLoading}>
+          <Text style={styles.loadingText}>{loadError}</Text>
+          <TouchableOpacity onPress={loadMuaProfile}>
+            <Text style={styles.publicPreviewTitle}>Thử lại</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
@@ -310,21 +388,21 @@ export default function MuaWorkProfileScreen() {
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Mã định danh</Text>
                 <Text style={styles.statValHighlight}>
-                  {profile?.muaCode || `MUA-#${muaId}`}
+                  {profile?.muaCode ?? '—'}
                 </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Đánh giá</Text>
                 <Text style={styles.statVal}>
-                  ⭐ {profile?.ratingAverage ? profile.ratingAverage.toFixed(1) : '5.0'}
+                  ⭐ {profile?.totalReviews ? Number(profile.ratingAverage).toFixed(1) : 'Chưa có đánh giá'}
                 </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Đơn hoàn tất</Text>
                 <Text style={styles.statVal}>
-                  {profile?.totalCompletedJobs ?? 0}
+                  {profile?.totalCompletedJobs ?? '—'}
                 </Text>
               </View>
             </View>
@@ -334,15 +412,15 @@ export default function MuaWorkProfileScreen() {
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
               <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
-              <Text style={styles.formCardTitle}>Chuyên Môn & Giới Thiệu</Text>
+              <Text style={styles.formCardTitle}>Giới thiệu</Text>
             </View>
 
             {/* Tiểu sử */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Tiểu Sử Nghề Nghiệp (Bio)</Text>
+              <Text style={styles.fieldLabel}>Giới thiệu bản thân</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="VD: Chuyên gia trang điểm cô dâu tone Thái, tone Hàn Quốc. Mỹ phẩm cao cấp Chanel, Dior, NARS..."
+                placeholder="Phong cách trang điểm, thế mạnh và kinh nghiệm của bạn…"
                 value={bio}
                 onChangeText={setBio}
                 multiline
@@ -354,91 +432,86 @@ export default function MuaWorkProfileScreen() {
               </Text>
             </View>
 
+
+          </View>
+
+          <View style={styles.formCard}>
+            <View style={styles.cardHeaderRow}>
+              <Ionicons name="location-outline" size={18} color={BrandColors.primary} />
+              <Text style={styles.formCardTitle}>Khu vực nhận ca</Text>
+            </View>
+            <Text style={styles.sectionDescription}>
+              Hệ thống tìm khách trong bán kính tính từ địa điểm đã lưu bên dưới. GPS khi di chuyển không thay đổi khu vực này.
+            </Text>
             {/* Địa chỉ cơ sở / Điểm xuất phát nhận ca */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Địa Chỉ Cơ Sở / Điểm Nhận Ca</Text>
+              <View style={styles.addressLabelRow}>
+                <Text style={styles.fieldLabel}>Địa điểm nhận ca</Text>
+                <TouchableOpacity
+                  style={styles.gpsAutoBtn}
+                  onPress={handleUseCurrentLocation}
+                  disabled={isLocatingAddress}
+                  activeOpacity={0.7}
+                >
+                  {isLocatingAddress ? (
+                    <ActivityIndicator size="small" color={BrandColors.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="navigate-circle" size={15} color={BrandColors.primary} />
+                      <Text style={styles.gpsAutoBtnText}>Dùng GPS tại đây</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.addressInput, fieldErrors.baseAddressText && styles.inputError]}
+                multiline
+                textAlignVertical="top"
                 placeholder="VD: 120 Hai Bà Trưng, Phường Bến Nghé, Quận 1, TP.HCM"
                 value={baseAddressText}
-                onChangeText={setBaseAddressText}
+                onChangeText={(text) => {
+                  setBaseAddressText(text);
+                  setBaseAddressLat(null);
+                  setBaseAddressLng(null);
+                  setFieldErrors((prev) => ({ ...prev, baseAddressText: '' }));
+                }}
               />
-              <Text style={styles.helperText}>
-                Địa chỉ gốc để hệ thống tính khoảng cách km và điều phối ca trang điểm phù hợp nhất.
-              </Text>
-            </View>
 
-            {/* 2 Cột: Kinh nghiệm & Bán kính */}
-            <View style={styles.twoColRow}>
-              <View style={[styles.fieldGroup, { flex: 1, marginRight: 8 }]}>
-                <Text style={styles.fieldLabel}>
-                  Kinh Nghiệm (Năm) <Text style={styles.required}>*</Text>
+              {fieldErrors.baseAddressText ? <Text style={styles.errorText}>{fieldErrors.baseAddressText}</Text> : null}
+              {baseAddressLat != null && baseAddressLng != null ? (
+                <View style={styles.coordsBadge}>
+                  <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                  <Text style={styles.coordsBadgeText}>
+                    Đã ghim: ({Number(baseAddressLat).toFixed(4)}, {Number(baseAddressLng).toFixed(4)})
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.helperText}>
+                  Địa chỉ gốc để hệ thống tính khoảng cách km và điều phối ca trang điểm phù hợp nhất.
                 </Text>
-                <TextInput
-                  style={[styles.input, fieldErrors.experienceYears && styles.inputError]}
-                  placeholder="VD: 5"
-                  value={experienceYears}
-                  keyboardType="number-pad"
-                  onChangeText={(text) => {
-                    setExperienceYears(text);
-                    if (fieldErrors.experienceYears) {
-                      setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
-                    }
-                  }}
-                />
-                {fieldErrors.experienceYears ? (
-                  <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text>
-                ) : null}
-              </View>
-
-              <View style={[styles.fieldGroup, { flex: 1, marginLeft: 8 }]}>
-                <Text style={styles.fieldLabel}>
-                  Bán Kính Quét Đơn (km) <Text style={styles.required}>*</Text>
-                </Text>
-                <TextInput
-                  style={[styles.input, fieldErrors.maxRadius && styles.inputError]}
-                  placeholder="VD: 15"
-                  value={maxRadius}
-                  keyboardType="numeric"
-                  onChangeText={(text) => {
-                    setMaxRadius(text);
-                    if (fieldErrors.maxRadius) {
-                      setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
-                    }
-                  }}
-                />
-                {fieldErrors.maxRadius ? (
-                  <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text>
-                ) : null}
-              </View>
+              )}
             </View>
 
-            {/* Gợi ý chọn nhanh bán kính */}
-            <View style={styles.radiusChipsWrapper}>
-              <Text style={styles.radiusChipsTitle}>Gợi ý bán kính hoạt động:</Text>
-              <View style={styles.radiusChipsRow}>
-                {QUICK_RADIUS_OPTIONS.map((km) => {
-                  const isSelected = maxRadius === String(km);
-                  return (
-                    <TouchableOpacity
-                      key={`rad-${km}`}
-                      style={[styles.radiusChip, isSelected && styles.radiusChipActive]}
-                      onPress={() => setMaxRadius(String(km))}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.radiusChipText,
-                          isSelected && styles.radiusChipTextActive,
-                        ]}
-                      >
-                        {km} km
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            <View style={styles.numberPickersRow}>
+              <VerticalNumberPicker
+                label="Kinh nghiệm" unit="năm" value={Number(experienceYears)} options={experienceOptions}
+                onChange={(value) => {
+                  setExperienceYears(String(value));
+                  setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
+                }}
+              />
+              <VerticalNumberPicker
+                label="Bán kính nhận ca" unit="km" value={Number(maxRadius)} options={radiusOptions}
+                onChange={(value) => {
+                  setMaxRadius(String(value));
+                  setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
+                }}
+              />
             </View>
+            {fieldErrors.experienceYears ? <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text> : null}
+            {fieldErrors.maxRadius ? <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text> : null}
+            <Text style={styles.helperText}>Vuốt lên / xuống để chọn. Bán kính tính từ điểm nhận ca.</Text>
           </View>
 
           {/* CARD CHỨNG CHỈ & BẰNG CẤP */}
@@ -466,31 +539,74 @@ export default function MuaWorkProfileScreen() {
               </View>
             ) : (
               <View style={styles.certList}>
-                {certificates.map((c) => (
-                  <View key={`cert-${c.id}`} style={styles.certCard}>
-                    {c.certificateImageUrl ? (
-                      <Image
-                        source={{ uri: c.certificateImageUrl }}
-                        style={styles.certThumb}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <View style={styles.certThumbPlaceholder}>
-                        <Ionicons name="image-outline" size={20} color={BrandColors.slateMuted} />
-                      </View>
-                    )}
-                    <View style={styles.certInfo}>
-                      <Text style={styles.certTitle} numberOfLines={1}>{c.certificateName}</Text>
-                      <View style={styles.certBadgeRow}>
-                        <View style={[styles.certStatusBadge, c.isVerified ? styles.certVerified : styles.certPending]}>
-                          <Text style={[styles.certStatusText, c.isVerified ? styles.certVerifiedText : styles.certPendingText]}>
-                            {c.isVerified ? '✓ Đã xác thực' : 'Đang duyệt'}
-                          </Text>
+                {certificates.map((c, idx) => {
+                  const certImg = c.imageUrl || c.certificateImageUrl;
+                  const certTitle = c.certName || c.certificateName || 'Chứng chỉ nghề nghiệp';
+                  const isVerified = c.isVerified || c.status === 'VERIFIED';
+                  const isRejected = c.status === 'REJECTED';
+
+                  return (
+                    <TouchableOpacity
+                      key={`cert-${c.id || idx}`}
+                      style={[styles.certCard, isRejected && styles.certCardRejected]}
+                      activeOpacity={certImg ? 0.75 : 1}
+                      onPress={() => {
+                        if (certImg) setPreviewImageUrl(certImg);
+                      }}
+                    >
+                      {certImg ? (
+                        <Image
+                          source={{ uri: certImg }}
+                          style={styles.certThumb}
+                          contentFit="cover"
+                          transition={200}
+                        />
+                      ) : (
+                        <View style={styles.certThumbPlaceholder}>
+                          <Ionicons name="image-outline" size={20} color={BrandColors.slateMuted} />
                         </View>
+                      )}
+                      <View style={styles.certInfo}>
+                        <Text style={styles.certTitle} numberOfLines={1}>
+                          {certTitle}
+                        </Text>
+                        <View style={styles.certBadgeRow}>
+                          <View
+                            style={[
+                              styles.certStatusBadge,
+                              isVerified
+                                ? styles.certVerified
+                                : isRejected
+                                ? styles.certRejected
+                                : styles.certPending,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.certStatusText,
+                                isVerified
+                                  ? styles.certVerifiedText
+                                  : isRejected
+                                  ? styles.certRejectedText
+                                  : styles.certPendingText,
+                              ]}
+                            >
+                              {isVerified ? '✓ Đã xác thực' : isRejected ? '✕ Đã từ chối' : '⏳ Đang duyệt'}
+                            </Text>
+                          </View>
+                        </View>
+                        {isRejected && c.notes ? (
+                          <Text style={styles.certRejectionReason} numberOfLines={2}>
+                            Lý do: {c.notes}
+                          </Text>
+                        ) : null}
                       </View>
-                    </View>
-                  </View>
-                ))}
+                      {certImg && (
+                        <Ionicons name="scan-outline" size={16} color={BrandColors.slateMuted} style={{ marginLeft: 6 }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -512,8 +628,7 @@ export default function MuaWorkProfileScreen() {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="cloud-upload-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.addCertBtnText}>+ Thêm ảnh</Text>
+                    <Text style={styles.addCertBtnText}>+ Thêm Ảnh</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -533,7 +648,13 @@ export default function MuaWorkProfileScreen() {
               <View style={styles.portfolioGrid}>
                 {portfolioImages.map((url, idx) => (
                   <View key={`pf-${idx}-${url}`} style={styles.portfolioGridItem}>
-                    <Image source={{ uri: url }} style={styles.portfolioImageThumb} contentFit="cover" />
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => setPreviewImageUrl(url)}
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <Image source={{ uri: url }} style={styles.portfolioImageThumb} contentFit="cover" />
+                    </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.deletePortfolioItemBtn}
                       onPress={() => handleDeletePortfolioImage(url)}
@@ -556,7 +677,7 @@ export default function MuaWorkProfileScreen() {
         <TouchableOpacity
           style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
           onPress={handleSaveMuaProfile}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLocatingAddress || isLoading || !!loadError || !profile}
           activeOpacity={0.8}
         >
           {isSubmitting ? (
@@ -564,69 +685,87 @@ export default function MuaWorkProfileScreen() {
           ) : (
             <>
               <Ionicons name="save-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.saveButtonText}>Lưu Hồ Sơ Nghề Nghiệp</Text>
+              <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
             </>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* MODAL THÊM CHỨNG CHỈ */}
-      <Modal
+      {/* MODAL THÊM CHỨNG CHỈ (HỖ TRỢ CLICK RA NGOÀI & KÉO TRƯỢT XUỐNG ĐỂ ĐÓNG) */}
+      <SwipeableBottomSheet
         visible={isCertModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsCertModalVisible(false)}
+        dismissDisabled={isUploadingCert}
+        onClose={() => setIsCertModalVisible(false)}
+        title="Thêm Chứng Chỉ Nghề Nghiệp"
+        subtitle="Tải lên bằng cấp để xác thực hồ sơ và kích hoạt nhận đơn trực tuyến"
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.certModalCard}>
-            <View style={styles.certModalHeader}>
-              <Text style={styles.certModalTitle}>Thêm Chứng Chỉ Nghề Nghiệp</Text>
-              <TouchableOpacity onPress={() => setIsCertModalVisible(false)}>
-                <Ionicons name="close" size={22} color={BrandColors.slateHeading} />
-              </TouchableOpacity>
-            </View>
+        <View style={styles.certModalBody}>
+          <Text style={styles.fieldLabel}>
+            Tên Chứng Chỉ / Bằng Cấp <Text style={styles.required}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="VD: Chứng chỉ Makeup Cô dâu Chuyên nghiệp"
+            value={certName}
+            onChangeText={setCertName}
+          />
 
-            <View style={styles.certModalBody}>
-              <Text style={styles.fieldLabel}>Tên Chứng Chỉ / Bằng Cấp <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={styles.input}
-                placeholder="VD: Chứng chỉ Makeup Cô dâu Chuyên nghiệp"
-                value={certName}
-                onChangeText={setCertName}
-              />
+          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>
+            Ảnh Chụp Chứng Chỉ <Text style={styles.required}>*</Text>
+          </Text>
+          <TouchableOpacity
+            style={styles.certImageUploadBox}
+            onPress={handlePickCertImage}
+            activeOpacity={0.7}
+          >
+            {certImageUri ? (
+              <Image source={{ uri: certImageUri }} style={styles.certUploadedPreview} contentFit="contain" />
+            ) : (
+              <View style={styles.certUploadPlaceholder}>
+                <Ionicons name="cloud-upload-outline" size={28} color={BrandColors.primary} />
+                <Text style={styles.certUploadPlaceholderText}>Chạm để chọn ảnh từ thư viện</Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Ảnh Chụp Chứng Chỉ <Text style={styles.required}>*</Text></Text>
-              <TouchableOpacity
-                style={styles.certImageUploadBox}
-                onPress={handlePickCertImage}
-                activeOpacity={0.7}
-              >
-                {certImageUri ? (
-                  <Image source={{ uri: certImageUri }} style={styles.certUploadedPreview} contentFit="contain" />
-                ) : (
-                  <View style={styles.certUploadPlaceholder}>
-                    <Ionicons name="cloud-upload-outline" size={28} color={BrandColors.primary} />
-                    <Text style={styles.certUploadPlaceholderText}>Chạm để chọn ảnh từ thư viện</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.submitCertBtn, isUploadingCert && styles.saveButtonDisabled]}
-                onPress={handleUploadCertificate}
-                disabled={isUploadingCert}
-                activeOpacity={0.8}
-              >
-                {isUploadingCert ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitCertBtnText}>Tải Lên Chứng Chỉ</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={[styles.submitCertBtn, isUploadingCert && styles.saveButtonDisabled]}
+            onPress={handleUploadCertificate}
+            disabled={isUploadingCert}
+            activeOpacity={0.8}
+          >
+            {isUploadingCert ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitCertBtnText}>Tải Lên Chứng Chỉ</Text>
+            )}
+          </TouchableOpacity>
         </View>
-      </Modal>
+      </SwipeableBottomSheet>
+
+      {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
+      <DismissibleModal visible={!!previewImageUrl} onClose={() => setPreviewImageUrl(null)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
+        <TouchableOpacity
+          style={styles.imageViewerOverlay}
+          activeOpacity={1}
+          onPress={() => setPreviewImageUrl(null)}
+        >
+          <TouchableOpacity
+            style={styles.imageViewerCloseBtn}
+            onPress={() => setPreviewImageUrl(null)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          {previewImageUrl && (
+            <Image
+              source={{ uri: previewImageUrl }}
+              style={styles.imageViewerFull}
+              contentFit="contain"
+            />
+          )}
+        </TouchableOpacity>
+      </DismissibleModal>
     </SafeAreaView>
   );
 }
@@ -742,7 +881,8 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   statVal: {
-    fontSize: 14,
+    textAlign: 'center',
+    fontSize: 13,
     fontWeight: '700',
     color: BrandColors.slateHeading,
     marginTop: 3,
@@ -758,7 +898,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 16,
+    gap: 12,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -777,6 +917,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: BrandColors.slateHeading,
+  },
+  sectionDescription: { fontSize: 12, lineHeight: 18, color: '#64748B' },
+  addressInput: { height: 72, paddingVertical: 10, lineHeight: 20 },
+  addressLabelRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  gpsAutoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#FDF2F8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FCE7F3',
+  },
+  gpsAutoBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BrandColors.primary,
+  },
+  coordsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  coordsBadgeText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#065F46',
+    fontWeight: '600',
   },
   required: {
     color: BrandColors.primary,
@@ -809,44 +993,10 @@ const styles = StyleSheet.create({
     color: BrandColors.slateMuted,
     marginTop: 2,
   },
-  twoColRow: {
-    flexDirection: 'row',
-  },
-  radiusChipsWrapper: {
-    gap: 8,
-  },
-  radiusChipsTitle: {
-    fontSize: 12,
-    color: BrandColors.slateMuted,
-    fontWeight: '600',
-  },
-  radiusChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  radiusChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-  },
-  radiusChipActive: {
-    borderColor: BrandColors.primary,
-    backgroundColor: '#FFE4E6',
-  },
-  radiusChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  radiusChipTextActive: {
-    color: BrandColors.primary,
-    fontWeight: '700',
-  },
+  numberPickersRow: { flexDirection: 'row', gap: 12 },
   certHeaderRow: {
+    flexWrap: 'wrap',
+    gap: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -933,6 +1083,9 @@ const styles = StyleSheet.create({
   certPending: {
     backgroundColor: '#FEF3C7',
   },
+  certRejected: {
+    backgroundColor: '#FFE4E6',
+  },
   certStatusText: {
     fontSize: 10,
     fontWeight: '700',
@@ -942,6 +1095,19 @@ const styles = StyleSheet.create({
   },
   certPendingText: {
     color: '#B45309',
+  },
+  certRejectedText: {
+    color: '#E11D48',
+  },
+  certCardRejected: {
+    borderColor: '#FECDD3',
+    backgroundColor: '#FFF1F2',
+  },
+  certRejectionReason: {
+    fontSize: 11,
+    color: '#E11D48',
+    marginTop: 3,
+    fontWeight: '500',
   },
   footer: {
     padding: 16,
@@ -1059,5 +1225,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.94)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  imageViewerCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageViewerFull: {
+    width: '100%',
+    height: '80%',
+    borderRadius: 8,
   },
 });

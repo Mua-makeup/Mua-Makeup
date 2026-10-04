@@ -69,8 +69,8 @@ public class SurgePricingServiceImpl implements SurgePricingService {
 
         // 1. Đánh giá hệ số từ Quy tắc Khung giờ cố định (Schedule Rule)
         List<SurgePricingRuleEntity> matchingRules = surgePricingRuleRepository.findMatchingRules(time, dayOfWeek, targetZone);
-        BigDecimal scheduleMultiplier = PricingConstants.MIN_SURGE_MULTIPLIER;
-        String scheduleReason = "Khung giờ bình thường";
+        BigDecimal scheduleMultiplier = PricingConstants.NORMAL_SURGE_MULTIPLIER;
+        String scheduleReason = "Khung giờ tiêu chuẩn";
 
         if (!matchingRules.isEmpty()) {
             SurgePricingRuleEntity activeRule = matchingRules.get(0);
@@ -79,7 +79,7 @@ public class SurgePricingServiceImpl implements SurgePricingService {
         }
 
         // 2. Đánh giá hệ số từ Cung / Cầu Thời gian thực (Uber H3 Spatial Binning)
-        BigDecimal realtimeMultiplier = PricingConstants.MIN_SURGE_MULTIPLIER;
+        BigDecimal realtimeMultiplier = PricingConstants.NORMAL_SURGE_MULTIPLIER;
         SurgeDemandTracker.RealtimeSurgeResult realtimeResult = null;
         if (isH3SurgeGloballyEnabled()) {
             realtimeResult = surgeDemandTracker.evaluateRealtimeSurge(customerLat, customerLng);
@@ -95,24 +95,24 @@ public class SurgePricingServiceImpl implements SurgePricingService {
             finalMultiplier = realtimeMultiplier;
             finalReason = realtimeResult.surgeReason();
             finalSurgeType = realtimeResult.surgeType();
-        } else if (scheduleMultiplier.compareTo(PricingConstants.MIN_SURGE_MULTIPLIER) > 0) {
+        } else if (scheduleMultiplier.compareTo(PricingConstants.NORMAL_SURGE_MULTIPLIER) != 0) {
             finalMultiplier = scheduleMultiplier;
             finalReason = scheduleReason;
-            finalSurgeType = "SCHEDULE_PEAK_HOUR";
+            finalSurgeType = scheduleMultiplier.compareTo(PricingConstants.NORMAL_SURGE_MULTIPLIER) < 0 ? "SCHEDULE_DISCOUNT" : "SCHEDULE_PEAK_HOUR";
         } else {
-            finalMultiplier = PricingConstants.MIN_SURGE_MULTIPLIER;
-            finalReason = "Khung giờ bình thường";
+            finalMultiplier = PricingConstants.NORMAL_SURGE_MULTIPLIER;
+            finalReason = "Khung giờ tiêu chuẩn";
             finalSurgeType = "NORMAL";
         }
 
-        // 4. Ràng buộc trần tối đa bảo vệ khách hàng [1.00x - 1.50x]
+        // 4. Ràng buộc trần tối đa [0.70x - 1.50x]
         if (finalMultiplier.compareTo(PricingConstants.MAX_SURGE_MULTIPLIER) > 0) {
             finalMultiplier = PricingConstants.MAX_SURGE_MULTIPLIER;
         } else if (finalMultiplier.compareTo(PricingConstants.MIN_SURGE_MULTIPLIER) < 0) {
             finalMultiplier = PricingConstants.MIN_SURGE_MULTIPLIER;
         }
 
-        boolean isSurgeApplied = finalMultiplier.compareTo(PricingConstants.MIN_SURGE_MULTIPLIER) > 0;
+        boolean isSurgeApplied = finalMultiplier.compareTo(PricingConstants.NORMAL_SURGE_MULTIPLIER) != 0;
         BigDecimal surgeMultiplierOffset = finalMultiplier.subtract(BigDecimal.ONE);
         BigDecimal surgeAmount = subtotal.multiply(surgeMultiplierOffset).setScale(2, RoundingMode.HALF_UP);
 
@@ -217,12 +217,12 @@ public class SurgePricingServiceImpl implements SurgePricingService {
         try {
             String val = redisTemplate.opsForValue().get(H3_SURGE_GLOBAL_KEY);
             if (val == null) {
-                return true; // default enabled
+                return false; // default disabled
             }
             return Boolean.parseBoolean(val);
         } catch (Exception ex) {
-            log.warn("Failed to check H3 surge global status from Redis, fallback to true: {}", ex.getMessage());
-            return true;
+            log.warn("Failed to check H3 surge global status from Redis, fallback to false: {}", ex.getMessage());
+            return false;
         }
     }
 

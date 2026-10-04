@@ -27,6 +27,10 @@ public class LiveTrackingRes {
 
     private Double currentLng;
 
+    private Double destinationLat;
+
+    private Double destinationLng;
+
     private Double speed; // km/h
 
     private Double heading; // degrees (0 - 360)

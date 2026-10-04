@@ -19,7 +19,7 @@ public class RedisTokenServiceImpl implements RedisTokenService {
     @Override
     public void saveRefreshToken(String refreshToken, Long userId, long ttlDays) {
         String key = SecurityConstants.REDIS_PREFIX_REFRESH_TOKEN + refreshToken;
-        redisTemplate.opsForValue().set(key, String.valueOf(userId), ttlDays, TimeUnit.DAYS);
+            redisTemplate.opsForValue().set(key, String.valueOf(userId), ttlDays, TimeUnit.DAYS);
         log.debug("Saved refresh token to Redis for userId: {}", userId);
     }
 

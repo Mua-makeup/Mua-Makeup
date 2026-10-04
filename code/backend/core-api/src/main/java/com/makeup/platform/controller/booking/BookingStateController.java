@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/bookings")
 @RequiredArgsConstructor
@@ -51,5 +53,33 @@ public class BookingStateController extends BaseController {
             @PathVariable Long bookingId) {
         BookingStatusDetailRes res = bookingStateMachineService.getBookingStatusDetail(bookingId);
         return ok(res, "booking.status_retrieved");
+    }
+
+    @PostMapping("/{bookingId}/request-cancel-trip")
+    public ResponseEntity<ApiResponse<Void>> requestCancelTrip(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        String reason = body != null ? body.get("reason") : "Khách yêu cầu hủy khi thợ đang di chuyển";
+        bookingStateMachineService.requestCancelTripByCustomer(bookingId, userId, reason);
+        return ok(null, "booking.cancel_requested_sent");
+    }
+
+    @PostMapping("/{bookingId}/confirm-cancel-compensation")
+    public ResponseEntity<ApiResponse<BookingStateTransitionRes>> confirmCancelCompensation(
+            @PathVariable Long bookingId) {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        BookingStateTransitionRes res = bookingStateMachineService.confirmCancelCompensationByMua(bookingId, userId);
+        return ok(res, "booking.cancel_compensation_confirmed");
+    }
+
+    @PostMapping("/{bookingId}/reject-cancel-compensation")
+    public ResponseEntity<ApiResponse<Void>> rejectCancelCompensation(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        String reason = body != null ? body.get("reason") : null;
+        bookingStateMachineService.rejectCancelCompensationByMua(bookingId, userId, reason);
+        return ok(null, "booking.cancel_compensation_rejected");
     }
 }

@@ -61,6 +61,28 @@ export function parseApiError(err: any): ParsedApiError {
     }
   }
 
+  // Dịch các mã lỗi / message key nghiệp vụ chuẩn sang tiếng Việt thân thiện
+  const ERROR_KEY_TRANSLATIONS: Record<string, string> = {
+    'booking.customer_has_active_instant_booking':
+      'Bạn đang có một đơn đặt thợ tức thì chưa hoàn thành. Vui lòng hoàn tất hoặc hủy đơn hiện tại trước khi đặt đơn mới!',
+    'booking.no_mua_available_in_radius':
+      'Hiện tại không có chuyên viên make-up nào đang trực tuyến quanh khu vực này. Vui lòng thử lại sau ít phút!',
+    'booking.not_found':
+      'Không tìm thấy đơn hàng tương ứng.',
+    'mua.certificate_not_verified_cannot_operate':
+      'Hồ sơ của bạn chưa có chứng chỉ nghề được duyệt nên chưa thể bật trực tuyến nhận ca.',
+    'ERR_BOOKING_ALREADY_EXISTS':
+      'Bạn đang có một đơn đặt thợ tức thì đang được phục vụ chưa hoàn thành.',
+    'ERR_MUA_NOT_AVAILABLE':
+      'Hiện không có thợ trực tuyến trong bán kính đã chọn.',
+  };
+
+  if (ERROR_KEY_TRANSLATIONS[detailedMessage]) {
+    detailedMessage = ERROR_KEY_TRANSLATIONS[detailedMessage];
+  } else if (errorCode && ERROR_KEY_TRANSLATIONS[errorCode]) {
+    detailedMessage = ERROR_KEY_TRANSLATIONS[errorCode];
+  }
+
   return {
     message: detailedMessage,
     fieldErrors,

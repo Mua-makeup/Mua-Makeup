@@ -20,7 +20,6 @@ import com.makeup.platform.entity.catalog.SurchargeEntity;
 import com.makeup.platform.entity.catalog.SurchargeType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AgencyBranchEntity;
-import com.makeup.platform.entity.telemetry.TelemetryLogEntity;
 import com.makeup.platform.mapper.pricing.InvoicePreviewMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
@@ -36,7 +35,6 @@ import com.makeup.platform.service.pricing.MapsClientService;
 import com.makeup.platform.service.pricing.SurgePricingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.geo.Point;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -182,7 +180,7 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
                 : (mua.getIsSurgeEnabled() == null || mua.getIsSurgeEnabled());
 
         InvoicePreviewRes.SurgePricingInfo surgeInfo;
-        if (isProviderSurgeEnabled) {
+        if (isProviderSurgeEnabled && req.getBookingTime() != null) {
             surgeInfo = surgePricingService.calculateSurge(
                     serviceSubtotal,
                     req.getBookingTime(),
@@ -194,36 +192,38 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
             surgeInfo = InvoicePreviewRes.SurgePricingInfo.builder()
                     .isSurgeApplied(false)
                     .multiplier(BigDecimal.valueOf(1.00).setScale(2, RoundingMode.HALF_UP))
-                    .surgeReason("Nhà cung cấp không áp dụng tăng giá cao điểm")
+                    .surgeReason(req.getBookingTime() == null ? "Chưa chọn khung giờ hẹn" : "Nhà cung cấp không áp dụng tăng giá cao điểm")
                     .surgeAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
                     .demandCount(0)
                     .supplyCount(0)
                     .demandRatio(BigDecimal.ONE)
-                    .surgeType("DISABLED_BY_PROVIDER")
+                    .surgeType(req.getBookingTime() == null ? "NO_BOOKING_TIME" : "DISABLED_BY_PROVIDER")
                     .build();
         }
 
         // 6. Tính phụ phí làm sớm (EARLY_MORNING) & ngày lễ (HOLIDAY) qua SurchargeService
-        CalculateSurchargeReq surchargeReq = CalculateSurchargeReq.builder()
-                .agencyId(isAgency ? req.getProviderId() : null)
-                .muaId(!isAgency ? req.getProviderId() : null)
-                .bookingTime(req.getBookingTime())
-                .distanceKm(matrix.getDistanceKm())
-                .build();
-
-        SurchargeCalculationRes surchargeCalc = surchargeService.calculateSurcharges(surchargeReq);
         List<SurchargeBreakdownItemRes> surchargesBreakdown = new ArrayList<>();
         BigDecimal totalSurchargesAmount = BigDecimal.ZERO;
 
-        if (surchargeCalc != null && surchargeCalc.getAppliedSurcharges() != null) {
-            for (SurchargeCalculationRes.AppliedSurchargeItem item : surchargeCalc.getAppliedSurcharges()) {
-                if (item.getSurchargeType() != SurchargeType.OUT_OF_RADIUS) {
-                    surchargesBreakdown.add(SurchargeBreakdownItemRes.builder()
-                            .type(item.getSurchargeType())
-                            .description(item.getDescription())
-                            .amount(item.getAmount())
-                            .build());
-                    totalSurchargesAmount = totalSurchargesAmount.add(item.getAmount());
+        if (req.getBookingTime() != null) {
+            CalculateSurchargeReq surchargeReq = CalculateSurchargeReq.builder()
+                    .agencyId(isAgency ? req.getProviderId() : null)
+                    .muaId(!isAgency ? req.getProviderId() : null)
+                    .bookingTime(req.getBookingTime())
+                    .distanceKm(matrix.getDistanceKm())
+                    .build();
+
+            SurchargeCalculationRes surchargeCalc = surchargeService.calculateSurcharges(surchargeReq);
+            if (surchargeCalc != null && surchargeCalc.getAppliedSurcharges() != null) {
+                for (SurchargeCalculationRes.AppliedSurchargeItem item : surchargeCalc.getAppliedSurcharges()) {
+                    if (item.getSurchargeType() != SurchargeType.OUT_OF_RADIUS) {
+                        surchargesBreakdown.add(SurchargeBreakdownItemRes.builder()
+                                .type(item.getSurchargeType())
+                                .description(item.getDescription())
+                                .amount(item.getAmount())
+                                .build());
+                        totalSurchargesAmount = totalSurchargesAmount.add(item.getAmount());
+                    }
                 }
             }
         }
@@ -263,9 +263,7 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
         totalAmount = totalAmount.setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal rawDeposit = totalAmount.multiply(PricingConstants.ESCROW_DEPOSIT_RATIO);
-        BigDecimal depositRequiredAmount = rawDeposit.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(1000))
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal depositRequiredAmount = rawDeposit.setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal remainingPayableAmount = totalAmount.subtract(depositRequiredAmount).setScale(2, RoundingMode.HALF_UP);
 
@@ -338,14 +336,14 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
                     ? m.getUser().getFullName()
                     : ("Chuyên viên MUA #" + m.getId());
 
-            BigDecimal lat = m.getLastKnownLat() != null ? m.getLastKnownLat() : m.getBaseAddressLat();
-            BigDecimal lng = m.getLastKnownLng() != null ? m.getLastKnownLng() : m.getBaseAddressLng();
+            BigDecimal lat = m.getBaseAddressLat();
+            BigDecimal lng = m.getBaseAddressLng();
 
             list.add(ProviderOptionRes.builder()
                     .id(m.getId())
                     .type("FREELANCER")
                     .name(name)
-                    .address(m.getBaseAddressText() != null ? m.getBaseAddressText() : "Khu vực TP.HCM")
+                    .address(m.getBaseAddressText() != null ? m.getBaseAddressText() : "Chưa có địa chỉ nhận ca")
                     .latitude(lat)
                     .longitude(lng)
                     .isSurgeEnabled(m.getIsSurgeEnabled() == null || m.getIsSurgeEnabled())
@@ -357,11 +355,8 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
     }
 
     /**
-     * Mô hình Phễu 4 Tầng Ưu tiên (Hierarchy of Fallback) chuẩn xác của On-Demand Booking:
-     * - Ưu tiên 1 (Realtime): Redis GEO (geo:muas:active)
-     * - Ưu tiên 2 (Database Last Known Location): last_known_lat/lng trong profile hoặc telemetry_logs
-     * - Ưu tiên 3 (Base Address): base_address_lat/lng của MUA hoặc chi nhánh chính của Agency
-     * - Ưu tiên 4 (Hard Reject): Ném ngoại lệ ERR_PROVIDER_LOCATION_MISSING, tuyệt đối không giả lập tọa độ.
+     * Quote travel from the saved receiving point. Device GPS is reserved for trip tracking.
+     * Agencies use their registered office or active branch. Missing coordinates are rejected.
      */
     private ResolvedLocation resolveProviderLocation(
             boolean isAgency,
@@ -370,31 +365,6 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
             AgencyProfileEntity agency
     ) {
         if (!isAgency && mua != null) {
-            // TẦNG 1: Realtime Stream trong Redis GEO
-            try {
-                List<Point> positions = redisTemplate.opsForGeo().position("geo:muas:active", String.valueOf(mua.getId()));
-                if (positions != null && !positions.isEmpty() && positions.get(0) != null) {
-                    return new ResolvedLocation(
-                            BigDecimal.valueOf(positions.get(0).getY()),
-                            BigDecimal.valueOf(positions.get(0).getX()),
-                            "REDIS_GEO_REALTIME"
-                    );
-                }
-            } catch (Exception e) {
-                log.warn("Redis GEO lookup failed for MUA {}: {}", mua.getId(), e.getMessage());
-            }
-
-            // TẦNG 2: Last Known Location trong DB
-            if (mua.getLastKnownLat() != null && mua.getLastKnownLng() != null) {
-                return new ResolvedLocation(mua.getLastKnownLat(), mua.getLastKnownLng(), "DB_PROFILE_LAST_KNOWN");
-            }
-
-            List<TelemetryLogEntity> logs = telemetryLogRepository.findByMuaIdOrderByRecordedAtDesc(mua.getId());
-            if (logs != null && !logs.isEmpty() && logs.get(0).getLatitude() != null && logs.get(0).getLongitude() != null) {
-                return new ResolvedLocation(logs.get(0).getLatitude(), logs.get(0).getLongitude(), "DB_TELEMETRY_LOG_LAST_KNOWN");
-            }
-
-            // TẦNG 3: Base Working Address của MUA
             if (mua.getBaseAddressLat() != null && mua.getBaseAddressLng() != null) {
                 return new ResolvedLocation(mua.getBaseAddressLat(), mua.getBaseAddressLng(), "MUA_BASE_ADDRESS");
             }

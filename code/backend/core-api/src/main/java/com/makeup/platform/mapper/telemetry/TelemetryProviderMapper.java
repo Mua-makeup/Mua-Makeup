@@ -40,6 +40,9 @@ public class TelemetryProviderMapper {
         if (summary.containsKey("startingPrice")) {
             res.setStartingPrice(BigDecimal.valueOf(Double.parseDouble(summary.get("startingPrice").toString())));
         }
+        if (summary.containsKey("maxServiceRadiusKm") && summary.get("maxServiceRadiusKm") != null) {
+            res.setMaxServiceRadiusKm(Double.parseDouble(summary.get("maxServiceRadiusKm").toString()));
+        }
         return res;
     }
 
@@ -56,6 +59,7 @@ public class TelemetryProviderMapper {
                 .avatarUrl(mua.getUser() != null ? mua.getUser().getAvatarUrl() : null)
                 .ratingAvg(mua.getRatingAvg())
                 .startingPrice(startingPrice != null ? startingPrice : BigDecimal.valueOf(350000))
+                .maxServiceRadiusKm(mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0)
                 .build();
     }
 

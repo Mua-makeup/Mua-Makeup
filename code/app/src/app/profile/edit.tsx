@@ -15,11 +15,16 @@ import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { customerProfileService } from '@/services/customer-profile.service';
+import {
+  customerAddressService,
+  CustomerAddressItem,
+} from '@/services/customer-address.service';
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
-import { SavedAddress, customerProfileSchema } from '@/schemas/customer-profile.schema';
+import { customerProfileSchema } from '@/schemas/customer-profile.schema';
 import { parseApiError } from '@/utils/error';
 
 export default function UserProfileEditScreen() {
@@ -41,17 +46,28 @@ export default function UserProfileEditScreen() {
   );
 
   // Quản lý địa chỉ (Chỉ dành cho Khách hàng)
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [addresses, setAddresses] = useState<CustomerAddressItem[]>([]);
   const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
+  const loadAddresses = async () => {
     if (isCustomer) {
-      customerProfileService.getSavedAddresses().then(setAddresses);
+      try {
+        const data = await customerAddressService.getSavedAddresses();
+        const list = Array.isArray(data) ? data : (data as any)?.data || [];
+        setAddresses(list);
+      } catch (err: any) {
+        console.warn('Lỗi tải sổ địa chỉ khách hàng:', err);
+        setAddresses([]);
+      }
     }
+  };
+
+  useEffect(() => {
+    loadAddresses();
   }, [isCustomer]);
 
   // Cập nhật khi userInfo thay đổi
@@ -119,11 +135,6 @@ export default function UserProfileEditScreen() {
     }
   };
 
-  const handleSaveAddresses = async (updated: SavedAddress[]) => {
-    setAddresses(updated);
-    await customerProfileService.saveAddresses(updated);
-  };
-
   const handleSaveProfile = async () => {
     setFieldErrors({});
 
@@ -188,7 +199,7 @@ export default function UserProfileEditScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />
@@ -325,9 +336,9 @@ export default function UserProfileEditScreen() {
         {isCustomer && (
           <View style={styles.formCard}>
             <View style={styles.addressHeader}>
-              <View>
+              <View style={{ flex: 1, paddingRight: 10 }}>
                 <Text style={styles.formCardTitle}>Sổ Địa Chỉ Thân Quen</Text>
-                <Text style={styles.addressSub}>
+                <Text style={styles.addressSub} numberOfLines={2}>
                   Lưu các địa chỉ thường xuyên đặt lịch để chọn nhanh
                 </Text>
               </View>
@@ -336,12 +347,14 @@ export default function UserProfileEditScreen() {
                 onPress={() => setIsAddressModalVisible(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="location-outline" size={16} color={BrandColors.primary} />
-                <Text style={styles.manageAddressBtnText}>Quản lý ({addresses.length})</Text>
+                <Ionicons name="location-outline" size={14} color={BrandColors.primary} />
+                <Text style={styles.manageAddressBtnText}>
+                  Quản lý ({Array.isArray(addresses) ? addresses.length : 0})
+                </Text>
               </TouchableOpacity>
             </View>
 
-            {addresses.length === 0 ? (
+            {!Array.isArray(addresses) || addresses.length === 0 ? (
               <View style={styles.emptyAddressBox}>
                 <Ionicons name="map-outline" size={28} color={BrandColors.slateMuted} />
                 <Text style={styles.emptyAddressText}>Chưa có địa chỉ nào được lưu</Text>
@@ -355,27 +368,44 @@ export default function UserProfileEditScreen() {
               </View>
             ) : (
               <View style={styles.addressListMini}>
-                {addresses.slice(0, 3).map((item) => (
-                  <View key={item.id} style={styles.addressItemMini}>
+                {(Array.isArray(addresses) ? addresses : []).slice(0, 3).map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.addressItemMini, item.isDefault && styles.addressItemMiniDefault]}
+                    activeOpacity={0.7}
+                    onPress={async () => {
+                      if (!item.isDefault) {
+                        try {
+                          Haptics.selectionAsync();
+                          await customerAddressService.setDefaultAddress(item.id);
+                          await loadAddresses();
+                        } catch (err: any) {
+                          Alert.alert('Lỗi', err.message || 'Không thể đổi địa chỉ mặc định');
+                        }
+                      }
+                    }}
+                  >
                     <Ionicons
                       name={item.isDefault ? 'radio-button-on' : 'radio-button-off'}
-                      size={16}
+                      size={18}
                       color={item.isDefault ? BrandColors.primary : BrandColors.slateMuted}
                     />
                     <View style={styles.addressItemMiniInfo}>
                       <View style={styles.addressLabelRow}>
                         <Text style={styles.addressItemMiniLabel}>{item.label}</Text>
-                        {item.isDefault && (
+                        {item.isDefault ? (
                           <View style={styles.defaultBadgeMini}>
                             <Text style={styles.defaultBadgeMiniText}>Mặc định</Text>
                           </View>
+                        ) : (
+                          <Text style={styles.tapToDefaultHint}>Chạm để đặt mặc định</Text>
                         )}
                       </View>
                       <Text style={styles.addressItemMiniDetail} numberOfLines={1}>
                         {item.addressLine}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -408,8 +438,7 @@ export default function UserProfileEditScreen() {
       <SavedAddressModal
         visible={isAddressModalVisible}
         onClose={() => setIsAddressModalVisible(false)}
-        addresses={addresses}
-        onSaveAddresses={handleSaveAddresses}
+        onAddressesUpdated={loadAddresses}
       />
     </SafeAreaView>
   );
@@ -598,6 +627,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   manageAddressBtn: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -649,6 +679,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+  },
+  addressItemMiniDefault: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FDA4AF',
+  },
+  tapToDefaultHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontStyle: 'italic',
   },
   addressItemMiniInfo: {
     flex: 1,

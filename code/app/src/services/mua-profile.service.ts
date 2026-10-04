@@ -9,12 +9,17 @@ export interface MuaStyle {
 }
 
 export interface MuaCertificate {
-  id: number;
-  certificateName: string;
+  id?: number | string;
+  certName?: string;
+  certificateName?: string;
+  imageUrl?: string;
+  certificateImageUrl?: string;
   issuingOrganization?: string;
   issueDate?: string;
-  certificateImageUrl?: string;
   isVerified?: boolean;
+  status?: string;
+  notes?: string;
+  uploadedAt?: string;
 }
 
 export interface MuaPublicProfile {
@@ -34,6 +39,8 @@ export interface MuaPublicProfile {
   baseAddressLat?: number;
   baseAddressLng?: number;
   isSurgeEnabled?: boolean;
+  startingPrice?: number;
+  isOnline?: boolean;
   certificates?: MuaCertificate[];
   styles?: MuaStyle[];
   updatedAt?: string;
@@ -69,9 +76,17 @@ export interface UpdateMuaProfileReq {
   experienceYears: number;
   maxServiceRadiusKm: number;
   baseAddressText?: string;
+  baseAddressLat?: number;
+  baseAddressLng?: number;
 }
 
 export const muaProfileService = {
+  /** Lấy danh sách thợ MUA công khai (hỗ trợ lọc theo categoryId và giới hạn limit) */
+  async getPublicMuas(params?: { categoryId?: number; limit?: number }): Promise<MuaPublicProfile[]> {
+    const res = await apiClient.get<ApiResponse<MuaPublicProfile[]>>('/muas', { params });
+    return res.data?.data || [];
+  },
+
   /** Lấy thông tin công khai hồ sơ thợ MUA */
   async getPublicProfile(muaId: number): Promise<MuaPublicProfile> {
     const res = await apiClient.get<ApiResponse<MuaPublicProfile>>(`/muas/${muaId}/profile`);
@@ -87,6 +102,14 @@ export const muaProfileService = {
   /** Cập nhật thông tin hồ sơ nghề nghiệp của thợ MUA */
   async updateMyProfile(req: UpdateMuaProfileReq): Promise<MuaPublicProfile> {
     const res = await apiClient.put<ApiResponse<MuaPublicProfile>>('/muas/my-profile', req);
+    return res.data.data;
+  },
+
+  /** Cập nhật riêng bán kính nhận ca hoạt động của thợ MUA */
+  async updateServiceRadius(maxServiceRadiusKm: number): Promise<MuaPublicProfile> {
+    const res = await apiClient.put<ApiResponse<MuaPublicProfile>>('/muas/my-profile/radius', {
+      maxServiceRadiusKm,
+    });
     return res.data.data;
   },
 

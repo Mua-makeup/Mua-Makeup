@@ -22,12 +22,14 @@ import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.RoleEntity;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.mapper.auth.AuthMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.RolePermissionRepository;
 import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
+import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.security.CustomUserDetails;
 import com.makeup.platform.service.auth.AuthService;
 import com.makeup.platform.service.auth.RedisTokenService;
@@ -73,6 +75,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthMapper authMapper;
     private final EmailService emailService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final WalletRepository walletRepository;
 
     @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
@@ -122,6 +125,14 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         user = userRepository.save(user);
+
+        WalletEntity initialWallet = WalletEntity.builder()
+                .user(user)
+                .availableBalance(BigDecimal.ZERO)
+                .frozenBalance(BigDecimal.ZERO)
+                .currency("VND")
+                .build();
+        walletRepository.save(initialWallet);
 
         String generatedMuaCode = null;
         String generatedAgencyCode = null;

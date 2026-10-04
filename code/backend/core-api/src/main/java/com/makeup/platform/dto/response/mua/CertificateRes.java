@@ -16,7 +16,9 @@ import java.time.LocalDateTime;
 public class CertificateRes {
 
     private String certName;
+    private String certificateName;
     private String imageUrl;
+    private String certificateImageUrl;
     private Boolean isVerified;
     private String status;
     private String notes;

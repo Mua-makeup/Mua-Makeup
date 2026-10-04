@@ -25,4 +25,16 @@ public class TransitionBookingStateReq {
     private String reason;
 
     private String completionPhotoUrl;
+    private String photoUrl;
+    private String emergencyProofUrl;
+
+    public String getEffectiveCompletionPhotoUrl() {
+        if (completionPhotoUrl != null && !completionPhotoUrl.trim().isEmpty()) {
+            return completionPhotoUrl.trim();
+        }
+        if (photoUrl != null && !photoUrl.trim().isEmpty()) {
+            return photoUrl.trim();
+        }
+        return null;
+    }
 }

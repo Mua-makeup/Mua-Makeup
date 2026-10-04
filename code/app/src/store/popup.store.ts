@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 export interface PopupButton {
   text: string;
@@ -15,6 +15,8 @@ export interface PopupOptions {
   type?: PopupType;
   buttons?: PopupButton[];
   cancelable?: boolean;
+  autoCloseSeconds?: number;
+  onAutoClose?: () => void;
 }
 
 interface PopupState {
@@ -22,6 +24,9 @@ interface PopupState {
   options: PopupOptions | null;
   show: (options: PopupOptions) => void;
   hide: () => void;
+  embeddedOverlayCount: number;
+  registerOverlay: () => void;
+  unregisterOverlay: () => void;
 }
 
 export const usePopupStore = create<PopupState>((set) => ({
@@ -29,16 +34,19 @@ export const usePopupStore = create<PopupState>((set) => ({
   options: null,
   show: (options) => set({ isOpen: true, options }),
   hide: () => set({ isOpen: false, options: null }),
+  embeddedOverlayCount: 0,
+  registerOverlay: () => set((state) => ({ embeddedOverlayCount: state.embeddedOverlayCount + 1 })),
+  unregisterOverlay: () => set((state) => ({ embeddedOverlayCount: Math.max(0, state.embeddedOverlayCount - 1) })),
 }));
 
 /**
- * Hiển thị Popup toàn cục với kiểu nhận diện thông minh
+ * Hiển thị Popup toàn cục với kiểu nhận diện thông minh và đếm ngược tự đóng 5s
  */
 export const showGlobalPopup = (
   title: string,
   message?: string,
   buttons?: Array<{ text?: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }>,
-  _options?: any
+  options?: any
 ) => {
   const tLower = (title || '').toLowerCase();
   const mLower = (message || '').toLowerCase();
@@ -47,6 +55,8 @@ export const showGlobalPopup = (
   if (tLower.includes('thành công') || tLower.includes('success') || mLower.includes('thành công')) {
     type = 'success';
   } else if (
+    tLower.includes('hủy') ||
+    tLower.includes('cancel') ||
     tLower.includes('lỗi') ||
     tLower.includes('thất bại') ||
     tLower.includes('error') ||
@@ -55,9 +65,18 @@ export const showGlobalPopup = (
     mLower.includes('thất bại')
   ) {
     type = 'error';
-  } else if (tLower.includes('cảnh báo') || tLower.includes('quyền') || tLower.includes('warning')) {
+  } else if (
+    tLower.includes('cảnh báo') ||
+    tLower.includes('quyền') ||
+    tLower.includes('warning') ||
+    tLower.includes('lưu ý')
+  ) {
     type = 'warning';
-  } else if (buttons && buttons.length > 1) {
+  } else if (
+    buttons &&
+    buttons.length > 1 &&
+    (tLower.includes('xác nhận') || tLower.includes('bạn có chắc') || buttons.some((b) => b.style === 'cancel'))
+  ) {
     type = 'confirm';
   }
 
@@ -70,17 +89,23 @@ export const showGlobalPopup = (
         }))
       : [{ text: 'Đóng', style: 'default' }];
 
+  const autoCloseSec = typeof options?.autoCloseSeconds === 'number' ? options.autoCloseSeconds : 5;
+
   usePopupStore.getState().show({
     title,
     message,
     type,
     buttons: mappedButtons,
+    cancelable: options?.cancelable ?? true,
+    autoCloseSeconds: autoCloseSec,
+    onAutoClose: options?.onAutoClose,
   });
 };
 
 /**
- * Gắn đè Alert.alert để toàn bộ mã nguồn gọi Alert.alert() trên cả Web và Mobile
- * đều tự động nảy popup sang trọng chuẩn Luxury Beauty.
+ * Gắn đè Alert.alert TOÀN BỘ HỆ THỐNG (cả Mobile iOS, Android và Web).
+ * Thay thế hoàn toàn Native OS Alert mặc định bằng Pop-up Modal cao cấp chuẩn Luxury Beauty,
+ * tự động đếm ngược 5 giây rồi đóng (hoặc người dùng bấm phím hành động tức thì).
  */
 let isPolyfilled = false;
 export const setupAlertPolyfill = () => {
@@ -91,3 +116,4 @@ export const setupAlertPolyfill = () => {
     showGlobalPopup(title, message, buttons, options);
   };
 };
+

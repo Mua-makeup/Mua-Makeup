@@ -78,3 +78,41 @@ export const clearTokens = async (): Promise<void> => {
     console.error('Lỗi khi xóa token trong SecureStore:', error);
   }
 };
+
+const ONBOARDING_KEY = 'makeup_has_seen_onboarding';
+
+/**
+ * Kiểm tra xem người dùng đã từng xem qua hướng dẫn Onboarding lần đầu chưa
+ */
+export const hasSeenOnboarding = async (): Promise<boolean> => {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        return localStorage.getItem(ONBOARDING_KEY) === 'true';
+      }
+      return false;
+    }
+    const val = await SecureStore.getItemAsync(ONBOARDING_KEY);
+    return val === 'true';
+  } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Đánh dấu đã hoàn thành/bỏ qua xem hướng dẫn lần đầu
+ */
+export const markOnboardingSeen = async (): Promise<void> => {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(ONBOARDING_KEY, 'true');
+      }
+      return;
+    }
+    await SecureStore.setItemAsync(ONBOARDING_KEY, 'true');
+  } catch (error) {
+    console.error('Lỗi khi lưu trạng thái onboarding:', error);
+  }
+};
+

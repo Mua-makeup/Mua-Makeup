@@ -38,4 +38,30 @@ public class BookingMessagePublisher {
             delivery.run();
         }
     }
+
+    public void sendToUser(String userId, String destination, Map<String, Object> payload) {
+        if (userId == null) {
+            return;
+        }
+        Map<String, Object> snapshot = new HashMap<>(payload);
+        Runnable delivery = () -> {
+            try {
+                messagingTemplate.convertAndSendToUser(userId, destination, snapshot);
+                log.info("Delivered committed P2P booking message to user {} at destination {}", userId, destination);
+            } catch (RuntimeException ex) {
+                log.error("Failed to deliver committed P2P booking message to user {} at destination {}", userId, destination, ex);
+            }
+        };
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    delivery.run();
+                }
+            });
+        } else {
+            delivery.run();
+        }
+    }
 }

@@ -54,5 +54,11 @@ export const superAdminService = {
   deleteRule: (id) => apiClient.delete(`/admin/pricing/surge-rules/${id}`),
   getH3SurgeStatus: () => apiClient.get('/admin/pricing/surge-rules/h3-status'),
   toggleH3Surge: (enabled) => apiClient.post(`/admin/pricing/surge-rules/toggle-h3?enabled=${enabled}`),
+
+  // Customer & MUA Booking Disputes Management
+  getDisputes: (params) => apiClient.get('/admin/disputes', { params }),
+  getDisputeStats: () => apiClient.get('/admin/disputes/stats'),
+  getDisputeDetail: (id) => apiClient.get(`/admin/disputes/${id}`),
+  resolveDispute: (id, payload) => apiClient.post(`/admin/disputes/${id}/resolve`, payload),
 };
 

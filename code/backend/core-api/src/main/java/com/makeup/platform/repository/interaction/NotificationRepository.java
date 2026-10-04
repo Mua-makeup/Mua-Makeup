@@ -35,4 +35,18 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
     @Modifying
     @Query("DELETE FROM NotificationEntity n WHERE n.user.id = :userId")
     void deleteAllByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT n FROM NotificationEntity n
+            WHERE ((:agencyId IS NOT NULL AND n.agency.id = :agencyId) OR (:agencyId IS NULL AND n.user.id = :userId))
+              AND (:isRead IS NULL OR n.isRead = :isRead)
+              AND (:type IS NULL OR n.type = :type)
+            ORDER BY n.createdAt DESC
+            """)
+    Page<NotificationEntity> findFilteredNotifications(
+            @Param("userId") Long userId,
+            @Param("agencyId") Long agencyId,
+            @Param("isRead") Boolean isRead,
+            @Param("type") String type,
+            Pageable pageable);
 }

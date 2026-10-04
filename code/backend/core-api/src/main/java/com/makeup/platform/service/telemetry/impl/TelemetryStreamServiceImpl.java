@@ -9,11 +9,14 @@ import com.makeup.platform.common.utils.GeoDistanceUtils;
 import com.makeup.platform.dto.request.telemetry.LocationStreamReq;
 import com.makeup.platform.dto.request.telemetry.ToggleAvailabilityReq;
 import com.makeup.platform.dto.response.telemetry.LiveTrackingRes;
+import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.entity.mua.MuaCertificateItem;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AdaptiveStreamMode;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.entity.telemetry.ProviderType;
+import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.telemetry.RedisGeoService;
@@ -39,6 +42,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
 
     private final MuaProfileRepository muaProfileRepository;
     private final ServicePackageRepository servicePackageRepository;
+    private final BookingRepository bookingRepository;
     private final RedisGeoService redisGeoService;
     private final TelemetryLogService telemetryLogService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -50,24 +54,38 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         log.info("Toggling availability for userId={}, isAvailable={}", userId, req.getIsAvailable());
 
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                        "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         if (Boolean.TRUE.equals(req.getIsAvailable())) {
-            boolean hasVerifiedCert = mua.getCertificates() != null && mua.getCertificates().stream()
+            List<MuaCertificateItem> certs = mua.getCertificates();
+            boolean hasVerifiedCert = certs != null && certs.stream()
                     .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
             if (!hasVerifiedCert) {
                 log.warn("MUA {} attempted to go ONLINE without verified certificates", mua.getId());
+                if (certs == null || certs.isEmpty()) {
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                            "mua.certificate_missing_cannot_operate", HttpStatus.FORBIDDEN);
+                }
+                boolean hasPending = certs.stream()
+                        .anyMatch(c -> "PENDING".equalsIgnoreCase(c.getStatus()) || (!Boolean.TRUE.equals(c.getIsVerified()) && !"REJECTED".equalsIgnoreCase(c.getStatus())));
+                if (hasPending) {
+                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                            "mua.certificate_pending_cannot_operate", HttpStatus.FORBIDDEN);
+                }
+                // All uploaded certificates are rejected
                 throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
-                        "mua.certificate_not_verified_cannot_operate", HttpStatus.FORBIDDEN);
+                        "mua.certificate_rejected_cannot_operate", HttpStatus.FORBIDDEN);
             }
 
-            if (req.getLatitude() == null || req.getLongitude() == null) {
-                throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
+            if (mua.getBaseAddressLat() == null || mua.getBaseAddressLng() == null) {
+                throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID",
+                        HttpStatus.BAD_REQUEST);
             }
-            validateCoordinates(req.getLatitude(), req.getLongitude());
+            validateCoordinates(mua.getBaseAddressLat().doubleValue(), mua.getBaseAddressLng().doubleValue());
 
             // 1. Thêm vào Redis GEO
-            redisGeoService.addActiveMua(mua.getId(), req.getLatitude(), req.getLongitude());
+            redisGeoService.addActiveMua(mua.getId(), mua.getBaseAddressLat().doubleValue(), mua.getBaseAddressLng().doubleValue());
 
             // 2. Kích hoạt Heartbeat 60s
             redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
@@ -107,7 +125,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         validateCoordinates(req.getLatitude(), req.getLongitude());
 
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                        "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         double speed = req.getSpeed() != null ? req.getSpeed() : 0.0;
         double heading = req.getHeading() != null ? req.getHeading() : 0.0;
@@ -130,12 +149,45 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         // 2. Gia hạn Heartbeat 60s
         redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
 
-        // 3. Cập nhật vị trí trên Redis GEO
-        redisGeoService.addActiveMua(mua.getId(), req.getLatitude(), req.getLongitude());
+        // Trip GPS must not move the receiving-area GEO index.
 
-        // 4. Tính toán Adaptive Sampling Rate Mode
+        // 4. Lấy tọa độ điểm hẹn cố định của Khách hàng
+        Double destLat = null;
+        Double destLng = null;
+        if (req.getBookingId() != null) {
+            Map<Object, Object> tripData = redisGeoService.getTripLivePosition(req.getBookingId());
+            if (tripData != null && tripData.containsKey("destinationLat") && tripData.containsKey("destinationLng")) {
+                try {
+                    destLat = Double.parseDouble(tripData.get("destinationLat").toString());
+                    destLng = Double.parseDouble(tripData.get("destinationLng").toString());
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            if (destLat == null || destLng == null) {
+                var bookingOpt = bookingRepository.findById(req.getBookingId());
+                if (bookingOpt.isPresent()) {
+                    BookingEntity booking = bookingOpt.get();
+                    if (booking.getDestinationLatitude() != null) {
+                        destLat = booking.getDestinationLatitude().doubleValue();
+                    }
+                    if (booking.getDestinationLongitude() != null) {
+                        destLng = booking.getDestinationLongitude().doubleValue();
+                    }
+                }
+            }
+        }
+
+        // 5. Xác định khoảng cách còn lại (Meters)
+        Double distanceRemainingMeters = req.getDistanceRemainingMeters();
+        if (distanceRemainingMeters == null && destLat != null && destLng != null) {
+            // Hệ số uốn lượn đường phố đô thị 1.35x (Detour Road Factor)
+            distanceRemainingMeters = GeoDistanceUtils.calculateDistanceMeters(
+                    req.getLatitude(), req.getLongitude(), destLat, destLng) * 1.35;
+        }
+
+        // 6. Tính toán Adaptive Sampling Rate Mode
         AdaptiveStreamMode mode;
-        if (req.getDistanceRemainingMeters() != null && req.getDistanceRemainingMeters() < TelemetryConstants.ADAPTIVE_APPROACHING_DISTANCE_METERS) {
+        if (distanceRemainingMeters != null && distanceRemainingMeters < TelemetryConstants.ADAPTIVE_APPROACHING_DISTANCE_METERS) {
             mode = AdaptiveStreamMode.APPROACHING; // 3s
         } else if (speed < TelemetryConstants.ADAPTIVE_STOPPED_SPEED_THRESHOLD_KMH) {
             mode = AdaptiveStreamMode.STOPPED; // 20s
@@ -143,31 +195,32 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             mode = AdaptiveStreamMode.MOVING; // 5s
         }
 
-        Integer etaMinutes = null;
-        if (req.getDistanceRemainingMeters() != null && speed > 5.0) {
-            etaMinutes = (int) Math.ceil((req.getDistanceRemainingMeters() / 1000.0) / speed * 60);
-        }
+        // 7. Thuật toán Hybrid ETA tối ưu: chống nhảy số khi dừng đèn đỏ và phản ánh đúng tốc độ
+        Integer etaMinutes = calculateOptimalEta(distanceRemainingMeters, speed);
 
         LiveTrackingRes res = LiveTrackingRes.builder()
                 .bookingId(req.getBookingId())
                 .muaId(mua.getId())
                 .currentLat(req.getLatitude())
                 .currentLng(req.getLongitude())
+                .destinationLat(destLat)
+                .destinationLng(destLng)
                 .speed(speed)
                 .heading(heading)
                 .accuracy(accuracy)
                 .etaMinutes(etaMinutes)
-                .distanceRemainingMeters(req.getDistanceRemainingMeters())
+                .distanceRemainingMeters(distanceRemainingMeters)
                 .streamMode(mode)
                 .updatedAt(Instant.now())
                 .build();
 
-        // 5. Nếu không bị nhiễu và có bookingId thì cập nhật Redis Hash & broadcast STOMP
+        // 8. Nếu không bị nhiễu và có bookingId thì cập nhật Redis Hash & broadcast STOMP
         if (!isNoiseOrSpoof && req.getBookingId() != null) {
             // Cập nhật Redis Hash
             redisGeoService.updateTripLivePosition(
                     req.getBookingId(), mua.getId(), req.getLatitude(), req.getLongitude(),
-                    speed, heading, accuracy, etaMinutes, req.getDistanceRemainingMeters(), mode
+                    speed, heading, accuracy, etaMinutes, distanceRemainingMeters, mode,
+                    destLat, destLng
             );
 
             // Broadcast qua STOMP topic
@@ -176,7 +229,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             messagingTemplate.convertAndSend(topic, res);
             log.debug("Broadcasted live telemetry to topic {}", topic);
 
-            // 6. Dead-Reckoning Filter trước khi ghi xuống Database (Giảm > 85% I/O Disk Write)
+            // 6. Dead-Reckoning Filter trước khi ghi xuống Database (Giảm > 85% I/O Disk
+            // Write)
             checkAndTriggerDeadReckoningLog(mua.getId(), req);
         }
 
@@ -197,7 +251,8 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                 double prevLng = Double.parseDouble(parts[1]);
                 long prevEpochMillis = Long.parseLong(parts[2]);
 
-                double deltaDistance = GeoDistanceUtils.calculateDistanceMeters(prevLat, prevLng, req.getLatitude(), req.getLongitude());
+                double deltaDistance = GeoDistanceUtils.calculateDistanceMeters(prevLat, prevLng, req.getLatitude(),
+                        req.getLongitude());
                 long deltaSeconds = (now.toEpochMilli() - prevEpochMillis) / 1000;
 
                 if (deltaDistance >= TelemetryConstants.DEAD_RECKONING_DISTANCE_METERS
@@ -233,6 +288,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                     .min(BigDecimal::compareTo)
                     .orElse(BigDecimal.valueOf(350000));
             summary.put("startingPrice", startingPrice.doubleValue());
+            summary.put("maxServiceRadiusKm", mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0);
 
             String json = objectMapper.writeValueAsString(summary);
             redisGeoService.setMuaSummary(mua.getId(), json, TelemetryConstants.SUMMARY_TTL_SECONDS);
@@ -244,16 +300,45 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
     @Override
     public void recordHeartbeat(Long userId) {
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                        "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
         if (Boolean.TRUE.equals(mua.getIsOnline())) {
             redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
-            log.debug("Renewed heartbeat for online MUA {} (TTL={}s)", mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
+            if (mua.getBaseAddressLat() != null && mua.getBaseAddressLng() != null) {
+                redisGeoService.addActiveMua(mua.getId(), mua.getBaseAddressLat().doubleValue(), mua.getBaseAddressLng().doubleValue());
+            } else {
+                redisGeoService.removeActiveMua(mua.getId());
+            }
+            log.debug("Renewed heartbeat for online MUA {} (TTL={}s)", mua.getId(),
+                    TelemetryConstants.HEARTBEAT_TTL_SECONDS);
         }
     }
 
     private void validateCoordinates(Double lat, Double lng) {
         if (lat == null || lng == null || lat < -90.0 || lat > 90.0 || lng < -180.0 || lng > 180.0) {
-            throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
+            throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID",
+                    HttpStatus.BAD_REQUEST);
         }
+    }
+
+    private Integer calculateOptimalEta(Double distanceRemainingMeters, double speedKmh) {
+        if (distanceRemainingMeters == null || distanceRemainingMeters <= 25.0) {
+            return 0;
+        }
+
+        // Tốc độ cơ sở chuẩn xe máy đô thị tại Việt Nam (25 km/h), đồng bộ 100% giữa API và App thợ
+        double urbanBaselineSpeedKmh = 25.0;
+        double effectiveSpeedKmh = urbanBaselineSpeedKmh;
+
+        // Nếu xe đang di chuyển thực tế >= 10 km/h, kết hợp tốc độ tức thời và cơ sở
+        if (speedKmh >= 10.0) {
+            effectiveSpeedKmh = (urbanBaselineSpeedKmh * 0.6) + (Math.min(speedKmh, 50.0) * 0.4);
+        }
+
+        effectiveSpeedKmh = Math.max(15.0, Math.min(effectiveSpeedKmh, 50.0));
+        double distanceKm = distanceRemainingMeters / 1000.0;
+        int etaMinutes = (int) Math.ceil((distanceKm / effectiveSpeedKmh) * 60);
+
+        return Math.max(1, etaMinutes);
     }
 }
