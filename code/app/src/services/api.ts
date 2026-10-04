@@ -3,13 +3,9 @@ import { Platform, NativeModules } from 'react-native';
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/utils/storage';
 
-/**
- * Tự động trích xuất động địa chỉ IP của máy tính host đang chạy Backend / Metro:
- * 1. Trên Web Browser (Laptop): Dùng đúng hostname của trình duyệt (localhost hoặc IP Wi-Fi hiện tại)
- * 2. Trên Điện thoại thật (Expo Go): Đọc hostUri từ Metro bundler đang kết nối Wi-Fi
- * 3. Trên React Native Native Client: Đọc scriptURL của bundle đang tải
- * 4. Tránh hoàn toàn việc hardcode IP tĩnh khi đổi mạng Wi-Fi
- */
+
+const DEFAULT_DEV_HOST = '192.168.1.122';
+
 const getDevApiBaseUrl = () => {
   // 1. Trình duyệt Web (laptop hoặc mobile browser)
   if (Platform.OS === 'web') {
@@ -23,7 +19,7 @@ const getDevApiBaseUrl = () => {
   const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
   if (hostUri) {
     const hostIp = hostUri.split(':')[0];
-    if (hostIp) {
+    if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
       return `http://${hostIp}:8080/api/v1`;
     }
   }
@@ -32,18 +28,13 @@ const getDevApiBaseUrl = () => {
   const scriptURL = NativeModules.SourceCode?.scriptURL;
   if (scriptURL) {
     const match = scriptURL.match(/https?:\/\/([^/:]+)/);
-    if (match && match[1]) {
+    if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
       return `http://${match[1]}:8080/api/v1`;
     }
   }
 
-  // 4. Máy ảo Android Emulator kết nối ngược lại máy tính host
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8080/api/v1';
-  }
-
-  // 5. Fallback mặc định cho iOS Simulator hoặc local
-  return 'http://localhost:8080/api/v1';
+  // 4. Máy ảo Android Emulator hoặc điện thoại thật iOS/Android
+  return `http://${DEFAULT_DEV_HOST}:8080/api/v1`;
 };
 
 // Cấu hình URL kết nối máy tính qua Wi-Fi khi dev hoặc domain production
@@ -57,6 +48,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    'Accept-Language': 'vi',
   },
 });
 
@@ -87,6 +79,17 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Nếu payload là FormData, xóa Content-Type để Axios / Browser / React Native tự sinh boundary
+    const isFormData = config.data && (
+      (typeof FormData !== 'undefined' && config.data instanceof FormData) ||
+      config.data?.constructor?.name === 'FormData' ||
+      typeof config.data?.append === 'function'
+    );
+    if (isFormData && config.headers) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

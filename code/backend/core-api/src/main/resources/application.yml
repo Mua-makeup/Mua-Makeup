@@ -13,6 +13,10 @@ spring:
       enabled: true
       max-file-size: 20MB
       max-request-size: 100MB
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
+    deserialization:
+      accept-empty-string-as-null-object: true
   data:
     web:
       pageable:
@@ -58,6 +62,24 @@ app:
     url: ${FRONTEND_URL:http://localhost:3000}
   maps:
     goong:
-      api-key: ${GOONG_API_KEY:dummy_goong_key}
+      api-key: ${GOONG_MAPS_API_KEY:NDdGHjR87yAkm1ana5TUw0bH2FtJ4dC61cueMuPc}
       base-url: ${GOONG_BASE_URL:https://rsapi.goong.io}
+
+payment:
+  gateways:
+    vnpay:
+      enabled: ${VNPAY_ENABLED:true}
+      tmn-code: ${VNPAY_TMN_CODE:DEMOVNPAY}
+      hash-secret: ${VNPAY_HASH_SECRET:DEMOVNPAYSECRETKEY12345678901234567890123456789012}
+      pay-url: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      return-url: ${VNPAY_RETURN_URL:http://192.168.1.122:8080/api/v1/payments/return/vnpay}
+    momo:
+      enabled: ${MOMO_ENABLED:true}
+      partner-code: ${MOMO_PARTNER_CODE:MOMO}
+      access-key: ${MOMO_ACCESS_KEY:F8BBA842ECF85}
+      secret-key: ${MOMO_SECRET_KEY:K951B6PE1wa8ngfQpaZsWBueImOOLCZ2}
+      endpoint-url: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
+      return-url: ${MOMO_REDIRECT_URL:http://192.168.1.122:8080/api/v1/payments/return/momo}
+      ipn-url: ${MOMO_IPN_URL:http://192.168.1.122:8080/api/v1/payments/ipn/momo}
+
 

@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
 import {
-  StyleSheet,
+  View,
   Text,
   TextInput,
   TextInputProps,
+  Pressable,
   TouchableOpacity,
-  View,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
@@ -42,8 +43,7 @@ export const BaseInput: React.FC<BaseInputProps> = ({
       </View>
 
       {/* Input Box - Nhấn bất kỳ vị trí nào trong khung đều kích hoạt focus chuẩn xác */}
-      <TouchableOpacity
-        activeOpacity={1}
+      <Pressable
         onPress={() => inputRef.current?.focus()}
         style={[
           styles.inputWrapper,
@@ -91,7 +91,7 @@ export const BaseInput: React.FC<BaseInputProps> = ({
             />
           </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Error Message */}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}

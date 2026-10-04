@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS agency_schema.agency_staff_shifts (
 CREATE INDEX IF NOT EXISTS idx_shifts_agency_day ON agency_schema.agency_staff_shifts(agency_id, day_of_week, is_active);
 CREATE INDEX IF NOT EXISTS idx_shifts_staff ON agency_schema.agency_staff_shifts(staff_id, day_of_week);
 
+DROP TRIGGER IF EXISTS trg_update_agency_staff_shifts_updated_at ON agency_schema.agency_staff_shifts;
 CREATE TRIGGER trg_update_agency_staff_shifts_updated_at
     BEFORE UPDATE ON agency_schema.agency_staff_shifts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

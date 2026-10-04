@@ -16,6 +16,8 @@ import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor 
@@ -91,11 +93,30 @@ public class RedisExpirationListener implements MessageListener {
                 try {
                     Long bookingId = Long.parseLong(parts[3]);
                     Long targetMuaId = Long.parseLong(parts[4]);
-                    log.info("[RedisExpiration] MUA offer 20s TTL expired for bookingId={}, targetMuaId={}", bookingId, targetMuaId);
+                    log.info("[RedisExpiration] MUA offer timer expired event received for bookingId={}, targetMuaId={}", bookingId, targetMuaId);
 
                     // Kiểm tra thợ hiện tại còn là targetMuaId không
                     String currentMuaStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
                     if (currentMuaStr != null && currentMuaStr.equals(String.valueOf(targetMuaId))) {
+                        // Xác thực thời gian thực tế đã trôi qua dựa trên sentAt (chống Redis clock drift / early expiration)
+                        String sentAtStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.sentAt(bookingId));
+                        if (sentAtStr != null) {
+                            try {
+                                long sentAt = Long.parseLong(sentAtStr);
+                                long elapsedMs = System.currentTimeMillis() - sentAt;
+                                if (elapsedMs < 18_000) {
+                                    long remainingSec = Math.max(1, (20_000 - elapsedMs) / 1000);
+                                    log.warn("[RedisExpiration] Premature expiration for bookingId={}, targetMuaId={}. Elapsed: {}ms (< 18000ms). Resetting timer for {}s!",
+                                            bookingId, targetMuaId, elapsedMs, remainingSec);
+                                    stringRedisTemplate.opsForValue().set(
+                                            InstantBookingKeys.timer(bookingId, targetMuaId),
+                                            "PENDING",
+                                            Duration.ofSeconds(remainingSec));
+                                    return; // Bỏ qua không cascade sớm, tiếp tục cho thợ đếm ngược đủ 20s
+                                }
+                            } catch (NumberFormatException ignored) {}
+                        }
+
                         log.info("[RedisExpiration] Auto-cascading bookingId={} to next candidate because MUA {} did not respond within 20s",
                                 bookingId, targetMuaId);
                         customerInstantBookingService.dispatchNextCandidateIfCurrent(bookingId, targetMuaId);

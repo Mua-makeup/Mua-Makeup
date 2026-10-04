@@ -127,6 +127,8 @@ class DynamicPricingServiceImplTest {
                 .maxServiceRadiusKm(new BigDecimal("25.0"))
                 .build();
         mockMua.setId(89L);
+        mockMua.setBaseAddressLat(new BigDecimal("10.776530"));
+        mockMua.setBaseAddressLng(new BigDecimal("106.700980"));
 
         mockMatrix = DistanceMatrixRes.builder()
                 .distanceKm(new BigDecimal("14.50"))
@@ -185,12 +187,11 @@ class DynamicPricingServiceImplTest {
     }
 
     @Test
-    @DisplayName("Tier 1: Should resolve provider location from Redis GEO realtime")
-    void testCalculatePreviewInvoice_Tier1_RedisGeo() {
+    @DisplayName("Saved receiving point takes priority over device GPS")
+    void testCalculatePreviewInvoice_UsesReceivingPoint() {
         stubStandardPricingFlow();
-        when(redisTemplate.opsForGeo()).thenReturn(geoOperations);
-        when(geoOperations.position("geo:muas:active", "89"))
-                .thenReturn(List.of(new Point(106.629664, 10.823099)));
+        mockMua.setLastKnownLat(new BigDecimal("21.028500"));
+        mockMua.setLastKnownLng(new BigDecimal("105.854200"));
 
         PreviewInvoiceReq req = PreviewInvoiceReq.builder()
                 .packageId(45L)
@@ -205,73 +206,16 @@ class DynamicPricingServiceImplTest {
 
         InvoicePreviewRes res = dynamicPricingService.calculatePreviewInvoice(req);
 
+        org.mockito.Mockito.verify(mapsClientService).getDistanceAndDuration(
+                eq(mockMua.getBaseAddressLat()), eq(mockMua.getBaseAddressLng()),
+                eq(req.getCustomerLatitude()), eq(req.getCustomerLongitude()));
+        org.mockito.Mockito.verifyNoInteractions(redisTemplate, telemetryLogRepository);
         assertNotNull(res);
         assertEquals("Gói Trang điểm Cô Dâu Luxury", res.getPackageInfo().getPackageName());
         assertEquals(new BigDecimal("2580000.00"), res.getServiceSubtotal());
         assertEquals(new BigDecimal("3230500.00"), res.getFinancialSummary().getTotalAmount());
-        assertEquals(new BigDecimal("969000.00"), res.getFinancialSummary().getDepositRequiredAmount());
-        assertEquals(new BigDecimal("2261500.00"), res.getFinancialSummary().getRemainingPayableAmount());
-    }
-
-    @Test
-    @DisplayName("Tier 2: Should resolve provider location from MUA Profile last_known coordinates")
-    void testCalculatePreviewInvoice_Tier2_ProfileLastKnown() {
-        stubStandardPricingFlow();
-        mockMua.setLastKnownLat(new BigDecimal("10.800000"));
-        mockMua.setLastKnownLng(new BigDecimal("106.600000"));
-
-        when(redisTemplate.opsForGeo()).thenReturn(geoOperations);
-        when(geoOperations.position("geo:muas:active", "89")).thenReturn(null);
-
-        PreviewInvoiceReq req = PreviewInvoiceReq.builder()
-                .packageId(45L)
-                .addOnItemIds(List.of(112L))
-                .bookingTime(LocalDateTime.of(2027, 1, 1, 4, 30))
-                .customerLatitude(new BigDecimal("10.823099"))
-                .customerLongitude(new BigDecimal("106.629664"))
-                .providerType("FREELANCER")
-                .providerId(89L)
-                .build();
-
-        InvoicePreviewRes res = dynamicPricingService.calculatePreviewInvoice(req);
-
-        assertNotNull(res);
-        assertEquals(new BigDecimal("2580000.00"), res.getServiceSubtotal());
-    }
-
-    @Test
-    @DisplayName("Tier 2: Should resolve provider location from Telemetry Logs when profile coordinates are null")
-    void testCalculatePreviewInvoice_Tier2_TelemetryLog() {
-        stubStandardPricingFlow();
-        mockMua.setLastKnownLat(null);
-        mockMua.setLastKnownLng(null);
-
-        when(redisTemplate.opsForGeo()).thenReturn(geoOperations);
-        when(geoOperations.position("geo:muas:active", "89")).thenReturn(null);
-
-        TelemetryLogEntity mockLog = TelemetryLogEntity.builder()
-                .muaId(89L)
-                .latitude(new BigDecimal("10.790000"))
-                .longitude(new BigDecimal("106.610000"))
-                .recordedAt(Instant.now())
-                .build();
-        when(telemetryLogRepository.findByMuaIdOrderByRecordedAtDesc(89L))
-                .thenReturn(List.of(mockLog));
-
-        PreviewInvoiceReq req = PreviewInvoiceReq.builder()
-                .packageId(45L)
-                .addOnItemIds(List.of(112L))
-                .bookingTime(LocalDateTime.of(2027, 1, 1, 4, 30))
-                .customerLatitude(new BigDecimal("10.823099"))
-                .customerLongitude(new BigDecimal("106.629664"))
-                .providerType("FREELANCER")
-                .providerId(89L)
-                .build();
-
-        InvoicePreviewRes res = dynamicPricingService.calculatePreviewInvoice(req);
-
-        assertNotNull(res);
-        assertEquals(new BigDecimal("2580000.00"), res.getServiceSubtotal());
+        assertEquals(new BigDecimal("969150.00"), res.getFinancialSummary().getDepositRequiredAmount());
+        assertEquals(new BigDecimal("2261350.00"), res.getFinancialSummary().getRemainingPayableAmount());
     }
 
     @Test
@@ -283,9 +227,6 @@ class DynamicPricingServiceImplTest {
         mockMua.setBaseAddressLat(new BigDecimal("10.776530"));
         mockMua.setBaseAddressLng(new BigDecimal("106.700980"));
 
-        when(redisTemplate.opsForGeo()).thenReturn(geoOperations);
-        when(geoOperations.position("geo:muas:active", "89")).thenReturn(null);
-        when(telemetryLogRepository.findByMuaIdOrderByRecordedAtDesc(89L)).thenReturn(Collections.emptyList());
 
         PreviewInvoiceReq req = PreviewInvoiceReq.builder()
                 .packageId(45L)
@@ -348,22 +289,19 @@ class DynamicPricingServiceImplTest {
     }
 
     @Test
-    @DisplayName("Tier 4: Should throw ERR_PROVIDER_LOCATION_MISSING when all location tiers are empty")
+    @DisplayName("Missing receiving point is rejected even when device GPS exists")
     void testCalculatePreviewInvoice_Tier4_HardReject() {
         when(servicePackageRepository.findById(45L)).thenReturn(Optional.of(mockPackage));
         when(packageItemRepository.findAllById(List.of(112L))).thenReturn(List.of(mockItem1));
         when(muaProfileRepository.findById(89L)).thenReturn(Optional.of(mockMua));
 
         // Tier 1 empty
-        when(redisTemplate.opsForGeo()).thenReturn(geoOperations);
-        when(geoOperations.position("geo:muas:active", "89")).thenReturn(null);
 
         // Tier 2 empty
-        mockMua.setLastKnownLat(null);
-        mockMua.setLastKnownLng(null);
-        when(telemetryLogRepository.findByMuaIdOrderByRecordedAtDesc(89L)).thenReturn(Collections.emptyList());
+        mockMua.setLastKnownLat(new BigDecimal("21.028500"));
+        mockMua.setLastKnownLng(new BigDecimal("105.854200"));
 
-        // Tier 3 empty
+        // Missing receiving point must not fall back to GPS
         mockMua.setBaseAddressLat(null);
         mockMua.setBaseAddressLng(null);
 
@@ -415,9 +353,6 @@ class DynamicPricingServiceImplTest {
     void testCalculatePreviewInvoice_WhenProviderDisabledSurge() {
         stubStandardPricingFlow();
         mockMua.setIsSurgeEnabled(false);
-        when(redisTemplate.opsForGeo()).thenReturn(geoOperations);
-        when(geoOperations.position("geo:muas:active", "89"))
-                .thenReturn(List.of(new Point(106.629664, 10.823099)));
 
         PreviewInvoiceReq req = PreviewInvoiceReq.builder()
                 .packageId(45L)

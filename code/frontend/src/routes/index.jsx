@@ -23,6 +23,7 @@ import { AdminAgenciesPage } from '../pages/SuperAdmin/AdminAgenciesPage';
 import { MuaVerificationPage } from '../pages/SuperAdmin/MuaVerificationPage';
 import { TaxonomyManagementPage } from '../pages/SuperAdmin/TaxonomyManagementPage';
 import { SurgePricingManagementPage } from '../pages/SuperAdmin/SurgePricingManagementPage';
+import { AdminDisputesPage } from '../pages/SuperAdmin/AdminDisputesPage';
 
 // Agency Admin Pages
 import { AgencyDashboardPage } from '../pages/Agency/AgencyDashboardPage';
@@ -63,6 +64,7 @@ export const AppRoutes = () => {
           <Route path="muas/credentials" element={<MuaVerificationPage />} />
           <Route path="taxonomy" element={<TaxonomyManagementPage />} />
           <Route path="pricing" element={<SurgePricingManagementPage />} />
+          <Route path="disputes" element={<AdminDisputesPage />} />
         </Route>
 
         {/* Agency Admin Protected Routes */}

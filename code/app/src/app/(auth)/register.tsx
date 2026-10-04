@@ -143,7 +143,7 @@ export default function RegisterScreen() {
         <View style={styles.headerBar}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(auth)/login'))}
             activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={22} color={BrandColors.slateHeading} />
           </TouchableOpacity>

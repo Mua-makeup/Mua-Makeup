@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandLogo } from '@/components/auth/BrandLogo';
-import { QuickTestAccounts } from '@/components/auth/QuickTestAccounts';
 import { BaseButton } from '@/components/base/BaseButton';
 import { BaseInput } from '@/components/base/BaseInput';
 import { BrandColors } from '@/constants/theme';
@@ -46,12 +45,6 @@ export default function LoginScreen() {
       const parsed = parseApiError(err);
       setErrorMessage(parsed.message);
     }
-  };
-
-  const handleSelectQuickAccount = (phone: string, roleName: string) => {
-    setIdentifier(phone);
-    setPassword('Password@123');
-    setErrorMessage('');
   };
 
   return (
@@ -120,20 +113,17 @@ export default function LoginScreen() {
             <View style={styles.switchRow}>
               <Text style={styles.switchText}>Chưa có tài khoản? </Text>
               <TouchableOpacity
-                onPress={() => router.push('/(auth)/register')}
+                onPress={() => router.replace('/(auth)/register')}
                 activeOpacity={0.7}>
                 <Text style={styles.registerLink}>Đăng ký ngay</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Quick Test Accounts */}
-            <QuickTestAccounts onSelectAccount={handleSelectQuickAccount} />
           </View>
 
           {/* Back to Home Link */}
           <TouchableOpacity
             style={styles.backHomeLink}
-            onPress={() => router.replace('/')}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
             activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={16} color={BrandColors.slateMuted} />
             <Text style={styles.backHomeText}>Quay lại Trang Chủ</Text>

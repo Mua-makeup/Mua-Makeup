@@ -14,9 +14,12 @@ import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.common.utils.GeoDistanceUtils;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.customer.InstantDispatchLeaseService;
 import com.makeup.platform.service.booking.DistributedLockService;
+import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -27,6 +30,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -38,6 +45,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
     private final TransactionTemplate transactionTemplate;
     private final BookingRepository bookingRepository;
     private final MuaProfileRepository muaProfileRepository;
+    private final ServicePackageRepository servicePackageRepository;
     private final BookingAuditService bookingAuditService;
     private final BookingMapper bookingMapper;
     private final ApplicationEventPublisher eventPublisher;
@@ -118,8 +126,56 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                             "booking.mua_already_busy", HttpStatus.CONFLICT);
                 }
 
+                // Gán gói dịch vụ và giá niêm yết thật của thợ này
+                String meta = stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(bookingId));
+                Integer categoryId = null;
+                Integer styleId = null;
+                if (meta != null && meta.contains(":")) {
+                    String[] parts = meta.split(":");
+                    if (parts.length > 0 && !parts[0].isEmpty()) {
+                        try { categoryId = Integer.valueOf(parts[0]); } catch (NumberFormatException ignored) {}
+                    }
+                    if (parts.length > 1 && !parts[1].isEmpty()) {
+                        try { styleId = Integer.valueOf(parts[1]); } catch (NumberFormatException ignored) {}
+                    }
+                }
+
+                if (categoryId != null) {
+                    List<ServicePackageEntity> candidatePackages = servicePackageRepository.findCandidatePackagesForMua(
+                            muaProfile.getId(), categoryId, styleId);
+                    if (!candidatePackages.isEmpty()) {
+                        ServicePackageEntity pkg = candidatePackages.get(0);
+                        booking.setServicePackage(pkg);
+                        booking.setServiceSubtotal(pkg.getPrice());
+                        BigDecimal emergencyFee = new BigDecimal("150000.00");
+                        booking.setSurchargeFee(emergencyFee);
+
+                        double distanceKm = 1.5;
+                        if (muaProfile.getBaseAddressLat() != null && muaProfile.getBaseAddressLng() != null
+                                && booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
+                            distanceKm = GeoDistanceUtils.calculateDistanceKm(
+                                    muaProfile.getBaseAddressLat().doubleValue(),
+                                    muaProfile.getBaseAddressLng().doubleValue(),
+                                    booking.getDestinationLatitude().doubleValue(),
+                                    booking.getDestinationLongitude().doubleValue());
+                        }
+                        BigDecimal distanceFee = BigDecimal.ZERO;
+                        if (distanceKm > 2.0) {
+                            distanceFee = BigDecimal.valueOf((distanceKm - 2.0) * 10000).setScale(0, RoundingMode.HALF_UP);
+                        }
+                        booking.setDistanceFee(distanceFee);
+
+                        BigDecimal total = pkg.getPrice().add(emergencyFee).add(distanceFee);
+                        booking.setTotalAmount(total);
+                        BigDecimal rawDeposit = total.multiply(new BigDecimal("0.30"));
+                        BigDecimal deposit = rawDeposit.setScale(2, RoundingMode.HALF_UP);
+                        booking.setDepositAmount(deposit);
+                    }
+                }
+
                 booking.setStatus(BookingStatus.ACCEPTED);
                 booking.setMua(muaProfile);
+                booking.setDepositExpiredAt(OffsetDateTime.now().plusMinutes(10));
                 BookingEntity savedBooking = bookingRepository.save(booking);
 
                 // Mark MUA as busy so no other instant bookings are dispatched
@@ -141,6 +197,8 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                 stringRedisTemplate.delete(InstantBookingKeys.skipped(bookingId));
                 stringRedisTemplate.delete(InstantBookingKeys.sentAt(bookingId));
                 stringRedisTemplate.delete(InstantBookingKeys.timer(bookingId, muaProfile.getId()));
+                stringRedisTemplate.delete(InstantBookingKeys.meta(bookingId));
+                stringRedisTemplate.delete(InstantBookingKeys.meta(bookingId) + ":total");
                 dispatchLeaseService.release(bookingId, String.valueOf(muaProfile.getId()));
 
                 log.info("[Redlock] Booking id={} successfully accepted by muaId={}", bookingId, muaProfile.getId());

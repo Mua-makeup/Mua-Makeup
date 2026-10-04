@@ -54,8 +54,17 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional(readOnly = true)
     public Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Pageable pageable) {
+        return getNotificationsForUser(userId, agencyId, null, null, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Boolean isRead, String type, Pageable pageable) {
         Page<NotificationEntity> page;
-        if (agencyId != null) {
+        if (isRead != null || StringUtils.hasText(type)) {
+            String filterType = StringUtils.hasText(type) ? type.trim() : null;
+            page = notificationRepository.findFilteredNotifications(userId, agencyId, isRead, filterType, pageable);
+        } else if (agencyId != null) {
             page = notificationRepository.findByAgencyIdOrderByCreatedAtDesc(agencyId, pageable);
         } else {
             page = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
@@ -75,11 +84,25 @@ public class NotificationServiceImpl implements NotificationService {
         return 0;
     }
 
+    private void validateNotificationOwnership(NotificationEntity notification, Long currentUserId) {
+        if (currentUserId == null) {
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED, "Chưa xác thực người dùng");
+        }
+        boolean isUserOwner = notification.getUser() != null && currentUserId.equals(notification.getUser().getId());
+        boolean isAgencyOwner = notification.getAgency() != null && notification.getAgency().getOwner() != null
+                && currentUserId.equals(notification.getAgency().getOwner().getId());
+        if (!isUserOwner && !isAgencyOwner) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "Bạn không có quyền thao tác trên thông báo này");
+        }
+    }
+
     @Override
     @Transactional
     public NotificationRes markAsRead(Long id, Long currentUserId) {
         NotificationEntity notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_NOTIFICATION_NOT_FOUND, "Thông báo không tồn tại"));
+
+        validateNotificationOwnership(notification, currentUserId);
 
         notification.setIsRead(true);
         notification = notificationRepository.save(notification);
@@ -91,6 +114,8 @@ public class NotificationServiceImpl implements NotificationService {
     public NotificationRes toggleRead(Long id, Long currentUserId) {
         NotificationEntity notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_NOTIFICATION_NOT_FOUND, "Thông báo không tồn tại"));
+
+        validateNotificationOwnership(notification, currentUserId);
 
         notification.setIsRead(!Boolean.TRUE.equals(notification.getIsRead()));
         notification = notificationRepository.save(notification);
@@ -112,6 +137,8 @@ public class NotificationServiceImpl implements NotificationService {
     public void deleteNotification(Long id, Long currentUserId) {
         NotificationEntity notification = notificationRepository.findById(id)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_NOTIFICATION_NOT_FOUND, "Thông báo không tồn tại"));
+
+        validateNotificationOwnership(notification, currentUserId);
         notificationRepository.delete(notification);
     }
 

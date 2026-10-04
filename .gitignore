@@ -87,3 +87,5 @@ Desktop.ini
 .ai/mcp
 /postman
 !docs/postman/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

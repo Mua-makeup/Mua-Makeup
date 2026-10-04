@@ -13,6 +13,8 @@ public interface NotificationService {
 
     Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Pageable pageable);
 
+    Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Boolean isRead, String type, Pageable pageable);
+
     long getUnreadCount(Long userId, Long agencyId);
 
     NotificationRes markAsRead(Long id, Long currentUserId);

@@ -31,9 +31,10 @@ public interface RedisGeoService {
     GeoResults<RedisGeoCommands.GeoLocation<String>> searchNearbyActiveMuas(double lat, double lng, double radiusKm);
 
     void updateTripLivePosition(Long bookingId, Long muaId, double lat, double lng,
-                               Double speed, Double heading, Double accuracy,
-                               Integer etaMinutes, Double distanceRemainingMeters,
-                               AdaptiveStreamMode mode);
+                                Double speed, Double heading, Double accuracy,
+                                Integer etaMinutes, Double distanceRemainingMeters,
+                                AdaptiveStreamMode mode,
+                                Double destinationLat, Double destinationLng);
 
     Map<Object, Object> getTripLivePosition(Long bookingId);
 

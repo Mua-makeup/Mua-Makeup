@@ -8,6 +8,7 @@ import com.makeup.platform.common.exception.ResourceNotFoundException;
 import com.makeup.platform.common.utils.FileValidationUtils;
 import com.makeup.platform.dto.request.admin.VerifyCertificateReq;
 import com.makeup.platform.dto.request.mua.UpdateMuaProfileReq;
+import com.makeup.platform.dto.request.mua.UpdateMuaRadiusReq;
 import com.makeup.platform.dto.request.mua.UploadCertificateReq;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.dto.response.mua.CertificateRes;
@@ -34,12 +35,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.makeup.platform.dto.response.maps.GeocodeRes;
+import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.catalog.ServicePackageRepository;
+import com.makeup.platform.service.interaction.NotificationService;
+import com.makeup.platform.service.pricing.MapsClientService;
+import com.makeup.platform.service.telemetry.RedisGeoService;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-
-import com.makeup.platform.service.interaction.NotificationService;
+import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -48,9 +59,83 @@ public class MuaProfileServiceImpl implements MuaProfileService {
 
     private final MuaProfileRepository muaProfileRepository;
     private final MuaStyleRepository muaStyleRepository;
+    private final ServicePackageRepository servicePackageRepository;
     private final MediaStorageService mediaStorageService;
     private final MuaProfileMapper muaProfileMapper;
     private final NotificationService notificationService;
+    private final AgencyStaffRepository agencyStaffRepository;
+    private final MapsClientService mapsClientService;
+    private final RedisGeoService redisGeoService;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MuaProfileRes> getPublicMuas(Integer categoryId, Integer limit) {
+        int max = (limit != null && limit > 0 && limit <= 50) ? limit : 10;
+        List<MuaProfileEntity> muas = muaProfileRepository.findAll();
+        if (muas.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+       
+        Set<Long> activeStaffMuaIds = new HashSet<>(agencyStaffRepository.findAllActiveStaffMuaIds());
+        List<MuaProfileEntity> freelanceMuas = muas.stream()
+                .filter(m -> {
+                    if (m.getUser() != null && m.getUser().getRole() != null) {
+                        String role = m.getUser().getRole().getName();
+                        if ("ROLE_AGENCY_STAFF".equalsIgnoreCase(role) || "ROLE_AGENCY_ADMIN".equalsIgnoreCase(role)) {
+                            return false;
+                        }
+                    }
+                    if (activeStaffMuaIds.contains(m.getId())) {
+                        return false;
+                    }
+                    return true;
+                })
+                .toList();
+
+        if (freelanceMuas.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> allMuaIds = freelanceMuas.stream().map(MuaProfileEntity::getId).toList();
+
+        Set<Long> eligibleMuaIds = null;
+        if (categoryId != null) {
+            try {
+                List<Long> matched = servicePackageRepository.findMuaIdsByCandidateIdsAndCategoryAndStyle(
+                        allMuaIds, categoryId, null);
+                eligibleMuaIds = new HashSet<>(matched);
+            } catch (Exception ex) {
+                log.warn("Failed to filter muas by categoryId {}: {}", categoryId, ex.getMessage());
+            }
+        }
+
+        Map<Long, BigDecimal> priceMap = new HashMap<>();
+        try {
+            for (var sp : servicePackageRepository.findStartingPrices(allMuaIds)) {
+                if (sp.getMuaId() != null && sp.getStartingPrice() != null) {
+                    priceMap.put(sp.getMuaId(), sp.getStartingPrice());
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to fetch starting prices: {}", ex.getMessage());
+        }
+
+        List<MuaProfileRes> result = new ArrayList<>();
+        for (MuaProfileEntity mua : freelanceMuas) {
+            if (eligibleMuaIds != null && !eligibleMuaIds.contains(mua.getId())) {
+                continue;
+            }
+            if (result.size() >= max) {
+                break;
+            }
+            List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(mua.getId());
+            BigDecimal startingPrice = priceMap.getOrDefault(mua.getId(), BigDecimal.valueOf(350000));
+            result.add(muaProfileMapper.toProfileRes(mua, styles, startingPrice));
+        }
+
+        return result;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -82,11 +167,57 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         mua.setExperienceYears(req.getExperienceYears());
         mua.setMaxServiceRadiusKm(req.getMaxServiceRadiusKm());
 
-        if (req.getBaseAddressText() != null) {
-            mua.setBaseAddressText(req.getBaseAddressText().trim());
+        if (req.getBaseAddressLat() != null && req.getBaseAddressLng() != null) {
+            mua.setBaseAddressLat(req.getBaseAddressLat());
+            mua.setBaseAddressLng(req.getBaseAddressLng());
         }
 
+        if (req.getBaseAddressText() != null) {
+            String cleanText = req.getBaseAddressText().trim();
+            mua.setBaseAddressText(cleanText);
+            if (req.getBaseAddressLat() == null || req.getBaseAddressLng() == null) {
+                mua.setBaseAddressLat(null);
+                mua.setBaseAddressLng(null);
+            }
+
+            // Tự động chuyển đổi địa chỉ thành tọa độ GPS qua Goong Maps nếu Client chưa gửi tọa độ
+            if ((req.getBaseAddressLat() == null || req.getBaseAddressLng() == null) && StringUtils.hasText(cleanText)) {
+                try {
+                    GeocodeRes geocodeRes = mapsClientService.geocode(cleanText);
+                    if (geocodeRes != null && geocodeRes.getLatitude() != null && geocodeRes.getLongitude() != null) {
+                        mua.setBaseAddressLat(geocodeRes.getLatitude());
+                        mua.setBaseAddressLng(geocodeRes.getLongitude());
+                        log.info("Auto-geocoded MUA base address for muaId={}: lat={}, lng={}",
+                                mua.getId(), geocodeRes.getLatitude(), geocodeRes.getLongitude());
+                    }
+                } catch (Exception ex) {
+                    log.warn("Auto-geocode failed for address '{}': {}", cleanText, ex.getMessage());
+                }
+            }
+        }
+
+        if (mua.getBaseAddressLat() == null || mua.getBaseAddressLng() == null
+                || mua.getBaseAddressLat().abs().compareTo(BigDecimal.valueOf(90)) > 0
+                || mua.getBaseAddressLng().abs().compareTo(BigDecimal.valueOf(180)) > 0) {
+            throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
+        }
         MuaProfileEntity saved = muaProfileRepository.save(mua);
+        if (Boolean.TRUE.equals(saved.getIsOnline())) {
+            redisGeoService.addActiveMua(saved.getId(), saved.getBaseAddressLat().doubleValue(), saved.getBaseAddressLng().doubleValue());
+        }
+        redisGeoService.removeMuaSummary(saved.getId());
+        List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(saved.getId());
+        return muaProfileMapper.toProfileRes(saved, styles);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = "mua_portfolios", allEntries = true)
+    public MuaProfileRes updateServiceRadius(Long userId, UpdateMuaRadiusReq req) {
+        MuaProfileEntity mua = getMuaProfileByUserId(userId);
+        mua.setMaxServiceRadiusKm(req.getMaxServiceRadiusKm());
+        MuaProfileEntity saved = muaProfileRepository.save(mua);
+        redisGeoService.removeMuaSummary(saved.getId());
         List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(saved.getId());
         return muaProfileMapper.toProfileRes(saved, styles);
     }

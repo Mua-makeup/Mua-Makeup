@@ -51,16 +51,20 @@ export const PackageSelectorList: React.FC<Props> = ({
               onPress={() => onSelectPackage(pkg)}
               activeOpacity={0.8}
             >
-              {isSelected && (
-                <View style={styles.selectedBadge}>
-                  <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
-                  <Text style={styles.selectedBadgeText}>Đang chọn</Text>
-                </View>
-              )}
-
-              <Text style={[styles.packageName, isSelected && styles.packageNameSelected]}>
-                {pkg.packageName}
-              </Text>
+              <View style={styles.cardHeader}>
+                <Text
+                  style={[styles.packageName, isSelected && styles.packageNameSelected]}
+                  numberOfLines={2}
+                >
+                  {pkg.packageName}
+                </Text>
+                {isSelected && (
+                  <View style={styles.selectedBadge}>
+                    <Ionicons name="checkmark-circle" size={12} color="#FFFFFF" />
+                    <Text style={styles.selectedBadgeText}>Đang chọn</Text>
+                  </View>
+                )}
+              </View>
 
               <View style={styles.metaRow}>
                 <Ionicons
@@ -124,13 +128,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    width: 220,
+    width: 230,
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    position: 'relative',
   },
   cardSelected: {
     backgroundColor: '#FFF1F2',
@@ -141,33 +144,39 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 6,
+    minHeight: 40,
+  },
+  packageName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 19,
+  },
+  packageNameSelected: {
+    color: '#9F1239',
+  },
   selectedBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
     backgroundColor: BrandColors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 10,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
   },
   selectedBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
-  },
-  packageName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-    lineHeight: 19,
-    marginBottom: 6,
-    paddingRight: 50,
-  },
-  packageNameSelected: {
-    color: '#9F1239',
   },
   metaRow: {
     flexDirection: 'row',

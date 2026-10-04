@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -51,5 +52,36 @@ public class AvailableTimeSlotRes {
 
         @JsonProperty("unavailable_reason")
         private String unavailableReason;
+
+        @JsonProperty("is_recommended")
+        private Boolean isRecommended;
+
+        @JsonProperty("badge_label")
+        private String badgeLabel;
+
+        @JsonProperty("surge_info")
+        private SurgeSlotInfoRes surgeInfo;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SurgeSlotInfoRes {
+
+        @JsonProperty("has_surge")
+        private Boolean hasSurge;
+
+        @JsonProperty("rule_name")
+        private String ruleName;
+
+        @JsonProperty("multiplier")
+        private BigDecimal multiplier;
+
+        @JsonProperty("surcharge_type")
+        private String surchargeType;
+
+        @JsonProperty("surcharge_amount")
+        private BigDecimal surchargeAmount;
     }
 }

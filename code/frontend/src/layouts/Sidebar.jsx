@@ -13,6 +13,7 @@ import {
   UserCheck,
   TrendingUp,
   MapPin,
+  AlertTriangle,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -33,6 +34,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/admin/bookings',
       label: t('nav_admin_bookings'),
       icon: CalendarCheck,
+    },
+    {
+      to: '/admin/disputes',
+      label: t('nav_admin_disputes'),
+      icon: AlertTriangle,
     },
     {
       to: '/admin/users',

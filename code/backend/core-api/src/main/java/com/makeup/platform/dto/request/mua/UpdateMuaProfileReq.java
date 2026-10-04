@@ -28,6 +28,10 @@ public class UpdateMuaProfileReq {
 
     private String baseAddressText;
 
+    private BigDecimal baseAddressLat;
+
+    private BigDecimal baseAddressLng;
+
     @NotNull(message = "{validation.radius_required}")
     @DecimalMin(value = "1.0", message = "{validation.radius_min}")
     @DecimalMax(value = "50.0", message = "{validation.radius_max}")

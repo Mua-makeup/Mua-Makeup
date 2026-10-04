@@ -36,7 +36,7 @@ public class ConfigureSurgeRuleReq {
     private String applicableDaysOfWeek; // e.g. "SATURDAY,SUNDAY"
 
     @NotNull(message = "{validation.pricing_surge_multiplier_required}")
-    @DecimalMin(value = "1.00", message = "{validation.pricing_surge_multiplier_min}")
+    @DecimalMin(value = "0.70", message = "{validation.pricing_surge_multiplier_min}")
     @DecimalMax(value = "1.50", message = "{validation.pricing_surge_multiplier_max}")
     private BigDecimal surgeMultiplier;
 

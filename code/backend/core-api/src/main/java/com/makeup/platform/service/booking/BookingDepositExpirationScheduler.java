@@ -35,4 +35,13 @@ public class BookingDepositExpirationScheduler {
             }
         }
     }
+
+    @Scheduled(cron = "0 */1 * * * *")
+    public void scanAndExpireUnconfirmedBookings() {
+        try {
+            scheduledBookingService.expireUnconfirmedScheduledBookings();
+        } catch (Exception e) {
+            log.error("[ConfirmationExpiration] Error during unconfirmed booking expiration scan", e);
+        }
+    }
 }

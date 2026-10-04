@@ -23,12 +23,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/agencies")
 @RequiredArgsConstructor
 public class AgencyProfileController extends BaseController {
 
     private final AgencyProfileService agencyProfileService;
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<AgencyProfileRes>>> getPublicAgencies(
+            @RequestParam(required = false, defaultValue = "20") Integer limit) {
+        List<AgencyProfileRes> res = agencyProfileService.getPublicAgencies(limit);
+        return ok(res, "agency.profile_get_success");
+    }
 
     @GetMapping("/profile")
     @PreAuthorize("hasRole('AGENCY_ADMIN')")
