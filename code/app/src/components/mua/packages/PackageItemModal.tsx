@@ -1,6 +1,6 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -92,16 +92,7 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardContainer}>
-        <Pressable style={styles.overlay} onPress={onClose}>
-          <Pressable style={styles.bottomSheet} onPress={(e) => e.stopPropagation()}>
+    <DismissibleModal visible={visible} onClose={onClose} dismissDisabled={saving} overlayStyle={styles.overlay} contentStyle={styles.bottomSheet}>
             <View style={styles.header}>
               <Text style={styles.title}>
                 {initialItem ? 'Chỉnh Sửa Bước Dịch Vụ' : 'Thêm Bước / Tùy Chọn Mới'}
@@ -243,10 +234,7 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
                 )}
               </TouchableOpacity>
             </ScrollView>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+          </DismissibleModal>
   );
 };
 

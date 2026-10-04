@@ -1,6 +1,6 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
@@ -48,13 +48,7 @@ export const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.bottomSheet} onPress={(e) => e.stopPropagation()}>
+    <DismissibleModal visible={visible} onClose={onClose} overlayStyle={styles.overlay} contentStyle={styles.bottomSheet}>
           <View style={styles.header}>
             <Text style={styles.title}>Chọn Danh Mục Gốc</Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -115,9 +109,7 @@ export const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
               }}
             />
           )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+        </DismissibleModal>
   );
 };
 

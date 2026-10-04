@@ -75,7 +75,7 @@ export const WorkstationRadiusCard: React.FC = () => {
           <View>
             <Text style={styles.titleText}>Bán Kính Nhận Ca</Text>
             <Text style={styles.subtitleText}>
-              Phạm vi phát sóng GPS nhận ca cấp tốc & hẹn lịch
+              Bán kính tính từ địa điểm nhận ca đã lưu
             </Text>
           </View>
         </View>

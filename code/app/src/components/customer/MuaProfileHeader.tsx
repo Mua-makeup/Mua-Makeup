@@ -87,7 +87,7 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
         </View>
 
         {/* TIỂU SỬ BIO */}
-        {profile.bio && (
+        {!!profile.bio?.trim() && (
           <Text style={styles.bioText} numberOfLines={3}>
             {profile.bio}
           </Text>

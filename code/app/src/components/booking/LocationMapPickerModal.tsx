@@ -1,6 +1,6 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect } from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -122,7 +122,7 @@ export const LocationMapPickerModal: React.FC<Props> = ({
   const step = 0.00045;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <DismissibleModal visible={visible} onClose={onClose} contentStyle={{ backgroundColor: '#FFFFFF' }} fullHeight>
       <SafeAreaView style={styles.container}>
         {/* HEADER */}
         <View style={styles.header}>
@@ -254,7 +254,7 @@ export const LocationMapPickerModal: React.FC<Props> = ({
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    </Modal>
+    </DismissibleModal>
   );
 };
 

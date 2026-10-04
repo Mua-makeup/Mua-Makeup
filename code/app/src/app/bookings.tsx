@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   RefreshControl,
   TouchableOpacity,
   TextInput,
-  Modal,
   ScrollView,
   Pressable,
   Animated,
@@ -133,7 +133,6 @@ const HISTORY_STATUS_FILTERS: StatusFilterConfig[] = [
   { id: 'DISPUTED', label: 'Khiếu nại' },
 ];
 
-type DropdownModalType = 'NONE' | 'STATUS' | 'TIMEFRAME' | 'SORT';
 
 export default function BookingsScreen() {
   const { userInfo, isAuthenticated } = useAuthStore();
@@ -162,12 +161,13 @@ export default function BookingsScreen() {
   const [selectedBookingToCancel, setSelectedBookingToCancel] = useState<CustomerBookingItem | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // Bộ lọc tìm kiếm, khung thời gian & sắp xếp (Dạng Dropdown)
+  // Tìm kiếm và bảng bộ lọc, sắp xếp dùng chung.
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeFilter>('ALL');
   const [sortOption, setSortOption] = useState<SortOption>('CREATED_DESC');
-  const [activeDropdownModal, setActiveDropdownModal] = useState<DropdownModalType>('NONE');
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [expandedFilter, setExpandedFilter] = useState<'status' | 'timeframe' | 'sort' | null>(null);
 
   // Animation xoay icon Reload
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -431,15 +431,30 @@ export default function BookingsScreen() {
   };
 
   const currentStatusFilters = activeTab === 'UPCOMING' ? UPCOMING_STATUS_FILTERS : HISTORY_STATUS_FILTERS;
-  const currentStatusLabel = currentStatusFilters.find((f) => f.id === selectedStatus)?.label || 'Trạng thái';
-  const currentTimeframeLabel = TIMEFRAME_FILTERS.find((t) => t.id === selectedTimeframe)?.badge || 'Thời gian';
-  const currentSortConfig = SORT_OPTIONS.find((s) => s.id === sortOption) || SORT_OPTIONS[0];
 
-  const isFilterActive =
-    selectedTimeframe !== 'ALL' ||
-    selectedStatus !== 'ALL' ||
-    searchKeyword.trim().length > 0 ||
-    sortOption !== 'CREATED_DESC';
+  const activeFilterCount = Number(selectedStatus !== 'ALL') + Number(selectedTimeframe !== 'ALL') + Number(sortOption !== 'CREATED_DESC');
+
+  const renderFilterHeader = (
+    section: 'status' | 'timeframe' | 'sort',
+    title: string,
+    value: string,
+  ) => (
+    <TouchableOpacity
+      style={styles.filterGroupHeader}
+      onPress={() => setExpandedFilter((current) => current === section ? null : section)}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}: ${value}`}
+      accessibilityState={{ expanded: expandedFilter === section }}
+      activeOpacity={0.75}
+    >
+      <View style={styles.filterGroupContent}>
+        <Text style={styles.filterGroupTitle}>{title}</Text>
+        <Text style={styles.filterGroupValue} numberOfLines={1}>{value}</Text>
+      </View>
+      <Ionicons name={expandedFilter === section ? 'chevron-up' : 'chevron-down'} size={18} color="#64748B" />
+    </TouchableOpacity>
+  );
+
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -478,7 +493,7 @@ export default function BookingsScreen() {
         />
       </View>
 
-      {/* THANH TÌM KIẾM & HÀNG DROPDOWNS GỌN GÀNG */}
+      {/* THANH TÌM KIẾM & NÚT MỞ BỘ LỌC */}
       <View style={styles.filterSection}>
         {/* INPUT TÌM KIẾM */}
         <View style={styles.searchBox}>
@@ -503,114 +518,23 @@ export default function BookingsScreen() {
           )}
         </View>
 
-        {/* HÀNG CÁC NÚT DROPDOWN LỌC & SẮP XẾP */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.dropdownRow}
+        {/* NÚT PHỄU CHỨA TẤT CẢ LỰA CHỌN LỌC & SẮP XẾP */}
+        <TouchableOpacity
+          style={[styles.filterIconButton, activeFilterCount > 0 && styles.dropdownButtonActive]}
+          onPress={() => {
+            setExpandedFilter(null);
+            setIsFilterModalVisible(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Bộ lọc và sắp xếp, ${activeFilterCount} lựa chọn đang áp dụng`}
+          accessibilityState={{ expanded: isFilterModalVisible }}
+          activeOpacity={0.75}
         >
-          {/* DROPDOWN 1: TRẠNG THÁI */}
-          <TouchableOpacity
-            style={[
-              styles.dropdownButton,
-              selectedStatus !== 'ALL' && styles.dropdownButtonActive,
-            ]}
-            onPress={() => setActiveDropdownModal('STATUS')}
-            activeOpacity={0.75}
-          >
-            <Ionicons
-              name="flag-outline"
-              size={13}
-              color={selectedStatus !== 'ALL' ? BrandColors.primary : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.dropdownButtonText,
-                selectedStatus !== 'ALL' && styles.dropdownButtonTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {selectedStatus === 'ALL' ? 'Trạng thái' : currentStatusLabel}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={12}
-              color={selectedStatus !== 'ALL' ? BrandColors.primary : '#94A3B8'}
-            />
-          </TouchableOpacity>
-
-          {/* DROPDOWN 2: KHUNG THỜI GIAN HẸN */}
-          <TouchableOpacity
-            style={[
-              styles.dropdownButton,
-              selectedTimeframe !== 'ALL' && styles.dropdownButtonActive,
-            ]}
-            onPress={() => setActiveDropdownModal('TIMEFRAME')}
-            activeOpacity={0.75}
-          >
-            <Ionicons
-              name="calendar-outline"
-              size={13}
-              color={selectedTimeframe !== 'ALL' ? BrandColors.primary : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.dropdownButtonText,
-                selectedTimeframe !== 'ALL' && styles.dropdownButtonTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {selectedTimeframe === 'ALL' ? 'Thời gian' : currentTimeframeLabel}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={12}
-              color={selectedTimeframe !== 'ALL' ? BrandColors.primary : '#94A3B8'}
-            />
-          </TouchableOpacity>
-
-          {/* DROPDOWN 3: SẮP XẾP */}
-          <TouchableOpacity
-            style={[
-              styles.dropdownButton,
-              sortOption !== 'CREATED_DESC' && styles.dropdownButtonActive,
-            ]}
-            onPress={() => setActiveDropdownModal('SORT')}
-            activeOpacity={0.75}
-          >
-            <Ionicons
-              name="swap-vertical-outline"
-              size={13}
-              color={sortOption !== 'CREATED_DESC' ? BrandColors.primary : '#64748B'}
-            />
-            <Text
-              style={[
-                styles.dropdownButtonText,
-                sortOption !== 'CREATED_DESC' && styles.dropdownButtonTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {currentSortConfig.badge}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={12}
-              color={sortOption !== 'CREATED_DESC' ? BrandColors.primary : '#94A3B8'}
-            />
-          </TouchableOpacity>
-
-          {/* NÚT RESET NẾU CÓ BỘ LỌC ĐANG ÁP DỤNG */}
-          {isFilterActive && (
-            <TouchableOpacity
-              style={styles.resetFilterButton}
-              onPress={handleResetFilters}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="close-circle" size={13} color="#EF4444" />
-              <Text style={styles.resetFilterButtonText}>Xóa lọc</Text>
-            </TouchableOpacity>
+          <Ionicons name="funnel-outline" size={21} color={activeFilterCount > 0 ? BrandColors.primary : '#475569'} />
+          {activeFilterCount > 0 && (
+            <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{activeFilterCount}</Text></View>
           )}
-        </ScrollView>
+        </TouchableOpacity>
       </View>
 
       {/* DANH SÁCH ĐƠN HÀNG */}
@@ -706,61 +630,32 @@ export default function BookingsScreen() {
         />
       )}
 
-      {/* BOTTOM SHEET MODAL DÙNG CHUNG CHO CÁC DROPDOWN */}
-      <Modal
-        visible={activeDropdownModal !== 'NONE'}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActiveDropdownModal('NONE')}
-      >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => setActiveDropdownModal('NONE')}
-        >
-          <Pressable style={styles.dropdownModalSheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.sheetHandle} />
+      {/* BẢNG BỘ LỌC & SẮP XẾP */}
+      <DismissibleModal visible={isFilterModalVisible} onClose={() => setIsFilterModalVisible(false)} overlayStyle={styles.modalBackdrop} contentStyle={styles.dropdownModalSheet}>
+
 
             <View style={styles.dropdownModalHeader}>
               <View style={styles.dropdownModalHeaderTitleRow}>
-                <Ionicons
-                  name={
-                    activeDropdownModal === 'STATUS'
-                      ? 'flag-outline'
-                      : activeDropdownModal === 'TIMEFRAME'
-                      ? 'calendar-outline'
-                      : 'swap-vertical'
-                  }
-                  size={20}
-                  color={BrandColors.primary}
-                />
-                <Text style={styles.dropdownModalTitle}>
-                  {activeDropdownModal === 'STATUS'
-                    ? 'Chọn Trạng Thái Đơn Hàng'
-                    : activeDropdownModal === 'TIMEFRAME'
-                    ? 'Chọn Khung Thời Gian Hẹn'
-                    : 'Sắp Xếp Danh Sách Đơn'}
-                </Text>
+                <Ionicons name="funnel-outline" size={20} color={BrandColors.primary} />
+                <Text style={styles.dropdownModalTitle}>Bộ lọc & Sắp xếp</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setActiveDropdownModal('NONE')}
+                onPress={() => setIsFilterModalVisible(false)}
                 style={styles.dropdownModalCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Đóng bộ lọc"
               >
                 <Ionicons name="close" size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.dropdownModalDesc}>
-              {activeDropdownModal === 'STATUS'
-                ? 'Lọc danh sách theo trạng thái cụ thể của lịch hẹn:'
-                : activeDropdownModal === 'TIMEFRAME'
-                ? 'Lọc các đơn đặt lịch theo ngày diễn ra ca làm đẹp:'
-                : 'Chọn tiêu chí hiển thị danh sách đơn đặt lịch theo mong muốn của bạn:'}
-            </Text>
+
 
             {/* DANH SÁCH TÙY CHỌN */}
             <ScrollView style={styles.modalScrollList} showsVerticalScrollIndicator={false}>
               {/* 1. OPTIONS TRẠNG THÁI */}
-              {activeDropdownModal === 'STATUS' &&
+              {renderFilterHeader('status', 'Trạng thái', currentStatusFilters.find((item) => item.id === selectedStatus)?.label ?? 'Tất cả trạng thái')}
+              {expandedFilter === 'status' &&
                 currentStatusFilters.map((item) => {
                   const isSelected = selectedStatus === item.id;
                   return (
@@ -772,7 +667,7 @@ export default function BookingsScreen() {
                       ]}
                       onPress={() => {
                         setSelectedStatus(item.id);
-                        setActiveDropdownModal('NONE');
+                        setExpandedFilter(null);
                       }}
                       activeOpacity={0.7}
                     >
@@ -805,7 +700,8 @@ export default function BookingsScreen() {
                 })}
 
               {/* 2. OPTIONS THỜI GIAN HẸN */}
-              {activeDropdownModal === 'TIMEFRAME' &&
+              {renderFilterHeader('timeframe', 'Thời gian hẹn', TIMEFRAME_FILTERS.find((item) => item.id === selectedTimeframe)?.label ?? 'Tất cả các ngày')}
+              {expandedFilter === 'timeframe' &&
                 TIMEFRAME_FILTERS.map((item) => {
                   const isSelected = selectedTimeframe === item.id;
                   return (
@@ -817,7 +713,7 @@ export default function BookingsScreen() {
                       ]}
                       onPress={() => {
                         setSelectedTimeframe(item.id);
-                        setActiveDropdownModal('NONE');
+                        setExpandedFilter(null);
                       }}
                       activeOpacity={0.7}
                     >
@@ -849,7 +745,8 @@ export default function BookingsScreen() {
                 })}
 
               {/* 3. OPTIONS SẮP XẾP */}
-              {activeDropdownModal === 'SORT' &&
+              {renderFilterHeader('sort', 'Sắp xếp', SORT_OPTIONS.find((item) => item.id === sortOption)?.label ?? '')}
+              {expandedFilter === 'sort' &&
                 SORT_OPTIONS.map((item) => {
                   const isSelected = sortOption === item.id;
                   return (
@@ -861,7 +758,7 @@ export default function BookingsScreen() {
                       ]}
                       onPress={() => {
                         setSortOption(item.id);
-                        setActiveDropdownModal('NONE');
+                        setExpandedFilter(null);
                       }}
                       activeOpacity={0.7}
                     >
@@ -900,9 +797,15 @@ export default function BookingsScreen() {
                   );
                 })}
             </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+            <View style={styles.filterActions}>
+              <TouchableOpacity style={styles.filterResetAction} onPress={handleResetFilters} accessibilityRole="button">
+                <Text style={styles.dropdownButtonText}>Xóa lọc</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.filterDoneAction} onPress={() => setIsFilterModalVisible(false)} accessibilityRole="button">
+                <Text style={styles.resetFilterBtnText}>Xem {filteredAndSortedList.length} đơn</Text>
+              </TouchableOpacity>
+            </View>
+          </DismissibleModal>
 
       {/* MODAL HỦY LỊCH HẸN (DÀNH CHO KHÁCH HÀNG) */}
       <CancelBookingModal
@@ -974,6 +877,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   filterSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
@@ -982,6 +887,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchBox: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
@@ -989,12 +896,35 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 10,
-    height: 38,
+    height: 44,
   },
+  filterIconButton: {
+    width: 44, height: 44, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  filterBadge: {
+    position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18,
+    borderRadius: 9, paddingHorizontal: 4, backgroundColor: BrandColors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  filterBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
+  filterGroupHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14, marginVertical: 6, borderRadius: 12,
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  filterGroupContent: { flex: 1, minWidth: 0 },
+  filterGroupTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  filterGroupValue: { fontSize: 12, color: '#64748B', marginTop: 4 },
+  filterActions: { flexDirection: 'row', gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  filterResetAction: { paddingHorizontal: 20, minHeight: 44, justifyContent: 'center', borderRadius: 12, backgroundColor: '#F1F5F9' },
+  filterDoneAction: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: BrandColors.primary },
   searchIcon: {
     marginRight: 6,
   },
   searchInput: {
+    minWidth: 0,
     flex: 1,
     fontSize: 12.5,
     color: '#0F172A',
@@ -1168,7 +1098,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalScrollList: {
-    maxHeight: 380,
+    flexShrink: 1,
   },
   dropdownOptionRow: {
     flexDirection: 'row',

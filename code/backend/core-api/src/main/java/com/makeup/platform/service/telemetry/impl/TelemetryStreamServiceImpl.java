@@ -78,14 +78,14 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                         "mua.certificate_rejected_cannot_operate", HttpStatus.FORBIDDEN);
             }
 
-            if (req.getLatitude() == null || req.getLongitude() == null) {
+            if (mua.getBaseAddressLat() == null || mua.getBaseAddressLng() == null) {
                 throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID",
                         HttpStatus.BAD_REQUEST);
             }
-            validateCoordinates(req.getLatitude(), req.getLongitude());
+            validateCoordinates(mua.getBaseAddressLat().doubleValue(), mua.getBaseAddressLng().doubleValue());
 
             // 1. Thêm vào Redis GEO
-            redisGeoService.addActiveMua(mua.getId(), req.getLatitude(), req.getLongitude());
+            redisGeoService.addActiveMua(mua.getId(), mua.getBaseAddressLat().doubleValue(), mua.getBaseAddressLng().doubleValue());
 
             // 2. Kích hoạt Heartbeat 60s
             redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
@@ -97,9 +97,6 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
             mua.setAvailabilityStatus(AvailabilityStatus.AVAILABLE);
             mua.setIsOnline(true);
             mua.setIsBusy(false);
-            mua.setLastKnownLat(BigDecimal.valueOf(req.getLatitude()));
-            mua.setLastKnownLng(BigDecimal.valueOf(req.getLongitude()));
-            mua.setLastKnownUpdatedAt(Instant.now());
             muaProfileRepository.save(mua);
 
             log.info("MUA {} is now AVAILABLE on Redis GEO", mua.getId());
@@ -152,8 +149,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
         // 2. Gia hạn Heartbeat 60s
         redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
 
-        // 3. Cập nhật vị trí trên Redis GEO
-        redisGeoService.addActiveMua(mua.getId(), req.getLatitude(), req.getLongitude());
+        // Trip GPS must not move the receiving-area GEO index.
 
         // 4. Lấy tọa độ điểm hẹn cố định của Khách hàng
         Double destLat = null;
@@ -308,12 +304,10 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                         "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
         if (Boolean.TRUE.equals(mua.getIsOnline())) {
             redisGeoService.setHeartbeat(mua.getId(), TelemetryConstants.HEARTBEAT_TTL_SECONDS);
-            Double lat = mua.getLastKnownLat() != null ? mua.getLastKnownLat().doubleValue()
-                    : (mua.getBaseAddressLat() != null ? mua.getBaseAddressLat().doubleValue() : null);
-            Double lng = mua.getLastKnownLng() != null ? mua.getLastKnownLng().doubleValue()
-                    : (mua.getBaseAddressLng() != null ? mua.getBaseAddressLng().doubleValue() : null);
-            if (lat != null && lng != null) {
-                redisGeoService.addActiveMua(mua.getId(), lat, lng);
+            if (mua.getBaseAddressLat() != null && mua.getBaseAddressLng() != null) {
+                redisGeoService.addActiveMua(mua.getId(), mua.getBaseAddressLat().doubleValue(), mua.getBaseAddressLng().doubleValue());
+            } else {
+                redisGeoService.removeActiveMua(mua.getId());
             }
             log.debug("Renewed heartbeat for online MUA {} (TTL={}s)", mua.getId(),
                     TelemetryConstants.HEARTBEAT_TTL_SECONDS);

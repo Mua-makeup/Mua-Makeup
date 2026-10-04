@@ -1,10 +1,10 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Modal,
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -120,17 +120,7 @@ export const DepositConfirmedModal: React.FC = () => {
   };
 
   return (
-    <Modal visible={isDepositModalVisible} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <Animated.View
-          style={[
-            styles.modalContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}
-        >
+    <DismissibleModal visible={isDepositModalVisible} onClose={handleClose} overlayStyle={styles.modalOverlay} contentStyle={styles.modalContainer}>
           {/* Header Icon & Badge */}
           <View style={styles.headerSection}>
             <View style={[styles.iconCircle, isPaymentCompleted && styles.iconCircleSettled]}>
@@ -270,9 +260,7 @@ export const DepositConfirmedModal: React.FC = () => {
               </Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
-      </View>
-    </Modal>
+        </DismissibleModal>
   );
 };
 

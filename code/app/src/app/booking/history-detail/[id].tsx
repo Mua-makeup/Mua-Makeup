@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
-  Modal,
   RefreshControl,
   Pressable,
 } from 'react-native';
@@ -23,7 +23,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
 import { depositService } from '@/services/deposit.service';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
-import { formatDateTimeVN } from '@/utils/date';
+import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
 
 export default function BookingHistoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -544,7 +544,7 @@ export default function BookingHistoryDetailScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoColLabel}>Ngày Hẹn</Text>
                 <Text style={styles.infoColValue}>
-                  {bookingDetail.bookingDate ? formatDateTimeVN(bookingDetail.bookingDate) : 'Hôm nay'}
+                  {formatDateVN(bookingDetail.bookingDate)}
                 </Text>
               </View>
             </View>
@@ -553,7 +553,7 @@ export default function BookingHistoryDetailScreen() {
               <Ionicons name="time-outline" size={16} color="#64748B" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoColLabel}>Giờ Bắt Đầu</Text>
-                <Text style={styles.infoColValue}>{bookingDetail.startTime || 'Đúng giờ'}</Text>
+                <Text style={styles.infoColValue}>{formatTimeVN(bookingDetail.startTime)}</Text>
               </View>
             </View>
           </View>
@@ -762,7 +762,7 @@ export default function BookingHistoryDetailScreen() {
       </ScrollView>
 
       {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU */}
-      <Modal visible={isPhotoModalVisible} transparent animationType="fade" onRequestClose={() => setIsPhotoModalVisible(false)}>
+      <DismissibleModal visible={isPhotoModalVisible} onClose={() => setIsPhotoModalVisible(false)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
         <Pressable style={styles.photoModalBackdrop} onPress={() => setIsPhotoModalVisible(false)}>
           <View style={styles.photoModalContent}>
             <TouchableOpacity style={styles.closePhotoBtn} onPress={() => setIsPhotoModalVisible(false)}>
@@ -778,7 +778,7 @@ export default function BookingHistoryDetailScreen() {
             <Text style={styles.photoModalCaption}>Ảnh Nghiệm Thu Thành Phẩm Sau Make-up</Text>
           </View>
         </Pressable>
-      </Modal>
+      </DismissibleModal>
     </SafeAreaView>
   );
 }

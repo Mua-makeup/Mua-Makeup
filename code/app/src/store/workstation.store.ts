@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { FreelancerBookingItem, ScheduledOfferItem, freelancerBookingService } from '@/services/freelancer-booking.service';
 import { telemetryService } from '@/services/telemetry.service';
@@ -7,7 +6,6 @@ import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.serv
 import { websocketService } from '@/services/websocket.service';
 import { soundManager } from '@/utils/sound';
 import { getTodayVN } from '@/utils/date';
-import { useLocationStore } from '@/store/location.store';
 
 const shownFinalPaymentNotices = new Set<number>();
 const shownDepositNotices = new Set<number>();
@@ -200,23 +198,8 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       // Kết nối WebSocket để nhận đơn khẩn cấp (kể cả khi đang Offline vì thợ có thể bật Online bất kỳ lúc)
       if (effectiveMuaId) {
         if (currentOnline) {
-          // Lấy tọa độ GPS mới nhất từ thiết bị và đồng bộ ngay lên Backend
-          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-            .then(async (loc) => {
-              const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-              set({ currentCoords: coords });
-              await telemetryService.toggleAvailability({
-                isAvailable: true,
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-                heading: loc.coords.heading || 0,
-                speed: loc.coords.speed || 0,
-              });
-              startHeartbeat();
-            })
-            .catch(() => {
-              startHeartbeat();
-            });
+          // Refresh the saved receiving location on the server.
+          startHeartbeat();
         }
         console.log('[WorkstationStore] Tự động kích hoạt WebSocket cho MUA id =', effectiveMuaId);
         await websocketService.connect();
@@ -348,50 +331,12 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   toggleOnline: async (enable: boolean) => {
     try {
       if (enable) {
-        // Xin quyền vị trí và lấy tọa độ GPS thực tế
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          throw new Error('Vui lòng cấp quyền truy cập vị trí để bật trạng thái nhận ca.');
+        const profile = await muaProfileService.getMyProfile();
+        if (profile.baseAddressLat == null || profile.baseAddressLng == null) {
+          throw new Error('Vui lòng lưu địa điểm nhận ca trong Hồ sơ nghề nghiệp trước khi bật trực tuyến.');
         }
-
-        let loc = null;
-        try {
-          loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-        } catch {
-          loc = await Location.getLastKnownPositionAsync().catch(() => null);
-        }
-
-        const storeLoc = useLocationStore.getState();
-        const coords = loc?.coords
-          ? {
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            }
-          : storeLoc.latitude && storeLoc.longitude
-          ? {
-              latitude: storeLoc.latitude,
-              longitude: storeLoc.longitude,
-            }
-          : {
-              latitude: 21.0285,
-              longitude: 105.8542,
-            };
-
-        await telemetryService.toggleAvailability({
-          isAvailable: true,
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          heading: loc?.coords?.heading || 0,
-          speed: loc?.coords?.speed || 0,
-        });
-
-        // Đăng ký nhận tin phân phối đơn khẩn cấp qua WebSocket STOMP
-        let profile = get().profile;
-        if (!profile) {
-          profile = await muaProfileService.getMyProfile().catch(() => null);
-        }
+        await telemetryService.toggleAvailability({ isAvailable: true });
+        set({ profile });
 
         const effectiveMuaId = profile?.muaId || (profile as any)?.id;
         if (effectiveMuaId) {
@@ -484,16 +429,11 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
 
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         startHeartbeat();
-        set({ isOnline: true, currentCoords: coords });
+        set({ isOnline: true });
         return true;
       } else {
         stopHeartbeat();
-        const lastCoords = get().currentCoords || { latitude: 21.0285, longitude: 105.8542 };
-        await telemetryService.toggleAvailability({
-          isAvailable: false,
-          latitude: lastCoords.latitude,
-          longitude: lastCoords.longitude,
-        });
+        await telemetryService.toggleAvailability({ isAvailable: false });
 
         // Hủy đăng ký lắng nghe khi Offline và ngắt chuông/rung
         const profile = get().profile;

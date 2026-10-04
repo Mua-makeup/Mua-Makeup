@@ -1,6 +1,6 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -252,7 +252,7 @@ export const AddressEditModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+    <DismissibleModal visible={visible} onClose={onClose} contentStyle={{ backgroundColor: '#FFFFFF' }} fullHeight>
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -469,7 +469,7 @@ export const AddressEditModal: React.FC<Props> = ({
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </Modal>
+    </DismissibleModal>
   );
 };
 

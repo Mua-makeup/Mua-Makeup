@@ -1,3 +1,4 @@
+import { DismissibleSurface } from '@/components/common/DismissibleModal';
 import React from 'react';
 import {
   View,
@@ -104,12 +105,7 @@ export const SearchSuggestionsOverlay: React.FC<Props> = ({
   };
 
   return (
-    <View style={[styles.container, { top: topOffset }]}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop} />
-      </TouchableWithoutFeedback>
-
-      <View style={styles.contentBox}>
+    <View style={[styles.container, { top: topOffset }]}><DismissibleSurface visible={visible} onClose={() => { Keyboard.dismiss(); onClose(); }} overlayStyle={{ justifyContent: 'flex-start', paddingTop: 0 }} contentStyle={styles.contentBox}>
         {/* THANH TIỆN ÍCH TRÊN CÙNG KÈM NÚT ĐÓNG RÕ RÀNG */}
         <View style={styles.topActionBar}>
           <Text style={styles.topActionTitle}>GỢI Ý TÌM KIẾM NHANH</Text>
@@ -186,8 +182,7 @@ export const SearchSuggestionsOverlay: React.FC<Props> = ({
             </View>
           )}
         </ScrollView>
-      </View>
-    </View>
+      </DismissibleSurface></View>
   );
 };
 

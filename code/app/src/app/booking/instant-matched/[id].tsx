@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  Modal,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -457,12 +457,7 @@ export default function InstantMatchedScreen() {
       {/* ========================================================================= */}
       {/* MODAL 1: TỪ CHỐI THỢ KÈM CHỌN & NHẬP LÝ DO                                */}
       {/* ========================================================================= */}
-      <Modal visible={isRejectModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
+      <DismissibleModal visible={isRejectModalVisible} onClose={() => setIsRejectModalVisible(false)} dismissDisabled={isSubmitting} overlayStyle={styles.modalOverlay} contentStyle={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Ionicons name="close-circle" size={20} color="#E11D48" />
@@ -529,9 +524,7 @@ export default function InstantMatchedScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </DismissibleModal>
 
     </SafeAreaView>
   );

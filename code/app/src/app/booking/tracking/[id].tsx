@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   Linking,
   Alert,
   Image,
-  Modal,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -335,7 +335,7 @@ export default function BookingLiveTrackingScreen() {
                   { text: 'Tìm Thợ Khác', onPress: () => router.replace('/') },
                   { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
                 ],
-                { cancelable: false }
+                { cancelable: true }
               );
             } else if (nextStatus === 'ARRIVED') {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -410,7 +410,7 @@ export default function BookingLiveTrackingScreen() {
                 { text: 'Tìm Thợ Khác', onPress: () => router.replace('/') },
                 { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
               ],
-              { cancelable: false }
+              { cancelable: true }
             );
           } else if (!refreshed.isCancelRequested) {
             setIsWaitingCancelConfirm(false);
@@ -1218,9 +1218,7 @@ export default function BookingLiveTrackingScreen() {
       {/* ========================================================================= */}
       {/* 5. MODAL POP-UP THÔNG BÁO TỨC THÌ KHI THỢ CHUYỂN TRẠNG THÁI (STATUS POP-UP) */}
       {/* ========================================================================= */}
-      <Modal visible={!!statusPopup?.visible} transparent animationType="fade">
-        <View style={styles.popupOverlay}>
-          <View style={styles.popupCard}>
+      <DismissibleModal visible={!!statusPopup?.visible} onClose={() => setStatusPopup(null)} overlayStyle={styles.popupOverlay} contentStyle={styles.popupCard}>
             <View
               style={[
                 styles.popupIconCircle,
@@ -1279,17 +1277,10 @@ export default function BookingLiveTrackingScreen() {
                   : 'Đánh Giá Ngay'}
               </Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+          </DismissibleModal>
 
       {/* MODAL HỦY ĐƠN HÀNG DÀNH CHO KHÁCH HÀNG */}
-      <Modal visible={isCancelModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
+      <DismissibleModal visible={isCancelModalVisible} onClose={() => setIsCancelModalVisible(false)} dismissDisabled={isCancelling} overlayStyle={styles.modalOverlay} contentStyle={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Ionicons name="close-circle" size={20} color="#E11D48" />
@@ -1378,9 +1369,7 @@ export default function BookingLiveTrackingScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </DismissibleModal>
     </SafeAreaView>
   );
 }

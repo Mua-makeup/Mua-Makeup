@@ -1,6 +1,6 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -51,7 +51,7 @@ export const TransactionDetailModal: React.FC<Props> = ({ visible, data, onClose
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleClose}>
+    <DismissibleModal visible={visible} onClose={handleClose} contentStyle={{ backgroundColor: '#FFFFFF' }} fullHeight>
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
@@ -140,7 +140,7 @@ export const TransactionDetailModal: React.FC<Props> = ({ visible, data, onClose
           </View>
         </ScrollView>
       </SafeAreaView>
-    </Modal>
+    </DismissibleModal>
   );
 };
 

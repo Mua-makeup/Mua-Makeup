@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Modal,
   TextInput,
   Image,
   KeyboardAvoidingView,
@@ -1492,12 +1492,7 @@ export default function JobExecutionScreen() {
       />
 
       {/* Cancellation / Dispute Modal (Đã bọc KeyboardAvoidingView chống che nút) */}
-      <Modal visible={isCancelModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
+      <DismissibleModal visible={isCancelModalVisible} onClose={() => setIsCancelModalVisible(false)} dismissDisabled={isSubmittingCancel} overlayStyle={styles.modalOverlay} contentStyle={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Ionicons
@@ -1586,16 +1581,12 @@ export default function JobExecutionScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </DismissibleModal>
 
 
 
       {/* Modal Duy Nhất Xác Nhận Khách Đã Trả Tiền Mặt */}
-      <Modal visible={isCashPromptModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlayCenter}>
-          <View style={styles.depositSuccessCard}>
+      <DismissibleModal visible={isCashPromptModalVisible} onClose={() => setIsCashPromptModalVisible(false)} dismissDisabled={isConfirmingCash} overlayStyle={styles.modalOverlayCenter} contentStyle={styles.depositSuccessCard}>
             <View style={[styles.successIconCircle, { backgroundColor: '#DCFCE7' }]}>
               <Ionicons name="cash" size={36} color="#059669" />
             </View>
@@ -1651,16 +1642,12 @@ export default function JobExecutionScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </DismissibleModal>
 
       {/* ========================================================================= */}
       {/* MODAL XÁC NHẬN YÊU CẦU HỦY CA & NHẬN BỒI THƯỜNG CỌC 100% TỪ KHÁCH HÀNG     */}
       {/* ========================================================================= */}
-      <Modal visible={isCancelRequestModalVisible} transparent animationType="fade">
-        <View style={styles.cancelRequestOverlay}>
-          <View style={styles.cancelRequestCard}>
+      <DismissibleModal visible={isCancelRequestModalVisible} onClose={() => setIsCancelRequestModalVisible(false)} dismissDisabled={isHandlingCancelAction} overlayStyle={styles.cancelRequestOverlay} contentStyle={styles.cancelRequestCard}>
             <View style={styles.cancelRequestHeader}>
               <View style={styles.cancelRequestIconCircle}>
                 <Ionicons name="alert-circle" size={32} color="#DC2626" />
@@ -1736,9 +1723,7 @@ export default function JobExecutionScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </DismissibleModal>
 
       {/* MODAL POPUP THÔNG BÁO KHÁCH ĐÃ CỌC THÀNH CÔNG CHO THỢ */}
 

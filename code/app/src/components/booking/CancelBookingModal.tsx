@@ -1,9 +1,9 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   TextInput,
   TouchableWithoutFeedback,
@@ -53,9 +53,7 @@ export const CancelBookingModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+    <DismissibleModal visible={visible} onClose={onClose} dismissDisabled={isCancelling} overlayStyle={styles.overlay} contentStyle={styles.modalBox}>
             <View style={styles.iconCircle}>
               <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
             </View>
@@ -127,9 +125,7 @@ export const CancelBookingModal: React.FC<Props> = ({
                 )}
               </TouchableOpacity>
             </View>
-          </Pressable>
-        </Pressable>
-    </Modal>
+          </DismissibleModal>
   );
 };
 

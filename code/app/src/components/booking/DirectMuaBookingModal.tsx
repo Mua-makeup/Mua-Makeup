@@ -1,9 +1,9 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
@@ -12,7 +12,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   Image,
-  PanResponder,
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -160,21 +159,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   };
 
   // Cử chỉ kéo xuống (swipe down) để đóng modal
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Chỉ nhận khi kéo xuống rõ rệt
-        return gestureState.dy > 8 && Math.abs(gestureState.dx) < gestureState.dy;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 40 || gestureState.vy > 0.5) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          handleCancelRequest();
-        }
-      },
-    })
-  ).current;
+
 
   const clearAllTimers = () => {
     if (timerRef.current) {
@@ -456,24 +441,19 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   if (!targetMua) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancelRequest}>
-      <View style={styles.overlay}>
-        {/* Khoảng trống bên ngoài - ấn vào để đóng modal */}
-        <Pressable
-          style={styles.backdropPressable}
-          onPress={handleCancelRequest}
-          accessibilityLabel="Đóng modal"
-        />
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          pointerEvents="box-none"
-          style={styles.keyboardAvoid}
-        >
-          <View style={styles.modalCard}>
+    <DismissibleModal visible={visible} onClose={handleCancelRequest} overlayStyle={styles.overlay} contentStyle={styles.modalCard} overlays={<><SavedAddressModal
+        visible={isSavedAddressModalVisible}
+        onClose={() => setIsSavedAddressModalVisible(false)}
+        onSelectAddress={(selected) => {
+          setAddress(selected.addressLine);
+          setCoords({ latitude: selected.latitude, longitude: selected.longitude });
+          setIsSavedAddressModalVisible(false);
+        }}
+      />
+<GlobalPopupOverlay /></>}>
             {/* VÙNG KÉO VUỐT XUỐNG ĐÓNG & HEADER */}
-            <View {...panResponder.panHandlers} style={styles.dragArea}>
-              <View style={styles.dragHandleBar} />
+            <View style={styles.dragArea}>
+
               <View style={styles.modalHeader}>
                 <View style={styles.titleRow}>
                   <View style={styles.liveBadge}>
@@ -866,23 +846,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
               </View>
             </View>
           )}
-        </View>
-      </KeyboardAvoidingView>
-    </View>
-
-      <SavedAddressModal
-        visible={isSavedAddressModalVisible}
-        onClose={() => setIsSavedAddressModalVisible(false)}
-        onSelectAddress={(selected) => {
-          setAddress(selected.addressLine);
-          setCoords({ latitude: selected.latitude, longitude: selected.longitude });
-          setIsSavedAddressModalVisible(false);
-        }}
-      />
-
-      {/* POPUP ALERT TOÀN CỤC BÊN TRONG MODAL */}
-      <GlobalPopupOverlay />
-    </Modal>
+        </DismissibleModal>
   );
 };
 

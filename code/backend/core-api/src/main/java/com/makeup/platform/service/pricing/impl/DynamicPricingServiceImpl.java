@@ -20,7 +20,6 @@ import com.makeup.platform.entity.catalog.SurchargeEntity;
 import com.makeup.platform.entity.catalog.SurchargeType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AgencyBranchEntity;
-import com.makeup.platform.entity.telemetry.TelemetryLogEntity;
 import com.makeup.platform.mapper.pricing.InvoicePreviewMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
@@ -36,7 +35,6 @@ import com.makeup.platform.service.pricing.MapsClientService;
 import com.makeup.platform.service.pricing.SurgePricingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.geo.Point;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -338,14 +336,14 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
                     ? m.getUser().getFullName()
                     : ("Chuyên viên MUA #" + m.getId());
 
-            BigDecimal lat = m.getLastKnownLat() != null ? m.getLastKnownLat() : m.getBaseAddressLat();
-            BigDecimal lng = m.getLastKnownLng() != null ? m.getLastKnownLng() : m.getBaseAddressLng();
+            BigDecimal lat = m.getBaseAddressLat();
+            BigDecimal lng = m.getBaseAddressLng();
 
             list.add(ProviderOptionRes.builder()
                     .id(m.getId())
                     .type("FREELANCER")
                     .name(name)
-                    .address(m.getBaseAddressText() != null ? m.getBaseAddressText() : "Khu vực TP.HCM")
+                    .address(m.getBaseAddressText() != null ? m.getBaseAddressText() : "Chưa có địa chỉ nhận ca")
                     .latitude(lat)
                     .longitude(lng)
                     .isSurgeEnabled(m.getIsSurgeEnabled() == null || m.getIsSurgeEnabled())
@@ -357,11 +355,8 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
     }
 
     /**
-     * Mô hình Phễu 4 Tầng Ưu tiên (Hierarchy of Fallback) chuẩn xác của On-Demand Booking:
-     * - Ưu tiên 1 (Realtime): Redis GEO (geo:muas:active)
-     * - Ưu tiên 2 (Database Last Known Location): last_known_lat/lng trong profile hoặc telemetry_logs
-     * - Ưu tiên 3 (Base Address): base_address_lat/lng của MUA hoặc chi nhánh chính của Agency
-     * - Ưu tiên 4 (Hard Reject): Ném ngoại lệ ERR_PROVIDER_LOCATION_MISSING, tuyệt đối không giả lập tọa độ.
+     * Quote travel from the saved receiving point. Device GPS is reserved for trip tracking.
+     * Agencies use their registered office or active branch. Missing coordinates are rejected.
      */
     private ResolvedLocation resolveProviderLocation(
             boolean isAgency,
@@ -370,31 +365,6 @@ public class DynamicPricingServiceImpl implements DynamicPricingService {
             AgencyProfileEntity agency
     ) {
         if (!isAgency && mua != null) {
-            // TẦNG 1: Realtime Stream trong Redis GEO
-            try {
-                List<Point> positions = redisTemplate.opsForGeo().position("geo:muas:active", String.valueOf(mua.getId()));
-                if (positions != null && !positions.isEmpty() && positions.get(0) != null) {
-                    return new ResolvedLocation(
-                            BigDecimal.valueOf(positions.get(0).getY()),
-                            BigDecimal.valueOf(positions.get(0).getX()),
-                            "REDIS_GEO_REALTIME"
-                    );
-                }
-            } catch (Exception e) {
-                log.warn("Redis GEO lookup failed for MUA {}: {}", mua.getId(), e.getMessage());
-            }
-
-            // TẦNG 2: Last Known Location trong DB
-            if (mua.getLastKnownLat() != null && mua.getLastKnownLng() != null) {
-                return new ResolvedLocation(mua.getLastKnownLat(), mua.getLastKnownLng(), "DB_PROFILE_LAST_KNOWN");
-            }
-
-            List<TelemetryLogEntity> logs = telemetryLogRepository.findByMuaIdOrderByRecordedAtDesc(mua.getId());
-            if (logs != null && !logs.isEmpty() && logs.get(0).getLatitude() != null && logs.get(0).getLongitude() != null) {
-                return new ResolvedLocation(logs.get(0).getLatitude(), logs.get(0).getLongitude(), "DB_TELEMETRY_LOG_LAST_KNOWN");
-            }
-
-            // TẦNG 3: Base Working Address của MUA
             if (mua.getBaseAddressLat() != null && mua.getBaseAddressLng() != null) {
                 return new ResolvedLocation(mua.getBaseAddressLat(), mua.getBaseAddressLng(), "MUA_BASE_ADDRESS");
             }

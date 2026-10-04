@@ -1,3 +1,4 @@
+import { DismissibleSurface } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Modal,
@@ -206,16 +207,12 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
   const iconConfig = getIconConfig(type);
 
   const content = (
-    <Pressable style={styles.overlay} onPress={handleBackdropPress}>
-      <Animated.View
-        style={[
-          styles.cardContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
+    <DismissibleSurface visible={isOpen} onClose={handleBackdropPress} dismissDisabled={!cancelable}
+      onDismissStart={() => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+      }}
+      overlayStyle={styles.overlay} contentStyle={styles.cardContainer}>
         {/* Thanh Tiến Trình Tự Động Đóng (Progress Bar) */}
         {duration > 0 && (
           <View style={styles.progressTrack}>
@@ -317,8 +314,7 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
             </View>
           );
         })()}
-      </Animated.View>
-    </Pressable>
+      </DismissibleSurface>
   );
 
   if (isModal) {
@@ -329,7 +325,7 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
         animationType="none"
         statusBarTranslucent
         onRequestClose={() => {
-          if (cancelable) hide();
+          handleBackdropPress();
         }}
       >
         {content}

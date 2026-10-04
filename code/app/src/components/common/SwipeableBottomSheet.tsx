@@ -1,22 +1,12 @@
-import React, { useRef, useEffect } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Pressable,
-  Animated,
-  PanResponder,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { DismissibleModal } from './DismissibleModal';
 
 export interface SwipeableBottomSheetProps {
   visible: boolean;
   onClose: () => void;
+  dismissDisabled?: boolean;
   title?: string;
   subtitle?: string;
   children: React.ReactNode;
@@ -26,112 +16,12 @@ export interface SwipeableBottomSheetProps {
 }
 
 export const SwipeableBottomSheet: React.FC<SwipeableBottomSheetProps> = ({
-  visible,
-  onClose,
-  title,
-  subtitle,
-  children,
-  showCloseButton = true,
-  showHandleBar = true,
-  headerRight,
-}) => {
-  const translateY = useRef(new Animated.Value(0)).current;
-  const isDismissing = useRef(false);
-
-  useEffect(() => {
-    if (visible) {
-      isDismissing.current = false;
-      translateY.setValue(350);
-      Animated.spring(translateY, {
-        toValue: 0,
-        bounciness: 4,
-        speed: 14,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible]);
-
-  const handleDismiss = () => {
-    if (isDismissing.current) return;
-    isDismissing.current = true;
-
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    } catch {
-      // Ignore haptics error on web or unsupported devices
-    }
-
-    Animated.timing(translateY, {
-      toValue: 700,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(() => {
-      onClose();
-    });
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Chỉ kích hoạt khi kéo trượt xuống (dy > 6) và chuyển động dọc chiếm ưu thế
-        return gestureState.dy > 6 && Math.abs(gestureState.dx) < gestureState.dy;
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0 && !isDismissing.current) {
-          translateY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (isDismissing.current) return;
-
-        if (gestureState.dy > 70 || gestureState.vy > 0.5) {
-          handleDismiss();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            bounciness: 4,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleDismiss}
-      statusBarTranslucent
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardContainer}
-      >
-        <View style={styles.overlay}>
-          {/* Backdrop tối mờ: Bấm ra ngoài để đóng tức thì */}
-          <Pressable
-            style={styles.backdrop}
-            onPress={handleDismiss}
-            accessibilityLabel="Đóng modal"
-          />
-
-          {/* Nội dung Sheet: Cho phép kéo trượt xuống để đóng mượt mà */}
-          <Animated.View
-            style={[
-              styles.sheetCard,
-              {
-                transform: [{ translateY }],
-              },
-            ]}
-          >
-            {/* Vùng kéo (Drag Handle) */}
-            <View {...panResponder.panHandlers} style={styles.dragArea}>
-              {showHandleBar && <View style={styles.handleBar} />}
-
-              {(Boolean(title) || showCloseButton || Boolean(headerRight)) && (
+  visible, onClose, dismissDisabled = false, title, subtitle, children,
+  showCloseButton = true, headerRight,
+}) => (
+  <DismissibleModal visible={visible} onClose={onClose} dismissDisabled={dismissDisabled} contentStyle={styles.sheetCard}>
+    {(Boolean(title) || showCloseButton || Boolean(headerRight)) && (
+      <View style={styles.dragArea}>
                 <View style={styles.headerRow}>
                   <View style={styles.titleColumn}>
                     {Boolean(title) && <Text style={styles.sheetTitle}>{title}</Text>}
@@ -143,7 +33,8 @@ export const SwipeableBottomSheet: React.FC<SwipeableBottomSheetProps> = ({
                     {showCloseButton && (
                       <TouchableOpacity
                         style={styles.closeBtn}
-                        onPress={handleDismiss}
+                        disabled={dismissDisabled}
+                        onPress={onClose}
                         activeOpacity={0.7}
                         accessibilityLabel="Đóng"
                       >
@@ -152,17 +43,11 @@ export const SwipeableBottomSheet: React.FC<SwipeableBottomSheetProps> = ({
                     )}
                   </View>
                 </View>
-              )}
-            </View>
-
-            {/* Nội dung con */}
-            <View style={styles.body}>{children}</View>
-          </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-};
+      </View>
+    )}
+    <View style={styles.body}>{children}</View>
+  </DismissibleModal>
+);
 
 const styles = StyleSheet.create({
   keyboardContainer: {
@@ -240,6 +125,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   body: {
+    flexShrink: 1,
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 36 : 24,
   },

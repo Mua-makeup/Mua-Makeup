@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import React, { useState, useCallback } from 'react';
 import {
@@ -9,7 +10,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -473,14 +473,7 @@ export default function FreelancerWalletScreen() {
       />
 
       {/* MODAL LỌC GIAO DỊCH TỐI GIẢN */}
-      <Modal
-        visible={isFilterModalOpen}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsFilterModalOpen(false)}
-      >
-        <View style={styles.filterModalOverlay}>
-          <View style={styles.filterModalContent}>
+      <DismissibleModal visible={isFilterModalOpen} onClose={() => setIsFilterModalOpen(false)} overlayStyle={styles.filterModalOverlay} contentStyle={styles.filterModalContent}>
             {/* Header Modal */}
             <View style={styles.filterModalHeader}>
               <View style={styles.filterModalTitleGroup}>
@@ -557,9 +550,7 @@ export default function FreelancerWalletScreen() {
                 <Text style={styles.applyFilterBtnText}>Áp Dụng ({filteredTransactions.length})</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </DismissibleModal>
     </SafeAreaView>
   );
 }

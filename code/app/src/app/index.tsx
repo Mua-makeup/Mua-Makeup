@@ -84,6 +84,7 @@ export default function HomeScreen() {
   const isWorkstationRole = (isMUA || isAgencyStaff) && isAuthenticated;
 
   const {
+    profile: workstationProfile,
     todayBookings,
     isLoading: isWorkstationLoading,
     selectedFilter,
@@ -211,17 +212,18 @@ export default function HomeScreen() {
           activeOpacity={0.7}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            fetchCurrentLocation();
+            if (isMUA) router.push('/profile/mua-profile');
+            else fetchCurrentLocation();
           }}
         >
           <Ionicons name="location" size={18} color={BrandColors.primary} />
           <View style={styles.locationCol}>
             <Text style={styles.locationSmall}>
-              Vị trí hiện tại của bạn
+              {isMUA ? 'Địa điểm nhận ca' : 'Vị trí hiện tại của bạn'}
             </Text>
             <View style={styles.locationRow}>
               <Text style={styles.locationText} numberOfLines={1}>
-                {isLocating ? 'Đang định vị GPS...' : currentAddress}
+                {isMUA ? (workstationProfile?.baseAddressText || 'Thiết lập địa điểm nhận ca') : (isLocating ? 'Đang định vị GPS...' : currentAddress)}
               </Text>
               <Ionicons name="chevron-down" size={14} color={BrandColors.slateHeading} />
             </View>

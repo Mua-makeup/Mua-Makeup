@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  Modal,
   Keyboard,
   Image,
   Platform,
@@ -690,14 +690,7 @@ export default function ExploreScreen() {
       )}
 
       {/* MODAL BỘ LỌC GPS & KHOẢNG GIÁ */}
-      <Modal
-        visible={isFilterModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsFilterModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
+      <DismissibleModal visible={isFilterModalVisible} onClose={() => setIsFilterModalVisible(false)} overlayStyle={styles.modalBackdrop} contentStyle={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Bộ Lọc Nâng Cao</Text>
               <TouchableOpacity onPress={() => setIsFilterModalVisible(false)}>
@@ -785,9 +778,7 @@ export default function ExploreScreen() {
                 <Text style={styles.modalApplyText}>Áp dụng bộ lọc</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+          </DismissibleModal>
 
       {/* THANH ĐIỀU HƯỚNG DƯỚI CÙNG (BOTTOM NAVIGATION BAR) */}
       <AppBottomNavBar activeTab="explore" />

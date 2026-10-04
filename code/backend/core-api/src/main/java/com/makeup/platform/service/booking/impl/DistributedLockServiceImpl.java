@@ -151,11 +151,11 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                         booking.setSurchargeFee(emergencyFee);
 
                         double distanceKm = 1.5;
-                        if (muaProfile.getLastKnownLat() != null && muaProfile.getLastKnownLng() != null
+                        if (muaProfile.getBaseAddressLat() != null && muaProfile.getBaseAddressLng() != null
                                 && booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
                             distanceKm = GeoDistanceUtils.calculateDistanceKm(
-                                    muaProfile.getLastKnownLat().doubleValue(),
-                                    muaProfile.getLastKnownLng().doubleValue(),
+                                    muaProfile.getBaseAddressLat().doubleValue(),
+                                    muaProfile.getBaseAddressLng().doubleValue(),
                                     booking.getDestinationLatitude().doubleValue(),
                                     booking.getDestinationLongitude().doubleValue());
                         }

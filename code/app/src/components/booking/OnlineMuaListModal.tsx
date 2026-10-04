@@ -1,16 +1,15 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   FlatList,
   Image,
   ActivityIndicator,
   RefreshControl,
   Platform,
-  PanResponder,
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -44,20 +43,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Cử chỉ vuốt xuống (swipe down) để đóng modal
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dy > 8 && Math.abs(gestureState.dx) < gestureState.dy;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 40 || gestureState.vy > 0.5) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onClose();
-        }
-      },
-    })
-  ).current;
+
 
   const reqIdRef = useRef(0);
 
@@ -187,19 +173,10 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        {/* Khoảng trống bên ngoài - ấn vào để đóng */}
-        <Pressable
-          style={styles.backdropPressable}
-          onPress={onClose}
-          accessibilityLabel="Đóng modal"
-        />
-
-        <View style={styles.sheetContainer}>
+    <DismissibleModal visible={visible} onClose={onClose} overlayStyle={styles.overlay} contentStyle={styles.sheetContainer} overlays={<><GlobalPopupOverlay /></>}>
           {/* Top drag area with handle bar (vuốt xuống để đóng) */}
-          <View {...panResponder.panHandlers} style={styles.dragArea}>
-            <View style={styles.handleBar} />
+          <View style={styles.dragArea}>
+
 
             {/* Header */}
             <View style={styles.headerRow}>
@@ -405,12 +382,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
               )}
             />
           )}
-        </View>
-      </View>
-
-      {/* POPUP ALERT TOÀN CỤC BÊN TRONG MODAL */}
-      <GlobalPopupOverlay />
-    </Modal>
+        </DismissibleModal>
   );
 };
 

@@ -193,6 +193,7 @@ export const SavedAddressModal: React.FC<Props> = ({
 
   return (
     <SwipeableBottomSheet
+      dismissDisabled={isSubmitting}
       visible={visible}
       onClose={onClose}
       title="Sổ Địa Chỉ Trang Điểm"

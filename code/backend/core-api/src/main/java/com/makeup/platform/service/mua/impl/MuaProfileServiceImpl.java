@@ -175,6 +175,10 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         if (req.getBaseAddressText() != null) {
             String cleanText = req.getBaseAddressText().trim();
             mua.setBaseAddressText(cleanText);
+            if (req.getBaseAddressLat() == null || req.getBaseAddressLng() == null) {
+                mua.setBaseAddressLat(null);
+                mua.setBaseAddressLng(null);
+            }
 
             // Tự động chuyển đổi địa chỉ thành tọa độ GPS qua Goong Maps nếu Client chưa gửi tọa độ
             if ((req.getBaseAddressLat() == null || req.getBaseAddressLng() == null) && StringUtils.hasText(cleanText)) {
@@ -192,7 +196,15 @@ public class MuaProfileServiceImpl implements MuaProfileService {
             }
         }
 
+        if (mua.getBaseAddressLat() == null || mua.getBaseAddressLng() == null
+                || mua.getBaseAddressLat().abs().compareTo(BigDecimal.valueOf(90)) > 0
+                || mua.getBaseAddressLng().abs().compareTo(BigDecimal.valueOf(180)) > 0) {
+            throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
+        }
         MuaProfileEntity saved = muaProfileRepository.save(mua);
+        if (Boolean.TRUE.equals(saved.getIsOnline())) {
+            redisGeoService.addActiveMua(saved.getId(), saved.getBaseAddressLat().doubleValue(), saved.getBaseAddressLng().doubleValue());
+        }
         redisGeoService.removeMuaSummary(saved.getId());
         List<MuaStyleEntity> styles = muaStyleRepository.findAllByMuaProfileId(saved.getId());
         return muaProfileMapper.toProfileRes(saved, styles);

@@ -222,12 +222,12 @@ export const WorkstationHeader: React.FC = () => {
           </View>
           <View style={styles.toggleTextGroup}>
             <Text style={[styles.toggleTitle, { color: isOnline ? '#065F46' : '#1E293B' }]}>
-              {isOnline ? 'Đang Trực Tuyến (GPS ON)' : 'Đang Tạm Nghỉ (Offline)'}
+              {isOnline ? 'Đang trực tuyến' : 'Đang Tạm Nghỉ (Offline)'}
             </Text>
             <Text style={styles.toggleSubtitle}>
               {isOnline
-                ? 'Sẵn sàng nhận ca khẩn cấp và đơn đặt hẹn gần bạn'
-                : 'Bật trực tuyến để phát sóng GPS và nhận thông báo đơn'}
+                ? 'Nhận đơn quanh địa điểm nhận ca đã lưu'
+                : 'Bật trực tuyến để nhận đơn quanh điểm nhận ca'}
             </Text>
           </View>
         </View>
@@ -277,7 +277,7 @@ export const WorkstationHeader: React.FC = () => {
           setShowRadiusModal(false);
         }}
         title="Thiết Lập Bán Kính Nhận Ca"
-        subtitle="Phạm vi phát sóng GPS nhận ca cấp tốc & hẹn lịch"
+        subtitle="Bán kính tính từ địa điểm nhận ca đã lưu"
       >
         <View style={styles.radiusModalContent}>
           {/* Current Value Display with +/- adjust */}

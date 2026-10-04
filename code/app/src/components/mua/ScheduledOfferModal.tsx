@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -209,18 +210,7 @@ export const ScheduledOfferModal: React.FC = () => {
   const isUrgent = isScheduledModalUrgent || (secondsLeft > 0 && secondsLeft / totalSec <= 0.3);
 
   return (
-    <View style={styles.overlay} pointerEvents="auto">
-      <Animated.View
-        style={[
-          styles.modalContainer,
-          {
-            width: modalWidth,
-            maxHeight: modalMaxHeight,
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
+    <DismissibleModal visible={isScheduledModalVisible} onClose={handleLater} dismissDisabled={isSubmitting} overlayStyle={styles.overlay} contentStyle={[styles.modalContainer, { width: modalWidth, maxHeight: modalMaxHeight }]}>
         {/* Header Thông Báo Sang Trọng */}
         <View style={[styles.header, isSmallScreen && styles.headerSmall]}>
           <View style={styles.headerTopRow}>
@@ -424,8 +414,7 @@ export const ScheduledOfferModal: React.FC = () => {
             <Ionicons name="chevron-forward" size={13} color="#BE123C" />
           </TouchableOpacity>
         </View>
-      </Animated.View>
-    </View>
+      </DismissibleModal>
   );
 };
 

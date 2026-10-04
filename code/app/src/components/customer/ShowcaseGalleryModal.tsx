@@ -1,9 +1,9 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
@@ -69,7 +69,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <DismissibleModal visible={visible} onClose={onClose} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
       <View style={styles.backdrop}>
         <SafeAreaView style={styles.safeArea}>
           {/* HEADER BAR */}
@@ -213,7 +213,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
           </View>
         </SafeAreaView>
       </View>
-    </Modal>
+    </DismissibleModal>
   );
 };
 

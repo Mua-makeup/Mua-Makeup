@@ -2,8 +2,8 @@ import { apiClient } from './api';
 
 export interface ToggleAvailabilityPayload {
   isAvailable: boolean;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   heading?: number;
   speed?: number;
 }

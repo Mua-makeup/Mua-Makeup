@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import { DismissibleModal } from '@/components/common/DismissibleModal';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +9,6 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Modal,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,7 +16,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { muaProfileService, MuaPublicProfile, MuaCertificate } from '@/services/mua-profile.service';
 import { mapsService } from '@/services/maps.service';
@@ -25,7 +24,7 @@ import { parseApiError } from '@/utils/error';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 import { useWorkstationStore } from '@/store/workstation.store';
 
-const QUICK_RADIUS_OPTIONS = [5, 10, 15, 20, 25, 30, 50];
+import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
 
 export default function MuaWorkProfileScreen() {
 
@@ -37,6 +36,9 @@ export default function MuaWorkProfileScreen() {
   const [bio, setBio] = useState('');
   const [experienceYears, setExperienceYears] = useState('');
   const [maxRadius, setMaxRadius] = useState('');
+  const [savedRadius, setSavedRadius] = useState(15);
+  const experienceOptions = useMemo(() => Array.from({ length: Math.max(100, Number(experienceYears) || 0) + 1 }, (_, i) => i), [experienceYears]);
+  const radiusOptions = useMemo(() => [...new Set([...Array.from({ length: 50 }, (_, i) => i + 1), savedRadius])].sort((a, b) => a - b), [savedRadius]);
   const [baseAddressText, setBaseAddressText] = useState('');
   const [baseAddressLat, setBaseAddressLat] = useState<number | null>(null);
   const [baseAddressLng, setBaseAddressLng] = useState<number | null>(null);
@@ -68,8 +70,9 @@ export default function MuaWorkProfileScreen() {
       const data = await muaProfileService.getMyProfile();
       setProfile(data);
       setBio(data.bio ?? '');
-      setExperienceYears(data.experienceYears == null ? '' : String(data.experienceYears));
-      setMaxRadius(data.maxServiceRadiusKm == null ? '' : String(data.maxServiceRadiusKm));
+      setExperienceYears(String(data.experienceYears ?? 0));
+      setMaxRadius(String(data.maxServiceRadiusKm ?? 15));
+      setSavedRadius(Number(data.maxServiceRadiusKm ?? 15));
       setBaseAddressText(data.baseAddressText ?? '');
       setBaseAddressLat(data.baseAddressLat == null ? null : Number(data.baseAddressLat));
       setBaseAddressLng(data.baseAddressLng == null ? null : Number(data.baseAddressLng));
@@ -94,13 +97,11 @@ export default function MuaWorkProfileScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const lat = loc.coords.latitude;
       const lng = loc.coords.longitude;
+      const geo = await mapsService.reverseGeocode(lat, lng);
       setBaseAddressLat(lat);
       setBaseAddressLng(lng);
-
-      const geo = await mapsService.reverseGeocode(lat, lng);
-      if (geo?.formattedAddress) {
-        setBaseAddressText(geo.formattedAddress);
-      }
+      setFieldErrors((prev) => ({ ...prev, baseAddressText: '' }));
+      setBaseAddressText(geo?.formattedAddress || `${lat.toFixed(6)}, ${lng.toFixed(6)}`);
       Alert.alert('Đã định vị GPS', `Đã nhận diện vị trí cơ sở thành công:\n${geo?.formattedAddress || `${lat}, ${lng}`}`);
     } catch (e: any) {
       Alert.alert('Lỗi định vị', e.message || 'Không thể lấy vị trí hiện tại');
@@ -123,6 +124,8 @@ export default function MuaWorkProfileScreen() {
       errors.maxRadius = 'Bán kính nhận ca phải từ 1.0 đến 50.0 km.';
     }
 
+    if (!baseAddressText.trim()) errors.baseAddressText = 'Vui lòng nhập địa điểm nhận ca.';
+
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       return;
@@ -134,21 +137,25 @@ export default function MuaWorkProfileScreen() {
       let lngToSend = baseAddressLng;
 
       // Nếu thợ đã nhập địa chỉ chữ nhưng chưa có tọa độ GPS, tự động geocode ngay
-      if ((!latToSend || !lngToSend) && baseAddressText && baseAddressText.trim()) {
+      if ((latToSend == null || lngToSend == null) && baseAddressText && baseAddressText.trim()) {
         try {
           const geo = await mapsService.geocode(baseAddressText.trim());
-          if (geo?.latitude && geo?.longitude) {
+          if (geo?.latitude != null && geo?.longitude != null) {
             latToSend = geo.latitude;
             lngToSend = geo.longitude;
             setBaseAddressLat(latToSend);
             setBaseAddressLng(lngToSend);
           }
         } catch {
-          // Bỏ qua lỗi geocode client, backend sẽ tự động fallback geocode
+          // Hiển thị hướng dẫn bên dưới nếu chưa xác định được tọa độ.
         }
       }
 
-      await muaProfileService.updateMyProfile({
+      if (latToSend == null || lngToSend == null) {
+        setFieldErrors({ baseAddressText: 'Không xác định được tọa độ. Nhập địa chỉ đầy đủ hoặc dùng GPS tại cơ sở.' });
+        return;
+      }
+      const saved = await muaProfileService.updateMyProfile({
         bio: bio.trim(),
         experienceYears: expNum,
         maxServiceRadiusKm: radNum,
@@ -157,10 +164,11 @@ export default function MuaWorkProfileScreen() {
         baseAddressLng: lngToSend ?? undefined,
       });
 
-      // Đồng bộ bán kính vừa lưu vào Workstation Store
-      useWorkstationStore.setState((state) => ({
-        profile: state.profile ? { ...state.profile, maxServiceRadiusKm: radNum } : null,
-      }));
+      setProfile(saved);
+      setBaseAddressText(saved.baseAddressText ?? '');
+      setBaseAddressLat(saved.baseAddressLat == null ? null : Number(saved.baseAddressLat));
+      setBaseAddressLng(saved.baseAddressLng == null ? null : Number(saved.baseAddressLng));
+      useWorkstationStore.setState({ profile: saved });
 
       Alert.alert('Thành công', 'Hồ sơ nghề nghiệp Thợ MUA đã được lưu thành công!');
     } catch (err: any) {
@@ -316,16 +324,9 @@ export default function MuaWorkProfileScreen() {
     }
   };
 
-  const handleSelectQuickRadius = (km: number) => {
-    Haptics.selectionAsync();
-    setMaxRadius(String(km));
-    if (fieldErrors.maxRadius) {
-      setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
-    }
-  };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -335,7 +336,7 @@ export default function MuaWorkProfileScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hồ Sơ Nghề Nghiệp MUA</Text>
+        <Text style={styles.headerTitle}>Hồ sơ nghề nghiệp</Text>
         <TouchableOpacity
           style={styles.previewIconBtn}
           onPress={handlePreviewPublicProfile}
@@ -411,15 +412,15 @@ export default function MuaWorkProfileScreen() {
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
               <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
-              <Text style={styles.formCardTitle}>Chuyên Môn & Giới Thiệu</Text>
+              <Text style={styles.formCardTitle}>Giới thiệu</Text>
             </View>
 
             {/* Tiểu sử */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Tiểu Sử Nghề Nghiệp (Bio)</Text>
+              <Text style={styles.fieldLabel}>Giới thiệu bản thân</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="VD: Chuyên gia trang điểm cô dâu tone Thái, tone Hàn Quốc. Mỹ phẩm cao cấp Chanel, Dior, NARS..."
+                placeholder="Phong cách trang điểm, thế mạnh và kinh nghiệm của bạn…"
                 value={bio}
                 onChangeText={setBio}
                 multiline
@@ -431,10 +432,21 @@ export default function MuaWorkProfileScreen() {
               </Text>
             </View>
 
+
+          </View>
+
+          <View style={styles.formCard}>
+            <View style={styles.cardHeaderRow}>
+              <Ionicons name="location-outline" size={18} color={BrandColors.primary} />
+              <Text style={styles.formCardTitle}>Khu vực nhận ca</Text>
+            </View>
+            <Text style={styles.sectionDescription}>
+              Hệ thống tìm khách trong bán kính tính từ địa điểm đã lưu bên dưới. GPS khi di chuyển không thay đổi khu vực này.
+            </Text>
             {/* Địa chỉ cơ sở / Điểm xuất phát nhận ca */}
             <View style={styles.fieldGroup}>
               <View style={styles.addressLabelRow}>
-                <Text style={styles.fieldLabel}>Địa Chỉ Cơ Sở / Điểm Nhận Ca</Text>
+                <Text style={styles.fieldLabel}>Địa điểm nhận ca</Text>
                 <TouchableOpacity
                   style={styles.gpsAutoBtn}
                   onPress={handleUseCurrentLocation}
@@ -446,28 +458,32 @@ export default function MuaWorkProfileScreen() {
                   ) : (
                     <>
                       <Ionicons name="navigate-circle" size={15} color={BrandColors.primary} />
-                      <Text style={styles.gpsAutoBtnText}>Lấy GPS hiện tại</Text>
+                      <Text style={styles.gpsAutoBtnText}>Dùng GPS tại đây</Text>
                     </>
                   )}
                 </TouchableOpacity>
               </View>
 
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.addressInput, fieldErrors.baseAddressText && styles.inputError]}
+                multiline
+                textAlignVertical="top"
                 placeholder="VD: 120 Hai Bà Trưng, Phường Bến Nghé, Quận 1, TP.HCM"
                 value={baseAddressText}
                 onChangeText={(text) => {
                   setBaseAddressText(text);
                   setBaseAddressLat(null);
                   setBaseAddressLng(null);
+                  setFieldErrors((prev) => ({ ...prev, baseAddressText: '' }));
                 }}
               />
 
-              {baseAddressLat && baseAddressLng ? (
+              {fieldErrors.baseAddressText ? <Text style={styles.errorText}>{fieldErrors.baseAddressText}</Text> : null}
+              {baseAddressLat != null && baseAddressLng != null ? (
                 <View style={styles.coordsBadge}>
                   <Ionicons name="checkmark-circle" size={14} color="#059669" />
                   <Text style={styles.coordsBadgeText}>
-                    Tọa độ GPS đã ghim: ({Number(baseAddressLat).toFixed(4)}, {Number(baseAddressLng).toFixed(4)})
+                    Đã ghim: ({Number(baseAddressLat).toFixed(4)}, {Number(baseAddressLng).toFixed(4)})
                   </Text>
                 </View>
               ) : (
@@ -477,86 +493,25 @@ export default function MuaWorkProfileScreen() {
               )}
             </View>
 
-            {/* 2 Cột: Kinh nghiệm & Bán kính */}
-            <View style={styles.twoColRow}>
-              <View style={[styles.fieldGroup, { flex: 1, marginRight: 8 }]}>
-                <View style={styles.twoColLabelContainer}>
-                  <Text style={styles.fieldLabel}>
-                    Kinh Nghiệm (Năm) <Text style={styles.required}>*</Text>
-                  </Text>
-                </View>
-                <TextInput
-                  style={[styles.input, fieldErrors.experienceYears && styles.inputError]}
-                  placeholder="VD: 5"
-                  value={experienceYears}
-                  keyboardType="number-pad"
-                  onChangeText={(text) => {
-                    setExperienceYears(text);
-                    if (fieldErrors.experienceYears) {
-                      setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
-                    }
-                  }}
-                />
-                {fieldErrors.experienceYears ? (
-                  <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text>
-                ) : null}
-              </View>
-
-              <View style={[styles.fieldGroup, { flex: 1, marginLeft: 8 }]}>
-                <View style={styles.twoColLabelContainer}>
-                  <Text style={styles.fieldLabel}>
-                    Bán Kính Hoạt Động (km) <Text style={styles.required}>*</Text>
-                  </Text>
-                </View>
-                <TextInput
-                  style={[styles.input, fieldErrors.maxRadius && styles.inputError]}
-                  placeholder="VD: 15"
-                  value={maxRadius}
-                  keyboardType="numeric"
-                  onChangeText={(text) => {
-                    setMaxRadius(text);
-                    if (fieldErrors.maxRadius) {
-                      setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
-                    }
-                  }}
-                />
-                {fieldErrors.maxRadius ? (
-                  <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text>
-                ) : null}
-              </View>
+            <View style={styles.numberPickersRow}>
+              <VerticalNumberPicker
+                label="Kinh nghiệm" unit="năm" value={Number(experienceYears)} options={experienceOptions}
+                onChange={(value) => {
+                  setExperienceYears(String(value));
+                  setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
+                }}
+              />
+              <VerticalNumberPicker
+                label="Bán kính nhận ca" unit="km" value={Number(maxRadius)} options={radiusOptions}
+                onChange={(value) => {
+                  setMaxRadius(String(value));
+                  setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
+                }}
+              />
             </View>
-
-            {/* Chú thích giải thích rõ ràng tính năng bán kính hoạt động */}
-            <Text style={styles.radiusExplainerText}>
-              💡 Bán kính tối đa bạn sẵn sàng di chuyển đến tận nơi để nhận ca trang điểm cho khách (tính từ địa chỉ cơ sở).
-            </Text>
-
-            {/* Gợi ý chọn nhanh bán kính */}
-            <View style={styles.radiusChipsWrapper}>
-              <Text style={styles.radiusChipsTitle}>Gợi ý bán kính hoạt động:</Text>
-              <View style={styles.radiusChipsRow}>
-                {QUICK_RADIUS_OPTIONS.map((km) => {
-                  const isSelected = maxRadius === String(km);
-                  return (
-                    <TouchableOpacity
-                      key={`rad-${km}`}
-                      style={[styles.radiusChip, isSelected && styles.radiusChipActive]}
-                      onPress={() => handleSelectQuickRadius(km)}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.radiusChipText,
-                          isSelected && styles.radiusChipTextActive,
-                        ]}
-                      >
-                        {km} km
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
+            {fieldErrors.experienceYears ? <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text> : null}
+            {fieldErrors.maxRadius ? <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text> : null}
+            <Text style={styles.helperText}>Vuốt lên / xuống để chọn. Bán kính tính từ điểm nhận ca.</Text>
           </View>
 
           {/* CARD CHỨNG CHỈ & BẰNG CẤP */}
@@ -722,7 +677,7 @@ export default function MuaWorkProfileScreen() {
         <TouchableOpacity
           style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
           onPress={handleSaveMuaProfile}
-          disabled={isSubmitting || isLoading || !!loadError || !profile}
+          disabled={isSubmitting || isLocatingAddress || isLoading || !!loadError || !profile}
           activeOpacity={0.8}
         >
           {isSubmitting ? (
@@ -730,7 +685,7 @@ export default function MuaWorkProfileScreen() {
           ) : (
             <>
               <Ionicons name="save-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.saveButtonText}>Lưu Hồ Sơ Nghề Nghiệp</Text>
+              <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
             </>
           )}
         </TouchableOpacity>
@@ -739,6 +694,7 @@ export default function MuaWorkProfileScreen() {
       {/* MODAL THÊM CHỨNG CHỈ (HỖ TRỢ CLICK RA NGOÀI & KÉO TRƯỢT XUỐNG ĐỂ ĐÓNG) */}
       <SwipeableBottomSheet
         visible={isCertModalVisible}
+        dismissDisabled={isUploadingCert}
         onClose={() => setIsCertModalVisible(false)}
         title="Thêm Chứng Chỉ Nghề Nghiệp"
         subtitle="Tải lên bằng cấp để xác thực hồ sơ và kích hoạt nhận đơn trực tuyến"
@@ -788,12 +744,7 @@ export default function MuaWorkProfileScreen() {
       </SwipeableBottomSheet>
 
       {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
-      <Modal
-        visible={!!previewImageUrl}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setPreviewImageUrl(null)}
-      >
+      <DismissibleModal visible={!!previewImageUrl} onClose={() => setPreviewImageUrl(null)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
         <TouchableOpacity
           style={styles.imageViewerOverlay}
           activeOpacity={1}
@@ -814,7 +765,7 @@ export default function MuaWorkProfileScreen() {
             />
           )}
         </TouchableOpacity>
-      </Modal>
+      </DismissibleModal>
     </SafeAreaView>
   );
 }
@@ -930,7 +881,8 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   statVal: {
-    fontSize: 14,
+    textAlign: 'center',
+    fontSize: 13,
     fontWeight: '700',
     color: BrandColors.slateHeading,
     marginTop: 3,
@@ -946,7 +898,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 16,
+    gap: 12,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -966,8 +918,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: BrandColors.slateHeading,
   },
+  sectionDescription: { fontSize: 12, lineHeight: 18, color: '#64748B' },
+  addressInput: { height: 72, paddingVertical: 10, lineHeight: 20 },
   addressLabelRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 2,
@@ -976,8 +932,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     backgroundColor: '#FDF2F8',
     borderRadius: 8,
     borderWidth: 1,
@@ -1001,6 +957,7 @@ const styles = StyleSheet.create({
     borderColor: '#A7F3D0',
   },
   coordsBadgeText: {
+    flex: 1,
     fontSize: 11,
     color: '#065F46',
     fontWeight: '600',
@@ -1036,55 +993,10 @@ const styles = StyleSheet.create({
     color: BrandColors.slateMuted,
     marginTop: 2,
   },
-  twoColRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  twoColLabelContainer: {
-    minHeight: 36,
-    justifyContent: 'flex-end',
-  },
-  radiusExplainerText: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
-    marginTop: -8,
-  },
-  radiusChipsWrapper: {
-    gap: 8,
-  },
-  radiusChipsTitle: {
-    fontSize: 12,
-    color: BrandColors.slateMuted,
-    fontWeight: '600',
-  },
-  radiusChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  radiusChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-  },
-  radiusChipActive: {
-    borderColor: BrandColors.primary,
-    backgroundColor: '#FFE4E6',
-  },
-  radiusChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  radiusChipTextActive: {
-    color: BrandColors.primary,
-    fontWeight: '700',
-  },
+  numberPickersRow: { flexDirection: 'row', gap: 12 },
   certHeaderRow: {
+    flexWrap: 'wrap',
+    gap: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

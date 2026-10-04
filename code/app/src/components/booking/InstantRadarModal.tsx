@@ -1,9 +1,9 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
@@ -12,7 +12,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   Image,
-  PanResponder,
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -44,7 +43,7 @@ const RADIUS_OPTIONS = [5, 10, 15, 30];
 
 export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua }) => {
   const { currentAddress, latitude: storeLat, longitude: storeLng, fetchCurrentLocation } = useLocationStore();
-  
+
   const [currentTargetMua, setCurrentTargetMua] = useState<NearbyProviderRes | null>(targetMua || null);
 
   useEffect(() => {
@@ -52,7 +51,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
       setCurrentTargetMua(targetMua || null);
     }
   }, [visible, targetMua]);
-  
+
   // Dữ liệu danh mục và phong cách thật từ Database
   const [categories, setCategories] = useState<MasterCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<MasterCategory | null>(null);
@@ -142,20 +141,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   };
 
   // Cử chỉ vuốt xuống (swipe down) để đóng modal
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return gestureState.dy > 8 && Math.abs(gestureState.dx) < gestureState.dy;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 40 || gestureState.vy > 0.5) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          handleCancel();
-        }
-      },
-    })
-  ).current;
+
 
   const clearAllTimers = () => {
     if (timerRef.current) {
@@ -674,24 +660,22 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
-      <View style={styles.overlay}>
-        {/* Khoảng trống bên ngoài - ấn vào để đóng */}
-        <Pressable
-          style={styles.backdropPressable}
-          onPress={handleCancel}
-          accessibilityLabel="Đóng modal"
-        />
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          pointerEvents="box-none"
-          style={styles.keyboardAvoid}
-        >
-          <View style={styles.modalCard}>
+    <DismissibleModal visible={visible} onClose={handleCancel} overlayStyle={styles.overlay} contentStyle={styles.modalCard} overlays={<><SavedAddressModal
+        visible={isSavedAddressModalVisible}
+        onClose={() => setIsSavedAddressModalVisible(false)}
+        onSelectAddress={(selected) => {
+          setAddress(selected.addressLine);
+          const newCoords = { latitude: selected.latitude, longitude: selected.longitude };
+          setCoords(newCoords);
+          fetchNearbyProviders(selected.latitude, selected.longitude, searchRadius);
+          setIsSavedAddressModalVisible(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }}
+      />
+<GlobalPopupOverlay /></>}>
             {/* VÙNG KÉO VUỐT XUỐNG ĐÓNG & HEADER */}
-            <View {...panResponder.panHandlers} style={styles.dragArea}>
-              <View style={styles.dragHandleBar} />
+            <View style={styles.dragArea}>
+
               <View style={styles.modalHeader}>
                 <View style={styles.titleRow}>
                   <View style={styles.radarIconBox}>
@@ -1188,27 +1172,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
               </View>
             </View>
           )}
-        </View>
-      </KeyboardAvoidingView>
-    </View>
-
-      {/* SỔ ĐỊA CHỈ KHÁCH HÀNG (TÍCH HỢP TỪ PROFILE ĐÃ LƯU) */}
-      <SavedAddressModal
-        visible={isSavedAddressModalVisible}
-        onClose={() => setIsSavedAddressModalVisible(false)}
-        onSelectAddress={(selected) => {
-          setAddress(selected.addressLine);
-          const newCoords = { latitude: selected.latitude, longitude: selected.longitude };
-          setCoords(newCoords);
-          fetchNearbyProviders(selected.latitude, selected.longitude, searchRadius);
-          setIsSavedAddressModalVisible(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }}
-      />
-
-      {/* POPUP ALERT TOÀN CỤC BÊN TRONG MODAL */}
-      <GlobalPopupOverlay />
-    </Modal>
+        </DismissibleModal>
   );
 };
 

@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
-  Modal,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -1017,18 +1017,7 @@ export default function CustomerBookingDetailScreen() {
       </View>
 
       {/* MODAL HỦY ĐƠN */}
-      <Modal
-        visible={isCancelModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsCancelModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsCancelModalVisible(false)} />
-          <View style={styles.modalContent}>
+      <DismissibleModal visible={isCancelModalVisible} onClose={() => setIsCancelModalVisible(false)} dismissDisabled={isCancelling} overlayStyle={styles.modalOverlay} contentStyle={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Ionicons name="warning-outline" size={24} color="#DC2626" />
               <Text style={styles.modalTitle}>Xác Nhận Hủy Lịch</Text>
@@ -1096,17 +1085,10 @@ export default function CustomerBookingDetailScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </DismissibleModal>
 
       {/* MODAL PHÓNG TO ẢNH NGHIỆM THU */}
-      <Modal
-        visible={isPhotoModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsPhotoModalVisible(false)}
-      >
+      <DismissibleModal visible={isPhotoModalVisible} onClose={() => setIsPhotoModalVisible(false)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
         <TouchableOpacity
           style={styles.photoModalOverlay}
           activeOpacity={1}
@@ -1127,7 +1109,7 @@ export default function CustomerBookingDetailScreen() {
             />
           )}
         </TouchableOpacity>
-      </Modal>
+      </DismissibleModal>
     </SafeAreaView>
   );
 }

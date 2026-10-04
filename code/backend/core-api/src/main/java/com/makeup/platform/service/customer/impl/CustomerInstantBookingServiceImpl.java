@@ -1024,11 +1024,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         double distanceKm = 1.8;
         if (targetMuaId != null) {
             var muaOpt = muaProfileRepository.findById(targetMuaId);
-            if (muaOpt.isPresent() && muaOpt.get().getLastKnownLat() != null && muaOpt.get().getLastKnownLng() != null
+            if (muaOpt.isPresent() && muaOpt.get().getBaseAddressLat() != null && muaOpt.get().getBaseAddressLng() != null
                     && booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
                 distanceKm = GeoDistanceUtils.calculateDistanceKm(
-                        muaOpt.get().getLastKnownLat().doubleValue(),
-                        muaOpt.get().getLastKnownLng().doubleValue(),
+                        muaOpt.get().getBaseAddressLat().doubleValue(),
+                        muaOpt.get().getBaseAddressLng().doubleValue(),
                         booking.getDestinationLatitude().doubleValue(),
                         booking.getDestinationLongitude().doubleValue());
             }
@@ -1085,22 +1085,10 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             }
 
             // Kiểm tra bán kính phục vụ tối đa của thợ đích danh
-            Double muaLat = null;
-            Double muaLng = null;
-            try {
-                var posList = stringRedisTemplate.opsForGeo().position(TelemetryConstants.REDIS_KEY_MUA_GEO, String.valueOf(targetId));
-                if (posList != null && !posList.isEmpty() && posList.get(0) != null) {
-                    muaLng = posList.get(0).getX();
-                    muaLat = posList.get(0).getY();
-                }
-            } catch (Exception e) {
-                log.warn("Failed to get GEO position for target MUA {}: {}", targetId, e.getMessage());
-            }
+            Double muaLat = targetMua.getBaseAddressLat() == null ? null : targetMua.getBaseAddressLat().doubleValue();
+            Double muaLng = targetMua.getBaseAddressLng() == null ? null : targetMua.getBaseAddressLng().doubleValue();
             if (muaLat == null || muaLng == null) {
-                if (targetMua.getBaseAddressLat() != null && targetMua.getBaseAddressLng() != null) {
-                    muaLat = targetMua.getBaseAddressLat().doubleValue();
-                    muaLng = targetMua.getBaseAddressLng().doubleValue();
-                }
+                throw new CustomBusinessException(ErrorCodes.ERR_LOCATION_INVALID, "ERR_LOCATION_INVALID", HttpStatus.BAD_REQUEST);
             }
 
             if (muaLat != null && muaLng != null && req.getDestinationLatitude() != null && req.getDestinationLongitude() != null) {
@@ -1184,10 +1172,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 if (distToCustomer == null) {
                     Double muaLat = null;
                     Double muaLng = null;
-                    if (mua.getLastKnownLat() != null && mua.getLastKnownLng() != null) {
-                        muaLat = mua.getLastKnownLat().doubleValue();
-                        muaLng = mua.getLastKnownLng().doubleValue();
-                    } else if (mua.getBaseAddressLat() != null && mua.getBaseAddressLng() != null) {
+                    if (mua.getBaseAddressLat() != null && mua.getBaseAddressLng() != null) {
                         muaLat = mua.getBaseAddressLat().doubleValue();
                         muaLng = mua.getBaseAddressLng().doubleValue();
                     }

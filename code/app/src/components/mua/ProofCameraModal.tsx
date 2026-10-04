@@ -1,9 +1,9 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Modal,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
@@ -114,9 +114,7 @@ export const ProofCameraModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
-        <View style={styles.container}>
+    <DismissibleModal visible={visible} onClose={onClose} dismissDisabled={isUploading} overlayStyle={styles.overlay} contentStyle={styles.container}>
           {/* Header */}
           <View style={styles.header}>
             <View>
@@ -187,9 +185,7 @@ export const ProofCameraModal: React.FC<Props> = ({
               </TouchableOpacity>
             </View>
           )}
-        </View>
-      </View>
-    </Modal>
+        </DismissibleModal>
   );
 };
 

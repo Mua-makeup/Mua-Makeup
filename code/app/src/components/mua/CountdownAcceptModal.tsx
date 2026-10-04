@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -156,8 +157,7 @@ export const CountdownAcceptModal: React.FC = () => {
   const platformFee = activeOffer.platformFee || 0;
 
   return (
-    <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} pointerEvents="auto">
-      <Animated.View style={[styles.contentCard, { transform: [{ scale: scaleAnim }] }]}>
+    <DismissibleModal visible={isAcceptModalVisible} onClose={() => { void dismissOffer(false); }} dismissDisabled={isSubmitting} overlayStyle={styles.overlay} contentStyle={styles.contentCard}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* KHỐI 1: HEADER KHẨN CẤP & THỨ TỰ ƯU TIÊN WATERFALL */}
           <View style={styles.header}>
@@ -324,8 +324,7 @@ export const CountdownAcceptModal: React.FC = () => {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </Animated.View>
-    </Animated.View>
+      </DismissibleModal>
   );
 };
 

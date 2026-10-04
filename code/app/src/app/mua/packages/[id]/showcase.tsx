@@ -1,3 +1,4 @@
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -8,7 +9,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Modal,
   Image,
   Dimensions,
 } from 'react-native';
@@ -205,11 +205,7 @@ export default function PackageShowcaseScreen() {
 
       {/* Fullscreen Photo Lightbox Modal */}
       {previewItem && (
-        <Modal
-          visible={!!previewItem}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setPreviewItem(null)}>
+        <DismissibleModal visible={!!previewItem} onClose={() => setPreviewItem(null)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
           <View style={styles.lightboxOverlay}>
             <View style={[styles.lightboxHeader, { paddingTop: insets.top + 10 }]}>
               <TouchableOpacity
@@ -260,7 +256,7 @@ export default function PackageShowcaseScreen() {
               )}
             </View>
           </View>
-        </Modal>
+        </DismissibleModal>
       )}
     </View>
   );
