@@ -39,11 +39,7 @@ public class AgencyStaffPackageServiceImpl implements AgencyStaffPackageService 
     public StaffPackagesRes assignPackagesToStaff(Long userId, AssignStaffPackagesReq req) {
         AgencyProfileEntity agency = getAgencyByOwnerId(userId);
 
-        AgencyStaffEntity staff = agencyStaffRepository.findById(req.getStaffId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCodes.ERR_STAFF_NOT_FOUND,
-                        "ERR_STAFF_NOT_FOUND"
-                ));
+        AgencyStaffEntity staff = getStaffById(req.getStaffId());
 
         if (!staff.getAgency().getId().equals(agency.getId())) {
             throw new CustomBusinessException(
@@ -58,6 +54,22 @@ public class AgencyStaffPackageServiceImpl implements AgencyStaffPackageService 
         agencyStaffServiceRepository.flush();
 
         List<AgencyStaffServiceEntity> newAssignments = new ArrayList<>();
+        List<PackageAssignmentItem> items = resolvePackageAssignments(req);
+
+        if (items != null && !items.isEmpty()) {
+            for (PackageAssignmentItem item : items) {
+                newAssignments.add(createAssignment(staff, agency, item));
+            }
+        }
+
+        List<AgencyStaffServiceEntity> savedList = agencyStaffServiceRepository.saveAll(newAssignments);
+        log.info("Phân công thành công {} gói dịch vụ cho thợ staffId={} thuộc studio agencyId={}",
+                savedList.size(), staff.getId(), agency.getId());
+
+        return agencyStaffPackageMapper.toStaffPackagesRes(staff, savedList);
+    }
+
+    private List<PackageAssignmentItem> resolvePackageAssignments(AssignStaffPackagesReq req) {
         List<PackageAssignmentItem> items = req.getPackageAssignments();
         if ((items == null || items.isEmpty()) && req.getPackageIds() != null) {
             items = req.getPackageIds().stream()
@@ -69,52 +81,50 @@ public class AgencyStaffPackageServiceImpl implements AgencyStaffPackageService 
                     .toList();
         }
 
-        if (items != null && !items.isEmpty()) {
-            for (PackageAssignmentItem item : items) {
-            ServicePackageEntity pkg = servicePackageRepository.findById(item.getPackageId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            ErrorCodes.ERR_PACKAGE_NOT_FOUND,
-                            "ERR_PACKAGE_NOT_FOUND"
-                    ));
+        return items;
+    }
 
-            if (pkg.getAgency() == null || !pkg.getAgency().getId().equals(agency.getId())) {
-                throw new CustomBusinessException(
-                        ErrorCodes.ERR_PACKAGE_NOT_OWNED_BY_AGENCY,
-                        "agency.package_not_owned_by_agency",
-                        HttpStatus.BAD_REQUEST
-                );
-            }
+    private AgencyStaffServiceEntity createAssignment(AgencyStaffEntity staff,
+                                                      AgencyProfileEntity agency,
+                                                      PackageAssignmentItem item) {
+        ServicePackageEntity pkg = servicePackageRepository.findById(item.getPackageId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                        "ERR_PACKAGE_NOT_FOUND"
+                ));
 
-            AgencyStaffServiceEntity assignment = AgencyStaffServiceEntity.builder()
-                    .id(new AgencyStaffServiceId(staff.getId(), pkg.getId()))
-                    .staff(staff)
-                    .servicePackage(pkg)
-                    .proficiencyLevel(item.getProficiencyLevel())
-                    .isQualified(item.getIsQualified() != null ? item.getIsQualified() : true)
-                    .build();
-
-            newAssignments.add(assignment);
-        }
+        if (pkg.getAgency() == null || !pkg.getAgency().getId().equals(agency.getId())) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_PACKAGE_NOT_OWNED_BY_AGENCY,
+                    "agency.package_not_owned_by_agency",
+                    HttpStatus.BAD_REQUEST
+            );
         }
 
-        List<AgencyStaffServiceEntity> savedList = agencyStaffServiceRepository.saveAll(newAssignments);
-        log.info("Phân công thành công {} gói dịch vụ cho thợ staffId={} thuộc studio agencyId={}",
-                savedList.size(), staff.getId(), agency.getId());
-
-        return agencyStaffPackageMapper.toStaffPackagesRes(staff, savedList);
+        return AgencyStaffServiceEntity.builder()
+                .id(new AgencyStaffServiceId(staff.getId(), pkg.getId()))
+                .staff(staff)
+                .servicePackage(pkg)
+                .proficiencyLevel(item.getProficiencyLevel())
+                .isQualified(item.getIsQualified() != null ? item.getIsQualified() : true)
+                .build();
     }
 
     @Override
     @Transactional(readOnly = true)
     public StaffPackagesRes getStaffPackages(Long userId, Long staffId) {
-        AgencyStaffEntity staff = agencyStaffRepository.findById(staffId)
+        AgencyStaffEntity staff = getStaffById(staffId);
+
+        List<AgencyStaffServiceEntity> assignments = agencyStaffServiceRepository.findByStaffIdWithPackage(staffId);
+        return agencyStaffPackageMapper.toStaffPackagesRes(staff, assignments);
+    }
+
+    private AgencyStaffEntity getStaffById(Long staffId) {
+        return agencyStaffRepository.findById(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_STAFF_NOT_FOUND,
                         "ERR_STAFF_NOT_FOUND"
                 ));
-
-        List<AgencyStaffServiceEntity> assignments = agencyStaffServiceRepository.findByStaffIdWithPackage(staffId);
-        return agencyStaffPackageMapper.toStaffPackagesRes(staff, assignments);
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long ownerId) {
