@@ -97,13 +97,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
             );
         }
 
-        if (!overlapping.isEmpty()) {
-            throw new CustomBusinessException(
-                    ErrorCodes.ERR_SHIFT_OVERLAPPING,
-                    "agency.shift_time_overlapped",
-                    HttpStatus.CONFLICT
-            );
-        }
+        validateNoOverlappingShifts(overlapping);
 
         AgencyStaffShiftEntity shift = AgencyStaffShiftEntity.builder()
                 .agency(agency)
@@ -200,12 +194,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     public ShiftDetailRes updateShift(Long userId, Long shiftId, ConfigureShiftReq req) {
         AgencyProfileEntity agency = getAgencyForManager(userId);
 
-        AgencyStaffShiftEntity shift = agencyStaffShiftRepository.findById(shiftId)
-                .filter(s -> s.getAgency().getId().equals(agency.getId()))
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCodes.ERR_SHIFT_NOT_FOUND,
-                        "ERR_SHIFT_NOT_FOUND"
-                ));
+        AgencyStaffShiftEntity shift = getShiftForAgency(shiftId, agency);
 
         AgencyStaffEntity staff = shift.getStaff();
         if (req.getStaffId() != null && !req.getStaffId().equals(staff.getId())) {
@@ -247,13 +236,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
             );
         }
 
-        if (!overlapping.isEmpty()) {
-            throw new CustomBusinessException(
-                    ErrorCodes.ERR_SHIFT_OVERLAPPING,
-                    "agency.shift_time_overlapped",
-                    HttpStatus.CONFLICT
-            );
-        }
+        validateNoOverlappingShifts(overlapping);
 
         shift.setStaff(staff);
         shift.setDayOfWeek(dayOfWeek);
@@ -280,16 +263,30 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     public void deleteShift(Long userId, Long shiftId) {
         AgencyProfileEntity agency = getAgencyForManager(userId);
 
-        AgencyStaffShiftEntity shift = agencyStaffShiftRepository.findById(shiftId)
+        AgencyStaffShiftEntity shift = getShiftForAgency(shiftId, agency);
+
+        shift.setIsActive(false);
+        agencyStaffShiftRepository.save(shift);
+        log.info("Deactivated shift id={} by agency owner userId={}", shiftId, userId);
+    }
+
+    private void validateNoOverlappingShifts(List<AgencyStaffShiftEntity> overlapping) {
+        if (!overlapping.isEmpty()) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_SHIFT_OVERLAPPING,
+                    "agency.shift_time_overlapped",
+                    HttpStatus.CONFLICT
+            );
+        }
+    }
+
+    private AgencyStaffShiftEntity getShiftForAgency(Long shiftId, AgencyProfileEntity agency) {
+        return agencyStaffShiftRepository.findById(shiftId)
                 .filter(s -> s.getAgency().getId().equals(agency.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_SHIFT_NOT_FOUND,
                         "ERR_SHIFT_NOT_FOUND"
                 ));
-
-        shift.setIsActive(false);
-        agencyStaffShiftRepository.save(shift);
-        log.info("Deactivated shift id={} by agency owner userId={}", shiftId, userId);
     }
 
     private AgencyProfileEntity getAgencyForManager(Long userId) {

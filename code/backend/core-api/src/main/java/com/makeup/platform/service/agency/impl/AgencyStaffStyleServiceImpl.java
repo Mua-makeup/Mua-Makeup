@@ -82,12 +82,7 @@ public class AgencyStaffStyleServiceImpl implements AgencyStaffStyleService {
                 validStyles.size(), staffId, agency.getId());
 
         List<AssignedStyleRes> assignedStyleResList = validStyles.stream()
-                .map(s -> AssignedStyleRes.builder()
-                        .id(s.getId())
-                        .styleCode(s.getStyleCode())
-                        .styleName(s.getStyleName())
-                        .isQualified(true)
-                        .build())
+                .map(style -> toAssignedStyleRes(style, true))
                 .collect(Collectors.toList());
 
         return StaffStylesRes.builder()
@@ -107,13 +102,17 @@ public class AgencyStaffStyleServiceImpl implements AgencyStaffStyleService {
 
         List<AgencyStaffStyleEntity> list = agencyStaffStyleRepository.findByStaffIdWithStyle(staffId);
         return list.stream()
-                .map(e -> AssignedStyleRes.builder()
-                        .id(e.getStyle().getId())
-                        .styleCode(e.getStyle().getStyleCode())
-                        .styleName(e.getStyle().getStyleName())
-                        .isQualified(e.getIsQualified())
-                        .build())
+                .map(entity -> toAssignedStyleRes(entity.getStyle(), entity.getIsQualified()))
                 .collect(Collectors.toList());
+    }
+
+    private AssignedStyleRes toAssignedStyleRes(MakeupStyleEntity style, Boolean isQualified) {
+        return AssignedStyleRes.builder()
+                .id(style.getId())
+                .styleCode(style.getStyleCode())
+                .styleName(style.getStyleName())
+                .isQualified(isQualified)
+                .build();
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long userId) {
