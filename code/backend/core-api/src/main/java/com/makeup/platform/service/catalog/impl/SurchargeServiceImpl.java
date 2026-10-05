@@ -46,10 +46,7 @@ public class SurchargeServiceImpl implements SurchargeService {
 
     @Override
     public SurchargeDetailRes configureSurcharge(Long userId, ConfigureSurchargeReq req) {
-        if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) < 0) {
-            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_AMOUNT,
-                    "ERR_INVALID_SURCHARGE_AMOUNT", HttpStatus.BAD_REQUEST);
-        }
+        validateSurchargeAmount(req);
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 
@@ -82,10 +79,7 @@ public class SurchargeServiceImpl implements SurchargeService {
     public SurchargeDetailRes updateSurcharge(Long userId, Long surchargeId, ConfigureSurchargeReq req) {
         SurchargeEntity surcharge = checkSurchargeOwnership(userId, surchargeId);
 
-        if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) < 0) {
-            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_AMOUNT,
-                    "ERR_INVALID_SURCHARGE_AMOUNT", HttpStatus.BAD_REQUEST);
-        }
+        validateSurchargeAmount(req);
 
         surcharge.setSurchargeName(req.getSurchargeName().trim());
         surcharge.setSurchargeType(req.getSurchargeType());
@@ -204,6 +198,13 @@ public class SurchargeServiceImpl implements SurchargeService {
                 .totalSurcharge(totalSurcharge.setScale(2, RoundingMode.HALF_UP))
                 .appliedSurcharges(appliedItems)
                 .build();
+    }
+
+    private void validateSurchargeAmount(ConfigureSurchargeReq req) {
+        if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) < 0) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_SURCHARGE_AMOUNT,
+                    "ERR_INVALID_SURCHARGE_AMOUNT", HttpStatus.BAD_REQUEST);
+        }
     }
 
     private SurchargeEntity checkSurchargeOwnership(Long userId, Long surchargeId) {
