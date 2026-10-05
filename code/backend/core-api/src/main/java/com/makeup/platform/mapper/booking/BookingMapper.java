@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -222,6 +223,7 @@ public class BookingMapper {
 
         String customerName = entity.getCustomer() != null ? entity.getCustomer().getFullName() : null;
         String customerPhone = entity.getCustomer() != null ? entity.getCustomer().getPhoneNumber() : null;
+        String customerAvatar = entity.getCustomer() != null ? entity.getCustomer().getAvatarUrl() : null;
 
         String packageName = "Trang điểm";
         String packageCoverUrl = null;
@@ -232,13 +234,12 @@ public class BookingMapper {
         }
 
         BigDecimal earnings = BigDecimal.ZERO;
-        if (entity.getServiceSubtotal() != null) {
-            BigDecimal platformFee = entity.getServiceSubtotal().multiply(BigDecimal.valueOf(0.1));
-            BigDecimal surcharge = entity.getSurchargeFee() != null ? entity.getSurchargeFee() : BigDecimal.ZERO;
-            BigDecimal distance = entity.getDistanceFee() != null ? entity.getDistanceFee() : BigDecimal.ZERO;
-            earnings = entity.getServiceSubtotal().subtract(platformFee).add(surcharge).add(distance);
-        } else if (entity.getTotalAmount() != null) {
-            earnings = entity.getTotalAmount();
+        if (entity.getTotalAmount() != null) {
+            BigDecimal platformFee = entity.getTotalAmount().multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+            earnings = entity.getTotalAmount().subtract(platformFee);
+        } else if (entity.getServiceSubtotal() != null) {
+            BigDecimal platformFee = entity.getServiceSubtotal().multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+            earnings = entity.getServiceSubtotal().subtract(platformFee);
         }
 
         return FreelancerBookingItemRes.builder()
@@ -248,6 +249,7 @@ public class BookingMapper {
                 .bookingType(entity.getBookingType() != null ? entity.getBookingType().name() : null)
                 .customerName(customerName)
                 .customerPhone(customerPhone)
+                .customerAvatar(customerAvatar)
                 .packageName(packageName)
                 .packageCoverUrl(packageCoverUrl)
                 .destinationAddress(entity.getDestinationAddress())

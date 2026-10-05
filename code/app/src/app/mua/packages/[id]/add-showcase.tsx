@@ -20,6 +20,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { BrandColors } from '@/constants/theme';
 import { packageService, PackageDetail } from '@/services/package.service';
 import { muaShowcaseService } from '@/services/mua-showcase.service';
+import { taxonomyService, MakeupStyle } from '@/services/taxonomy.service';
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 import { MultiAnglePhotoStrip } from '@/components/mua/showcase/MultiAnglePhotoStrip';
 import { createShowcaseSchema } from '@/schemas/showcase.schema';
 import { parseApiError } from '@/utils/error';
@@ -36,6 +38,9 @@ export default function AddShowcaseScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedStyleId, setSelectedStyleId] = useState<number | undefined>(undefined);
+  const [stylesList, setStylesList] = useState<MakeupStyle[]>([]);
+  const [showStyleModal, setShowStyleModal] = useState(false);
+  const [styleSearchQuery, setStyleSearchQuery] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
@@ -49,15 +54,28 @@ export default function AddShowcaseScreen() {
 
   const loadPackage = async () => {
     try {
-      const pkg = await packageService.getPackageById(packageId);
+      const [pkg, allStyles] = await Promise.all([
+        packageService.getPackageById(packageId),
+        taxonomyService.getActiveStyles().catch(() => []),
+      ]);
       setPackageDetail(pkg);
-      if (pkg.styles && pkg.styles.length > 0) {
-        setSelectedStyleId(pkg.styles[0].id);
+      const available = pkg.styles && pkg.styles.length > 0 ? pkg.styles : allStyles;
+      setStylesList(available);
+      if (available.length > 0 && !selectedStyleId) {
+        setSelectedStyleId(available[0].id);
       }
     } catch (err) {
       console.error('Lỗi tải gói:', err);
     }
   };
+
+  const selectedStyle = stylesList.find((s) => s.id === selectedStyleId) || 
+    (packageDetail?.styles || []).find((s) => s.id === selectedStyleId);
+
+  const filteredStyles = stylesList.filter((s) => {
+    const name = s.styleName || (s as any).name || '';
+    return name.toLowerCase().includes(styleSearchQuery.toLowerCase());
+  });
 
   const handleTakePhoto = async () => {
     try {
@@ -268,28 +286,43 @@ export default function AddShowcaseScreen() {
           />
           {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
 
-          {/* 4. Phong cách áp dụng */}
-          {packageDetail?.styles && packageDetail.styles.length > 0 ? (
-            <View style={{ marginTop: 14 }}>
-              <Text style={styles.sectionLabel}>Phong Cách Make-up Của Tác Phẩm</Text>
-              <View style={styles.styleSelectorRow}>
-                {packageDetail.styles.map((st) => {
-                  const isSelected = selectedStyleId === st.id;
-                  return (
-                    <TouchableOpacity
-                      key={st.id}
-                      style={[styles.styleChip, isSelected && styles.styleChipActive]}
-                      onPress={() => setSelectedStyleId(st.id)}
-                      activeOpacity={0.7}>
-                      <Text style={[styles.styleChipText, isSelected && styles.styleChipTextActive]}>
-                        {st.styleName || (st as any).name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+          {/* 4. Phong cách áp dụng: Selector Card mở BottomSheet chuẩn chỉ */}
+          <Text style={styles.sectionLabel}>Phong Cách Make-up Của Tác Phẩm</Text>
+          <TouchableOpacity
+            style={styles.selectorCard}
+            onPress={() => {
+              setStyleSearchQuery('');
+              setShowStyleModal(true);
+            }}
+            activeOpacity={0.75}
+          >
+            <View style={styles.selectorLeft}>
+              <View style={[styles.selectorIconBox, selectedStyle ? styles.selectorIconBoxActive : null]}>
+                <Ionicons
+                  name="color-palette-outline"
+                  size={20}
+                  color={selectedStyle ? BrandColors.primary : '#64748B'}
+                />
+              </View>
+              <View style={styles.selectorTextCol}>
+                <Text style={[styles.selectorTitle, selectedStyle ? styles.selectorTitleActive : null]}>
+                  {selectedStyle ? selectedStyle.styleName || (selectedStyle as any).name : 'Chọn phong cách make-up...'}
+                </Text>
+                <Text style={styles.selectorSubtitle}>
+                  {selectedStyle ? 'Chạm để thay đổi phong cách tác phẩm' : 'Phù hợp với đường nét & tone trang điểm'}
+                </Text>
               </View>
             </View>
-          ) : null}
+            <View style={styles.selectorRight}>
+              {selectedStyle && (
+                <View style={styles.activePill}>
+                  <Ionicons name="sparkles" size={12} color={BrandColors.primary} />
+                  <Text style={styles.activePillText}>Đã chọn</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </View>
+          </TouchableOpacity>
 
           {/* 5. Ghi chú kỹ thuật / Dòng mỹ phẩm */}
           <Text style={styles.sectionLabel}>Ghi Chú Kỹ Thuật & Dòng Mỹ Phẩm Sử Dụng</Text>
@@ -336,6 +369,84 @@ export default function AddShowcaseScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal BottomSheet chọn phong cách trang điểm */}
+      <DismissibleModal
+        visible={showStyleModal}
+        onClose={() => setShowStyleModal(false)}
+        overlayStyle={styles.modalOverlay}
+        contentStyle={styles.bottomSheet}
+      >
+        <View style={styles.modalHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.modalTitle}>Chọn Phong Cách Make-up</Text>
+            <Text style={styles.modalSubtitle}>
+              Chọn phong cách phù hợp nhất với tác phẩm thực tế này
+            </Text>
+          </View>
+        </View>
+
+        {stylesList.length > 6 && (
+          <View style={styles.searchBox}>
+            <Ionicons name="search" size={18} color="#94A3B8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm kiếm phong cách..."
+              placeholderTextColor="#94A3B8"
+              value={styleSearchQuery}
+              onChangeText={setStyleSearchQuery}
+              clearButtonMode="while-editing"
+            />
+          </View>
+        )}
+
+        <ScrollView
+          style={styles.modalList}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 20, 36) }}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredStyles.map((st) => {
+            const isSelected = selectedStyleId === st.id;
+            return (
+              <TouchableOpacity
+                key={st.id}
+                style={[styles.modalItemRow, isSelected && styles.modalItemRowSelected]}
+                onPress={() => {
+                  setSelectedStyleId(st.id);
+                  setShowStyleModal(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.modalItemIconBox, isSelected && styles.modalItemIconBoxSelected]}>
+                  <Ionicons
+                    name="sparkles"
+                    size={16}
+                    color={isSelected ? BrandColors.primary : '#94A3B8'}
+                  />
+                </View>
+                <View style={styles.modalItemTextCol}>
+                  <Text style={[styles.modalItemName, isSelected && styles.modalItemNameSelected]}>
+                    {st.styleName || (st as any).name}
+                  </Text>
+                  {st.description ? (
+                    <Text style={styles.modalItemDesc} numberOfLines={1}>
+                      {st.description}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                  {isSelected && <View style={styles.radioDot} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          {filteredStyles.length === 0 && (
+            <View style={styles.emptySearchBox}>
+              <Text style={styles.emptySearchText}>Không tìm thấy phong cách nào phù hợp</Text>
+            </View>
+          )}
+        </ScrollView>
+      </DismissibleModal>
     </View>
   );
 }
@@ -476,32 +587,213 @@ const styles = StyleSheet.create({
     color: BrandColors.danger,
     marginTop: 4,
   },
-  styleSelectorRow: {
+  // Trigger Selector Card
+  selectorCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
     marginTop: 4,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  styleChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: BrandColors.canvasBg,
+  selectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  selectorIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectorIconBoxActive: {
+    backgroundColor: '#FFF1F2',
+  },
+  selectorTextCol: {
+    flex: 1,
+  },
+  selectorTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  selectorTitleActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  selectorSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  selectorRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: BrandColors.borderInput,
+    borderColor: '#FECDD3',
   },
-  styleChipActive: {
-    backgroundColor: BrandColors.subtle,
+  activePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+
+  // Modal BottomSheet
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: BrandColors.slateHeading,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    height: 42,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  modalList: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  modalItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 10,
+    gap: 12,
+  },
+  modalItemRowSelected: {
     borderColor: BrandColors.primary,
+    backgroundColor: '#FFF1F2',
   },
-  styleChipText: {
-    fontSize: 13,
-    color: BrandColors.slateBody,
-    fontWeight: '500',
+  modalItemIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  styleChipTextActive: {
+  modalItemIconBoxSelected: {
+    backgroundColor: '#FFE4E6',
+  },
+  modalItemTextCol: {
+    flex: 1,
+  },
+  modalItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  modalItemNameSelected: {
     color: BrandColors.primary,
     fontWeight: '700',
+  },
+  modalItemDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  radioCircleSelected: {
+    borderColor: BrandColors.primary,
+  },
+  radioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: BrandColors.primary,
+  },
+  emptySearchBox: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySearchText: {
+    fontSize: 14,
+    color: '#94A3B8',
   },
   featuredSwitchRow: {
     flexDirection: 'row',

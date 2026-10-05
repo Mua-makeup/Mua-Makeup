@@ -260,14 +260,14 @@ export const AddressEditModal: React.FC<Props> = ({
         >
           {/* 1. MODAL TOP HEADER */}
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color="#0F172A" />
-            </TouchableOpacity>
+
+
+
             <View style={styles.headerTitleBox}>
               <Text style={styles.modalHeaderTitle}>Chỉnh Sửa Địa Chỉ Đón Thợ</Text>
               <Text style={styles.modalHeaderSub}>Chọn vị trí chính xác để chuyên viên phục vụ tận nơi</Text>
             </View>
-            <View style={{ width: 36 }} />
+
           </View>
 
           {/* 2. THANH NHẬP ĐỊA CHỈ TÌM KIẾM */}

@@ -120,6 +120,7 @@
   "catalog": {
     "style_not_found": "Makeup style not found with ID: {0}",
     "package_not_found": "Service package not found with ID: {0}",
+    "package_not_available": "This service package is temporarily paused and not accepting bookings.",
     "package_create_success": "Service package created successfully!",
     "package_update_success": "Service package updated successfully!",
     "package_delete_success": "Service package deleted successfully!",
@@ -193,6 +194,7 @@
   "ERR_AGENCY_DETAILS_REQUIRED": "Studio/Agency details are required.",
   "ERR_PROFILE_NOT_FOUND": "Profile not found or not registered.",
   "ERR_PACKAGE_NOT_FOUND": "Service package with ID {0} not found.",
+  "ERR_PACKAGE_NOT_AVAILABLE": "This service package is temporarily paused and not accepting bookings.",
   "ERR_PACKAGE_ACCESS_DENIED": "You do not have permission to manage this service package.",
   "ERR_INVALID_PACKAGE_PRICE": "Minimum package price is 50,000 VND.",
   "ERR_INVALID_ITEM_PRICE": "Item price cannot be less than 0 VND.",

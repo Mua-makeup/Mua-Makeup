@@ -11,6 +11,7 @@ import {
   Alert,
   RefreshControl,
   Pressable,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -24,6 +25,7 @@ import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/ser
 import { depositService } from '@/services/deposit.service';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
 import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
+import { UserAvatar } from '@/components/common/UserAvatar';
 
 export default function BookingHistoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,6 +39,11 @@ export default function BookingHistoryDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [bookingDetail, setBookingDetail] = useState<BookingStatusDetailRes | null>(null);
+
+  const hasAssignedMua = Boolean(
+    bookingDetail?.muaId ||
+    (bookingDetail?.muaName && bookingDetail.muaName !== 'Chuyên Viên Make-up' && bookingDetail.muaName.trim().length > 0)
+  );
 
   // Modal phóng to ảnh nghiệm thu
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
@@ -209,12 +216,41 @@ export default function BookingHistoryDetailScreen() {
   const isDisputed = bookingDetail.status === 'DISPUTED';
 
   const totalAmount = bookingDetail.totalAmount || 0;
-  const depositAmount = bookingDetail.depositAmount || 0;
+  const depositAmount = bookingDetail.depositAmount ?? Math.round(totalAmount * 0.3);
   const remainingAmount = Math.max(0, totalAmount - depositAmount);
 
-  // Phí sàn và thu nhập thợ
-  const platformFee = bookingDetail.platformFee || Math.round(totalAmount * 0.2);
-  const earningsAmount = bookingDetail.earningsAmount || (totalAmount - platformFee);
+  // Phân loại ngữ cảnh hủy đơn và hoàn cọc
+  const cancelReasonLower = (bookingDetail.cancellationReason || '').toLowerCase();
+  const isNoMuaFound =
+    cancelReasonLower.includes('không tìm thấy') ||
+    cancelReasonLower.includes('chưa có thợ') ||
+    cancelReasonLower.includes('không có chuyên viên') ||
+    cancelReasonLower.includes('hết thời gian quét') ||
+    !hasAssignedMua;
+
+  const isDepositExpired =
+    cancelReasonLower.includes('quá hạn đặt cọc') ||
+    cancelReasonLower.includes('chưa đặt cọc') ||
+    cancelReasonLower.includes('quá hạn cọc') ||
+    cancelReasonLower.includes('chưa thanh toán cọc');
+
+  const isCancelledByMua =
+    cancelReasonLower.includes('chuyên viên') ||
+    cancelReasonLower.includes('thợ') ||
+    cancelReasonLower.includes('mua') ||
+    cancelReasonLower.includes('từ chối') ||
+    cancelReasonLower.includes('bận');
+
+  // Đơn hoàn cọc 100%: nếu thợ hủy/từ chối, hoặc backend trả về isDepositPaid, hoặc có thợ nhận mà bị hủy (trừ khi khách quá hạn cọc / không tìm thấy thợ)
+  const isDepositRefunded = isCancelled && (
+    bookingDetail.isDepositPaid ||
+    isCancelledByMua ||
+    (!isNoMuaFound && !isDepositExpired && hasAssignedMua)
+  );
+
+  // Phí sàn 20% và thu nhập thợ 80% từ tổng giá trị đơn hàng
+  const platformFee = bookingDetail.platformFee ?? Math.round(totalAmount * 0.2);
+  const earningsAmount = bookingDetail.earningsAmount ?? (totalAmount - platformFee);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -319,18 +355,29 @@ export default function BookingHistoryDetailScreen() {
               <View style={[styles.statusIconBox, { backgroundColor: '#DC2626' }]}>
                 <Ionicons name="close-circle" size={22} color="#FFFFFF" />
               </View>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.statusCardTitle, { color: '#991B1B' }]}>ĐƠN HÀNG ĐÃ HỦY</Text>
                 <Text style={styles.statusCardDesc}>
-                  {bookingDetail.cancellationReason || 'Lịch hẹn đã bị hủy do yêu cầu từ hai bên hoặc quá hạn đặt cọc.'}
+                  {bookingDetail.cancellationReason || (isCancelledByMua ? 'Chuyên viên đã từ chối hoặc hủy ca làm này.' : 'Lịch hẹn đã bị hủy do yêu cầu từ hai bên hoặc quá hạn đặt cọc.')}
                 </Text>
               </View>
             </View>
-            {bookingDetail.isDepositPaid && (
+            {isDepositRefunded ? (
               <View style={styles.refundNoticeBox}>
                 <Ionicons name="shield-checkmark-outline" size={16} color="#059669" />
                 <Text style={styles.refundNoticeText}>
-                  Khoản cọc 30% ({formatPrice(depositAmount)}) đã được bảo chứng và hoàn lại 100% vào Ví cá nhân của khách.
+                  {isWorkstationRole
+                    ? `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được hoàn lại 100% vào Ví của khách hàng do thợ hủy ca.`
+                    : `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn lại 100% vào Ví cá nhân của bạn.`}
+                </Text>
+              </View>
+            ) : (
+              <View style={[styles.refundNoticeBox, { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }]}>
+                <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                <Text style={[styles.refundNoticeText, { color: '#64748B' }]}>
+                  {isNoMuaFound
+                    ? 'Đơn hàng tự động hủy do không có thợ tiếp nhận — Chưa phát sinh thu cọc của khách hàng.'
+                    : 'Đơn hàng đã hủy — Miễn trừ khoản cọc.'}
                 </Text>
               </View>
             )}
@@ -469,58 +516,76 @@ export default function BookingHistoryDetailScreen() {
         )}
 
         {/* THÔNG TIN ĐỐI TÁC (THỢ HOẶC KHÁCH HÀNG) */}
-        <View style={styles.card}>
-          <Text style={styles.cardSectionTitle}>
-            {isWorkstationRole ? 'Thông Tin Khách Hàng' : 'Chuyên Viên Trang Điểm'}
-          </Text>
-          <View style={styles.partnerRow}>
-            <Image
-              source={{
-                uri: isWorkstationRole
-                  ? bookingDetail.customerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400'
-                  : bookingDetail.muaAvatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400',
-              }}
-              style={styles.partnerAvatar}
-              contentFit="cover"
-            />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.partnerName} numberOfLines={1}>
-                  {isWorkstationRole
-                    ? bookingDetail.customerName || 'Khách Hàng'
-                    : bookingDetail.muaName || 'Chuyên Viên Make-up'}
-                </Text>
-                <View style={[styles.roleTag, isWorkstationRole ? styles.roleTagCustomer : styles.roleTagMua]}>
-                  <Text style={[styles.roleTagText, isWorkstationRole ? styles.roleTagTextCustomer : styles.roleTagTextMua]}>
-                    {isWorkstationRole ? 'Khách Hàng' : 'PRO MUA'}
-                  </Text>
-                </View>
+        {!isWorkstationRole && !hasAssignedMua ? (
+          <View style={styles.card}>
+            <Text style={styles.cardSectionTitle}>Chuyên Viên Trang Điểm</Text>
+            <View style={styles.noMuaNoticeBox}>
+              <View style={styles.noMuaIconWrap}>
+                <Ionicons name="person-remove-outline" size={22} color="#D97706" />
               </View>
-              <Text style={styles.partnerPhone}>
-                SĐT: {isWorkstationRole ? bookingDetail.customerPhone || 'Chưa cung cấp' : bookingDetail.muaPhone || 'Chưa cung cấp'}
-              </Text>
-              {!isWorkstationRole && bookingDetail.rating && (
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={13} color="#F59E0B" />
-                  <Text style={styles.ratingText}>{bookingDetail.rating.toFixed(1)} (Đánh giá cao)</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                  <Text style={[styles.noMuaTitle, { flexShrink: 1 }]}>Chưa có chuyên viên tiếp nhận</Text>
+                  <View style={styles.noMuaBadge}>
+                    <Text style={styles.noMuaBadgeText}>Chưa có thợ</Text>
+                  </View>
                 </View>
+                <Text style={styles.noMuaDesc}>
+                  Đơn hàng bị hủy do không tìm thấy chuyên viên trang điểm khả dụng trong khu vực để nhận ca.
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.cardSectionTitle}>
+              {isWorkstationRole ? 'Thông Tin Khách Hàng' : 'Chuyên Viên Trang Điểm'}
+            </Text>
+            <View style={styles.partnerRow}>
+              <UserAvatar
+                uri={isWorkstationRole ? bookingDetail.customerAvatar : bookingDetail.muaAvatar}
+                name={isWorkstationRole ? bookingDetail.customerName : bookingDetail.muaName}
+                size={52}
+              />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.partnerName} numberOfLines={1}>
+                    {isWorkstationRole
+                      ? bookingDetail.customerName || 'Khách Hàng'
+                      : bookingDetail.muaName || 'Chuyên Viên Make-up'}
+                  </Text>
+                  <View style={[styles.roleTag, isWorkstationRole ? styles.roleTagCustomer : styles.roleTagMua]}>
+                    <Text style={[styles.roleTagText, isWorkstationRole ? styles.roleTagTextCustomer : styles.roleTagTextMua]}>
+                      {isWorkstationRole ? 'Khách Hàng' : 'PRO MUA'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.partnerPhone}>
+                  SĐT: {isWorkstationRole ? bookingDetail.customerPhone || 'Chưa cung cấp' : bookingDetail.muaPhone || 'Chưa cung cấp'}
+                </Text>
+                {!isWorkstationRole && bookingDetail.rating && (
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="star" size={13} color="#F59E0B" />
+                    <Text style={styles.ratingText}>{bookingDetail.rating.toFixed(1)} (Đánh giá cao)</Text>
+                  </View>
+                )}
+              </View>
+
+              {(isWorkstationRole ? bookingDetail.customerPhone : bookingDetail.muaPhone) && (
+                <TouchableOpacity
+                  style={styles.partnerCallBtn}
+                  onPress={() => {
+                    const phone = isWorkstationRole ? bookingDetail.customerPhone : bookingDetail.muaPhone;
+                    if (phone) Linking.openURL(`tel:${phone}`);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="call" size={18} color="#059669" />
+                </TouchableOpacity>
               )}
             </View>
-
-            {(isWorkstationRole ? bookingDetail.customerPhone : bookingDetail.muaPhone) && (
-              <TouchableOpacity
-                style={styles.partnerCallBtn}
-                onPress={() => {
-                  const phone = isWorkstationRole ? bookingDetail.customerPhone : bookingDetail.muaPhone;
-                  if (phone) Linking.openURL(`tel:${phone}`);
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="call" size={18} color="#059669" />
-              </TouchableOpacity>
-            )}
           </View>
-        </View>
+        )}
 
         {/* CHI TIẾT DỊCH VỤ & ĐỊA ĐIỂM */}
         <View style={styles.card}>
@@ -566,14 +631,38 @@ export default function BookingHistoryDetailScreen() {
             </View>
           </View>
 
-          {/* CÁC BƯỚC / HẠNG MỤC DỊCH VỤ NẾU CÓ */}
-          {bookingDetail.packageItems && bookingDetail.packageItems.length > 0 && (
+          {/* CÁC BƯỚC / HẠNG MỤC DỊCH VỤ - TÁCH RIÊNG TIÊU CHUẨN VÀ ADD-ON */}
+          {((bookingDetail.componentItems && bookingDetail.componentItems.length > 0) ||
+            (!bookingDetail.addonItems?.length && bookingDetail.packageItems && bookingDetail.packageItems.length > 0)) && (
             <View style={styles.itemsListWrap}>
-              <Text style={styles.itemsListTitle}>Quy trình & Hạng mục đã thực hiện:</Text>
-              {bookingDetail.packageItems.map((item, idx) => (
-                <View key={idx} style={styles.itemRow}>
+              <View style={styles.itemHeaderWrap}>
+                <Ionicons name="sparkles" size={14} color="#059669" />
+                <Text style={styles.itemsListTitle}>Quy trình & Hạng mục tiêu chuẩn trong gói:</Text>
+              </View>
+              {(bookingDetail.componentItems && bookingDetail.componentItems.length > 0
+                ? bookingDetail.componentItems
+                : bookingDetail.packageItems || []
+              ).map((item, idx) => (
+                <View key={`comp-${idx}`} style={styles.itemRow}>
                   <Ionicons name="checkmark-circle" size={15} color="#10B981" />
                   <Text style={styles.itemText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {bookingDetail.addonItems && bookingDetail.addonItems.length > 0 && (
+            <View style={[styles.itemsListWrap, styles.addonWrap]}>
+              <View style={styles.itemHeaderWrap}>
+                <Ionicons name="add-circle" size={15} color="#8B5CF6" />
+                <Text style={[styles.itemsListTitle, { color: '#7C3AED' }]}>Dịch vụ & Tiện ích mua thêm (Add-on):</Text>
+              </View>
+              {bookingDetail.addonItems.map((item, idx) => (
+                <View key={`addon-${idx}`} style={styles.itemRow}>
+                  <View style={styles.addonTagPill}>
+                    <Text style={styles.addonTagPillText}>Add-on</Text>
+                  </View>
+                  <Text style={[styles.itemText, styles.addonText]}>{item}</Text>
                 </View>
               ))}
             </View>
@@ -639,48 +728,121 @@ export default function BookingHistoryDetailScreen() {
           </View>
 
           {/* KHOẢN CỌC ESCROW 30% */}
-          <View style={styles.escrowBillBox}>
-            <View style={styles.escrowBillLeft}>
-              <Text style={styles.escrowBillTitle}>Khoản cọc Escrow (30%):</Text>
-              <Text style={styles.escrowBillSub}>Đã bảo chứng qua Quỹ Escrow an toàn</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.escrowBillAmount}>-{formatPrice(depositAmount)}</Text>
-              <View style={styles.escrowPaidTag}>
-                <Ionicons name="checkmark-circle" size={11} color="#059669" />
-                <Text style={styles.escrowPaidTagText}>Đã Thanh Toán</Text>
+          {isCancelled ? (
+            isDepositRefunded ? (
+              <View style={[styles.escrowBillBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                <View style={styles.escrowBillLeft}>
+                  <Text style={[styles.escrowBillTitle, { color: '#065F46' }]}>Khoản cọc Escrow (30%):</Text>
+                  <Text style={[styles.escrowBillSub, { color: '#047857' }]}>
+                    {isWorkstationRole
+                      ? `Đã hoàn lại 100% (${formatPrice(depositAmount)}) về Ví cá nhân của khách do thợ hủy ca`
+                      : `Đã hoàn lại 100% (${formatPrice(depositAmount)}) về Ví cá nhân do thợ hủy ca`}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                  <Text style={[styles.escrowBillAmount, { color: '#059669' }]}>{formatPrice(depositAmount)}</Text>
+                  <View style={styles.escrowPaidTag}>
+                    <Ionicons name="shield-checkmark" size={11} color="#059669" />
+                    <Text style={styles.escrowPaidTagText}>Đã Hoàn Cọc 100%</Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
-
-          {/* KHOẢN CÒN LẠI 70% */}
-          <View style={[styles.remainingBillBox, isPaidOut ? styles.remainingPaidBox : styles.remainingUnpaidBox]}>
-            <View style={styles.escrowBillLeft}>
-              <Text style={[styles.remainingBillTitle, { color: isPaidOut ? '#065F46' : '#9A3412' }]}>
-                Khoản Còn Lại (70%):
-              </Text>
-              <Text style={styles.remainingBillSub}>
-                {isPaidOut
-                  ? 'Đã thanh toán và quyết toán hoàn tất'
-                  : 'Cần thanh toán trực tiếp hoặc qua cổng online'}
-              </Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.remainingBillAmount, { color: isPaidOut ? '#059669' : '#DC2626' }]}>
-                {formatPrice(remainingAmount)}
-              </Text>
-              <View style={[styles.remainingTag, isPaidOut ? styles.remainingTagPaid : styles.remainingTagUnpaid]}>
-                <Ionicons
-                  name={isPaidOut ? 'checkmark-circle' : 'time-outline'}
-                  size={11}
-                  color={isPaidOut ? '#059669' : '#DC2626'}
-                />
-                <Text style={[styles.remainingTagText, { color: isPaidOut ? '#059669' : '#DC2626' }]}>
-                  {isPaidOut ? 'Đã Quyết Toán' : 'Chưa Quyết Toán'}
+            ) : (
+              <View style={[styles.escrowBillBox, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
+                <View style={styles.escrowBillLeft}>
+                  <Text style={[styles.escrowBillTitle, { color: '#64748B' }]}>Khoản cọc Escrow (30%):</Text>
+                  <Text style={[styles.escrowBillSub, { color: '#64748B' }]}>
+                    {isNoMuaFound
+                      ? 'Đơn hủy do không có thợ — Chưa thu cọc'
+                      : 'Đơn đã hủy — Không phát sinh thu cọc'}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                  <Text style={[styles.escrowBillAmount, { color: '#64748B' }]}>{formatPrice(0)}</Text>
+                  <View style={[styles.remainingTag, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1', marginTop: 2 }]}>
+                    <Ionicons name="close-circle" size={11} color="#64748B" />
+                    <Text style={[styles.remainingTagText, { color: '#64748B' }]}>Miễn Cọc</Text>
+                  </View>
+                </View>
+              </View>
+            )
+          ) : (
+            <View style={styles.escrowBillBox}>
+              <View style={styles.escrowBillLeft}>
+                <Text style={styles.escrowBillTitle}>Khoản cọc Escrow (30%):</Text>
+                <Text style={styles.escrowBillSub}>
+                  {bookingDetail.isDepositPaid
+                    ? 'Đã bảo chứng qua Quỹ Escrow an toàn'
+                    : 'Chờ thanh toán đặt cọc để giữ lịch hẹn'}
                 </Text>
               </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.escrowBillAmount}>{formatPrice(depositAmount)}</Text>
+                {bookingDetail.isDepositPaid ? (
+                  <View style={styles.escrowPaidTag}>
+                    <Ionicons name="checkmark-circle" size={11} color="#059669" />
+                    <Text style={styles.escrowPaidTagText}>Đã Thanh Toán</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.remainingTag, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
+                    <Ionicons name="time-outline" size={11} color="#D97706" />
+                    <Text style={[styles.remainingTagText, { color: '#D97706' }]}>Chờ Đặt Cọc</Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
+          )}
+
+          {/* KHOẢN CÒN LẠI 70% */}
+          {isCancelled ? (
+            <View style={[styles.remainingBillBox, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
+              <View style={styles.escrowBillLeft}>
+                <Text style={[styles.remainingBillTitle, { color: '#64748B' }]}>
+                  Khoản Còn Lại (70%):
+                </Text>
+                <Text style={styles.remainingBillSub}>
+                  Đơn đã hủy — Miễn thanh toán khoản còn lại
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.remainingBillAmount, { color: '#64748B' }]}>
+                  {formatPrice(0)}
+                </Text>
+                <View style={[styles.remainingTag, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }]}>
+                  <Ionicons name="close-circle" size={11} color="#64748B" />
+                  <Text style={[styles.remainingTagText, { color: '#64748B' }]}>Miễn Thu</Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={[styles.remainingBillBox, isPaidOut ? styles.remainingPaidBox : styles.remainingUnpaidBox]}>
+              <View style={styles.escrowBillLeft}>
+                <Text style={[styles.remainingBillTitle, { color: isPaidOut ? '#065F46' : '#9A3412' }]}>
+                  Khoản Còn Lại (70%):
+                </Text>
+                <Text style={styles.remainingBillSub}>
+                  {isPaidOut
+                    ? 'Đã thanh toán và quyết toán hoàn tất'
+                    : 'Cần thanh toán trực tiếp hoặc qua cổng online'}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[styles.remainingBillAmount, { color: isPaidOut ? '#059669' : '#DC2626' }]}>
+                  {formatPrice(remainingAmount)}
+                </Text>
+                <View style={[styles.remainingTag, isPaidOut ? styles.remainingTagPaid : styles.remainingTagUnpaid]}>
+                  <Ionicons
+                    name={isPaidOut ? 'checkmark-circle' : 'time-outline'}
+                    size={11}
+                    color={isPaidOut ? '#059669' : '#DC2626'}
+                  />
+                  <Text style={[styles.remainingTagText, { color: isPaidOut ? '#059669' : '#DC2626' }]}>
+                    {isPaidOut ? 'Đã Quyết Toán' : 'Chưa Quyết Toán'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* PHẦN DÀNH RIÊNG CHO THỢ MUA: PHÂN BỔ THU NHẬP VÀ VÍ */}
           {isWorkstationRole && (
@@ -767,12 +929,15 @@ export default function BookingHistoryDetailScreen() {
       </ScrollView>
 
       {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU */}
-      <DismissibleModal visible={isPhotoModalVisible} onClose={() => setIsPhotoModalVisible(false)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
-        <Pressable style={styles.photoModalBackdrop} onPress={() => setIsPhotoModalVisible(false)}>
-          <View style={styles.photoModalContent}>
-            <TouchableOpacity style={styles.closePhotoBtn} onPress={() => setIsPhotoModalVisible(false)}>
-              <Ionicons name="close" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+      <Modal
+        visible={isPhotoModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setIsPhotoModalVisible(false)}
+      >
+        <Pressable style={styles.photoModalFullscreen} onPress={() => setIsPhotoModalVisible(false)}>
+
             {bookingDetail.completionPhotoUrl && (
               <Image
                 source={{ uri: bookingDetail.completionPhotoUrl }}
@@ -780,10 +945,9 @@ export default function BookingHistoryDetailScreen() {
                 contentFit="contain"
               />
             )}
-            <Text style={styles.photoModalCaption}>Ảnh Nghiệm Thu Thành Phẩm Sau Make-up</Text>
-          </View>
+
         </Pressable>
-      </DismissibleModal>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -869,7 +1033,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 64,
     gap: 16,
   },
   statusCard: {
@@ -895,6 +1059,7 @@ const styles = StyleSheet.create({
   },
   statusCardHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 12,
   },
   statusIconBox: {
@@ -1083,6 +1248,45 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginBottom: 12,
   },
+  noMuaNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    gap: 12,
+  },
+  noMuaIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noMuaTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  noMuaBadge: {
+    backgroundColor: '#FDE68A',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  noMuaBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  noMuaDesc: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
+  },
   partnerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1216,11 +1420,24 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
     gap: 6,
   },
+  addonWrap: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    marginTop: 10,
+  },
+  itemHeaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   itemsListTitle: {
     fontSize: 12,
     fontWeight: '700',
     color: '#475569',
-    marginBottom: 4,
   },
   itemRow: {
     flexDirection: 'row',
@@ -1230,6 +1447,23 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 12,
     color: '#334155',
+  },
+  addonTagPill: {
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#C084FC',
+  },
+  addonTagPillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#7E22CE',
+  },
+  addonText: {
+    color: '#581C87',
+    fontWeight: '500',
   },
   photoHeaderRow: {
     flexDirection: 'row',
@@ -1304,14 +1538,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#F0FDF4',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 12,
+    padding: 12,
     marginTop: 10,
     borderWidth: 1,
     borderColor: '#BBF7D0',
+    gap: 12,
   },
   escrowBillLeft: {
     flex: 1,
+    paddingRight: 12,
+    minWidth: 0,
   },
   escrowBillTitle: {
     fontSize: 13,
@@ -1321,7 +1558,8 @@ const styles = StyleSheet.create({
   escrowBillSub: {
     fontSize: 11,
     color: '#059669',
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 16,
   },
   escrowBillAmount: {
     fontSize: 14,
@@ -1343,10 +1581,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 12,
+    padding: 12,
     marginTop: 8,
     borderWidth: 1,
+    gap: 12,
   },
   remainingPaidBox: {
     backgroundColor: '#ECFDF5',
@@ -1463,31 +1702,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: BrandColors.primary,
   },
-  photoModalBackdrop: {
+  photoModalFullscreen: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 0,
   },
   photoModalContent: {
     width: '100%',
     alignItems: 'center',
   },
-  closePhotoBtn: {
-    alignSelf: 'flex-end',
-    padding: 10,
-    marginBottom: 10,
-  },
   photoModalImage: {
     width: '100%',
-    height: 420,
-    borderRadius: 12,
+    height: '100%',
+    borderRadius: 0,
+  },
+  photoModalCaptionBox: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   photoModalCaption: {
-    marginTop: 14,
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+  },
+  photoModalHint: {
+    marginTop: 8,
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

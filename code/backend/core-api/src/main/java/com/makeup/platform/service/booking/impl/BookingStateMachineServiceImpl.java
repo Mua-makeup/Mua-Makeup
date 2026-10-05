@@ -9,11 +9,13 @@ import com.makeup.platform.dto.request.booking.TransitionBookingStateReq;
 import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
 import com.makeup.platform.dto.response.booking.BookingStatusDetailRes;
+import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
+import com.makeup.platform.entity.catalog.PackageItemType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
@@ -536,8 +538,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         }
 
         BigDecimal commissionRate = getFreelancerCommissionRate();
-        BigDecimal platformFee = serviceSubtotal.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal earningsAmount = serviceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+        BigDecimal platformFee = totalAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal earningsAmount = totalAmount.subtract(platformFee);
 
         boolean isDepositPaid = isDepositPaidInternal(booking);
         Integer depositTimeoutSeconds = null;
@@ -556,16 +558,52 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         }
 
         List<String> packageItems = new ArrayList<>();
+        List<String> componentItems = new ArrayList<>();
+        List<PackageItemRes> availableAddons = new ArrayList<>();
+        Long packageId = null;
         Integer estimatedDuration = 60;
         if (booking.getServicePackage() != null) {
+            packageId = booking.getServicePackage().getId();
             if (booking.getServicePackage().getEstimatedDurationMinutes() != null) {
                 estimatedDuration = booking.getServicePackage().getEstimatedDurationMinutes();
             }
             if (booking.getServicePackage().getPackageItems() != null) {
                 for (var item : booking.getServicePackage().getPackageItems()) {
                     if (item != null && item.getItemName() != null) {
-                        packageItems.add(item.getItemName());
+                        if (item.getItemType() == PackageItemType.ADD_ON) {
+                            availableAddons.add(PackageItemRes.builder()
+                                    .id(item.getId())
+                                    .itemType(item.getItemType())
+                                    .itemName(item.getItemName())
+                                    .stepOrder(item.getStepOrder())
+                                    .itemPrice(item.getItemPrice())
+                                    .durationMinutes(item.getDurationMinutes())
+                                    .isRequired(item.getIsRequired())
+                                    .isActive(item.getIsActive())
+                                    .build());
+                        } else {
+                            componentItems.add(item.getItemName());
+                            packageItems.add(item.getItemName());
+                        }
                     }
+                }
+            }
+        }
+
+        // Tách riêng các dịch vụ add-on mà khách ĐÃ CHỌN THÊM (từ booking.selectedAddons hoặc Redis)
+        List<String> addonItems = new ArrayList<>();
+        String selectedAddons = booking.getSelectedAddons();
+        if (!StringUtils.hasText(selectedAddons) && stringRedisTemplate != null) {
+            try {
+                selectedAddons = stringRedisTemplate.opsForValue().get("booking:selected_addons:" + booking.getId());
+            } catch (Exception ignored) {}
+        }
+        if (StringUtils.hasText(selectedAddons)) {
+            String[] parts = selectedAddons.split(",,,");
+            for (String part : parts) {
+                if (StringUtils.hasText(part)) {
+                    addonItems.add(part.trim());
+                    packageItems.add(part.trim());
                 }
             }
         }
@@ -608,6 +646,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .customerName(booking.getCustomer() != null ? booking.getCustomer().getFullName() : null)
                 .customerPhone(booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : null)
                 .customerAvatar(booking.getCustomer() != null ? booking.getCustomer().getAvatarUrl() : null)
+                .packageId(packageId)
                 .packageName(booking.getServicePackage() != null ? booking.getServicePackage().getPackageName() : "Trang Điểm Khẩn Cấp")
                 .styleName(styleName)
                 .bookingType(booking.getBookingType() != null ? booking.getBookingType().name() : null)
@@ -615,6 +654,9 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .startTime(booking.getStartTime())
                 .estimatedDurationMinutes(estimatedDuration)
                 .packageItems(packageItems)
+                .componentItems(componentItems)
+                .addonItems(addonItems)
+                .availableAddons(availableAddons)
                 .rating(rating)
                 .serviceSubtotal(serviceSubtotal)
                 .surchargeFee(surchargeFee)
@@ -647,7 +689,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         if (bookingDepositRepository != null) {
             var depositOpt = bookingDepositRepository.findByBookingId(booking.getId());
             if (depositOpt.isPresent()) {
-                return "PAID".equals(depositOpt.get().getStatus());
+                String depositStatus = depositOpt.get().getStatus();
+                return "PAID".equals(depositStatus) || "REFUNDED".equals(depositStatus);
             }
         }
         if (stringRedisTemplate != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey("booking:deposit_paid:" + booking.getId()))) {

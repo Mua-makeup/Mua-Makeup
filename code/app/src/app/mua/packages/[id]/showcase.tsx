@@ -12,7 +12,7 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandColors } from '@/constants/theme';
@@ -59,11 +59,13 @@ export default function PackageShowcaseScreen() {
     }
   }, [packageId]);
 
-  useEffect(() => {
-    if (packageId) {
-      loadData();
-    }
-  }, [loadData, packageId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (packageId) {
+        loadData();
+      }
+    }, [loadData, packageId])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -207,17 +209,10 @@ export default function PackageShowcaseScreen() {
       {previewItem && (
         <DismissibleModal visible={!!previewItem} onClose={() => setPreviewItem(null)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
           <View style={styles.lightboxOverlay}>
-            <View style={[styles.lightboxHeader, { paddingTop: insets.top + 10 }]}>
-              <TouchableOpacity
-                style={styles.lightboxCloseBtn}
-                onPress={() => setPreviewItem(null)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={26} color="#FFFFFF" />
-              </TouchableOpacity>
+            <View style={[styles.lightboxHeader, { paddingTop: insets.top + 10, justifyContent: 'center' }]}>
               <Text style={styles.lightboxCounter}>
                 {activePhotoIdx + 1} / {allPreviewImages.length}
               </Text>
-              <View style={{ width: 40 }} />
             </View>
 
             {/* Main Preview Image */}

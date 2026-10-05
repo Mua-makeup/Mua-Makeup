@@ -120,6 +120,7 @@
   "catalog": {
     "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",
     "package_not_found": "Không tìm thấy gói dịch vụ với ID: {0}",
+    "package_not_available": "Gói dịch vụ này hiện đang tạm ngưng nhận lịch.",
     "package_create_success": "Tạo gói dịch vụ thành công!",
     "package_update_success": "Cập nhật gói dịch vụ thành công!",
     "package_delete_success": "Xóa gói dịch vụ thành công!",
@@ -193,6 +194,7 @@
   "ERR_AGENCY_DETAILS_REQUIRED": "Vui lòng cung cấp đầy đủ thông tin Studio / Đại lý.",
   "ERR_PROFILE_NOT_FOUND": "Không tìm thấy thông tin hồ sơ.",
   "ERR_PACKAGE_NOT_FOUND": "Không tìm thấy gói dịch vụ với ID {0}.",
+  "ERR_PACKAGE_NOT_AVAILABLE": "Gói dịch vụ này hiện đang tạm ngưng nhận lịch.",
   "ERR_PACKAGE_ACCESS_DENIED": "Bạn không có quyền quản lý gói dịch vụ này.",
   "ERR_INVALID_PACKAGE_PRICE": "Giá tối thiểu của gói dịch vụ là 50,000 VNĐ.",
   "ERR_INVALID_ITEM_PRICE": "Giá thành phần không được nhỏ hơn 0 VNĐ.",

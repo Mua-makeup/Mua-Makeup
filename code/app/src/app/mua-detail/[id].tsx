@@ -83,6 +83,14 @@ export default function MuaDetailScreen() {
       return;
     }
 
+    if (selectedPackage.isAvailable === false) {
+      Alert.alert(
+        'Tạm ngưng nhận lịch',
+        'Gói dịch vụ này hiện đang tạm ngưng nhận lịch ca hẹn. Quý khách chỉ có thể xem chi tiết thông tin và ảnh mẫu thực tế.'
+      );
+      return;
+    }
+
     // Điều hướng trực tiếp sang màn hình Đặt Lịch & Chọn Ngày Giờ (Sprint M-2)
     router.push({
       pathname: '/booking/create',
@@ -215,6 +223,14 @@ export default function MuaDetailScreen() {
             <Ionicons name="create-outline" size={16} color="#FFFFFF" />
             <Text style={styles.bookingBtnText}>Chỉnh Sửa Hồ Sơ</Text>
           </TouchableOpacity>
+        ) : selectedPackage?.isAvailable === false ? (
+          <View style={styles.viewOnlyBadgeContainer}>
+            <View style={styles.viewOnlyBadge}>
+              <Ionicons name="eye-outline" size={15} color="#475569" />
+              <Text style={styles.viewOnlyBadgeText}>Chỉ xem thông tin</Text>
+            </View>
+            <Text style={styles.viewOnlySubtext}>Gói tạm ngưng nhận lịch</Text>
+          </View>
         ) : (
           <TouchableOpacity
             style={styles.bookingBtn}
@@ -397,5 +413,32 @@ const styles = StyleSheet.create({
   editProfileBtn: {
     backgroundColor: '#0F172A',
     shadowColor: '#0F172A',
+  },
+  viewOnlyBadgeContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  viewOnlyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  viewOnlyBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  viewOnlySubtext: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 3,
+    fontWeight: '500',
   },
 });

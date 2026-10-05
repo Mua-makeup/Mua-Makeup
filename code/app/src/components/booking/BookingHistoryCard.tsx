@@ -7,6 +7,7 @@ import { BrandColors } from '@/constants/theme';
 import { CustomerBookingItem, BookingStatusType } from '@/services/booking.service';
 import { formatDateTimeVN } from '@/utils/date';
 import { router } from 'expo-router';
+import { UserAvatar } from '@/components/common/UserAvatar';
 
 interface Props {
   booking: CustomerBookingItem;
@@ -97,15 +98,12 @@ export const BookingHistoryCard: React.FC<Props> = ({
 
         {/* THÔNG TIN DỊCH VỤ & THỢ */}
         <View style={styles.bodyRow}>
-          <Image
-            source={{
-              uri:
-                booking.packageCoverUrl ||
-                booking.muaAvatarUrl ||
-                'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?q=80&w=400',
-            }}
-            style={styles.thumbImage}
-            contentFit="cover"
+          <UserAvatar
+            uri={booking.packageCoverUrl || booking.muaAvatarUrl}
+            name={booking.packageName || booking.muaName}
+            size={64}
+            borderRadius={10}
+            style={{ marginRight: 12 }}
           />
           <View style={styles.bodyContent}>
             <Text style={styles.packageName} numberOfLines={1}>

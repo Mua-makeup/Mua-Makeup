@@ -374,45 +374,64 @@ export default function MuaWorkProfileScreen() {
               <View style={styles.globeIconBox}>
                 <Ionicons name="globe-outline" size={22} color={BrandColors.primary} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.publicPreviewTitle}>Xem Trang Cá Nhân Công Khai</Text>
-                <Text style={styles.publicPreviewSub}>Xem cách khách hàng nhìn thấy dịch vụ và ảnh của bạn</Text>
+                <Text style={styles.publicPreviewSub} numberOfLines={1}>
+                  Xem cách khách hàng nhìn thấy dịch vụ và ảnh của bạn
+                </Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
           </TouchableOpacity>
 
-          {/* CARD ĐỊNH DANH MUA */}
+          {/* CARD ĐỊNH DANH MUA SANG TRỌNG & RỘNG RÃI */}
           <View style={styles.muaStatCard}>
-            <View style={styles.muaStatRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Mã định danh</Text>
-                <Text style={styles.statValHighlight}>
-                  {profile?.muaCode ?? '—'}
+            <View style={styles.muaCodeBadgeRow}>
+              <View style={styles.muaCodeBadge}>
+                <Ionicons name="shield-checkmark" size={15} color={BrandColors.primary} />
+                <Text style={styles.muaCodeBadgeText}>
+                  {profile?.muaCode ?? 'MUA-PLATFORM'}
                 </Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={styles.proPill}>
+                <Text style={styles.proPillText}>Thợ Chuyên Nghiệp</Text>
+              </View>
+            </View>
+
+            <View style={styles.muaDivider} />
+
+            <View style={styles.muaStatRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Đánh giá</Text>
-                <Text style={styles.statVal}>
-                  ⭐ {profile?.totalReviews ? Number(profile.ratingAverage).toFixed(1) : 'Chưa có đánh giá'}
-                </Text>
+                <Text style={styles.statLabel}>Đánh giá thợ</Text>
+                <View style={styles.statValRow}>
+                  <Ionicons name="star" size={15} color="#F59E0B" />
+                  <Text style={styles.statVal}>
+                    {profile?.totalReviews ? Number(profile.ratingAverage).toFixed(1) : '5.0'}
+                  </Text>
+                  <Text style={styles.statSubText}>
+                    ({profile?.totalReviews || 0} ĐG)
+                  </Text>
+                </View>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Đơn hoàn tất</Text>
-                <Text style={styles.statVal}>
-                  {profile?.totalCompletedJobs ?? '—'}
-                </Text>
+                <View style={styles.statValRow}>
+                  <Ionicons name="ribbon" size={15} color="#059669" />
+                  <Text style={[styles.statVal, { color: '#059669' }]}>
+                    {profile?.totalCompletedJobs ?? 0}
+                  </Text>
+                  <Text style={styles.statSubText}>ca làm</Text>
+                </View>
               </View>
             </View>
           </View>
 
-          {/* CARD CHUYÊN MÔN & TIỂU SỬ */}
+          {/* CARD CHUYÊN MÔN, TIỂU SỬ & KINH NGHIỆM */}
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
               <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
-              <Text style={styles.formCardTitle}>Giới thiệu</Text>
+              <Text style={styles.formCardTitle}>Giới thiệu & Kinh nghiệm</Text>
             </View>
 
             {/* Tiểu sử */}
@@ -432,17 +451,29 @@ export default function MuaWorkProfileScreen() {
               </Text>
             </View>
 
-
+            {/* Kinh nghiệm làm nghề */}
+            <View style={{ marginTop: 4 }}>
+              <VerticalNumberPicker
+                label="Kinh nghiệm làm nghề" unit="năm" value={Number(experienceYears)} options={experienceOptions}
+                onChange={(value) => {
+                  setExperienceYears(String(value));
+                  setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
+                }}
+              />
+              {fieldErrors.experienceYears ? <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text> : null}
+            </View>
           </View>
 
+          {/* CARD KHU VỰC VÀ BÁN KÍNH NHẬN CA */}
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
               <Ionicons name="location-outline" size={18} color={BrandColors.primary} />
-              <Text style={styles.formCardTitle}>Khu vực nhận ca</Text>
+              <Text style={styles.formCardTitle}>Khu vực & Bán kính nhận ca</Text>
             </View>
             <Text style={styles.sectionDescription}>
-              Hệ thống tìm khách trong bán kính tính từ địa điểm đã lưu bên dưới. GPS khi di chuyển không thay đổi khu vực này.
+              Hệ thống dùng địa điểm gốc này để tự động tính khoảng cách và phân bổ ca trang điểm phù hợp nhất trong bán kính phục vụ.
             </Text>
+
             {/* Địa chỉ cơ sở / Điểm xuất phát nhận ca */}
             <View style={styles.fieldGroup}>
               <View style={styles.addressLabelRow}>
@@ -486,32 +517,21 @@ export default function MuaWorkProfileScreen() {
                     Đã ghim: ({Number(baseAddressLat).toFixed(4)}, {Number(baseAddressLng).toFixed(4)})
                   </Text>
                 </View>
-              ) : (
-                <Text style={styles.helperText}>
-                  Địa chỉ gốc để hệ thống tính khoảng cách km và điều phối ca trang điểm phù hợp nhất.
-                </Text>
-              )}
+              ) : null}
             </View>
 
-            <View style={styles.numberPickersRow}>
+            {/* Bán kính nhận ca */}
+            <View style={{ marginTop: 4 }}>
               <VerticalNumberPicker
-                label="Kinh nghiệm" unit="năm" value={Number(experienceYears)} options={experienceOptions}
-                onChange={(value) => {
-                  setExperienceYears(String(value));
-                  setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
-                }}
-              />
-              <VerticalNumberPicker
-                label="Bán kính nhận ca" unit="km" value={Number(maxRadius)} options={radiusOptions}
+                label="Bán kính nhận ca tối đa" unit="km" value={Number(maxRadius)} options={radiusOptions}
                 onChange={(value) => {
                   setMaxRadius(String(value));
                   setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
                 }}
               />
+              {fieldErrors.maxRadius ? <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text> : null}
+              <Text style={styles.helperText}>Khoảng cách di chuyển xa nhất bạn có thể đến phục vụ khách hàng.</Text>
             </View>
-            {fieldErrors.experienceYears ? <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text> : null}
-            {fieldErrors.maxRadius ? <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text> : null}
-            <Text style={styles.helperText}>Vuốt lên / xuống để chọn. Bán kính tính từ điểm nhận ca.</Text>
           </View>
 
           {/* CARD CHỨNG CHỈ & BẰNG CẤP */}
@@ -820,6 +840,7 @@ const styles = StyleSheet.create({
   bodyContent: {
     padding: 16,
     gap: 16,
+    paddingBottom: 90,
   },
   publicPreviewBanner: {
     flexDirection: 'row',
@@ -862,6 +883,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  muaCodeBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  muaCodeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  muaCodeBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: BrandColors.primary,
+    letterSpacing: 0.2,
+  },
+  proPill: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  proPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  muaDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 10,
+  },
   muaStatRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -873,19 +934,23 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 11,
     color: BrandColors.slateMuted,
+    marginBottom: 2,
   },
-  statValHighlight: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: BrandColors.primary,
-    marginTop: 3,
+  statValRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
   },
   statVal: {
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: BrandColors.slateHeading,
-    marginTop: 3,
+  },
+  statSubText: {
+    fontSize: 11,
+    color: BrandColors.slateMuted,
+    fontWeight: '500',
   },
   statDivider: {
     width: 1,

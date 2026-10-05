@@ -37,7 +37,7 @@ export const useMuaDetailStore = create<MuaDetailState>((set, get) => ({
       // 1. Fetch thông tin thợ MUA và danh sách các gói dịch vụ
       const [profile, packageSummaries] = await Promise.all([
         muaProfileService.getPublicProfile(muaId),
-        packageService.listPackages({ muaId, availableOnly: true }),
+        packageService.listPackages({ muaId, availableOnly: false }),
       ]);
 
       // 2. Lấy chi tiết các gói để có items bước thực hiện

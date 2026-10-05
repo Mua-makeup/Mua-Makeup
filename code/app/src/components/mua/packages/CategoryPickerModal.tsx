@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { MasterCategory, taxonomyService } from '@/services/taxonomy.service';
 import { BrandColors } from '@/constants/theme';
@@ -28,6 +29,7 @@ export const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
 }) => {
   const [categories, setCategories] = useState<MasterCategory[]>([]);
   const [loading, setLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
@@ -51,9 +53,7 @@ export const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
     <DismissibleModal visible={visible} onClose={onClose} overlayStyle={styles.overlay} contentStyle={styles.bottomSheet}>
           <View style={styles.header}>
             <Text style={styles.title}>Chọn Danh Mục Gốc</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color={BrandColors.slateHeading} />
-            </TouchableOpacity>
+        
           </View>
 
           <Text style={styles.subtitle}>
@@ -68,7 +68,7 @@ export const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
             <FlatList
               data={categories}
               keyExtractor={(item) => item.id.toString()}
-              contentContainerStyle={styles.listContainer}
+              contentContainerStyle={[styles.listContainer, { paddingBottom: Math.max(insets.bottom + 16, 28) }]}
               renderItem={({ item }) => {
                 const isSelected = selectedCategoryId === item.id;
                 return (
@@ -121,8 +121,8 @@ const styles = StyleSheet.create({
   },
   bottomSheet: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     maxHeight: '75%',
     paddingBottom: 32,
   },

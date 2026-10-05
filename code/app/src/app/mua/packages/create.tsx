@@ -24,6 +24,31 @@ import { StyleChipSelector } from '@/components/mua/packages/StyleChipSelector';
 import { createPackageSchema } from '@/schemas/package-builder.schema';
 import { parseApiError } from '@/utils/error';
 
+const PACKAGE_PRICE_PRESETS = [
+  350000, 500000, 800000, 1000000, 1500000, 2000000, 3000000,
+];
+
+const PACKAGE_DURATION_PRESETS = [
+  30, 45, 60, 90, 120, 150, 180,
+];
+
+const formatPresetPrice = (val: number) => {
+  if (val >= 1000000) {
+    const tr = val / 1000000;
+    return `${tr % 1 === 0 ? tr : tr.toFixed(1)}tr`;
+  }
+  return `${val / 1000}k`;
+};
+
+const formatDurationHuman = (mins: number) => {
+  if (!mins) return '60 phút';
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hours > 0 && rem > 0) return `${hours}h ${rem}p`;
+  if (hours > 0) return `${hours} tiếng`;
+  return `${mins} phút`;
+};
+
 export default function CreatePackageScreen() {
   const insets = useSafeAreaInsets();
 
@@ -34,6 +59,24 @@ export default function CreatePackageScreen() {
   const [price, setPrice] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('60');
   const [description, setDescription] = useState('');
+
+  const handleAdjustPrice = (delta: number) => {
+    const current = Number(price.replace(/\D/g, '')) || 0;
+    const next = Math.max(0, current + delta);
+    setPrice(next > 0 ? next.toLocaleString('vi-VN') : '');
+    if (errors.price) {
+      setErrors((prev) => ({ ...prev, price: '' }));
+    }
+  };
+
+  const handleAdjustDuration = (delta: number) => {
+    const current = Number(durationMinutes) || 60;
+    const next = Math.max(15, Math.min(360, current + delta));
+    setDurationMinutes(next.toString());
+    if (errors.estimatedDurationMinutes) {
+      setErrors((prev) => ({ ...prev, estimatedDurationMinutes: '' }));
+    }
+  };
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -216,16 +259,32 @@ export default function CreatePackageScreen() {
             error={errors.styleIds}
           />
 
-          {/* 5. Giá niêm yết & Thời lượng */}
-          <View style={styles.twoColRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionLabel}>Giá Niêm Yết (VNĐ) *</Text>
-              <View style={styles.currencyInputWrapper}>
+          {/* 5. Giá niêm yết & Thời lượng với Stepper & Presets thông minh */}
+          <View style={styles.fieldSection}>
+            <View style={styles.fieldHeaderRow}>
+              <Text style={styles.sectionHeaderTitle}>Giá Niêm Yết (VNĐ) *</Text>
+              <Text style={styles.priceHighlight}>
+                🏷️ {price ? `${price} đ` : 'Chưa đặt giá'}
+              </Text>
+            </View>
+
+            <View style={styles.stepperBox}>
+              <TouchableOpacity
+                style={styles.stepperActionBtn}
+                onPress={() => handleAdjustPrice(-50000)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="remove" size={18} color="#334155" />
+                <Text style={styles.stepperActionText}>50k</Text>
+              </TouchableOpacity>
+
+              <View style={styles.stepperCenter}>
+                <Ionicons name="cash-outline" size={20} color={BrandColors.primary} />
                 <TextInput
-                  style={[styles.input, errors.price && styles.inputError]}
+                  style={[styles.stepperPriceInput, errors.price && styles.inputError]}
                   placeholder="850.000"
                   placeholderTextColor={BrandColors.slatePlaceholder}
-                  keyboardType="numeric"
+                  keyboardType="number-pad"
                   value={price}
                   onChangeText={(val) => {
                     const num = val.replace(/\D/g, '');
@@ -234,34 +293,136 @@ export default function CreatePackageScreen() {
                       setErrors((prev) => ({ ...prev, price: '' }));
                     }
                   }}
+                  selectTextOnFocus
                 />
-                <Text style={styles.currencyUnit}>đ</Text>
+                <Text style={styles.stepperUnitLabel}>đ</Text>
               </View>
-              {errors.price ? <Text style={styles.errorText}>{errors.price}</Text> : null}
+
+              <TouchableOpacity
+                style={styles.stepperActionBtn}
+                onPress={() => handleAdjustPrice(50000)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={18} color="#334155" />
+                <Text style={styles.stepperActionText}>50k</Text>
+              </TouchableOpacity>
             </View>
 
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionLabel}>Thời Lượng (Phút) *</Text>
-              <View style={styles.currencyInputWrapper}>
+            {/* Quick Price Presets */}
+            <View style={styles.presetGrid}>
+              {PACKAGE_PRICE_PRESETS.map((p) => {
+                const currentNum = Number(price.replace(/\D/g, '')) || 0;
+                const isMatch = currentNum === p;
+                return (
+                  <TouchableOpacity
+                    key={`p-${p}`}
+                    style={[styles.presetChip, isMatch && styles.presetChipActive]}
+                    onPress={() => {
+                      setPrice(p.toLocaleString('vi-VN'));
+                      if (errors.price) {
+                        setErrors((prev) => ({ ...prev, price: '' }));
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.presetChipText,
+                        isMatch && styles.presetChipTextActive,
+                      ]}
+                    >
+                      {formatPresetPrice(p)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {errors.price ? <Text style={styles.errorText}>{errors.price}</Text> : null}
+          </View>
+
+          {/* 6. Thời lượng dự kiến */}
+          <View style={styles.fieldSection}>
+            <View style={styles.fieldHeaderRow}>
+              <Text style={styles.sectionHeaderTitle}>Thời Lượng Dự Kiến *</Text>
+              <Text style={styles.durationHighlight}>
+                ⏱️ {durationMinutes || 60} phút ({formatDurationHuman(Number(durationMinutes))})
+              </Text>
+            </View>
+
+            <View style={styles.stepperBox}>
+              <TouchableOpacity
+                style={styles.stepperActionBtn}
+                onPress={() => handleAdjustDuration(-15)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="remove" size={18} color="#334155" />
+                <Text style={styles.stepperActionText}>15p</Text>
+              </TouchableOpacity>
+
+              <View style={styles.stepperCenter}>
+                <Ionicons name="time-outline" size={20} color={BrandColors.primary} />
                 <TextInput
-                  style={[styles.input, errors.estimatedDurationMinutes && styles.inputError]}
+                  style={[
+                    styles.stepperDurationInput,
+                    errors.estimatedDurationMinutes && styles.inputError,
+                  ]}
                   placeholder="60"
                   placeholderTextColor={BrandColors.slatePlaceholder}
                   keyboardType="number-pad"
                   value={durationMinutes}
                   onChangeText={(val) => {
-                    setDurationMinutes(val);
+                    const num = val.replace(/\D/g, '');
+                    setDurationMinutes(num);
                     if (errors.estimatedDurationMinutes) {
                       setErrors((prev) => ({ ...prev, estimatedDurationMinutes: '' }));
                     }
                   }}
+                  selectTextOnFocus
                 />
-                <Text style={styles.currencyUnit}>phút</Text>
+                <Text style={styles.stepperUnitLabel}>phút</Text>
               </View>
-              {errors.estimatedDurationMinutes ? (
-                <Text style={styles.errorText}>{errors.estimatedDurationMinutes}</Text>
-              ) : null}
+
+              <TouchableOpacity
+                style={styles.stepperActionBtn}
+                onPress={() => handleAdjustDuration(15)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={18} color="#334155" />
+                <Text style={styles.stepperActionText}>15p</Text>
+              </TouchableOpacity>
             </View>
+
+            {/* Quick Duration Presets */}
+            <View style={styles.presetGrid}>
+              {PACKAGE_DURATION_PRESETS.map((dur) => {
+                const isMatch = Number(durationMinutes) === dur;
+                return (
+                  <TouchableOpacity
+                    key={`dur-${dur}`}
+                    style={[styles.presetChip, isMatch && styles.presetChipActive]}
+                    onPress={() => {
+                      setDurationMinutes(dur.toString());
+                      if (errors.estimatedDurationMinutes) {
+                        setErrors((prev) => ({ ...prev, estimatedDurationMinutes: '' }));
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.presetChipText,
+                        isMatch && styles.presetChipTextActive,
+                      ]}
+                    >
+                      {dur}p
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {errors.estimatedDurationMinutes ? (
+              <Text style={styles.errorText}>{errors.estimatedDurationMinutes}</Text>
+            ) : null}
           </View>
 
           {/* 6. Mô tả chi tiết */}
@@ -463,6 +624,112 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '700',
+  },
+  fieldSection: {
+    marginTop: 18,
+  },
+  fieldHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BrandColors.slateHeading,
+  },
+  priceHighlight: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  durationHighlight: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: BrandColors.primary,
+  },
+  stepperBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    height: 50,
+  },
+  stepperActionBtn: {
+    width: 54,
+    height: '100%',
+    backgroundColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  stepperActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  stepperCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  stepperPriceInput: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    minWidth: 120,
+    paddingVertical: 0,
+    paddingHorizontal: 4,
+  },
+  stepperDurationInput: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    minWidth: 55,
+    paddingVertical: 0,
+    paddingHorizontal: 4,
+  },
+  stepperUnitLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  presetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  presetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  presetChipActive: {
+    backgroundColor: '#FFF1F2',
+    borderColor: BrandColors.primary,
+  },
+  presetChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  presetChipTextActive: {
+    color: BrandColors.primary,
     fontWeight: '700',
   },
 });

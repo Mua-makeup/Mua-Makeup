@@ -30,6 +30,7 @@ export interface PackageSummary {
   isAvailable?: boolean;
   styles?: MakeupStyle[];
   coverImageUrl?: string;
+  description?: string;
 }
 
 export interface PackageDetail extends PackageSummary {

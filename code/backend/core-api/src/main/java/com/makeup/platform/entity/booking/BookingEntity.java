@@ -141,6 +141,9 @@ public class BookingEntity extends BaseEntity {
     @Column(name = "cancellation_reason", columnDefinition = "TEXT")
     private String cancellationReason;
 
+    @Column(name = "selected_addons", columnDefinition = "TEXT")
+    private String selectedAddons;
+
     @Column(name = "deposit_expired_at")
     private OffsetDateTime depositExpiredAt;
 

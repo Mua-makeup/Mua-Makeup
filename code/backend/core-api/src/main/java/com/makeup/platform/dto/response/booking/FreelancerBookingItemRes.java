@@ -21,6 +21,7 @@ public class FreelancerBookingItemRes {
     private String bookingType;
     private String customerName;
     private String customerPhone;
+    private String customerAvatar;
     private String packageName;
     private String packageCoverUrl;
     private String destinationAddress;

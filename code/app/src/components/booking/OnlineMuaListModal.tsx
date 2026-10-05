@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { telemetryService, NearbyProviderRes } from '@/services/telemetry.service';
 import { useLocationStore } from '@/store/location.store';
 import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
@@ -195,14 +196,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                 </Text>
               </View>
 
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={onClose}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
+
             </View>
           </View>
 
@@ -297,15 +291,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                 <View style={styles.muaCard}>
                   {/* Left: Avatar with online pulse */}
                   <View style={styles.avatarWrapper}>
-                    {item.avatarUrl ? (
-                      <Image source={{ uri: item.avatarUrl }} style={styles.avatarImg} />
-                    ) : (
-                      <View style={styles.avatarPlaceholder}>
-                        <Text style={styles.avatarInitial}>
-                          {item.fullName ? item.fullName.charAt(0).toUpperCase() : 'M'}
-                        </Text>
-                      </View>
-                    )}
+                    <UserAvatar uri={item.avatarUrl} name={item.fullName} size={52} />
                     <View style={styles.pulseContainer}>
                       <View style={styles.pulseDot} />
                     </View>

@@ -1,5 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { bookingService, BookingStatusDetailRes } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
 
@@ -28,12 +29,12 @@ interface AddOnOption {
   description: string;
 }
 
-const AVAILABLE_ADDONS: AddOnOption[] = [
-  { id: 'hair', name: 'Tạo kiểu tóc đi tiệc / dạ hội', price: 100000, description: 'Uốn xoăn lọn hoặc búi sang trọng' },
+// Add-on options được tải động từ database theo chi tiết gói dịch vụ (availableAddons)
+/*  { id: 'hair', name: 'Tạo kiểu tóc đi tiệc / dạ hội', price: 100000, description: 'Uốn xoăn lọn hoặc búi sang trọng' },
   { id: 'lashes', name: 'Dán mi giả chùm cao cấp', price: 50000, description: 'Tự nhiên, mềm mượt không cộm mắt' },
   { id: 'mask', name: 'Đắp mặt nạ cấp ẩm & che khuyết điểm', price: 80000, description: 'Giúp lớp nền bóng khỏe, bám suốt 12h' },
   { id: 'flowers', name: 'Phụ kiện cài tóc / đính đá', price: 60000, description: 'Phụ kiện trang trí tóc cao cấp' },
-];
+]; */
 
 const REJECT_REASONS = [
   'Muốn đổi chuyên viên make-up khác',
@@ -160,7 +161,19 @@ export default function InstantMatchedScreen() {
   const emergencySurcharge = Number(bookingDetail?.surchargeFee || 150000);
   const distanceFee = Number(bookingDetail?.distanceFee || 0);
 
-  const selectedAddons = AVAILABLE_ADDONS.filter((a) => selectedAddonIds.includes(a.id));
+  const availableAddons: AddOnOption[] = useMemo(() => {
+    if (bookingDetail?.availableAddons && bookingDetail.availableAddons.length > 0) {
+      return bookingDetail.availableAddons.map((item) => ({
+        id: String(item.id),
+        name: item.itemName,
+        price: Number(item.itemPrice || 0),
+        description: item.durationMinutes ? `Thời gian ước tính: ~${item.durationMinutes} phút` : 'Tiện ích mua thêm cho dịch vụ',
+      }));
+    }
+    return [];
+  }, [bookingDetail?.availableAddons]);
+
+  const selectedAddons = availableAddons.filter((a) => selectedAddonIds.includes(a.id));
   const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
 
   const totalAmount = baseServicePrice + emergencySurcharge + distanceFee + addonsTotal;
@@ -229,9 +242,7 @@ export default function InstantMatchedScreen() {
     );
   }
 
-  const muaAvatar =
-    bookingDetail?.muaAvatar ||
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+  const muaAvatar = bookingDetail?.muaAvatar;
   const muaName = bookingDetail?.muaName || 'Chuyên viên Make-up';
   const muaRating = bookingDetail?.rating ? Number(bookingDetail.rating).toFixed(1) : '5.0';
 
@@ -275,7 +286,7 @@ export default function InstantMatchedScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* MUA Profile Highlight Card */}
         <View style={styles.profileCard}>
-          <Image source={{ uri: muaAvatar }} style={styles.avatar} />
+          <UserAvatar uri={muaAvatar} name={muaName} size={56} />
           <View style={styles.profileInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.muaName}>{muaName}</Text>
@@ -331,13 +342,14 @@ export default function InstantMatchedScreen() {
         </View>
 
         {/* Add-ons Checklist */}
+        {availableAddons.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Dịch Vụ Mua Thêm (Tùy Chọn)</Text>
           <Text style={styles.sectionSubtitle}>
             Bạn có thể tích chọn thêm các tiện ích để thợ chuẩn bị đầy đủ dụng cụ:
           </Text>
 
-          {AVAILABLE_ADDONS.map((addon) => {
+          {availableAddons.map((addon) => {
             const isSelected = selectedAddonIds.includes(addon.id);
             return (
               <TouchableOpacity
@@ -362,6 +374,7 @@ export default function InstantMatchedScreen() {
             );
           })}
         </View>
+        )}
 
         {/* Detailed Bill Breakdown */}
         <View style={styles.card}>

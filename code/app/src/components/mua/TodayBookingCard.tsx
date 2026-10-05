@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { FreelancerBookingItem, freelancerBookingService } from '@/services/freelancer-booking.service';
@@ -145,52 +146,60 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
 
   return (
     <View style={[styles.card, isRequested && styles.cardRequested]}>
-      {/* Header: Mã đơn + Thời gian + Status badge */}
-      <View style={styles.cardHeader}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.bookingCode}>{booking.bookingCode}</Text>
-          <View style={styles.timeTag}>
-            <Ionicons name="time-outline" size={13} color="#64748B" />
-            <Text style={styles.timeText}>
-              {formatBookingSchedule(booking.bookingDate, booking.startTime)}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={handleEnterJob}
+      >
+        {/* Header: Mã đơn + Thời gian + Status badge */}
+        <View style={styles.cardHeader}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.bookingCode}>{booking.bookingCode}</Text>
+            <View style={styles.timeTag}>
+              <Ionicons name="time-outline" size={13} color="#64748B" />
+              <Text style={styles.timeText}>
+                {formatBookingSchedule(booking.bookingDate, booking.startTime)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+              <Ionicons name={badge.icon as any} size={12} color={badge.text} />
+              <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </View>
+        </View>
+
+        {/* Package & Customer info */}
+        <View style={styles.mainInfo}>
+          <Text style={styles.packageName} numberOfLines={2}>
+            {booking.packageName}
+          </Text>
+
+          <View style={styles.customerRow}>
+            <View style={styles.customerBlock}>
+              <UserAvatar uri={booking.customerAvatar} name={booking.customerName} size={22} style={{ marginRight: 6 }} />
+              <Text style={styles.customerName}>{booking.customerName}</Text>
+            </View>
+
+            {booking.customerPhone ? (
+              <TouchableOpacity style={styles.callBtn} onPress={handleCallCustomer}>
+                <Ionicons name="call" size={13} color="#059669" />
+                <Text style={styles.callText}>Gọi khách</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {/* Destination Address */}
+          <View style={styles.addressRow}>
+            <Ionicons name="location-sharp" size={15} color="#E11D48" style={styles.addressIcon} />
+            <Text style={styles.addressText} numberOfLines={2}>
+              {booking.destinationAddress || 'Trang điểm tại studio / địa điểm thỏa thuận'}
             </Text>
           </View>
         </View>
-
-        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-          <Ionicons name={badge.icon as any} size={12} color={badge.text} />
-          <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
-        </View>
-      </View>
-
-      {/* Package & Customer info */}
-      <View style={styles.mainInfo}>
-        <Text style={styles.packageName} numberOfLines={2}>
-          {booking.packageName}
-        </Text>
-
-        <View style={styles.customerRow}>
-          <View style={styles.customerBlock}>
-            <Ionicons name="person-outline" size={14} color="#64748B" />
-            <Text style={styles.customerName}>{booking.customerName}</Text>
-          </View>
-
-          {booking.customerPhone ? (
-            <TouchableOpacity style={styles.callBtn} onPress={handleCallCustomer}>
-              <Ionicons name="call" size={13} color="#059669" />
-              <Text style={styles.callText}>Gọi khách</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {/* Destination Address */}
-        <View style={styles.addressRow}>
-          <Ionicons name="location-sharp" size={15} color="#E11D48" style={styles.addressIcon} />
-          <Text style={styles.addressText} numberOfLines={2}>
-            {booking.destinationAddress || 'Trang điểm tại studio / địa điểm thỏa thuận'}
-          </Text>
-        </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Financials & Actions */}
       <View style={styles.footerRow}>

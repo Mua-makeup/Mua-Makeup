@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useWorkstationStore } from '@/store/workstation.store';
@@ -170,9 +171,7 @@ export const WorkstationHeader: React.FC = () => {
     setShowRadiusModal(false);
   };
 
-  const avatarUrl =
-    profile?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+  const avatarUrl = profile?.avatarUrl;
 
   return (
     <View style={styles.container}>
@@ -183,7 +182,7 @@ export const WorkstationHeader: React.FC = () => {
           onPress={() => router.push('/profile/mua-profile')}
         >
           <View style={styles.avatarWrapper}>
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+            <UserAvatar uri={avatarUrl} name={profile?.fullName} size={48} />
             <View style={[styles.statusDot, { backgroundColor: isOnline ? '#10B981' : '#94A3B8' }]} />
           </View>
           <View style={styles.nameBlock}>

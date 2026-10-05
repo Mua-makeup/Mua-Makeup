@@ -30,17 +30,7 @@ export const SwipeableBottomSheet: React.FC<SwipeableBottomSheetProps> = ({
 
                   <View style={styles.headerActions}>
                     {headerRight}
-                    {showCloseButton && (
-                      <TouchableOpacity
-                        style={styles.closeBtn}
-                        disabled={dismissDisabled}
-                        onPress={onClose}
-                        activeOpacity={0.7}
-                        accessibilityLabel="Đóng"
-                      >
-                        <Ionicons name="close" size={20} color="#64748B" />
-                      </TouchableOpacity>
-                    )}
+
                   </View>
                 </View>
       </View>

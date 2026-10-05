@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { Ionicons } from '@expo/vector-icons';
 import { NearbyProviderRes } from '@/services/telemetry.service';
 import { BrandColors } from '@/constants/theme';
@@ -24,8 +25,7 @@ export const MuaRadarMarker: React.FC<Props> = ({
       ? `${Math.round(provider.distanceKm * 1000)}m`
       : `${provider.distanceKm.toFixed(1)}km`;
 
-  const fallbackAvatar =
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80';
+
 
   return (
     <View style={[styles.container, { left: x - 26, top: y - 26 }]}>
@@ -40,10 +40,10 @@ export const MuaRadarMarker: React.FC<Props> = ({
         {/* Pulse ring for active status */}
         <View style={styles.pulseRing} />
 
-        <Image
-          source={{ uri: provider.avatarUrl || fallbackAvatar }}
-          style={styles.avatar}
-          resizeMode="cover"
+        <UserAvatar
+          uri={provider.avatarUrl}
+          name={provider.fullName}
+          size={44}
         />
 
         {/* Small verified / online badge */}
