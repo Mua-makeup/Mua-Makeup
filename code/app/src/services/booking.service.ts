@@ -142,7 +142,17 @@ export interface BookingStatusDetailRes {
   bookingType?: string;
   bookingDate?: string;
   startTime?: string;
+  packageId?: number;
   packageItems?: string[];
+  componentItems?: string[];
+  addonItems?: string[];
+  availableAddons?: Array<{
+    id: number;
+    itemName: string;
+    itemPrice?: number;
+    durationMinutes?: number;
+    itemType?: string;
+  }>;
   estimatedDurationMinutes?: number;
   emergencyProofUrl?: string;
   completionPhotoUrl?: string;
@@ -175,7 +185,14 @@ export const bookingService = {
    * Tạo đơn đặt lịch theo hẹn thông thường
    */
   async createScheduledBooking(payload: CreateBookingFormValues): Promise<ScheduledBookingCreatedRes & { id: number; bookingId: number }> {
-    const response = await apiClient.post('/customer/bookings', payload);
+    const isAgency = payload.providerType === 'AGENCY';
+    const body = {
+      ...payload,
+      bookingPartner: isAgency ? 'AGENCY_DISPATCH' : 'FREELANCER_DIRECT',
+      agencyId: isAgency ? payload.providerId : undefined,
+      muaId: !isAgency ? payload.providerId : undefined,
+    };
+    const response = await apiClient.post('/customer/bookings', body);
     const data = response.data?.data || {};
     const bookingId = Number(data.booking_id || data.bookingId || data.id || 0);
     return {

@@ -126,11 +126,11 @@ export const LocationMapPickerModal: React.FC<Props> = ({
       <SafeAreaView style={styles.container}>
         {/* HEADER */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-            <Ionicons name="close" size={22} color="#0F172A" />
-          </TouchableOpacity>
+
+
+
           <Text style={styles.headerTitle}>Bản Đồ Chọn Điểm Đến</Text>
-          <View style={{ width: 40 }} />
+
         </View>
 
         {/* THANH TÌM KIẾM ĐỊA CHỈ TRÊN BẢN ĐỒ */}

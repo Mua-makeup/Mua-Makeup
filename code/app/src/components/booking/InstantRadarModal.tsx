@@ -64,6 +64,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   const [isLocating, setIsLocating] = useState(false);
   const [addressNote, setAddressNote] = useState('');
   const [isSavedAddressModalVisible, setIsSavedAddressModalVisible] = useState(false);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<number | undefined>(undefined);
 
   // Gợi ý địa điểm Goong Maps Autocomplete
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -662,8 +663,10 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   return (
     <DismissibleModal visible={visible} onClose={handleCancel} overlayStyle={styles.overlay} contentStyle={styles.modalCard} overlays={<><SavedAddressModal
         visible={isSavedAddressModalVisible}
+        selectedAddressId={selectedSavedAddressId}
         onClose={() => setIsSavedAddressModalVisible(false)}
         onSelectAddress={(selected) => {
+          setSelectedSavedAddressId(selected.id);
           setAddress(selected.addressLine);
           const newCoords = { latitude: selected.latitude, longitude: selected.longitude };
           setCoords(newCoords);
@@ -683,14 +686,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   </View>
                   <Text style={styles.modalTitle}>Tìm Thợ Khẩn Cấp (30-45p)</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.closeBtn}
-                  onPress={handleCancel}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color="#64748B" />
-                </TouchableOpacity>
+
               </View>
             </View>
 

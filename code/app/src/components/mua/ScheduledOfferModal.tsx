@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useAuthStore } from '@/store/auth.store';
 import { BrandColors } from '@/constants/theme';
@@ -232,14 +233,14 @@ export const ScheduledOfferModal: React.FC = () => {
             </View>
 
             {/* Nút X Đóng Nhanh (Để Sau) */}
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={handleLater}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close" size={18} color="#94A3B8" />
-            </TouchableOpacity>
+
+
+
+
+
+
+
+
           </View>
 
           <Text style={[styles.headerTitle, isSmallScreen && { fontSize: 17 }]}>
@@ -279,14 +280,10 @@ export const ScheduledOfferModal: React.FC = () => {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Thông Tin Khách Hàng</Text>
             <View style={styles.customerRow}>
-              <Image
-                source={{
-                  uri:
-                    activeScheduledOffer.customerAvatar ||
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-                }}
-                style={styles.customerAvatar}
-                contentFit="cover"
+              <UserAvatar
+                uri={activeScheduledOffer.customerAvatar}
+                name={activeScheduledOffer.customerName}
+                size={48}
               />
               <View style={styles.customerInfoCol}>
                 <Text style={styles.customerName} numberOfLines={1}>

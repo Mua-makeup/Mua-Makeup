@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,10 @@ export const PackageCard: React.FC<PackageCardProps> = ({
 }) => {
   const [isAvailable, setIsAvailable] = useState<boolean>(item.isAvailable ?? true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  useEffect(() => {
+    setIsAvailable(item.isAvailable ?? true);
+  }, [item.isAvailable]);
 
   const handleToggle = async (val: boolean) => {
     try {

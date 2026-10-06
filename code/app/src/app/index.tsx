@@ -35,6 +35,7 @@ import { useAccountModalStore } from '@/store/account-modal.store';
 import { taxonomyService, MasterCategory } from '@/services/taxonomy.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import * as Haptics from 'expo-haptics';
 
 const getCategoryIcon = (categoryName?: string): keyof typeof Ionicons.glyphMap => {
@@ -189,19 +190,6 @@ export default function HomeScreen() {
     setIsRadarModalVisible(true);
   };
 
-  const handleLogout = async () => {
-    Alert.alert('Đăng Xuất', 'Bạn có chắc chắn muốn đăng xuất tài khoản?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đăng Xuất',
-        style: 'destructive',
-        onPress: async () => {
-          useAccountModalStore.getState().closeAccountModal();
-          await logout();
-        },
-      },
-    ]);
-  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -241,11 +229,11 @@ export default function HomeScreen() {
               style={styles.avatarButton}
               onPress={() => useAccountModalStore.getState().openAccountModal()}
               activeOpacity={0.8}>
-              <View style={styles.avatarBox}>
-                <Text style={styles.avatarText}>
-                  {userInfo?.fullName ? userInfo.fullName.charAt(0).toUpperCase() : 'U'}
-                </Text>
-              </View>
+              <UserAvatar
+                uri={userInfo?.avatarUrl}
+                name={userInfo?.fullName}
+                size={34}
+              />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity

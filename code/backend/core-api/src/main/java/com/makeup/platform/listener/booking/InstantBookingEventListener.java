@@ -48,8 +48,10 @@ public class InstantBookingEventListener {
                 matchedPayload.put("muaName", mua.getUser().getFullName());
                 matchedPayload.put("muaPhone", mua.getUser().getPhoneNumber());
                 matchedPayload.put("rating", mua.getRatingAvg());
-                matchedPayload.put("muaAvatar", (mua.getPortfolioImages() != null && !mua.getPortfolioImages().isEmpty())
-                        ? mua.getPortfolioImages().get(0) : null);
+                matchedPayload.put("muaAvatar", (mua.getUser().getAvatarUrl() != null && !mua.getUser().getAvatarUrl().isBlank())
+                        ? mua.getUser().getAvatarUrl()
+                        : ((mua.getPortfolioImages() != null && !mua.getPortfolioImages().isEmpty())
+                                ? mua.getPortfolioImages().get(0) : null));
             }
             if (booking != null) {
                 matchedPayload.put("bookingCode", booking.getBookingCode());

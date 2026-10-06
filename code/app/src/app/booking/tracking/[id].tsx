@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { BrandColors } from '@/constants/theme';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { bookingService } from '@/services/booking.service';
 import { depositService } from '@/services/deposit.service';
 import { telemetryService, LiveTrackingRes } from '@/services/telemetry.service';
@@ -595,9 +596,7 @@ export default function BookingLiveTrackingScreen() {
   }
 
   const muaName = bookingDetail?.muaName || 'Chuyên viên Make-up';
-  const muaAvatar =
-    bookingDetail?.muaAvatar ||
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80';
+  const muaAvatar = bookingDetail?.muaAvatar;
 
   const isMovingStage = status === 'ACCEPTED' || status === 'ON_THE_WAY';
 
@@ -682,7 +681,7 @@ export default function BookingLiveTrackingScreen() {
             )}
 
             <View style={styles.muaProfileRow}>
-              <Image source={{ uri: muaAvatar }} style={styles.muaAvatar} />
+              <UserAvatar uri={muaAvatar} name={muaName} size={48} />
               <View style={{ flex: 1 }}>
                 <View style={styles.nameRow}>
                   <Text style={styles.muaNameText}>{muaName}</Text>
@@ -771,7 +770,7 @@ export default function BookingLiveTrackingScreen() {
           <View style={styles.cardBox}>
             <Text style={styles.cardHeaderTitle}>Thông Tin Chuyên Viên</Text>
             <View style={styles.muaDetailRow}>
-              <Image source={{ uri: muaAvatar }} style={styles.muaAvatarLarge} />
+              <UserAvatar uri={muaAvatar} name={muaName} size={54} />
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={styles.muaNameLarge}>{muaName}</Text>

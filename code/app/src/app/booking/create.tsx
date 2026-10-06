@@ -27,16 +27,23 @@ import { customerAddressService } from '@/services/customer-address.service';
 import { createBookingSchema } from '@/schemas/booking-create.schema';
 import { parseApiError } from '@/utils/error';
 
+import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
+
 export default function CreateBookingScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ packageId?: string; muaId?: string; providerType?: string }>();
+  const params = useLocalSearchParams<{ packageId?: string; muaId?: string; providerId?: string; providerType?: string }>();
 
   const targetPackageId = params.packageId ? parseInt(params.packageId, 10) : 1;
-  const targetMuaId = params.muaId ? parseInt(params.muaId, 10) : 1;
-  const providerType = (params.providerType as 'FREELANCER' | 'AGENCY') || 'FREELANCER';
+  const targetProviderId = params.providerId ? parseInt(params.providerId, 10) : (params.muaId ? parseInt(params.muaId, 10) : 1);
+  const targetMuaId = targetProviderId;
+  const initialProviderType = (params.providerType as 'FREELANCER' | 'AGENCY') || 'FREELANCER';
+
+  const [providerType, setProviderType] = useState<'FREELANCER' | 'AGENCY'>(initialProviderType);
+  const [providerId, setProviderId] = useState<number>(targetProviderId);
 
   const [packageDetail, setPackageDetail] = useState<PackageDetail | null>(null);
   const [muaProfile, setMuaProfile] = useState<MuaPublicProfile | null>(null);
+  const [agencyProfile, setAgencyProfile] = useState<AgencyPublicProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -81,15 +88,44 @@ export default function CreateBookingScreen() {
     async function loadData() {
       setIsLoading(true);
       try {
-        const [pkg, profile] = await Promise.all([
-          packageService.getPackageById(targetPackageId),
-          muaProfileService.getPublicProfile(targetMuaId),
-        ]);
+        const pkg = await packageService.getPackageById(targetPackageId);
+        if (pkg?.isAvailable === false) {
+          Alert.alert(
+            'Tạm ngưng nhận lịch',
+            'Gói dịch vụ này hiện đang tạm ngưng nhận lịch hẹn. Vui lòng quay lại và chọn gói dịch vụ khác.',
+            [{ text: 'Quay lại', onPress: () => router.back() }]
+          );
+          return;
+        }
         setPackageDetail(pkg);
-        setMuaProfile(profile);
+
+        const isAgency = initialProviderType === 'AGENCY' || (pkg.agencyId != null && !pkg.muaId);
+        const resolvedProviderType: 'FREELANCER' | 'AGENCY' = isAgency ? 'AGENCY' : 'FREELANCER';
+        const resolvedProviderId = isAgency ? (pkg.agencyId || targetProviderId) : (pkg.muaId || targetProviderId);
+
+        setProviderType(resolvedProviderType);
+        setProviderId(resolvedProviderId);
+
+        if (isAgency) {
+          try {
+            const ag = await agencyService.getAgencyProfileById(resolvedProviderId);
+            setAgencyProfile(ag);
+            setMuaProfile(null);
+          } catch (e) {
+            console.warn('Lỗi lấy thông tin studio:', e);
+          }
+        } else {
+          try {
+            const profile = await muaProfileService.getPublicProfile(resolvedProviderId);
+            setMuaProfile(profile);
+            setAgencyProfile(null);
+          } catch (e) {
+            console.warn('Lỗi lấy thông tin MUA:', e);
+          }
+        }
 
         // Đồng bộ store
-        setPackageAndProvider(targetPackageId, targetMuaId, providerType);
+        setPackageAndProvider(targetPackageId, resolvedProviderId, resolvedProviderType);
 
         // Tự động điền địa chỉ vị trí GPS hiện tại của khách hàng
         if (!destinationLatitude || destinationLatitude === 0) {
@@ -118,7 +154,7 @@ export default function CreateBookingScreen() {
     return () => {
       resetBookingForm();
     };
-  }, [targetPackageId, targetMuaId, providerType]);
+  }, [targetPackageId, targetProviderId, initialProviderType]);
 
   const handleSubmit = async () => {
     // 0. Kiểm tra ngày & giờ đã chọn
@@ -132,7 +168,7 @@ export default function CreateBookingScreen() {
     const bookingTime = `${selectedDate}T${selectedTimeSlot}:00`;
     const validation = createBookingSchema.safeParse({
       packageId: targetPackageId,
-      providerId: targetMuaId,
+      providerId,
       providerType,
       bookingTime,
       destinationAddress,
@@ -226,10 +262,11 @@ export default function CreateBookingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. TÓM TẮT GÓI & THỢ */}
+        {/* 1. TÓM TẮT GÓI & THỢ / STUDIO */}
         <BookingHeaderCard
           packageDetail={packageDetail}
           muaProfile={muaProfile}
+          agencyProfile={agencyProfile}
         />
 
         {/* 2. CHỌN NGÀY & KHUNG GIỜ */}

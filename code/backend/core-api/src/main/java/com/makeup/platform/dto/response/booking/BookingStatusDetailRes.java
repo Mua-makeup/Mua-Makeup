@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.response.booking;
 
+import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,6 +32,7 @@ public class BookingStatusDetailRes {
     private String customerName;
     private String customerPhone;
     private String customerAvatar;
+    private Long packageId;
     private String packageName;
     private String styleName;
     private String bookingType;
@@ -38,6 +40,9 @@ public class BookingStatusDetailRes {
     private LocalTime startTime;
     private Integer estimatedDurationMinutes;
     private List<String> packageItems;
+    private List<String> componentItems;
+    private List<String> addonItems;
+    private List<PackageItemRes> availableAddons;
     private BigDecimal rating;
     private BigDecimal totalAmount;
     private BigDecimal depositAmount;

@@ -42,6 +42,7 @@ export const DestinationAddressPicker: React.FC<Props> = ({
   const [isAddressModalVisible, setIsAddressModalVisible] = useState(false);
   const [isMapModalVisible, setIsMapModalVisible] = useState(false);
   const [isSavedAddressModalVisible, setIsSavedAddressModalVisible] = useState(false);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<number | undefined>(undefined);
   const [isMapImageLoading, setIsMapImageLoading] = useState(false);
   const [mapImageError, setMapImageError] = useState(false);
 
@@ -315,8 +316,10 @@ export const DestinationAddressPicker: React.FC<Props> = ({
       {/* MODAL 3: SỔ ĐỊA CHỈ KHÁCH HÀNG */}
       <SavedAddressModal
         visible={isSavedAddressModalVisible}
+        selectedAddressId={selectedSavedAddressId}
         onClose={() => setIsSavedAddressModalVisible(false)}
         onSelectAddress={(selected) => {
+          setSelectedSavedAddressId(selected.id);
           onChangeAddress(selected.addressLine, selected.latitude, selected.longitude);
         }}
       />

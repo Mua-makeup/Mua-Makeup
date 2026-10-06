@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { BrandColors } from '@/constants/theme';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { bookingService, InstantBookingCreatedRes } from '@/services/booking.service';
 import { NearbyProviderRes } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
@@ -80,6 +81,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [addressNote, setAddressNote] = useState('');
   const [isSavedAddressModalVisible, setIsSavedAddressModalVisible] = useState(false);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<number | undefined>(undefined);
   const [isLocating, setIsLocating] = useState(false);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
@@ -443,8 +445,10 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   return (
     <DismissibleModal visible={visible} onClose={handleCancelRequest} overlayStyle={styles.overlay} contentStyle={styles.modalCard} overlays={<><SavedAddressModal
         visible={isSavedAddressModalVisible}
+        selectedAddressId={selectedSavedAddressId}
         onClose={() => setIsSavedAddressModalVisible(false)}
         onSelectAddress={(selected) => {
+          setSelectedSavedAddressId(selected.id);
           setAddress(selected.addressLine);
           setCoords({ latitude: selected.latitude, longitude: selected.longitude });
           setIsSavedAddressModalVisible(false);
@@ -464,14 +468,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                     Đặt Lịch Với {targetMua.fullName}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={handleCancelRequest}
-                  style={styles.closeBtn}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={18} color="#64748B" />
-                </TouchableOpacity>
+
               </View>
             </View>
 
@@ -480,11 +477,11 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
               <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {/* PROFILE CARD CỦA THỢ */}
                 <View style={styles.muaProfileCard}>
-                  <Image
-                    source={{
-                      uri: targetMua.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                    }}
-                    style={styles.muaAvatar}
+                  <UserAvatar
+                    uri={targetMua.avatarUrl}
+                    name={targetMua.fullName}
+                    size={52}
+                    style={{ marginRight: 12 }}
                   />
                   <View style={styles.muaInfoCol}>
                     <View style={styles.muaNameRow}>

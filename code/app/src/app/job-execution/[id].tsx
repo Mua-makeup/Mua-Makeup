@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { JobTimelineStep } from '@/components/mua/JobTimelineStep';
 import { ProofCameraModal } from '@/components/mua/ProofCameraModal';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
@@ -939,13 +940,11 @@ export default function JobExecutionScreen() {
             <View style={styles.clientProfileCard}>
               <Text style={styles.sectionHeaderTitle}>Thông Tin Khách Hàng</Text>
               <View style={styles.clientProfileRow}>
-                <Image
-                  source={{
-                    uri:
-                      booking?.customerAvatar ||
-                      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
-                  }}
-                  style={styles.clientAvatarImg}
+                <UserAvatar
+                  uri={booking?.customerAvatar}
+                  name={booking?.customerName}
+                  size={48}
+                  style={{ marginRight: 12 }}
                 />
                 <View style={styles.clientProfileDetails}>
                   <View style={styles.nameBadgeRow}>
@@ -1659,13 +1658,11 @@ export default function JobExecutionScreen() {
 
             <View style={styles.cancelCustomerBox}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                {booking?.customerAvatar ? (
-                  <Image source={{ uri: booking.customerAvatar }} style={styles.cancelCustomerAvatar} />
-                ) : (
-                  <View style={styles.cancelCustomerAvatarFallback}>
-                    <Ionicons name="person" size={18} color="#64748B" />
-                  </View>
-                )}
+                <UserAvatar
+                  uri={booking?.customerAvatar}
+                  name={booking?.customerName}
+                  size={44}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cancelCustomerName}>{booking?.customerName || 'Khách hàng'}</Text>
                   <Text style={styles.cancelCustomerPhone}>{booking?.customerPhone || 'SĐT khách hàng'}</Text>

@@ -129,6 +129,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         if (req.getPackageId() != null) {
             var packageOpt = servicePackageRepository.findById(req.getPackageId());
             if (packageOpt.isPresent() && packageOpt.get().getPrice() != null) {
+                if (Boolean.FALSE.equals(packageOpt.get().getIsAvailable())) {
+                    throw new CustomBusinessException(
+                            ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE,
+                            "catalog.package_not_available",
+                            HttpStatus.BAD_REQUEST
+                    );
+                }
                 basePrice = packageOpt.get().getPrice();
             }
         } else if (req.getTargetMuaId() != null && req.getMasterCategoryId() != null) {
@@ -852,6 +859,15 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             booking.setDepositAmount(booking.getDepositAmount().add(extraDeposit));
         }
 
+        if (addOnNames != null && !addOnNames.isEmpty()) {
+            booking.setSelectedAddons(String.join(",,,", addOnNames));
+            try {
+                if (stringRedisTemplate != null) {
+                    stringRedisTemplate.opsForValue().set("booking:selected_addons:" + bookingId, String.join(",,,", addOnNames));
+                }
+            } catch (Exception ignored) {}
+        }
+
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         // Tạo hoặc cập nhật nghĩa vụ cọc trong booking_deposits (chưa đánh dấu PAID, chờ IPN MoMo/VNPay)
@@ -878,11 +894,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             }
         } catch (Exception ignored) {}
 
-        BigDecimal finalServiceSubtotal = savedBooking.getServiceSubtotal() != null ? savedBooking.getServiceSubtotal() : BigDecimal.ZERO;
-        BigDecimal platformFee = finalServiceSubtotal.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal totalBookingAmount = savedBooking.getTotalAmount() != null ? savedBooking.getTotalAmount() : (savedBooking.getServiceSubtotal() != null ? savedBooking.getServiceSubtotal() : BigDecimal.ZERO);
+        BigDecimal platformFee = totalBookingAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal distanceFee = savedBooking.getDistanceFee() != null ? savedBooking.getDistanceFee() : BigDecimal.ZERO;
         BigDecimal surchargeFee = savedBooking.getSurchargeFee() != null ? savedBooking.getSurchargeFee() : BigDecimal.ZERO;
-        BigDecimal earningsAmount = finalServiceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+        BigDecimal earningsAmount = totalBookingAmount.subtract(platformFee);
 
         // Bắn WebSocket thông báo thợ đã được khách chốt dịch vụ thêm & đang chờ cọc
         if (savedBooking.getMua() != null) {
@@ -1015,9 +1031,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 if (pkg.getPackageItems() != null) {
                     packageItems = pkg.getPackageItems().stream().map(PackageItemEntity::getItemName).toList();
                 }
-                platformFee = basePrice.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
-                earnings = basePrice.subtract(platformFee).add(emergencyFee);
                 total = basePrice.add(emergencyFee);
+                platformFee = total.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+                earnings = total.subtract(platformFee);
             }
         }
 

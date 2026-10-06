@@ -53,6 +53,35 @@ export const SavedAddressModal: React.FC<Props> = ({
   const [recipientPhone, setRecipientPhone] = useState('');
   const [isDefault, setIsDefault] = useState(false);
 
+  // Xác nhận xóa
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<CustomerAddressItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Lưu trạng thái địa chỉ đang được tích chọn
+  const [activeSelectedId, setActiveSelectedId] = useState<number | undefined>(selectedAddressId);
+
+  useEffect(() => {
+    if (selectedAddressId !== undefined) {
+      setActiveSelectedId(selectedAddressId);
+    }
+  }, [selectedAddressId]);
+
+  // Khi danh sách địa chỉ tải về, đồng bộ ID đang chọn
+  useEffect(() => {
+    if (visible && addresses.length > 0) {
+      if (activeSelectedId === undefined || !addresses.some((a) => a.id === activeSelectedId)) {
+        if (selectedAddressId !== undefined && addresses.some((a) => a.id === selectedAddressId)) {
+          setActiveSelectedId(selectedAddressId);
+        } else {
+          const defaultItem = addresses.find((a) => a.isDefault) || addresses[0];
+          if (defaultItem) {
+            setActiveSelectedId(defaultItem.id);
+          }
+        }
+      }
+    }
+  }, [visible, addresses, selectedAddressId]);
+
   // Tải danh sách địa chỉ từ backend
   const fetchAddresses = async () => {
     setIsLoading(true);
@@ -83,7 +112,7 @@ export const SavedAddressModal: React.FC<Props> = ({
     setAddressLine('');
     setRecipientName('');
     setRecipientPhone('');
-    setIsDefault(false);
+    setIsDefault(addresses.length === 0);
     setEditingId(null);
   };
 
@@ -158,27 +187,20 @@ export const SavedAddressModal: React.FC<Props> = ({
     }
   };
 
-  const handleDelete = (id: number, labelName: string) => {
-    Alert.alert(
-      'Xóa Địa Chỉ',
-      `Bạn có chắc chắn muốn xóa địa chỉ "${labelName}" khỏi sổ địa chỉ không?`,
-      [
-        { text: 'Hủy', style: 'cancel' },
-        {
-          text: 'Xóa',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              await customerAddressService.deleteAddress(id);
-              await fetchAddresses();
-            } catch (err: any) {
-              Alert.alert('Lỗi', err.message || 'Không thể xóa địa chỉ.');
-            }
-          },
-        },
-      ]
-    );
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmTarget) return;
+    try {
+      setIsDeleting(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await customerAddressService.deleteAddress(deleteConfirmTarget.id);
+      setDeleteConfirmTarget(null);
+      await fetchAddresses();
+      onAddressesUpdated?.();
+    } catch (err: any) {
+      Alert.alert('Lỗi', err.message || 'Không thể xóa địa chỉ.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSetDefault = async (id: number) => {
@@ -195,129 +217,163 @@ export const SavedAddressModal: React.FC<Props> = ({
     <SwipeableBottomSheet
       dismissDisabled={isSubmitting}
       visible={visible}
-      onClose={onClose}
-      title="Sổ Địa Chỉ Trang Điểm"
+      onClose={() => {
+        setIsAdding(false);
+        setEditingId(null);
+        onClose();
+      }}
+      title={isAdding ? (editingId ? 'Chỉnh Sửa Địa Chỉ' : 'Thêm Địa Chỉ Make-up Mới') : 'Sổ Địa Chỉ Trang Điểm'}
       subtitle={
-        onSelectAddress
+        isAdding
+          ? 'Nhập thông tin địa chỉ để chuyên viên phục vụ tận nơi'
+          : onSelectAddress
           ? 'Chạm vào địa chỉ để chọn làm điểm đến'
           : 'Quản lý các địa chỉ make-up quen thuộc của bạn'
       }
     >
-      <ScrollView
+      {isAdding ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ width: '100%' }}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.addFormModalContent}
+          >
+            {/* QUAY LẠI DANH SÁCH ĐỊA CHỈ */}
+            <TouchableOpacity
+              style={styles.backToListBtn}
+              onPress={() => {
+                setIsAdding(false);
+                setEditingId(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={16} color="#64748B" />
+              <Text style={styles.backToListText}>Quay lại danh sách</Text>
+            </TouchableOpacity>
+            {/* TÊN GỢI NHỚ */}
+            <Text style={styles.inputLabel}>Tên gợi nhớ *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ví dụ: Nhà riêng, Chung cư Vinhomes, Studio Quận 1..."
+              placeholderTextColor="#94A3B8"
+              value={label}
+              onChangeText={setLabel}
+            />
+
+            {/* ĐỊA CHỈ CHI TIẾT */}
+            <Text style={styles.inputLabel}>Địa chỉ chi tiết (số nhà, đường, phường, quận) *</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Ví dụ: Căn 1204 Tòa Park 2, Times City, Minh Khai, Hai Bà Trưng, Hà Nội..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={3}
+              value={addressLine}
+              onChangeText={setAddressLine}
+            />
+
+            {/* NGƯỜI NHẬN & SỐ ĐT LIÊN HỆ */}
+            <View style={styles.twoColRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Người nhận (Tùy chọn)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Tên khách"
+                  placeholderTextColor="#94A3B8"
+                  value={recipientName}
+                  onChangeText={setRecipientName}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inputLabel}>Số điện thoại (Tùy chọn)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="098..."
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="phone-pad"
+                  value={recipientPhone}
+                  onChangeText={setRecipientPhone}
+                />
+              </View>
+            </View>
+
+            {/* CÔNG TẮC ĐẶT LÀM MẶC ĐỊNH */}
+            {addresses.length === 0 && !editingId ? (
+              <View style={styles.firstAddressPill}>
+                <Ionicons name="information-circle" size={18} color="#D97706" />
+                <Text style={styles.firstAddressText}>
+                  Địa chỉ đầu tiên này sẽ tự động được chọn làm địa chỉ mặc định.
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.defaultToggleRow}
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (editingId && addresses.length === 1 && isDefault) {
+                    Alert.alert('Thông báo', 'Bạn cần duy trì ít nhất 1 địa chỉ mặc định.');
+                    return;
+                  }
+                  setIsDefault(!isDefault);
+                }}
+              >
+                <Ionicons
+                  name={isDefault ? 'checkbox' : 'square-outline'}
+                  size={20}
+                  color={isDefault ? BrandColors.primary : '#94A3B8'}
+                />
+                <Text style={styles.defaultToggleText}>Đặt làm địa chỉ mặc định khi đặt lịch</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* HÀNH ĐỘNG FORM */}
+            <View style={styles.formActionRow}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setIsAdding(false)}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.cancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
+                onPress={handleSave}
+                disabled={isSubmitting}
+                activeOpacity={0.8}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                    <Text style={styles.submitBtnText}>{editingId ? 'Cập nhật' : 'Lưu địa chỉ'}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : (
+        <ScrollView
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
             {/* NÚT THÊM ĐỊA CHỈ HOẶC FORM NHẬP */}
-            {!isAdding ? (
+
               <TouchableOpacity
                 style={styles.addTriggerBtn}
                 onPress={handleStartAdd}
                 activeOpacity={0.8}
               >
                 <Ionicons name="add-circle" size={20} color={BrandColors.primary} />
-                <Text style={styles.addTriggerText}>+ Thêm địa chỉ make-up mới</Text>
+                <Text style={styles.addTriggerText}>Thêm địa chỉ make-up mới</Text>
               </TouchableOpacity>
-            ) : (
-              <View style={styles.addForm}>
-                <View style={styles.formHeaderRow}>
-                  <Text style={styles.formTitle}>
-                    {editingId ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ make-up mới'}
-                  </Text>
-                  <TouchableOpacity onPress={() => setIsAdding(false)}>
-                    <Ionicons name="close-circle" size={20} color="#94A3B8" />
-                  </TouchableOpacity>
-                </View>
 
-                {/* TÊN GỢI NHỚ */}
-                <Text style={styles.inputLabel}>Tên gợi nhớ *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ví dụ: Nhà riêng, Chung cư Vinhomes, Studio Quận 1..."
-                  placeholderTextColor="#94A3B8"
-                  value={label}
-                  onChangeText={setLabel}
-                />
-
-                {/* ĐỊA CHỈ CHI TIẾT */}
-                <Text style={styles.inputLabel}>Địa chỉ chi tiết (số nhà, đường, phường, quận) *</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Ví dụ: Căn 1204 Tòa Park 2, Times City, Minh Khai, Hai Bà Trưng, Hà Nội..."
-                  placeholderTextColor="#94A3B8"
-                  multiline
-                  numberOfLines={3}
-                  value={addressLine}
-                  onChangeText={setAddressLine}
-                />
-
-                {/* NGƯỜI NHẬN & SỐ ĐT LIÊN HỆ */}
-                <View style={styles.twoColRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>Người nhận (Tùy chọn)</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Tên khách"
-                      placeholderTextColor="#94A3B8"
-                      value={recipientName}
-                      onChangeText={setRecipientName}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.inputLabel}>Số điện thoại (Tùy chọn)</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="098..."
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="phone-pad"
-                      value={recipientPhone}
-                      onChangeText={setRecipientPhone}
-                    />
-                  </View>
-                </View>
-
-                {/* CÔNG TẮC ĐẶT LÀM MẶC ĐỊNH */}
-                <TouchableOpacity
-                  style={styles.defaultToggleRow}
-                  activeOpacity={0.8}
-                  onPress={() => setIsDefault(!isDefault)}
-                >
-                  <Ionicons
-                    name={isDefault ? 'checkbox' : 'square-outline'}
-                    size={20}
-                    color={isDefault ? BrandColors.primary : '#94A3B8'}
-                  />
-                  <Text style={styles.defaultToggleText}>Đặt làm địa chỉ mặc định khi đặt lịch</Text>
-                </TouchableOpacity>
-
-                {/* HÀNH ĐỘNG FORM */}
-                <View style={styles.formActionRow}>
-                  <TouchableOpacity
-                    style={styles.cancelBtn}
-                    onPress={() => setIsAdding(false)}
-                    disabled={isSubmitting}
-                  >
-                    <Text style={styles.cancelBtnText}>Hủy</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
-                    onPress={handleSave}
-                    disabled={isSubmitting}
-                    activeOpacity={0.8}
-                  >
-                    {isSubmitting ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                        <Text style={styles.submitBtnText}>{editingId ? 'Cập nhật' : 'Lưu địa chỉ'}</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
 
             {/* DANH SÁCH ĐỊA CHỈ */}
             {isLoading && addresses.length === 0 ? (
@@ -336,97 +392,152 @@ export const SavedAddressModal: React.FC<Props> = ({
             ) : (
               <View style={styles.listContainer}>
                 {addresses.map((item) => {
-                  const isSelected = selectedAddressId === item.id;
+                  const isSelected = activeSelectedId !== undefined
+                    ? activeSelectedId === item.id
+                    : Boolean(item.isDefault);
                   return (
-                    <TouchableOpacity
+                    <View
                       key={item.id}
                       style={[
                         styles.addressItem,
-                        item.isDefault && styles.addressItemDefault,
                         isSelected && styles.addressItemSelected,
                       ]}
-                      activeOpacity={onSelectAddress ? 0.7 : 1}
-                      onPress={() => {
-                        if (onSelectAddress) {
-                          Haptics.selectionAsync();
-                          onSelectAddress(item);
-                          onClose();
-                        }
-                      }}
                     >
-                      {/* Cột Radio chọn nếu ở chế độ chọn địa chỉ */}
-                      {onSelectAddress && (
-                        <View style={styles.radioCol}>
-                          <Ionicons
-                            name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-                            size={20}
-                            color={isSelected ? BrandColors.primary : '#94A3B8'}
-                          />
-                        </View>
-                      )}
+                      {/* VÙNG CHỌN ĐỊA CHỈ BÊN TRÁI */}
+                      <TouchableOpacity
+                        style={styles.addressLeftTouchable}
+                        activeOpacity={onSelectAddress ? 0.7 : 1}
+                        onPress={() => {
+                          setActiveSelectedId(item.id);
+                          if (onSelectAddress) {
+                            Haptics.selectionAsync();
+                            onSelectAddress(item);
+                            onClose();
+                          }
+                        }}
+                      >
+                        {onSelectAddress && (
+                          <View style={styles.radioCol}>
+                            {isSelected ? (
+                              <Ionicons name="checkmark-circle" size={22} color={BrandColors.primary} />
+                            ) : (
+                              <Ionicons name="ellipse-outline" size={22} color="#CBD5E1" />
+                            )}
+                          </View>
+                        )}
 
-                      <View style={styles.addressLeft}>
-                        <View style={styles.addressTitleRow}>
-                          <Ionicons
-                            name={
-                              item.label.toLowerCase().includes('công ty') || item.label.toLowerCase().includes('văn phòng')
-                                ? 'business'
-                                : 'home'
-                            }
-                            size={16}
-                            color={item.isDefault ? BrandColors.primary : '#475569'}
-                          />
-                          <Text style={styles.addressLabel}>{item.label}</Text>
-                          {item.isDefault && (
-                            <View style={styles.defaultBadge}>
-                              <Text style={styles.defaultBadgeText}>Mặc định</Text>
-                            </View>
+                        <View style={styles.addressLeft}>
+                          <View style={styles.addressTitleRow}>
+                            <Ionicons
+                              name={
+                                item.label.toLowerCase().includes('công ty') || item.label.toLowerCase().includes('văn phòng')
+                                  ? 'business'
+                                  : 'home'
+                              }
+                              size={16}
+                              color={item.isDefault ? BrandColors.primary : '#475569'}
+                            />
+                            <Text style={styles.addressLabel}>{item.label}</Text>
+                            {item.isDefault && (
+                              <View style={styles.defaultBadge}>
+                                <Ionicons name="checkmark-circle" size={11} color="#FFFFFF" />
+                                <Text style={styles.defaultBadgeText}>Mặc định</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <Text style={styles.addressLineText} numberOfLines={2}>
+                            {item.addressLine}
+                          </Text>
+
+                          {(item.recipientName || item.recipientPhone) && (
+                            <Text style={styles.recipientText}>
+                              Người đón: {item.recipientName || 'Khách hàng'} • {item.recipientPhone || ''}
+                            </Text>
                           )}
                         </View>
+                      </TouchableOpacity>
 
-                        <Text style={styles.addressLineText} numberOfLines={2}>
-                          {item.addressLine}
-                        </Text>
-
-                        {(item.recipientName || item.recipientPhone) && (
-                          <Text style={styles.recipientText}>
-                            Người đón: {item.recipientName || 'Khách hàng'} • {item.recipientPhone || ''}
-                          </Text>
-                        )}
-                      </View>
-
-                      {/* HÀNH ĐỘNG */}
+                      {/* HÀNH ĐỘNG BÊN PHẢI (ĐỘC LẬP HOÀN TOÀN) */}
                       <View style={styles.addressActions}>
                         {!item.isDefault && (
                           <TouchableOpacity
                             style={styles.setDefaultBtn}
                             onPress={() => handleSetDefault(item.id)}
                             activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
-                            <Text style={styles.setDefaultText}>Mặc định</Text>
+                            <Text style={styles.setDefaultText}>Đặt làm mặc định</Text>
                           </TouchableOpacity>
                         )}
                         <TouchableOpacity
                           style={styles.iconBtn}
                           onPress={() => handleStartEdit(item)}
                           activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
                           <Ionicons name="pencil-outline" size={16} color="#64748B" />
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={styles.iconBtn}
-                          onPress={() => handleDelete(item.id, item.label)}
+                          style={[styles.iconBtn, styles.deleteBtn]}
+                          onPress={() => setDeleteConfirmTarget(item)}
                           activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
                           <Ionicons name="trash-outline" size={16} color="#EF4444" />
                         </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
             )}
           </ScrollView>
+      )}
+      {/* MODAL XÁC NHẬN XÓA ĐỊA CHỈ */}
+      <Modal
+        visible={Boolean(deleteConfirmTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmTarget(null)}
+      >
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmCard}>
+            <View style={styles.confirmIconWrap}>
+              <Ionicons name="trash" size={26} color="#EF4444" />
+            </View>
+            <Text style={styles.confirmTitle}>Xác Nhận Xóa Địa Chỉ</Text>
+            <Text style={styles.confirmMessage}>
+              Bạn có chắc chắn muốn xóa địa chỉ "{deleteConfirmTarget?.label}" khỏi sổ địa chỉ không? Thao tác này không thể hoàn tác.
+            </Text>
+            <View style={styles.confirmActionsRow}>
+              <TouchableOpacity
+                style={styles.confirmCancelBtn}
+                onPress={() => setDeleteConfirmTarget(null)}
+                disabled={isDeleting}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmCancelText}>Hủy Bỏ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmDeleteBtn, isDeleting && styles.confirmDeleteBtnDisabled]}
+                onPress={handleConfirmDelete}
+                disabled={isDeleting}
+                activeOpacity={0.8}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="trash" size={15} color="#FFFFFF" />
+                    <Text style={styles.confirmDeleteText}>Xóa Địa Chỉ</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SwipeableBottomSheet>
   );
 };
@@ -484,6 +595,23 @@ const styles = StyleSheet.create({
   },
   body: {
     maxHeight: 520,
+  },
+  backToListBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  backToListText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  addFormModalContent: {
+    paddingVertical: 10,
+    paddingBottom: 24,
+    gap: 8,
   },
   bodyContent: {
     padding: 16,
@@ -629,7 +757,7 @@ const styles = StyleSheet.create({
   addressItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
@@ -662,15 +790,19 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   defaultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: BrandColors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
   },
   defaultBadgeText: {
     fontSize: 10,
     fontWeight: '700',
     color: '#FFFFFF',
+    lineHeight: 14,
   },
   addressLineText: {
     fontSize: 12,
@@ -705,5 +837,111 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  addressLeftTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  firstAddressPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  firstAddressText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+  deleteBtn: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+  },
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  confirmCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  confirmIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  confirmMessage: {
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  confirmActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  confirmDeleteBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  confirmDeleteBtnDisabled: {
+    opacity: 0.6,
+  },
+  confirmDeleteText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

@@ -471,8 +471,8 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         BigDecimal serviceSubtotal = booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO;
         BigDecimal surchargeFee = booking.getSurchargeFee() != null ? booking.getSurchargeFee() : BigDecimal.ZERO;
         BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
-        BigDecimal platformFee = serviceSubtotal.multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal earningsAmount = serviceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+        BigDecimal platformFee = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal earningsAmount = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).multiply(new BigDecimal("0.80")).setScale(0, RoundingMode.HALF_UP);
 
         // Bắn WebSocket thông báo Khách & Thợ: ĐÃ CỌC THÀNH CÔNG VÀO QUỸ ESCROW!
         try {

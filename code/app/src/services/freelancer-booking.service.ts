@@ -9,6 +9,7 @@ export interface FreelancerBookingItem {
   bookingType?: string;
   customerName: string;
   customerPhone?: string;
+  customerAvatar?: string;
   packageName: string;
   packageCoverUrl?: string;
   destinationAddress: string;

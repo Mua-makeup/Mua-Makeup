@@ -14,6 +14,7 @@ import {
   Platform,
   RefreshControl,
   Pressable,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -25,6 +26,7 @@ import { BrandColors } from '@/constants/theme';
 import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { formatDateTimeVN } from '@/utils/date';
 
 const CANCEL_REASONS = [
@@ -82,6 +84,7 @@ export default function CustomerBookingDetailScreen() {
         return prev - 1;
       });
     }, 1000);
+
     return () => clearInterval(interval);
   }, [bookingDetail?.status, confirmSecondsRemaining]);
 
@@ -399,6 +402,11 @@ export default function CustomerBookingDetailScreen() {
   const currentStep = getStepIndex(bookingDetail.status);
   const isCancelled = bookingDetail.status === 'CANCELLED' || bookingDetail.status === 'EXPIRED';
 
+  const hasAssignedMua = Boolean(
+    bookingDetail.muaId ||
+    (bookingDetail.muaName && bookingDetail.muaName !== 'Chuyên Viên Make-up' && bookingDetail.muaName.trim().length > 0)
+  );
+
   const defaultPackageSteps = [
     'Tư vấn tone make-up phù hợp trang phục & khuôn mặt',
     'Làm sạch sâu & dưỡng ẩm chuyên sâu 3 lớp',
@@ -602,63 +610,82 @@ export default function CustomerBookingDetailScreen() {
         )}
 
         {/* THÔNG TIN CHUYÊN VIÊN TRANG ĐIỂM (MUA) */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
-          <View style={styles.muaCardBody}>
-            <Image
-              source={{
-                uri:
-                  bookingDetail.muaAvatar ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400',
-              }}
-              style={styles.muaAvatar}
-              contentFit="cover"
-            />
-            <View style={styles.muaInfoCol}>
-              <View style={styles.muaNameRow}>
-                <Text style={styles.muaName} numberOfLines={1}>
-                  {bookingDetail.muaName || 'Chuyên viên đối tác'}
-                </Text>
-                <View style={styles.proBadge}>
-                  <Text style={styles.proBadgeText}>PRO MUA</Text>
+        {!hasAssignedMua ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+            <View style={styles.noMuaNoticeBox}>
+              <View style={styles.noMuaIconWrap}>
+                <Ionicons name="person-remove-outline" size={22} color="#D97706" />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                  <Text style={[styles.noMuaTitle, { flexShrink: 1 }]}>Chưa có chuyên viên tiếp nhận</Text>
+                  <View style={styles.noMuaBadge}>
+                    <Text style={styles.noMuaBadgeText}>Chưa có thợ</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.muaRatingRow}>
-                <Ionicons name="star" size={14} color="#F59E0B" />
-                <Text style={styles.muaRatingScore}>
-                  {bookingDetail.rating ? bookingDetail.rating.toFixed(1) : '5.0'}
+                <Text style={styles.noMuaDesc}>
+                  Đơn hàng bị hủy do không tìm thấy chuyên viên trang điểm khả dụng trong khu vực để nhận ca.
                 </Text>
-                <Text style={styles.muaRatingCount}>(Đánh giá cao)</Text>
               </View>
-              <Text style={styles.muaPhoneText}>
-                SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
-              </Text>
             </View>
           </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+            <View style={styles.muaCardBody}>
+              <UserAvatar
+                uri={bookingDetail.muaAvatar}
+                name={bookingDetail.muaName}
+                size={64}
+                style={{ marginRight: 14 }}
+              />
+              <View style={styles.muaInfoCol}>
+                <View style={styles.muaNameRow}>
+                  <Text style={styles.muaName} numberOfLines={1}>
+                    {bookingDetail.muaName || 'Chuyên viên đối tác'}
+                  </Text>
+                  <View style={styles.proBadge}>
+                    <Text style={styles.proBadgeText}>PRO MUA</Text>
+                  </View>
+                </View>
+                <View style={styles.muaRatingRow}>
+                  <Ionicons name="star" size={14} color="#F59E0B" />
+                  <Text style={styles.muaRatingScore}>
+                    {bookingDetail.rating ? bookingDetail.rating.toFixed(1) : '5.0'}
+                  </Text>
+                  <Text style={styles.muaRatingCount}>(Đánh giá cao)</Text>
+                </View>
+                <Text style={styles.muaPhoneText}>
+                  SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
+                </Text>
+              </View>
+            </View>
 
-          {/* NÚT TƯƠNG TÁC VỚI THỢ */}
-          <View style={styles.muaActionsRow}>
-            <TouchableOpacity
-              style={styles.callMuaBtn}
-              onPress={handleCallMUA}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="call" size={15} color="#FFFFFF" />
-              <Text style={styles.callMuaBtnText}>Gọi Cho Thợ</Text>
-            </TouchableOpacity>
-
-            {bookingDetail.muaId ? (
+            {/* NÚT TƯƠNG TÁC VỚI THỢ */}
+            <View style={styles.muaActionsRow}>
               <TouchableOpacity
-                style={styles.profileMuaBtn}
-                onPress={() => router.push(`/mua-detail/${bookingDetail.muaId}` as any)}
+                style={styles.callMuaBtn}
+                onPress={handleCallMUA}
                 activeOpacity={0.8}
               >
-                <Ionicons name="person-outline" size={15} color="#1E293B" />
-                <Text style={styles.profileMuaBtnText}>Xem Hồ Sơ</Text>
+                <Ionicons name="call" size={15} color="#FFFFFF" />
+                <Text style={styles.callMuaBtnText}>Gọi Cho Thợ</Text>
               </TouchableOpacity>
-            ) : null}
+
+              {bookingDetail.muaId ? (
+                <TouchableOpacity
+                  style={styles.profileMuaBtn}
+                  onPress={() => router.push(`/mua-detail/${bookingDetail.muaId}` as any)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="person-outline" size={15} color="#1E293B" />
+                  <Text style={styles.profileMuaBtnText}>Xem Hồ Sơ</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* THÔNG TIN GÓI DỊCH VỤ & CÁC BƯỚC */}
         <View style={styles.card}>
@@ -684,15 +711,35 @@ export default function CustomerBookingDetailScreen() {
 
           <View style={styles.divider} />
 
-          <Text style={styles.stepsTitle}>Quy Trình & Chi Tiết Dịch Vụ:</Text>
+          <Text style={styles.stepsTitle}>Quy Trình & Hạng Mục Tiêu Chuẩn Trong Gói:</Text>
           <View style={styles.stepsList}>
-            {stepsToRender.map((step, idx) => (
+            {(bookingDetail.componentItems && bookingDetail.componentItems.length > 0 ? bookingDetail.componentItems : stepsToRender).map((step, idx) => (
               <View key={`step-item-${idx}`} style={styles.stepRow}>
                 <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                 <Text style={styles.stepItemText}>{step}</Text>
               </View>
             ))}
           </View>
+
+          {/* DỊCH VỤ & TIỆN ÍCH MUA THÊM (ADD-ON) - CHỈ HIỂN THỊ KHI KHÁCH ĐÃ CHỌN */}
+          {bookingDetail.addonItems && bookingDetail.addonItems.length > 0 && (
+            <View style={styles.addonWrap}>
+              <View style={styles.addonHeaderWrap}>
+                <Ionicons name="add-circle" size={16} color="#7C3AED" />
+                <Text style={styles.addonTitle}>Dịch vụ & Tiện ích mua thêm (Add-on):</Text>
+              </View>
+              <View style={styles.addonList}>
+                {bookingDetail.addonItems.map((item, idx) => (
+                  <View key={`addon-item-${idx}`} style={styles.addonRow}>
+                    <View style={styles.addonTagPill}>
+                      <Text style={styles.addonTagPillText}>Add-on</Text>
+                    </View>
+                    <Text style={styles.addonItemText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* THỜI GIAN & ĐỊA ĐIỂM HẸN */}
@@ -1088,19 +1135,25 @@ export default function CustomerBookingDetailScreen() {
           </DismissibleModal>
 
       {/* MODAL PHÓNG TO ẢNH NGHIỆM THU */}
-      <DismissibleModal visible={isPhotoModalVisible} onClose={() => setIsPhotoModalVisible(false)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
-        <TouchableOpacity
-          style={styles.photoModalOverlay}
-          activeOpacity={1}
+      <Modal
+        visible={isPhotoModalVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setIsPhotoModalVisible(false)}
+      >
+        <Pressable
+          style={styles.photoModalFullscreen}
+
           onPress={() => setIsPhotoModalVisible(false)}
         >
-          <TouchableOpacity
-            style={styles.photoModalCloseBtn}
-            onPress={() => setIsPhotoModalVisible(false)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
+
+
+
+
+
+
+
           {bookingDetail.completionPhotoUrl && (
             <Image
               source={{ uri: bookingDetail.completionPhotoUrl }}
@@ -1108,8 +1161,8 @@ export default function CustomerBookingDetailScreen() {
               contentFit="contain"
             />
           )}
-        </TouchableOpacity>
-      </DismissibleModal>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1261,6 +1314,45 @@ const styles = StyleSheet.create({
   stepLinePassed: {
     backgroundColor: BrandColors.primary,
   },
+  noMuaNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    gap: 12,
+  },
+  noMuaIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noMuaTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  noMuaBadge: {
+    backgroundColor: '#FDE68A',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  noMuaBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  noMuaDesc: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
+  },
   muaCardBody: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1409,6 +1501,52 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#475569',
     lineHeight: 18,
+  },
+  addonWrap: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  addonHeaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  addonTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  addonList: {
+    gap: 6,
+  },
+  addonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addonTagPill: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#C4B5FD',
+  },
+  addonTagPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  addonItemText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#5B21B6',
+    fontWeight: '500',
   },
   infoRow: {
     flexDirection: 'row',
@@ -1736,9 +1874,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  photoModalOverlay: {
+  photoModalFullscreen: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1750,8 +1888,8 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   photoModalImage: {
-    width: '90%',
-    height: '75%',
+    width: '100%',
+    height: '100%',
   },
   refundCard: {
     backgroundColor: '#F0FDF4',

@@ -49,6 +49,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import com.makeup.platform.dto.response.booking.ScheduledOfferRes;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -96,6 +97,14 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         ServicePackageEntity servicePackage = servicePackageRepository.findById(req.getPackageId())
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "catalog.package_not_found"));
 
+        if (Boolean.FALSE.equals(servicePackage.getIsAvailable())) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE,
+                    "catalog.package_not_available",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
         int baseDuration = (servicePackage.getEstimatedDurationMinutes() != null && servicePackage.getEstimatedDurationMinutes() > 0)
                 ? servicePackage.getEstimatedDurationMinutes()
                 : 90;
@@ -103,6 +112,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         BigDecimal addOnsTotal = BigDecimal.ZERO;
         int addOnsDuration = 0;
 
+        List<String> selectedAddonNames = new ArrayList<>();
         if (req.getAddOnItemIds() != null && !req.getAddOnItemIds().isEmpty()) {
             List<PackageItemEntity> addOns = packageItemRepository.findAllById(req.getAddOnItemIds());
             for (PackageItemEntity item : addOns) {
@@ -118,6 +128,9 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 }
                 if (item.getDurationMinutes() != null) {
                     addOnsDuration += item.getDurationMinutes();
+                }
+                if (item.getItemName() != null) {
+                    selectedAddonNames.add(item.getItemName());
                 }
             }
         }
@@ -217,6 +230,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     .depositExpiredAt(depositExpiredAt)
                     .reminder24hSent(false)
                     .reminder2hSent(false)
+                    .selectedAddons(!selectedAddonNames.isEmpty() ? String.join(",,,", selectedAddonNames) : null)
                     .build();
 
             BookingEntity savedBooking = bookingRepository.save(booking);
@@ -568,10 +582,10 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             }
 
             BigDecimal serviceSubtotal = b.getServiceSubtotal() != null ? b.getServiceSubtotal() : BigDecimal.ZERO;
-            BigDecimal platformFee = serviceSubtotal.multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal platformFee = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
             BigDecimal surchargeFee = b.getSurchargeFee() != null ? b.getSurchargeFee() : BigDecimal.ZERO;
             BigDecimal distanceFee = b.getDistanceFee() != null ? b.getDistanceFee() : BigDecimal.ZERO;
-            BigDecimal earningsAmount = serviceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+            BigDecimal earningsAmount = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).subtract(platformFee);
 
             resList.add(ScheduledOfferRes.builder()
                     .bookingId(b.getId())

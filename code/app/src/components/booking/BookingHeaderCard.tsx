@@ -1,17 +1,30 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { PackageDetail } from '@/services/package.service';
 import { MuaPublicProfile } from '@/services/mua-profile.service';
 
+import { AgencyPublicProfile } from '@/services/agency.service';
+
 interface Props {
   packageDetail: PackageDetail | null;
   muaProfile: MuaPublicProfile | null;
+  agencyProfile?: AgencyPublicProfile | null;
 }
 
-export const BookingHeaderCard: React.FC<Props> = ({ packageDetail, muaProfile }) => {
+export const BookingHeaderCard: React.FC<Props> = ({ packageDetail, muaProfile, agencyProfile }) => {
+  const isAgency = !!agencyProfile || !!packageDetail?.agencyName || !!packageDetail?.agencyId;
+  const providerName = isAgency
+    ? agencyProfile?.agencyName || packageDetail?.agencyName || 'Studio & Viện Áo Cưới'
+    : muaProfile?.fullName || 'Chuyên viên MUA';
+  const providerAvatar = isAgency ? agencyProfile?.logoUrl : muaProfile?.avatarUrl;
+  const ratingVal = isAgency
+    ? (agencyProfile?.ratingAvg ? Number(agencyProfile.ratingAvg).toFixed(1) : '5.0')
+    : (muaProfile?.ratingAverage ? Number(muaProfile.ratingAverage).toFixed(1) : '5.0');
+
   const formattedPrice = packageDetail
     ? new Intl.NumberFormat('vi-VN', {
         style: 'currency',
@@ -38,20 +51,22 @@ export const BookingHeaderCard: React.FC<Props> = ({ packageDetail, muaProfile }
         </Text>
 
         <View style={styles.muaRow}>
-          <Image
-            source={{ uri: muaProfile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200' }}
-            style={styles.muaAvatar}
-            contentFit="cover"
+          <UserAvatar
+            uri={providerAvatar}
+            name={providerName}
+            size={22}
           />
           <Text style={styles.muaName} numberOfLines={1}>
-            {muaProfile?.fullName || 'Chuyên viên MUA'}
+            {providerName}
           </Text>
-          <Ionicons name="checkmark-circle" size={14} color="#3B82F6" />
+          <Ionicons
+            name="checkmark-circle"
+            size={14}
+            color={isAgency ? '#2563EB' : '#3B82F6'}
+          />
           <View style={styles.ratingBox}>
             <Ionicons name="star" size={11} color="#F59E0B" />
-            <Text style={styles.ratingText}>
-              {muaProfile?.ratingAverage ? muaProfile.ratingAverage.toFixed(1) : '5.0'}
-            </Text>
+            <Text style={styles.ratingText}>{ratingVal}</Text>
           </View>
         </View>
 
