@@ -808,7 +808,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="flash" size={16} color="#2563EB" />
+                <Ionicons name="power-outline" size={16} color="#2563EB" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Ổ cắm điện sẵn sàng</Text>

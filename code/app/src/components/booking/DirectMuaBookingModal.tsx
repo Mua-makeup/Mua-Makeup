@@ -33,6 +33,7 @@ import { InstantCountdownTimer } from './InstantCountdownTimer';
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
 import { showGlobalPopup } from '@/store/popup.store';
+import { useAuthStore } from '@/store/auth.store';
 
 interface Props {
   visible: boolean;
@@ -286,6 +287,12 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const handleSendDirectRequest = async () => {
     if (!targetMua || isSubmitting) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (!useAuthStore.getState().isAuthenticated) {
+      onClose();
+      router.push('/(auth)/login');
+      return;
+    }
 
     if (!selectedPackage) {
       Alert.alert('Chưa Chọn Gói Dịch Vụ', 'Vui lòng chọn một gói dịch vụ của chuyên viên.');
@@ -737,7 +744,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="flash" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Ionicons name="send-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
                     <Text style={styles.submitBtnText}>
                       {isOutOfRadius ? 'Ngoài Bán Kính Phục Vụ' : 'Gửi Yêu Cầu Tới Thợ (20s)'}
                     </Text>

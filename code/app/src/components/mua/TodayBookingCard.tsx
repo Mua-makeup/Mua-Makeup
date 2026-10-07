@@ -286,7 +286,7 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.executeBtn} onPress={handleEnterJob}>
-                <Ionicons name="flash" size={14} color="#FFFFFF" />
+                <Ionicons name="sparkles" size={14} color="#FFFFFF" />
                 <Text style={styles.executeBtnText}>Tiến trình</Text>
               </TouchableOpacity>
             </>
