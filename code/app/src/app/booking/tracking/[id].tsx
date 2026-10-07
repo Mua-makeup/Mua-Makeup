@@ -861,7 +861,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="sparkles" size={16} color="#E11D48" />
+                <Ionicons name="water-outline" size={16} color="#0284C7" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Làm sạch da mặt cơ bản</Text>
@@ -940,7 +940,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="eye" size={16} color="#8B5CF6" />
+                <Ionicons name="eye-outline" size={16} color="#0284C7" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Nhắm mắt thư giãn</Text>
@@ -975,7 +975,7 @@ export default function BookingLiveTrackingScreen() {
           {/* BANNER CHÚC MỪNG HOÀN THÀNH */}
           <View style={styles.completedCelebrationCard}>
             <View style={styles.celebrationIconBox}>
-              <Ionicons name="sparkles" size={32} color="#F59E0B" />
+              <Ionicons name="checkmark-circle" size={32} color="#059669" />
             </View>
             <Text style={styles.celebrationTitle}>Buổi Trang Điểm Đã Hoàn Tất!</Text>
             <Text style={styles.celebrationSub}>
@@ -1318,8 +1318,8 @@ export default function BookingLiveTrackingScreen() {
                   statusPopup?.type === 'ARRIVED'
                     ? 'location'
                     : statusPopup?.type === 'IN_PROGRESS'
-                    ? 'sparkles'
-                    : 'trophy'
+                    ? 'brush'
+                    : 'checkmark-done-circle'
                 }
                 size={36}
                 color={

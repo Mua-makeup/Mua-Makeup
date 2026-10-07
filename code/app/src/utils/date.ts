@@ -39,7 +39,7 @@ export function formatTimeVN(isoString: string | null | undefined): string {
 /**
  * Format hiển thị lịch hẹn của thợ:
  * - Nếu là hôm nay: "13:30 (Hôm nay)"
- * - Nếu là ngày khác: "13:30 - 30/09"
+ * - Nếu là ngày khác: "13:30 30/09/2026"
  */
 export function formatBookingSchedule(
   bookingDate: string | null | undefined,
@@ -51,18 +51,50 @@ export function formatBookingSchedule(
   if (isTodayVN(bookingDate)) {
     return `${timeStr} (Hôm nay)`;
   }
-  return `${timeStr} - ${formatDateVN(bookingDate)}`;
+  return `${timeStr} ${formatDateVN(bookingDate)}`;
 }
 
 /**
- * Chuyển ISO string sang ngày giờ đầy đủ Việt Nam
- * Ví dụ: "2026-09-29T04:30:00Z" → "11:30 - 29/09/2026"
+ * Chuyển ISO string sang ngày giờ đầy đủ Việt Nam dạng hh:mm dd/MM/yyyy
+ * Ví dụ: "2026-10-07T20:52:07" → "20:52 07/10/2026"
  */
 export function formatDateTimeVN(isoString: string | null | undefined): string {
   if (!isoString) return '--';
+  const clean = isoString.trim();
+
+  // 1. Nếu đã đúng định dạng "HH:mm dd/MM/yyyy"
+  if (/^\d{2}:\d{2}\s+\d{2}\/\d{2}\/\d{4}$/.test(clean)) {
+    return clean;
+  }
+
+  // 2. Nếu dạng "HH:mm - dd/MM/yyyy"
+  const dashFormatted = clean.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}\/\d{2}\/\d{4})$/);
+  if (dashFormatted) {
+    return `${dashFormatted[1]} ${dashFormatted[2]}`;
+  }
+
+  // 3. Nếu dạng "HH:mm YYYY-MM-DD"
+  const timeDateMatch = clean.match(/^(\d{2}:\d{2}(?::\d{2})?)\s+(\d{4})-(\d{2})-(\d{2})$/);
+  if (timeDateMatch) {
+    const time = timeDateMatch[1].slice(0, 5);
+    return `${time} ${timeDateMatch[4]}/${timeDateMatch[3]}/${timeDateMatch[2]}`;
+  }
+
+  // 4. Nếu dạng ISO chuẩn Backend Việt Nam "YYYY-MM-DDTHH:mm:ss" hoặc "YYYY-MM-DD HH:mm:ss" (không có offset)
+  const isoLocalMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+  if (isoLocalMatch) {
+    return `${isoLocalMatch[4]} ${isoLocalMatch[3]}/${isoLocalMatch[2]}/${isoLocalMatch[1]}`;
+  }
+
+  // 5. Nếu dạng "YYYY-MM-DD" thuần túy
+  const dateOnlyMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    return `${dateOnlyMatch[3]}/${dateOnlyMatch[2]}/${dateOnlyMatch[1]}`;
+  }
+
   try {
     // Truncate microseconds (e.g. .543349+07:00 -> .543+07:00) so JS Date parser never fails
-    const cleanStr = isoString.replace(/(\.\d{3})\d+/, '$1');
+    const cleanStr = clean.replace(/(\.\d{3})\d+/, '$1');
     const d = new Date(cleanStr);
     if (isNaN(d.getTime())) return isoString;
     const time = new Intl.DateTimeFormat(VN_LOCALE, {
@@ -77,7 +109,7 @@ export function formatDateTimeVN(isoString: string | null | undefined): string {
       year: 'numeric',
       timeZone: VN_TIMEZONE,
     }).format(d);
-    return `${time} - ${date}`;
+    return `${time} ${date}`;
   } catch {
     return isoString;
   }

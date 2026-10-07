@@ -122,9 +122,9 @@ export const NotificationModal: React.FC = () => {
   const getBadgeIcon = (type: string) => {
     switch (type) {
       case 'BOOKING_ACCEPTED':
-        return { name: 'sparkles-outline' as const, color: '#D97706' };
+        return { name: 'checkmark-circle-outline' as const, color: '#059669' };
       case 'SCHEDULED_BOOKING_ACCEPTED':
-        return { name: 'calendar-outline' as const, color: '#7C3AED' };
+        return { name: 'calendar-outline' as const, color: '#2563EB' };
       case 'BOOKING_ON_THE_WAY':
         return { name: 'car-outline' as const, color: '#0284C7' };
       case 'BOOKING_ARRIVED':
@@ -142,7 +142,7 @@ export const NotificationModal: React.FC = () => {
       case 'CERTIFICATE_REJECTED':
         return { name: 'alert-circle-outline' as const, color: '#DC2626' };
       case 'CERTIFICATE_VERIFICATION':
-        return { name: 'shield-checkmark-outline' as const, color: '#7C3AED' };
+        return { name: 'shield-checkmark-outline' as const, color: '#2563EB' };
       case 'STAFF_APPLICATION':
         return { name: 'person-add-outline' as const, color: '#2563EB' };
       case 'STAFF_APPLICATION_APPROVED':
@@ -208,6 +208,9 @@ export const NotificationModal: React.FC = () => {
       visible={isModalOpen}
       animationType="slide"
       transparent={true}
+      statusBarTranslucent
+      navigationBarTranslucent
+      presentationStyle="overFullScreen"
       onRequestClose={closeModal}
     >
       <View style={styles.modalOverlay}>
@@ -362,6 +365,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
     height: '92%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },

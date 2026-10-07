@@ -47,9 +47,7 @@ export const MuaRadarMarker: React.FC<Props> = ({
         />
 
         {/* Small verified / online badge */}
-        <View style={styles.onlineDot}>
-          <Ionicons name="sparkles" size={8} color="#FFFFFF" />
-        </View>
+        <View style={styles.onlineDot} />
       </TouchableOpacity>
 
       {/* Distance tag under avatar */}

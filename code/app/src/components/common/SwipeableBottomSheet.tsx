@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { DismissibleModal } from './DismissibleModal';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export interface SwipeableBottomSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -19,32 +21,34 @@ export interface SwipeableBottomSheetProps {
 export const SwipeableBottomSheet: React.FC<SwipeableBottomSheetProps> = ({
   visible, onClose, dismissDisabled = false, title, subtitle, children,
   showCloseButton = true, headerRight, avoidKeyboard = true,
-}) => (
-  <DismissibleModal
-    visible={visible}
-    onClose={onClose}
-    dismissDisabled={dismissDisabled}
-    contentStyle={styles.sheetCard}
-    avoidKeyboard={avoidKeyboard}
-  >
-    {(Boolean(title) || showCloseButton || Boolean(headerRight)) && (
-      <View style={styles.dragArea}>
-                <View style={styles.headerRow}>
-                  <View style={styles.titleColumn}>
-                    {Boolean(title) && <Text style={styles.sheetTitle}>{title}</Text>}
-                    {Boolean(subtitle) && <Text style={styles.sheetSubtitle}>{subtitle}</Text>}
-                  </View>
+}) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <DismissibleModal
+      visible={visible}
+      onClose={onClose}
+      dismissDisabled={dismissDisabled}
+      contentStyle={styles.sheetCard}
+      avoidKeyboard={avoidKeyboard}
+    >
+      {(Boolean(title) || showCloseButton || Boolean(headerRight)) && (
+        <View style={styles.dragArea}>
+          <View style={styles.headerRow}>
+            <View style={styles.titleColumn}>
+              {Boolean(title) && <Text style={styles.sheetTitle}>{title}</Text>}
+              {Boolean(subtitle) && <Text style={styles.sheetSubtitle}>{subtitle}</Text>}
+            </View>
 
-                  <View style={styles.headerActions}>
-                    {headerRight}
-
-                  </View>
-                </View>
-      </View>
-    )}
-    <View style={styles.body}>{children}</View>
-  </DismissibleModal>
-);
+            <View style={styles.headerActions}>
+              {headerRight}
+            </View>
+          </View>
+        </View>
+      )}
+      <View style={[styles.body, { paddingBottom: Math.max(insets.bottom, 20) }]}>{children}</View>
+    </DismissibleModal>
+  );
+};
 
 const styles = StyleSheet.create({
   keyboardContainer: {
@@ -62,6 +66,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
     maxHeight: '92%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },

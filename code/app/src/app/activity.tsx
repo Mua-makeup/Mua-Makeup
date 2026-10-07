@@ -27,6 +27,7 @@ import {
 } from '@/services/booking.service';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
+import { formatDateTimeVN, formatDateVN } from '@/utils/date';
 
 export default function OrderTrackingActivityScreen() {
   const { userInfo, isAuthenticated } = useAuthStore();
@@ -65,7 +66,7 @@ export default function OrderTrackingActivityScreen() {
           status: b.status,
           servicePackageName: b.packageName,
           packageName: b.packageName,
-          bookingTime: `${b.startTime || ''} ${b.bookingDate || ''}`.trim(),
+          bookingTime: formatDateTimeVN(`${b.startTime || ''} ${b.bookingDate || ''}`.trim()),
           destinationAddress: b.destinationAddress,
           destinationLatitude: b.destinationLatitude,
           destinationLongitude: b.destinationLongitude,
@@ -264,7 +265,7 @@ export default function OrderTrackingActivityScreen() {
       case 'ARRIVED':
         return 'location-outline';
       case 'IN_PROGRESS':
-        return 'sparkles-outline';
+        return 'brush-outline';
       case 'COMPLETED':
       case 'PAID_OUT':
         return 'checkmark-circle-outline';
@@ -381,7 +382,9 @@ export default function OrderTrackingActivityScreen() {
       const total = activeData?.totalAmount ?? pastBooking?.totalAmount;
       const deposit = activeData?.depositAmount ?? pastBooking?.depositAmount;
       const dest = activeData?.destinationAddress || pastBooking?.destinationAddress || logItem.destinationAddress;
-      const time = activeData?.startTime ? `${activeData.startTime} - ${activeData.bookingDate}` : pastBooking?.bookingTime;
+      const time = activeData?.startTime && activeData?.bookingDate
+        ? `${activeData.startTime} ${formatDateVN(activeData.bookingDate)}`
+        : formatDateTimeVN(activeData?.bookingDate || pastBooking?.bookingTime);
 
       return (
         <View style={styles.detailBox}>
@@ -528,7 +531,11 @@ export default function OrderTrackingActivityScreen() {
                         </Text>
                       </View>
                       <Text style={styles.timelineTime}>
-                        {logItem.formattedTime || 'Vừa xong'}
+                        {logItem.formattedTime
+                          ? formatDateTimeVN(logItem.formattedTime)
+                          : logItem.createdAt
+                          ? formatDateTimeVN(logItem.createdAt)
+                          : 'Vừa xong'}
                       </Text>
                     </View>
 
@@ -873,7 +880,7 @@ export default function OrderTrackingActivityScreen() {
                   <Text style={styles.otherAddress} numberOfLines={1}>
                     {b.destinationAddress}
                   </Text>
-                  <Text style={styles.otherTime}>{b.bookingTime}</Text>
+                  <Text style={styles.otherTime}>{formatDateTimeVN(b.bookingTime)}</Text>
 
                   {/* 2 Nút: Xem Chi Tiết & Lịch Sử Đơn */}
                   <View style={styles.otherCardActions}>
@@ -915,7 +922,8 @@ export default function OrderTrackingActivityScreen() {
             </View>
           )}
 
-          <View style={{ height: 40 }} />
+          {/* Khoảng trống đáy đủ lớn để đơn cuối không bị AppBottomNavBar che mất */}
+          <View style={{ height: 110 }} />
         </ScrollView>
       )}
 
@@ -974,6 +982,7 @@ const styles = StyleSheet.create({
   },
   scrollInner: {
     padding: 16,
+    paddingBottom: 20,
   },
   activeCard: {
     backgroundColor: '#FFFFFF',

@@ -259,11 +259,11 @@ export default function CustomerBookingDetailScreen() {
       case 'ACCEPTED':
         return { label: 'Đã Nhận Đơn', color: '#2563EB', bg: '#DBEAFE', icon: 'checkmark-circle-outline' };
       case 'ON_THE_WAY':
-        return { label: 'Thợ Đang Tới', color: '#7C3AED', bg: '#EDE9FE', icon: 'bicycle-outline' };
+        return { label: 'Thợ Đang Tới', color: '#0284C7', bg: '#E0F2FE', icon: 'bicycle-outline' };
       case 'ARRIVED':
-        return { label: 'Thợ Đã Đến Nơi', color: '#C026D3', bg: '#FAE8FF', icon: 'location-outline' };
+        return { label: 'Thợ Đã Đến Nơi', color: '#0D9488', bg: '#CCFBF1', icon: 'location-outline' };
       case 'IN_PROGRESS':
-        return { label: 'Đang Trang Điểm', color: BrandColors.primary, bg: '#FFF1F2', icon: 'sparkles-outline' };
+        return { label: 'Đang Trang Điểm', color: BrandColors.primary, bg: '#FFF1F2', icon: 'brush-outline' };
       case 'COMPLETED':
       case 'PAID_OUT':
         return { label: 'Hoàn Thành', color: '#059669', bg: '#D1FAE5', icon: 'checkmark-done-circle-outline' };
@@ -513,14 +513,14 @@ export default function CustomerBookingDetailScreen() {
         { title: 'Đặt Cọc', icon: 'card-outline' },
         { title: 'Tiếp Nhận', icon: 'hourglass-outline' },
         { title: 'Đến Hẹn', icon: 'calendar-outline' },
-        { title: 'Make-up', icon: 'sparkles-outline' },
+        { title: 'Make-up', icon: 'brush-outline' },
         { title: 'Xong', icon: 'checkmark-done-outline' },
       ]
     : [
         { title: 'Nhận Ca', icon: 'receipt-outline' },
         { title: 'Chuẩn Bị', icon: 'bag-check-outline' },
         { title: 'Di Chuyển', icon: 'bicycle-outline' },
-        { title: 'Make-up', icon: 'sparkles-outline' },
+        { title: 'Make-up', icon: 'brush-outline' },
         { title: 'Xong', icon: 'checkmark-done-outline' },
       ];
 
@@ -591,7 +591,7 @@ export default function CustomerBookingDetailScreen() {
           <View style={styles.scheduledHeroCard}>
             <View style={styles.scheduledHeroHeader}>
               <View style={styles.scheduledHeroBadge}>
-                <Ionicons name="calendar-outline" size={13} color="#7C3AED" />
+                <Ionicons name="calendar-outline" size={13} color="#2563EB" />
                 <Text style={styles.scheduledHeroBadgeText}>LỊCH ĐẶT TRƯỚC</Text>
               </View>
               <Text style={styles.scheduledHeroCode}>{bookingDetail.bookingCode}</Text>
@@ -747,12 +747,12 @@ export default function CustomerBookingDetailScreen() {
           return (
             <View style={styles.customerDisputeBannerCard}>
               <View style={styles.customerDisputeHeader}>
-                <View style={[styles.customerDisputeIconCircle, { backgroundColor: isDual ? '#7C3AED' : '#EA580C' }]}>
+                <View style={[styles.customerDisputeIconCircle, { backgroundColor: '#EA580C' }]}>
                   <Ionicons name={isDual ? 'scale-outline' : 'shield-half-outline'} size={24} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
-                    <Text style={[styles.customerDisputeTitle, { color: isDual ? '#6D28D9' : '#C2410C', marginBottom: 0 }]}>{title}</Text>
+                    <Text style={[styles.customerDisputeTitle, { color: '#C2410C', marginBottom: 0 }]}>{title}</Text>
                     {reporterBadge ? (
                       <View style={{ backgroundColor: isDual ? '#F3E8FF' : isMuaReport ? '#FEF3C7' : '#FCE7F3', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isDual ? '#E9D5FF' : isMuaReport ? '#FDE68A' : '#FBCFE8' }}>
                         <Text style={{ fontSize: 10, fontWeight: '700', color: isDual ? '#7E22CE' : isMuaReport ? '#92400E' : '#9D174D' }}>
@@ -1095,7 +1095,7 @@ export default function CustomerBookingDetailScreen() {
           <Text style={styles.cardTitle}>Gói Dịch Vụ Trang Điểm</Text>
           <View style={styles.packageHeaderBox}>
             <View style={styles.packageIconBadge}>
-              <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+              <Ionicons name="brush-outline" size={18} color={BrandColors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.packageNameText}>
@@ -1128,7 +1128,7 @@ export default function CustomerBookingDetailScreen() {
           {bookingDetail.addonItems && bookingDetail.addonItems.length > 0 && (
             <View style={styles.addonWrap}>
               <View style={styles.addonHeaderWrap}>
-                <Ionicons name="add-circle" size={16} color="#7C3AED" />
+                <Ionicons name="add-circle-outline" size={16} color="#0284C7" />
                 <Text style={styles.addonTitle}>Dịch vụ & Tiện ích mua thêm (Add-on):</Text>
               </View>
               <View style={styles.addonList}>
@@ -1157,7 +1157,7 @@ export default function CustomerBookingDetailScreen() {
               <Text style={styles.infoLabel}>Thời gian phục vụ</Text>
               <Text style={styles.infoValue}>
                 {bookingDetail.bookingDate && bookingDetail.startTime
-                  ? `${formatTimeVN(bookingDetail.startTime)} - Ngày ${formatDateVN(bookingDetail.bookingDate)}`
+                  ? `${formatTimeVN(bookingDetail.startTime)} ${formatDateVN(bookingDetail.bookingDate)}`
                   : formatDateTimeVN(bookingDetail.updatedAt)}
               </Text>
             </View>
@@ -1936,7 +1936,7 @@ const styles = StyleSheet.create({
   addonTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#0F172A',
   },
   addonList: {
     gap: 6,
@@ -1947,22 +1947,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addonTagPill: {
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#C4B5FD',
+    borderColor: '#E2E8F0',
   },
   addonTagPillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#475569',
   },
   addonItemText: {
     flex: 1,
     fontSize: 13,
-    color: '#5B21B6',
+    color: '#334155',
     fontWeight: '500',
   },
   infoRow: {
@@ -2625,12 +2625,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   scheduledHeroCard: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: '#F0F9FF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#BAE6FD',
   },
   scheduledHeroHeader: {
     flexDirection: 'row',
@@ -2642,23 +2642,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D8B4FE',
+    borderColor: '#7DD3FC',
   },
   scheduledHeroBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#7C3AED',
+    color: '#0284C7',
     letterSpacing: 0.5,
   },
   scheduledHeroCode: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6B21A8',
+    color: '#0369A1',
   },
   scheduledHeroBody: {
     flexDirection: 'row',
@@ -2667,33 +2667,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F3E8FF',
+    borderColor: '#E0F2FE',
   },
   scheduledHeroTimeCol: {
     flex: 1,
   },
   scheduledHeroTimeLabel: {
     fontSize: 11,
-    color: '#9333EA',
+    color: '#0284C7',
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   scheduledHeroTimeValue: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#581C87',
+    color: '#0C4A6E',
     marginTop: 2,
   },
   scheduledHeroDateValue: {
     fontSize: 12,
-    color: '#7E22CE',
+    color: '#0369A1',
     fontWeight: '600',
     marginTop: 1,
   },
   scheduledHeroDivider: {
     width: 1,
     height: 48,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#E2E8F0',
     marginHorizontal: 12,
   },
   scheduledHeroServiceCol: {

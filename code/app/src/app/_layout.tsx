@@ -132,6 +132,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
           <Stack.Screen name="explore" options={{ animation: 'none' }} />
           <Stack.Screen name="bookings" options={{ animation: 'none' }} />
+          <Stack.Screen name="activity" options={{ animation: 'none' }} />
           <Stack.Screen name="mua/packages/index" options={{ animation: 'none' }} />
           <Stack.Screen name="mua-detail/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />

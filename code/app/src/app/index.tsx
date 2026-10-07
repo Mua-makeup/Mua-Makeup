@@ -33,6 +33,7 @@ import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { hasSeenOnboarding } from '@/utils/storage';
 import { useAccountModalStore } from '@/store/account-modal.store';
+import { useHomeStore } from '@/store/home.store';
 import { taxonomyService, MasterCategory } from '@/services/taxonomy.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
@@ -41,14 +42,14 @@ import { useNotificationStore } from '@/store/notification.store';
 import * as Haptics from 'expo-haptics';
 
 const getCategoryIcon = (categoryName?: string): keyof typeof Ionicons.glyphMap => {
-  if (!categoryName) return 'sparkles';
+  if (!categoryName) return 'grid-outline';
   const name = categoryName.toLowerCase();
   if (name.includes('cô dâu') || name.includes('cưới')) return 'heart';
   if (name.includes('tiệc') || name.includes('party')) return 'wine';
   if (name.includes('kỷ yếu') || name.includes('học')) return 'school';
-  if (name.includes('douyin') || name.includes('trend')) return 'color-wand';
+  if (name.includes('douyin') || name.includes('trend')) return 'flame';
   if (name.includes('daily') || name.includes('chơi') || name.includes('nhẹ')) return 'sunny';
-  return 'sparkles';
+  return 'grid-outline';
 };
 
 const getDistanceKm = (
@@ -81,35 +82,19 @@ export default function HomeScreen() {
   
   const [isReadyToWork, setIsReadyToWork] = useState(true);
 
-  const [categories, setCategories] = useState<MasterCategory[]>([]);
-  const [featuredMuas, setFeaturedMuas] = useState<MuaPublicProfile[]>([]);
-  const [featuredStudios, setFeaturedStudios] = useState<AgencyPublicProfile[]>([]);
-  const [isLoadingExploreData, setIsLoadingExploreData] = useState(false);
+  const {
+    categories,
+    featuredMuas,
+    featuredStudios,
+    fetchExploreData,
+  } = useHomeStore();
   const [selectedStudioForModal, setSelectedStudioForModal] = useState<AgencyPublicProfile | null>(null);
   const [isStudioModalVisible, setIsStudioModalVisible] = useState(false);
 
   useEffect(() => {
-    // Luôn tải danh mục dịch vụ, thợ MUA và Studio để khách vãng lai và khách hàng tham quan
-    const loadExploreData = async () => {
-      try {
-        setIsLoadingExploreData(true);
-        const [cats, muas, studios] = await Promise.all([
-          taxonomyService.getActiveCategories().catch(() => []),
-          muaProfileService.getPublicMuas({ limit: 8 }).catch(() => []),
-          agencyService.getPublicAgencies(6).catch(() => []),
-        ]);
-        setCategories(cats || []);
-        setFeaturedMuas(muas || []);
-        setFeaturedStudios(studios || []);
-      } catch (err) {
-        console.warn('Lỗi tải dữ liệu khám phá công khai:', err);
-      } finally {
-        setIsLoadingExploreData(false);
-      }
-    };
-
-    loadExploreData();
-  }, []);
+    // Tải dữ liệu khám phá và giữ trong store bộ nhớ đệm
+    fetchExploreData();
+  }, [fetchExploreData]);
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
@@ -168,11 +153,6 @@ export default function HomeScreen() {
     }, [isAuthenticated, isWorkstationRole, isCustomer])
   );
 
-  // Xác định đơn hàng active nổi bật của khách hàng theo thứ tự ưu tiên nghiệp vụ:
-  // 1. Chuyến đi / Đang làm việc: ON_THE_WAY, ARRIVED, IN_PROGRESS
-  // 2. Chờ khách đặt cọc 30%: PENDING_DEPOSIT
-  // 3. Đã đặt cọc Escrow 30% chờ thợ nhận: REQUESTED
-  // 4. Thợ đã tiếp nhận ca: ACCEPTED
   const activeCustomerTrip =
     upcomingBookings.find((b) => ['ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)) ||
     upcomingBookings.find((b) => b.status === 'PENDING_DEPOSIT') ||
@@ -248,7 +228,7 @@ export default function HomeScreen() {
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             if (isMUA) router.push('/profile/mua-profile');
-            else fetchCurrentLocation();
+            else fetchCurrentLocation(true);
           }}
         >
           <Ionicons name="location" size={18} color={BrandColors.primary} />
@@ -312,14 +292,9 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}>
 
         {isWorkstationRole ? (
-          /* ========================================================================= */
-          /* MÀN HÌNH BÀN LÀM VIỆC DÀNH CHO THỢ MUA & AGENCY STAFF                     */
-          /* ========================================================================= */
           <View style={styles.workstationWrapper}>
-            {/* Header thông tin thợ & Công tắc Trực tuyến (GPS ON/OFF) */}
             <WorkstationHeader />
 
-            {/* 3 Thẻ thống kê: Ca hoàn thành, Đánh giá sao, Thu nhập ngày */}
             <WorkstationStatCards />
 
             {/* Phím tắt Hồ Sơ Nghề Nghiệp & Chứng Chỉ */}
@@ -336,7 +311,7 @@ export default function HomeScreen() {
             >
               <View style={styles.profileShortcutLeft}>
                 <View style={styles.profileShortcutIcon}>
-                  <Ionicons name={isMUA ? 'ribbon' : 'business'} size={16} color="#7C3AED" />
+                  <Ionicons name={isMUA ? 'ribbon' : 'business'} size={16} color="#2563EB" />
                 </View>
                 <View>
                   <Text style={styles.profileShortcutTitle}>
@@ -367,7 +342,7 @@ export default function HomeScreen() {
                 }}
               >
                 <View style={styles.pendingRequestedIconBox}>
-                  <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                  <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -395,7 +370,7 @@ export default function HomeScreen() {
                 onPress={() => router.push(`/job-execution/${activeMuaJob.id}` as any)}
               >
                 <View style={styles.activeJobIconBox}>
-                  <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                  <Ionicons name="briefcase-outline" size={20} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -536,8 +511,8 @@ export default function HomeScreen() {
                     activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
                     activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
                     activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { backgroundColor: '#059669' },
-                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#7C3AED' },
-                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#C026D3' },
+                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#0284C7' },
+                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#0D9488' },
                     activeCustomerTrip.status === 'IN_PROGRESS' && { backgroundColor: BrandColors.primary },
                   ]}
                 >
@@ -556,7 +531,7 @@ export default function HomeScreen() {
                         : activeCustomerTrip.status === 'ARRIVED'
                         ? 'location'
                         : activeCustomerTrip.status === 'IN_PROGRESS'
-                        ? 'sparkles'
+                        ? 'brush-outline'
                         : 'calendar'
                     }
                     size={20}
@@ -634,8 +609,8 @@ export default function HomeScreen() {
                     activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
                     activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
                     activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { backgroundColor: '#059669' },
-                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#7C3AED' },
-                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#C026D3' },
+                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#0284C7' },
+                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#0D9488' },
                     activeCustomerTrip.status === 'IN_PROGRESS' && { backgroundColor: BrandColors.primary },
                   ]}
                 >
@@ -1040,7 +1015,7 @@ export default function HomeScreen() {
             {!isAuthenticated && (
               <View style={styles.guestCtaCard}>
                 <View style={styles.guestCtaIconBox}>
-                  <Ionicons name="sparkles-outline" size={24} color={BrandColors.primary} />
+                  <Ionicons name="person-circle-outline" size={24} color={BrandColors.primary} />
                 </View>
                 <Text style={styles.guestCtaTitle}>Sẵn Sàng Cho Diện Mạo Tỏa Sáng?</Text>
                 <Text style={styles.guestCtaSub}>
@@ -1640,14 +1615,14 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   scheduledCard: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#E2E8F0',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#7C3AED',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -1662,20 +1637,22 @@ const styles = StyleSheet.create({
   scheduledBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     gap: 4,
   },
   scheduledBadgeText: {
-    color: '#7C3AED',
+    color: '#334155',
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   scheduledTag: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -1683,17 +1660,17 @@ const styles = StyleSheet.create({
   scheduledTagText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#6D28D9',
+    color: '#475569',
   },
   scheduledTitle: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: '#1E1B4B',
+    color: '#0F172A',
     marginBottom: 4,
   },
   scheduledDesc: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#64748B',
     lineHeight: 17,
     marginBottom: 12,
   },
@@ -1705,9 +1682,9 @@ const styles = StyleSheet.create({
   scheduledChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1715,14 +1692,14 @@ const styles = StyleSheet.create({
   },
   scheduledChipText: {
     fontSize: 11,
-    color: '#6D28D9',
+    color: '#475569',
     fontWeight: '600',
   },
   scheduledActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#0F172A',
     paddingVertical: 11,
     borderRadius: 12,
     gap: 8,
@@ -2060,7 +2037,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2068,7 +2045,7 @@ const styles = StyleSheet.create({
   studioTypeBadgeText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#334155',
   },
   exploreStudioBtn: {
     flexDirection: 'row',

@@ -507,7 +507,7 @@ export const LiveTrackingMap: React.FC<Props> = ({
       {/* TOP FLOATING ETA PILL */}
       <View style={styles.floatingEtaCard}>
         <View style={styles.etaIconCircle}>
-          <Ionicons name={role === 'MUA' ? 'navigate' : 'flash'} size={16} color="#FFFFFF" />
+          <Ionicons name={role === 'MUA' ? 'navigate' : 'time-outline'} size={16} color="#FFFFFF" />
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

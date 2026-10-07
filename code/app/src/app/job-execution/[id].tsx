@@ -1021,7 +1021,7 @@ export default function JobExecutionScreen() {
       {/* BANNER CẢNH BÁO NỔI KHI ĐƠN ĐANG KHIẾU NẠI (DISPUTED) */}
       {(currentStatus === 'DISPUTED' || booking?.status === 'DISPUTED') && (
         <TouchableOpacity
-          style={[styles.stickyCancelNoticeBar, { backgroundColor: '#7C3AED' }]}
+          style={[styles.stickyCancelNoticeBar, { backgroundColor: '#EA580C' }]}
           onPress={() => setIsDisputeDossierOpen(true)}
           activeOpacity={0.85}
         >
@@ -1030,7 +1030,7 @@ export default function JobExecutionScreen() {
             Đơn đang khiếu nại (Cọc {formatVnd(booking?.depositAmount || 0)} bảo chứng)
           </Text>
           <View style={[styles.stickyCancelNoticeBtn, { backgroundColor: '#FFFFFF' }]}>
-            <Text style={[styles.stickyCancelNoticeBtnText, { color: '#7C3AED' }]}>Xem Chi Tiết</Text>
+            <Text style={[styles.stickyCancelNoticeBtnText, { color: '#EA580C' }]}>Xem Chi Tiết</Text>
           </View>
         </TouchableOpacity>
       )}
@@ -1183,7 +1183,7 @@ export default function JobExecutionScreen() {
               <View style={styles.scheduledHeroCard}>
                 <View style={styles.scheduledHeroHeader}>
                   <View style={styles.scheduledHeroBadge}>
-                    <Ionicons name="calendar-outline" size={13} color="#7C3AED" />
+                    <Ionicons name="calendar-outline" size={13} color="#2563EB" />
                     <Text style={styles.scheduledHeroBadgeText}>LỊCH ĐẶT TRƯỚC</Text>
                   </View>
                   <View style={styles.scheduledHeroCodeBadge}>
@@ -1221,7 +1221,7 @@ export default function JobExecutionScreen() {
                 </View>
 
                 <View style={styles.scheduledHeroTipRow}>
-                  <Ionicons name="information-circle" size={15} color="#7C3AED" />
+                  <Ionicons name="information-circle" size={15} color="#2563EB" />
                   <Text style={styles.scheduledHeroTipText}>
                     Ca đặt lịch trước: Vui lòng có mặt trước 15 phút tại địa chỉ khách hàng.
                   </Text>
@@ -1607,7 +1607,7 @@ export default function JobExecutionScreen() {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <>
-                      <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+                      <Ionicons name="brush" size={18} color="#FFFFFF" />
                       <Text style={styles.btnText}>BẮT ĐẦU TRANG ĐIỂM</Text>
                     </>
                   )}
@@ -2955,12 +2955,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#2563EB',
     paddingVertical: 12,
     borderRadius: 12,
     marginTop: 10,
     marginBottom: 4,
-    shadowColor: '#7C3AED',
+    shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -4098,12 +4098,12 @@ const styles = StyleSheet.create({
   },
   // SCHEDULED HERO CARD DÀNH CHO THỢ MUA
   scheduledHeroCard: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: '#F0F9FF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#BAE6FD',
   },
   scheduledHeroHeader: {
     flexDirection: 'row',
@@ -4116,18 +4116,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D8B4FE',
+    borderColor: '#BAE6FD',
     flexShrink: 0,
   },
   scheduledHeroBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#7C3AED',
+    color: '#0284C7',
     letterSpacing: 0.3,
   },
   scheduledHeroCodeBadge: {
@@ -4136,13 +4136,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#E2E8F0',
     flexShrink: 1,
   },
   scheduledHeroCode: {
     fontSize: 11.5,
     fontWeight: '800',
-    color: '#6B21A8',
+    color: '#1E293B',
   },
   scheduledHeroBody: {
     flexDirection: 'row',
@@ -4151,33 +4151,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F3E8FF',
+    borderColor: '#E0F2FE',
   },
   scheduledHeroTimeCol: {
     flex: 1,
   },
   scheduledHeroTimeLabel: {
     fontSize: 11,
-    color: '#9333EA',
+    color: '#0284C7',
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   scheduledHeroTimeValue: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#581C87',
+    color: '#0C4A6E',
     marginTop: 2,
   },
   scheduledHeroDateValue: {
     fontSize: 12,
-    color: '#7E22CE',
+    color: '#0369A1',
     fontWeight: '600',
     marginTop: 1,
   },
   scheduledHeroDivider: {
     width: 1,
     height: 48,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#E2E8F0',
     marginHorizontal: 12,
   },
   scheduledHeroServiceCol: {
@@ -4210,17 +4210,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#EDE9FE',
+    borderColor: '#BAE6FD',
   },
   scheduledHeroTipText: {
     fontSize: 11.5,
-    color: '#6D28D9',
+    color: '#0369A1',
     fontWeight: '500',
     flex: 1,
     lineHeight: 16,

@@ -45,9 +45,9 @@ export const BookingHistoryCard: React.FC<Props> = ({
       case 'ACCEPTED':
         return { label: 'Đã Nhận Đơn', color: '#2563EB', bg: '#DBEAFE' };
       case 'ON_THE_WAY':
-        return { label: 'Thợ Đang Tới', color: '#7C3AED', bg: '#EDE9FE' };
+        return { label: 'Thợ Đang Tới', color: '#0284C7', bg: '#E0F2FE' };
       case 'ARRIVED':
-        return { label: 'Thợ Đã Đến', color: '#C026D3', bg: '#FAE8FF' };
+        return { label: 'Thợ Đã Đến', color: '#0D9488', bg: '#CCFBF1' };
       case 'IN_PROGRESS':
         return { label: 'Đang Trang Điểm', color: BrandColors.primary, bg: '#FFF1F2' };
       case 'COMPLETED':
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#0284C7',
   },
   trackActionText: {
     fontSize: 12,

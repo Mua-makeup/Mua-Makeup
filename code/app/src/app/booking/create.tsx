@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,8 @@ import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
 
 export default function CreateBookingScreen() {
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const calendarSectionYRef = useRef<number>(0);
   const params = useLocalSearchParams<{ packageId?: string; muaId?: string; providerId?: string; providerType?: string }>();
 
   const targetPackageId = params.packageId ? parseInt(params.packageId, 10) : 1;
@@ -165,9 +167,13 @@ export default function CreateBookingScreen() {
   }, [targetPackageId, targetProviderId, initialProviderType]);
 
   const handleSubmit = async () => {
-    // 0. Kiểm tra ngày & giờ đã chọn
+    // 0. Kiểm tra ngày & giờ đã chọn - Tự động cuộn lên ô Lịch Hẹn nếu chưa chọn
     if (!selectedDate || !selectedTimeSlot) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, calendarSectionYRef.current - 16),
+        animated: true,
+      });
       Alert.alert('Chưa Chọn Lịch Hẹn', 'Vui lòng chọn ngày và giờ cần đặt lịch make-up trước khi tiếp tục.');
       return;
     }
@@ -233,7 +239,17 @@ export default function CreateBookingScreen() {
     );
   }
 
-  const depositAmount = invoicePreview?.financialSummary?.depositRequiredAmount || 0;
+  const basePackagePrice = packageDetail?.price || 0;
+  const addOnsSum = (packageDetail?.items || [])
+    .filter((it) => selectedAddOnIds.includes(it.id))
+    .reduce((sum, it) => sum + (it.itemPrice || 0), 0);
+  const estimatedTotal = basePackagePrice + addOnsSum;
+
+  const totalAmount = invoicePreview?.financialSummary?.totalAmount ?? estimatedTotal;
+  const depositAmount =
+    invoicePreview?.financialSummary?.depositRequiredAmount ??
+    (totalAmount > 0 ? Math.round(totalAmount * 0.3) : 0);
+
   const formattedDeposit = new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -264,6 +280,7 @@ export default function CreateBookingScreen() {
 
       {/* NỘI DUNG CUỘN */}
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: insets.bottom + 100 },
@@ -278,14 +295,20 @@ export default function CreateBookingScreen() {
         />
 
         {/* 2. CHỌN NGÀY & KHUNG GIỜ */}
-        <DateTimeSelector
-          muaId={targetMuaId}
-          durationMinutes={totalDurationMinutes}
-          selectedDate={selectedDate}
-          selectedTimeSlot={selectedTimeSlot}
-          onSelectDate={setDate}
-          onSelectTimeSlot={setTimeSlot}
-        />
+        <View
+          onLayout={(e) => {
+            calendarSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <DateTimeSelector
+            muaId={targetMuaId}
+            durationMinutes={totalDurationMinutes}
+            selectedDate={selectedDate}
+            selectedTimeSlot={selectedTimeSlot}
+            onSelectDate={setDate}
+            onSelectTimeSlot={setTimeSlot}
+          />
+        </View>
 
         {/* 3. BƯỚC MẶC ĐỊNH & CHECKBOX MUA THÊM */}
         <PackageItemPicker
@@ -333,6 +356,7 @@ export default function CreateBookingScreen() {
           isCalculating={isCalculatingPrice}
           voucherCode={voucherCode}
           onApplyVoucher={setVoucherCode}
+          basePriceFallback={basePackagePrice}
         />
       </ScrollView>
 

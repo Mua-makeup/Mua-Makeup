@@ -493,6 +493,41 @@ export default function BookingDepositScreen() {
     }
   };
 
+  const handleCancelAndGoHome = async () => {
+    try {
+      setIsProcessing(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      setPaymentPolling(false);
+      try {
+        await bookingService.cancelBooking(bookingId, 'Khách hàng hủy đơn ở bước thanh toán cọc');
+      } catch (cancelErr) {
+        console.warn('Lỗi khi gọi API hủy đơn:', cancelErr);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace('/');
+    } catch (err: any) {
+      setIsProcessing(false);
+      Alert.alert('Lỗi', err.message || 'Không thể hủy đơn hàng.');
+    }
+  };
+
+  const confirmCancelAndGoHome = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      'Hủy Đơn & Về Trang Chủ?',
+      'Bạn chưa hoàn tất thanh toán cọc. Bạn có chắc muốn hủy đơn đặt lịch này và quay về trang chủ không?',
+      [
+        {
+          text: 'Hủy đơn & Về trang chủ',
+          style: 'destructive',
+          onPress: handleCancelAndGoHome,
+        },
+        { text: 'Ở lại thanh toán', style: 'cancel' },
+      ]
+    );
+  };
+
   const isInstantBooking =
     bookingDetail?.bookingType === 'REALTIME_INSTANT' ||
     bookingDetail?.bookingType === 'INSTANT' ||
@@ -510,12 +545,16 @@ export default function BookingDepositScreen() {
     if (depositData?.depositStatus !== 'PAID' && !isPaidSuccess) {
       Alert.alert(
         'Rời Trang Đặt Cọc?',
-        'Bạn chưa hoàn tất thanh toán cọc. Bạn có muốn đổi lịch hẹn khác không?',
+        'Bạn chưa hoàn tất thanh toán cọc. Bạn muốn hủy đơn để về trang chủ, đổi lịch hẹn khác hay ở lại thanh toán?',
         [
-          { text: 'Ở lại thanh toán', style: 'cancel' },
+          {
+            text: 'Hủy đơn & Về trang chủ',
+            style: 'destructive',
+            onPress: handleCancelAndGoHome,
+          },
           {
             text: 'Đổi lịch hẹn',
-            style: 'destructive',
+            style: 'default',
             onPress: async () => {
               try {
                 await bookingService.cancelBooking(bookingId, 'Khách hàng đổi ý, chọn lại lịch khác');
@@ -537,6 +576,7 @@ export default function BookingDepositScreen() {
               }
             },
           },
+          { text: 'Ở lại thanh toán', style: 'cancel' },
         ]
       );
     } else {
@@ -716,7 +756,13 @@ export default function BookingDepositScreen() {
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thanh Toán Đặt Cọc</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={confirmCancelAndGoHome}
+          style={styles.headerHomeBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="home-outline" size={20} color="#64748B" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -762,7 +808,7 @@ export default function BookingDepositScreen() {
           <View style={styles.divider} />
 
           <View style={styles.serviceRow}>
-            <Ionicons name="sparkles" size={20} color={BrandColors.primary} />
+            <Ionicons name="brush-outline" size={20} color={BrandColors.primary} />
             <Text style={styles.serviceName} numberOfLines={1}>
               {bookingDetail?.packageName || 'Dịch vụ trang điểm chuyên nghiệp'}
             </Text>
@@ -926,6 +972,18 @@ export default function BookingDepositScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Nút Hủy Đơn & Về Trang Chủ trực tiếp */}
+        <TouchableOpacity
+          style={styles.cancelBookingFooterLink}
+          onPress={confirmCancelAndGoHome}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="close-circle-outline" size={16} color="#DC2626" />
+          <Text style={styles.cancelBookingFooterText}>
+            Không muốn đặt lịch nữa? Hủy đơn & về trang chủ
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Bottom Action Bar */}
@@ -1021,10 +1079,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
   },
+  headerHomeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  cancelBookingFooterLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 10,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelBookingFooterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   scrollContent: {
     padding: 16,

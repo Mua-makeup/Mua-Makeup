@@ -825,7 +825,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                       ? 'heart'
                       : cat.categoryCode?.includes('DAILY')
                       ? 'sunny'
-                      : 'sparkles';
+                      : 'brush-outline';
                     return (
                       <TouchableOpacity
                         key={cat.id}
@@ -900,7 +900,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                     }}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="bookmarks" size={13} color="#7C3AED" />
+                    <Ionicons name="bookmarks-outline" size={13} color="#475569" />
                     <Text style={styles.addressBookBtnText}>Sổ địa chỉ</Text>
                   </TouchableOpacity>
 
@@ -986,7 +986,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name={currentTargetMua ? "flash" : "radio-outline"} size={18} color="#FFFFFF" />
+                    <Ionicons name={currentTargetMua ? "paper-plane-outline" : "radio-outline"} size={17} color="#FFFFFF" />
                     <Text style={styles.startScanBtnText}>
                       {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
                     </Text>
@@ -1022,7 +1022,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
               {/* CARD TÓM TẮT ĐƠN HÀNG */}
               <View style={styles.scanSummaryCard}>
                 <View style={styles.scanSummaryRow}>
-                  <Ionicons name="sparkles" size={14} color={BrandColors.primary} />
                   <Text style={styles.scanSummaryLabel}>Dịch vụ:</Text>
                   <Text style={styles.scanSummaryVal}>{selectedCategory?.categoryName || 'Trang điểm'}</Text>
                 </View>
@@ -1482,9 +1481,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1492,7 +1491,7 @@ const styles = StyleSheet.create({
   addressBookBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#334155',
   },
   detectBtn: {
     flexDirection: 'row',

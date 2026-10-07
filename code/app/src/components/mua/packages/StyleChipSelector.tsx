@@ -148,7 +148,6 @@ export const StyleChipSelector: React.FC<StyleChipSelectorProps> = ({
         <View style={styles.selectedTagsContainer}>
           {selectedStyles.map((st) => (
             <View key={st.id} style={styles.selectedTagPill}>
-              <Ionicons name="sparkles" size={12} color={BrandColors.primary} />
               <Text style={styles.selectedTagText}>{st.styleName}</Text>
               <TouchableOpacity
                 onPress={() => handleRemoveOne(st.id)}
@@ -231,7 +230,7 @@ export const StyleChipSelector: React.FC<StyleChipSelectorProps> = ({
                     ]}
                   >
                     <Ionicons
-                      name="sparkles"
+                      name={isChecked ? "checkmark" : "add"}
                       size={15}
                       color={isChecked ? BrandColors.primary : '#94A3B8'}
                     />

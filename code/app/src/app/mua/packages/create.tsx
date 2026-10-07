@@ -192,7 +192,7 @@ export default function CreatePackageScreen() {
           {/* 1. Thông tin Album tác phẩm liên kết */}
           <View style={styles.albumHintCard}>
             <View style={styles.albumHintHeader}>
-              <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+              <Ionicons name="images-outline" size={18} color={BrandColors.primary} />
               <Text style={styles.albumHintTitle}>Ảnh Đại Diện & Album Gói</Text>
             </View>
             <Text style={styles.albumHintText}>
@@ -211,7 +211,7 @@ export default function CreatePackageScreen() {
             activeOpacity={0.7}>
             <View style={styles.selectorContent}>
               <Ionicons
-                name="sparkles-outline"
+                name="grid-outline"
                 size={20}
                 color={selectedCategory ? BrandColors.primary : BrandColors.slateMuted}
               />

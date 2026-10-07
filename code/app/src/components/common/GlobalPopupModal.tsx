@@ -333,6 +333,8 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
         transparent
         animationType="none"
         statusBarTranslucent
+        navigationBarTranslucent
+        presentationStyle="overFullScreen"
         onRequestClose={() => {
           handleBackdropPress();
         }}

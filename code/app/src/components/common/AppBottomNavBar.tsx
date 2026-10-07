@@ -26,30 +26,38 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
 
   const handleTabPress = (tab: BottomNavTab) => {
+    // Luôn dọn dẹp sạch stack các màn hình con trước khi chuyển tab ("không lưu stack trang cũ")
+    const navigateTab = (targetRoute: string) => {
+      if (router.canDismiss()) {
+        router.dismissAll();
+      }
+      router.replace(targetRoute as any);
+    };
+
     switch (tab) {
       case 'home':
         if (activeTab !== 'home') {
-          router.replace('/');
+          navigateTab('/');
         }
         break;
       case 'explore':
         if (isMUA) {
           if (activeTab !== 'explore') {
-            router.replace('/mua/packages' as any);
+            navigateTab('/mua/packages');
           }
         } else if (isAgencyStaff) {
           if (activeTab !== 'explore') {
-            router.replace('/bookings');
+            navigateTab('/bookings');
           }
         } else {
           if (activeTab !== 'explore') {
-            router.replace('/explore');
+            navigateTab('/explore');
           }
         }
         break;
       case 'appointments':
         if (activeTab !== 'appointments') {
-          router.replace('/bookings');
+          navigateTab('/bookings');
         }
         break;
       case 'tracking':
@@ -57,7 +65,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
         if (!isAuthenticated) {
           router.push('/(auth)/login');
         } else if (activeTab !== 'tracking') {
-          router.replace('/activity');
+          navigateTab('/activity');
         }
         break;
       case 'account':

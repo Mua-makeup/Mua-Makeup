@@ -33,7 +33,7 @@ interface Props {
 
 // Rút gọn tên danh mục & gắn icon nhận diện trực quan chuẩn UX
 export const getCategoryDisplayInfo = (catName?: string) => {
-  if (!catName) return { shortName: 'Tất Cả', iconName: 'sparkles' as const };
+  if (!catName) return { shortName: 'Tất Cả', iconName: 'grid-outline' as const };
   const lower = catName.toLowerCase();
   if (lower.includes('cô dâu') || lower.includes('cưới')) {
     return { shortName: 'Cô Dâu', iconName: 'heart' as const };
@@ -144,7 +144,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
           activeOpacity={0.7}
         >
           <Ionicons
-            name={catInfo ? catInfo.iconName : 'sparkles-outline'}
+            name={catInfo ? catInfo.iconName : 'grid-outline'}
             size={14}
             color={selectedCategoryId !== null ? BrandColors.primary : '#475569'}
           />
@@ -295,7 +295,7 @@ export const CategoryFilterBar: React.FC<Props> = ({
                 >
                   <View style={styles.optionLeft}>
                     <View style={styles.optionIconBox}>
-                      <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+                      <Ionicons name="grid-outline" size={18} color={BrandColors.primary} />
                     </View>
                     <View>
                       <Text style={styles.optionTitle}>Tất Cả Dịch Vụ Làm Đẹp</Text>

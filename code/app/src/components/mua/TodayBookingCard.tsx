@@ -29,9 +29,9 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
       case 'ON_THE_WAY':
         return { label: 'Đang Di Chuyển', bg: '#FEF3C7', text: '#B45309', icon: 'navigate' };
       case 'ARRIVED':
-        return { label: 'Đã Đến Nơi', bg: '#F3E8FF', text: '#7E22CE', icon: 'location' };
+        return { label: 'Đã Đến Nơi', bg: '#F1F5F9', text: '#334155', icon: 'location' };
       case 'IN_PROGRESS':
-        return { label: 'Đang Trang Điểm', bg: '#FFF1F2', text: '#E11D48', icon: 'sparkles' };
+        return { label: 'Đang Trang Điểm', bg: '#FFF1F2', text: '#E11D48', icon: 'brush' };
       case 'COMPLETED':
       case 'PAID_OUT':
         return { label: 'Đã Hoàn Thành', bg: '#ECFDF5', text: '#059669', icon: 'ribbon' };
@@ -286,7 +286,7 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.executeBtn} onPress={handleEnterJob}>
-                <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
                 <Text style={styles.executeBtnText}>Tiến trình</Text>
               </TouchableOpacity>
             </>

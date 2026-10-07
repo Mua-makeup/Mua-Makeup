@@ -217,7 +217,7 @@ export const ScheduledOfferModal: React.FC = () => {
           <View style={styles.headerTopRow}>
             <View style={styles.badgeRow}>
               <View style={styles.newBadge}>
-                <Ionicons name="sparkles" size={12} color="#FFFFFF" />
+                <Ionicons name="calendar-outline" size={12} color="#FFFFFF" />
                 <Text style={styles.newBadgeText}>LỊCH HẸN TRANG ĐIỂM MỚI</Text>
               </View>
               <View style={styles.escrowBadge}>
@@ -303,7 +303,6 @@ export const ScheduledOfferModal: React.FC = () => {
             <Text style={styles.sectionTitle}>Chi Tiết Lịch Hẹn</Text>
 
             <View style={styles.infoRow}>
-              <Ionicons name="sparkles" size={15} color={BrandColors.primary} />
               <Text style={styles.infoLabel}>Gói dịch vụ:</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
                 {activeScheduledOffer.packageName || 'Make-up chuyên nghiệp'}
@@ -312,7 +311,6 @@ export const ScheduledOfferModal: React.FC = () => {
 
             {activeScheduledOffer.styleName ? (
               <View style={styles.infoRow}>
-                <Ionicons name="color-wand-outline" size={15} color="#7C3AED" />
                 <Text style={styles.infoLabel}>Phong cách:</Text>
                 <Text style={styles.infoValue} numberOfLines={1}>
                   {activeScheduledOffer.styleName}
@@ -324,7 +322,7 @@ export const ScheduledOfferModal: React.FC = () => {
               <Ionicons name="calendar-outline" size={15} color={BrandColors.primary} />
               <Text style={styles.infoLabel}>Giờ hẹn:</Text>
               <Text style={[styles.infoValue, { fontWeight: '700', color: BrandColors.primary }]}>
-                {activeScheduledOffer.startTime || '--:--'} - {formatDateVN(activeScheduledOffer.bookingDate)}
+                {activeScheduledOffer.startTime || '--:--'} {formatDateVN(activeScheduledOffer.bookingDate)}
               </Text>
             </View>
 

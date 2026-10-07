@@ -160,8 +160,8 @@ export const ExploreFilterModal: React.FC<Props> = ({
             activeOpacity={0.8}
           >
             <View style={styles.sectionTitleLeft}>
-              <View style={[styles.sectionIconBox, { backgroundColor: '#FDF2F8' }]}>
-                <Ionicons name="sparkles" size={16} color="#BE185D" />
+              <View style={[styles.sectionIconBox, { backgroundColor: '#F1F5F9' }]}>
+                <Ionicons name="grid-outline" size={16} color="#475569" />
               </View>
               <View>
                 <Text style={styles.sectionTitle}>Loại hình dịch vụ</Text>
@@ -252,8 +252,8 @@ export const ExploreFilterModal: React.FC<Props> = ({
               activeOpacity={0.8}
             >
               <View style={styles.sectionTitleLeft}>
-                <View style={[styles.sectionIconBox, { backgroundColor: '#EDE9FE' }]}>
-                  <Ionicons name="color-palette" size={16} color="#7C3AED" />
+                <View style={[styles.sectionIconBox, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="color-palette-outline" size={16} color="#2563EB" />
                 </View>
                 <View>
                   <Text style={styles.sectionTitle}>Phong cách make-up</Text>

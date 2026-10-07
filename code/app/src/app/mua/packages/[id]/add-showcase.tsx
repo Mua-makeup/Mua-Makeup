@@ -316,7 +316,7 @@ export default function AddShowcaseScreen() {
             <View style={styles.selectorRight}>
               {selectedStyle && (
                 <View style={styles.activePill}>
-                  <Ionicons name="sparkles" size={12} color={BrandColors.primary} />
+                  <Ionicons name="checkmark" size={12} color={BrandColors.primary} />
                   <Text style={styles.activePillText}>Đã chọn</Text>
                 </View>
               )}
@@ -419,7 +419,7 @@ export default function AddShowcaseScreen() {
               >
                 <View style={[styles.modalItemIconBox, isSelected && styles.modalItemIconBoxSelected]}>
                   <Ionicons
-                    name="sparkles"
+                    name="color-palette-outline"
                     size={16}
                     color={isSelected ? BrandColors.primary : '#94A3B8'}
                   />

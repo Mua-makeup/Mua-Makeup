@@ -469,8 +469,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   savedActionBtn: {
-    backgroundColor: '#8B5CF6',
-    shadowColor: '#8B5CF6',
+    backgroundColor: '#334155',
+    shadowColor: '#334155',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 3,

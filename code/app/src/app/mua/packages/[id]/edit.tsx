@@ -219,7 +219,7 @@ export default function EditPackageScreen() {
               activeOpacity={0.7}>
               <View style={styles.selectorContent}>
                 <Ionicons
-                  name="sparkles-outline"
+                  name="grid-outline"
                   size={20}
                   color={selectedCategory ? BrandColors.primary : BrandColors.slateMuted}
                 />

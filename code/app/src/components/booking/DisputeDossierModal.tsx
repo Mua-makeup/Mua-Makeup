@@ -335,7 +335,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
           {/* Dispute Origin Banner */}
           {isDual ? (
             <View style={styles.bannerDual}>
-              <Ionicons name="git-compare-outline" size={18} color="#7C3AED" />
+              <Ionicons name="git-compare-outline" size={18} color="#2563EB" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerDualTitle}>Tranh Chấp 2 Chiều Phát Sinh Đồng Thời</Text>
                 <Text style={styles.bannerDualSub}>
@@ -364,7 +364,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
             <View style={styles.dossierHeader}>
               <View style={[styles.dossierRoleBadge, { backgroundColor: isMUA ? '#FFF1F2' : '#FEF3C7' }]}>
                 <Ionicons
-                  name={isMUA ? 'person-outline' : 'sparkles'}
+                  name={isMUA ? 'person-outline' : 'brush-outline'}
                   size={13}
                   color={isMUA ? '#E11D48' : '#D97706'}
                 />
@@ -627,20 +627,20 @@ const styles = StyleSheet.create({
   bannerDual: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#E2E8F0',
     borderRadius: 12,
     padding: 12,
   },
   bannerDualTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#6D28D9',
+    color: '#0F172A',
   },
   bannerDualSub: {
     fontSize: 11,
-    color: '#7C3AED',
+    color: '#475569',
     marginTop: 2,
     lineHeight: 16,
   },

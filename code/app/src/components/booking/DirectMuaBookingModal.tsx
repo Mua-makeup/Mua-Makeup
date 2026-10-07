@@ -519,7 +519,6 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
 
               {/* PHẦN 1: GÓI DỊCH VỤ CỦA THỢ */}
               <View style={styles.sectionHeader}>
-                <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
                 <Text style={styles.sectionTitle}>Gói Dịch Vụ Của {targetMua.fullName}</Text>
               </View>
 
@@ -617,7 +616,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                     }}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="bookmarks" size={12} color="#7C3AED" />
+                    <Ionicons name="bookmarks-outline" size={12} color="#475569" />
                     <Text style={styles.addressBookBtnText}>Sổ địa chỉ</Text>
                   </TouchableOpacity>
 
@@ -779,7 +778,6 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
 
               <View style={styles.scanDetailCard}>
                 <View style={styles.scanDetailRow}>
-                  <Ionicons name="sparkles" size={14} color={BrandColors.primary} />
                   <Text style={styles.scanDetailLabel}>Gói dịch vụ:</Text>
                   <Text style={styles.scanDetailVal}>{selectedPackage?.packageName || 'Trang điểm'}</Text>
                 </View>
@@ -1143,9 +1141,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 7,
@@ -1153,7 +1151,7 @@ const styles = StyleSheet.create({
   addressBookBtnText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#334155',
   },
   detectBtn: {
     flexDirection: 'row',

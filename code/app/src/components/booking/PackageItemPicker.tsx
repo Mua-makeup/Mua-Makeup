@@ -44,7 +44,7 @@ export const PackageItemPicker: React.FC<Props> = ({
       {includedItems.length > 0 && (
         <>
           <View style={styles.sectionHeader}>
-            <Ionicons name="sparkles-outline" size={18} color={BrandColors.primary} />
+            <Ionicons name="list-outline" size={18} color={BrandColors.primary} />
             <Text style={styles.sectionTitle}>Quy Trình & Các Bước Có Sẵn Trong Gói</Text>
           </View>
 

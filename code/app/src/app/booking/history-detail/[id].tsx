@@ -428,7 +428,7 @@ export default function BookingHistoryDetailScreen() {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="sparkles" size={13} color="#D97706" />
+                <Ionicons name="brush-outline" size={13} color="#D97706" />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: '#B45309' }}>
                   {isWorkstationRole ? 'Báo Cáo Của Bạn (Chuyên Viên MUA)' : 'Báo Cáo Từ Chuyên Viên Make-up'}
                 </Text>
@@ -606,7 +606,7 @@ export default function BookingHistoryDetailScreen() {
           <View style={styles.scheduledHeroCard}>
             <View style={styles.scheduledHeroHeader}>
               <View style={styles.scheduledHeroBadge}>
-                <Ionicons name="calendar-outline" size={13} color="#7C3AED" />
+                <Ionicons name="calendar-outline" size={13} color="#2563EB" />
                 <Text style={styles.scheduledHeroBadgeText}>LỊCH ĐẶT TRƯỚC</Text>
               </View>
               <Text style={styles.scheduledHeroCode}>{bookingDetail.bookingCode}</Text>
@@ -814,8 +814,8 @@ export default function BookingHistoryDetailScreen() {
             style={[
               styles.statusCard,
               {
-                backgroundColor: isSplit5050 ? '#FAF5FF' : isWorkstationRole ? '#FFFBEB' : '#ECFDF5',
-                borderColor: isSplit5050 ? '#E9D5FF' : isWorkstationRole ? '#FDE68A' : '#A7F3D0',
+                backgroundColor: isSplit5050 ? '#F8FAFC' : isWorkstationRole ? '#FFFBEB' : '#ECFDF5',
+                borderColor: isSplit5050 ? '#CBD5E1' : isWorkstationRole ? '#FDE68A' : '#A7F3D0',
               },
             ]}
           >
@@ -824,7 +824,7 @@ export default function BookingHistoryDetailScreen() {
                 style={[
                   styles.statusIconBox,
                   {
-                    backgroundColor: isSplit5050 ? '#7C3AED' : isWorkstationRole ? '#D97706' : '#059669',
+                    backgroundColor: isSplit5050 ? '#334155' : isWorkstationRole ? '#D97706' : '#059669',
                   },
                 ]}
               >
@@ -839,7 +839,7 @@ export default function BookingHistoryDetailScreen() {
                   style={[
                     styles.statusCardTitle,
                     {
-                      color: isSplit5050 ? '#6D28D9' : isWorkstationRole ? '#92400E' : '#065F46',
+                      color: isSplit5050 ? '#0F172A' : isWorkstationRole ? '#92400E' : '#065F46',
                     },
                   ]}
                 >
@@ -876,7 +876,7 @@ export default function BookingHistoryDetailScreen() {
                   style={{
                     fontSize: 11,
                     fontWeight: '700',
-                    color: isSplit5050 ? '#6D28D9' : isWorkstationRole ? '#92400E' : '#065F46',
+                    color: isSplit5050 ? '#0F172A' : isWorkstationRole ? '#92400E' : '#065F46',
                     marginBottom: 2,
                   }}
                 >
@@ -896,7 +896,7 @@ export default function BookingHistoryDetailScreen() {
                 style={[
                   styles.statusPillSuccess,
                   isSplit5050
-                    ? { backgroundColor: '#F3E8FF', borderColor: '#E9D5FF' }
+                    ? { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }
                     : isWorkstationRole
                     ? { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }
                     : undefined,
@@ -905,13 +905,13 @@ export default function BookingHistoryDetailScreen() {
                 <Ionicons
                   name={isSplit5050 ? 'git-compare' : isWorkstationRole ? 'information-circle' : 'checkmark-circle'}
                   size={13}
-                  color={isSplit5050 ? '#7C3AED' : isWorkstationRole ? '#D97706' : '#059669'}
+                  color={isSplit5050 ? '#334155' : isWorkstationRole ? '#D97706' : '#059669'}
                 />
                 <Text
                   style={[
                     styles.statusPillSuccessText,
                     isSplit5050
-                      ? { color: '#6D28D9' }
+                      ? { color: '#0F172A' }
                       : isWorkstationRole
                       ? { color: '#B45309' }
                       : undefined,
@@ -1143,15 +1143,15 @@ export default function BookingHistoryDetailScreen() {
           return (
             <View style={[styles.statusCard, styles.statusCardDisputed]}>
               <View style={styles.statusCardHeader}>
-                <View style={[styles.statusIconBox, { backgroundColor: isDual ? '#7C3AED' : '#EA580C' }]}>
+                <View style={[styles.statusIconBox, { backgroundColor: isDual ? '#334155' : '#EA580C' }]}>
                   <Ionicons name={isDual ? 'scale' : 'warning'} size={22} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
-                    <Text style={[styles.statusCardTitle, { color: isDual ? '#6D28D9' : '#9A3412', marginBottom: 0 }]}>{title}</Text>
+                    <Text style={[styles.statusCardTitle, { color: isDual ? '#0F172A' : '#9A3412', marginBottom: 0 }]}>{title}</Text>
                     {reporterBadge ? (
-                      <View style={{ backgroundColor: isDual ? '#F3E8FF' : isMuaReport ? '#FEF3C7' : '#FCE7F3', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isDual ? '#E9D5FF' : isMuaReport ? '#FDE68A' : '#FBCFE8' }}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: isDual ? '#7E22CE' : isMuaReport ? '#92400E' : '#9D174D' }}>
+                      <View style={{ backgroundColor: isDual ? '#F1F5F9' : isMuaReport ? '#FEF3C7' : '#FCE7F3', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isDual ? '#CBD5E1' : isMuaReport ? '#FDE68A' : '#FBCFE8' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: isDual ? '#334155' : isMuaReport ? '#92400E' : '#9D174D' }}>
                           {reporterBadge}
                         </Text>
                       </View>
@@ -1497,7 +1497,7 @@ export default function BookingHistoryDetailScreen() {
 
           <View style={styles.serviceHeaderRow}>
             <View style={styles.serviceIconBox}>
-              <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+              <Ionicons name="brush-outline" size={18} color={BrandColors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.servicePackageTitle}>{bookingDetail.packageName}</Text>
@@ -1540,7 +1540,7 @@ export default function BookingHistoryDetailScreen() {
             (!bookingDetail.addonItems?.length && bookingDetail.packageItems && bookingDetail.packageItems.length > 0)) && (
             <View style={styles.itemsListWrap}>
               <View style={styles.itemHeaderWrap}>
-                <Ionicons name="sparkles" size={14} color="#059669" />
+                <Ionicons name="list-outline" size={14} color="#059669" />
                 <Text style={styles.itemsListTitle}>Quy trình & Hạng mục tiêu chuẩn trong gói:</Text>
               </View>
               {(bookingDetail.componentItems && bookingDetail.componentItems.length > 0
@@ -1558,8 +1558,8 @@ export default function BookingHistoryDetailScreen() {
           {bookingDetail.addonItems && bookingDetail.addonItems.length > 0 && (
             <View style={[styles.itemsListWrap, styles.addonWrap]}>
               <View style={styles.itemHeaderWrap}>
-                <Ionicons name="add-circle" size={15} color="#8B5CF6" />
-                <Text style={[styles.itemsListTitle, { color: '#7C3AED' }]}>Dịch vụ & Tiện ích mua thêm (Add-on):</Text>
+                <Ionicons name="add-circle-outline" size={15} color="#0284C7" />
+                <Text style={[styles.itemsListTitle, { color: '#0F172A' }]}>Dịch vụ & Tiện ích mua thêm (Add-on):</Text>
               </View>
               {bookingDetail.addonItems.map((item, idx) => (
                 <View key={`addon-${idx}`} style={styles.itemRow}>
@@ -1637,7 +1637,7 @@ export default function BookingHistoryDetailScreen() {
               style={[
                 styles.escrowBillBox,
                 isSplit5050
-                  ? { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }
+                  ? { backgroundColor: '#F8FAFC', borderColor: '#CBD5E1' }
                   : { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
               ]}
             >
@@ -1645,7 +1645,7 @@ export default function BookingHistoryDetailScreen() {
                 <Text
                   style={[
                     styles.escrowBillTitle,
-                    { color: isSplit5050 ? '#6D28D9' : '#065F46' },
+                    { color: isSplit5050 ? '#0F172A' : '#065F46' },
                   ]}
                 >
                   Khoản cọc Escrow (30%):
@@ -1653,7 +1653,7 @@ export default function BookingHistoryDetailScreen() {
                 <Text
                   style={[
                     styles.escrowBillSub,
-                    { color: isSplit5050 ? '#7C3AED' : '#047857' },
+                    { color: isSplit5050 ? '#475569' : '#047857' },
                   ]}
                 >
                   {isSplit5050
@@ -1669,7 +1669,7 @@ export default function BookingHistoryDetailScreen() {
                 <Text
                   style={[
                     styles.escrowBillAmount,
-                    { color: isSplit5050 ? '#7C3AED' : '#059669' },
+                    { color: isSplit5050 ? '#0F172A' : '#059669' },
                   ]}
                 >
                   {formatPrice(isSplit5050 && !isWorkstationRole ? Math.round(depositAmount * 0.5) : depositAmount)}
@@ -1677,18 +1677,18 @@ export default function BookingHistoryDetailScreen() {
                 <View
                   style={[
                     styles.escrowPaidTag,
-                    isSplit5050 && { backgroundColor: '#F3E8FF', borderColor: '#E9D5FF' },
+                    isSplit5050 && { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' },
                   ]}
                 >
                   <Ionicons
                     name={isSplit5050 ? 'git-compare' : 'shield-checkmark'}
                     size={11}
-                    color={isSplit5050 ? '#7C3AED' : '#059669'}
+                    color={isSplit5050 ? '#334155' : '#059669'}
                   />
                   <Text
                     style={[
                       styles.escrowPaidTagText,
-                      isSplit5050 && { color: '#6D28D9' },
+                      isSplit5050 && { color: '#0F172A' },
                     ]}
                   >
                     {isSplit5050 ? 'Hòa Giải 50/50' : 'Đã Hoàn Cọc Khiếu Nại'}
@@ -1868,7 +1868,7 @@ export default function BookingHistoryDetailScreen() {
           {isWorkstationRole && (
             <View style={styles.muaEarningsCard}>
               <View style={styles.muaEarningsHeader}>
-                <Ionicons name="cash-outline" size={16} color="#7C3AED" />
+                <Ionicons name="cash-outline" size={16} color="#059669" />
                 <Text style={styles.muaEarningsTitle}>Quyền Lợi & Thu Nhập Chuyên Viên</Text>
               </View>
               {isDisputeRefunded || isNormalCancelled ? (
@@ -1876,19 +1876,19 @@ export default function BookingHistoryDetailScreen() {
                   <>
                     <View style={styles.billRow}>
                       <Text style={styles.billLabel}>Khoản bồi thường hòa giải (50% cọc):</Text>
-                      <Text style={[styles.billValue, { color: '#7C3AED', fontWeight: '800' }]}>
+                      <Text style={[styles.billValue, { color: '#059669', fontWeight: '800' }]}>
                         +{formatPrice(Math.round(depositAmount * 0.5))}
                       </Text>
                     </View>
                     <View style={styles.billRow}>
                       <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận:</Text>
-                      <Text style={[styles.muaNetEarningsValue, { color: '#7C3AED' }]}>
+                      <Text style={[styles.muaNetEarningsValue, { color: '#059669' }]}>
                         {formatPrice(Math.round(depositAmount * 0.5))}
                       </Text>
                     </View>
-                    <View style={[styles.muaWalletStatusBox, { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }]}>
-                      <Ionicons name="wallet" size={16} color="#7C3AED" />
-                      <Text style={[styles.muaWalletStatusText, { color: '#6D28D9' }]}>
+                    <View style={[styles.muaWalletStatusBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                      <Ionicons name="wallet" size={16} color="#059669" />
+                      <Text style={[styles.muaWalletStatusText, { color: '#065F46' }]}>
                         Admin phê duyệt hòa giải 50/50. 50% tiền cọc ({formatPrice(Math.round(depositAmount * 0.5))}) đã được giải ngân trực tiếp vào Ví thu nhập của bạn.
                       </Text>
                     </View>
@@ -2530,11 +2530,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   addonWrap: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#E2E8F0',
     marginTop: 10,
   },
   itemHeaderWrap: {
@@ -2734,12 +2734,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   muaEarningsCard: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: '#F0FDF4',
     borderRadius: 12,
     padding: 12,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#BBF7D0',
   },
   muaEarningsHeader: {
     flexDirection: 'row',
@@ -2750,7 +2750,7 @@ const styles = StyleSheet.create({
   muaEarningsTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6B21A8',
+    color: '#065F46',
   },
   muaNetEarningsLabel: {
     fontSize: 13,
@@ -2760,7 +2760,7 @@ const styles = StyleSheet.create({
   muaNetEarningsValue: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#7C3AED',
+    color: '#059669',
   },
   muaWalletStatusBox: {
     flexDirection: 'row',
@@ -2851,12 +2851,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   scheduledHeroCard: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: '#F0F9FF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#BAE6FD',
   },
   scheduledHeroHeader: {
     flexDirection: 'row',
@@ -2868,23 +2868,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#E0F2FE',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D8B4FE',
+    borderColor: '#7DD3FC',
   },
   scheduledHeroBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#7C3AED',
+    color: '#0284C7',
     letterSpacing: 0.5,
   },
   scheduledHeroCode: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6B21A8',
+    color: '#0369A1',
   },
   scheduledHeroBody: {
     flexDirection: 'row',
@@ -2893,33 +2893,33 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F3E8FF',
+    borderColor: '#E0F2FE',
   },
   scheduledHeroTimeCol: {
     flex: 1,
   },
   scheduledHeroTimeLabel: {
     fontSize: 11,
-    color: '#9333EA',
+    color: '#0284C7',
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   scheduledHeroTimeValue: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#581C87',
+    color: '#0C4A6E',
     marginTop: 2,
   },
   scheduledHeroDateValue: {
     fontSize: 12,
-    color: '#7E22CE',
+    color: '#0369A1',
     fontWeight: '600',
     marginTop: 1,
   },
   scheduledHeroDivider: {
     width: 1,
     height: 48,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#E2E8F0',
     marginHorizontal: 12,
   },
   scheduledHeroServiceCol: {

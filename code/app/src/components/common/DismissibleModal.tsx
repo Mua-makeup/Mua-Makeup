@@ -147,8 +147,15 @@ interface Props extends SurfaceProps {
 
 export function DismissibleModal(props: Props) {
   return (
-    <Modal visible={props.visible} transparent animationType={props.animationType ?? 'fade'} statusBarTranslucent
-      onRequestClose={() => { if (!props.dismissDisabled) props.onClose(); }}>
+    <Modal
+      visible={props.visible}
+      transparent
+      animationType={props.animationType ?? 'fade'}
+      statusBarTranslucent
+      navigationBarTranslucent
+      presentationStyle="overFullScreen"
+      onRequestClose={() => { if (!props.dismissDisabled) props.onClose(); }}
+    >
       <DismissibleSurface {...props} />
     </Modal>
   );
@@ -156,9 +163,31 @@ export function DismissibleModal(props: Props) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  overlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.55)', paddingTop: 28 },
-  surface: { width: '100%', maxHeight: '92%', flexShrink: 1, backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
-  fullHeight: { height: '94%' },
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    paddingTop: 28,
+    paddingBottom: 0,
+    marginBottom: 0,
+  },
+  surface: {
+    width: '100%',
+    maxHeight: '94%',
+    flexShrink: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    overflow: 'hidden',
+  },
+  fullHeight: {
+    height: '98%',
+    maxHeight: '98%',
+  },
   dragArea: { height: 42, width: '100%', alignItems: 'center', justifyContent: 'center', flexShrink: 0, paddingVertical: 8 },
   handle: { height: 5, width: 48, borderRadius: 3, backgroundColor: '#CBD5E1' },
 });

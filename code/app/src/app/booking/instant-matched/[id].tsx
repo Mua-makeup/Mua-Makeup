@@ -477,7 +477,7 @@ export default function InstantMatchedScreen() {
           ) : (
             <View style={styles.singlePackageBox}>
               <View style={styles.sparkleCircle}>
-                <Ionicons name="sparkles" size={18} color="#D97706" />
+                <Ionicons name="brush-outline" size={18} color="#334155" />
               </View>
               <View style={{ flex: 1, marginHorizontal: 10 }}>
                 <Text style={styles.singlePackageName}>
@@ -1034,7 +1034,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },

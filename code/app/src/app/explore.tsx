@@ -479,7 +479,7 @@ export default function ExploreScreen() {
 
         <View style={styles.studioCardBottom}>
           <View style={styles.studioTypeBadge}>
-            <Ionicons name="business-outline" size={12} color="#7C3AED" />
+            <Ionicons name="business-outline" size={12} color="#334155" />
             <Text style={styles.studioTypeBadgeText}>Cơ sở / Viện Áo Cưới</Text>
           </View>
 
@@ -489,7 +489,6 @@ export default function ExploreScreen() {
             onPress={openStudioServices}
             activeOpacity={0.8}
           >
-            <Ionicons name="sparkles-outline" size={13} color="#FFFFFF" />
             <Text style={styles.exploreStudioBtnText}>Xem Dịch Vụ</Text>
             <Ionicons name="chevron-forward" size={13} color="#FFFFFF" />
           </TouchableOpacity>
@@ -728,7 +727,7 @@ export default function ExploreScreen() {
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="sparkles-outline" size={48} color="#CBD5E1" />
+                <Ionicons name="people-outline" size={48} color="#CBD5E1" />
                 <Text style={styles.emptyTitle}>Chưa có chuyên viên nào phù hợp</Text>
                 <Text style={styles.emptySubtitle}>
                   Thử nới rộng bán kính định vị GPS hoặc thiết lập lại bộ lọc để xem nhiều chuyên viên hơn.
@@ -1301,7 +1300,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1309,7 +1308,7 @@ const styles = StyleSheet.create({
   studioTypeBadgeText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#334155',
   },
   exploreStudioBtn: {
     flexDirection: 'row',

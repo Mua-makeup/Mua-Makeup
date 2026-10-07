@@ -123,13 +123,13 @@ export const NotificationToast: React.FC = () => {
     switch (type) {
       case 'BOOKING_ACCEPTED':
         return {
-          icon: 'sparkles-outline' as const,
-          color: '#E0A75E',
+          icon: 'checkmark-circle-outline' as const,
+          color: '#059669',
         };
       case 'SCHEDULED_BOOKING_ACCEPTED':
         return {
           icon: 'calendar-outline' as const,
-          color: '#A855F7',
+          color: '#2563EB',
         };
       case 'BOOKING_ON_THE_WAY':
         return {

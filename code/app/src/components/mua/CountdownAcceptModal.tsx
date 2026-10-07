@@ -222,7 +222,6 @@ export const CountdownAcceptModal: React.FC = () => {
           {/* KHỐI 4: THÔNG TIN GÓI DỊCH VỤ, STYLE & BƯỚC KÈM THEO */}
           <View style={styles.serviceSection}>
             <View style={styles.serviceHeaderRow}>
-              <Ionicons name="sparkles" size={16} color="#E11D48" />
               <Text style={styles.serviceTitle} numberOfLines={1}>
                 {activeOffer.serviceName || 'Gói Dịch Vụ Make-up'}
               </Text>

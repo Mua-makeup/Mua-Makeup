@@ -88,7 +88,7 @@ export default function MuaPackagesScreen() {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconBox}>
-        <Ionicons name="sparkles" size={42} color={BrandColors.primary} />
+        <Ionicons name="albums-outline" size={42} color={BrandColors.primary} />
       </View>
       <Text style={styles.emptyTitle}>Bạn Chưa Có Gói Dịch Vụ Nào</Text>
       <Text style={styles.emptySubtitle}>

@@ -430,7 +430,7 @@ export default function MuaWorkProfileScreen() {
           {/* CARD CHUYÊN MÔN, TIỂU SỬ & KINH NGHIỆM */}
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
-              <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+              <Ionicons name="document-text-outline" size={18} color={BrandColors.primary} />
               <Text style={styles.formCardTitle}>Giới thiệu & Kinh nghiệm</Text>
             </View>
 

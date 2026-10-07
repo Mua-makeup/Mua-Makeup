@@ -29,7 +29,7 @@ interface PeriodTabItem {
 }
 
 const PERIOD_TABS: PeriodTabItem[] = [
-  { id: 'early', label: 'Sáng sớm', timeRange: '<07h', icon: 'flash' },
+  { id: 'early', label: 'Sáng sớm', timeRange: '<07h', icon: 'sunny-outline' },
   { id: 'morning', label: 'Buổi sáng', timeRange: '07-12h', icon: 'sunny' },
   { id: 'afternoon', label: 'Buổi chiều', timeRange: '12-18h', icon: 'partly-sunny' },
   { id: 'evening', label: 'Buổi tối', timeRange: '18-24h', icon: 'moon' },
@@ -124,7 +124,7 @@ export const DateTimeSelector: React.FC<Props> = ({
     }
   }, [selectedDate]);
 
-  // 1. Tải danh sách tổng quan 30 ngày từ Backend
+  // 1. Tải danh sách tổng quan 90 ngày từ Backend (hỗ trợ đặt lịch tối đa 90 ngày)
   useEffect(() => {
     let isMounted = true;
     async function fetchDays() {
@@ -137,7 +137,7 @@ export const DateTimeSelector: React.FC<Props> = ({
         const d = String(today.getDate()).padStart(2, '0');
         const startDate = `${y}-${m}-${d}`;
 
-        const days = await muaCalendarService.getCalendarDays(muaId, startDate, 30, durationMinutes);
+        const days = await muaCalendarService.getCalendarDays(muaId, startDate, 90, durationMinutes);
         if (isMounted) {
           setCalendarDays(days);
 
@@ -207,39 +207,49 @@ export const DateTimeSelector: React.FC<Props> = ({
     };
   }, [muaId, selectedDate, durationMinutes, isTimeModalVisible]);
 
-  // Map tra cứu nhanh 30 ngày theo chuỗi 'YYYY-MM-DD'
+  // Map tra cứu nhanh 90 ngày theo chuỗi 'YYYY-MM-DD'
   const calendarDaysMap = useMemo(() => {
     const map = new Map<string, CalendarDayOverview>();
     calendarDays.forEach((d) => map.set(d.date, d));
     return map;
   }, [calendarDays]);
 
-  // Ngày hôm nay dạng YYYY-MM-DD
-  const todayStr = useMemo(() => {
+  // Ngày hôm nay và ngày tối đa (90 ngày tới) dạng YYYY-MM-DD
+  const { todayStr, maxBookingDateStr, minMonthKey, maxMonthKey, currentMonthKey, maxBookingMonthKey } = useMemo(() => {
     const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    const curY = now.getFullYear();
+    const curM = now.getMonth();
+    const curD = now.getDate();
+
+    const todayStrFormatted = `${curY}-${String(curM + 1).padStart(2, '0')}-${String(curD).padStart(2, '0')}`;
+
+    // Tối đa 90 ngày kể từ hôm nay
+    const maxDate = new Date(curY, curM, curD + 90);
+    const maxY = maxDate.getFullYear();
+    const maxM = maxDate.getMonth();
+    const maxD = maxDate.getDate();
+    const maxDateStrFormatted = `${maxY}-${String(maxM + 1).padStart(2, '0')}-${String(maxD).padStart(2, '0')}`;
+
+    // minMonthKey: Cho phép lùi về Tháng 1 của năm hiện tại (đáp ứng hiển thị đủ 12 tháng)
+    const minKey = curY * 12 + 0;
+
+    // maxMonthKey: Cho phép xem đủ 12 tháng của năm hiện tại hoặc tháng chứa mốc 90 ngày
+    const maxKey = Math.max(curY * 12 + 11, maxY * 12 + maxM);
+
+    return {
+      todayStr: todayStrFormatted,
+      maxBookingDateStr: maxDateStrFormatted,
+      minMonthKey: minKey,
+      maxMonthKey: maxKey,
+      currentMonthKey: curY * 12 + curM,
+      maxBookingMonthKey: maxY * 12 + maxM,
+    };
   }, []);
-
-  // Tính toán giới hạn chuyển tháng (từ tháng hiện tại đến tháng chứa ngày cuối cùng của 30 ngày)
-  const { minMonthKey, maxMonthKey } = useMemo(() => {
-    const now = new Date();
-    const minKey = now.getFullYear() * 12 + now.getMonth();
-
-    let maxKey = minKey;
-    if (calendarDays.length > 0) {
-      const lastDayStr = calendarDays[calendarDays.length - 1].date;
-      const [ly, lm] = lastDayStr.split('-').map(Number);
-      maxKey = ly * 12 + (lm - 1);
-    }
-    return { minMonthKey: minKey, maxMonthKey: maxKey };
-  }, [calendarDays]);
 
   const currentViewMonthKey = viewDate.getFullYear() * 12 + viewDate.getMonth();
   const canGoPrevMonth = currentViewMonthKey > minMonthKey;
   const canGoNextMonth = currentViewMonthKey < maxMonthKey;
+  const isDifferentFromCurrentMonth = currentViewMonthKey !== currentMonthKey;
 
   const handlePrevMonth = () => {
     if (!canGoPrevMonth) return;
@@ -251,6 +261,11 @@ export const DateTimeSelector: React.FC<Props> = ({
     if (!canGoNextMonth) return;
     Haptics.selectionAsync();
     setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+  };
+
+  const handleBackToToday = () => {
+    Haptics.selectionAsync();
+    setViewDate(new Date());
   };
 
   // Tính ma trận các ô ngày của tháng đang xem (Lưới 7 cột)
@@ -266,7 +281,9 @@ export const DateTimeSelector: React.FC<Props> = ({
       dayNumber?: number;
       dateStr?: string;
       isCurrentMonth: boolean;
-      isIn30DaysRange: boolean;
+      isPast: boolean;
+      isBeyond90Days: boolean;
+      isValidBookingRange: boolean;
       isFullyBooked: boolean;
       isToday: boolean;
       isSelected: boolean;
@@ -277,7 +294,9 @@ export const DateTimeSelector: React.FC<Props> = ({
       cells.push({
         key: `empty-start-${i}`,
         isCurrentMonth: false,
-        isIn30DaysRange: false,
+        isPast: false,
+        isBeyond90Days: false,
+        isValidBookingRange: false,
         isFullyBooked: false,
         isToday: false,
         isSelected: false,
@@ -287,9 +306,12 @@ export const DateTimeSelector: React.FC<Props> = ({
     // Các ngày trong tháng
     for (let d = 1; d <= totalDaysInMonth; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isPast = dateStr < todayStr;
+      const isBeyond90 = dateStr > maxBookingDateStr;
+      const isValidBookingRange = !isPast && !isBeyond90;
+
       const dayData = calendarDaysMap.get(dateStr);
-      const isInRange = Boolean(dayData);
-      const isFull = dayData?.is_fully_booked || false;
+      const isFull = isValidBookingRange ? Boolean(dayData?.is_fully_booked) : false;
       const isSelected = selectedDate === dateStr;
       const isToday = dateStr === todayStr;
 
@@ -298,7 +320,9 @@ export const DateTimeSelector: React.FC<Props> = ({
         dayNumber: d,
         dateStr,
         isCurrentMonth: true,
-        isIn30DaysRange: isInRange,
+        isPast,
+        isBeyond90Days: isBeyond90,
+        isValidBookingRange,
         isFullyBooked: isFull,
         isToday,
         isSelected,
@@ -306,7 +330,7 @@ export const DateTimeSelector: React.FC<Props> = ({
     }
 
     return cells;
-  }, [viewDate, calendarDaysMap, selectedDate, todayStr]);
+  }, [viewDate, calendarDaysMap, selectedDate, todayStr, maxBookingDateStr]);
 
   // Tổng số ca trống trong ngày đang chọn
   const totalAvailable = useMemo(() => {
@@ -371,9 +395,9 @@ export const DateTimeSelector: React.FC<Props> = ({
             <Ionicons name="calendar" size={17} color={BrandColors.primary} />
           </View>
           <View style={styles.headerTitleWrap}>
-            <Text style={styles.sectionTitle}>Lịch Hẹn Làm Đẹp (30 Ngày)</Text>
+            <Text style={styles.sectionTitle}>Lịch Hẹn Làm Đẹp (90 Ngày)</Text>
             <Text style={styles.sectionSubtitle} numberOfLines={1}>
-              Chạm ngày để mở danh sách khung giờ
+              Đặt trước tối đa 90 ngày • Chạm ngày để chọn giờ
             </Text>
           </View>
         </View>
@@ -412,6 +436,16 @@ export const DateTimeSelector: React.FC<Props> = ({
             <Text style={styles.monthTitleText}>
               Tháng {viewDate.getMonth() + 1}, {viewDate.getFullYear()}
             </Text>
+            {isDifferentFromCurrentMonth && (
+              <TouchableOpacity
+                style={styles.todayShortcutBtn}
+                onPress={handleBackToToday}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="refresh-outline" size={11} color={BrandColors.primary} />
+                <Text style={styles.todayShortcutText}>Về hôm nay</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <TouchableOpacity
@@ -427,6 +461,20 @@ export const DateTimeSelector: React.FC<Props> = ({
             />
           </TouchableOpacity>
         </View>
+
+        {/* Thông báo ngữ cảnh nếu đang xem tháng quá khứ hoặc tháng xa ngoài 90 ngày */}
+        {currentViewMonthKey < currentMonthKey && (
+          <View style={styles.monthNoticeBanner}>
+            <Ionicons name="time-outline" size={13} color="#94A3B8" />
+            <Text style={styles.monthNoticeText}>Tháng trong quá khứ • Không thể chọn ngày</Text>
+          </View>
+        )}
+        {currentViewMonthKey > maxBookingMonthKey && (
+          <View style={styles.monthNoticeBanner}>
+            <Ionicons name="information-circle-outline" size={13} color="#94A3B8" />
+            <Text style={styles.monthNoticeText}>Vượt quá 90 ngày • Chỉ hỗ trợ đặt trước tối đa 90 ngày</Text>
+          </View>
+        )}
 
         {/* Tiêu đề 7 thứ trong tuần */}
         <View style={styles.weekHeaderRow}>
@@ -448,7 +496,7 @@ export const DateTimeSelector: React.FC<Props> = ({
         {isLoadingDays && calendarDays.length === 0 ? (
           <View style={styles.calendarLoadingBox}>
             <ActivityIndicator size="small" color={BrandColors.primary} />
-            <Text style={styles.loadingText}>Đang tải biểu lịch 30 ngày...</Text>
+            <Text style={styles.loadingText}>Đang tải biểu lịch làm việc...</Text>
           </View>
         ) : (
           <View style={styles.calendarGrid}>
@@ -457,7 +505,7 @@ export const DateTimeSelector: React.FC<Props> = ({
                 return <View key={cell.key} style={styles.dayCellEmpty} />;
               }
 
-              const isClickable = cell.isIn30DaysRange && !cell.isFullyBooked;
+              const isClickable = cell.isValidBookingRange && !cell.isFullyBooked;
 
               return (
                 <TouchableOpacity
@@ -466,10 +514,11 @@ export const DateTimeSelector: React.FC<Props> = ({
                     styles.dayCell,
                     cell.isSelected && styles.dayCellSelected,
                     cell.isToday && !cell.isSelected && styles.dayCellToday,
-                    !cell.isIn30DaysRange && styles.dayCellOutOfRange,
+                    cell.isPast && styles.dayCellPast,
+                    cell.isBeyond90Days && styles.dayCellBeyond90,
                     cell.isFullyBooked && styles.dayCellFullyBooked,
                   ]}
-                  disabled={!cell.isIn30DaysRange || cell.isFullyBooked}
+                  disabled={!isClickable}
                   onPress={() => {
                     if (cell.dateStr) {
                       handleSelectDay(cell.dateStr);
@@ -482,7 +531,8 @@ export const DateTimeSelector: React.FC<Props> = ({
                       styles.dayNumberText,
                       cell.isSelected && styles.dayNumberTextSelected,
                       cell.isToday && !cell.isSelected && styles.dayNumberTextToday,
-                      !cell.isIn30DaysRange && styles.dayNumberTextOutOfRange,
+                      cell.isPast && styles.dayNumberTextPast,
+                      cell.isBeyond90Days && styles.dayNumberTextBeyond90,
                       cell.isFullyBooked && styles.dayNumberTextFullyBooked,
                     ]}
                   >
@@ -494,7 +544,7 @@ export const DateTimeSelector: React.FC<Props> = ({
                     <View style={styles.dayDotSelected} />
                   ) : cell.isFullyBooked ? (
                     <View style={styles.dayDotFull} />
-                  ) : cell.isIn30DaysRange ? (
+                  ) : cell.isValidBookingRange ? (
                     <View style={styles.dayDotAvailable} />
                   ) : null}
                 </TouchableOpacity>
@@ -515,7 +565,7 @@ export const DateTimeSelector: React.FC<Props> = ({
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#CBD5E1' }]} />
-            <Text style={styles.legendText}>Kín lịch / Qua ngày</Text>
+            <Text style={styles.legendText}>Kín / Quá khứ / &gt;90 ngày</Text>
           </View>
         </View>
       </View>
@@ -533,7 +583,7 @@ export const DateTimeSelector: React.FC<Props> = ({
         >
           <View style={styles.bannerLeftContent}>
             <View style={styles.bannerClockBadge}>
-              <Ionicons name="sparkles" size={16} color="#FFFFFF" />
+              <Ionicons name="time-outline" size={16} color="#FFFFFF" />
             </View>
             <View style={styles.bannerTextCol}>
               <Text style={styles.bannerLabelText}>Khung giờ đã chọn:</Text>
@@ -850,7 +900,7 @@ export const DateTimeSelector: React.FC<Props> = ({
                     {Boolean(activeSlot?.is_recommended) && (
                       <View style={styles.recommendNoticeBox}>
                         <View style={styles.policyNoticeHeader}>
-                          <Ionicons name="sparkles" size={15} color="#059669" />
+                          <Ionicons name="checkmark-circle-outline" size={15} color="#059669" />
                           <Text style={styles.recommendNoticeTitle}>Khung Giờ Tối Ưu Lịch Trình</Text>
                         </View>
                         <Text style={styles.policyNoticeDesc}>
@@ -1052,11 +1102,45 @@ const styles = StyleSheet.create({
   },
   monthTitleWrapper: {
     alignItems: 'center',
+    gap: 4,
   },
   monthTitleText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  todayShortcutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFF1F2',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  todayShortcutText: {
+    fontSize: 11,
+    color: BrandColors.primary,
+    fontWeight: '600',
+  },
+  monthNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+    marginHorizontal: 4,
+  },
+  monthNoticeText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
   },
   weekHeaderRow: {
     flexDirection: 'row',
@@ -1111,9 +1195,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   dayCellToday: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: BrandColors.primary,
     backgroundColor: '#FFF1F2',
+  },
+  dayCellPast: {
+    opacity: 0.32,
+    backgroundColor: '#F8FAFC',
+  },
+  dayCellBeyond90: {
+    opacity: 0.22,
   },
   dayCellOutOfRange: {
     opacity: 0.25,
@@ -1134,6 +1225,14 @@ const styles = StyleSheet.create({
   dayNumberTextToday: {
     color: BrandColors.primary,
     fontWeight: '700',
+  },
+  dayNumberTextPast: {
+    color: '#94A3B8',
+    fontWeight: '400',
+  },
+  dayNumberTextBeyond90: {
+    color: '#CBD5E1',
+    fontWeight: '400',
   },
   dayNumberTextOutOfRange: {
     color: '#94A3B8',
@@ -1431,9 +1530,9 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   slotBadgeRecommended: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#F0FDFA',
     borderWidth: 0.5,
-    borderColor: '#E9D5FF',
+    borderColor: '#CCFBF1',
   },
   slotBadgeSelected: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
@@ -1453,7 +1552,7 @@ const styles = StyleSheet.create({
     color: '#B45309',
   },
   slotBadgeTextRecommended: {
-    color: '#7E22CE',
+    color: '#0F766E',
   },
   slotBadgeTextSelected: {
     color: '#FFFFFF',
@@ -1516,9 +1615,9 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   recommendNoticeBox: {
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#BBF7D0',
     borderRadius: 12,
     padding: 12,
   },
@@ -1546,7 +1645,7 @@ const styles = StyleSheet.create({
   recommendNoticeTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#6D28D9',
+    color: '#15803D',
   },
   policyNoticeDesc: {
     fontSize: 11,

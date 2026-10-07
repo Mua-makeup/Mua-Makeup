@@ -235,7 +235,7 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
               ]}
             >
               <Ionicons
-                name="sparkles"
+                name="add-circle-outline"
                 size={20}
                 color={itemType === 'ADD_ON' ? BrandColors.primary : '#94A3B8'}
               />

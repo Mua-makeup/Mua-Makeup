@@ -211,7 +211,7 @@ export default function PackageItemsScreen() {
             addonItems.map((it, idx) => (
               <View key={it.id || idx} style={[styles.itemCard, styles.addonCard]}>
                 <View style={[styles.stepBadge, styles.addonBadge]}>
-                  <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+                  <Ionicons name="add" size={16} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName}>{it.itemName}</Text>

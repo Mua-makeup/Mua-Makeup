@@ -129,36 +129,66 @@ export default function NotificationsScreen() {
   const getBadgeIcon = (type: string) => {
     switch (type) {
       case 'BOOKING_ACCEPTED':
-        return { name: 'sparkles-outline' as const, color: '#D97706' };
       case 'SCHEDULED_BOOKING_ACCEPTED':
-        return { name: 'calendar-outline' as const, color: '#7C3AED' };
+        return { name: 'calendar-outline' as const, color: '#2563EB', bgColor: '#EFF6FF' };
       case 'BOOKING_ON_THE_WAY':
-        return { name: 'car-outline' as const, color: '#0284C7' };
+        return { name: 'car-outline' as const, color: '#0284C7', bgColor: '#F0F9FF' };
       case 'BOOKING_ARRIVED':
-        return { name: 'location-outline' as const, color: '#059669' };
+        return { name: 'location-outline' as const, color: '#059669', bgColor: '#ECFDF5' };
       case 'BOOKING_IN_PROGRESS':
-        return { name: 'color-palette-outline' as const, color: '#DB2777' };
+        return { name: 'color-palette-outline' as const, color: '#DB2777', bgColor: '#FDF2F8' };
       case 'BOOKING_COMPLETED':
       case 'PAID_OUT':
-        return { name: 'checkmark-circle-outline' as const, color: '#16A34A' };
+        return { name: 'checkmark-circle-outline' as const, color: '#16A34A', bgColor: '#F0FDF4' };
       case 'BOOKING_CANCELLED':
       case 'CANCELLED_EXPIRED':
-        return { name: 'close-circle-outline' as const, color: '#DC2626' };
+        return { name: 'close-circle-outline' as const, color: '#DC2626', bgColor: '#FEF2F2' };
       case 'CERTIFICATE_APPROVED':
-        return { name: 'ribbon-outline' as const, color: '#16A34A' };
+        return { name: 'ribbon-outline' as const, color: '#16A34A', bgColor: '#F0FDF4' };
       case 'CERTIFICATE_REJECTED':
-        return { name: 'alert-circle-outline' as const, color: '#DC2626' };
       case 'CERTIFICATE_VERIFICATION':
-        return { name: 'shield-checkmark-outline' as const, color: '#7C3AED' };
+        return { name: 'alert-circle-outline' as const, color: '#DC2626', bgColor: '#FEF2F2' };
       case 'STAFF_APPLICATION':
-        return { name: 'person-add-outline' as const, color: '#2563EB' };
+        return { name: 'person-add-outline' as const, color: '#2563EB', bgColor: '#EFF6FF' };
       case 'STAFF_APPLICATION_APPROVED':
-        return { name: 'ribbon-outline' as const, color: '#16A34A' };
+        return { name: 'ribbon-outline' as const, color: '#16A34A', bgColor: '#F0FDF4' };
       case 'STAFF_APPLICATION_REJECTED':
-        return { name: 'close-circle-outline' as const, color: '#EA580C' };
+        return { name: 'close-circle-outline' as const, color: '#EA580C', bgColor: '#FFF7ED' };
       default:
-        return { name: 'notifications-outline' as const, color: '#64748B' };
+        return { name: 'notifications-outline' as const, color: '#64748B', bgColor: '#F8FAFC' };
     }
+  };
+
+  const formatLocalizedTitle = (rawTitle?: string) => {
+    if (!rawTitle) return 'Thông báo mới';
+    const lower = rawTitle.toLowerCase();
+    if (lower.includes('booking has been cancelled') || lower.includes('booking cancelled')) {
+      return 'Lịch hẹn đã bị hủy';
+    }
+    if (lower.includes('booking accepted') || lower.includes('booking has been accepted')) {
+      return 'Chuyên viên đã nhận lịch';
+    }
+    if (lower.includes('booking completed')) {
+      return 'Ca trang điểm hoàn thành';
+    }
+    if (lower.includes('deposit paid') || lower.includes('deposit completed')) {
+      return 'Đã thanh toán tiền cọc';
+    }
+    if (lower.includes('refund')) {
+      return 'Đã hoàn tiền cọc';
+    }
+    return rawTitle;
+  };
+
+  const formatLocalizedContent = (item: NotificationItem) => {
+    let text = item.content || '';
+    if (text.includes('{0}')) {
+      const name = (item.metadata?.certName as string) || (item.metadata?.title as string) || '';
+      text = text.replace(/\{0\}/g, name ? `"${name}"` : '');
+    }
+    text = text.replace(/was cancelled\./gi, 'đã bị hủy.');
+    text = text.replace(/Reason:/gi, 'Lý do:');
+    return text;
   };
 
   const renderItem = ({ item }: { item: NotificationItem }) => {
@@ -173,41 +203,39 @@ export default function NotificationsScreen() {
         activeOpacity={0.82}
         onPress={() => handleNotificationPress(item)}
       >
-        <View style={styles.iconWrapper}>
-          <Ionicons name={badge.name} size={15} color={badge.color} />
+        <View style={[styles.iconWrapper, { backgroundColor: badge.bgColor }]}>
+          <Ionicons name={badge.name} size={18} color={badge.color} />
         </View>
 
         <View style={styles.cardContent}>
           <View style={styles.cardHeader}>
             <Text
               style={[styles.cardTitle, !item.isRead && styles.cardTitleUnread]}
-              numberOfLines={1}
+              numberOfLines={2}
             >
-              {item.title}
+              {formatLocalizedTitle(item.title)}
             </Text>
-            <Text style={styles.cardTime}>{formatRelativeTime(item.createdAt)}</Text>
+            {!item.isRead && <View style={styles.unreadDot} />}
           </View>
-          <Text style={styles.cardBody} numberOfLines={2}>
-            {(() => {
-              let text = item.content || '';
-              if (text.includes('{0}')) {
-                const name = (item.metadata?.certName as string) || (item.metadata?.title as string) || '';
-                text = text.replace(/\{0\}/g, name ? `"${name}"` : '');
-              }
-              return text;
-            })()}
-          </Text>
-        </View>
 
-        <View style={styles.cardActions}>
-          {!item.isRead && <View style={styles.unreadDot} />}
-          <TouchableOpacity
-            style={styles.deleteIconBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => deleteNotification(item.id)}
-          >
-            <Ionicons name="trash-outline" size={15} color="#94A3B8" />
-          </TouchableOpacity>
+          <Text style={styles.cardBody} numberOfLines={3}>
+            {formatLocalizedContent(item)}
+          </Text>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.timeWrap}>
+              <Ionicons name="time-outline" size={11} color="#94A3B8" />
+              <Text style={styles.cardTime}>{formatRelativeTime(item.createdAt)}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.deleteIconBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => deleteNotification(item.id)}
+            >
+              <Ionicons name="trash-outline" size={14} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -225,7 +253,9 @@ export default function NotificationsScreen() {
           >
             <Ionicons name="chevron-back" size={22} color="#0F172A" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Trung Tâm Thông Báo</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            Trung Tâm Thông Báo
+          </Text>
           {unreadCount > 0 && (
             <View style={styles.badgeBox}>
               <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -236,23 +266,23 @@ export default function NotificationsScreen() {
         <View style={styles.headerRight}>
           {unreadCount > 0 && (
             <TouchableOpacity
-              style={styles.actionBtn}
+              style={styles.headerIconBtn}
               onPress={() => markAllAsRead()}
               activeOpacity={0.7}
+              accessibilityLabel="Đọc hết"
             >
-              <Ionicons name="checkmark-done" size={16} color={BrandColors.primary} />
-              <Text style={styles.actionBtnText}>Đọc hết</Text>
+              <Ionicons name="checkmark-done" size={17} color={BrandColors.primary} />
             </TouchableOpacity>
           )}
 
           {notifications.length > 0 && (
             <TouchableOpacity
-              style={styles.actionBtn}
+              style={[styles.headerIconBtn, styles.headerIconBtnDanger]}
               onPress={handleClearAllConfirm}
               activeOpacity={0.7}
+              accessibilityLabel="Xóa tất cả"
             >
-              <Ionicons name="trash-outline" size={15} color="#EF4444" />
-              <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>Xóa</Text>
+              <Ionicons name="trash-outline" size={16} color="#EF4444" />
             </TouchableOpacity>
           )}
         </View>
@@ -283,6 +313,17 @@ export default function NotificationsScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {unreadCount > 0 && (
+          <TouchableOpacity
+            style={styles.quickMarkReadLink}
+            onPress={() => markAllAsRead()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="checkmark-done-outline" size={13} color={BrandColors.primary} />
+            <Text style={styles.quickMarkReadText}>Đọc hết</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Main Content Area */}
@@ -359,60 +400,70 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
   headerLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 8,
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.2,
+    flexShrink: 1,
   },
   badgeBox: {
-    marginLeft: 8,
+    marginLeft: 6,
     backgroundColor: BrandColors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
   },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  actionBtn: {
-    flexDirection: 'row',
+  headerIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
+    justifyContent: 'center',
   },
-  actionBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: BrandColors.primary,
+  headerIconBtnDanger: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
   filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
@@ -422,6 +473,18 @@ const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
     gap: 8,
+  },
+  quickMarkReadLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  quickMarkReadText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BrandColors.primary,
   },
   tabButton: {
     paddingVertical: 6,
@@ -468,59 +531,73 @@ const styles = StyleSheet.create({
   },
   cardUnread: {
     backgroundColor: '#FAFAFA',
-    shadowColor: BrandColors.primary,
-    shadowOpacity: 0.05,
+    borderLeftWidth: 3,
+    borderLeftColor: BrandColors.primary,
   },
   iconWrapper: {
-    marginRight: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
     marginTop: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardContent: {
     flex: 1,
-    marginRight: 8,
   },
   cardHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 4,
+    gap: 6,
   },
   cardTitle: {
-    fontSize: 14.5,
+    fontSize: 14,
     fontWeight: '700',
     color: '#334155',
     flex: 1,
-    marginRight: 6,
+    lineHeight: 19,
   },
   cardTitleUnread: {
     color: '#0F172A',
     fontWeight: '800',
   },
-  cardTime: {
-    fontSize: 11.5,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
   cardBody: {
     fontSize: 13,
     color: '#475569',
     lineHeight: 19,
+    marginBottom: 8,
   },
-  cardActions: {
-    alignItems: 'flex-end',
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    height: 44,
+    paddingTop: 6,
+    borderTopWidth: 0.5,
+    borderTopColor: '#F1F5F9',
+  },
+  timeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cardTime: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: BrandColors.primary,
+    marginTop: 6,
   },
   deleteIconBtn: {
-    padding: 3,
+    padding: 4,
+    borderRadius: 6,
   },
   loadingContainer: {
     flex: 1,
