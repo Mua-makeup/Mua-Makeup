@@ -29,9 +29,12 @@ import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.common.i18n.JsonMessageSource;
 import com.makeup.platform.service.mail.EmailService;
+import com.makeup.platform.service.interaction.UserWebSocketNotificationService;
+import com.makeup.platform.service.interaction.ExpoPushNotificationService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -50,6 +53,8 @@ public class NotificationServiceImpl implements NotificationService {
     private final SimpMessagingTemplate messagingTemplate;
     private final JsonMessageSource messageSource;
     private final EmailService emailService;
+    private final UserWebSocketNotificationService userWebSocketNotificationService;
+    private final ExpoPushNotificationService expoPushNotificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -280,6 +285,23 @@ public class NotificationServiceImpl implements NotificationService {
             log.error("[WebSocket] Failed to broadcast staff application notification for agencyId={}", agency.getId(), e);
         }
 
+        // Gửi email thông báo tới Chủ Studio (Agency Owner)
+        if (agency.getOwner() != null && StringUtils.hasText(agency.getOwner().getEmail())) {
+            try {
+                emailService.sendAgencyStaffApplicationEmail(
+                        agency.getOwner().getEmail(),
+                        agency.getOwner().getFullName(),
+                        agency.getAgencyName(),
+                        muaName,
+                        muaPhone != null ? muaPhone : "Chưa cập nhật",
+                        inviteCode
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send staff application email to agency owner {}: {}",
+                        agency.getOwner().getEmail(), ex.getMessage());
+            }
+        }
+
         return saved;
     }
 
@@ -381,6 +403,183 @@ public class NotificationServiceImpl implements NotificationService {
                             admin.getEmail(), ex.getMessage());
                 }
             }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createCertificateVerificationResultNotification(
+            MuaProfileEntity mua,
+            String certName,
+            boolean isVerified,
+            String notes
+    ) {
+        if (mua == null || mua.getUser() == null) {
+            return;
+        }
+
+        UserEntity muaUser = mua.getUser();
+        Locale locale = StringUtils.hasText(muaUser.getLanguage())
+                ? Locale.forLanguageTag(muaUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String titleKey = isVerified ? "notification.cert_approved_title" : "notification.cert_rejected_title";
+        String contentKey = isVerified ? "notification.cert_approved_content" : "notification.cert_rejected_content";
+
+        String defaultTitle = isVerified
+                ? "Chứng Chỉ Của Bạn Đã Được Phê Duyệt!"
+                : "Chứng Chỉ Chưa Được Phê Duyệt";
+        String defaultContent = isVerified
+                ? "Chúc mừng! Chứng chỉ '" + certName + "' của bạn đã được Ban Quản Trị phê duyệt. Bạn đã có thể kích hoạt tính năng nhận ca trực tuyến."
+                : "Chứng chỉ '" + certName + "' của bạn chưa được phê duyệt. Lý do: " + (StringUtils.hasText(notes) ? notes : "Hồ sơ chưa đạt tiêu chuẩn");
+
+        String title = messageSource.getLocalizedMessage(titleKey, null, defaultTitle, locale);
+        String content = messageSource.getLocalizedMessage(
+                contentKey,
+                new Object[]{certName, notes != null ? notes : ""},
+                defaultContent,
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("muaId", mua.getId());
+        metadata.put("certName", certName);
+        metadata.put("isVerified", isVerified);
+        metadata.put("status", isVerified ? "VERIFIED" : "REJECTED");
+        metadata.put("notes", notes);
+        metadata.put("verifiedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(muaUser)
+                .type(isVerified ? "CERTIFICATE_APPROVED" : "CERTIFICATE_REJECTED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created certificate verification result notification ID={} for muaUserId={}",
+                saved.getId(), muaUser.getId());
+
+        // 1. Gửi WebSocket realtime P2P đích danh (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(muaUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(muaUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Email thông báo tới Thợ MUA
+        if (StringUtils.hasText(muaUser.getEmail())) {
+            try {
+                emailService.sendCertificateVerificationResultEmail(
+                        muaUser.getEmail(),
+                        muaUser.getFullName(),
+                        certName,
+                        isVerified,
+                        notes
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send certificate result email to {}: {}", muaUser.getEmail(), ex.getMessage());
+            }
+        }
+
+        // 3. Gửi Remote Push Notification tới Màn hình khóa khi thợ tắt app / rời app
+        if (StringUtils.hasText(muaUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    muaUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createStaffApplicationResultNotification(
+            AgencyProfileEntity agency,
+            MuaProfileEntity mua,
+            boolean isApproved,
+            BigDecimal commissionRate,
+            String notes
+    ) {
+        if (mua == null || mua.getUser() == null || agency == null) {
+            return;
+        }
+
+        UserEntity muaUser = mua.getUser();
+        Locale locale = StringUtils.hasText(muaUser.getLanguage())
+                ? Locale.forLanguageTag(muaUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = agency.getAgencyName() != null ? agency.getAgencyName() : "Studio";
+        String titleKey = isApproved ? "notification.staff_app_approved_title" : "notification.staff_app_rejected_title";
+        String contentKey = isApproved ? "notification.staff_app_approved_content" : "notification.staff_app_rejected_content";
+
+        String defaultTitle = isApproved
+                ? "Chào Mừng Gia Nhập " + agencyName + "!"
+                : "Kết Quả Đơn Xin Gia Nhập " + agencyName;
+        String commissionStr = commissionRate != null ? commissionRate.stripTrailingZeros().toPlainString() + "%" : "";
+        String defaultContent = isApproved
+                ? "Chúc mừng bạn đã được Studio " + agencyName + " phê duyệt gia nhập với tỷ lệ hoa hồng " + commissionStr + "."
+                : "Studio " + agencyName + " đã từ chối đơn gia nhập của bạn. Ghi chú: " + (StringUtils.hasText(notes) ? notes : "Chưa đáp ứng yêu cầu");
+
+        String title = messageSource.getLocalizedMessage(titleKey, new Object[]{agencyName}, defaultTitle, locale);
+        String content = messageSource.getLocalizedMessage(
+                contentKey,
+                new Object[]{agencyName, commissionStr, notes != null ? notes : ""},
+                defaultContent,
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("agencyId", agency.getId());
+        metadata.put("agencyName", agencyName);
+        metadata.put("muaId", mua.getId());
+        metadata.put("isApproved", isApproved);
+        metadata.put("commissionRate", commissionRate);
+        metadata.put("notes", notes);
+        metadata.put("reviewedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(muaUser)
+                .type(isApproved ? "STAFF_APPLICATION_APPROVED" : "STAFF_APPLICATION_REJECTED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created staff application result notification ID={} for muaUserId={}",
+                saved.getId(), muaUser.getId());
+
+        // 1. Gửi WebSocket realtime P2P đích danh (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(muaUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(muaUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Email thông báo tới Thợ MUA
+        if (StringUtils.hasText(muaUser.getEmail())) {
+            try {
+                emailService.sendStaffApplicationResultEmail(
+                        muaUser.getEmail(),
+                        muaUser.getFullName(),
+                        agencyName,
+                        isApproved,
+                        commissionRate,
+                        notes
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send staff application result email to {}: {}", muaUser.getEmail(), ex.getMessage());
+            }
+        }
+
+        // 3. Gửi Remote Push Notification tới Màn hình khóa khi thợ tắt app / rời app
+        if (StringUtils.hasText(muaUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    muaUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
         }
     }
 

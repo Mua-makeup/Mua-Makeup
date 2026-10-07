@@ -2,6 +2,7 @@ package com.makeup.platform.service.booking.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.booking.BookingDepositExpiredEvent;
+import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.booking.CreateScheduledBookingReq;
@@ -390,6 +391,16 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             log.warn("[ScheduledBooking] Failed to broadcast MUA_CONFIRMED_SCHEDULED_BOOKING: {}", ex.getMessage());
         }
 
+        // Publish event để kích hoạt thông báo chuông in-app và gửi Email xác nhận tới Khách hàng
+        eventPublisher.publishEvent(new BookingStateChangedEvent(
+                this,
+                booking.getId(),
+                booking.getBookingCode(),
+                prevStatus,
+                BookingStatus.ACCEPTED,
+                muaUserId
+        ));
+
         log.info("[ScheduledBooking] MUA userId: {} confirmed booking ID: {}", muaUserId, bookingId);
     }
 
@@ -439,6 +450,16 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         } catch (Exception ex) {
             log.warn("[ScheduledBooking] Failed to broadcast MUA_REJECTED_SCHEDULED_BOOKING: {}", ex.getMessage());
         }
+
+        // Publish event để kích hoạt thông báo chuông in-app về việc hủy ca
+        eventPublisher.publishEvent(new BookingStateChangedEvent(
+                this,
+                booking.getId(),
+                booking.getBookingCode(),
+                prevStatus,
+                BookingStatus.CANCELLED,
+                muaUserId
+        ));
 
         log.info("[ScheduledBooking] MUA userId: {} rejected booking ID: {}, reason: {}", muaUserId, bookingId, cancelReason);
     }

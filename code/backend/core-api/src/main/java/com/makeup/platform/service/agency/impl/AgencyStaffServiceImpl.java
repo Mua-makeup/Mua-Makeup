@@ -395,6 +395,21 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         }
 
         AgencyStaffEntity saved = agencyStaffRepository.save(staff);
+
+        // Bắn thông báo In-App + WebSocket P2P + Gửi Email thông báo tới Thợ MUA
+        try {
+            boolean isApproved = "APPROVE".equals(decision);
+            notificationService.createStaffApplicationResultNotification(
+                    agency,
+                    saved.getMua(),
+                    isApproved,
+                    saved.getAgreedCommissionRate(),
+                    saved.getNote()
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch staff application result notification for staffId={}", staffId, notifEx);
+        }
+
         return agencyStaffMapper.toRes(saved);
     }
 

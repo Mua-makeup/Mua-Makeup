@@ -329,7 +329,77 @@ export const bookingService = {
       emergencyProofUrl,
     });
   },
+
+  /**
+   * Lấy đơn hàng đang hoạt động kèm toàn bộ timeline lịch sử chi tiết (Realtime Backend PostgreSQL)
+   */
+  async getActiveTrackingBooking(): Promise<CustomerActiveTrackingData | null> {
+    try {
+      const response = await apiClient.get('/customer/bookings/active-tracking');
+      return response.data?.data || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Lấy lịch sử biến động chi tiết của một đơn hàng bất kỳ
+   */
+  async getBookingHistoryLogs(bookingId: number): Promise<BookingHistoryLogItem[]> {
+    try {
+      const response = await apiClient.get(`/bookings/${bookingId}/history`);
+      return response.data?.data?.historyLogs || [];
+    } catch {
+      return [];
+    }
+  },
 };
+
+export interface BookingHistoryLogItem {
+  id: number;
+  fromStatus?: string;
+  toStatus: string;
+  actionTitle?: string;
+  changedByUserId?: number;
+  changedBy?: string;
+  artistName?: string;
+  artistPhone?: string;
+  originAddress?: string;
+  destinationAddress?: string;
+  note?: string;
+  formattedTime?: string;
+  createdAt: string;
+}
+
+export interface CustomerActiveTrackingData {
+  bookingId: number;
+  bookingCode: string;
+  currentStatus: BookingStatusType;
+  bookingType: string;
+  destinationAddress: string;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
+  bookingDate?: string;
+  startTime?: string;
+  customerId?: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerAvatar?: string;
+  muaId?: number;
+  muaName?: string;
+  muaPhone?: string;
+  muaAvatar?: string;
+  muaRating?: number;
+  agencyName?: string;
+  agencyAddress?: string;
+  packageName?: string;
+  styleName?: string;
+  totalAmount?: number;
+  depositAmount?: number;
+  remainingAmount?: number;
+  isDepositPaid?: boolean;
+  historyLogs?: BookingHistoryLogItem[];
+}
 
 export interface RecentAddressItem {
   address: string;
@@ -338,3 +408,4 @@ export interface RecentAddressItem {
   lastUsedAt?: string;
   orderCount?: number;
 }
+

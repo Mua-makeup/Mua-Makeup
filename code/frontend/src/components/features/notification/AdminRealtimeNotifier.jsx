@@ -30,7 +30,7 @@ export const AdminRealtimeNotifier = () => {
         const notifData = notifRes?.data || notifRes || {};
         const list = Array.isArray(notifData) ? notifData : notifData.content || [];
         const unreadList = list
-          .filter((item) => !item.isRead && item.type === 'CERTIFICATE_VERIFICATION')
+          .filter((item) => !item.isRead && (item.type === 'CERTIFICATE_VERIFICATION' || item.type === 'BOOKING_DISPUTE'))
           .map(mapServerNotification);
 
         if (isMounted && unreadList.length > 0) {

@@ -13,13 +13,20 @@ export interface SwipeableBottomSheetProps {
   showCloseButton?: boolean;
   showHandleBar?: boolean;
   headerRight?: React.ReactNode;
+  avoidKeyboard?: boolean;
 }
 
 export const SwipeableBottomSheet: React.FC<SwipeableBottomSheetProps> = ({
   visible, onClose, dismissDisabled = false, title, subtitle, children,
-  showCloseButton = true, headerRight,
+  showCloseButton = true, headerRight, avoidKeyboard = true,
 }) => (
-  <DismissibleModal visible={visible} onClose={onClose} dismissDisabled={dismissDisabled} contentStyle={styles.sheetCard}>
+  <DismissibleModal
+    visible={visible}
+    onClose={onClose}
+    dismissDisabled={dismissDisabled}
+    contentStyle={styles.sheetCard}
+    avoidKeyboard={avoidKeyboard}
+  >
     {(Boolean(title) || showCloseButton || Boolean(headerRight)) && (
       <View style={styles.dragArea}>
                 <View style={styles.headerRow}>

@@ -36,7 +36,9 @@
     "email_required_for_admin_2fa": "Admin account requires a valid email address for 2FA verification.",
     "temp_token_required": "Temporary session token is required.",
     "otp_required": "OTP code is required.",
-    "otp_format_invalid": "OTP code must be exactly 6 digits."
+    "otp_format_invalid": "OTP code must be exactly 6 digits.",
+    "push_token_required": "Push token is required.",
+    "push_token_updated": "Device push token updated successfully."
   },
   "customer": {
     "profile_update_success": "Customer profile updated successfully!"
@@ -516,6 +518,8 @@
     "certificate_upload_content": "Makeup Artist {0} uploaded certificate '{1}' requiring Super Admin approval.",
     "booking_accepted_title": "Artist accepted your booking!",
     "booking_accepted_content": "Makeup Artist {0} has confirmed your appointment #{1}.",
+    "scheduled_booking_accepted_title": "Artist confirmed your scheduled appointment!",
+    "scheduled_booking_accepted_content": "Makeup Artist {0} has confirmed appointment #{1} on {2} at {3}.",
     "booking_on_the_way_title": "Artist is on the way!",
     "booking_on_the_way_content": "Makeup Artist {0} has departed and is on the way to your destination.",
     "booking_arrived_title": "Artist has arrived!",
@@ -527,7 +531,15 @@
     "booking_cancelled_title": "Booking has been cancelled",
     "booking_cancelled_content": "Booking #{0} was cancelled. Reason: {1}.",
     "booking_deposit_refunded_title": "Deposit Refunded",
-    "booking_deposit_refunded_content": "Deposit of {0} VND for booking #{1} has been refunded to your wallet."
+    "booking_deposit_refunded_content": "Deposit of {0} VND for booking #{1} has been refunded to your wallet.",
+    "cert_approved_title": "Your Certificate Has Been Approved!",
+    "cert_approved_content": "Congratulations! Your certificate \"{0}\" has been approved by the Admin. You can now toggle online to receive bookings.",
+    "cert_rejected_title": "Certificate Verification Rejected",
+    "cert_rejected_content": "Your certificate \"{0}\" was rejected. Reason: {1}",
+    "staff_app_approved_title": "Welcome to {0}!",
+    "staff_app_approved_content": "Congratulations, your application to join Studio {0} has been approved with a commission rate of {1}.",
+    "staff_app_rejected_title": "Staff Application Result for {0}",
+    "staff_app_rejected_content": "Studio {0} has rejected your application. Note: {2}"
   },
   "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Requested payment gateway was not found.",
   "ERR_PAYMENT_GATEWAY_DISABLED": "This payment gateway is currently disabled.",

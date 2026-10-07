@@ -6,11 +6,13 @@ import com.makeup.platform.dto.request.wallet.CashPaymentConfirmationReq;
 import com.makeup.platform.dto.response.wallet.CashReceiptStatusRes;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.booking.BookingType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.wallet.BookingCashReceiptEntity;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
+import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
 import com.makeup.platform.service.wallet.CashPaymentService;
 import lombok.RequiredArgsConstructor;
@@ -19,10 +21,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -42,6 +46,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     private final MuaProfileRepository muaProfileRepository;
     private final BookingSettlementService bookingSettlementService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -219,6 +224,44 @@ public class CashPaymentServiceImpl implements CashPaymentService {
                 }
             } catch (Exception ex) {
                 log.warn("[CashReceipt] Failed to broadcast BOTH_CONFIRMED: {}", ex.getMessage());
+            }
+
+            // Phần 2: Gửi mail cảm ơn & biên lai thanh toán tiền mặt thành công cho khách hàng đơn khẩn cấp
+            var booking = receipt.getBooking();
+            if (booking != null && booking.getBookingType() == BookingType.REALTIME_INSTANT
+                    && booking.getCustomer() != null && StringUtils.hasText(booking.getCustomer().getEmail())) {
+                try {
+                    String toEmail = booking.getCustomer().getEmail().trim();
+                    String customerName = booking.getCustomer().getFullName();
+                    String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(bookingId);
+                    String bookingType = booking.getBookingType() != null ? booking.getBookingType().name() : "REALTIME_INSTANT";
+                    String artistName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                            ? booking.getMua().getUser().getFullName()
+                            : "Chuyên viên trang điểm";
+                    String packageName = booking.getServicePackage() != null
+                            ? booking.getServicePackage().getPackageName()
+                            : "Dịch vụ Make-up Khẩn cấp";
+                    String styleName = booking.getStyle() != null
+                            ? booking.getStyle().getStyleName()
+                            : "Tiêu chuẩn";
+                    String destinationAddress = booking.getDestinationAddress();
+                    String paymentCode = "CASH-" + bookingCode;
+                    String completedAt = OffsetDateTime.now(VIETNAM_OFFSET)
+                            .format(DateTimeFormatter.ofPattern("HH:mm:ss - dd/MM/yyyy"));
+                    BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+                    BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+                    BigDecimal finalAmount = receipt.getExpectedAmount() != null ? receipt.getExpectedAmount() : BigDecimal.ZERO;
+
+                    emailService.sendCustomerBookingCompletedReceiptEmail(
+                            toEmail, customerName, bookingCode, bookingType,
+                            artistName, packageName, styleName, destinationAddress,
+                            totalAmount, depositAmount, finalAmount,
+                            "Tiền mặt (CASH)", paymentCode, completedAt
+                    );
+                    log.info("[CashReceipt] Dispatched customer receipt email for bookingCode={} to {}", bookingCode, toEmail);
+                } catch (Exception ex) {
+                    log.error("[CashReceipt] Failed to send receipt email for bookingId={}: {}", bookingId, ex.getMessage(), ex);
+                }
             }
         }
         return receipt;

@@ -718,8 +718,14 @@ export default function MuaWorkProfileScreen() {
         onClose={() => setIsCertModalVisible(false)}
         title="Thêm Chứng Chỉ Nghề Nghiệp"
         subtitle="Tải lên bằng cấp để xác thực hồ sơ và kích hoạt nhận đơn trực tuyến"
+        avoidKeyboard={true}
       >
-        <View style={styles.certModalBody}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.certModalBody}
+          bounces={false}
+        >
           <Text style={styles.fieldLabel}>
             Tên Chứng Chỉ / Bằng Cấp <Text style={styles.required}>*</Text>
           </Text>
@@ -760,7 +766,7 @@ export default function MuaWorkProfileScreen() {
               <Text style={styles.submitCertBtnText}>Tải Lên Chứng Chỉ</Text>
             )}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </SwipeableBottomSheet>
 
       {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
@@ -1226,6 +1232,7 @@ const styles = StyleSheet.create({
   },
   certModalBody: {
     gap: 8,
+    paddingBottom: 24,
   },
   certImageUploadBox: {
     height: 120,

@@ -14,6 +14,7 @@ import com.makeup.platform.dto.request.auth.RefreshTokenReq;
 import com.makeup.platform.dto.request.auth.RegisterReq;
 import com.makeup.platform.dto.request.auth.Resend2FaReq;
 import com.makeup.platform.dto.request.auth.UpdateLanguageReq;
+import com.makeup.platform.dto.request.auth.UpdatePushTokenReq;
 import com.makeup.platform.dto.request.auth.Verify2FaReq;
 import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
@@ -508,5 +509,17 @@ public class AuthServiceImpl implements AuthService {
             return "CT";
         }
         return "VN";
+    }
+
+    @Override
+    @Transactional
+    public void updatePushToken(Long userId, UpdatePushTokenReq req) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
+                        "auth.user_not_found", HttpStatus.NOT_FOUND));
+        String token = req.getPushToken() != null ? req.getPushToken().trim() : null;
+        user.setPushToken(token);
+        userRepository.save(user);
+        log.info("Updated Expo push token for userId={}: {}", userId, token);
     }
 }

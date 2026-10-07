@@ -432,6 +432,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
+
   profileEditBtn: {
     width: 38,
     height: 38,

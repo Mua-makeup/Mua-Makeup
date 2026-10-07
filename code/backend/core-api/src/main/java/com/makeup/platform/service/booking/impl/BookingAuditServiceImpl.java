@@ -38,18 +38,70 @@ public class BookingAuditServiceImpl implements BookingAuditService {
             changedByUser = userRepository.findById(changedByUserId).orElse(null);
         }
 
+        String finalNote = enrichTransitionNote(booking, toStatus, note);
+
         BookingHistoryEntity history = BookingHistoryEntity.builder()
                 .booking(booking)
                 .fromStatus(fromStatus)
                 .toStatus(toStatus)
                 .changedByUser(changedByUser)
-                .note(note)
+                .note(finalNote)
                 .build();
 
-        log.info("[BookingAudit] Transition logged for bookingId={}, fromStatus={}, toStatus={}, userId={}",
-                booking.getId(), fromStatus, toStatus, changedByUserId);
+        log.info("[BookingAudit] Transition logged for bookingId={}, fromStatus={}, toStatus={}, userId={}, note={}",
+                booking.getId(), fromStatus, toStatus, changedByUserId, finalNote);
 
         return bookingHistoryRepository.save(history);
+    }
+
+    private String enrichTransitionNote(BookingEntity booking, BookingStatus toStatus, String rawNote) {
+        if (booking == null || toStatus == null) {
+            return rawNote;
+        }
+
+        String artistName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                ? booking.getMua().getUser().getFullName()
+                : "Chuyên viên trang điểm";
+        String artistPhone = (booking.getMua() != null && booking.getMua().getUser() != null)
+                ? booking.getMua().getUser().getPhoneNumber()
+                : "";
+        String dest = booking.getDestinationAddress() != null ? booking.getDestinationAddress() : "địa chỉ hẹn";
+        String origin = "Điểm xuất phát của chuyên viên";
+        if (booking.getAgency() != null) {
+            StringBuilder sb = new StringBuilder();
+            if (booking.getAgency().getAddressStreet() != null) sb.append(booking.getAgency().getAddressStreet());
+            if (booking.getAgency().getDistrict() != null) {
+                if (!sb.isEmpty()) sb.append(", ");
+                sb.append(booking.getAgency().getDistrict());
+            }
+            if (booking.getAgency().getCity() != null) {
+                if (!sb.isEmpty()) sb.append(", ");
+                sb.append(booking.getAgency().getCity());
+            }
+            origin = sb.isEmpty() ? booking.getAgency().getAgencyName() : sb.toString();
+        } else if (booking.getMua() != null && booking.getMua().getBaseAddressText() != null && !booking.getMua().getBaseAddressText().isBlank()) {
+            origin = booking.getMua().getBaseAddressText();
+        }
+
+        return switch (toStatus) {
+            case REQUESTED -> "Khách hàng tạo đơn và hoàn tất đặt cọc. Đơn hàng đang chờ chuyên viên tiếp nhận.";
+            case ACCEPTED -> "Chuyên viên " + artistName + " đã xác nhận tiếp nhận đơn hàng thành công.";
+            case ON_THE_WAY -> "Chuyên viên " + artistName + " đã xuất phát từ " + origin + " và đang di chuyển đến: " + dest + (artistPhone.isBlank() ? "" : " (SĐT: " + artistPhone + ")");
+            case ARRIVED -> "Chuyên viên " + artistName + " đã có mặt tại điểm hẹn: " + dest + ". Quý khách vui lòng kiểm tra điện thoại.";
+            case IN_PROGRESS -> {
+                String pkgName = booking.getServicePackage() != null ? booking.getServicePackage().getPackageName() : "dịch vụ";
+                String styleName = booking.getStyle() != null ? booking.getStyle().getStyleName() : "tiêu chuẩn";
+                yield "Chuyên viên " + artistName + " đang thực hiện làm đẹp (" + pkgName + " - Phong cách: " + styleName + ").";
+            }
+            case COMPLETED -> {
+                String total = booking.getTotalAmount() != null ? String.format("%,.0f đ", booking.getTotalAmount()) : "";
+                yield "Chuyên viên đã hoàn tất ca làm đẹp xuất sắc. Tổng thanh toán: " + total + ". Cảm ơn Quý khách!";
+            }
+            case PAID_OUT -> "Hệ thống hoàn tất quyết toán đơn hàng.";
+            case CANCELLED, CANCELLED_EXPIRED -> (rawNote != null && !rawNote.isBlank() && !rawNote.startsWith("Chuyển trạng thái")) ? rawNote : "Đơn hàng đã bị hủy theo yêu cầu.";
+            case DISPUTED -> (rawNote != null && !rawNote.isBlank() && !rawNote.startsWith("Chuyển trạng thái")) ? rawNote : "Khách hàng đã gửi yêu cầu xử lý sự cố / khiếu nại.";
+            default -> (rawNote != null && !rawNote.isBlank()) ? rawNote : "Cập nhật trạng thái sang " + toStatus.name();
+        };
     }
 
     @Override

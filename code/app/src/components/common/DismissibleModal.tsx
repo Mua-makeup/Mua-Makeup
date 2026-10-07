@@ -18,7 +18,7 @@ interface SurfaceProps {
 }
 
 /** Shared backdrop and drag handle. Scroll views, maps and inputs keep their own gestures. */
-export function DismissibleSurface({ visible, onClose, dismissDisabled = false, overlayStyle, contentStyle, children, overlays, fullHeight, onDismissStart, avoidKeyboard = false }: SurfaceProps) {
+export function DismissibleSurface({ visible, onClose, dismissDisabled = false, overlayStyle, contentStyle, children, overlays, fullHeight, onDismissStart, avoidKeyboard = true }: SurfaceProps) {
   const { height } = useWindowDimensions();
   const translateY = useRef(new Animated.Value(0)).current;
   const dismissing = useRef(false);

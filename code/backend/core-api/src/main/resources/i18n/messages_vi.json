@@ -36,7 +36,9 @@
     "email_required_for_admin_2fa": "Tài khoản quản trị cần có địa chỉ email hợp lệ để nhận mã xác thực 2FA.",
     "temp_token_required": "Mã phiên tạm thời không được để trống.",
     "otp_required": "Mã xác thực OTP không được để trống.",
-    "otp_format_invalid": "Mã OTP phải gồm 6 chữ số."
+    "otp_format_invalid": "Mã OTP phải gồm 6 chữ số.",
+    "push_token_required": "Push token không được để trống.",
+    "push_token_updated": "Cập nhật push token thiết bị thành công."
   },
   "customer": {
     "profile_update_success": "Cập nhật hồ sơ khách hàng thành công!"
@@ -516,6 +518,8 @@
     "certificate_upload_content": "Thợ trang điểm {0} vừa tải lên chứng chỉ '{1}' cần được Ban Quản Trị phê duyệt.",
     "booking_accepted_title": "Thợ đã nhận ca làm đẹp!",
     "booking_accepted_content": "Chuyên viên {0} đã xác nhận nhận lịch hẹn #{1} của bạn.",
+    "scheduled_booking_accepted_title": "Chuyên viên đã nhận lịch hẹn của bạn!",
+    "scheduled_booking_accepted_content": "Chuyên viên {0} đã xác nhận nhận lịch hẹn #{1} vào ngày {2} lúc {3}.",
     "booking_on_the_way_title": "Thợ đang di chuyển đến bạn!",
     "booking_on_the_way_content": "Chuyên viên {0} đã xuất phát và đang trên đường đến địa chỉ hẹn.",
     "booking_arrived_title": "Thợ đã đến điểm hẹn!",
@@ -527,7 +531,15 @@
     "booking_cancelled_title": "Lịch hẹn đã bị hủy",
     "booking_cancelled_content": "Lịch hẹn #{0} đã bị hủy. Lý do: {1}.",
     "booking_deposit_refunded_title": "Hoàn tiền đặt cọc",
-    "booking_deposit_refunded_content": "Số tiền cọc {0} đ của đơn #{1} đã được hoàn về ví của bạn."
+    "booking_deposit_refunded_content": "Số tiền cọc {0} đ của đơn #{1} đã được hoàn về ví của bạn.",
+    "cert_approved_title": "Chứng Chỉ Của Bạn Đã Được Phê Duyệt!",
+    "cert_approved_content": "Chúc mừng! Chứng chỉ \"{0}\" của bạn đã được Ban Quản Trị phê duyệt. Bạn đã có thể kích hoạt tính năng nhận ca trực tuyến.",
+    "cert_rejected_title": "Chứng Chỉ Chưa Được Phê Duyệt",
+    "cert_rejected_content": "Chứng chỉ \"{0}\" của bạn chưa được phê duyệt. Lý do: {1}",
+    "staff_app_approved_title": "Chào Mừng Gia Nhập {0}!",
+    "staff_app_approved_content": "Chúc mừng bạn đã được Studio {0} phê duyệt gia nhập với tỷ lệ hoa hồng {1}.",
+    "staff_app_rejected_title": "Kết Quả Đơn Xin Gia Nhập {0}",
+    "staff_app_rejected_content": "Studio {0} đã từ chối đơn gia nhập của bạn. Ghi chú: {2}"
   },
   "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Không tìm thấy cổng thanh toán yêu cầu.",
   "ERR_PAYMENT_GATEWAY_DISABLED": "Cổng thanh toán này hiện đang tạm ngưng hoạt động.",

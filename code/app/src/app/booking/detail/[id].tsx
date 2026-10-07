@@ -26,6 +26,7 @@ import { BrandColors } from '@/constants/theme';
 import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
+import { useNotificationStore } from '@/store/notification.store';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { formatDateTimeVN } from '@/utils/date';
 
@@ -182,17 +183,60 @@ export default function CustomerBookingDetailScreen() {
       const topic = `/topic/booking-status/${bookingId}`;
       websocketService.subscribe(topic, (msg: any) => {
         if (msg) {
+          const nextStatus = msg.currentStatus || msg.status;
           if (
-            msg.status === 'PAID_OUT' ||
+            nextStatus === 'PAID_OUT' ||
             msg.type === 'PAYMENT_COMPLETED' ||
             msg.isDepositPaid ||
-            msg.status === 'ACCEPTED'
+            nextStatus === 'ACCEPTED'
           ) {
             try {
               WebBrowser.dismissBrowser();
             } catch {}
           }
           loadBookingData(true);
+
+          // Kích hoạt Toast thông báo chữ nổi bật
+          let toastTitle = 'Cập Nhật Đơn Hàng';
+          let toastContent = msg.message || `Lịch hẹn #${bookingDetail?.bookingCode || bookingId} vừa có cập nhật mới.`;
+          let toastType = 'NOTIFICATION';
+
+          if (nextStatus === 'ON_THE_WAY') {
+            toastTitle = 'Chuyên Viên Đang Di Chuyển';
+            toastContent = 'Chuyên viên make-up đang trên đường di chuyển đến điểm hẹn của bạn.';
+            toastType = 'BOOKING_ON_THE_WAY';
+          } else if (nextStatus === 'ARRIVED') {
+            toastTitle = 'Chuyên Viên Đã Đến Nơi';
+            toastContent = 'Chuyên viên make-up đã có mặt tại điểm hẹn của bạn. Vui lòng đón thợ!';
+            toastType = 'BOOKING_ARRIVED';
+          } else if (nextStatus === 'IN_PROGRESS') {
+            toastTitle = 'Đang Tiến Hành Make-Up';
+            toastContent = 'Chuyên viên đã chính thức bắt đầu buổi làm đẹp cho bạn.';
+            toastType = 'BOOKING_IN_PROGRESS';
+          } else if (nextStatus === 'COMPLETED') {
+            toastTitle = 'Buổi Make-Up Hoàn Tất';
+            toastContent = 'Dịch vụ trang điểm đã hoàn tất thành công. Vui lòng kiểm tra và thanh toán!';
+            toastType = 'BOOKING_COMPLETED';
+          } else if (nextStatus === 'CANCELLED') {
+            toastTitle = 'Đơn Hàng Đã Bị Hủy';
+            toastContent = msg.message || 'Lịch hẹn trang điểm đã bị hủy.';
+            toastType = 'BOOKING_CANCELLED';
+          } else if (nextStatus === 'PAID_OUT') {
+            toastTitle = 'Thanh Toán Thành Công';
+            toastContent = 'Khoản thanh toán dịch vụ đã hoàn tất trọn vẹn.';
+            toastType = 'PAID_OUT';
+          }
+
+          useNotificationStore.getState().showToast({
+            id: Date.now(),
+            type: toastType,
+            title: toastTitle,
+            content: toastContent,
+            bookingId,
+            bookingCode: bookingDetail?.bookingCode,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+          });
         }
       });
       return () => {

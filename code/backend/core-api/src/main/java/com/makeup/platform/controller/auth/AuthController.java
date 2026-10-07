@@ -13,6 +13,7 @@ import com.makeup.platform.dto.request.auth.RefreshTokenReq;
 import com.makeup.platform.dto.request.auth.RegisterReq;
 import com.makeup.platform.dto.request.auth.Resend2FaReq;
 import com.makeup.platform.dto.request.auth.UpdateLanguageReq;
+import com.makeup.platform.dto.request.auth.UpdatePushTokenReq;
 import com.makeup.platform.dto.request.auth.Verify2FaReq;
 import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
@@ -27,6 +28,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -148,5 +150,13 @@ public class AuthController extends BaseController {
             @Valid @RequestBody UpdateLanguageReq req) {
         UserInfoRes res = authService.updateLanguage(userId, req);
         return ok(res, "auth.language_updated");
+    }
+
+    @PatchMapping("/push-token")
+    public ResponseEntity<ApiResponse<Void>> updatePushToken(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody UpdatePushTokenReq req) {
+        authService.updatePushToken(userId, req);
+        return ok(null, "auth.push_token_updated");
     }
 }

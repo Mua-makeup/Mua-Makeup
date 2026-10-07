@@ -100,9 +100,17 @@ public class JsonMessageSource extends AbstractMessageSource {
         }
         if (args != null && args.length > 0 && msg != null && msg.contains("{")) {
             try {
-                return MessageFormat.format(msg, args);
+                // Thoát dấu nháy đơn trước placeholder để MessageFormat không nuốt thành literal
+                String sanitized = msg.replace("'{", "''{").replace("}'", "}''");
+                msg = MessageFormat.format(sanitized, args);
             } catch (Exception e) {
                 log.debug("Message formatting failed for pattern '{}': {}", msg, e.getMessage());
+            }
+
+            // Đảm bảo an toàn tuyệt đối: nếu còn sót bất kỳ {0}, {1}... thì thay thế trực tiếp
+            for (int i = 0; i < args.length; i++) {
+                String val = args[i] != null ? args[i].toString() : "";
+                msg = msg.replace("{" + i + "}", val);
             }
         }
         return msg;

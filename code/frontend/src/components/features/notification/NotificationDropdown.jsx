@@ -15,10 +15,13 @@ import {
 } from 'lucide-react';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { useAuth } from '../../../hooks/useAuth';
+import { USER_ROLES } from '../../../constants/roles.constant';
 import { formatCurrency, formatDate, formatBookingDateTime } from '../../../utils/formatters';
 
 export const NotificationDropdown = ({ agencyLogo }) => {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const { t, language } = useI18nStore();
   const {
     notifications,
@@ -125,8 +128,14 @@ export const NotificationDropdown = ({ agencyLogo }) => {
       navigate('/agency/staff');
     } else if (notif.type === 'CERTIFICATE_VERIFICATION') {
       navigate('/admin/muas/credentials');
+    } else if (notif.type === 'BOOKING_DISPUTE') {
+      navigate('/admin/disputes');
     } else {
-      navigate('/agency/bookings');
+      if (role === USER_ROLES.SUPER_ADMIN) {
+        navigate('/admin/muas/credentials');
+      } else {
+        navigate('/agency/bookings');
+      }
     }
   };
 
@@ -149,6 +158,13 @@ export const NotificationDropdown = ({ agencyLogo }) => {
       return (
         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-amber-200 dark:border-amber-800 flex items-center justify-center bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
           <Award className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-purple-200 dark:border-purple-800 flex items-center justify-center bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
+          <ShieldAlert className="w-4 h-4" />
         </div>
       );
     }
@@ -378,6 +394,23 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                           </span>
                         </div>
                       </>
+                    ) : notif.type === 'BOOKING_DISPUTE' ? (
+                      <>
+                        <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-0.5 leading-snug line-clamp-2 font-medium">
+                          {notif.content || 'Khách hàng/Thợ gửi báo cáo sự cố cần Admin giải quyết.'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] flex-wrap">
+                          {notif.bookingCode && (
+                            <span className="font-mono bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                              #{notif.bookingCode}
+                            </span>
+                          )}
+                          <span className="text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            {t('btn_resolve_dispute') || 'Xử lý khiếu nại'}
+                          </span>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">
@@ -416,11 +449,19 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
-                  navigate('/agency/bookings');
+                  if (role === USER_ROLES.SUPER_ADMIN) {
+                    navigate('/admin/muas/credentials');
+                  } else {
+                    navigate('/agency/bookings');
+                  }
                 }}
                 className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 flex items-center justify-center gap-1.5 w-full py-1 transition-colors cursor-pointer"
               >
-                <span>{t('view_all_bookings')}</span>
+                <span>
+                  {role === USER_ROLES.SUPER_ADMIN
+                    ? t('btn_verify_certificate') || 'Duyệt Chứng Chỉ Thợ'
+                    : t('view_all_bookings')}
+                </span>
                 <ExternalLink className="w-3 h-3" />
               </button>
             </div>

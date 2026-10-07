@@ -36,6 +36,7 @@ import { taxonomyService, MasterCategory } from '@/services/taxonomy.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { useNotificationStore } from '@/store/notification.store';
 import * as Haptics from 'expo-haptics';
 
 const getCategoryIcon = (categoryName?: string): keyof typeof Ionicons.glyphMap => {
@@ -94,6 +95,8 @@ export default function HomeScreen() {
     pendingScheduledOffers,
     triggerScheduledOffer,
   } = useWorkstationStore();
+
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   useEffect(() => {
     // Chỉ hiển thị hướng dẫn Onboarding khi người dùng mở ứng dụng lần đầu
@@ -219,9 +222,19 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerRightActions}>
-          <TouchableOpacity style={styles.iconCircleButton} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.iconCircleButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/notifications')}
+          >
             <Ionicons name="notifications-outline" size={20} color={BrandColors.slateHeading} />
-            <View style={styles.badgeDot} />
+            {unreadCount > 0 ? (
+              <View style={styles.badgeCountPill}>
+                <Text style={styles.badgeCountText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
 
           {isAuthenticated ? (
@@ -880,6 +893,25 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: BrandColors.primary,
+  },
+  badgeCountPill: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 8.5,
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  badgeCountText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
   },
   loginPillButton: {
     flexDirection: 'row',

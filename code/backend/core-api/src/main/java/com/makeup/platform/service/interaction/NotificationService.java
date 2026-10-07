@@ -9,6 +9,8 @@ import com.makeup.platform.entity.mua.MuaProfileEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
+
 public interface NotificationService {
 
     Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Pageable pageable);
@@ -40,6 +42,21 @@ public interface NotificationService {
             MuaProfileEntity mua,
             String certName,
             String imageUrl
+    );
+
+    void createCertificateVerificationResultNotification(
+            MuaProfileEntity mua,
+            String certName,
+            boolean isVerified,
+            String notes
+    );
+
+    void createStaffApplicationResultNotification(
+            AgencyProfileEntity agency,
+            MuaProfileEntity mua,
+            boolean isApproved,
+            BigDecimal commissionRate,
+            String notes
     );
 
     NotificationEntity createEmergencyNotification(EmergencyReassignmentRequestedEvent event);

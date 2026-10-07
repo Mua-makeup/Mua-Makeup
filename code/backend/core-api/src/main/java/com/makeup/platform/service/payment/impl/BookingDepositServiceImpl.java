@@ -25,6 +25,7 @@ import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.payment.BookingDepositService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.payment.gateway.GatewayPaymentResult;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayRegistry;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayStrategy;
@@ -37,6 +38,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -44,9 +46,11 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,6 +79,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     private final StringRedisTemplate stringRedisTemplate;
     private final BookingSettlementService bookingSettlementService;
     private final BookingAuditService bookingAuditService;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -548,6 +553,51 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
 
         log.info("[Deposit] Deposit applied successfully for booking {} via payment {}", bookingId, paymentId);
+
+        // Gửi email thông báo đặt cọc thành công kèm lời nhắc thợ sẽ di chuyển sau 15-30 phút (CHỈ ÁP DỤNG CHO ĐƠN KHẨN CẤP REALTIME_INSTANT)
+        if (booking.getBookingType() == BookingType.REALTIME_INSTANT
+                && booking.getCustomer() != null
+                && StringUtils.hasText(booking.getCustomer().getEmail())) {
+            try {
+                String toEmail = booking.getCustomer().getEmail().trim();
+                String customerName = booking.getCustomer().getFullName();
+                String bookingCode = booking.getBookingCode();
+                String bookingType = booking.getBookingType() != null ? booking.getBookingType().name() : "REALTIME_INSTANT";
+                String artistName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                        ? booking.getMua().getUser().getFullName()
+                        : "Chuyên viên trang điểm";
+                String artistPhone = (booking.getMua() != null && booking.getMua().getUser() != null)
+                        ? booking.getMua().getUser().getPhoneNumber()
+                        : "Chưa cập nhật";
+                String artistRating = (booking.getMua() != null && booking.getMua().getRatingAvg() != null)
+                        ? String.format(Locale.US, "%.1f", booking.getMua().getRatingAvg())
+                        : "5.0";
+                String packageName = booking.getServicePackage() != null
+                        ? booking.getServicePackage().getPackageName()
+                        : "Gói Dịch Vụ Khẩn Cấp";
+                String styleName = booking.getStyle() != null
+                        ? booking.getStyle().getStyleName()
+                        : "Tiêu chuẩn";
+                String destinationAddress = booking.getDestinationAddress();
+                BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+                BigDecimal depositAmount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+                BigDecimal remainingAmount = totalAmount.subtract(depositAmount).max(BigDecimal.ZERO);
+                String paymentGateway = payment.getPaymentGateway() != null ? payment.getPaymentGateway() : "Trực tuyến";
+                String paymentCode = payment.getPaymentCode();
+                String paidAt = OffsetDateTime.now(VIETNAM_OFFSET)
+                        .format(DateTimeFormatter.ofPattern("HH:mm:ss - dd/MM/yyyy"));
+
+                emailService.sendCustomerDepositSuccessfulEmail(
+                        toEmail, customerName, bookingCode, bookingType,
+                        artistName, artistPhone, artistRating, packageName,
+                        styleName, destinationAddress, totalAmount, depositAmount,
+                        remainingAmount, paymentGateway, paymentCode, paidAt
+                );
+                log.info("[Deposit] Dispatched customer deposit successful email for bookingCode={} to {}", bookingCode, toEmail);
+            } catch (Exception ex) {
+                log.error("[Deposit] Failed to send deposit successful email for booking {}: {}", bookingId, ex.getMessage(), ex);
+            }
+        }
     }
 
     // === Private helpers ===
@@ -761,6 +811,44 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
 
         log.info("[FinalPayment] Successfully settled online final payment for bookingId={}", bookingId);
+
+        // Phần 2: Gửi mail cảm ơn & biên lai thanh toán thành công cho khách hàng đơn khẩn cấp
+        if (payment.getBooking() != null && payment.getBooking().getBookingType() == BookingType.REALTIME_INSTANT
+                && payment.getBooking().getCustomer() != null
+                && StringUtils.hasText(payment.getBooking().getCustomer().getEmail())) {
+            try {
+                BookingEntity booking = payment.getBooking();
+                String toEmail = booking.getCustomer().getEmail().trim();
+                String customerName = booking.getCustomer().getFullName();
+                String bookingCode = booking.getBookingCode();
+                String bookingType = booking.getBookingType() != null ? booking.getBookingType().name() : "REALTIME_INSTANT";
+                String artistName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                        ? booking.getMua().getUser().getFullName()
+                        : "Chuyên viên trang điểm";
+                String packageName = booking.getServicePackage() != null
+                        ? booking.getServicePackage().getPackageName()
+                        : "Dịch vụ Make-up Khẩn cấp";
+                String styleName = booking.getStyle() != null
+                        ? booking.getStyle().getStyleName()
+                        : "Tiêu chuẩn";
+                String destinationAddress = booking.getDestinationAddress();
+                String paymentGateway = payment.getPaymentGateway() != null ? payment.getPaymentGateway() : "Trực tuyến";
+                String completedAt = OffsetDateTime.now(VIETNAM_OFFSET)
+                        .format(DateTimeFormatter.ofPattern("HH:mm:ss - dd/MM/yyyy"));
+                BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+                BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+
+                emailService.sendCustomerBookingCompletedReceiptEmail(
+                        toEmail, customerName, bookingCode, bookingType,
+                        artistName, packageName, styleName, destinationAddress,
+                        totalAmount, depositAmount, payment.getAmount(),
+                        paymentGateway, payment.getPaymentCode(), completedAt
+                );
+                log.info("[FinalPayment] Dispatched customer receipt email for bookingCode={} to {}", bookingCode, toEmail);
+            } catch (Exception ex) {
+                log.error("[FinalPayment] Failed to send receipt email for bookingId={}: {}", bookingId, ex.getMessage(), ex);
+            }
+        }
     }
 
     private WalletEntity createWalletForUser(Long userId, UserEntity user) {

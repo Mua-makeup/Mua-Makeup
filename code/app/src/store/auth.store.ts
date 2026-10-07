@@ -4,6 +4,8 @@ import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/util
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { websocketService } from '@/services/websocket.service';
+import { registerForPushNotificationsAsync } from '@/services/push-notification.service';
+import { useNotificationStore } from '@/store/notification.store';
 
 interface AuthState {
   accessToken: string | null;
@@ -85,6 +87,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         userInfo: res.userInfo,
         isAuthenticated: true,
       });
+
+      // Đăng ký push token lên server
+      registerForPushNotificationsAsync();
+
+      // Kích hoạt notification store & websocket listener cho phiên đăng nhập mới
+      useNotificationStore.getState().cleanWebSocketListener();
+      useNotificationStore.getState().fetchUnreadCount();
+      useNotificationStore.getState().initWebSocketListener();
     } finally {
       set({ isLoading: false });
     }
@@ -128,6 +138,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // 1. Ngắt WebSocket HOÀN TOÀN: Xóa sạch registeredHandlers + deactivate client
       //    Ngăn WebSocket tự reconnect và re-subscribe topic thợ cũ sau khi đổi tài khoản
       websocketService.disconnectAll();
+
+      // 2. Dọn dẹp Notification listener & state
+      useNotificationStore.getState().cleanWebSocketListener();
+      useNotificationStore.setState({
+        notifications: [],
+        unreadCount: 0,
+        isSubscribed: false,
+        activeToast: null,
+      });
 
       // Reset toàn bộ workstation state để tránh lộ dữ liệu thợ sang tài khoản khác
       useWorkstationStore.setState({
