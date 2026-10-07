@@ -109,7 +109,7 @@ export const CountdownAcceptModal: React.FC = () => {
     };
   }, [isAcceptModalVisible, activeOffer]);
 
-  if (!isAcceptModalVisible || !activeOffer || !isMuaOrStaff || isScheduledModalVisible) {
+  if (!isAcceptModalVisible || !activeOffer || !isMuaOrStaff || isScheduledModalVisible || (activeOffer as any).bookingType === 'SCHEDULED' || String(activeOffer.bookingCode || '').startsWith('BK-SCHED')) {
     return null;
   }
 

@@ -7,7 +7,7 @@ export interface BookingDepositStatus {
   totalAmount: number;
   requiredDepositAmount: number;
   paidAmount?: number;
-  depositStatus: 'UNPAID' | 'PENDING' | 'PAID' | 'EXPIRED' | 'REFUND_PENDING' | 'REFUNDED';
+  depositStatus: 'UNPAID' | 'PENDING' | 'PAID' | 'EXPIRED' | 'REFUND_PENDING' | 'REFUNDED' | 'SLOT_TAKEN' | string;
   pricingVersion?: string;
   expiresAt: string;
   paidAt?: string;
@@ -17,6 +17,12 @@ export interface BookingDepositStatus {
   currentPaymentExpiresAt?: string;
   currentGatewayCode?: string;
   currentApplicationStatus?: string;
+  bookingStatus?: string;
+  isSlotTaken?: boolean;
+  isRefunded?: boolean;
+  refundAmount?: number;
+  cancellationReason?: string;
+  message?: string;
 }
 
 export interface DepositCheckoutResult {

@@ -205,6 +205,10 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 .version(0L)
                 .build();
 
+        if (req.getPackageId() != null) {
+            servicePackageRepository.findById(req.getPackageId()).ifPresent(booking::setServicePackage);
+        }
+
         if (req.getStyleId() != null) {
             makeupStyleRepository.findById(req.getStyleId()).ifPresent(booking::setStyle);
         }
@@ -217,6 +221,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         stringRedisTemplate.opsForValue().set(InstantBookingKeys.meta(savedBooking.getId()) + ":total", String.valueOf(potentialCount), DISPATCH_STATE_TTL);
         if (req.getTargetMuaId() != null) {
             stringRedisTemplate.opsForValue().set(InstantBookingKeys.meta(savedBooking.getId()) + ":target_mua", String.valueOf(req.getTargetMuaId()), DISPATCH_STATE_TTL);
+        }
+        if (req.getPackageId() != null) {
+            stringRedisTemplate.opsForValue().set(InstantBookingKeys.meta(savedBooking.getId()) + ":target_package", String.valueOf(req.getPackageId()), DISPATCH_STATE_TTL);
         }
 
         // 5. Record Audit log
@@ -831,9 +838,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
     @Override
     @Transactional
-    public boolean confirmDeposit(Long bookingId, Long customerUserId, List<String> addOnNames, BigDecimal addOnTotal) {
-        log.info("[ConfirmDeposit] Customer userId={} confirming deposit for bookingId={}, addOns={}, addOnTotal={}",
-                customerUserId, bookingId, addOnNames, addOnTotal);
+    public boolean confirmDeposit(Long bookingId, Long customerUserId, Long packageId, List<String> addOnNames, BigDecimal addOnTotal) {
+        log.info("[ConfirmDeposit] Customer userId={} confirming deposit for bookingId={}, packageId={}, addOns={}, addOnTotal={}",
+                customerUserId, bookingId, packageId, addOnNames, addOnTotal);
         BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
                         "booking.not_found", HttpStatus.NOT_FOUND));
@@ -850,20 +857,47 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     "booking.invalid_status", HttpStatus.BAD_REQUEST);
         }
 
+        // Cập nhật gói dịch vụ nếu khách hàng chọn gói khác của MUA
+        if (packageId != null && (booking.getServicePackage() == null || !packageId.equals(booking.getServicePackage().getId()))) {
+            ServicePackageEntity selectedPkg = servicePackageRepository.findById(packageId)
+                    .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                            "catalog.package_not_found", HttpStatus.NOT_FOUND));
+            if (booking.getMua() != null && selectedPkg.getMua() != null
+                    && !selectedPkg.getMua().getId().equals(booking.getMua().getId())) {
+                throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                        "booking.package_does_not_belong_to_mua", HttpStatus.BAD_REQUEST);
+            }
+            booking.setServicePackage(selectedPkg);
+            booking.setDurationMinutes(selectedPkg.getEstimatedDurationMinutes());
+            booking.setServiceSubtotal(selectedPkg.getPrice());
+        }
+
+        BigDecimal basePrice = booking.getServicePackage() != null ? booking.getServicePackage().getPrice()
+                : (booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO);
         BigDecimal extra = (addOnTotal != null && addOnTotal.compareTo(BigDecimal.ZERO) > 0)
                 ? addOnTotal : BigDecimal.ZERO;
-        if (extra.compareTo(BigDecimal.ZERO) > 0) {
-            booking.setServiceSubtotal((booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO).add(extra));
-            booking.setTotalAmount(booking.getTotalAmount().add(extra));
-            BigDecimal extraDeposit = extra.multiply(DEPOSIT_RATE).setScale(2, RoundingMode.HALF_UP);
-            booking.setDepositAmount(booking.getDepositAmount().add(extraDeposit));
-        }
+        booking.setServiceSubtotal(basePrice.add(extra));
+
+        BigDecimal surchargeFee = booking.getSurchargeFee() != null ? booking.getSurchargeFee() : BigDecimal.ZERO;
+        BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
+        BigDecimal total = basePrice.add(extra).add(surchargeFee).add(distanceFee);
+        booking.setTotalAmount(total);
+
+        BigDecimal depositAmount = total.multiply(DEPOSIT_RATE).setScale(2, RoundingMode.HALF_UP);
+        booking.setDepositAmount(depositAmount);
 
         if (addOnNames != null && !addOnNames.isEmpty()) {
             booking.setSelectedAddons(String.join(",,,", addOnNames));
             try {
                 if (stringRedisTemplate != null) {
                     stringRedisTemplate.opsForValue().set("booking:selected_addons:" + bookingId, String.join(",,,", addOnNames));
+                }
+            } catch (Exception ignored) {}
+        } else {
+            booking.setSelectedAddons(null);
+            try {
+                if (stringRedisTemplate != null) {
+                    stringRedisTemplate.delete("booking:selected_addons:" + bookingId);
                 }
             } catch (Exception ignored) {}
         }
@@ -896,8 +930,6 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         BigDecimal totalBookingAmount = savedBooking.getTotalAmount() != null ? savedBooking.getTotalAmount() : (savedBooking.getServiceSubtotal() != null ? savedBooking.getServiceSubtotal() : BigDecimal.ZERO);
         BigDecimal platformFee = totalBookingAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal distanceFee = savedBooking.getDistanceFee() != null ? savedBooking.getDistanceFee() : BigDecimal.ZERO;
-        BigDecimal surchargeFee = savedBooking.getSurchargeFee() != null ? savedBooking.getSurchargeFee() : BigDecimal.ZERO;
         BigDecimal earningsAmount = totalBookingAmount.subtract(platformFee);
 
         // Bắn WebSocket thông báo thợ đã được khách chốt dịch vụ thêm & đang chờ cọc
@@ -906,13 +938,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             confirmPayload.put("type", "CUSTOMER_CONFIRMED_ADDONS");
             confirmPayload.put("bookingId", bookingId);
             confirmPayload.put("bookingCode", savedBooking.getBookingCode());
+            confirmPayload.put("packageId", savedBooking.getServicePackage() != null ? savedBooking.getServicePackage().getId() : null);
+            confirmPayload.put("packageName", savedBooking.getServicePackage() != null ? savedBooking.getServicePackage().getPackageName() : null);
             confirmPayload.put("addOnNames", addOnNames != null ? addOnNames : List.of());
             confirmPayload.put("addOnTotal", extra);
+            confirmPayload.put("serviceSubtotal", savedBooking.getServiceSubtotal());
             confirmPayload.put("totalAmount", savedBooking.getTotalAmount());
             confirmPayload.put("depositAmount", savedBooking.getDepositAmount());
             confirmPayload.put("platformFee", platformFee);
             confirmPayload.put("earningsAmount", earningsAmount);
-            confirmPayload.put("message", "Khách hàng đã chốt dịch vụ thêm và đang tiến hành thanh toán cọc 30%.");
+            confirmPayload.put("message", "Khách hàng đã chọn gói dịch vụ & tiện ích, đang tiến hành đặt cọc 30%.");
             confirmPayload.put("timestamp", System.currentTimeMillis());
 
             messagePublisher.send("/topic/booking-customer-addons/" + savedBooking.getMua().getId(), confirmPayload);

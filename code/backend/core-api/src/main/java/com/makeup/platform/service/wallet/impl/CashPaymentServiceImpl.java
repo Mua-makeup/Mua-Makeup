@@ -54,20 +54,23 @@ public class CashPaymentServiceImpl implements CashPaymentService {
         BookingCashReceiptEntity receipt = getOrCreateReceipt(bookingId, customerId, req.getInvoiceVersion());
 
         // Idempotency: cùng key -> cùng kết quả
-        if (req.getIdempotencyKey().equals(receipt.getIdempotencyKeyCustomer())) {
+        if (req.getIdempotencyKey() != null && req.getIdempotencyKey().equals(receipt.getIdempotencyKeyCustomer())) {
             return mapToRes(receipt, bookingId);
         }
 
-        // Kiểm tra đã xác nhận chưa
+        // Nếu khách đã xác nhận rồi thì trả về kết quả
         if (receipt.getCustomerConfirmedAt() != null) {
-            throw new CustomBusinessException(ErrorCodes.ERR_CASH_RECEIPT_ALREADY_CONFIRMED,
-                    "cash_receipt.customer_already_confirmed", HttpStatus.CONFLICT);
+            if (receipt.getFreelancerConfirmedAt() != null && !"BOTH_CONFIRMED".equals(receipt.getStatus())) {
+                receipt = checkAndTriggerSettlement(receipt, bookingId);
+                cashReceiptRepository.save(receipt);
+            }
+            log.info("[CashReceipt] Customer {} already confirmed cash for booking {}, returning existing receipt", customerId, bookingId);
+            return mapToRes(receipt, bookingId);
         }
 
-        // Kiểm tra invoice_version khớp
-        if (!req.getInvoiceVersion().equals(receipt.getInvoiceVersion())) {
-            throw new CustomBusinessException(ErrorCodes.ERR_CASH_RECEIPT_INVOICE_VERSION_MISMATCH,
-                    "cash_receipt.invoice_version_mismatch", HttpStatus.CONFLICT);
+        if (req.getInvoiceVersion() != null && receipt.getInvoiceVersion() != null
+                && !req.getInvoiceVersion().equals(receipt.getInvoiceVersion())) {
+            receipt.setInvoiceVersion(req.getInvoiceVersion());
         }
 
         receipt.setCustomerConfirmedAt(OffsetDateTime.now(VIETNAM_OFFSET));
@@ -82,6 +85,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             payload.put("bookingId", bookingId);
             payload.put("bookingCode", receipt.getBooking() != null ? receipt.getBooking().getBookingCode() : null);
             payload.put("expectedAmount", receipt.getExpectedAmount());
+            payload.put("cashAmount", receipt.getExpectedAmount());
             payload.put("status", receipt.getStatus());
             payload.put("timestamp", System.currentTimeMillis());
 
@@ -112,27 +116,45 @@ public class CashPaymentServiceImpl implements CashPaymentService {
         }
 
         BookingCashReceiptEntity receipt = cashReceiptRepository.findByBookingIdWithLock(bookingId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_CASH_RECEIPT_NOT_FOUND,
-                        "cash_receipt.not_found", HttpStatus.NOT_FOUND));
+                .orElseGet(() -> {
+                    BigDecimal expectedCash = booking.getTotalAmount()
+                            .subtract(booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO);
 
-        // Idempotency
-        if (req.getIdempotencyKey().equals(receipt.getIdempotencyKeyFreelancer())) {
+                    BookingCashReceiptEntity newReceipt = BookingCashReceiptEntity.builder()
+                            .booking(booking)
+                            .invoiceVersion(req.getInvoiceVersion() != null ? req.getInvoiceVersion() : "v1")
+                            .expectedAmount(expectedCash.max(BigDecimal.ZERO))
+                            .status("PENDING")
+                            .customerUser(booking.getCustomer())
+                            .freelancerUser(booking.getMua().getUser())
+                            .build();
+
+                    return cashReceiptRepository.save(newReceipt);
+                });
+
+        // Idempotency: nếu thợ đã xác nhận rồi, vẫn đảm bảo settlement và booking sang PAID_OUT
+        if (receipt.getFreelancerConfirmedAt() != null) {
+            if (receipt.getCustomerConfirmedAt() == null) {
+                receipt.setCustomerConfirmedAt(OffsetDateTime.now(VIETNAM_OFFSET));
+            }
+            receipt = checkAndTriggerSettlement(receipt, bookingId);
+            cashReceiptRepository.save(receipt);
+            log.info("[CashReceipt] Freelancer {} confirmed cash for booking {}, returning settled receipt", muaUserId, bookingId);
             return mapToRes(receipt, bookingId);
         }
 
-        if (receipt.getFreelancerConfirmedAt() != null) {
-            throw new CustomBusinessException(ErrorCodes.ERR_CASH_RECEIPT_ALREADY_CONFIRMED,
-                    "cash_receipt.freelancer_already_confirmed", HttpStatus.CONFLICT);
-        }
-
-        if (!req.getInvoiceVersion().equals(receipt.getInvoiceVersion())) {
-            throw new CustomBusinessException(ErrorCodes.ERR_CASH_RECEIPT_INVOICE_VERSION_MISMATCH,
-                    "cash_receipt.invoice_version_mismatch", HttpStatus.CONFLICT);
+        if (req.getInvoiceVersion() != null && receipt.getInvoiceVersion() != null
+                && !req.getInvoiceVersion().equals(receipt.getInvoiceVersion())) {
+            receipt.setInvoiceVersion(req.getInvoiceVersion());
         }
 
         receipt.setFreelancerConfirmedAt(OffsetDateTime.now(VIETNAM_OFFSET));
         receipt.setFreelancerUser(booking.getMua().getUser());
         receipt.setIdempotencyKeyFreelancer(req.getIdempotencyKey());
+
+        if (receipt.getCustomerConfirmedAt() == null) {
+            receipt.setCustomerConfirmedAt(OffsetDateTime.now(VIETNAM_OFFSET));
+        }
 
         receipt = checkAndTriggerSettlement(receipt, bookingId);
         cashReceiptRepository.save(receipt);
@@ -185,20 +207,30 @@ public class CashPaymentServiceImpl implements CashPaymentService {
         if (receipt.getCustomerConfirmedAt() != null && receipt.getFreelancerConfirmedAt() != null) {
             receipt.setStatus("BOTH_CONFIRMED");
             cashReceiptRepository.save(receipt);
-            // Trigger settlement
+
+            // Cập nhật trạng thái booking sang PAID_OUT ngay lập tức
+            BookingEntity booking = receipt.getBooking();
+            if (booking == null) {
+                booking = bookingRepository.findById(bookingId).orElse(null);
+            }
+            if (booking != null && booking.getStatus() != BookingStatus.PAID_OUT) {
+                booking.setStatus(BookingStatus.PAID_OUT);
+                booking = bookingRepository.save(booking);
+                log.info("[CashReceipt] Booking {} status updated to PAID_OUT", bookingId);
+            }
+
+            // Trigger settlement kế toán đúp
             try {
                 bookingSettlementService.settleBooking(bookingId, defaultCommissionRate);
             } catch (Exception e) {
-                // Settlement failure không block confirmation — log và retry sau
-                log.error("[CashReceipt] Settlement trigger failed for booking {}. Will retry.", bookingId, e);
+                log.error("[CashReceipt] Settlement trigger error for booking {}: {}", bookingId, e.getMessage(), e);
             }
 
             try {
-                var booking = receipt.getBooking();
-                java.math.BigDecimal totalAmount = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.ZERO;
-                java.math.BigDecimal depositAmount = booking != null && booking.getDepositAmount() != null ? booking.getDepositAmount() : java.math.BigDecimal.ZERO;
-                java.math.BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, java.math.RoundingMode.HALF_UP);
-                java.math.BigDecimal earningsAmount = totalAmount.subtract(commission);
+                BigDecimal totalAmount = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.ZERO;
+                BigDecimal depositAmount = booking != null && booking.getDepositAmount() != null ? booking.getDepositAmount() : java.math.BigDecimal.ZERO;
+                BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, java.math.RoundingMode.HALF_UP);
+                BigDecimal earningsAmount = totalAmount.subtract(commission);
 
                 Map<String, Object> payload = new HashMap<>();
                 payload.put("type", "PAYMENT_COMPLETED");
@@ -227,7 +259,6 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             }
 
             // Phần 2: Gửi mail cảm ơn & biên lai thanh toán tiền mặt thành công cho khách hàng đơn khẩn cấp
-            var booking = receipt.getBooking();
             if (booking != null && booking.getBookingType() == BookingType.REALTIME_INSTANT
                     && booking.getCustomer() != null && StringUtils.hasText(booking.getCustomer().getEmail())) {
                 try {

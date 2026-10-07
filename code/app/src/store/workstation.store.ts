@@ -225,17 +225,27 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           } else if (
             payload?.type === 'NEW_SCHEDULED_OFFER' ||
             payload?.bookingType === 'SCHEDULED' ||
-            payload?.bookingType === 'APPOINTMENT'
+            payload?.bookingType === 'APPOINTMENT' ||
+            String(payload?.bookingCode || '').startsWith('BK-SCHED')
           ) {
-            get().triggerScheduledOffer(payload, false);
-            get().checkPendingScheduledOffers(false);
+            // Không tự động bật popup cho đơn đặt trước theo yêu cầu của thợ
+            get().fetchWorkstationData();
           } else {
-            get().triggerInstantOffer(payload);
+            if (!String(payload?.bookingCode || '').startsWith('BK-SCHED')) {
+              get().triggerInstantOffer(payload);
+            }
           }
         });
 
         // 2. Kênh dự phòng tương thích ngược (Topic cũ)
         websocketService.subscribe(`/topic/mua-offer/${effectiveMuaId}`, (offerPayload) => {
+          if (
+            offerPayload?.type === 'NEW_SCHEDULED_OFFER' ||
+            offerPayload?.bookingType === 'SCHEDULED' ||
+            String(offerPayload?.bookingCode || '').startsWith('BK-SCHED')
+          ) {
+            return;
+          }
           console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
           get().triggerInstantOffer(offerPayload);
         });
@@ -359,21 +369,31 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
                 get().dismissScheduledOffer();
               }
             } else if (
-              payload?.type === 'NEW_SCHEDULED_OFFER' ||
-              payload?.bookingType === 'SCHEDULED' ||
-              payload?.bookingType === 'APPOINTMENT'
-            ) {
-              get().triggerScheduledOffer(payload, false);
-              get().checkPendingScheduledOffers(false);
-            } else {
+            payload?.type === 'NEW_SCHEDULED_OFFER' ||
+            payload?.bookingType === 'SCHEDULED' ||
+            payload?.bookingType === 'APPOINTMENT' ||
+            String(payload?.bookingCode || '').startsWith('BK-SCHED')
+          ) {
+            // Không tự động bật popup cho đơn đặt trước theo yêu cầu của thợ
+            get().fetchWorkstationData();
+          } else {
+            if (!String(payload?.bookingCode || '').startsWith('BK-SCHED')) {
               get().triggerInstantOffer(payload);
             }
+          }
           });
 
           websocketService.subscribe(`/topic/mua-offer/${effectiveMuaId}`, (offerPayload) => {
-            console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
-            get().triggerInstantOffer(offerPayload);
-          });
+          if (
+            offerPayload?.type === 'NEW_SCHEDULED_OFFER' ||
+            offerPayload?.bookingType === 'SCHEDULED' ||
+            String(offerPayload?.bookingCode || '').startsWith('BK-SCHED')
+          ) {
+            return;
+          }
+          console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
+          get().triggerInstantOffer(offerPayload);
+        });
 
           websocketService.subscribe(`/topic/mua-offer-revoked/${effectiveMuaId}`, (revokePayload) => {
             console.log('[WorkstationStore] Đơn khẩn cấp đã bị thu hồi/chuyển tiếp:', revokePayload);
@@ -614,10 +634,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       // 1. Khi THỢ ĐĂNG NHẬP hoặc VÀO LẠI APP (Foreground):
       // Ưu tiên hiển thị modal với ca hẹn còn hạn đầu tiên
       if (isAppResumeOrLogin) {
-        // Nếu modal chưa mở hoặc đang hiển thị ca khác
-        const firstOffer = validOffers[0];
-        console.log('[WorkstationStore] Vào lại app / Đăng nhập: Mở modal ca hẹn trước #', firstOffer.bookingId);
-        get().triggerScheduledOffer(firstOffer, false);
+        // Không tự động bật popup cho đơn đặt trước
         return;
       }
 

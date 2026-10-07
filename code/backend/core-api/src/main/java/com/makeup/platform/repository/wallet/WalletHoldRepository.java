@@ -16,6 +16,8 @@ import java.util.Optional;
 public interface WalletHoldRepository extends JpaRepository<WalletHoldEntity, Long> {
 
     List<BookingStatus> ACTIVE_HOLD_STATUSES = List.of(
+            BookingStatus.REQUESTED,
+            BookingStatus.PENDING_AGENCY_DISPATCH,
             BookingStatus.ACCEPTED,
             BookingStatus.AGENCY_ASSIGNED,
             BookingStatus.ON_THE_WAY,

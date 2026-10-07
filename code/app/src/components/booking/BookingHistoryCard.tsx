@@ -24,7 +24,18 @@ export const BookingHistoryCard: React.FC<Props> = ({
   onReviewPress,
   onRebookPress,
 }) => {
+  const isSlotTakenCancelled =
+    booking.status === 'CANCELLED' &&
+    ((booking.cancellationReason && (
+      booking.cancellationReason.toLowerCase().includes('khách hàng khác') ||
+      booking.cancellationReason.toLowerCase().includes('trùng') ||
+      booking.cancellationReason.toLowerCase().includes('hoàn tất thanh toán trước')
+    )) || booking.isDepositRefunded === true);
+
   const getStatusBadge = (status: BookingStatusType) => {
+    if (isSlotTakenCancelled) {
+      return { label: 'Trùng Lịch • Đã Hoàn Cọc', color: '#059669', bg: '#D1FAE5' };
+    }
     switch (status) {
       case 'PENDING_DEPOSIT':
         return { label: 'Chờ Đặt Cọc', color: '#D97706', bg: '#FEF3C7' };
@@ -44,8 +55,14 @@ export const BookingHistoryCard: React.FC<Props> = ({
         return { label: 'Hoàn Thành', color: '#059669', bg: '#D1FAE5' };
       case 'CANCELLED':
         return { label: 'Đã Hủy', color: '#DC2626', bg: '#FEE2E2' };
+      case 'CANCELLED_EXPIRED':
+        return { label: 'Hết Hạn Thanh Toán', color: '#64748B', bg: '#F1F5F9' };
       case 'DISPUTED':
         return { label: 'Đang Khiếu Nại', color: '#EA580C', bg: '#FFEDD5' };
+      case 'DISPUTE_REFUNDED':
+        return { label: 'Đã Hoàn Cọc', color: '#059669', bg: '#f0fff0ff' };
+      case 'DISPUTE_COMPENSATED':
+        return { label: 'Bồi Thường Thợ', color: '#B45309', bg: '#FEF3C7' };
       default:
         return { label: status, color: '#64748B', bg: '#F1F5F9' };
     }
@@ -72,7 +89,15 @@ export const BookingHistoryCard: React.FC<Props> = ({
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => {
-          const isTerminalStatus = ['COMPLETED', 'PAID_OUT', 'CANCELLED', 'CANCELLED_EXPIRED', 'DISPUTED'].includes(booking.status);
+          const isTerminalStatus = [
+            'COMPLETED',
+            'PAID_OUT',
+            'CANCELLED',
+            'CANCELLED_EXPIRED',
+            'DISPUTED',
+            'DISPUTE_REFUNDED',
+            'DISPUTE_COMPENSATED',
+          ].includes(booking.status);
           if (isTerminalStatus) {
             router.push(`/booking/history-detail/${booking.id}` as any);
           } else {
@@ -84,13 +109,17 @@ export const BookingHistoryCard: React.FC<Props> = ({
         <View style={styles.headerRow}>
           <View style={styles.codeRow}>
             <Text style={styles.codeLabel}>Mã đơn:</Text>
-            <Text style={styles.codeText}>{booking.bookingCode || `#BK-${booking.id}`}</Text>
+            <Text style={styles.codeText} numberOfLines={1} ellipsizeMode="tail">
+              {booking.bookingCode || `#BK-${booking.id}`}
+            </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={styles.headerBadgeGroup}>
             <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
-              <Text style={[styles.statusBadgeText, { color: badge.color }]}>{badge.label}</Text>
+              <Text style={[styles.statusBadgeText, { color: badge.color }]} numberOfLines={1}>
+                {badge.label}
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
           </View>
         </View>
 
@@ -128,14 +157,42 @@ export const BookingHistoryCard: React.FC<Props> = ({
                 {booking.destinationAddress || 'Trang điểm tại nhà'}
               </Text>
             </View>
+
+            {isSlotTakenCancelled ? (
+              <View style={styles.slotTakenNoticeBox}>
+                <Ionicons name="information-circle-outline" size={13} color="#059669" />
+                <Text style={styles.slotTakenNoticeText} numberOfLines={2}>
+                  Đơn bị hủy do khách khác đã thanh toán trước • Đã hoàn 100% cọc vào Ví
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
         {/* PHẦN TÀI CHÍNH */}
         <View style={styles.financeRow}>
           <View style={styles.depositBox}>
-            <Text style={styles.depositLabel}>Đã cọc Escrow:</Text>
-            <Text style={styles.depositAmount}>{formatPrice(booking.depositAmount || 0)}</Text>
+            <Text style={styles.depositLabel}>
+              {booking.status === 'CANCELLED_EXPIRED'
+                ? 'Chưa đặt cọc:'
+                : isSlotTakenCancelled
+                ? 'Đã hoàn về ví:'
+                : (booking.status === 'DISPUTE_REFUNDED'
+                    ? 'Đã hoàn cọc:'
+                    : (booking.status === 'DISPUTE_COMPENSATED'
+                        ? 'Bồi thường cọc:'
+                        : (booking.isDepositPaid ? 'Đã cọc Escrow:' : 'Tiền cọc (30%):')))}
+            </Text>
+            <Text
+              style={[
+                styles.depositAmount,
+                booking.status === 'CANCELLED_EXPIRED' && { color: '#94A3B8' },
+                (booking.status === 'DISPUTE_REFUNDED' || isSlotTakenCancelled) && { color: '#059669' },
+                booking.status === 'DISPUTE_COMPENSATED' && { color: '#B45309' },
+              ]}
+            >
+              {booking.status === 'CANCELLED_EXPIRED' ? '0 đ' : formatPrice(booking.depositAmount || 0)}
+            </Text>
           </View>
           <View style={styles.totalBox}>
             <Text style={styles.totalLabel}>Tổng tiền:</Text>
@@ -211,6 +268,17 @@ export const BookingHistoryCard: React.FC<Props> = ({
             </TouchableOpacity>
           </>
         )}
+
+        {isSlotTakenCancelled && (
+          <TouchableOpacity
+            style={styles.walletActionBtn}
+            onPress={() => router.push('/profile/customer-wallet' as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="wallet-outline" size={14} color="#059669" />
+            <Text style={styles.walletActionText}>Xem Ví Tiền</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -234,28 +302,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   codeRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginRight: 6,
+    minWidth: 0,
   },
   codeLabel: {
     fontSize: 12,
     color: '#94A3B8',
+    fontWeight: '500',
+    flexShrink: 0,
   },
   codeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#1E293B',
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+  headerBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    maxWidth: 165,
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '700',
   },
   divider: {
@@ -442,5 +525,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1E293B',
     fontWeight: '600',
+  },
+  slotTakenNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  slotTakenNoticeText: {
+    fontSize: 11,
+    color: '#065F46',
+    fontWeight: '600',
+    flex: 1,
+  },
+  walletActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  walletActionText: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '700',
   },
 });

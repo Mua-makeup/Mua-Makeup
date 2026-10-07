@@ -26,6 +26,8 @@ import { depositService } from '@/services/deposit.service';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
 import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
+import { websocketService } from '@/services/websocket.service';
 
 export default function BookingHistoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,8 +47,11 @@ export default function BookingHistoryDetailScreen() {
     (bookingDetail?.muaName && bookingDetail.muaName !== 'Chuyên Viên Make-up' && bookingDetail.muaName.trim().length > 0)
   );
 
-  // Modal phóng to ảnh nghiệm thu
+  // Modal phóng to ảnh nghiệm thu hoặc minh chứng
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const [isDisputeDossierOpen, setIsDisputeDossierOpen] = useState(false);
+  const [isDisputeDossierAutoOpen, setIsDisputeDossierAutoOpen] = useState(false);
 
   // Trạng thái thanh toán 70% còn lại cho Khách
   const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
@@ -75,10 +80,39 @@ export default function BookingHistoryDetailScreen() {
 
   useEffect(() => {
     loadData();
+    if (!bookingId) return;
+    const topic = `/topic/booking-status/${bookingId}`;
+    websocketService.subscribe(topic, (msg: any) => {
+      if (msg?.status === 'PAID_OUT' || msg?.type === 'PAYMENT_COMPLETED') {
+        setBookingDetail((prev) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
+        loadData(true);
+      }
+    });
+    return () => {
+      websocketService.unsubscribe(topic);
+    };
   }, [bookingId]);
 
   const formatPrice = (price?: number | null) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
+
+  const formatCancellationReason = (reason?: string | null) => {
+    if (!reason) return '';
+    return reason.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g, (match) => {
+      try {
+        const d = new Date(match);
+        if (isNaN(d.getTime())) return match;
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${hours}:${minutes} ${day}/${month}/${year}`;
+      } catch {
+        return match;
+      }
+    });
+  };
 
   // Xử lý Khách xác nhận trả tiền mặt
   const handleConfirmCustomerCash = async () => {
@@ -159,11 +193,8 @@ export default function BookingHistoryDetailScreen() {
           onPress: async () => {
             try {
               setIsConfirmingMuaReceivedCash(true);
-              await freelancerBookingService.transitionBookingState(
-                bookingId,
-                'PAID_OUT',
-                'Chuyên viên xác nhận đã thu đủ 70% tiền mặt từ khách'
-              );
+              await depositService.confirmFreelancerCashReceipt(bookingId, 'v1');
+              setBookingDetail((prev) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               Alert.alert('🎉 Quyết Toán Thành Công!', 'Ca làm đã hoàn tất 100%. Khoản cọc Escrow đã được tự động giải ngân vào Ví của bạn.');
               await loadData(true);
@@ -215,12 +246,41 @@ export default function BookingHistoryDetailScreen() {
   const isCancelled = bookingDetail.status === 'CANCELLED' || bookingDetail.status === 'CANCELLED_EXPIRED';
   const isDisputed = bookingDetail.status === 'DISPUTED';
 
+  const isDisputeRefunded = bookingDetail.status === 'DISPUTE_REFUNDED' || (
+    isCancelled && (
+      bookingDetail.cancellationReason?.toLowerCase().includes('khiếu nại') ||
+      bookingDetail.cancellationReason?.toLowerCase().includes('hoàn cọc') ||
+      !!bookingDetail.emergencyReason
+    )
+  );
+
+  const isDisputeCompensated = bookingDetail.status === 'DISPUTE_COMPENSATED' || (
+    isPaidOut && (
+      (bookingDetail.cancellationReason && (
+        bookingDetail.cancellationReason.toLowerCase().includes('bồi thường') ||
+        bookingDetail.cancellationReason.toLowerCase().includes('từ chối') ||
+        bookingDetail.cancellationReason.toLowerCase().includes('khiếu nại') ||
+        bookingDetail.cancellationReason.toLowerCase().includes('vắng mặt')
+      )) ||
+      (!bookingDetail.completionPhotoUrl && !!bookingDetail.emergencyReason)
+    )
+  );
+  const isNormalPaidOut = isPaidOut && !isDisputeCompensated;
+  const isNormalCancelled = isCancelled && !isDisputeRefunded;
+
   const totalAmount = bookingDetail.totalAmount || 0;
   const depositAmount = bookingDetail.depositAmount ?? Math.round(totalAmount * 0.3);
   const remainingAmount = Math.max(0, totalAmount - depositAmount);
 
   // Phân loại ngữ cảnh hủy đơn và hoàn cọc
   const cancelReasonLower = (bookingDetail.cancellationReason || '').toLowerCase();
+  const isSlotTakenCancelled =
+    isCancelled &&
+    (cancelReasonLower.includes('khách hàng khác') ||
+      cancelReasonLower.includes('trùng') ||
+      cancelReasonLower.includes('hoàn tất thanh toán trước') ||
+      cancelReasonLower.includes('slot_taken'));
+
   const isNoMuaFound =
     cancelReasonLower.includes('không tìm thấy') ||
     cancelReasonLower.includes('chưa có thợ') ||
@@ -241,16 +301,271 @@ export default function BookingHistoryDetailScreen() {
     cancelReasonLower.includes('từ chối') ||
     cancelReasonLower.includes('bận');
 
-  // Đơn hoàn cọc 100%: nếu thợ hủy/từ chối, hoặc backend trả về isDepositPaid, hoặc có thợ nhận mà bị hủy (trừ khi khách quá hạn cọc / không tìm thấy thợ)
+  // Đơn hoàn cọc 100%: nếu thợ hủy/từ chối, hoặc backend trả về isDepositPaid, hoặc có thợ nhận mà bị hủy (trừ khi khách quá hạn cọc / không tìm thấy thợ), hoặc bị hủy do trùng lịch
   const isDepositRefunded = isCancelled && (
+    isSlotTakenCancelled ||
     bookingDetail.isDepositPaid ||
     isCancelledByMua ||
     (!isNoMuaFound && !isDepositExpired && hasAssignedMua)
   );
 
+  // Phán quyết Hòa giải 50-50
+  const isSplit5050 =
+    cancelReasonLower.includes('50/50') ||
+    cancelReasonLower.includes('50-50') ||
+    cancelReasonLower.includes('hòa giải');
+
+  // Bóc tách chi tiết hồ sơ khiếu nại (Lời khai & Ảnh minh chứng sạch của MUA và Khách)
+  const disputeDossier = (() => {
+    const rawReason = (bookingDetail.emergencyReason || bookingDetail.cancellationReason || '').trim();
+    const rawProof = (bookingDetail.emergencyProofUrl || '').trim();
+    const origin = bookingDetail.disputeOrigin;
+
+    const hasCustomerTag = rawReason.includes('[Khách hàng]');
+    const hasMuaTag = rawReason.includes('[Chuyên viên MUA]');
+
+    const isDual =
+      origin === 'DUAL' ||
+      (hasCustomerTag && hasMuaTag);
+
+    const isMuaOnly =
+      !isDual &&
+      (origin === 'MUA' ||
+        (hasMuaTag && !hasCustomerTag) ||
+        (!hasCustomerTag &&
+          (rawReason.toLowerCase().includes('vắng mặt') ||
+            rawReason.toLowerCase().includes('no-show') ||
+            rawReason.toLowerCase().includes('không gặp khách'))));
+
+    let customerStatement = '';
+    let muaStatement = '';
+
+    if (isDual) {
+      const parts = rawReason.split('|');
+      parts.forEach((p) => {
+        const trimmed = p.trim();
+        if (trimmed.includes('[Khách hàng]')) {
+          customerStatement = trimmed.replace(/\[Khách hàng\]:?/, '').trim();
+        } else if (trimmed.includes('[Chuyên viên MUA]')) {
+          muaStatement = trimmed.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+        } else if (
+          trimmed.toLowerCase().includes('khách hàng') ||
+          trimmed.toLowerCase().includes('với khách') ||
+          trimmed.toLowerCase().includes('vắng mặt')
+        ) {
+          muaStatement = trimmed;
+        } else {
+          if (!muaStatement) muaStatement = trimmed;
+          else if (!customerStatement) customerStatement = trimmed;
+        }
+      });
+    } else if (isMuaOnly) {
+      muaStatement = rawReason.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+    } else {
+      customerStatement = rawReason.replace(/\[Khách hàng\]:?/, '').trim();
+    }
+
+    let customerProofUrl: string | undefined;
+    let muaProofUrl: string | undefined;
+
+    const proofItems = rawProof ? rawProof.split('|').map((u) => u.trim()).filter(Boolean) : [];
+    const hasTaggedProofs = proofItems.some((p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]'));
+
+    if (hasTaggedProofs) {
+      proofItems.forEach((item) => {
+        if (item.includes('[Khách hàng]')) {
+          customerProofUrl = item.replace(/\[Khách hàng\]:?/, '').trim();
+        } else if (item.includes('[Chuyên viên MUA]')) {
+          muaProofUrl = item.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+        } else {
+          if (!muaProofUrl) muaProofUrl = item.replace(/^\[.*?\]:?/, '').trim();
+          else if (!customerProofUrl) customerProofUrl = item.replace(/^\[.*?\]:?/, '').trim();
+        }
+      });
+    } else {
+      if (isDual) {
+        if (rawReason.startsWith('[Khách hàng]')) {
+          customerProofUrl = proofItems[0]?.replace(/^\[.*?\]:?/, '').trim();
+          muaProofUrl = proofItems[1]?.replace(/^\[.*?\]:?/, '').trim();
+        } else {
+          muaProofUrl = proofItems[0]?.replace(/^\[.*?\]:?/, '').trim();
+          customerProofUrl = proofItems[1]?.replace(/^\[.*?\]:?/, '').trim();
+        }
+      } else if (isMuaOnly) {
+        muaProofUrl = proofItems[0]?.replace(/^\[.*?\]:?/, '').trim();
+      } else {
+        customerProofUrl = proofItems[0]?.replace(/^\[.*?\]:?/, '').trim();
+      }
+    }
+
+    return {
+      isDual,
+      customerStatement,
+      muaStatement,
+      customerProofUrl,
+      muaProofUrl,
+      hasDisputeInfo: !!(customerStatement || muaStatement || customerProofUrl || muaProofUrl),
+    };
+  })();
+
+  const renderDisputeDossierDetails = (isSplitVariant: boolean) => {
+    if (!disputeDossier.hasDisputeInfo) {
+      return null;
+    }
+
+    return (
+      <View style={{ marginTop: 8, gap: 8 }}>
+        {/* Card Thợ MUA */}
+        {(disputeDossier.muaStatement || disputeDossier.muaProofUrl) && (
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 10,
+              padding: 10,
+              borderWidth: 1,
+              borderColor: isSplitVariant ? '#E9D5FF' : isWorkstationRole ? '#FDE68A' : '#E2E8F0',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="sparkles" size={13} color="#D97706" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#B45309' }}>
+                  {isWorkstationRole ? 'Báo Cáo Của Bạn (Chuyên Viên MUA)' : 'Báo Cáo Từ Chuyên Viên Make-up'}
+                </Text>
+              </View>
+              <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: '#B45309' }}>Phía Thợ</Text>
+              </View>
+            </View>
+
+            {disputeDossier.muaStatement ? (
+              <View style={{ backgroundColor: '#FFFBEB', padding: 8, borderRadius: 6, marginBottom: disputeDossier.muaProofUrl ? 6 : 0 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#92400E', marginBottom: 2 }}>
+                  Lý do sự cố báo cáo:
+                </Text>
+                <Text style={{ fontSize: 12, color: '#451A03', lineHeight: 17 }}>
+                  "{disputeDossier.muaStatement}"
+                </Text>
+              </View>
+            ) : null}
+
+            {disputeDossier.muaProofUrl ? (
+              <View style={{ marginTop: 4 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', marginBottom: 4 }}>
+                  Ảnh minh chứng hiện trường của Thợ:
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setPreviewPhotoUrl(disputeDossier.muaProofUrl!)}
+                  activeOpacity={0.85}
+                  style={{ position: 'relative', borderRadius: 8, overflow: 'hidden' }}
+                >
+                  <Image
+                    source={{ uri: disputeDossier.muaProofUrl }}
+                    style={{ width: '100%', height: 160, borderRadius: 8, backgroundColor: '#F1F5F9' }}
+                    contentFit="cover"
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      bottom: 6,
+                      right: 6,
+                      backgroundColor: 'rgba(0,0,0,0.65)',
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 6,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Ionicons name="expand" size={11} color="#FFFFFF" />
+                    <Text style={{ fontSize: 10, color: '#FFFFFF', fontWeight: '600' }}>Phóng to ảnh</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* Card Khách Hàng */}
+        {(disputeDossier.customerStatement || disputeDossier.customerProofUrl) && (
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 10,
+              padding: 10,
+              borderWidth: 1,
+              borderColor: isSplitVariant ? '#E9D5FF' : !isWorkstationRole ? '#A7F3D0' : '#E2E8F0',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="person" size={13} color="#059669" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#065F46' }}>
+                  {!isWorkstationRole ? 'Khiếu Nại Của Bạn (Khách Hàng)' : 'Phản Ánh Từ Khách Hàng'}
+                </Text>
+              </View>
+              <View style={{ backgroundColor: '#ECFDF5', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: '#065F46' }}>Phía Khách</Text>
+              </View>
+            </View>
+
+            {disputeDossier.customerStatement ? (
+              <View style={{ backgroundColor: '#F0FDF4', padding: 8, borderRadius: 6, marginBottom: disputeDossier.customerProofUrl ? 6 : 0 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#065F46', marginBottom: 2 }}>
+                  Nội dung khiếu nại:
+                </Text>
+                <Text style={{ fontSize: 12, color: '#064E3B', lineHeight: 17 }}>
+                  "{disputeDossier.customerStatement}"
+                </Text>
+              </View>
+            ) : null}
+
+            {disputeDossier.customerProofUrl ? (
+              <View style={{ marginTop: 4 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', marginBottom: 4 }}>
+                  Ảnh minh chứng của Khách hàng:
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setPreviewPhotoUrl(disputeDossier.customerProofUrl!)}
+                  activeOpacity={0.85}
+                  style={{ position: 'relative', borderRadius: 8, overflow: 'hidden' }}
+                >
+                  <Image
+                    source={{ uri: disputeDossier.customerProofUrl }}
+                    style={{ width: '100%', height: 160, borderRadius: 8, backgroundColor: '#F1F5F9' }}
+                    contentFit="cover"
+                  />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      bottom: 6,
+                      right: 6,
+                      backgroundColor: 'rgba(0,0,0,0.65)',
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 6,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Ionicons name="expand" size={11} color="#FFFFFF" />
+                    <Text style={{ fontSize: 10, color: '#FFFFFF', fontWeight: '600' }}>Phóng to ảnh</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // Phí sàn 20% và thu nhập thợ 80% từ tổng giá trị đơn hàng
   const platformFee = bookingDetail.platformFee ?? Math.round(totalAmount * 0.2);
   const earningsAmount = bookingDetail.earningsAmount ?? (totalAmount - platformFee);
+  const isScheduled = bookingDetail.bookingType === 'SCHEDULED' || bookingDetail.bookingCode?.startsWith('BK-SCHED');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -286,8 +601,50 @@ export default function BookingHistoryDetailScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={() => loadData(true)} colors={[BrandColors.primary]} />
         }
       >
+        {/* HERO CARD RIÊNG BIỆT DÀNH CHO ĐƠN ĐẶT LỊCH TRƯỚC */}
+        {isScheduled && (
+          <View style={styles.scheduledHeroCard}>
+            <View style={styles.scheduledHeroHeader}>
+              <View style={styles.scheduledHeroBadge}>
+                <Ionicons name="calendar-outline" size={13} color="#7C3AED" />
+                <Text style={styles.scheduledHeroBadgeText}>LỊCH ĐẶT TRƯỚC</Text>
+              </View>
+              <Text style={styles.scheduledHeroCode}>{bookingDetail.bookingCode}</Text>
+            </View>
+
+            <View style={styles.scheduledHeroBody}>
+              <View style={styles.scheduledHeroTimeCol}>
+                <Text style={styles.scheduledHeroTimeLabel}>Thời Gian Hẹn</Text>
+                <Text style={styles.scheduledHeroTimeValue}>
+                  {bookingDetail.startTime ? formatTimeVN(bookingDetail.startTime) : '--:--'}
+                </Text>
+                <Text style={styles.scheduledHeroDateValue}>
+                  {bookingDetail.bookingDate ? formatDateVN(bookingDetail.bookingDate) : '--/--/----'}
+                </Text>
+              </View>
+
+              <View style={styles.scheduledHeroDivider} />
+
+              <View style={styles.scheduledHeroServiceCol}>
+                <Text style={styles.scheduledHeroServiceLabel}>Gói Dịch Vụ</Text>
+                <Text style={styles.scheduledHeroServiceValue} numberOfLines={2}>
+                  {bookingDetail.packageName || 'Dịch vụ trang điểm'}
+                </Text>
+                {bookingDetail.estimatedDurationMinutes ? (
+                  <View style={styles.scheduledDurationPill}>
+                    <Ionicons name="time-outline" size={11} color="#64748B" />
+                    <Text style={styles.scheduledDurationPillText}>
+                      {bookingDetail.estimatedDurationMinutes} phút
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* BANNER KẾT QUẢ / TRẠNG THÁI QUYẾT TOÁN RÕ RÀNG */}
-        {isPaidOut && (
+        {isNormalPaidOut && (
           <View style={[styles.statusCard, styles.statusCardPaidOut]}>
             <View style={styles.statusCardHeader}>
               <View style={[styles.statusIconBox, { backgroundColor: '#10B981' }]}>
@@ -304,6 +661,109 @@ export default function BookingHistoryDetailScreen() {
               <View style={styles.statusPillSuccess}>
                 <Ionicons name="shield-checkmark" size={13} color="#059669" />
                 <Text style={styles.statusPillSuccessText}>Hợp Đồng Hoàn Tất</Text>
+              </View>
+              <Text style={styles.statusTimeText}>
+                {bookingDetail.updatedAt ? formatDateTimeVN(bookingDetail.updatedAt) : 'Đã kết thúc'}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {isDisputeCompensated && (
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: isWorkstationRole ? '#ECFDF5' : '#FFF1F2',
+                borderColor: isWorkstationRole ? '#A7F3D0' : '#FECDD3',
+              },
+            ]}
+          >
+            <View style={styles.statusCardHeader}>
+              <View
+                style={[
+                  styles.statusIconBox,
+                  { backgroundColor: isWorkstationRole ? '#059669' : '#E11D48' },
+                ]}
+              >
+                <Ionicons
+                  name={isWorkstationRole ? 'shield-checkmark' : 'shield-half'}
+                  size={22}
+                  color="#FFFFFF"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.statusCardTitle,
+                    { color: isWorkstationRole ? '#065F46' : '#9F1239' },
+                  ]}
+                >
+                  {isWorkstationRole
+                    ? 'ĐÃ NHẬN 100% CỌC BỒI THƯỜNG'
+                    : 'KHIẾU NẠI ĐÃ XỬ LÝ • BỒI THƯỜNG CHO THỢ'}
+                </Text>
+                <Text style={styles.statusCardDesc}>
+                  {isWorkstationRole
+                    ? `Admin đã phê duyệt khiếu nại (khách vắng mặt/bỏ hẹn) và giải ngân 100% tiền cọc (${formatPrice(depositAmount)}) vào ví thu nhập của bạn.`
+                    : `Ban Quản Trị đã từ chối yêu cầu hoàn cọc và chuyển toàn bộ tiền cọc (${formatPrice(depositAmount)}) bồi thường cho thợ make-up theo chính sách bảo vệ ca hẹn.`}
+                </Text>
+              </View>
+            </View>
+
+            {bookingDetail.cancellationReason && (
+              <View
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 10,
+                  padding: 10,
+                  marginTop: 8,
+                  borderWidth: 1,
+                  borderColor: isWorkstationRole ? '#D1FAE5' : '#FFE4E6',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: isWorkstationRole ? '#065F46' : '#9F1239',
+                    marginBottom: 2,
+                  }}
+                >
+                  Căn cứ phán quyết của Admin:
+                </Text>
+                <Text style={{ fontSize: 12, color: '#334155', fontStyle: 'italic' }}>
+                  {bookingDetail.cancellationReason}
+                </Text>
+              </View>
+            )}
+
+            {/* HIỂN THỊ TÁCH BIỆT HỒ SƠ & MINH CHỨNG 2 BÊN */}
+            {renderDisputeDossierDetails(false)}
+
+            <View style={styles.statusCardFooterRow}>
+              <View
+                style={[
+                  styles.statusPillSuccess,
+                  {
+                    backgroundColor: isWorkstationRole ? '#D1FAE5' : '#FFE4E6',
+                    borderColor: isWorkstationRole ? '#A7F3D0' : '#FECDD3',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="shield-checkmark"
+                  size={13}
+                  color={isWorkstationRole ? '#059669' : '#E11D48'}
+                />
+                <Text
+                  style={[
+                    styles.statusPillSuccessText,
+                    { color: isWorkstationRole ? '#059669' : '#E11D48' },
+                  ]}
+                >
+                  {isWorkstationRole ? 'Đã Nhận Bồi Thường Cọc' : 'Khấu Trừ Bồi Thường Cọc'}
+                </Text>
               </View>
               <Text style={styles.statusTimeText}>
                 {bookingDetail.updatedAt ? formatDateTimeVN(bookingDetail.updatedAt) : 'Đã kết thúc'}
@@ -349,26 +809,188 @@ export default function BookingHistoryDetailScreen() {
           </View>
         )}
 
-        {isCancelled && (
-          <View style={[styles.statusCard, styles.statusCardCancelled]}>
+        {isDisputeRefunded && (
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: isSplit5050 ? '#FAF5FF' : isWorkstationRole ? '#FFFBEB' : '#ECFDF5',
+                borderColor: isSplit5050 ? '#E9D5FF' : isWorkstationRole ? '#FDE68A' : '#A7F3D0',
+              },
+            ]}
+          >
             <View style={styles.statusCardHeader}>
-              <View style={[styles.statusIconBox, { backgroundColor: '#DC2626' }]}>
-                <Ionicons name="close-circle" size={22} color="#FFFFFF" />
+              <View
+                style={[
+                  styles.statusIconBox,
+                  {
+                    backgroundColor: isSplit5050 ? '#7C3AED' : isWorkstationRole ? '#D97706' : '#059669',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={isSplit5050 ? 'git-compare' : isWorkstationRole ? 'alert-circle' : 'shield-checkmark'}
+                  size={22}
+                  color="#FFFFFF"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.statusCardTitle,
+                    {
+                      color: isSplit5050 ? '#6D28D9' : isWorkstationRole ? '#92400E' : '#065F46',
+                    },
+                  ]}
+                >
+                  {isSplit5050
+                    ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HÒA GIẢI 50% - 50%'
+                    : isWorkstationRole
+                    ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH'
+                    : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ HOÀN 100% TIỀN CỌC'}
+                </Text>
+                <Text style={styles.statusCardDesc}>
+                  {isSplit5050
+                    ? isWorkstationRole
+                      ? `Ban Quản Trị đã phê duyệt hòa giải 50/50. Bạn nhận được 50% cọc (${formatPrice(Math.round(depositAmount * 0.5))}) bồi thường vào Ví thợ, 50% còn lại đã hoàn trả về Ví khách hàng.`
+                      : `Ban Quản Trị đã phê duyệt hòa giải 50/50. Bạn đã được hoàn trả 50% tiền cọc (${formatPrice(Math.round(depositAmount * 0.5))}) về Ví cá nhân, 50% còn lại được bồi thường cho thợ make-up.`
+                    : isWorkstationRole
+                    ? `Ban Quản Trị đã xem xét và chấp thuận hoàn 100% tiền cọc (${formatPrice(depositAmount)}) cho khách hàng do sự cố khiếu nại. Ca làm này không phát sinh thu nhập thợ.`
+                    : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% tiền cọc (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn trả trực tiếp vào Ví cá nhân của bạn.`}
+                </Text>
+              </View>
+            </View>
+
+            {bookingDetail.cancellationReason && (
+              <View
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 10,
+                  padding: 10,
+                  marginTop: 8,
+                  borderWidth: 1,
+                  borderColor: isSplit5050 ? '#E9D5FF' : isWorkstationRole ? '#FDE68A' : '#D1FAE5',
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: isSplit5050 ? '#6D28D9' : isWorkstationRole ? '#92400E' : '#065F46',
+                    marginBottom: 2,
+                  }}
+                >
+                  Căn cứ phán quyết của Admin:
+                </Text>
+                <Text style={{ fontSize: 12, color: '#334155', fontStyle: 'italic' }}>
+                  {bookingDetail.cancellationReason}
+                </Text>
+              </View>
+            )}
+
+            {/* HIỂN THỊ TÁCH BIỆT HỒ SƠ & MINH CHỨNG 2 BÊN */}
+            {renderDisputeDossierDetails(isSplit5050)}
+
+            <View style={styles.statusCardFooterRow}>
+              <View
+                style={[
+                  styles.statusPillSuccess,
+                  isSplit5050
+                    ? { backgroundColor: '#F3E8FF', borderColor: '#E9D5FF' }
+                    : isWorkstationRole
+                    ? { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }
+                    : undefined,
+                ]}
+              >
+                <Ionicons
+                  name={isSplit5050 ? 'git-compare' : isWorkstationRole ? 'information-circle' : 'checkmark-circle'}
+                  size={13}
+                  color={isSplit5050 ? '#7C3AED' : isWorkstationRole ? '#D97706' : '#059669'}
+                />
+                <Text
+                  style={[
+                    styles.statusPillSuccessText,
+                    isSplit5050
+                      ? { color: '#6D28D9' }
+                      : isWorkstationRole
+                      ? { color: '#B45309' }
+                      : undefined,
+                  ]}
+                >
+                  {isSplit5050
+                    ? isWorkstationRole
+                      ? 'Hòa Giải 50/50 • Nhận 50% Cọc'
+                      : 'Hòa Giải 50/50 • Hoàn 50% Về Ví'
+                    : isWorkstationRole
+                    ? 'Đã Hoàn Cọc Khách Hàng'
+                    : 'Đã Hoàn Cọc 100% Về Ví'}
+                </Text>
+              </View>
+              <Text style={styles.statusTimeText}>
+                {bookingDetail.updatedAt ? formatDateTimeVN(bookingDetail.updatedAt) : 'Đã giải quyết'}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {isNormalCancelled && (
+          <View
+            style={[
+              styles.statusCard,
+              isSlotTakenCancelled
+                ? { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }
+                : styles.statusCardCancelled,
+            ]}
+          >
+            <View style={styles.statusCardHeader}>
+              <View
+                style={[
+                  styles.statusIconBox,
+                  { backgroundColor: isSlotTakenCancelled ? '#059669' : '#DC2626' },
+                ]}
+              >
+                <Ionicons
+                  name={isSlotTakenCancelled ? 'shield-checkmark' : 'close-circle'}
+                  size={22}
+                  color="#FFFFFF"
+                />
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.statusCardTitle, { color: '#991B1B' }]}>ĐƠN HÀNG ĐÃ HỦY</Text>
+                <Text
+                  style={[
+                    styles.statusCardTitle,
+                    { color: isSlotTakenCancelled ? '#065F46' : '#991B1B' },
+                  ]}
+                >
+                  {isSlotTakenCancelled ? 'ĐƠN HÀNG ĐÃ HỦY • TRÙNG LỊCH HẸN' : 'ĐƠN HÀNG ĐÃ HỦY'}
+                </Text>
                 <Text style={styles.statusCardDesc}>
-                  {bookingDetail.cancellationReason || (isCancelledByMua ? 'Chuyên viên đã từ chối hoặc hủy ca làm này.' : 'Lịch hẹn đã bị hủy do yêu cầu từ hai bên hoặc quá hạn đặt cọc.')}
+                  {isSlotTakenCancelled
+                    ? (bookingDetail.cancellationReason ||
+                      'Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Tiền cọc đã được tự động hoàn trả 100% vào Ví của bạn.')
+                    : (formatCancellationReason(bookingDetail.cancellationReason) ||
+                      (isCancelledByMua
+                        ? 'Chuyên viên đã từ chối hoặc hủy ca làm này.'
+                        : 'Lịch hẹn đã bị hủy do yêu cầu từ hai bên hoặc quá hạn đặt cọc.'))}
                 </Text>
               </View>
             </View>
             {isDepositRefunded ? (
-              <View style={styles.refundNoticeBox}>
-                <Ionicons name="shield-checkmark-outline" size={16} color="#059669" />
+              <View
+                style={[
+                  styles.refundNoticeBox,
+                  isSlotTakenCancelled
+                    ? { backgroundColor: '#FFFFFF', borderColor: '#A7F3D0' }
+                    : undefined,
+                ]}
+              >
+                <Ionicons name="shield-checkmark" size={16} color="#059669" />
                 <Text style={styles.refundNoticeText}>
-                  {isWorkstationRole
+                  {isSlotTakenCancelled
+                    ? `Khoản cọc (${formatPrice(depositAmount)}) đã được hoàn trả 100% vào Ví cá nhân của bạn ngay sau khi thanh toán.`
+                    : (isWorkstationRole
                     ? `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được hoàn lại 100% vào Ví của khách hàng do thợ hủy ca.`
-                    : `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn lại 100% vào Ví cá nhân của bạn.`}
+                    : `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn lại 100% vào Ví cá nhân của bạn.`)}
                 </Text>
               </View>
             ) : (
@@ -381,24 +1003,306 @@ export default function BookingHistoryDetailScreen() {
                 </Text>
               </View>
             )}
+
+            {isSlotTakenCancelled && (
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  backgroundColor: '#059669',
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  marginTop: 10,
+                }}
+                onPress={() => router.push('/profile/customer-wallet' as any)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="wallet-outline" size={16} color="#FFFFFF" />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                  Kiểm Tra Số Dư Ví Cá Nhân
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
-        {isDisputed && (
-          <View style={[styles.statusCard, styles.statusCardDisputed]}>
-            <View style={styles.statusCardHeader}>
-              <View style={[styles.statusIconBox, { backgroundColor: '#EA580C' }]}>
-                <Ionicons name="warning" size={22} color="#FFFFFF" />
+        {isDisputed && (() => {
+          const rawDisputeReason = (bookingDetail.emergencyReason || bookingDetail.cancellationReason || '').trim();
+          const rawDisputeProof = (bookingDetail.emergencyProofUrl || '').trim();
+          const proofUrls = rawDisputeProof ? rawDisputeProof.split('|').map((u) => u.trim()).filter(Boolean) : [];
+
+          const hasCustomerTag = rawDisputeReason.includes('[Khách hàng]');
+          const hasMuaTag = rawDisputeReason.includes('[Chuyên viên MUA]');
+
+          const isDual =
+            bookingDetail.disputeOrigin === 'DUAL' ||
+            (hasCustomerTag && hasMuaTag);
+
+          const isMuaReport =
+            !isDual &&
+            (bookingDetail.disputeOrigin === 'MUA' ||
+              (hasMuaTag && !hasCustomerTag) ||
+              (!hasCustomerTag &&
+                (rawDisputeReason.toLowerCase().includes('vắng mặt') ||
+                  rawDisputeReason.toLowerCase().includes('no-show') ||
+                  rawDisputeReason.toLowerCase().includes('không gặp khách'))));
+
+          let customerStatement = '';
+          let muaStatement = '';
+          let customerProofUrl: string | undefined;
+          let muaProofUrl: string | undefined;
+
+          if (isDual) {
+            const parts = rawDisputeReason.split('|');
+            parts.forEach((p) => {
+              const trimmed = p.trim();
+              if (trimmed.includes('[Khách hàng]')) {
+                customerStatement = trimmed.replace(/\[Khách hàng\]:?/, '').trim();
+              } else if (trimmed.includes('[Chuyên viên MUA]')) {
+                muaStatement = trimmed.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+              } else if (
+                trimmed.toLowerCase().includes('khách hàng') ||
+                trimmed.toLowerCase().includes('với khách') ||
+                trimmed.toLowerCase().includes('vắng mặt')
+              ) {
+                muaStatement = trimmed;
+              } else {
+                if (!muaStatement) muaStatement = trimmed;
+                else if (!customerStatement) customerStatement = trimmed;
+              }
+            });
+
+            const hasTaggedProofs = proofUrls.some((p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]'));
+            if (hasTaggedProofs) {
+              proofUrls.forEach((item) => {
+                if (item.includes('[Khách hàng]')) {
+                  customerProofUrl = item.replace(/\[Khách hàng\]:?/, '').trim();
+                } else if (item.includes('[Chuyên viên MUA]')) {
+                  muaProofUrl = item.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+                } else {
+                  if (!muaProofUrl) muaProofUrl = item;
+                  else if (!customerProofUrl) customerProofUrl = item;
+                }
+              });
+            } else {
+              if (rawDisputeReason.startsWith('[Khách hàng]')) {
+                customerProofUrl = proofUrls[0];
+                muaProofUrl = proofUrls[1];
+              } else {
+                muaProofUrl = proofUrls[0];
+                customerProofUrl = proofUrls[1];
+              }
+            }
+          }
+
+          let title = 'ĐƠN ĐANG TRANH CHẤP / KHIẾU NẠI';
+          let subtitle = '';
+          let reporterBadge = '';
+          let reasonLabel = 'Lý do sự cố báo cáo:';
+          let statement = rawDisputeReason.replace(/\[.*?\]:?/g, '').trim();
+
+          if (isDual) {
+            title = 'TRANH CHẤP 2 CHIỀU ĐANG ĐỐI SOÁT';
+            subtitle = 'Cả bạn và đối phương đều đã nộp báo cáo tranh chấp. Ban Quản Trị đang tổng hợp minh chứng hai bên để đưa ra phán quyết công bằng.';
+            reporterBadge = 'Tranh Chấp 2 Chiều';
+            reasonLabel = 'Nội dung phản ánh hai bên:';
+          } else if (isMuaReport) {
+            if (isWorkstationRole) {
+              title = 'BÁO CÁO SỰ CỐ TỪ BẠN (CHUYÊN VIÊN MUA)';
+              subtitle = 'Bạn đã gửi báo cáo sự cố (khách vắng mặt/không liên lạc được). Ban Quản Trị đang đối soát minh chứng để giải ngân 100% tiền cọc cho bạn.';
+              reporterBadge = 'Báo Cáo Từ Bạn (MUA)';
+              reasonLabel = 'Lý do bạn báo cáo sự cố:';
+            } else {
+              title = 'CHUYÊN VIÊN MAKE-UP ĐÃ BÁO CÁO SỰ CỐ';
+              subtitle = 'Chuyên viên make-up đã gửi báo cáo sự cố ca hẹn. Ban Quản Trị đang xác minh minh chứng từ hiện trường trong 24h.';
+              reporterBadge = 'Chuyên Viên Make-up Báo Cáo';
+              reasonLabel = 'Lý do chuyên viên báo cáo:';
+            }
+          } else {
+            // Customer reported
+            if (!isWorkstationRole) {
+              title = 'YÊU CẦU KHIẾU NẠI TỪ BẠN (KHÁCH HÀNG)';
+              subtitle = 'Bạn đã gửi yêu cầu khiếu nại ca hẹn này. Ban Quản Trị đang xác minh minh chứng để bảo vệ quyền lợi và hoàn cọc cho bạn.';
+              reporterBadge = 'Khiếu Nại Của Bạn (Khách)';
+              reasonLabel = 'Lý do bạn khiếu nại:';
+            } else {
+              title = 'KHÁCH HÀNG ĐÃ GỬI BÁO CÁO KHIẾU NẠI';
+              subtitle = 'Khách hàng đã gửi khiếu nại về ca hẹn. Ban Quản Trị đang thụ lý và đối soát thông tin của hai bên.';
+              reporterBadge = 'Khách Hàng Gửi Khiếu Nại';
+              reasonLabel = 'Lý do khách hàng khiếu nại:';
+            }
+          }
+
+          const canSubmitCounterDispute = !isDual && (
+            (isWorkstationRole && !isMuaReport) ||
+            (!isWorkstationRole && isMuaReport)
+          );
+
+          return (
+            <View style={[styles.statusCard, styles.statusCardDisputed]}>
+              <View style={styles.statusCardHeader}>
+                <View style={[styles.statusIconBox, { backgroundColor: isDual ? '#7C3AED' : '#EA580C' }]}>
+                  <Ionicons name={isDual ? 'scale' : 'warning'} size={22} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
+                    <Text style={[styles.statusCardTitle, { color: isDual ? '#6D28D9' : '#9A3412', marginBottom: 0 }]}>{title}</Text>
+                    {reporterBadge ? (
+                      <View style={{ backgroundColor: isDual ? '#F3E8FF' : isMuaReport ? '#FEF3C7' : '#FCE7F3', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isDual ? '#E9D5FF' : isMuaReport ? '#FDE68A' : '#FBCFE8' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: isDual ? '#7E22CE' : isMuaReport ? '#92400E' : '#9D174D' }}>
+                          {reporterBadge}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.statusCardDesc}>{subtitle}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.statusCardTitle, { color: '#9A3412' }]}>ĐƠN ĐANG TRANH CHẤP / KHIẾU NẠI</Text>
-                <Text style={styles.statusCardDesc}>
-                  Ban Quản Trị đang xác minh minh chứng và liên hệ các bên để giải quyết tranh chấp trong 24h.
+
+              {isDual ? (
+                <View style={{ gap: 8, marginTop: 10 }}>
+                  {/* Báo cáo Phía Chuyên Viên */}
+                  <View style={{ backgroundColor: '#FFFFFF', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#FED7AA' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#B45309' }}>Phía Chuyên Viên MUA</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#1E293B' }}>{bookingDetail.muaName || 'Chuyên viên'}</Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#334155', lineHeight: 18 }}>
+                      "{muaStatement || 'Chưa gửi lời khai riêng'}"
+                    </Text>
+                    {muaProofUrl ? (
+                      <View style={{ marginTop: 8 }}>
+                        <Image
+                          source={{ uri: muaProofUrl }}
+                          style={{ width: '100%', height: 140, borderRadius: 6, backgroundColor: '#F1F5F9' }}
+                          contentFit="cover"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Báo cáo Phía Khách Hàng */}
+                  <View style={{ backgroundColor: '#FFFFFF', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#DDD6FE' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <View style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#7E22CE' }}>Phía Khách Hàng</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#1E293B' }}>{bookingDetail.customerName || 'Khách hàng'}</Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#334155', lineHeight: 18 }}>
+                      "{customerStatement || 'Chưa gửi lời khai riêng'}"
+                    </Text>
+                    {customerProofUrl ? (
+                      <View style={{ marginTop: 8 }}>
+                        <Image
+                          source={{ uri: customerProofUrl }}
+                          style={{ width: '100%', height: 140, borderRadius: 6, backgroundColor: '#F1F5F9' }}
+                          contentFit="cover"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              ) : (
+                <>
+                  {statement ? (
+                    <View style={{ backgroundColor: '#FFFFFF', borderRadius: 10, padding: 10, marginTop: 10, borderWidth: 1, borderColor: '#FED7AA' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#9A3412', marginBottom: 2 }}>
+                        {reasonLabel}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#334155', lineHeight: 18 }}>
+                        "{statement}"
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {proofUrls.length > 0 && (
+                    <View style={{ marginTop: 10, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#FED7AA' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#9A3412', marginBottom: 6 }}>
+                        Ảnh minh chứng đính kèm ({isMuaReport ? 'Phía Chuyên Viên MUA' : 'Phía Khách Hàng'}):
+                      </Text>
+                      <Image
+                        source={{ uri: proofUrls[0].replace(/\[.*?\]:?/, '').trim() }}
+                        style={{ width: '100%', height: 180, borderRadius: 8, backgroundColor: '#F1F5F9' }}
+                        contentFit="cover"
+                      />
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* Nút gửi lời khai / minh chứng đối chất nếu bên này chưa gửi */}
+              {canSubmitCounterDispute && (
+                <TouchableOpacity
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: '#DC2626',
+                    paddingVertical: 12,
+                    paddingHorizontal: 14,
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    shadowColor: '#DC2626',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}
+                  onPress={() => {
+                    setIsDisputeDossierAutoOpen(true);
+                    setIsDisputeDossierOpen(true);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="create-outline" size={17} color="#FFFFFF" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                    {isWorkstationRole
+                      ? 'Gửi Báo Cáo Phản Hồi Khiếu Nại Của Thợ'
+                      : 'Gửi Báo Cáo Đối Chất / Khiếu Nại Của Bạn'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Nút mở Modal xem chi tiết hồ sơ đối soát 2 bên */}
+              <TouchableOpacity
+                style={{
+                  marginTop: canSubmitCounterDispute ? 8 : 12,
+                  backgroundColor: canSubmitCounterDispute ? '#FFFFFF' : '#EA580C',
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 10,
+                  borderWidth: canSubmitCounterDispute ? 1 : 0,
+                  borderColor: '#FED7AA',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  shadowColor: '#EA580C',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }}
+                onPress={() => {
+                  setIsDisputeDossierAutoOpen(false);
+                  setIsDisputeDossierOpen(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="document-text-outline" size={16} color={canSubmitCounterDispute ? '#9A3412' : '#FFFFFF'} />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: canSubmitCounterDispute ? '#9A3412' : '#FFFFFF' }}>
+                  Xem Toàn Bộ Hồ Sơ Khiếu Nại & Đối Chất
                 </Text>
-              </View>
+              </TouchableOpacity>
             </View>
-          </View>
-        )}
+          );
+        })()}
 
         {/* CỤM THANH TOÁN 70% CHO KHÁCH HÀNG NẾU ĐƠN CHƯA QUYẾT TOÁN XONG */}
         {!isWorkstationRole && isCompleted && !isPaidOut && (
@@ -728,15 +1632,79 @@ export default function BookingHistoryDetailScreen() {
           </View>
 
           {/* KHOẢN CỌC ESCROW 30% */}
-          {isCancelled ? (
+          {isDisputeRefunded ? (
+            <View
+              style={[
+                styles.escrowBillBox,
+                isSplit5050
+                  ? { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }
+                  : { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
+              ]}
+            >
+              <View style={styles.escrowBillLeft}>
+                <Text
+                  style={[
+                    styles.escrowBillTitle,
+                    { color: isSplit5050 ? '#6D28D9' : '#065F46' },
+                  ]}
+                >
+                  Khoản cọc Escrow (30%):
+                </Text>
+                <Text
+                  style={[
+                    styles.escrowBillSub,
+                    { color: isSplit5050 ? '#7C3AED' : '#047857' },
+                  ]}
+                >
+                  {isSplit5050
+                    ? isWorkstationRole
+                      ? `Hòa giải 50/50: Hoàn 50% (${formatPrice(Math.round(depositAmount * 0.5))}) về Khách & 50% (${formatPrice(Math.round(depositAmount * 0.5))}) về Thợ`
+                      : `Hòa giải 50/50: Đã hoàn 50% (${formatPrice(Math.round(depositAmount * 0.5))}) về Ví cá nhân của bạn`
+                    : isWorkstationRole
+                    ? `Admin phê duyệt khiếu nại: Hoàn 100% (${formatPrice(depositAmount)}) về Ví của khách hàng`
+                    : `Admin phê duyệt khiếu nại: Đã hoàn 100% (${formatPrice(depositAmount)}) về Ví cá nhân của bạn`}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                <Text
+                  style={[
+                    styles.escrowBillAmount,
+                    { color: isSplit5050 ? '#7C3AED' : '#059669' },
+                  ]}
+                >
+                  {formatPrice(isSplit5050 && !isWorkstationRole ? Math.round(depositAmount * 0.5) : depositAmount)}
+                </Text>
+                <View
+                  style={[
+                    styles.escrowPaidTag,
+                    isSplit5050 && { backgroundColor: '#F3E8FF', borderColor: '#E9D5FF' },
+                  ]}
+                >
+                  <Ionicons
+                    name={isSplit5050 ? 'git-compare' : 'shield-checkmark'}
+                    size={11}
+                    color={isSplit5050 ? '#7C3AED' : '#059669'}
+                  />
+                  <Text
+                    style={[
+                      styles.escrowPaidTagText,
+                      isSplit5050 && { color: '#6D28D9' },
+                    ]}
+                  >
+                    {isSplit5050 ? 'Hòa Giải 50/50' : 'Đã Hoàn Cọc Khiếu Nại'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : isNormalCancelled ? (
             isDepositRefunded ? (
               <View style={[styles.escrowBillBox, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
                 <View style={styles.escrowBillLeft}>
                   <Text style={[styles.escrowBillTitle, { color: '#065F46' }]}>Khoản cọc Escrow (30%):</Text>
                   <Text style={[styles.escrowBillSub, { color: '#047857' }]}>
                     {isWorkstationRole
-                      ? `Đã hoàn lại 100% (${formatPrice(depositAmount)}) về Ví cá nhân của khách do thợ hủy ca`
-                      : `Đã hoàn lại 100% (${formatPrice(depositAmount)}) về Ví cá nhân do thợ hủy ca`}
+                      ? `Đã hoàn lại 100% (${formatPrice(depositAmount)}) về Ví cá nhân của khách`
+                      : `Đã hoàn lại 100% (${formatPrice(depositAmount)}) về Ví cá nhân do hủy hợp lệ`}
                   </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
@@ -766,6 +1734,54 @@ export default function BookingHistoryDetailScreen() {
                 </View>
               </View>
             )
+          ) : isDisputeCompensated ? (
+            <View
+              style={[
+                styles.escrowBillBox,
+                {
+                  backgroundColor: isWorkstationRole ? '#ECFDF5' : '#FFF1F2',
+                  borderColor: isWorkstationRole ? '#A7F3D0' : '#FECDD3',
+                },
+              ]}
+            >
+              <View style={styles.escrowBillLeft}>
+                <Text style={[styles.escrowBillTitle, { color: isWorkstationRole ? '#065F46' : '#9F1239' }]}>
+                  Khoản cọc Escrow (30%):
+                </Text>
+                <Text style={[styles.escrowBillSub, { color: isWorkstationRole ? '#047857' : '#BE123C' }]}>
+                  {isWorkstationRole
+                    ? `Đã nhận bồi thường 100% (${formatPrice(depositAmount)}) vào ví thu nhập`
+                    : `Đã khấu trừ bồi thường cho thợ do vi phạm điều kiện hủy hẹn/vắng mặt`}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
+                <Text style={[styles.escrowBillAmount, { color: isWorkstationRole ? '#059669' : '#E11D48' }]}>
+                  {formatPrice(depositAmount)}
+                </Text>
+                <View
+                  style={[
+                    styles.escrowPaidTag,
+                    {
+                      backgroundColor: isWorkstationRole ? '#D1FAE5' : '#FFE4E6',
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="shield-checkmark"
+                    size={11}
+                    color={isWorkstationRole ? '#059669' : '#E11D48'}
+                  />
+                  <Text
+                    style={[
+                      styles.escrowPaidTagText,
+                      { color: isWorkstationRole ? '#059669' : '#E11D48' },
+                    ]}
+                  >
+                    {isWorkstationRole ? 'Đã Nhận Bồi Thường' : 'Khấu Trừ Bồi Thường'}
+                  </Text>
+                </View>
+              </View>
+            </View>
           ) : (
             <View style={styles.escrowBillBox}>
               <View style={styles.escrowBillLeft}>
@@ -794,14 +1810,18 @@ export default function BookingHistoryDetailScreen() {
           )}
 
           {/* KHOẢN CÒN LẠI 70% */}
-          {isCancelled ? (
+          {isCancelled || isDisputeCompensated || isDisputeRefunded ? (
             <View style={[styles.remainingBillBox, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
               <View style={styles.escrowBillLeft}>
                 <Text style={[styles.remainingBillTitle, { color: '#64748B' }]}>
                   Khoản Còn Lại (70%):
                 </Text>
                 <Text style={styles.remainingBillSub}>
-                  Đơn đã hủy — Miễn thanh toán khoản còn lại
+                  {isDisputeCompensated
+                    ? 'Ca không diễn ra — Miễn thanh toán khoản còn lại 70%'
+                    : isDisputeRefunded
+                    ? 'Đã giải quyết khiếu nại — Miễn thanh toán khoản còn lại 70%'
+                    : 'Đơn đã hủy — Miễn thanh toán khoản còn lại'}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -851,26 +1871,85 @@ export default function BookingHistoryDetailScreen() {
                 <Ionicons name="cash-outline" size={16} color="#7C3AED" />
                 <Text style={styles.muaEarningsTitle}>Quyền Lợi & Thu Nhập Chuyên Viên</Text>
               </View>
-              <View style={styles.billRow}>
-                <Text style={styles.billLabel}>Khấu trừ phí sàn (20%):</Text>
-                <Text style={[styles.billValue, { color: '#EF4444' }]}>-{formatPrice(platformFee)}</Text>
-              </View>
-              <View style={styles.billRow}>
-                <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận (80%):</Text>
-                <Text style={styles.muaNetEarningsValue}>{formatPrice(earningsAmount)}</Text>
-              </View>
-              <View style={styles.muaWalletStatusBox}>
-                <Ionicons
-                  name={isPaidOut ? 'wallet' : 'hourglass-outline'}
-                  size={16}
-                  color={isPaidOut ? '#059669' : '#D97706'}
-                />
-                <Text style={[styles.muaWalletStatusText, { color: isPaidOut ? '#059669' : '#D97706' }]}>
-                  {isPaidOut
-                    ? 'Thu nhập đã được cộng thành công vào Ví Thợ khả dụng của bạn.'
-                    : 'Khoản cọc 30% bảo lưu trong Escrow, sẽ giải ngân cùng 70% ngay khi quyết toán xong.'}
-                </Text>
-              </View>
+              {isDisputeRefunded || isNormalCancelled ? (
+                isSplit5050 ? (
+                  <>
+                    <View style={styles.billRow}>
+                      <Text style={styles.billLabel}>Khoản bồi thường hòa giải (50% cọc):</Text>
+                      <Text style={[styles.billValue, { color: '#7C3AED', fontWeight: '800' }]}>
+                        +{formatPrice(Math.round(depositAmount * 0.5))}
+                      </Text>
+                    </View>
+                    <View style={styles.billRow}>
+                      <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận:</Text>
+                      <Text style={[styles.muaNetEarningsValue, { color: '#7C3AED' }]}>
+                        {formatPrice(Math.round(depositAmount * 0.5))}
+                      </Text>
+                    </View>
+                    <View style={[styles.muaWalletStatusBox, { backgroundColor: '#FAF5FF', borderColor: '#E9D5FF' }]}>
+                      <Ionicons name="wallet" size={16} color="#7C3AED" />
+                      <Text style={[styles.muaWalletStatusText, { color: '#6D28D9' }]}>
+                        Admin phê duyệt hòa giải 50/50. 50% tiền cọc ({formatPrice(Math.round(depositAmount * 0.5))}) đã được giải ngân trực tiếp vào Ví thu nhập của bạn.
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.billRow}>
+                      <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận:</Text>
+                      <Text style={[styles.muaNetEarningsValue, { color: '#64748B' }]}>{formatPrice(0)}</Text>
+                    </View>
+                    <View style={[styles.muaWalletStatusBox, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
+                      <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                      <Text style={[styles.muaWalletStatusText, { color: '#64748B' }]}>
+                        {isDisputeRefunded
+                          ? 'Admin đã duyệt khiếu nại hoàn cọc cho khách hàng. Đơn không phát sinh thu nhập thợ.'
+                          : 'Lịch hẹn đã bị hủy trước khi hoàn tất. Đơn không phát sinh thu nhập thợ.'}
+                      </Text>
+                    </View>
+                  </>
+                )
+              ) : isDisputeCompensated ? (
+                <>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>Khoản bồi thường khiếu nại (100% cọc):</Text>
+                    <Text style={[styles.billValue, { color: '#059669', fontWeight: '800' }]}>+{formatPrice(depositAmount)}</Text>
+                  </View>
+                  <View style={styles.billRow}>
+                    <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận:</Text>
+                    <Text style={styles.muaNetEarningsValue}>{formatPrice(depositAmount)}</Text>
+                  </View>
+                  <View style={styles.muaWalletStatusBox}>
+                    <Ionicons name="wallet" size={16} color="#059669" />
+                    <Text style={[styles.muaWalletStatusText, { color: '#059669' }]}>
+                      Admin đã duyệt bồi thường cọc cho thợ. Khoản tiền đã được giải ngân vào Ví Thu Nhập của bạn.
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>Khấu trừ phí sàn (20%):</Text>
+                    <Text style={[styles.billValue, { color: '#EF4444' }]}>-{formatPrice(platformFee)}</Text>
+                  </View>
+                  <View style={styles.billRow}>
+                    <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận (80%):</Text>
+                    <Text style={styles.muaNetEarningsValue}>{formatPrice(earningsAmount)}</Text>
+                  </View>
+                  <View style={styles.muaWalletStatusBox}>
+                    <Ionicons
+                      name={isPaidOut ? 'wallet' : 'hourglass-outline'}
+                      size={16}
+                      color={isPaidOut ? '#059669' : '#D97706'}
+                    />
+                    <Text style={[styles.muaWalletStatusText, { color: isPaidOut ? '#059669' : '#D97706' }]}>
+                      {isPaidOut
+                        ? 'Thu nhập đã được cộng thành công vào Ví Thợ khả dụng của bạn.'
+                        : 'Khoản cọc 30% bảo lưu trong Escrow, sẽ giải ngân cùng 70% ngay khi quyết toán xong.'}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
           )}
         </View>
@@ -888,16 +1967,18 @@ export default function BookingHistoryDetailScreen() {
                 <Text style={styles.rebookBtnText}>Đặt Lại Ca Này</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.reviewBtn}
-                onPress={() => {
-                  Alert.alert('Đánh Giá Dịch Vụ ⭐', 'Cảm ơn bạn đã sử dụng nền tảng! Tính năng đánh giá sao đang được kích hoạt.');
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="star-outline" size={17} color={BrandColors.primary} />
-                <Text style={styles.reviewBtnText}>Đánh Giá Dịch Vụ</Text>
-              </TouchableOpacity>
+              {isNormalPaidOut && (
+                <TouchableOpacity
+                  style={styles.reviewBtn}
+                  onPress={() => {
+                    Alert.alert('Đánh Giá Dịch Vụ ⭐', 'Cảm ơn bạn đã sử dụng nền tảng! Tính năng đánh giá sao đang được kích hoạt.');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="star-outline" size={17} color={BrandColors.primary} />
+                  <Text style={styles.reviewBtnText}>Đánh Giá Dịch Vụ</Text>
+                </TouchableOpacity>
+              )}
             </>
           ) : (
             <>
@@ -928,26 +2009,54 @@ export default function BookingHistoryDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU */}
+      {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU HOẶC MINH CHỨNG */}
       <Modal
-        visible={isPhotoModalVisible}
+        visible={isPhotoModalVisible || !!previewPhotoUrl}
         transparent
         animationType="fade"
         statusBarTranslucent
-        onRequestClose={() => setIsPhotoModalVisible(false)}
+        onRequestClose={() => {
+          setIsPhotoModalVisible(false);
+          setPreviewPhotoUrl(null);
+        }}
       >
-        <Pressable style={styles.photoModalFullscreen} onPress={() => setIsPhotoModalVisible(false)}>
-
-            {bookingDetail.completionPhotoUrl && (
-              <Image
-                source={{ uri: bookingDetail.completionPhotoUrl }}
-                style={styles.photoModalImage}
-                contentFit="contain"
-              />
-            )}
-
+        <Pressable
+          style={styles.photoModalFullscreen}
+          onPress={() => {
+            setIsPhotoModalVisible(false);
+            setPreviewPhotoUrl(null);
+          }}
+        >
+          {(previewPhotoUrl || bookingDetail.completionPhotoUrl) && (
+            <Image
+              source={{ uri: previewPhotoUrl || bookingDetail.completionPhotoUrl }}
+              style={styles.photoModalImage}
+              contentFit="contain"
+            />
+          )}
         </Pressable>
       </Modal>
+
+      {/* MODAL XEM CHI TIẾT HỒ SƠ KHIẾU NẠI & MINH CHỨNG HAI BÊN (TÍCH HỢP INLINE FORM ĐỐI CHẤT) */}
+      <DisputeDossierModal
+        visible={isDisputeDossierOpen}
+        onClose={() => {
+          setIsDisputeDossierOpen(false);
+          setIsDisputeDossierAutoOpen(false);
+        }}
+        bookingId={bookingId}
+        cancellationReason={bookingDetail?.cancellationReason}
+        emergencyReason={bookingDetail?.emergencyReason}
+        emergencyProofUrl={bookingDetail?.emergencyProofUrl}
+        reportedAt={bookingDetail?.emergencyReportedAt}
+        viewAsRole={isWorkstationRole ? 'MUA' : 'CUSTOMER'}
+        bookingCode={bookingDetail?.bookingCode}
+        depositAmount={bookingDetail?.depositAmount}
+        disputeOrigin={bookingDetail?.disputeOrigin}
+        counterpartyName={isWorkstationRole ? bookingDetail?.customerName : bookingDetail?.muaName}
+        autoOpenForm={isDisputeDossierAutoOpen}
+        onDisputeSuccess={() => loadData(true)}
+      />
     </SafeAreaView>
   );
 }
@@ -1739,6 +2848,104 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: '#94A3B8',
     fontSize: 11,
+    fontWeight: '500',
+  },
+  scheduledHeroCard: {
+    backgroundColor: '#FAF5FF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+  },
+  scheduledHeroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  scheduledHeroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D8B4FE',
+  },
+  scheduledHeroBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#7C3AED',
+    letterSpacing: 0.5,
+  },
+  scheduledHeroCode: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B21A8',
+  },
+  scheduledHeroBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F3E8FF',
+  },
+  scheduledHeroTimeCol: {
+    flex: 1,
+  },
+  scheduledHeroTimeLabel: {
+    fontSize: 11,
+    color: '#9333EA',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  scheduledHeroTimeValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#581C87',
+    marginTop: 2,
+  },
+  scheduledHeroDateValue: {
+    fontSize: 12,
+    color: '#7E22CE',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  scheduledHeroDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: '#F3E8FF',
+    marginHorizontal: 12,
+  },
+  scheduledHeroServiceCol: {
+    flex: 1.2,
+  },
+  scheduledHeroServiceLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  scheduledHeroServiceValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 2,
+  },
+  scheduledDurationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 4,
+  },
+  scheduledDurationPillText: {
+    fontSize: 11,
+    color: '#64748B',
     fontWeight: '500',
   },
 });

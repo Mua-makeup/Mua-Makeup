@@ -1042,17 +1042,51 @@ export default function BookingLiveTrackingScreen() {
               </View>
             </View>
           ) : isCashPaidConfirmed ? (
-            <View style={[styles.cardBox, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A', borderWidth: 1 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name="time" size={28} color="#D97706" />
+            <View style={[styles.cardBox, { backgroundColor: '#FFFFFF', borderColor: '#FDE68A', borderWidth: 1.5, padding: 18 }]}>
+              {/* Top badge & action */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A' }}>
+                  <Ionicons name="time" size={13} color="#D97706" />
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#92400E' }}>CHỜ XÁC NHẬN TIỀN MẶT</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsCashPaidConfirmed(false)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 6 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="swap-horizontal" size={14} color="#64748B" />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B' }}>Đổi cách thanh toán</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#F59E0B' }}>
+                  <Ionicons name="hourglass" size={24} color="#D97706" />
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#92400E' }}>
-                    Đang Chờ Chuyên Viên Xác Nhận Tiền Mặt
+                  <Text style={{ fontSize: 16, fontWeight: '900', color: '#0F172A' }}>
+                    Đã Báo Thanh Toán Tiền Mặt
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#B45309', marginTop: 2 }}>
-                    Bạn đã bấm báo gửi tiền mặt {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}. Vui lòng nhờ chuyên viên bấm xác nhận trên ứng dụng của họ để hoàn tất đơn.
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    Vui lòng trao tiền mặt trực tiếp cho chuyên viên
                   </Text>
                 </View>
+              </View>
+
+              {/* Hộp số tiền tiền mặt nổi bật */}
+              <View style={{ backgroundColor: '#F8FAFC', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '600' }}>Số tiền mặt cần thanh toán:</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900', color: '#E11D48' }}>
+                  {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}
+                </Text>
+              </View>
+
+              {/* Hướng dẫn thợ bấm xác nhận */}
+              <View style={{ backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#FEF08A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={16} color="#D97706" />
+                <Text style={{ fontSize: 12, color: '#92400E', flex: 1, lineHeight: 16 }}>
+                  Chuyên viên sẽ bấm <Text style={{ fontWeight: '800' }}>"Đã Nhận Đủ"</Text> trên màn hình máy họ để hoàn tất đơn và xuất biên lai.
+                </Text>
               </View>
             </View>
           ) : (

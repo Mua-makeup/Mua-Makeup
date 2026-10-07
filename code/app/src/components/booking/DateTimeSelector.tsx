@@ -205,7 +205,7 @@ export const DateTimeSelector: React.FC<Props> = ({
     return () => {
       isMounted = false;
     };
-  }, [muaId, selectedDate, durationMinutes]);
+  }, [muaId, selectedDate, durationMinutes, isTimeModalVisible]);
 
   // Map tra cứu nhanh 30 ngày theo chuỗi 'YYYY-MM-DD'
   const calendarDaysMap = useMemo(() => {
@@ -370,9 +370,11 @@ export const DateTimeSelector: React.FC<Props> = ({
           <View style={styles.headerIconCircle}>
             <Ionicons name="calendar" size={17} color={BrandColors.primary} />
           </View>
-          <View>
+          <View style={styles.headerTitleWrap}>
             <Text style={styles.sectionTitle}>Lịch Hẹn Làm Đẹp (30 Ngày)</Text>
-            <Text style={styles.sectionSubtitle}>Chạm ngày để mở danh sách khung giờ phục vụ</Text>
+            <Text style={styles.sectionSubtitle} numberOfLines={1}>
+              Chạm ngày để mở danh sách khung giờ
+            </Text>
           </View>
         </View>
         <View style={styles.durationBadge}>
@@ -899,11 +901,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 14,
+    gap: 8,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+  },
+  headerTitleWrap: {
     flex: 1,
   },
   headerIconCircle: {
@@ -934,6 +940,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    flexShrink: 0,
+    alignSelf: 'center',
   },
   durationText: {
     fontSize: 12,

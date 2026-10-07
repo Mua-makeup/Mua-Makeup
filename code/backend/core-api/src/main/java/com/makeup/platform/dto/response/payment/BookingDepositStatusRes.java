@@ -34,4 +34,12 @@ public class BookingDepositStatusRes {
     private OffsetDateTime currentPaymentExpiresAt;
     private String currentGatewayCode;
     private String currentApplicationStatus;
+
+    /** Trạng thái đơn & kiểm tra trùng slot */
+    private String bookingStatus;
+    private Boolean isSlotTaken;
+    private Boolean isRefunded;
+    private BigDecimal refundAmount;
+    private String cancellationReason;
+    private String message;
 }

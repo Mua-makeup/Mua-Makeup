@@ -69,14 +69,14 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
         for (WalletHoldEntity hold : rawActiveHolds) {
             BookingEntity b = hold.getBooking();
             if (b != null) {
-                if (b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT) {
+                if (b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT || b.getStatus() == BookingStatus.DISPUTE_COMPENSATED) {
                     hold.setStatus("CONSUMED");
                     hold.setReleasedAt(OffsetDateTime.now());
                     walletHoldRepository.save(hold);
-                } else if (b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED) {
+                } else if (b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED || b.getStatus() == BookingStatus.DISPUTE_REFUNDED) {
                     String depStatus = hold.getDeposit() != null ? hold.getDeposit().getStatus() : null;
                     if ("COMPENSATED_TO_MUA".equalsIgnoreCase(depStatus) || "FORFEITED".equalsIgnoreCase(depStatus)) {
-                        hold.setStatus("COMPENSATED_TO_MUA");
+                        hold.setStatus("CONSUMED");
                     } else {
                         hold.setStatus("REFUNDED");
                         if (hold.getDeposit() != null && !"REFUNDED".equals(hold.getDeposit().getStatus())) {
@@ -108,6 +108,13 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
                 Long bookingId = entry.getReferenceId();
                 String resolvedStatus = null;
 
+                // Tra cứu thông tin BookingEntity
+                Optional<BookingEntity> bOpt = bookingRepository.findById(bookingId);
+                BookingStatus bStatus = bOpt.map(BookingEntity::getStatus).orElse(null);
+                if (bOpt.isPresent()) {
+                    bookingCodeMap.put(bookingId, bOpt.get().getBookingCode());
+                }
+
                 // Ưu tiên tra cứu trạng thái chính thức trong bảng booking_deposits
                 Optional<BookingDepositEntity> depOpt = bookingDepositRepository.findByBookingId(bookingId);
                 if (depOpt.isPresent()) {
@@ -116,22 +123,26 @@ public class CustomerWalletServiceImpl implements CustomerWalletService {
                         resolvedStatus = "COMPENSATED_TO_MUA";
                     } else if ("REFUNDED".equalsIgnoreCase(ds)) {
                         resolvedStatus = "REFUNDED";
-                    } else if ("PAID".equalsIgnoreCase(ds) || "CONSUMED".equalsIgnoreCase(ds)) {
+                    } else if ("CONSUMED".equalsIgnoreCase(ds)) {
                         resolvedStatus = "CONSUMED";
+                    } else if ("PAID".equalsIgnoreCase(ds)) {
+                        if (bStatus == BookingStatus.COMPLETED || bStatus == BookingStatus.PAID_OUT || bStatus == BookingStatus.DISPUTE_COMPENSATED) {
+                            resolvedStatus = "CONSUMED";
+                        } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
+                            resolvedStatus = "REFUNDED";
+                        } else {
+                            resolvedStatus = "ACTIVE";
+                        }
                     }
                 }
 
-                // Tra cứu thông tin BookingEntity
-                Optional<BookingEntity> bOpt = bookingRepository.findById(bookingId);
-                if (bOpt.isPresent()) {
-                    bookingCodeMap.put(bookingId, bOpt.get().getBookingCode());
-                    if (resolvedStatus == null) {
-                        BookingStatus bStatus = bOpt.get().getStatus();
-                        if (bStatus == BookingStatus.COMPLETED || bStatus == BookingStatus.PAID_OUT) {
-                            resolvedStatus = "CONSUMED";
-                        } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
-                            resolvedStatus = "REFUNDED";
-                        }
+                if (resolvedStatus == null && bStatus != null) {
+                    if (bStatus == BookingStatus.COMPLETED || bStatus == BookingStatus.PAID_OUT || bStatus == BookingStatus.DISPUTE_COMPENSATED) {
+                        resolvedStatus = "CONSUMED";
+                    } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
+                        resolvedStatus = "REFUNDED";
+                    } else {
+                        resolvedStatus = "ACTIVE";
                     }
                 }
 

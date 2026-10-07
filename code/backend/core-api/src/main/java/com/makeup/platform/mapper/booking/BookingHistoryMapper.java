@@ -142,6 +142,9 @@ public class BookingHistoryMapper {
             case PAID_OUT -> "Đã quyết toán dịch vụ";
             case CANCELLED, CANCELLED_EXPIRED -> "Ca hẹn đã bị hủy";
             case DISPUTED -> "Báo cáo sự cố / Khiếu nại";
+            case DISPUTE_REFUNDED -> "Khiếu nại: Đã hoàn tiền";
+            case DISPUTE_COMPENSATED -> "Khiếu nại: Đã bồi thường/quyết toán";
+            default -> status.name();
         };
     }
 }

@@ -437,7 +437,7 @@ export default function HomeScreen() {
               <View style={styles.greetingBar}>
                 <View style={styles.greetingTextContainer}>
                   <Text style={styles.greetingTitle} numberOfLines={2}>
-                    {`Xin chào, ${userInfo?.fullName}! ✨`}
+                    {`Xin chào, ${userInfo?.fullName}!`}
                   </Text>
                   <Text style={styles.greetingSubtitle} numberOfLines={2}>
                     Hôm nay bạn muốn tỏa sáng theo phong cách nào?
@@ -597,7 +597,6 @@ export default function HomeScreen() {
             <View style={styles.promoBanner}>
               <View style={styles.promoContent}>
                 <View style={styles.promoTag}>
-                  <Ionicons name="flame" size={12} color="#FFFFFF" />
                   <Text style={styles.promoTagText}>MÙA CƯỚI 2026</Text>
                 </View>
                 <Text style={styles.promoTitle}>Ưu Đãi 20% Gói Cô Dâu VIP</Text>
@@ -614,13 +613,9 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* ========================================================================= */}
-            {/* KHỐI PHÂN BIỆT 2 HÌNH THỨC ĐẶT LỊCH: CẤP TỐC 30S vs HẸN THEO NGÀY         */}
-            {/* ========================================================================= */}
             <View style={styles.bookingModesSection}>
               <View style={styles.bookingModesHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
                   <Text style={styles.bookingModesSectionTitle}>Chọn Hình Thức Đặt Lịch</Text>
                 </View>
                 <Text style={styles.bookingModesSectionSub}>
@@ -634,12 +629,11 @@ export default function HomeScreen() {
                 <View style={styles.emergencyContent}>
                   <View style={styles.emergencyHeaderRow}>
                     <View style={styles.emergencyBadge}>
-                      <Ionicons name="flash" size={14} color="#FFFFFF" />
                       <Text style={styles.emergencyBadgeText}>1. ĐẶT CẤP TỐC (KHẨN CẤP)</Text>
                     </View>
                     <View style={styles.emergencyLiveTag}>
                       <View style={styles.emergencyPulseDot} />
-                      <Text style={styles.emergencyLiveText}>⚡ Có thợ ngay 15-30p</Text>
+                      <Text style={styles.emergencyLiveText}>Có thợ ngay 15-30p</Text>
                     </View>
                   </View>
 
@@ -712,7 +706,6 @@ export default function HomeScreen() {
               >
                 <View style={styles.scheduledHeaderRow}>
                   <View style={styles.scheduledBadge}>
-                    <Ionicons name="calendar" size={14} color="#7C3AED" />
                     <Text style={styles.scheduledBadgeText}>2. ĐẶT LỊCH THEO NGÀY (HẸN TRƯỚC)</Text>
                   </View>
                   <View style={styles.scheduledTag}>
@@ -727,15 +720,12 @@ export default function HomeScreen() {
 
                 <View style={styles.scheduledChipsRow}>
                   <View style={styles.scheduledChip}>
-                    <Ionicons name="sparkles" size={12} color="#7C3AED" />
                     <Text style={styles.scheduledChipText}>Thợ MUA Tự Do</Text>
                   </View>
                   <View style={styles.scheduledChip}>
-                    <Ionicons name="business" size={12} color="#7C3AED" />
                     <Text style={styles.scheduledChipText}>Studio & Viện Cưới</Text>
                   </View>
                   <View style={styles.scheduledChip}>
-                    <Ionicons name="images-outline" size={12} color="#7C3AED" />
                     <Text style={styles.scheduledChipText}>Album thực tế</Text>
                   </View>
                 </View>

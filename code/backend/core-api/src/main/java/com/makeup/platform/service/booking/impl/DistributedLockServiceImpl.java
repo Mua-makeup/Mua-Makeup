@@ -140,15 +140,32 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                     }
                 }
 
-                if (categoryId != null) {
+                String targetPkgStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(bookingId) + ":target_package");
+                Long targetPkgId = null;
+                if (targetPkgStr != null && !targetPkgStr.isEmpty()) {
+                    try { targetPkgId = Long.valueOf(targetPkgStr); } catch (NumberFormatException ignored) {}
+                }
+
+                ServicePackageEntity pkg = null;
+                if (targetPkgId != null) {
+                    pkg = servicePackageRepository.findById(targetPkgId).orElse(null);
+                } else if (booking.getServicePackage() != null) {
+                    pkg = booking.getServicePackage();
+                }
+
+                if (pkg == null && categoryId != null) {
                     List<ServicePackageEntity> candidatePackages = servicePackageRepository.findCandidatePackagesForMua(
                             muaProfile.getId(), categoryId, styleId);
                     if (!candidatePackages.isEmpty()) {
-                        ServicePackageEntity pkg = candidatePackages.get(0);
-                        booking.setServicePackage(pkg);
-                        booking.setServiceSubtotal(pkg.getPrice());
-                        BigDecimal emergencyFee = new BigDecimal("150000.00");
-                        booking.setSurchargeFee(emergencyFee);
+                        pkg = candidatePackages.get(0);
+                    }
+                }
+
+                if (pkg != null) {
+                    booking.setServicePackage(pkg);
+                    booking.setServiceSubtotal(pkg.getPrice());
+                    BigDecimal emergencyFee = new BigDecimal("150000.00");
+                    booking.setSurchargeFee(emergencyFee);
 
                         double distanceKm = 1.5;
                         if (muaProfile.getBaseAddressLat() != null && muaProfile.getBaseAddressLng() != null
@@ -171,7 +188,6 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                         BigDecimal deposit = rawDeposit.setScale(2, RoundingMode.HALF_UP);
                         booking.setDepositAmount(deposit);
                     }
-                }
 
                 booking.setStatus(BookingStatus.ACCEPTED);
                 booking.setMua(muaProfile);

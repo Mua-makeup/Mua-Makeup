@@ -53,6 +53,9 @@ public class BookingStatusDetailRes {
     private BigDecimal earningsAmount;
     private String completionPhotoUrl;
     private String cancellationReason;
+    private String emergencyProofUrl;
+    private String emergencyReason;
+    private OffsetDateTime emergencyReportedAt;
     private Boolean isDepositPaid;
     private Integer depositTimeoutSeconds;
     private OffsetDateTime confirmDeadline;
@@ -60,5 +63,8 @@ public class BookingStatusDetailRes {
     private Integer inProgressElapsedSeconds;
     private Boolean isCancelRequested;
     private String cancelRequestedReason;
+    private String disputeOrigin;
+    private Boolean isDirectBooking;
+    private List<CandidatePackageRes> availablePackages;
     private LocalDateTime updatedAt;
 }

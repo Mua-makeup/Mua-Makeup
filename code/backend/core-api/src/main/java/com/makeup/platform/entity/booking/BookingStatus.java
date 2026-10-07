@@ -13,5 +13,7 @@ public enum BookingStatus {
     PAID_OUT,
     CANCELLED,
     CANCELLED_EXPIRED,
-    DISPUTED
+    DISPUTED,
+    DISPUTE_REFUNDED,
+    DISPUTE_COMPENSATED
 }

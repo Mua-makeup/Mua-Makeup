@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { router } from 'expo-router';
@@ -11,14 +11,17 @@ import { useWorkstationStore } from '@/store/workstation.store';
 
 interface Props {
   booking: FreelancerBookingItem;
+  onRefresh?: () => void;
 }
 
-export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
+export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
   const { pendingScheduledOffers, triggerScheduledOffer, fetchWorkstationData } = useWorkstationStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getStatusBadge = (status: BookingStatusType) => {
     switch (status) {
+      case 'PENDING_DEPOSIT':
+        return { label: 'Chờ Đặt Cọc', bg: '#FEF3C7', text: '#D97706', icon: 'card-outline' };
       case 'REQUESTED':
         return { label: 'Chờ Tiếp Nhận', bg: '#FFF1F2', text: '#E11D48', icon: 'hourglass-outline' };
       case 'ACCEPTED':
@@ -34,6 +37,14 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
         return { label: 'Đã Hoàn Thành', bg: '#ECFDF5', text: '#059669', icon: 'ribbon' };
       case 'CANCELLED':
         return { label: 'Đã Hủy', bg: '#F1F5F9', text: '#64748B', icon: 'close-circle' };
+      case 'CANCELLED_EXPIRED':
+        return { label: 'Hết Hạn Cọc', bg: '#F1F5F9', text: '#64748B', icon: 'close-circle' };
+      case 'DISPUTED':
+        return { label: 'Đang Khiếu Nại', bg: '#FFEDD5', text: '#EA580C', icon: 'alert-circle' };
+      case 'DISPUTE_REFUNDED':
+        return { label: 'Đã Hoàn Cọc Khách', bg: '#FEF3C7', text: '#B45309', icon: 'shield-checkmark' };
+      case 'DISPUTE_COMPENSATED':
+        return { label: 'Bồi Thường Cho Thợ', bg: '#ECFDF5', text: '#059669', icon: 'shield-checkmark' };
       default:
         return { label: status, bg: '#F8FAFC', text: '#64748B', icon: 'help-circle' };
     }
@@ -62,7 +73,15 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
   };
 
   const handleEnterJob = () => {
-    const isTerminalStatus = ['COMPLETED', 'PAID_OUT', 'CANCELLED', 'CANCELLED_EXPIRED', 'DISPUTED'].includes(booking.status);
+    const isTerminalStatus = [
+      'COMPLETED',
+      'PAID_OUT',
+      'CANCELLED',
+      'CANCELLED_EXPIRED',
+      'DISPUTED',
+      'DISPUTE_REFUNDED',
+      'DISPUTE_COMPENSATED',
+    ].includes(booking.status);
     if (isTerminalStatus) {
       router.push({
         pathname: '/booking/history-detail/[id]',
@@ -77,30 +96,28 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
   };
 
   // Tiếp nhận ca hẹn đang chờ (REQUESTED)
-  const handleAcceptRequested = async () => {
+  const handleAcceptRequested = () => {
     if (isSubmitting) return;
-    const matchingOffer = pendingScheduledOffers?.find((o) => o.bookingId === booking.id);
-    if (matchingOffer) {
-      triggerScheduledOffer(matchingOffer);
-      return;
-    }
 
     Alert.alert(
       'Tiếp Nhận Ca Hẹn',
-      `Bạn có muốn tiếp nhận ca hẹn #${booking.bookingCode} của khách ${booking.customerName}?`,
+      `Bạn có muốn tiếp nhận ca hẹn #${booking.bookingCode} của khách ${booking.customerName || 'khách hàng'}?`,
       [
         { text: 'Để Sau', style: 'cancel' },
         {
-          text: 'Tiếp Nhận',
+          text: 'Tiếp Nhận Ca',
           onPress: async () => {
             try {
               setIsSubmitting(true);
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               await freelancerBookingService.confirmScheduledBooking(booking.id);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Tiếp Nhận Thành Công 🎉', `Đã tiếp nhận ca hẹn #${booking.bookingCode} thành công. Ca làm việc đã được đưa vào lịch trình của bạn.`);
               await fetchWorkstationData();
-              Alert.alert('Thành Công', `Đã tiếp nhận ca hẹn #${booking.bookingCode}.`);
+              if (onRefresh) await onRefresh();
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.response?.data?.message || err.message);
+              const msg = err?.response?.data?.message || err?.message || 'Không thể tiếp nhận ca hẹn.';
+              Alert.alert('Lỗi Tiếp Nhận', msg);
             } finally {
               setIsSubmitting(false);
             }
@@ -116,9 +133,9 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Từ Chối Ca Hẹn',
-      `Bạn có chắc muốn từ chối ca hẹn #${booking.bookingCode}? Tiền cọc sẽ hoàn lại 100% cho khách hàng.`,
+      `Bạn có chắc muốn từ chối ca hẹn #${booking.bookingCode}? Toàn bộ 100% tiền cọc sẽ được hoàn lại cho khách hàng.`,
       [
-        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        { text: 'Hủy', style: 'cancel' },
         {
           text: 'Từ Chối',
           style: 'destructive',
@@ -126,9 +143,13 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
             try {
               setIsSubmitting(true);
               await freelancerBookingService.rejectScheduledBooking(booking.id, 'Thợ bận lịch không thể nhận');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Đã Từ Chối Ca', `Bạn đã từ chối ca hẹn #${booking.bookingCode}. Toàn bộ 100% tiền cọc đã được hệ thống hoàn về ví của khách hàng.`);
               await fetchWorkstationData();
+              if (onRefresh) await onRefresh();
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.response?.data?.message || err.message);
+              const msg = err?.response?.data?.message || err?.message || 'Không thể từ chối ca hẹn.';
+              Alert.alert('Lỗi Từ Chối', msg);
             } finally {
               setIsSubmitting(false);
             }
@@ -213,23 +234,35 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
             /* Đơn chưa tiếp nhận: CHỈ hiện nút Từ Chối và Tiếp Nhận Ca (KHÔNG hiện Vào ca hay Dẫn đường) */
             <>
               <TouchableOpacity
-                style={styles.rejectCardBtn}
+                style={[styles.rejectCardBtn, isSubmitting && { opacity: 0.6 }]}
                 onPress={handleRejectRequested}
                 disabled={isSubmitting}
                 activeOpacity={0.75}
               >
-                <Ionicons name="close-circle-outline" size={14} color="#E11D48" />
-                <Text style={styles.rejectCardBtnText}>Từ chối</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#E11D48" />
+                ) : (
+                  <>
+                    <Ionicons name="close-circle-outline" size={14} color="#E11D48" />
+                    <Text style={styles.rejectCardBtnText}>Từ chối</Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.acceptCardBtn}
+                style={[styles.acceptCardBtn, isSubmitting && { opacity: 0.6 }]}
                 onPress={handleAcceptRequested}
                 disabled={isSubmitting}
                 activeOpacity={0.85}
               >
-                <Ionicons name="checkmark-circle-outline" size={15} color="#FFFFFF" />
-                <Text style={styles.acceptCardBtnText}>Tiếp nhận ca</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={15} color="#FFFFFF" />
+                    <Text style={styles.acceptCardBtnText}>Tiếp nhận ca</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </>
           ) : booking.status === 'ACCEPTED' ? (

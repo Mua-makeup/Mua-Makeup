@@ -61,7 +61,10 @@ export function formatBookingSchedule(
 export function formatDateTimeVN(isoString: string | null | undefined): string {
   if (!isoString) return '--';
   try {
-    const d = new Date(isoString);
+    // Truncate microseconds (e.g. .543349+07:00 -> .543+07:00) so JS Date parser never fails
+    const cleanStr = isoString.replace(/(\.\d{3})\d+/, '$1');
+    const d = new Date(cleanStr);
+    if (isNaN(d.getTime())) return isoString;
     const time = new Intl.DateTimeFormat(VN_LOCALE, {
       hour: '2-digit',
       minute: '2-digit',
@@ -86,6 +89,11 @@ export function formatDateTimeVN(isoString: string | null | undefined): string {
  */
 export function formatDateVN(isoString: string | null | undefined): string {
   if (!isoString) return '--';
+  const clean = isoString.trim();
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[3]}/${match[2]}/${match[1]}`;
+  }
   try {
     const d = new Date(isoString);
     return new Intl.DateTimeFormat(VN_LOCALE, {
@@ -97,6 +105,10 @@ export function formatDateVN(isoString: string | null | undefined): string {
   } catch {
     return '--';
   }
+}
+
+export function formatDateDDMMYYYY(dateStr: string | null | undefined): string {
+  return formatDateVN(dateStr);
 }
 
 /**

@@ -781,7 +781,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Text style={styles.targetedTag}>ƯU TIÊN ĐẶT THỢ</Text>
-                      <Ionicons name="flash" size={11} color="#BE185D" />
                     </View>
                     <Text style={styles.targetedName} numberOfLines={1}>{currentTargetMua.fullName}</Text>
                     <Text style={styles.targetedMeta}>
@@ -821,13 +820,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                         onPress={() => handleSelectCategory(cat)}
                         activeOpacity={0.75}
                       >
-                        <View style={[styles.pkgIconBox, isSelected && styles.pkgIconBoxSelected]}>
-                          <Ionicons
-                            name={iconName as any}
-                            size={18}
-                            color={isSelected ? '#FFFFFF' : '#64748B'}
-                          />
-                        </View>
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.pkgTitle, isSelected && styles.pkgTitleSelected]}>
                             {cat.categoryName}
@@ -862,7 +854,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.stylePillText, selectedStyle === null && styles.stylePillTextSelected]}>
-                    🎨 Bất kỳ
+                    Bất kỳ
                   </Text>
                 </TouchableOpacity>
                 {stylesList.map((st) => {
