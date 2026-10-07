@@ -4,7 +4,9 @@ import com.makeup.platform.dto.request.booking.CreateInstantBookingReq;
 import com.makeup.platform.dto.response.booking.InstantBookingCreatedRes;
 import com.makeup.platform.dto.response.booking.RecentAddressRes;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public interface CustomerInstantBookingService {
 
@@ -26,7 +28,7 @@ public interface CustomerInstantBookingService {
  
     boolean rejectMatchedProvider(Long bookingId, Long customerUserId, String reason);
 
-    boolean confirmDeposit(Long bookingId, Long customerUserId, List<String> addOnNames, java.math.BigDecimal addOnTotal);
+    boolean confirmDeposit(Long bookingId, Long customerUserId, Long packageId, List<String> addOnNames, BigDecimal addOnTotal);
 
-    java.util.Map<String, Object> getPendingOfferForMua(Long muaUserId);
+    Map<String, Object> getPendingOfferForMua(Long muaUserId);
 }

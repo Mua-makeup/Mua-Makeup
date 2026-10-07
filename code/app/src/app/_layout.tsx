@@ -12,7 +12,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
 import { AccountModal } from '@/components/common/AccountModal';
 import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
-import { ScheduledOfferModal } from '@/components/mua/ScheduledOfferModal';
 import { DepositConfirmedModal } from '@/components/mua/DepositConfirmedModal';
 import { setupAlertPolyfill } from '@/store/popup.store';
 import { useWorkstationStore } from '@/store/workstation.store';
@@ -98,8 +97,6 @@ export default function RootLayout() {
         <AccountModal />
         {/* Modal Ca Khẩn Cấp 30s Toàn Cục (Hiện ngay trên mọi màn hình khi mở app) */}
         <CountdownAcceptModal />
-        {/* Modal Lịch Hẹn Đặt Trước Toàn Cục (Hiện ngay khi khách cọc hoặc mở app) */}
-        <ScheduledOfferModal />
         {/* Modal Thông Báo Nhận Cọc Khách Toàn Cục Cho Thợ */}
         <DepositConfirmedModal />
       </ThemeProvider>

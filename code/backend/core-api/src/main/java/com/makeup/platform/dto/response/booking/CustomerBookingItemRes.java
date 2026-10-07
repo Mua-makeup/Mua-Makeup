@@ -31,6 +31,8 @@ public class CustomerBookingItemRes {
     private BigDecimal remainingAmount;
     private String note;
     private Boolean isDepositPaid;
+    private String cancellationReason;
+    private Boolean isDepositRefunded;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

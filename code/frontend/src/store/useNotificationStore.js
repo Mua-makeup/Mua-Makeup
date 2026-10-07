@@ -39,6 +39,9 @@ export const mapServerNotification = (item) => {
     inviteCode: meta.inviteCode,
     certName: meta.certName,
     imageUrl: meta.imageUrl,
+    proofUrl: meta.proofUrl,
+    reason: meta.reason,
+    depositAmount: meta.depositAmount,
     timestamp: item.createdAt ? new Date(item.createdAt).getTime() : Date.now(),
     isRead: Boolean(item.isRead),
   };

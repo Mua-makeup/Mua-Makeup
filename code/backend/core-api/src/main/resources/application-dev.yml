@@ -39,12 +39,12 @@ payment:
       tmn-code: ${VNPAY_TMN_CODE:RMMQDEPO}
       hash-secret: ${VNPAY_HASH_SECRET:LRMCGOZFQCNDBTTQWYCYEOQYORMQJPCU}
       pay-url: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
-      return-url: ${VNPAY_RETURN_URL:http://192.168.1.122:8080/api/v1/payments/return/vnpay}
+      return-url: ${VNPAY_RETURN_URL:http://192.168.1.109:8080/api/v1/payments/return/vnpay}
     momo:
       enabled: ${MOMO_ENABLED:true}
       partner-code: ${MOMO_PARTNER_CODE:MOMOJH1T20260418_TEST}
       access-key: ${MOMO_ACCESS_KEY:p35ezPtIupH2eiHu}
       secret-key: ${MOMO_SECRET_KEY:UMNByLx4TKWVteSGhwA24bEPnKBVQZWK}
       endpoint-url: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
-      return-url: ${MOMO_REDIRECT_URL:http://192.168.1.122:8080/api/v1/payments/return/momo}
+      return-url: ${MOMO_REDIRECT_URL:http://192.168.1.109:8080/api/v1/payments/return/momo}
       ipn-url: ${MOMO_IPN_URL:https://gluelike-lithographically-willow.ngrok-free.dev/api/v1/payments/momo/ipn}

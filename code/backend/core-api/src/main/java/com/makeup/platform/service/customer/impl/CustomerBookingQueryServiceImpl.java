@@ -51,7 +51,9 @@ public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryServ
                         BookingStatus.PAID_OUT,
                         BookingStatus.CANCELLED,
                         BookingStatus.CANCELLED_EXPIRED,
-                        BookingStatus.DISPUTED
+                        BookingStatus.DISPUTED,
+                        BookingStatus.DISPUTE_REFUNDED,
+                        BookingStatus.DISPUTE_COMPENSATED
                 );
                 bookings = bookings.stream()
                         .filter(b -> historyStatuses.contains(b.getStatus()))

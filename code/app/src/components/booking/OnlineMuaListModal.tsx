@@ -353,14 +353,12 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                     )}
                   </View>
 
-                  {/* Right: CTA button "Đặt Ngay ⚡" */}
                   <View style={styles.actionCol}>
                     <TouchableOpacity
                       style={styles.bookNowBtn}
                       onPress={() => handleBookNow(item)}
                       activeOpacity={0.85}
                     >
-                      <Ionicons name="flash" size={13} color="#FFFFFF" />
                       <Text style={styles.bookNowBtnText}>Đặt Ngay</Text>
                     </TouchableOpacity>
                   </View>

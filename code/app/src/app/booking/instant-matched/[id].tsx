@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { UserAvatar } from '@/components/common/UserAvatar';
-import { bookingService, BookingStatusDetailRes } from '@/services/booking.service';
+import { bookingService, BookingStatusDetailRes, CandidatePackageRes } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
 
 interface AddOnOption {
@@ -28,13 +28,6 @@ interface AddOnOption {
   price: number;
   description: string;
 }
-
-// Add-on options được tải động từ database theo chi tiết gói dịch vụ (availableAddons)
-/*  { id: 'hair', name: 'Tạo kiểu tóc đi tiệc / dạ hội', price: 100000, description: 'Uốn xoăn lọn hoặc búi sang trọng' },
-  { id: 'lashes', name: 'Dán mi giả chùm cao cấp', price: 50000, description: 'Tự nhiên, mềm mượt không cộm mắt' },
-  { id: 'mask', name: 'Đắp mặt nạ cấp ẩm & che khuyết điểm', price: 80000, description: 'Giúp lớp nền bóng khỏe, bám suốt 12h' },
-  { id: 'flowers', name: 'Phụ kiện cài tóc / đính đá', price: 60000, description: 'Phụ kiện trang trí tóc cao cấp' },
-]; */
 
 const REJECT_REASONS = [
   'Muốn đổi chuyên viên make-up khác',
@@ -50,6 +43,7 @@ export default function InstantMatchedScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingDetail, setBookingDetail] = useState<BookingStatusDetailRes | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [secondsLeft, setSecondsLeft] = useState<number>(600); // 10 phút kiểm tra & giữ chỗ (đồng bộ thợ)
   const [isExpired, setIsExpired] = useState(false);
@@ -73,12 +67,32 @@ export default function InstantMatchedScreen() {
 
     // Lắng nghe trạng thái realtime
     const topic = `/topic/booking-status/${bookingId}`;
-    websocketService.subscribe(topic, (msg: any) => {
-      if (msg?.status === 'CANCELLED' || msg?.type === 'BOOKING_CANCELLED') {
-        Alert.alert('Đơn Đã Hủy', 'Ca đặt lịch đã được hủy.', [
-          { text: 'Về Trang Chủ', onPress: () => router.replace('/') },
-        ]);
+    const matchedTopic = `/topic/booking-matched/${bookingId}`;
+
+    const handleRealtimeStatus = (msg: any) => {
+      // Đơn bị hủy hoặc từ chối hoặc quay về tìm kiếm -> lập tức điều hướng về trang chủ
+      if (
+        msg?.status === 'CANCELLED' ||
+        msg?.status === 'CANCELLED_EXPIRED' ||
+        msg?.status === 'CANCELLED_BY_CUSTOMER' ||
+        msg?.status === 'REQUESTED' ||
+        msg?.type === 'BOOKING_CANCELLED' ||
+        msg?.type === 'BOOKING_REJECTED_BY_CUSTOMER' ||
+        msg?.type === 'BOOKING_SEARCHING_AGAIN' ||
+        msg?.type === 'BOOKING_TIMEOUT'
+      ) {
+        Alert.alert(
+          'Thông Báo',
+          msg?.message || 'Ca đặt lịch đã được hủy hoặc đang tiếp tục tìm kiếm chuyên viên khác.',
+          [{ text: 'Về Trang Chủ', onPress: () => router.replace('/') }]
+        );
+        router.replace('/');
         return;
+      }
+
+      // Cập nhật khi gói dịch vụ / addons được xác nhận
+      if (msg?.type === 'CUSTOMER_CONFIRMED_ADDONS') {
+        loadBookingData();
       }
 
       // Nếu đơn đã cọc hoặc thợ đã di chuyển/đang thực hiện -> lập tức chuyển sang chi tiết đơn
@@ -92,10 +106,14 @@ export default function InstantMatchedScreen() {
       ) {
         router.replace(`/booking/detail/${bookingId}` as any);
       }
-    });
+    };
+
+    websocketService.subscribe(topic, handleRealtimeStatus);
+    websocketService.subscribe(matchedTopic, handleRealtimeStatus);
 
     return () => {
       websocketService.unsubscribe(topic);
+      websocketService.unsubscribe(matchedTopic);
     };
   }, [bookingId]);
 
@@ -115,7 +133,6 @@ export default function InstantMatchedScreen() {
     return () => clearInterval(interval);
   }, [isExpired, isLoading]);
 
-
   const loadBookingData = async () => {
     try {
       setIsLoading(true);
@@ -134,7 +151,31 @@ export default function InstantMatchedScreen() {
           return;
         }
 
+        // Nếu đơn đã bị hủy hoặc đang chuyển tìm kiếm chuyên viên khác
+        if (
+          res.status === 'CANCELLED' ||
+          res.status === 'CANCELLED_EXPIRED' ||
+          res.status === 'CANCELLED_BY_CUSTOMER' ||
+          res.status === 'REQUESTED'
+        ) {
+          Alert.alert(
+            'Thông Báo',
+            'Ca đặt lịch này đã được hủy hoặc đang tiếp tục tìm kiếm chuyên viên khác.',
+            [{ text: 'Về Trang Chủ', onPress: () => router.replace('/') }]
+          );
+          router.replace('/');
+          return;
+        }
+
         setBookingDetail(res);
+
+        // Khởi tạo gói dịch vụ đã chọn
+        if (res.packageId && !selectedPackageId) {
+          setSelectedPackageId(res.packageId);
+        } else if (res.availablePackages && res.availablePackages.length > 0 && !selectedPackageId) {
+          setSelectedPackageId(res.availablePackages[0].id);
+        }
+
         if (res.depositTimeoutSeconds !== undefined && res.depositTimeoutSeconds !== null) {
           setSecondsLeft(Math.max(0, res.depositTimeoutSeconds));
           if (res.depositTimeoutSeconds <= 0) {
@@ -156,8 +197,38 @@ export default function InstantMatchedScreen() {
     );
   };
 
+  // Xác định đơn đặt đích danh thợ cụ thể (khách đã chọn gói cụ thể từ trước)
+  const isDirectBooking = Boolean(bookingDetail?.isDirectBooking);
+
+  // Danh sách các gói dịch vụ khả dụng của chuyên viên trong danh mục
+  const availablePackages: CandidatePackageRes[] = useMemo(() => {
+    return bookingDetail?.availablePackages || [];
+  }, [bookingDetail?.availablePackages]);
+
+  // Gói dịch vụ đang chọn
+  const selectedPackage = useMemo(() => {
+    if (selectedPackageId) {
+      const found = availablePackages.find((p) => p.id === selectedPackageId);
+      if (found) return found;
+    }
+    if (bookingDetail?.packageId) {
+      const found = availablePackages.find((p) => p.id === bookingDetail.packageId);
+      if (found) return found;
+    }
+    if (availablePackages.length > 0) return availablePackages[0];
+    return null;
+  }, [availablePackages, selectedPackageId, bookingDetail?.packageId]);
+
+  // Chỉ hiển thị bộ chọn gói khi không phải đặt đích danh và thợ có nhiều hơn 1 gói trong danh mục
+  const showPackageSelector = !isDirectBooking && availablePackages.length > 1;
+
   // Tính toán hóa đơn
-  const baseServicePrice = Number(bookingDetail?.serviceSubtotal || 0);
+  const baseServicePrice = Number(
+    selectedPackage?.price ??
+    bookingDetail?.packagePrice ??
+    bookingDetail?.serviceSubtotal ??
+    0
+  );
   const emergencySurcharge = Number(bookingDetail?.surchargeFee || 150000);
   const distanceFee = Number(bookingDetail?.distanceFee || 0);
 
@@ -200,6 +271,7 @@ export default function InstantMatchedScreen() {
         'Hệ thống đã tiếp nhận lý do và đang tiếp tục tìm kiếm chuyên viên make-up tiếp theo cho bạn.',
         [{ text: 'Đồng Ý', onPress: () => router.replace('/') }]
       );
+      router.replace('/');
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Không thể từ chối thợ.';
       Alert.alert('Thao Tác Thất Bại', msg);
@@ -208,19 +280,20 @@ export default function InstantMatchedScreen() {
     }
   };
 
-  // Khách bấm ĐẶT CỌC NGAY -> Lưu add-ons (nếu có) và chuyển sang Màn hình chọn MoMo / VNPay
+  // Khách bấm ĐẶT CỌC NGAY -> Lưu gói đã chọn + add-ons (nếu có) và chuyển sang Màn hình chọn MoMo / VNPay
   const handleProceedToDeposit = async () => {
     try {
       setIsSubmitting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      if (addonsTotal > 0) {
-        const addOnNames = selectedAddons.map((a) => a.name);
-        await bookingService.confirmDeposit(bookingId, {
-          addOnNames,
-          addOnTotal: addonsTotal,
-        });
-      }
+      const chosenPackageId = selectedPackage?.id || bookingDetail?.packageId;
+      const addOnNames = selectedAddons.map((a) => a.name);
+
+      await bookingService.confirmDeposit(bookingId, {
+        packageId: chosenPackageId,
+        addOnNames: addOnNames.length > 0 ? addOnNames : undefined,
+        addOnTotal: addonsTotal > 0 ? addonsTotal : undefined,
+      });
 
       // Điều hướng trực tiếp sang màn hình thanh toán cọc MoMo / VNPay (dùng replace để xóa màn hình match tạm thời)
       router.replace(`/booking/deposit/${bookingId}` as any);
@@ -286,30 +359,32 @@ export default function InstantMatchedScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* MUA Profile Highlight Card */}
         <View style={styles.profileCard}>
-          <UserAvatar uri={muaAvatar} name={muaName} size={56} />
-          <View style={styles.profileInfo}>
-            <View style={styles.nameRow}>
-              <Text style={styles.muaName}>{muaName}</Text>
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                <Text style={styles.verifiedText}>Đã Xác Thực</Text>
+          <View style={styles.profileHeaderRow}>
+            <UserAvatar uri={muaAvatar} name={muaName} size={58} />
+            <View style={styles.profileInfo}>
+              <View style={styles.nameRow}>
+                <Text style={styles.muaName} numberOfLines={1}>{muaName}</Text>
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={13} color="#059669" />
+                  <Text style={styles.verifiedText}>Đã Xác Thực</Text>
+                </View>
               </View>
-            </View>
 
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={15} color="#F59E0B" />
-              <Text style={styles.ratingText}>{muaRating}</Text>
-              <Text style={styles.ratingCount}>• Đối tác trang điểm chuyên nghiệp</Text>
-            </View>
-
-            {bookingDetail?.destinationAddress ? (
-              <View style={styles.addressRow}>
-                <Ionicons name="location-sharp" size={13} color="#E11D48" />
-                <Text style={styles.addressSnippet} numberOfLines={1}>
-                  {bookingDetail.destinationAddress}
-                </Text>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color="#F59E0B" />
+                <Text style={styles.ratingText}>{muaRating}</Text>
+                <Text style={styles.ratingCount}>• Đối tác chuyên nghiệp</Text>
               </View>
-            ) : null}
+
+              {bookingDetail?.destinationAddress ? (
+                <View style={styles.addressRow}>
+                  <Ionicons name="location-sharp" size={12} color="#E11D48" />
+                  <Text style={styles.addressSnippet} numberOfLines={1}>
+                    {bookingDetail.destinationAddress}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
 
           {/* Button to view MUA full portfolio & reviews */}
@@ -319,26 +394,105 @@ export default function InstantMatchedScreen() {
               onPress={() => router.push(`/mua-detail/${bookingDetail.muaId}` as any)}
             >
               <Ionicons name="eye-outline" size={15} color="#4F46E5" />
-              <Text style={styles.viewProfileText}>Xem Hồ Sơ & Đánh Giá</Text>
+              <Text style={styles.viewProfileText}>Xem Hồ Sơ & Đánh Giá Chi Tiết</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Selected Package Details */}
+        {/* Selected Package / Candidate Packages */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Gói Dịch Vụ Tiếp Nhận</Text>
-          <View style={styles.packageBox}>
-            <Ionicons name="sparkles" size={20} color="#D97706" />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.packageName}>
-                {bookingDetail?.packageName || 'Gói Trang Điểm Sự Kiện / Khẩn Cấp'}
-              </Text>
-              <Text style={styles.packageDuration}>
-                Thời lượng ước tính: ~{bookingDetail?.estimatedDurationMinutes || 60} phút
-              </Text>
-            </View>
-            <Text style={styles.packagePriceText}>{formatVnd(baseServicePrice)}</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>
+              {showPackageSelector ? 'Chọn Gói Dịch Vụ Của Chuyên Viên' : 'Gói Dịch Vụ Tiếp Nhận'}
+            </Text>
+            {showPackageSelector && (
+              <View style={styles.pkgCountBadge}>
+                <Text style={styles.pkgCountText}>{availablePackages.length} gói</Text>
+              </View>
+            )}
           </View>
+
+          {showPackageSelector ? (
+            <>
+              <Text style={styles.sectionSubtitle}>
+                Chuyên viên có nhiều gói dịch vụ trong danh mục này. Vui lòng chọn gói bạn muốn:
+              </Text>
+              <View style={styles.packagesList}>
+                {availablePackages.map((pkg) => {
+                  const isSelected = (selectedPackage?.id === pkg.id);
+                  return (
+                    <TouchableOpacity
+                      key={pkg.id}
+                      style={[styles.packageOptionCard, isSelected && styles.packageOptionCardSelected]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedPackageId(pkg.id);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {/* Hàng tiêu đề: Radio + Tên gói + Giá tiền */}
+                      <View style={styles.pkgCardHeader}>
+                        <View style={[styles.pkgRadioOuter, isSelected && styles.pkgRadioOuterActive]}>
+                          {isSelected && <View style={styles.pkgRadioInner} />}
+                        </View>
+                        <View style={styles.pkgTitleWrap}>
+                          <Text style={[styles.pkgNameText, isSelected && styles.pkgNameTextSelected]} numberOfLines={2}>
+                            {pkg.packageName}
+                          </Text>
+                        </View>
+                        <View style={[styles.pkgPriceBadge, isSelected && styles.pkgPriceBadgeSelected]}>
+                          <Text style={[styles.pkgPriceText, isSelected && styles.pkgPriceTextSelected]}>
+                            {formatVnd(Number(pkg.price || 0))}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Mô tả gói (nếu có) */}
+                      {pkg.description ? (
+                        <Text style={styles.pkgDescription} numberOfLines={2}>
+                          {pkg.description}
+                        </Text>
+                      ) : null}
+
+                      {/* Hàng thông tin thời lượng & badge trạng thái */}
+                      <View style={styles.pkgCardFooter}>
+                        <View style={styles.pkgDurationPill}>
+                          <Ionicons name="time-outline" size={12} color="#92400E" />
+                          <Text style={styles.pkgDurationText}>
+                            Ước tính: ~{pkg.estimatedDurationMinutes || 60} phút
+                          </Text>
+                        </View>
+                        {isSelected && (
+                          <View style={styles.pkgActiveTag}>
+                            <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                            <Text style={styles.pkgActiveTagText}>Đang chọn</Text>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          ) : (
+            <View style={styles.singlePackageBox}>
+              <View style={styles.sparkleCircle}>
+                <Ionicons name="sparkles" size={18} color="#D97706" />
+              </View>
+              <View style={{ flex: 1, marginHorizontal: 10 }}>
+                <Text style={styles.singlePackageName}>
+                  {selectedPackage?.packageName || bookingDetail?.packageName || 'Gói Trang Điểm'}
+                </Text>
+                <View style={styles.singlePackageDurationRow}>
+                  <Ionicons name="time-outline" size={12} color="#B45309" />
+                  <Text style={styles.singlePackageDuration}>
+                    Thời lượng ước tính: ~{selectedPackage?.estimatedDurationMinutes || bookingDetail?.estimatedDurationMinutes || 60} phút
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.singlePackagePrice}>{formatVnd(baseServicePrice)}</Text>
+            </View>
+          )}
         </View>
 
         {/* Add-ons Checklist */}
@@ -633,25 +787,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: '#E11D48',
-    alignSelf: 'center',
-    marginBottom: 10,
+  profileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
   },
   profileInfo: {
-    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexWrap: 'wrap',
   },
   muaName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -688,12 +841,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 6,
-    paddingHorizontal: 12,
+    marginTop: 4,
   },
   addressSnippet: {
     fontSize: 12,
     color: '#64748B',
+    flex: 1,
   },
   viewProfileBtn: {
     marginTop: 12,
@@ -719,39 +872,190 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 4,
-  },
   sectionSubtitle: {
     fontSize: 12,
     color: '#64748B',
     marginBottom: 12,
   },
-  packageBox: {
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    gap: 8,
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  pkgCountBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pkgCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  packagesList: {
+    gap: 12,
+    marginTop: 8,
+  },
+  packageOptionCard: {
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  packageOptionCardSelected: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  pkgCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pkgRadioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pkgRadioOuterActive: {
+    borderColor: '#D97706',
+  },
+  pkgRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#D97706',
+  },
+  pkgTitleWrap: {
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  pkgNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+    lineHeight: 18,
+  },
+  pkgNameTextSelected: {
+    color: '#92400E',
+    fontWeight: '800',
+  },
+  pkgPriceBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  pkgPriceBadgeSelected: {
+    backgroundColor: '#FEF3C7',
+  },
+  pkgPriceText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  pkgPriceTextSelected: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#B45309',
+  },
+  pkgDescription: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 8,
+    marginLeft: 30,
+    lineHeight: 16,
+  },
+  pkgCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginLeft: 30,
+  },
+  pkgDurationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pkgDurationText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  pkgActiveTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pkgActiveTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  singlePackageBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFBEB',
-    padding: 12,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#FDE68A',
     marginTop: 6,
   },
-  packageName: {
+  sparkleCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  singlePackageName: {
     fontSize: 14,
     fontWeight: '700',
     color: '#92400E',
+    lineHeight: 18,
   },
-  packageDuration: {
+  singlePackageDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  singlePackageDuration: {
     fontSize: 11,
     color: '#B45309',
-    marginTop: 2,
   },
-  packagePriceText: {
-    fontSize: 14,
+  singlePackagePrice: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#92400E',
   },

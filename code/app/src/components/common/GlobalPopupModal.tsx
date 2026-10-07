@@ -69,7 +69,7 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
       }),
     ]).start();
 
-    // Khởi tạo đếm ngược tự động đóng sau 5s
+    // Khởi tạo đếm ngược tự động đóng nếu duration > 0
     setSecondsLeft(duration);
     progressAnim.setValue(1);
 
@@ -118,17 +118,6 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
         options.onAutoClose();
         return;
       }
-      const btns = options?.buttons || [];
-      if (btns.length > 0) {
-        const cancelBtn = btns.find((b) => b.style === 'cancel');
-        if (options?.type === 'confirm' && cancelBtn) {
-          cancelBtn.onPress?.();
-          return;
-        }
-        // Kích hoạt phím hành động chính (hoặc phím đầu tiên)
-        const primaryBtn = btns.find((b) => b.style !== 'cancel') || btns[0];
-        primaryBtn.onPress?.();
-      }
     }, 60);
   };
 
@@ -160,6 +149,14 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
 
   const getIconConfig = (popupType: PopupType) => {
     switch (popupType) {
+      case 'cash':
+        return {
+          name: 'cash' as const,
+          color: '#059669',
+          bgColor: '#ECFDF5',
+          borderColor: '#A7F3D0',
+          badgeColor: '#ECFDF5',
+        };
       case 'success':
         return {
           name: 'checkmark-circle' as const,
@@ -188,17 +185,17 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
         return {
           name: 'help-circle' as const,
           color: '#E11D48',
-          bgColor: '#FDF2F4',
+          bgColor: '#FFF1F2',
           borderColor: '#FECDD3',
-          badgeColor: '#FDF2F4',
+          badgeColor: '#FFF1F2',
         };
       case 'info':
       default:
         return {
           name: 'information-circle' as const,
-          color: '#3B82F6',
+          color: '#2563EB',
           bgColor: '#EFF6FF',
-          borderColor: '#BFDBFE',
+          borderColor: '#DBEAFE',
           badgeColor: '#EFF6FF',
         };
     }
@@ -207,114 +204,126 @@ const GlobalPopupCore: React.FC<GlobalPopupCoreProps> = ({ isModal }) => {
   const iconConfig = getIconConfig(type);
 
   const content = (
-    <DismissibleSurface visible={isOpen} onClose={handleBackdropPress} dismissDisabled={!cancelable}
+    <DismissibleSurface
+      visible={isOpen}
+      onClose={handleBackdropPress}
+      dismissDisabled={!cancelable}
+      showHandle={false}
       onDismissStart={() => {
         if (timerRef.current) clearInterval(timerRef.current);
         timerRef.current = null;
       }}
-      overlayStyle={styles.overlay} contentStyle={styles.cardContainer}>
-        {/* Thanh Tiến Trình Tự Động Đóng (Progress Bar) */}
-        {duration > 0 && (
-          <View style={styles.progressTrack}>
-            <Animated.View
-              style={[
-                styles.progressBar,
-                {
-                  width: progressAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  }),
-                  backgroundColor: iconConfig.color,
-                },
-              ]}
-            />
-          </View>
-        )}
-
-        {/* Icon Badge */}
-        <View
-          style={[
-            styles.iconBadge,
-            { backgroundColor: iconConfig.bgColor, borderColor: iconConfig.borderColor },
-          ]}
-        >
-          <Ionicons name={iconConfig.name} size={34} color={iconConfig.color} />
+      overlayStyle={styles.overlay}
+      contentStyle={styles.cardContainer}
+    >
+      {/* Thanh Tiến Trình Tự Đóng (Progress Bar) */}
+      {duration > 0 && (
+        <View style={styles.progressTrack}>
+          <Animated.View
+            style={[
+              styles.progressBar,
+              {
+                width: progressAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0%', '100%'],
+                }),
+                backgroundColor: iconConfig.color,
+              },
+            ]}
+          />
         </View>
+      )}
 
-        {/* Title */}
-        {Boolean(title) && <Text style={styles.title}>{title}</Text>}
+      {/* Icon Badge */}
+      <View
+        style={[
+          styles.iconBadge,
+          { backgroundColor: iconConfig.bgColor, borderColor: iconConfig.borderColor },
+        ]}
+      >
+        <Ionicons name={iconConfig.name} size={30} color={iconConfig.color} />
+      </View>
 
-        {/* Message */}
-        {Boolean(message) && <Text style={styles.message}>{message}</Text>}
+      {/* Title */}
+      {Boolean(title) && <Text style={styles.title}>{title}</Text>}
 
-        {/* Huy hiệu đếm ngược 5 giây */}
-        {duration > 0 && (
-          <View style={[styles.timerBadge, { backgroundColor: iconConfig.badgeColor }]}>
-            <Ionicons name="timer-outline" size={13} color={iconConfig.color} />
-            <Text style={styles.timerBadgeText}>
-              Tự động đóng sau <Text style={[styles.timerSecText, { color: iconConfig.color }]}>{secondsLeft}s</Text>
-            </Text>
-          </View>
-        )}
+      {/* Message */}
+      {Boolean(message) && <Text style={styles.message}>{message}</Text>}
 
-        {/* Danh sách nút bấm hành động */}
-        {(() => {
-          const hasLongText = buttons.some((b) => (b.text || '').length > 12);
-          const isColumn = buttons.length > 2 || hasLongText;
-          const displayButtons =
-            isColumn && buttons.length === 2 && buttons[0].style === 'cancel'
-              ? [buttons[1], buttons[0]]
-              : buttons;
+      {/* Huy hiệu đếm ngược nếu có tự đóng */}
+      {duration > 0 && (
+        <View style={[styles.timerBadge, { backgroundColor: iconConfig.badgeColor }]}>
+          <Ionicons name="timer-outline" size={13} color={iconConfig.color} />
+          <Text style={styles.timerBadgeText}>
+            Tự động đóng sau <Text style={[styles.timerSecText, { color: iconConfig.color }]}>{secondsLeft}s</Text>
+          </Text>
+        </View>
+      )}
 
-          return (
-            <View
-              style={[
-                styles.buttonsContainer,
-                isColumn ? styles.buttonsColumn : styles.buttonsRow,
-              ]}
-            >
-              {displayButtons.map((btn, index) => {
-                const isCancel = btn.style === 'cancel';
-                const isDestructive = btn.style === 'destructive';
-                // Nếu có 2 nút và nút này là nút thứ 2 (không phải cancel), xếp thành style secondary nhẹ nhàng
-                const isSecondary = !isCancel && !isDestructive && displayButtons.length >= 2 && index === 1;
+      {/* Danh sách nút bấm hành động */}
+      {(() => {
+        const hasLongText = buttons.some((b) => (b.text || '').length > 12);
+        const isColumn = buttons.length > 2 || hasLongText;
+        const displayButtons =
+          isColumn && buttons.length === 2 && buttons[0].style === 'cancel'
+            ? [buttons[1], buttons[0]]
+            : buttons;
 
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    activeOpacity={0.85}
+        return (
+          <View
+            style={[
+              styles.buttonsContainer,
+              isColumn ? styles.buttonsColumn : styles.buttonsRow,
+            ]}
+          >
+            {displayButtons.map((btn, index) => {
+              const isCancel = btn.style === 'cancel';
+              const isDestructive = btn.style === 'destructive';
+              const isPrimary = !isCancel && !isDestructive && index === 0;
+              const isSecondary = !isCancel && !isDestructive && index === 1;
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.button,
+                    isColumn ? styles.buttonFull : styles.buttonHalf,
+                    isCancel
+                      ? styles.cancelButton
+                      : isDestructive
+                      ? styles.destructiveButton
+                      : isPrimary
+                      ? [styles.primaryButton, { backgroundColor: iconConfig.color, shadowColor: iconConfig.color }]
+                      : isSecondary
+                      ? styles.secondaryButton
+                      : styles.tertiaryButton,
+                  ]}
+                  onPress={() => handleButtonPress(btn)}
+                >
+                  <Text
                     style={[
-                      styles.button,
-                      isColumn ? styles.buttonFull : styles.buttonHalf,
+                      styles.buttonTextBase,
                       isCancel
-                        ? styles.cancelButton
+                        ? styles.cancelButtonText
                         : isDestructive
-                        ? styles.destructiveButton
+                        ? styles.destructiveButtonText
+                        : isPrimary
+                        ? styles.primaryButtonText
                         : isSecondary
-                        ? styles.secondaryButton
-                        : styles.primaryButton,
+                        ? styles.secondaryButtonText
+                        : styles.tertiaryButtonText,
                     ]}
-                    onPress={() => handleButtonPress(btn)}
                   >
-                    <Text
-                      style={[
-                        styles.buttonTextBase,
-                        isCancel
-                          ? styles.cancelButtonText
-                          : isSecondary
-                          ? styles.secondaryButtonText
-                          : styles.primaryButtonText,
-                      ]}
-                    >
-                      {btn.text}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          );
-        })()}
-      </DismissibleSurface>
+                    {btn.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        );
+      })()}
+    </DismissibleSurface>
   );
 
   if (isModal) {
@@ -366,7 +375,7 @@ export const GlobalPopupModal: React.FC = () => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -374,18 +383,18 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 340,
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingHorizontal: 22,
+    borderRadius: 24,
+    paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 20,
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 28,
-    elevation: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     overflow: 'hidden',
@@ -395,37 +404,39 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 4,
+    height: 3,
     backgroundColor: '#F1F5F9',
   },
   progressBar: {
     height: '100%',
   },
   iconBadge: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    borderWidth: 1.5,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    marginTop: 4,
+    marginTop: 2,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.2,
+    lineHeight: 23,
+    paddingHorizontal: 4,
   },
   message: {
     fontSize: 13.5,
-    color: '#475569',
+    color: '#64748B',
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 14,
-    paddingHorizontal: 4,
+    marginBottom: 16,
+    paddingHorizontal: 6,
   },
   timerBadge: {
     flexDirection: 'row',
@@ -434,7 +445,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   timerBadgeText: {
     fontSize: 12,
@@ -453,13 +464,13 @@ const styles = StyleSheet.create({
   },
   buttonsColumn: {
     flexDirection: 'column',
-    gap: 10,
+    gap: 9,
   },
   button: {
     minHeight: 46,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -470,25 +481,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   primaryButton: {
-    backgroundColor: '#E11D48',
-    shadowColor: '#E11D48',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: '#0F172A',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   secondaryButton: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  tertiaryButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
   destructiveButton: {
-    backgroundColor: '#DC2626',
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
   cancelButton: {
     backgroundColor: '#F1F5F9',
@@ -505,6 +518,12 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: '#1E293B',
+  },
+  tertiaryButtonText: {
+    color: '#475569',
+  },
+  destructiveButtonText: {
+    color: '#DC2626',
   },
   cancelButtonText: {
     color: '#475569',

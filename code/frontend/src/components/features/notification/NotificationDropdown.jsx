@@ -12,6 +12,7 @@ import {
   UserPlus,
   Award,
   ShieldAlert,
+  AlertTriangle,
 } from 'lucide-react';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
@@ -53,6 +54,9 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   }, []);
 
   const getNotificationTitle = (notif) => {
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return notif.title || `Báo Cáo Khiếu Nại: #${notif.bookingCode || ''}`;
+    }
     if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       return t('notification_emergency_title');
     }
@@ -81,6 +85,9 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   };
 
   const getNotificationContent = (notif) => {
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return notif.content || notif.reason || 'Có báo cáo khiếu nại ca làm cần Ban Quản Trị xem xét phân xử.';
+    }
     if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       const staffName = notif.staffName || (notif.metadata && notif.metadata.staffName) || 'Thợ';
       const bookingCode = notif.bookingCode || (notif.metadata && notif.metadata.bookingCode) || '';
@@ -119,7 +126,9 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
     setIsOpen(false);
-    if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+    if (notif.type === 'BOOKING_DISPUTE') {
+      navigate('/admin/disputes');
+    } else if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       navigate('/agency/bookings');
     } else if (notif.type === 'STAFF_APPLICATION') {
       navigate('/agency/staff');
@@ -131,6 +140,13 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   };
 
   const renderNotifIcon = (notif) => {
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-rose-300 dark:border-rose-800 flex items-center justify-center bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
+          <AlertTriangle className="w-4 h-4" />
+        </div>
+      );
+    }
     if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       return (
         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-rose-200 dark:border-rose-800 flex items-center justify-center bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">

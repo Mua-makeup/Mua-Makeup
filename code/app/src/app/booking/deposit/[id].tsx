@@ -11,6 +11,7 @@ import {
   Linking,
   AppState,
   AppStateStatus,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -49,6 +50,7 @@ export default function BookingDepositScreen() {
   const pollIntervalRef = useRef<any>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const hasNavigatedRef = useRef<boolean>(false);
+  const isPaymentBrowserOpenRef = useRef<boolean>(false);
 
   const navigateToBookingDetail = (delay: number = 800) => {
     if (hasNavigatedRef.current) return;
@@ -62,6 +64,116 @@ export default function BookingDepositScreen() {
     setTimeout(() => {
       router.replace(`/booking/detail/${bookingId}` as any);
     }, delay);
+  };
+
+  const [slotTakenAlertShown, setSlotTakenAlertShown] = useState<boolean>(false);
+
+  const handleSlotTakenNotice = (reason?: string, isRefunded?: boolean, refundAmount?: number) => {
+    if (isPaymentBrowserOpenRef.current) {
+      return;
+    }
+    try {
+      WebBrowser.dismissBrowser();
+    } catch {}
+    setIsProcessing(false);
+    if (slotTakenAlertShown) return;
+    setSlotTakenAlertShown(true);
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    setPaymentPolling(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+    const formatVnd = (num?: number) =>
+      num ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num) : '';
+
+    if (isRefunded) {
+      const refundText = refundAmount ? ` (${formatVnd(refundAmount)})` : '';
+      const messageText =
+        reason ||
+        `Giao dịch thanh toán cọc thành công. Tuy nhiên khung giờ này vừa có khách hàng khác hoàn tất thanh toán trước bạn. Toàn bộ tiền cọc${refundText} đã được tự động hoàn trả 100% vào Ví cá nhân của bạn.`;
+
+      Alert.alert(
+        'Lịch Hẹn Đã Trùng • Đã Hoàn Cọc 100%',
+        messageText,
+        [
+          {
+            text: 'Kiểm Tra Ví Tiền',
+            style: 'default',
+            onPress: () => {
+              router.replace('/profile/customer-wallet' as any);
+            },
+          },
+          {
+            text: 'Xem Chi Tiết Đơn',
+            style: 'default',
+            onPress: () => {
+              router.replace(`/booking/history-detail/${bookingId}` as any);
+            },
+          },
+          {
+            text: 'Chọn Lịch Khác',
+            style: 'default',
+            onPress: () => {
+              if (bookingDetail?.packageId && (bookingDetail?.muaId || (bookingDetail as any)?.agencyId)) {
+                const isAgency = Boolean((bookingDetail as any)?.agencyId && !bookingDetail?.muaId);
+                router.replace({
+                  pathname: '/booking/create',
+                  params: {
+                    packageId: String(bookingDetail.packageId),
+                    ...(isAgency
+                      ? { agencyId: String((bookingDetail as any).agencyId) }
+                      : { muaId: String(bookingDetail.muaId) }),
+                  },
+                });
+              } else {
+                router.replace('/explore' as any);
+              }
+            },
+          },
+        ],
+        { cancelable: true, autoCloseSeconds: 0 } as any
+      );
+      return;
+    }
+
+    const messageText =
+      (reason && reason !== 'booking.slot_already_booked')
+        ? reason
+        : 'Rất tiếc, khung giờ hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Đơn hẹn của bạn đã được hủy tự động.';
+
+    Alert.alert(
+      'Lịch Hẹn Đã Được Đặt Trước',
+      messageText,
+      [
+        {
+          text: 'Chọn lịch khác',
+          style: 'default',
+          onPress: () => {
+            if (bookingDetail?.packageId && (bookingDetail?.muaId || (bookingDetail as any)?.agencyId)) {
+              const isAgency = Boolean((bookingDetail as any)?.agencyId && !bookingDetail?.muaId);
+              router.replace({
+                pathname: '/booking/create',
+                params: {
+                  packageId: String(bookingDetail.packageId),
+                  ...(isAgency
+                    ? { agencyId: String((bookingDetail as any).agencyId) }
+                    : { muaId: String(bookingDetail.muaId) }),
+                },
+              });
+            } else {
+              router.replace('/explore' as any);
+            }
+          },
+        },
+        {
+          text: 'Về trang chủ',
+          style: 'cancel',
+          onPress: () => {
+            router.replace('/' as any);
+          },
+        },
+      ],
+      { cancelable: true, autoCloseSeconds: 0 } as any
+    );
   };
 
   // 1. Tải thông tin cọc và booking
@@ -78,10 +190,30 @@ export default function BookingDepositScreen() {
         setDepositData(deposit);
         if (deposit.depositStatus === 'PAID') {
           setIsPaidSuccess(true);
+        } else if (
+          deposit.depositStatus === 'SLOT_TAKEN' ||
+          deposit.isSlotTaken === true ||
+          deposit.depositStatus === 'REFUNDED' ||
+          deposit.bookingStatus === 'CANCELLED'
+        ) {
+          handleSlotTakenNotice(
+            deposit.cancellationReason || deposit.message,
+            deposit.isRefunded || deposit.depositStatus === 'REFUNDED',
+            deposit.refundAmount
+          );
+          return;
         }
       }
       if (detail) {
         setBookingDetail(detail);
+        if (detail.status === 'CANCELLED' && (detail.cancellationReason?.includes('khách hàng khác') || detail.cancellationReason?.includes('trùng'))) {
+          handleSlotTakenNotice(
+            detail.cancellationReason,
+            detail.isDepositPaid || detail.cancellationReason?.includes('hoàn'),
+            detail.depositAmount
+          );
+          return;
+        }
         // Đồng bộ thời gian đếm ngược trực tiếp từ backend depositTimeoutSeconds (10 phút)
         if (detail.depositTimeoutSeconds !== undefined && detail.depositTimeoutSeconds !== null) {
           setSecondsRemaining(Math.max(0, detail.depositTimeoutSeconds));
@@ -106,10 +238,32 @@ export default function BookingDepositScreen() {
     // 2. Kết nối STOMP WebSocket để nhận tín hiệu thanh toán realtime
     const unsubWs = websocketService.subscribe(`/topic/booking-status/${bookingId}`, (msg: any) => {
       if (
+        msg?.type === 'BOOKING_SLOT_TAKEN' ||
+        msg?.type === 'BOOKING_SLOT_TAKEN_REFUNDED' ||
+        msg?.isSlotTaken === true ||
+        msg?.depositStatus === 'SLOT_TAKEN' ||
+        msg?.depositStatus === 'REFUNDED'
+      ) {
+        // NẾU KHÁCH HÀNG ĐANG MỞ TRÌNH DUYỆT THANH TOÁN (VNPAY / MOMO):
+        // Tuyệt đối không gián đoạn hoặc đóng trình duyệt của khách!
+        if (isPaymentBrowserOpenRef.current) {
+          return;
+        }
+        handleSlotTakenNotice(
+          msg?.message || msg?.cancellationReason,
+          msg?.isRefunded || msg?.depositStatus === 'REFUNDED',
+          msg?.refundAmount
+        );
+        return;
+      }
+      if (
         msg?.isDepositPaid === true ||
         msg?.type === 'CUSTOMER_CONFIRMED_DEPOSIT' ||
         msg?.type === 'PAYMENT_COMPLETED'
       ) {
+        try {
+          WebBrowser.dismissBrowser();
+        } catch {}
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         navigateToBookingDetail(600);
         setIsPaidSuccess(true);
@@ -124,6 +278,11 @@ export default function BookingDepositScreen() {
         appStateRef.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
+        isPaymentBrowserOpenRef.current = false;
+        try {
+          WebBrowser.dismissBrowser();
+        } catch {}
+        setIsProcessing(false);
         // App vừa quay lại foreground -> tự động kích hoạt kiểm tra đồng bộ cọc ngay
         handleManualSync();
       }
@@ -162,6 +321,19 @@ export default function BookingDepositScreen() {
         setPaymentPolling(false);
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         navigateToBookingDetail(600);
+      } else if (
+        status?.depositStatus === 'SLOT_TAKEN' ||
+        status?.isSlotTaken === true ||
+        status?.depositStatus === 'REFUNDED' ||
+        status?.bookingStatus === 'CANCELLED'
+      ) {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setPaymentPolling(false);
+        handleSlotTakenNotice(
+          status?.cancellationReason || status?.message,
+          status?.isRefunded || status?.depositStatus === 'REFUNDED',
+          status?.refundAmount
+        );
       }
     } catch {
       // Bỏ qua lỗi polling nền
@@ -179,6 +351,19 @@ export default function BookingDepositScreen() {
         setPaymentPolling(false);
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         navigateToBookingDetail(600);
+      } else if (
+        res?.depositStatus === 'SLOT_TAKEN' ||
+        res?.isSlotTaken === true ||
+        res?.depositStatus === 'REFUNDED' ||
+        res?.bookingStatus === 'CANCELLED'
+      ) {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        setPaymentPolling(false);
+        handleSlotTakenNotice(
+          res?.cancellationReason || res?.message,
+          res?.isRefunded || res?.depositStatus === 'REFUNDED',
+          res?.refundAmount
+        );
       } else {
         await checkDepositStatusOnce();
       }
@@ -191,7 +376,12 @@ export default function BookingDepositScreen() {
 
   // Tự động kiểm tra nếu có query param redirect từ MoMo/VNPay (status=success)
   useEffect(() => {
-    if (status === 'success' || payment_success === 'true') {
+    if (status === 'success' || payment_success === 'true' || status === 'failed') {
+      isPaymentBrowserOpenRef.current = false;
+      try {
+        WebBrowser.dismissBrowser();
+      } catch {}
+      setIsProcessing(false);
       handleManualSync();
     }
   }, [status, payment_success]);
@@ -204,14 +394,38 @@ export default function BookingDepositScreen() {
       try {
         const res = await depositService.syncDepositPayment(bookingId);
         if (res?.depositStatus === 'PAID') {
+          isPaymentBrowserOpenRef.current = false;
+          try {
+            WebBrowser.dismissBrowser();
+          } catch {}
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setIsPaidSuccess(true);
           setPaymentPolling(false);
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           navigateToBookingDetail(600);
+        } else if (
+          res?.depositStatus === 'SLOT_TAKEN' ||
+          res?.isSlotTaken === true ||
+          res?.depositStatus === 'REFUNDED' ||
+          res?.bookingStatus === 'CANCELLED'
+        ) {
+          // NẾU KHÁCH ĐANG MỞ TRÌNH DUYỆT THANH TOÁN (VNPAY / MOMO):
+          // Tuyệt đối không cắt ngang! Để khách hoàn tất hoặc hủy thanh toán bình thường.
+          if (isPaymentBrowserOpenRef.current) {
+            return;
+          }
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setPaymentPolling(false);
+          handleSlotTakenNotice(
+            res?.cancellationReason || res?.message,
+            res?.isRefunded || res?.depositStatus === 'REFUNDED',
+            res?.refundAmount
+          );
         }
       } catch {
-        await checkDepositStatusOnce();
+        if (!isPaymentBrowserOpenRef.current) {
+          await checkDepositStatusOnce();
+        }
       }
     }, 2500);
   };
@@ -238,27 +452,111 @@ export default function BookingDepositScreen() {
       if (Platform.OS === 'web') {
         window.open(paymentLink, '_blank');
       } else {
+        isPaymentBrowserOpenRef.current = true;
         try {
-          const authRes = await WebBrowser.openAuthSessionAsync(paymentLink, 'app://');
-          if (authRes.type === 'success') {
-            await handleManualSync();
-          }
-        } catch {
+          try {
+            WebBrowser.dismissBrowser();
+          } catch {}
           await WebBrowser.openBrowserAsync(paymentLink, {
             presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
             toolbarColor: '#0F172A',
           });
+        } catch {
+          Linking.openURL(paymentLink).catch(() => {});
+        } finally {
+          isPaymentBrowserOpenRef.current = false;
         }
+        // Khi người dùng hoàn tất hoặc đóng trình duyệt thanh toán:
+        await handleManualSync();
       }
     } catch (err: any) {
-      Alert.alert(
-        'Lỗi Thanh Toán',
-        err?.response?.data?.message || err?.message || 'Không thể tạo liên kết thanh toán.'
-      );
+      const errCode = err?.response?.data?.errorCode;
+      let errMsg = err?.response?.data?.message || err?.message;
+      if (
+        errCode === 'ERR_SLOT_ALREADY_BOOKED' ||
+        errMsg === 'booking.slot_already_booked' ||
+        errMsg?.includes('khách hàng khác') ||
+        errMsg?.includes('đã có ca làm việc khác')
+      ) {
+        if (errMsg === 'booking.slot_already_booked' || !errMsg) {
+          errMsg = 'Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác.';
+        }
+        handleSlotTakenNotice(errMsg);
+      } else {
+        Alert.alert(
+          'Lỗi Thanh Toán',
+          errMsg || 'Không thể tạo liên kết thanh toán.'
+        );
+      }
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const isInstantBooking =
+    bookingDetail?.bookingType === 'REALTIME_INSTANT' ||
+    bookingDetail?.bookingType === 'INSTANT' ||
+    bookingDetail?.bookingCode?.includes('FAST') ||
+    depositData?.bookingCode?.includes('FAST');
+
+  const handleBack = () => {
+    if (isInstantBooking) {
+      // Đơn khẩn cấp: Khách muốn quay lại xem thông tin thợ & đổi gói dịch vụ
+      // Dùng replace để thay thế stack hiện tại, KHÔNG hủy đơn và KHÔNG hiện popup đổi lịch
+      router.replace(`/booking/instant-matched/${bookingId}` as any);
+      return;
+    }
+
+    if (depositData?.depositStatus !== 'PAID' && !isPaidSuccess) {
+      Alert.alert(
+        'Rời Trang Đặt Cọc?',
+        'Bạn chưa hoàn tất thanh toán cọc. Bạn có muốn đổi lịch hẹn khác không?',
+        [
+          { text: 'Ở lại thanh toán', style: 'cancel' },
+          {
+            text: 'Đổi lịch hẹn',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await bookingService.cancelBooking(bookingId, 'Khách hàng đổi ý, chọn lại lịch khác');
+              } catch {}
+              if (bookingDetail?.packageId && (bookingDetail?.muaId || (bookingDetail as any)?.agencyId)) {
+                const isAgency = Boolean((bookingDetail as any)?.agencyId && !bookingDetail?.muaId);
+                router.replace({
+                  pathname: '/booking/create',
+                  params: {
+                    packageId: String(bookingDetail.packageId),
+                    providerId: String(isAgency ? (bookingDetail as any).agencyId : bookingDetail.muaId),
+                    providerType: isAgency ? 'AGENCY' : 'FREELANCER',
+                  },
+                } as any);
+              } else if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
+    }
+  };
+
+  // Bắt sự kiện phím Back cứng trên Android
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [isInstantBooking, depositData?.depositStatus, isPaidSuccess, bookingDetail?.packageId, bookingDetail?.muaId]);
 
   if (isLoading) {
     return (
@@ -411,13 +709,7 @@ export default function BookingDepositScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/');
-            }
-          }}
+          onPress={handleBack}
           style={styles.backBtn}
           activeOpacity={0.7}
         >

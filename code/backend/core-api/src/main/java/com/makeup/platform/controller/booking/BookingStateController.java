@@ -48,6 +48,15 @@ public class BookingStateController extends BaseController {
         return ok(res, "booking.completion_photo_upload_success");
     }
 
+    @PostMapping(value = "/{bookingId}/dispute-proof", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<BookingCompletionPhotoRes>> uploadDisputeProof(
+            @PathVariable Long bookingId,
+            @RequestParam("file") MultipartFile file) {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        BookingCompletionPhotoRes res = bookingStateMachineService.uploadDisputeProof(bookingId, userId, file);
+        return ok(res, "booking.dispute_proof_upload_success");
+    }
+
     @GetMapping("/{bookingId}/status")
     public ResponseEntity<ApiResponse<BookingStatusDetailRes>> getBookingStatus(
             @PathVariable Long bookingId) {

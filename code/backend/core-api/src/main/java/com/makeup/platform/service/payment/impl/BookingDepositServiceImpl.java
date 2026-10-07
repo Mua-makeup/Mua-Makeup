@@ -23,6 +23,7 @@ import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
+import com.makeup.platform.service.mua.MUACalendarService;
 import com.makeup.platform.service.payment.BookingDepositService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
 import com.makeup.platform.service.payment.gateway.GatewayPaymentResult;
@@ -75,6 +76,8 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     private final StringRedisTemplate stringRedisTemplate;
     private final BookingSettlementService bookingSettlementService;
     private final BookingAuditService bookingAuditService;
+    private final MUACalendarService muaCalendarService;
+    private final BookingSlotCancelHelper bookingSlotCancelHelper;
 
     @Override
     @Transactional
@@ -119,6 +122,27 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                     OffsetDateTime.now(VIETNAM_OFFSET).isAfter(deposit.getExpiresAt())) {
                 throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_EXPIRED,
                         "booking.deposit_expired", HttpStatus.GONE);
+            }
+
+            // Kiểm tra slot còn trống không (tránh trường hợp thợ đã có ca được thanh toán thành công)
+            if (booking.getBookingType() == BookingType.SCHEDULED && booking.getMua() != null) {
+                OffsetDateTime startAt = booking.getBookingDate().atTime(booking.getStartTime()).atOffset(VIETNAM_OFFSET);
+                int duration = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
+                        ? booking.getDurationMinutes()
+                        : (booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null
+                                ? booking.getServicePackage().getEstimatedDurationMinutes()
+                                : 60);
+                OffsetDateTime endAt = startAt.plusMinutes(duration);
+                boolean isAvailable = muaCalendarService.isSlotAvailableWithBufferExcludingBooking(
+                        booking.getMua().getId(), startAt, endAt, 30, bookingId);
+                if (!isAvailable) {
+                    String cancelReason = "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn.";
+                    bookingSlotCancelHelper.cancelBookingDueToSlotTaken(
+                            bookingId, customerId, booking.getBookingCode(), cancelReason);
+
+                    throw new CustomBusinessException(ErrorCodes.ERR_SLOT_ALREADY_BOOKED,
+                            "booking.slot_already_booked", HttpStatus.CONFLICT);
+                }
             }
 
             // Kiểm tra pricing_version nếu client có gửi lên
@@ -226,6 +250,184 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
                 .orElseGet(() -> createBookingDeposit(booking));
 
+        // 1. Nếu đơn đã bị hủy từ trước (do slot taken, hết hạn hoặc vừa được hoàn cọc)
+        if (booking.getStatus() == BookingStatus.CANCELLED || booking.getStatus() == BookingStatus.CANCELLED_EXPIRED) {
+            // Tự động đối soát và hoàn tiền nếu khách đã thanh toán thành công (hoặc đang PENDING trên cổng) mà chưa được hoàn tiền
+            List<PaymentTransactionEntity> successPayments = paymentTransactionRepository.findByBookingIdAndStatus(bookingId, "SUCCESS");
+            for (PaymentTransactionEntity p : successPayments) {
+                if (!"APPLIED".equals(p.getApplicationStatus()) && !"REFUNDED".equals(p.getApplicationStatus())) {
+                    log.info("[DepositStatus] Found unrefunded SUCCESS payment {} for cancelled booking {}. Auto-refunding to customer wallet now...", p.getPaymentCode(), bookingId);
+                    try {
+                        applyDepositFromPayment(p.getId());
+                        deposit = bookingDepositRepository.findByBookingId(bookingId).orElse(deposit);
+                    } catch (Exception ex) {
+                        log.error("[DepositStatus] Error auto-refunding payment {}: {}", p.getPaymentCode(), ex.getMessage(), ex);
+                    }
+                }
+            }
+
+            if (!"REFUNDED".equalsIgnoreCase(deposit.getStatus())) {
+                List<PaymentTransactionEntity> pendingPayments = paymentTransactionRepository.findByBookingIdAndStatus(bookingId, "PENDING");
+                for (PaymentTransactionEntity p : pendingPayments) {
+                    try {
+                        PaymentGatewayStrategy strategy = gatewayRegistry.getStrategy(p.getPaymentGateway());
+                        GatewayPaymentResult queryResult = strategy.queryTransaction(p);
+                        if (queryResult != null && queryResult.isSuccessful()) {
+                            log.info("[DepositStatus] Gateway confirmed SUCCESS for pending payment {} on cancelled booking {}. Auto-refunding now...", p.getPaymentCode(), bookingId);
+                            p.setStatus("SUCCESS");
+                            p.setPaidAt(queryResult.getPaidAt() != null ? queryResult.getPaidAt() : OffsetDateTime.now(VIETNAM_OFFSET));
+                            p.setGatewayTransactionId(queryResult.getGatewayTransactionId());
+                            if (queryResult.getGatewayRequestId() != null) {
+                                p.setGatewayRequestId(queryResult.getGatewayRequestId());
+                            }
+                            paymentTransactionRepository.save(p);
+                            applyDepositFromPayment(p.getId());
+                            deposit = bookingDepositRepository.findByBookingId(bookingId).orElse(deposit);
+                            break;
+                        }
+                    } catch (Exception e) {
+                        log.warn("[DepositStatus] Error querying pending payment {} for cancelled booking: {}", p.getPaymentCode(), e.getMessage());
+                    }
+                }
+            }
+
+            boolean isSlotTaken = "SLOT_TAKEN".equalsIgnoreCase(deposit.getStatus())
+                    || "REFUNDED".equalsIgnoreCase(deposit.getStatus())
+                    || (booking.getCancellationReason() != null && (booking.getCancellationReason().contains("khách hàng khác") || booking.getCancellationReason().contains("trùng")));
+            boolean isRefunded = "REFUNDED".equalsIgnoreCase(deposit.getStatus())
+                    || (deposit.getPaidAmount() != null && deposit.getPaidAmount().compareTo(BigDecimal.ZERO) > 0);
+            BigDecimal refundAmt = deposit.getPaidAmount() != null ? deposit.getPaidAmount() : deposit.getRequiredAmount();
+
+            return BookingDepositStatusRes.builder()
+                    .depositId(deposit.getId())
+                    .bookingId(bookingId)
+                    .bookingCode(booking.getBookingCode())
+                    .totalAmount(booking.getTotalAmount())
+                    .requiredDepositAmount(deposit.getRequiredAmount())
+                    .paidAmount(deposit.getPaidAmount())
+                    .depositStatus(deposit.getStatus())
+                    .bookingStatus(booking.getStatus().name())
+                    .isSlotTaken(isSlotTaken)
+                    .isRefunded(isRefunded)
+                    .refundAmount(isRefunded ? refundAmt : null)
+                    .cancellationReason(booking.getCancellationReason())
+                    .message(booking.getCancellationReason())
+                    .pricingVersion(deposit.getPricingVersion())
+                    .expiresAt(deposit.getExpiresAt())
+                    .paidAt(deposit.getPaidAt())
+                    .build();
+        }
+
+        // 2. Nếu đơn đang PENDING_DEPOSIT, kiểm tra xem slot thợ đã bị ai thanh toán cọc thành công trước hay chưa
+        if (booking.getStatus() == BookingStatus.PENDING_DEPOSIT &&
+                booking.getBookingType() == BookingType.SCHEDULED && booking.getMua() != null) {
+            OffsetDateTime startAt = booking.getBookingDate().atTime(booking.getStartTime()).atOffset(VIETNAM_OFFSET);
+            int duration = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
+                    ? booking.getDurationMinutes()
+                    : (booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null
+                            ? booking.getServicePackage().getEstimatedDurationMinutes()
+                            : 60);
+            OffsetDateTime endAt = startAt.plusMinutes(duration);
+
+            boolean isAvailable = muaCalendarService.isSlotAvailableWithBufferExcludingBooking(
+                    booking.getMua().getId(), startAt, endAt, 30, bookingId);
+
+            if (!isAvailable) {
+                // Kiểm tra xem khách có payment PENDING nào đã thanh toán thành công trên Gateway chưa
+                List<PaymentTransactionEntity> pendingPayments = paymentTransactionRepository
+                        .findByBookingIdAndStatus(bookingId, "PENDING");
+                boolean paymentSucceeded = false;
+                PaymentTransactionEntity successfulPayment = null;
+
+                for (PaymentTransactionEntity p : pendingPayments) {
+                    try {
+                        PaymentGatewayStrategy strategy = gatewayRegistry.getStrategy(p.getPaymentGateway());
+                        GatewayPaymentResult queryResult = strategy.queryTransaction(p);
+                        if (queryResult != null && queryResult.isSuccessful()) {
+                            log.info("[DepositStatus] Found SUCCESS payment {} during slot check for booking {}", p.getPaymentCode(), bookingId);
+                            p.setStatus("SUCCESS");
+                            p.setPaidAt(queryResult.getPaidAt() != null ? queryResult.getPaidAt() : OffsetDateTime.now(VIETNAM_OFFSET));
+                            p.setGatewayTransactionId(queryResult.getGatewayTransactionId());
+                            if (queryResult.getGatewayRequestId() != null) {
+                                p.setGatewayRequestId(queryResult.getGatewayRequestId());
+                            }
+                            paymentTransactionRepository.save(p);
+                            paymentSucceeded = true;
+                            successfulPayment = p;
+                            break;
+                        }
+                    } catch (Exception e) {
+                        log.warn("[DepositStatus] Error querying pending payment {}: {}", p.getPaymentCode(), e.getMessage());
+                    }
+                }
+
+                if (paymentSucceeded && successfulPayment != null) {
+                    // Khách đã trả tiền thành công -> applyDepositFromPayment sẽ hoàn tiền 100% vào Ví và chuyển deposit sang REFUNDED!
+                    applyDepositFromPayment(successfulPayment.getId());
+                    return getDepositStatus(bookingId, customerId);
+                }
+
+                // Nếu khách chưa thanh toán và slot đã bị chiếm:
+                // Nếu payment còn hạn và đang mở thanh toán (khách đang ở app MoMo): tạm thời không hủy đơn sớm để khách không bị gián đoạn
+                boolean hasActivePaymentInProgress = pendingPayments.stream()
+                        .anyMatch(p -> p.getExpiresAt() != null && p.getExpiresAt().isAfter(OffsetDateTime.now(VIETNAM_OFFSET)));
+
+                if (!hasActivePaymentInProgress) {
+                    log.warn("[DepositStatus] Slot for booking {} is already booked by another customer and no active payment in progress. Cancelling booking immediately...", bookingId);
+                    String cancelReason = "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn.";
+                    booking.setStatus(BookingStatus.CANCELLED);
+                    booking.setCancellationReason(cancelReason);
+                    bookingRepository.save(booking);
+
+                    deposit.setStatus("SLOT_TAKEN");
+                    bookingDepositRepository.save(deposit);
+
+                    bookingAuditService.logTransition(bookingId, BookingStatus.PENDING_DEPOSIT, BookingStatus.CANCELLED,
+                            customerId, "Lịch hẹn đã bị khách khác thanh toán đặt trước. Tự động hủy đơn.");
+
+                    for (PaymentTransactionEntity p : pendingPayments) {
+                        p.setStatus("FAILED");
+                        p.setApplicationStatus("FAILED");
+                        p.setApplicationError("slot_taken");
+                        paymentTransactionRepository.save(p);
+                    }
+
+                    Map<String, Object> wsPayload = new HashMap<>();
+                    wsPayload.put("type", "BOOKING_SLOT_TAKEN");
+                    wsPayload.put("bookingId", bookingId);
+                    wsPayload.put("bookingCode", booking.getBookingCode());
+                    wsPayload.put("status", "CANCELLED");
+                    wsPayload.put("depositStatus", "SLOT_TAKEN");
+                    wsPayload.put("isSlotTaken", true);
+                    wsPayload.put("isRefunded", false);
+                    wsPayload.put("cancellationReason", cancelReason);
+                    wsPayload.put("message", cancelReason);
+                    wsPayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, wsPayload);
+                    messagingTemplate.convertAndSend("/topic/customer-bookings/" + customerId, wsPayload);
+
+                    return BookingDepositStatusRes.builder()
+                            .depositId(deposit.getId())
+                            .bookingId(bookingId)
+                            .bookingCode(booking.getBookingCode())
+                            .totalAmount(booking.getTotalAmount())
+                            .requiredDepositAmount(deposit.getRequiredAmount())
+                            .paidAmount(deposit.getPaidAmount())
+                            .depositStatus("SLOT_TAKEN")
+                            .bookingStatus("CANCELLED")
+                            .isSlotTaken(true)
+                            .isRefunded(false)
+                            .cancellationReason(cancelReason)
+                            .message(cancelReason)
+                            .pricingVersion(deposit.getPricingVersion())
+                            .expiresAt(deposit.getExpiresAt())
+                            .paidAt(deposit.getPaidAt())
+                            .build();
+                }
+            }
+        }
+
         // Lấy payment hiện tại (PENDING đầu tiên nếu có)
         List<PaymentTransactionEntity> pendingPayments = paymentTransactionRepository
                 .findByBookingIdAndStatus(bookingId, "PENDING");
@@ -240,6 +442,10 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 .requiredDepositAmount(deposit.getRequiredAmount())
                 .paidAmount(deposit.getPaidAmount())
                 .depositStatus(deposit.getStatus())
+                .bookingStatus(booking.getStatus().name())
+                .isSlotTaken(false)
+                .isRefunded(false)
+                .cancellationReason(booking.getCancellationReason())
                 .pricingVersion(deposit.getPricingVersion())
                 .expiresAt(deposit.getExpiresAt())
                 .paidAt(deposit.getPaidAt())
@@ -268,42 +474,40 @@ public class BookingDepositServiceImpl implements BookingDepositService {
             return getDepositStatus(bookingId, customerId);
         }
 
-        // 1. Kiểm tra xem có payment nào của booking đã được Gateway xác nhận SUCCESS (qua Webhook IPN hoặc Return callback) hay chưa
+        // 1. Kiểm tra các payment PENDING trước bằng cách query trực tiếp lên Payment Gateway (MoMo, VNPay)
+        List<PaymentTransactionEntity> pendingList = paymentTransactionRepository
+                .findByBookingIdAndStatus(bookingId, "PENDING");
+
+        for (PaymentTransactionEntity pendingPayment : pendingList) {
+            try {
+                PaymentGatewayStrategy strategy = gatewayRegistry.getStrategy(pendingPayment.getPaymentGateway());
+                GatewayPaymentResult queryResult = strategy.queryTransaction(pendingPayment);
+                if (queryResult != null && queryResult.isSuccessful()) {
+                    log.info("[SyncPayment] Gateway confirmed SUCCESS for payment {} (transId={})",
+                            pendingPayment.getPaymentCode(), queryResult.getGatewayTransactionId());
+                    pendingPayment.setStatus("SUCCESS");
+                    pendingPayment.setPaidAt(queryResult.getPaidAt() != null ? queryResult.getPaidAt() : OffsetDateTime.now(VIETNAM_OFFSET));
+                    pendingPayment.setGatewayTransactionId(queryResult.getGatewayTransactionId());
+                    if (queryResult.getGatewayRequestId() != null) {
+                        pendingPayment.setGatewayRequestId(queryResult.getGatewayRequestId());
+                    }
+                    paymentTransactionRepository.save(pendingPayment);
+                }
+            } catch (Exception e) {
+                log.warn("[SyncPayment] Failed to query gateway status for payment {}: {}",
+                        pendingPayment.getPaymentCode(), e.getMessage());
+            }
+        }
+
+        // 2. Tìm tất cả các payment SUCCESS của booking này mà chưa áp dụng hoặc chưa hoàn tiền
         List<PaymentTransactionEntity> successList = paymentTransactionRepository
                 .findByBookingIdAndStatus(bookingId, "SUCCESS");
 
-        if (!successList.isEmpty()) {
-            PaymentTransactionEntity successPayment = successList.get(0);
-            log.info("[SyncPayment] Found SUCCESS payment {} for booking {}. Ensuring deposit is applied...",
-                    successPayment.getPaymentCode(), bookingId);
-            applyDepositFromPayment(successPayment.getId());
-        } else {
-            // 2. Nếu chưa có SUCCESS, kiểm tra các payment PENDING bằng cách query trực tiếp lên Payment Gateway (MoMo, VNPay)
-            List<PaymentTransactionEntity> pendingList = paymentTransactionRepository
-                    .findByBookingIdAndStatus(bookingId, "PENDING");
-
-            for (PaymentTransactionEntity pendingPayment : pendingList) {
-                try {
-                    PaymentGatewayStrategy strategy = gatewayRegistry.getStrategy(pendingPayment.getPaymentGateway());
-                    GatewayPaymentResult queryResult = strategy.queryTransaction(pendingPayment);
-                    if (queryResult != null && queryResult.isSuccessful()) {
-                        log.info("[SyncPayment] Gateway confirmed SUCCESS for payment {} (transId={})",
-                                pendingPayment.getPaymentCode(), queryResult.getGatewayTransactionId());
-                        pendingPayment.setStatus("SUCCESS");
-                        pendingPayment.setPaidAt(queryResult.getPaidAt() != null ? queryResult.getPaidAt() : OffsetDateTime.now(VIETNAM_OFFSET));
-                        pendingPayment.setGatewayTransactionId(queryResult.getGatewayTransactionId());
-                        if (queryResult.getGatewayRequestId() != null) {
-                            pendingPayment.setGatewayRequestId(queryResult.getGatewayRequestId());
-                        }
-                        paymentTransactionRepository.save(pendingPayment);
-
-                        applyDepositFromPayment(pendingPayment.getId());
-                        break;
-                    }
-                } catch (Exception e) {
-                    log.warn("[SyncPayment] Failed to query gateway status for payment {}: {}",
-                            pendingPayment.getPaymentCode(), e.getMessage());
-                }
+        for (PaymentTransactionEntity successPayment : successList) {
+            if (!"APPLIED".equals(successPayment.getApplicationStatus()) && !"REFUNDED".equals(successPayment.getApplicationStatus())) {
+                log.info("[SyncPayment] Found SUCCESS payment {} for booking {}. Applying deposit / refunding if slot taken...",
+                        successPayment.getPaymentCode(), bookingId);
+                applyDepositFromPayment(successPayment.getId());
             }
         }
 
@@ -365,20 +569,107 @@ public class BookingDepositServiceImpl implements BookingDepositService {
             return;
         }
 
-        // Kiểm tra deposit còn trong hạn theo thời điểm payment được ghi
-        if ("EXPIRED".equals(deposit.getStatus())) {
-            log.warn("[Deposit] Deposit expired for booking {}, payment {} needs refund", bookingId, paymentId);
-            payment.setApplicationStatus("REFUND_REQUIRED");
-            payment.setApplicationError("deposit_expired");
+        // KIỂM TRA TÍNH KHẢ DỤNG CỦA SLOT & TRẠNG THÁI HỦY / HẾT HẠN TRƯỚC KHI KHÓA TIỀN & XÁC NHẬN CA
+        BookingEntity booking = payment.getBooking();
+        OffsetDateTime startAt = null;
+        OffsetDateTime endAt = null;
+        boolean slotAvailable = true;
+
+        if (booking.getBookingType() == BookingType.SCHEDULED && booking.getMua() != null) {
+            startAt = booking.getBookingDate().atTime(booking.getStartTime()).atOffset(VIETNAM_OFFSET);
+            int duration = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
+                    ? booking.getDurationMinutes()
+                    : (booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null
+                            ? booking.getServicePackage().getEstimatedDurationMinutes()
+                            : 60);
+            endAt = startAt.plusMinutes(duration);
+
+            slotAvailable = muaCalendarService.isSlotAvailableWithBufferExcludingBooking(
+                    booking.getMua().getId(), startAt, endAt, 30, bookingId);
+        }
+
+        WalletEntity customerWallet = walletRepository.findByUserId(payment.getUser().getId())
+                .orElseGet(() -> createWalletForUser(payment.getUser().getId(), payment.getUser()));
+
+        if (!slotAvailable || booking.getStatus() == BookingStatus.CANCELLED || booking.getStatus() == BookingStatus.CANCELLED_EXPIRED
+                || "SLOT_TAKEN".equalsIgnoreCase(deposit.getStatus()) || "EXPIRED".equalsIgnoreCase(deposit.getStatus())) {
+            log.warn("[Deposit] Payment {} succeeded for booking {}, BUT slot is taken/cancelled/expired! Refunding 100% to customer wallet...",
+                    paymentId, bookingId);
+
+            String cancelReason = (booking.getCancellationReason() != null && !booking.getCancellationReason().isBlank())
+                    ? booking.getCancellationReason()
+                    : "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Tiền cọc đã được tự động hoàn trả 100% vào Ví của bạn.";
+            BookingStatus prevStatus = booking.getStatus();
+            booking.setStatus(BookingStatus.CANCELLED);
+            booking.setCancellationReason(cancelReason);
+            booking.setDepositExpiredAt(null);
+            bookingRepository.save(booking);
+
+            if (prevStatus != BookingStatus.CANCELLED) {
+                bookingAuditService.logTransition(booking.getId(), prevStatus, BookingStatus.CANCELLED,
+                        booking.getCustomer().getId(),
+                        "Slot đã bị khách hàng khác đặt trước. Tự động hủy đơn và hoàn 100% tiền cọc vào Ví.");
+            }
+
+            // Hoàn trả 100% tiền cọc vào Ví khả dụng của khách hàng
+            BigDecimal refundAmount = payment.getAmount();
+            BigDecimal curAvailable = customerWallet.getAvailableBalance() != null ? customerWallet.getAvailableBalance() : BigDecimal.ZERO;
+            BigDecimal newAvailable = curAvailable.add(refundAmount);
+            customerWallet.setAvailableBalance(newAvailable);
+            walletRepository.save(customerWallet);
+
+            // Ghi Sổ cái kế toán kép Ledger
+            String refundLedgerKey = applyIdempotencyKey + ":refund_slot_taken";
+            if (!ledgerEntryRepository.existsByIdempotencyKey(refundLedgerKey)) {
+                LedgerEntryEntity ledgerRefund = LedgerEntryEntity.builder()
+                        .referenceType("BOOKING_REFUND")
+                        .referenceId(bookingId)
+                        .wallet(customerWallet)
+                        .entryType("CREDIT")
+                        .amount(refundAmount)
+                        .balanceAfter(newAvailable)
+                        .description("Hoàn 100% tiền cọc do trùng lịch hẹn #" + booking.getBookingCode())
+                        .idempotencyKey(refundLedgerKey)
+                        .build();
+                ledgerEntryRepository.save(ledgerRefund);
+            }
+
+            // Cập nhật payment & deposit
+            payment.setApplicationStatus("REFUNDED");
+            payment.setAppliedAt(OffsetDateTime.now(VIETNAM_OFFSET));
+            payment.setApplicationError("slot_taken_refunded_to_wallet");
             paymentTransactionRepository.save(payment);
+
+            deposit.setStatus("REFUNDED");
+            deposit.setPaidAmount(payment.getAmount());
+            deposit.setPaidAt(payment.getPaidAt() != null ? payment.getPaidAt() : OffsetDateTime.now(VIETNAM_OFFSET));
+            deposit.setAppliedPayment(payment);
+            bookingDepositRepository.save(deposit);
+
+            // Bắn STOMP WebSocket thông báo cho khách hàng
+            Map<String, Object> refundPayload = new HashMap<>();
+            refundPayload.put("type", "BOOKING_SLOT_TAKEN_REFUNDED");
+            refundPayload.put("bookingId", bookingId);
+            refundPayload.put("bookingCode", booking.getBookingCode());
+            refundPayload.put("status", "CANCELLED");
+            refundPayload.put("depositStatus", "REFUNDED");
+            refundPayload.put("isSlotTaken", true);
+            refundPayload.put("isRefunded", true);
+            refundPayload.put("refundAmount", refundAmount);
+            refundPayload.put("newBalance", newAvailable);
+            refundPayload.put("cancellationReason", cancelReason);
+            refundPayload.put("message", cancelReason);
+            refundPayload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, refundPayload);
+            messagingTemplate.convertAndSend("/topic/customer-bookings/" + booking.getCustomer().getId(), refundPayload);
+            messagingTemplate.convertAndSend("/topic/customer-wallet/" + booking.getCustomer().getId(), refundPayload);
+
             return;
         }
 
         String ledgerCreditKey = applyIdempotencyKey + ":credit";
         BigDecimal holdAmount = deposit.getRequiredAmount();
-
-        WalletEntity customerWallet = walletRepository.findByUserId(payment.getUser().getId())
-                .orElseGet(() -> createWalletForUser(payment.getUser().getId(), payment.getUser()));
 
         if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerCreditKey)) {
             LedgerEntryEntity ledgerCredit = LedgerEntryEntity.builder()
@@ -422,7 +713,6 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         paymentTransactionRepository.save(payment);
 
         // Chuyển booking status sau khi khách cọc thành công
-        BookingEntity booking = payment.getBooking();
         BookingStatus prevStatus = booking.getStatus();
         BookingStatus nextStatus;
         OffsetDateTime confirmDeadline = null;
@@ -456,6 +746,34 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         } else {
             booking.setDepositExpiredAt(null);
             bookingRepository.save(booking);
+        }
+
+        // Khóa ca của thợ khi cọc thành công (tính thời gian gói + đệm 30p di chuyển)
+        if (booking.getBookingType() == BookingType.SCHEDULED && booking.getMua() != null) {
+            try {
+                if (startAt == null) {
+                    startAt = booking.getBookingDate().atTime(booking.getStartTime()).atOffset(VIETNAM_OFFSET);
+                    int duration = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
+                            ? booking.getDurationMinutes()
+                            : (booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null
+                                    ? booking.getServicePackage().getEstimatedDurationMinutes()
+                                    : 60);
+                    endAt = startAt.plusMinutes(duration);
+                }
+
+                muaCalendarService.lockSlotForBooking(
+                        booking.getMua().getId(),
+                        booking.getId(),
+                        booking.getBookingDate(),
+                        startAt,
+                        endAt,
+                        "BOOKED_" + booking.getBookingCode()
+                );
+                log.info("[Deposit] Locked calendar slot for MUA ID {} and booking ID {}", booking.getMua().getId(), bookingId);
+                cancelConflictingPendingBookings(booking, startAt, endAt);
+            } catch (Exception ex) {
+                log.error("[Deposit] Failed to lock calendar slot for booking ID {}: {}", bookingId, ex.getMessage(), ex);
+            }
         }
 
         // Lưu Redis flag để các query check tức thì không cần đợi DB lag
@@ -537,7 +855,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                     if (muaUserId != null) {
                         messagingTemplate.convertAndSendToUser(String.valueOf(muaUserId), "/queue/offers", scheduledOfferPayload);
                     }
-                    messagingTemplate.convertAndSend("/topic/mua-offer/" + muaId, scheduledOfferPayload);
+                    // Removed: do not broadcast scheduled booking to instant offer topic
                     messagingTemplate.convertAndSend("/topic/mua-scheduled-offer/" + muaId, scheduledOfferPayload);
                     log.info("[Deposit] Dispatched NEW_SCHEDULED_OFFER P2P to MUA userId={} (muaId={})", muaUserId, muaId);
                 }
@@ -771,6 +1089,53 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 .currency("VND")
                 .build();
         return walletRepository.save(wallet);
+    }
+
+    private void cancelConflictingPendingBookings(BookingEntity paidBooking, OffsetDateTime paidStartAt, OffsetDateTime paidEndAt) {
+        if (paidBooking == null || paidBooking.getMua() == null || paidBooking.getBookingDate() == null || paidStartAt == null || paidEndAt == null) {
+            return;
+        }
+        try {
+            Long muaId = paidBooking.getMua().getId();
+            List<BookingEntity> pendingBookings = bookingRepository.findPendingDepositBookingsByMuaAndDate(
+                    muaId, paidBooking.getBookingDate(), paidBooking.getId());
+
+            if (pendingBookings == null || pendingBookings.isEmpty()) {
+                return;
+            }
+
+            OffsetDateTime bufferedPaidStart = paidStartAt.minusMinutes(30);
+            OffsetDateTime bufferedPaidEnd = paidEndAt.plusMinutes(30);
+            String cancelReason = "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn.";
+
+            for (BookingEntity other : pendingBookings) {
+                if (other.getStartTime() == null) {
+                    continue;
+                }
+                OffsetDateTime otherStart = other.getBookingDate().atTime(other.getStartTime()).atOffset(VIETNAM_OFFSET);
+                int duration = (other.getDurationMinutes() != null && other.getDurationMinutes() > 0)
+                        ? other.getDurationMinutes()
+                        : (other.getServicePackage() != null && other.getServicePackage().getEstimatedDurationMinutes() != null
+                                ? other.getServicePackage().getEstimatedDurationMinutes()
+                                : 60);
+                OffsetDateTime otherEnd = otherStart.plusMinutes(duration);
+
+                boolean isOverlap = bufferedPaidStart.isBefore(otherEnd.plusMinutes(30)) && bufferedPaidEnd.isAfter(otherStart.minusMinutes(30));
+                if (isOverlap) {
+                    log.info("[Deposit] Automatically cancelling conflicting pending booking ID {} (code: {}) for customer {}",
+                            other.getId(), other.getBookingCode(), other.getCustomer().getId());
+                    bookingSlotCancelHelper.cancelBookingDueToSlotTaken(
+                            other.getId(),
+                            other.getCustomer().getId(),
+                            other.getBookingCode(),
+                            cancelReason
+                    );
+                }
+            }
+        } catch (Exception ex) {
+            log.error("[Deposit] Error cancelling conflicting pending bookings for booking {}: {}",
+                    paidBooking.getId(), ex.getMessage(), ex);
+        }
     }
 
     private String generatePaymentCode() {

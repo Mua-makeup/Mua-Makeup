@@ -4,6 +4,7 @@ import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEv
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.dto.response.notification.NotificationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import org.springframework.data.domain.Page;
@@ -43,4 +44,6 @@ public interface NotificationService {
     );
 
     NotificationEntity createEmergencyNotification(EmergencyReassignmentRequestedEvent event);
+
+    void createDisputeNotification(BookingEntity booking);
 }

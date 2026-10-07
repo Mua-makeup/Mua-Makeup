@@ -364,7 +364,6 @@ export default function ExploreScreen() {
         {/* BADGES TAGS */}
         <View style={styles.badgesRow}>
           <View style={[styles.badgeItem, styles.badgeFreelance]}>
-            <Ionicons name="sparkles" size={11} color="#BE185D" />
             <Text style={[styles.badgeItemText, styles.badgeFreelanceText]}>Thợ Tự Do</Text>
           </View>
 
@@ -589,11 +588,6 @@ export default function ExploreScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Ionicons
-              name="sparkles"
-              size={14}
-              color={providerTab === 'FREELANCE' ? '#FFFFFF' : '#64748B'}
-            />
             <Text
               style={[
                 styles.segmentBtnText,
@@ -627,11 +621,6 @@ export default function ExploreScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Ionicons
-              name="business"
-              size={14}
-              color={providerTab === 'STUDIO' ? '#FFFFFF' : '#64748B'}
-            />
             <Text
               style={[
                 styles.segmentBtnText,

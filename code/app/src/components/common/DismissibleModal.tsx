@@ -15,10 +15,11 @@ interface SurfaceProps {
   fullHeight?: boolean;
   onDismissStart?: () => void;
   avoidKeyboard?: boolean;
+  showHandle?: boolean;
 }
 
 /** Shared backdrop and drag handle. Scroll views, maps and inputs keep their own gestures. */
-export function DismissibleSurface({ visible, onClose, dismissDisabled = false, overlayStyle, contentStyle, children, overlays, fullHeight, onDismissStart, avoidKeyboard = false }: SurfaceProps) {
+export function DismissibleSurface({ visible, onClose, dismissDisabled = false, overlayStyle, contentStyle, children, overlays, fullHeight, onDismissStart, avoidKeyboard = false, showHandle = true }: SurfaceProps) {
   const { height } = useWindowDimensions();
   const translateY = useRef(new Animated.Value(0)).current;
   const dismissing = useRef(false);
@@ -121,15 +122,17 @@ export function DismissibleSurface({ visible, onClose, dismissDisabled = false, 
       <View style={[styles.overlay, overlayStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => dismiss()} disabled={dismissDisabled} accessibilityRole="button" accessibilityLabel="Đóng cửa sổ" />
         <Animated.View style={[styles.surface, fullHeight && styles.fullHeight, contentStyle, { transform: [{ translateY }] }]} accessibilityViewIsModal>
-          <View
-            {...pan.panHandlers}
-            style={styles.dragArea}
-            hitSlop={{ top: 20, bottom: 25, left: 150, right: 150 }}
-            accessibilityLabel="Kéo xuống để đóng"
-            onAccessibilityEscape={dismiss}
-          >
-            <View style={styles.handle} />
-          </View>
+          {showHandle && (
+            <View
+              {...pan.panHandlers}
+              style={styles.dragArea}
+              hitSlop={{ top: 20, bottom: 25, left: 150, right: 150 }}
+              accessibilityLabel="Kéo xuống để đóng"
+              onAccessibilityEscape={dismiss}
+            >
+              <View style={styles.handle} />
+            </View>
+          )}
           {children}
         </Animated.View>
       </View>

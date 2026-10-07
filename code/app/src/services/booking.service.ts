@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { apiClient } from './api';
 import { CreateBookingFormValues } from '@/schemas/booking-create.schema';
 import { CreateInstantBookingPayload } from '@/schemas/instant-booking.schema';
@@ -15,8 +16,11 @@ export type BookingStatusType =
   | 'PAID_OUT'
   | 'CANCELLED'
   | 'CANCELLED_EXPIRED'
+  | 'CANCELLED_BY_CUSTOMER'
   | 'EXPIRED'
-  | 'DISPUTED';
+  | 'DISPUTED'
+  | 'DISPUTE_REFUNDED'
+  | 'DISPUTE_COMPENSATED';
 
 export interface ScheduledBookingCreatedRes {
   bookingId?: number;
@@ -109,6 +113,8 @@ export interface CustomerBookingItem {
   addOnNames?: string[];
   note?: string;
   isDepositPaid?: boolean;
+  cancellationReason?: string;
+  isDepositRefunded?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -139,6 +145,7 @@ export interface BookingStatusDetailRes {
   earningsAmount?: number;
   styleName?: string;
   packageName?: string;
+  packagePrice?: number;
   bookingType?: string;
   bookingDate?: string;
   startTime?: string;
@@ -155,6 +162,8 @@ export interface BookingStatusDetailRes {
   }>;
   estimatedDurationMinutes?: number;
   emergencyProofUrl?: string;
+  emergencyReason?: string;
+  emergencyReportedAt?: string;
   completionPhotoUrl?: string;
   isDepositPaid?: boolean;
   depositTimeoutSeconds?: number;
@@ -164,7 +173,27 @@ export interface BookingStatusDetailRes {
   cancellationReason?: string;
   isCancelRequested?: boolean;
   cancelRequestedReason?: string;
+  disputeOrigin?: 'CUSTOMER' | 'MUA' | 'DUAL' | string;
+  isDirectBooking?: boolean;
+  availablePackages?: CandidatePackageRes[];
   updatedAt: string;
+}
+
+export interface CandidatePackageRes {
+  id: number;
+  packageName: string;
+  description?: string;
+  price: number;
+  estimatedDurationMinutes?: number;
+  items?: string[];
+  categoryName?: string;
+  availableAddons?: Array<{
+    id: number;
+    itemName: string;
+    itemPrice?: number;
+    durationMinutes?: number;
+    itemType?: string;
+  }>;
 }
 
 export interface LiveTrackingRes {
@@ -314,7 +343,7 @@ export const bookingService = {
    */
   async confirmDeposit(
     bookingId: number,
-    payload?: { addOnNames?: string[]; addOnTotal?: number }
+    payload?: { packageId?: number; addOnNames?: string[]; addOnTotal?: number }
   ): Promise<void> {
     await apiClient.post(`/customer/bookings/${bookingId}/confirm-deposit`, payload || {});
   },
@@ -328,6 +357,57 @@ export const bookingService = {
       reason,
       emergencyProofUrl,
     });
+  },
+
+  /**
+   * Chuyển đổi trạng thái đơn đặt lịch (CANCELLED, DISPUTED...)
+   */
+  async transitionBookingState(
+    bookingId: number,
+    targetStatus: BookingStatusType,
+    reason?: string,
+    emergencyProofUrl?: string
+  ): Promise<any> {
+    const response = await apiClient.post(`/bookings/${bookingId}/transition`, {
+      targetStatus,
+      reason,
+      emergencyProofUrl,
+    });
+    return response.data?.data;
+  },
+
+  /**
+   * Tải ảnh minh chứng khiếu nại (khách hàng hoặc thợ)
+   */
+  async uploadDisputeProof(
+    bookingId: number,
+    imageUri: string
+  ): Promise<{ completionPhotoUrl?: string; photoUrl?: string; thumbnailUrl?: string }> {
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop() || `dispute_proof_${Date.now()}.jpg`;
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    if (Platform.OS === 'web') {
+      const fetchRes = await fetch(imageUri);
+      const blob = await fetchRes.blob();
+      formData.append('file', blob, filename);
+    } else {
+      formData.append('file', {
+        uri: imageUri,
+        name: filename,
+        type,
+      } as any);
+    }
+
+    const response = await apiClient.post(`/bookings/${bookingId}/dispute-proof`, formData);
+    const data = response.data?.data;
+    const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;
+    return {
+      ...data,
+      completionPhotoUrl: finalPhotoUrl,
+      photoUrl: finalPhotoUrl,
+    };
   },
 };
 

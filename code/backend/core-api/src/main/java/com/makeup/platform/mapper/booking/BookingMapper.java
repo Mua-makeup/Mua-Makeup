@@ -323,6 +323,17 @@ public class BookingMapper {
             }
         }
 
+        boolean isDepositRefunded = false;
+        if (entity.getStatus() == BookingStatus.CANCELLED || entity.getStatus() == BookingStatus.DISPUTE_REFUNDED) {
+            String reason = entity.getCancellationReason();
+            if (reason != null && (reason.toLowerCase().contains("khách hàng khác")
+                    || reason.toLowerCase().contains("trùng")
+                    || reason.toLowerCase().contains("hoàn trả")
+                    || reason.toLowerCase().contains("hoàn cọc"))) {
+                isDepositRefunded = true;
+            }
+        }
+
         return CustomerBookingItemRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -342,6 +353,8 @@ public class BookingMapper {
                 .remainingAmount(remainingAmount)
                 .note(entity.getEmergencyReason())
                 .isDepositPaid(isDepositPaid)
+                .cancellationReason(entity.getCancellationReason())
+                .isDepositRefunded(isDepositRefunded)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

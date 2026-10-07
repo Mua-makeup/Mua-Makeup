@@ -441,4 +441,76 @@ public class NotificationServiceImpl implements NotificationService {
         log.info("[Notification] Created emergency in-app notification ID={} for agencyId={}", saved.getId(), event.getAgencyId());
         return saved;
     }
+
+    @Override
+    @Transactional
+    public void createDisputeNotification(BookingEntity booking) {
+        if (booking == null) {
+            return;
+        }
+
+        List<UserEntity> superAdmins = userRepository.findAllByRoleName(SecurityConstants.ROLE_SUPER_ADMIN);
+        if (superAdmins == null || superAdmins.isEmpty()) {
+            log.warn("[Notification] No Super Admin found to receive dispute notification for bookingId={}", booking.getId());
+            return;
+        }
+
+        String customerName = booking.getCustomer() != null ? booking.getCustomer().getFullName() : "Khách hàng";
+        String customerPhone = booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : "";
+        String muaName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                ? booking.getMua().getUser().getFullName()
+                : "Chuyên viên make-up";
+        String muaPhone = (booking.getMua() != null && booking.getMua().getUser() != null)
+                ? booking.getMua().getUser().getPhoneNumber()
+                : "";
+        String reason = StringUtils.hasText(booking.getEmergencyReason())
+                ? booking.getEmergencyReason()
+                : "Báo cáo sự cố từ khách hàng/thợ";
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", booking.getBookingCode());
+        metadata.put("customerName", customerName);
+        metadata.put("customerPhone", customerPhone);
+        metadata.put("muaName", muaName);
+        metadata.put("muaPhone", muaPhone);
+        metadata.put("reason", reason);
+        metadata.put("proofUrl", booking.getEmergencyProofUrl());
+        metadata.put("depositAmount", booking.getDepositAmount());
+        metadata.put("totalAmount", booking.getTotalAmount());
+        metadata.put("reportedAt", LocalDateTime.now().toString());
+
+        for (UserEntity admin : superAdmins) {
+            String title = "Báo Cáo Khiếu Nại: #" + booking.getBookingCode();
+            String content = "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ". Cần Ban Quản Trị xem xét phân xử.";
+
+            NotificationEntity entity = NotificationEntity.builder()
+                    .user(admin)
+                    .booking(booking)
+                    .type("BOOKING_DISPUTE")
+                    .title(title)
+                    .content(content)
+                    .metadata(metadata)
+                    .isRead(false)
+                    .build();
+
+            notificationRepository.save(entity);
+        }
+
+        // Broadcast realtime qua STOMP WebSocket tới Ban Quản Trị
+        try {
+            Map<String, Object> payload = new HashMap<>(metadata);
+            payload.put("type", "BOOKING_DISPUTE");
+            payload.put("id", "dispute-" + booking.getId() + "-" + System.currentTimeMillis());
+            payload.put("title", "Báo Cáo Khiếu Nại: #" + booking.getBookingCode());
+            payload.put("content", "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ".");
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
+            messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
+            log.info("[WebSocket] Sent dispute notification to /topic/admin/notifications for bookingId={}", booking.getId());
+        } catch (Exception e) {
+            log.error("[WebSocket] Failed to broadcast dispute notification to /topic/admin/notifications", e);
+        }
+    }
 }
