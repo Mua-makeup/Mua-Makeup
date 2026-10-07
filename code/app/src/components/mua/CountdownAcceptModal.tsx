@@ -162,7 +162,7 @@ export const CountdownAcceptModal: React.FC = () => {
           {/* KHỐI 1: HEADER KHẨN CẤP & THỨ TỰ ƯU TIÊN WATERFALL */}
           <View style={styles.header}>
             <View style={styles.flashBadge}>
-              <Ionicons name="flash" size={13} color="#E11D48" />
+              <Ionicons name="timer-outline" size={14} color="#E11D48" />
               <Text style={styles.flashText}>CA KHẨN CẤP (30-45P CÓ MẶT)</Text>
             </View>
             <Text style={styles.codeText}>{activeOffer.bookingCode}</Text>

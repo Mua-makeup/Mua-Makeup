@@ -18,6 +18,7 @@ import { BrandColors } from '@/constants/theme';
 import { AgencyPublicProfile } from '@/services/agency.service';
 import { packageService, PackageSummary } from '@/services/package.service';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { useAuthStore } from '@/store/auth.store';
 
 interface Props {
   visible: boolean;
@@ -78,6 +79,10 @@ export const StudioServicesModal: React.FC<Props> = ({
     if (!studio) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onClose();
+    if (!useAuthStore.getState().isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
     // Điều hướng trực tiếp sang quy trình Đặt Lịch với vai trò AGENCY
     router.push({
       pathname: '/booking/create',

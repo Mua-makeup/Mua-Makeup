@@ -793,7 +793,7 @@ export const DateTimeSelector: React.FC<Props> = ({
                     {surchargeAmount > 0 && (
                       <View style={styles.earlyNoticeBox}>
                         <View style={styles.policyNoticeHeader}>
-                          <Ionicons name="flash" size={15} color="#D97706" />
+                          <Ionicons name="time-outline" size={15} color="#D97706" />
                           <Text style={styles.earlyNoticeTitle}>
                             {ruleName || 'Phụ Phí Làm Sáng Sớm'}
                           </Text>

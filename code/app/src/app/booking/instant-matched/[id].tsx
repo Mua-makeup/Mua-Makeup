@@ -542,7 +542,7 @@ export default function InstantMatchedScreen() {
           <View style={styles.billRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text style={styles.billLabel}>Phụ phí ca khẩn cấp (cố định):</Text>
-              <Ionicons name="flash" size={13} color="#D97706" />
+              <Ionicons name="time-outline" size={13} color="#D97706" />
             </View>
             <Text style={styles.billValue}>{formatVnd(emergencySurcharge)}</Text>
           </View>

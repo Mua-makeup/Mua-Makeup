@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { useBookingStore } from '@/store/booking.store';
+import { useAuthStore } from '@/store/auth.store';
 import { packageService, PackageDetail } from '@/services/package.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { BookingHeaderCard } from '@/components/booking/BookingHeaderCard';
@@ -48,6 +49,13 @@ export default function CreateBookingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const { currentAddress, latitude: currentLat, longitude: currentLng } = useLocationStore();
+  const { isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace('/(auth)/login');
+    }
+  }, [isAuthenticated]);
 
   const {
     selectedDate,

@@ -61,6 +61,11 @@ export default function MuaDetailScreen() {
   };
 
   const handleBookingPress = () => {
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
+
     if (isOwnProfile) {
       if (router.canGoBack()) {
         router.back();
@@ -237,8 +242,10 @@ export default function MuaDetailScreen() {
             onPress={handleBookingPress}
             activeOpacity={0.88}
           >
-            <Text style={styles.bookingBtnText}>Đặt Lịch Gói Này</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            <Text style={styles.bookingBtnText}>
+              {isAuthenticated ? 'Đặt Lịch Gói Này' : 'Đăng Nhập Để Đặt Lịch'}
+            </Text>
+            <Ionicons name={isAuthenticated ? "arrow-forward" : "log-in-outline"} size={16} color="#FFFFFF" />
           </TouchableOpacity>
         )}
       </View>

@@ -32,6 +32,7 @@ import { customerAddressService, CustomerAddressItem } from '@/services/customer
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
 import { showGlobalPopup } from '@/store/popup.store';
+import { useAuthStore } from '@/store/auth.store';
 
 interface Props {
   visible: boolean;
@@ -168,6 +169,11 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   // Nạp danh mục và phong cách thật từ DB khi mở modal
   useEffect(() => {
     if (visible) {
+      if (!useAuthStore.getState().isAuthenticated) {
+        onClose();
+        router.push('/(auth)/login');
+        return;
+      }
       loadTaxonomy();
     }
   }, [visible]);
@@ -359,6 +365,13 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   const handleStartScan = async () => {
     if (isSubmittingScan) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (!useAuthStore.getState().isAuthenticated) {
+      onClose();
+      router.push('/(auth)/login');
+      return;
+    }
+
     setTimeoutMessage(null);
 
     // Kiểm tra nếu danh sách thợ rỗng trước khi gửi đơn

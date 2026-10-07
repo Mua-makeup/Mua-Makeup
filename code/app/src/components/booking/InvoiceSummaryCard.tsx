@@ -88,7 +88,7 @@ export const InvoiceSummaryCard: React.FC<Props> = ({
         {isSurge && surgeAmount > 0 && (
           <View style={styles.row}>
             <View style={styles.surgeTagRow}>
-              <Ionicons name="flash" size={12} color="#D97706" />
+              <Ionicons name="time-outline" size={12} color="#D97706" />
               <Text style={styles.surgeLabel}>
                 {invoicePreview?.surgePricing?.surgeReason || 'Phụ phí giờ cao điểm sáng sớm'}
               </Text>

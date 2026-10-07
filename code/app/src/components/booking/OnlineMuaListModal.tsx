@@ -268,7 +268,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                   onPress={onFallbackRandomScan}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="flash" size={15} color="#FFFFFF" />
+                  <Ionicons name="time-outline" size={15} color="#FFFFFF" />
                   <Text style={styles.fallbackBtnText}>Đặt Thợ Ngẫu Nhiên</Text>
                 </TouchableOpacity>
               </View>

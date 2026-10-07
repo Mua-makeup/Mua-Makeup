@@ -23,6 +23,7 @@ import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { InstantRadarModal } from '@/components/booking/InstantRadarModal';
 import { DirectMuaBookingModal } from '@/components/booking/DirectMuaBookingModal';
 import { OnlineMuaListModal } from '@/components/booking/OnlineMuaListModal';
+import { StudioServicesModal } from '@/components/customer/StudioServicesModal';
 import { NearbyProviderRes } from '@/services/telemetry.service';
 import { WorkstationHeader } from '@/components/mua/WorkstationHeader';
 import { WorkstationStatCards } from '@/components/mua/WorkstationStatCards';
@@ -79,6 +80,36 @@ export default function HomeScreen() {
   const { currentAddress, latitude, longitude, fetchCurrentLocation, isLoading: isLocating } = useLocationStore();
   
   const [isReadyToWork, setIsReadyToWork] = useState(true);
+
+  const [categories, setCategories] = useState<MasterCategory[]>([]);
+  const [featuredMuas, setFeaturedMuas] = useState<MuaPublicProfile[]>([]);
+  const [featuredStudios, setFeaturedStudios] = useState<AgencyPublicProfile[]>([]);
+  const [isLoadingExploreData, setIsLoadingExploreData] = useState(false);
+  const [selectedStudioForModal, setSelectedStudioForModal] = useState<AgencyPublicProfile | null>(null);
+  const [isStudioModalVisible, setIsStudioModalVisible] = useState(false);
+
+  useEffect(() => {
+    // Luôn tải danh mục dịch vụ, thợ MUA và Studio để khách vãng lai và khách hàng tham quan
+    const loadExploreData = async () => {
+      try {
+        setIsLoadingExploreData(true);
+        const [cats, muas, studios] = await Promise.all([
+          taxonomyService.getActiveCategories().catch(() => []),
+          muaProfileService.getPublicMuas({ limit: 8 }).catch(() => []),
+          agencyService.getPublicAgencies(6).catch(() => []),
+        ]);
+        setCategories(cats || []);
+        setFeaturedMuas(muas || []);
+        setFeaturedStudios(studios || []);
+      } catch (err) {
+        console.warn('Lỗi tải dữ liệu khám phá công khai:', err);
+      } finally {
+        setIsLoadingExploreData(false);
+      }
+    };
+
+    loadExploreData();
+  }, []);
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
@@ -169,26 +200,39 @@ export default function HomeScreen() {
   // Nút 1: Đặt thợ khẩn cấp ngẫu nhiên gần nhất (Luồng Radar chuẩn)
   const handleRandomEmergencyBooking = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
     setSelectedTargetMua(null);
     setIsRadarModalVisible(true);
   };
 
-  // Nút 2: Mở danh sách thợ đang online quanh vị trí của khách
+  // Nút 2: Mở danh sách thợ đang online quanh vị trí của khách (cho phép khách tham khảo thoải mái)
   const handleOpenOnlineList = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsOnlineListModalVisible(true);
   };
 
-  // Khi chọn "Đặt Ngay" trên một thợ online cụ thể -> Mở Modal Đích Danh riêng biệt
+  // Khi chọn "Đặt Ngay" trên một thợ online cụ thể -> Nếu chưa login thì chuyển sang trang login
   const handleSelectOnlineMua = (mua: NearbyProviderRes) => {
+    if (!isAuthenticated) {
+      setIsOnlineListModalVisible(false);
+      router.push('/(auth)/login');
+      return;
+    }
     setIsOnlineListModalVisible(false);
     setDirectTargetMua(mua);
     setIsDirectModalVisible(true);
   };
 
-  // Fallback từ modal online sang quét tự động ngẫu nhiên
+  // Fallback từ modal online sang quét tự động ngẫu nhiên -> Nếu chưa login thì chuyển sang trang login
   const handleFallbackRandomScan = () => {
     setIsOnlineListModalVisible(false);
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
     setSelectedTargetMua(null);
     setIsRadarModalVisible(true);
   };
@@ -351,7 +395,7 @@ export default function HomeScreen() {
                 onPress={() => router.push(`/job-execution/${activeMuaJob.id}` as any)}
               >
                 <View style={styles.activeJobIconBox}>
-                  <Ionicons name="flash" size={20} color="#FFFFFF" />
+                  <Ionicons name="sparkles" size={20} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -433,7 +477,7 @@ export default function HomeScreen() {
           /* ========================================================================= */
           <>
             {/* User Greeting Bar */}
-            {isAuthenticated && (
+            {isAuthenticated ? (
               <View style={styles.greetingBar}>
                 <View style={styles.greetingTextContainer}>
                   <Text style={styles.greetingTitle} numberOfLines={2}>
@@ -446,6 +490,27 @@ export default function HomeScreen() {
                 <View style={[styles.roleBadge, styles.roleBadgeCustomer]}>
                   <Text style={styles.roleBadgeText}>Khách Hàng</Text>
                 </View>
+              </View>
+            ) : (
+              <View style={styles.guestGreetingBar}>
+                <View style={styles.guestGreetingContent}>
+                  <Text style={styles.guestGreetingTitle}>
+                    Khám Phá Dịch Vụ Make-up
+                  </Text>
+                  <Text style={styles.guestGreetingSub}>
+                    Tham khảo các chuyên viên tài năng, xem ảnh mẫu & bảng giá minh bạch
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.guestSearchBar}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/explore')}
+                >
+                  <Ionicons name="search-outline" size={16} color="#64748B" />
+                  <Text style={styles.guestSearchPlaceholder}>
+                    Tìm kiếm thợ make-up, phong cách, studio...
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -613,6 +678,212 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            {/* 1. DANH MỤC DỊCH VỤ TRANG ĐIỂM (CHO KHÁCH THAM QUAN) */}
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sectionTitle}>Danh Mục Dịch Vụ</Text>
+                  <Text style={styles.sectionSubtitle}>Khám phá các phong cách và dịch vụ trang điểm</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => router.push('/explore')}
+                  activeOpacity={0.7}
+                  style={styles.seeAllBtn}
+                >
+                  <Text style={styles.seeAllText}>Tất cả</Text>
+                  <Ionicons name="chevron-forward" size={13} color={BrandColors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesScroll}
+              >
+                {categories.map((cat) => {
+                  const iconName = getCategoryIcon(cat.categoryName);
+                  return (
+                    <TouchableOpacity
+                      key={`cat-${cat.id}`}
+                      style={styles.categoryItem}
+                      activeOpacity={0.75}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        router.push({
+                          pathname: '/explore',
+                          params: { categoryId: cat.id.toString() },
+                        });
+                      }}
+                    >
+                      <View style={styles.categoryIconCircle}>
+                        <Ionicons name={iconName} size={20} color={BrandColors.primary} />
+                      </View>
+                      <Text style={styles.categoryNameText} numberOfLines={1}>
+                        {cat.categoryName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* 2. CHUYÊN VIÊN TRANG ĐIỂM NỔI BẬT (CHO KHÁCH THAM KHẢO) */}
+            {featuredMuas.length > 0 && (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>Chuyên Viên Make-Up Nổi Bật</Text>
+                    <Text style={styles.sectionSubtitle}>Hồ sơ thợ chuyên nghiệp, ảnh mẫu & đánh giá cao</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/explore', params: { tab: 'FREELANCE' } })}
+                    activeOpacity={0.7}
+                    style={styles.seeAllBtn}
+                  >
+                    <Text style={styles.seeAllText}>Xem thêm</Text>
+                    <Ionicons name="chevron-forward" size={13} color={BrandColors.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.muaCardsScroll}
+                >
+                  {featuredMuas.map((mua) => {
+                    const startingPriceStr = new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                    }).format(mua.startingPrice || 350000);
+                    const stylesText =
+                      mua.styles && mua.styles.length > 0
+                        ? mua.styles.map((s) => s.styleName).slice(0, 2).join(' • ')
+                        : 'Make-up chuyên nghiệp';
+
+                    return (
+                      <TouchableOpacity
+                        key={`featured-mua-${mua.muaId}`}
+                        style={styles.featuredMuaCard}
+                        activeOpacity={0.88}
+                        onPress={() => handleBookingPress(mua.muaId)}
+                      >
+                        <View style={styles.featuredMuaTop}>
+                          <UserAvatar uri={mua.avatarUrl} name={mua.fullName} size={48} />
+                          <View style={styles.featuredMuaInfo}>
+                            <View style={styles.featuredMuaNameRow}>
+                              <Text style={styles.featuredMuaName} numberOfLines={1}>
+                                {mua.fullName}
+                              </Text>
+                              <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
+                            </View>
+                            <Text style={styles.featuredMuaStyles} numberOfLines={1}>
+                              {stylesText}
+                            </Text>
+                            <View style={styles.featuredMuaRatingRow}>
+                              <Ionicons name="star" size={12} color="#F59E0B" />
+                              <Text style={styles.featuredMuaRatingText}>
+                                {mua.ratingAverage != null ? Number(mua.ratingAverage).toFixed(1) : '5.0'}
+                              </Text>
+                              <Text style={styles.featuredMuaJobsText}>
+                                ({mua.totalCompletedJobs || 0} ca)
+                              </Text>
+                              {mua.isOnline && (
+                                <View style={styles.featuredOnlineBadge}>
+                                  <View style={styles.featuredOnlineDot} />
+                                  <Text style={styles.featuredOnlineText}>Online</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+
+                        <View style={styles.featuredMuaBottom}>
+                          <View>
+                            <Text style={styles.featuredPriceLabel}>Giá từ</Text>
+                            <Text style={styles.featuredPriceValue}>{startingPriceStr}</Text>
+                          </View>
+                          <View style={styles.viewProfileBtn}>
+                            <Text style={styles.viewProfileBtnText}>Xem Hồ Sơ</Text>
+                            <Ionicons name="arrow-forward" size={12} color={BrandColors.primary} />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* 3. STUDIO & VIỆN ÁO CƯỚI ĐỐI TÁC */}
+            {featuredStudios.length > 0 && (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>Studio & Viện Áo Cưới</Text>
+                    <Text style={styles.sectionSubtitle}>Cơ sở làm đẹp uy tín, trang thiết bị chuyên nghiệp</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/explore', params: { tab: 'STUDIO' } })}
+                    activeOpacity={0.7}
+                    style={styles.seeAllBtn}
+                  >
+                    <Text style={styles.seeAllText}>Xem thêm</Text>
+                    <Ionicons name="chevron-forward" size={13} color={BrandColors.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.studioCardsScroll}
+                >
+                  {featuredStudios.map((st) => (
+                    <TouchableOpacity
+                      key={`featured-studio-${st.id}`}
+                      style={styles.featuredStudioCard}
+                      activeOpacity={0.88}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedStudioForModal(st);
+                        setIsStudioModalVisible(true);
+                      }}
+                    >
+                      <View style={styles.featuredStudioTop}>
+                        {st.logoUrl ? (
+                          <Image source={{ uri: st.logoUrl }} style={styles.featuredStudioLogo} />
+                        ) : (
+                          <View style={styles.featuredStudioLogoFallback}>
+                            <Ionicons name="business-outline" size={20} color={BrandColors.primary} />
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Text style={styles.featuredStudioName} numberOfLines={1}>
+                              {st.agencyName}
+                            </Text>
+                            <Ionicons name="checkmark-circle" size={13} color="#2563EB" />
+                          </View>
+                          <Text style={styles.featuredStudioAddress} numberOfLines={1}>
+                            {[st.district, st.city].filter(Boolean).join(', ') || 'Hà Nội'}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                            <Ionicons name="star" size={11} color="#F59E0B" />
+                            <Text style={styles.featuredStudioRating}>
+                              {st.ratingAvg != null ? Number(st.ratingAvg).toFixed(1) : '5.0'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <View style={styles.featuredStudioBtn}>
+                        <Text style={styles.featuredStudioBtnText}>Xem Dịch Vụ</Text>
+                        <Ionicons name="arrow-forward" size={12} color="#475569" />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             <View style={styles.bookingModesSection}>
               <View style={styles.bookingModesHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -666,7 +937,7 @@ export default function HomeScreen() {
                       activeOpacity={0.85}
                     >
                       <View style={styles.btnIconCircle}>
-                        <Ionicons name="flash" size={13} color="#FFFFFF" />
+                        <Ionicons name="time-outline" size={14} color="#FFFFFF" />
                       </View>
                       <View style={styles.btnTextWrapper}>
                         <Text style={styles.randomBookingBtnText} numberOfLines={1}>
@@ -764,6 +1035,27 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
+
+            {/* THẺ MỜI ĐĂNG NHẬP / ĐĂNG KÝ CHO KHÁCH VÃNG LAI */}
+            {!isAuthenticated && (
+              <View style={styles.guestCtaCard}>
+                <View style={styles.guestCtaIconBox}>
+                  <Ionicons name="sparkles-outline" size={24} color={BrandColors.primary} />
+                </View>
+                <Text style={styles.guestCtaTitle}>Sẵn Sàng Cho Diện Mạo Tỏa Sáng?</Text>
+                <Text style={styles.guestCtaSub}>
+                  Đăng nhập để đặt lịch hẹn cùng chuyên viên bạn yêu thích, nhận tư vấn trực tiếp và bảo chứng an toàn 100% qua quỹ Escrow.
+                </Text>
+                <TouchableOpacity
+                  style={styles.guestCtaBtn}
+                  activeOpacity={0.88}
+                  onPress={() => router.push('/(auth)/login')}
+                >
+                  <Ionicons name="log-in-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.guestCtaBtnText}>Đăng Nhập Hoặc Đăng Ký</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
 
@@ -808,6 +1100,17 @@ export default function HomeScreen() {
         onClose={() => setIsOnlineListModalVisible(false)}
         onSelectMua={handleSelectOnlineMua}
         onFallbackRandomScan={handleFallbackRandomScan}
+      />
+
+      {/* MODAL XEM DỊCH VỤ CỦA STUDIO */}
+      <StudioServicesModal
+        visible={isStudioModalVisible}
+        studio={selectedStudioForModal}
+        distanceKm={getDistanceKm(latitude, longitude, selectedStudioForModal?.latitude, selectedStudioForModal?.longitude)}
+        onClose={() => {
+          setIsStudioModalVisible(false);
+          setSelectedStudioForModal(null);
+        }}
       />
 
       {/* Bottom Navigation Bar */}
@@ -2259,5 +2562,310 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  guestGreetingBar: {
+    backgroundColor: '#FFF1F2',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+  },
+  guestGreetingContent: {
+    marginBottom: 10,
+  },
+  guestGreetingTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  guestGreetingSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  guestSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  guestSearchPlaceholder: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  sectionBlock: {
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 10,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingBottom: 2,
+  },
+  seeAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  categoriesScroll: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  categoryItem: {
+    alignItems: 'center',
+    width: 70,
+  },
+  categoryIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  categoryNameText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  muaCardsScroll: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  featuredMuaCard: {
+    width: 250,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  featuredMuaTop: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  featuredMuaInfo: {
+    flex: 1,
+  },
+  featuredMuaNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  featuredMuaName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  featuredMuaStyles: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  featuredMuaRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  featuredMuaRatingText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  featuredMuaJobsText: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+  },
+  featuredOnlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    gap: 3,
+    marginLeft: 4,
+  },
+  featuredOnlineDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#16A34A',
+  },
+  featuredOnlineText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  featuredMuaBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  featuredPriceLabel: {
+    fontSize: 9.5,
+    color: '#94A3B8',
+  },
+  featuredPriceValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  viewProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 3,
+  },
+  viewProfileBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  studioCardsScroll: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  featuredStudioCard: {
+    width: 210,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  featuredStudioTop: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  featuredStudioLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+  },
+  featuredStudioLogoFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featuredStudioName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  featuredStudioAddress: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  featuredStudioRating: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  featuredStudioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 4,
+  },
+  featuredStudioBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  guestCtaCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  guestCtaIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  guestCtaTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  guestCtaSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
+    paddingHorizontal: 8,
+  },
+  guestCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BrandColors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+    marginTop: 12,
+  },
+  guestCtaBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
