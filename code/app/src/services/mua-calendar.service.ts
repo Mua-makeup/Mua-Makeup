@@ -78,4 +78,39 @@ export const muaCalendarService = {
     );
     return res.data.data;
   },
+
+  async blockPersonalSlot(data: {
+    booking_date: string;
+    start_time: string;
+    end_time: string;
+    reason?: string;
+  }): Promise<void> {
+    await apiClient.post('/mua/calendar/block-slot', data);
+  },
+
+  async blockPersonalSlot(data: {
+    booking_date: string;
+    start_time: string;
+    end_time: string;
+    reason?: string;
+  }): Promise<void> {
+    await apiClient.post('/mua/calendar/block-slot', data);
+  },
+
+  /**
+   * Khóa khung giờ bận cá nhân của thợ (chống bị gán đơn trùng giờ)
+   */
+  async blockPersonalSlot(req: { booking_date: string; start_time: string; end_time: string; reason?: string }): Promise<any> {
+    const res = await apiClient.post('/freelancer/calendar/block', req);
+    return res.data?.data;
+  },
+
+  /**
+   * Mở lại khung giờ bận cá nhân đã khóa
+   */
+  async unblockPersonalSlot(calendarId: number): Promise<void> {
+    await apiClient.delete(`/freelancer/calendar/block/${calendarId}`);
+  },
 };
+
+

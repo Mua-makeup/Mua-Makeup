@@ -40,6 +40,13 @@ public class MuaProfileMapper {
                 .status(status)
                 .notes(cert.getNotes())
                 .uploadedAt(cert.getUploadedAt())
+                .scope(cert.getScope() != null ? cert.getScope() : "PLATFORM")
+                .verifierType(cert.getVerifierType())
+                .verifierName(cert.getVerifierName())
+                .agencyId(cert.getAgencyId())
+                .agencyName(cert.getAgencyName())
+                .verifiedAt(cert.getVerifiedAt())
+                .rejectionReason(cert.getRejectionReason())
                 .build();
     }
 

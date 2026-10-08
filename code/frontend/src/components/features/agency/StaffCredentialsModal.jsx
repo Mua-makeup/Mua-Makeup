@@ -45,8 +45,14 @@ export const StaffCredentialsModal = ({
   const [reviewError, setReviewError] = useState(null);
   const [confirmingAction, setConfirmingAction] = useState(null); // 'APPROVE' | 'REJECT' | null
 
+  // Certificate Review states
+  const [certReviewTarget, setCertReviewTarget] = useState(null); // { cert, action: 'VERIFIED' | 'REJECTED' }
+  const [certRejectReason, setCertRejectReason] = useState('');
+  const [isReviewingCert, setIsReviewingCert] = useState(false);
+
   // Lightbox for zoomed certificate / portfolio image
   const [previewImage, setPreviewImage] = useState(null);
+
 
   useEffect(() => {
     if (isOpen && staffId) {
@@ -103,7 +109,26 @@ export const StaffCredentialsModal = ({
     }
   };
 
+  const handleReviewCert = async (cert, decision, reason = '') => {
+    setIsReviewingCert(true);
+    setReviewError(null);
+    try {
+      await agencyService.reviewStaffCertificate(staffId, cert.certName, {
+        decision,
+        rejectionReason: reason?.trim() || undefined,
+      });
+      setCertReviewTarget(null);
+      setCertRejectReason('');
+      await loadDetail(staffId);
+    } catch (err) {
+      setReviewError(err.response?.data?.message || err.message || t('error_general'));
+    } finally {
+      setIsReviewingCert(false);
+    }
+  };
+
   const certificates = detail?.certificates || [];
+
   const portfolioImages = detail?.portfolioImages || [];
   const assignedStyles = detail?.assignedStyles || [];
 
@@ -256,68 +281,122 @@ export const StaffCredentialsModal = ({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {certificates.map((cert, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-2xs hover:shadow-sm transition-all group flex flex-col justify-between"
-                    >
-                      {/* Image Thumbnail with Overlay Zoom */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {certificates.map((cert, idx) => {
+                    const isPlatform = cert.scope === 'PLATFORM';
+                    const isVerified = cert.status === 'VERIFIED' || cert.isVerified;
+                    const isRejected = cert.status === 'REJECTED';
+                    const isPending = cert.status === 'PENDING';
+                    const canStudioReview = !isPlatform && isPending;
+
+                    return (
                       <div
-                        onClick={() => cert.imageUrl && setPreviewImage(cert.imageUrl)}
-                        className="relative h-36 bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer flex items-center justify-center"
+                        key={idx}
+                        className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-2xs hover:shadow-sm transition-all group flex flex-col justify-between"
                       >
-                        {cert.imageUrl ? (
-                          <img
-                            src={cert.imageUrl}
-                            alt={cert.certName || 'Certificate'}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                        ) : (
-                          <div className="text-center p-4 text-slate-400">
-                            <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
-                            <span className="text-[11px]">{t('staff_no_cert_image')}</span>
+                        {/* Image Thumbnail with Overlay Zoom */}
+                        <div
+                          onClick={() => cert.imageUrl && setPreviewImage(cert.imageUrl)}
+                          className="relative h-36 bg-slate-100 dark:bg-slate-900 overflow-hidden cursor-pointer flex items-center justify-center"
+                        >
+                          {cert.imageUrl ? (
+                            <img
+                              src={cert.imageUrl}
+                              alt={cert.certName || 'Certificate'}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                          ) : (
+                            <div className="text-center p-4 text-slate-400">
+                              <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
+                              <span className="text-[11px]">{t('staff_no_cert_image')}</span>
+                            </div>
+                          )}
+
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-semibold">
+                            <Eye className="w-4 h-4" />
+                            <span>{t('staff_btn_view_cert')}</span>
                           </div>
-                        )}
-
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-semibold">
-                          <Eye className="w-4 h-4" />
-                          <span>{t('staff_btn_view_cert')}</span>
-                        </div>
-                      </div>
-
-                      {/* Certificate Details */}
-                      <div className="p-3.5 space-y-2">
-                        <div className="flex items-start justify-between gap-1.5">
-                          <h5 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2" title={cert.certName}>
-                            {cert.certName || t('staff_default_cert_name')}
-                          </h5>
-                          <Badge
-                            variant={cert.isVerified || cert.status === 'APPROVED' ? 'active' : 'pending'}
-                            size="sm"
-                          >
-                            {cert.isVerified || cert.status === 'APPROVED'
-                              ? t('staff_cert_verified')
-                              : t('staff_cert_pending')}
-                          </Badge>
                         </div>
 
-                        {cert.notes && (
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 italic">
-                            {cert.notes}
-                          </p>
-                        )}
-
-                        {cert.uploadedAt && (
-                          <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                            <Calendar className="w-3 h-3" />
-                            <span>{t('staff_uploaded_date')}: {formatDate(cert.uploadedAt)}</span>
+                        {/* Certificate Details */}
+                        <div className="p-3.5 space-y-2">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <h5 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2" title={cert.certName}>
+                              {cert.certName || t('staff_default_cert_name')}
+                            </h5>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                isPlatform
+                                  ? 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                  : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800'
+                              }`}>
+                                {isPlatform ? 'Toàn sàn' : 'Studio'}
+                              </span>
+                              <Badge
+                                variant={isVerified ? 'active' : isRejected ? 'danger' : 'pending'}
+                                size="sm"
+                              >
+                                {isVerified
+                                  ? 'Đã duyệt'
+                                  : isRejected
+                                    ? 'Từ chối'
+                                    : 'Chờ duyệt'}
+                              </Badge>
+                            </div>
                           </div>
-                        )}
+
+                          {cert.notes && (
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 italic">
+                              {cert.notes}
+                            </p>
+                          )}
+
+                          {isRejected && cert.rejectionReason && (
+                            <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">
+                              Lý do: {cert.rejectionReason}
+                            </p>
+                          )}
+
+                          {isVerified && cert.verifierName && (
+                            <p className="text-[10px] text-slate-400">
+                              Duyệt bởi: {cert.verifierName}
+                            </p>
+                          )}
+
+                          {/* Action Buttons for Studio-specific certificate */}
+                          {canStudioReview && (
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                              <button
+                                type="button"
+                                onClick={() => setCertReviewTarget({ cert, action: 'VERIFIED' })}
+                                className="flex-1 py-1 px-2 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex items-center justify-center gap-1"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Duyệt</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCertReviewTarget({ cert, action: 'REJECTED' })}
+                                className="flex-1 py-1 px-2 text-xs font-semibold rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors flex items-center justify-center gap-1"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Từ chối</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {cert.uploadedAt && (
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                              <Calendar className="w-3 h-3" />
+                              <span>{t('staff_uploaded_date')}: {formatDate(cert.uploadedAt)}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+
               )}
             </div>
 
@@ -500,6 +579,48 @@ export const StaffCredentialsModal = ({
           </div>
         </div>
       )}
+      {/* Review Certificate Dialog */}
+      {certReviewTarget && (
+        <ConfirmDialog
+          isOpen={Boolean(certReviewTarget)}
+          onClose={() => !isReviewingCert && setCertReviewTarget(null)}
+          onConfirm={() =>
+            handleReviewCert(
+              certReviewTarget.cert,
+              certReviewTarget.action,
+              certRejectReason
+            )
+          }
+          title={
+            certReviewTarget.action === 'VERIFIED'
+              ? 'Phê duyệt chứng chỉ Studio'
+              : 'Từ chối chứng chỉ Studio'
+          }
+          message={
+            certReviewTarget.action === 'VERIFIED'
+              ? `Bạn có chắc chắn muốn phê duyệt chứng chỉ "${certReviewTarget.cert?.certName}" cho nhân viên này?`
+              : `Vui lòng nhập lý do từ chối chứng chỉ "${certReviewTarget.cert?.certName}":`
+          }
+          confirmText={
+            certReviewTarget.action === 'VERIFIED' ? 'Phê duyệt' : 'Từ chối'
+          }
+          variant={certReviewTarget.action === 'VERIFIED' ? 'primary' : 'danger'}
+          isDangerous={certReviewTarget.action === 'REJECTED'}
+          isLoading={isReviewingCert}
+          zIndex="z-[10002]"
+        >
+          {certReviewTarget.action === 'REJECTED' && (
+            <div className="mt-3">
+              <Input
+                placeholder="Nhập lý do từ chối (bắt buộc)..."
+                value={certRejectReason}
+                onChange={(e) => setCertRejectReason(e.target.value)}
+              />
+            </div>
+          )}
+        </ConfirmDialog>
+      )}
     </>
   );
 };
+

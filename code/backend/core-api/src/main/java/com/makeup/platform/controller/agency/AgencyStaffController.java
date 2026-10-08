@@ -15,6 +15,10 @@ import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
 import com.makeup.platform.service.agency.AgencyStaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import com.makeup.platform.dto.request.agency.ReviewStaffCertificateReq;
+import com.makeup.platform.dto.response.mua.CertificateRes;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -156,5 +160,38 @@ public class AgencyStaffController extends BaseController {
             @PathVariable Long staffId) {
         agencyStaffService.removeStaff(userId, staffId);
         return ok(null, "agency.staff_remove_success");
+    }
+
+    // --- QUẢN LÝ CHỨNG CHỈ NGHỀ NGHIỆP CỦA NHÂN VIÊN STUDIO ---
+
+    @PostMapping(value = "/staff/me/certificates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<CertificateRes>> uploadStaffCertificate(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("certName") String certName,
+            @RequestParam(value = "notes", required = false) String notes) {
+        CertificateRes res = agencyStaffService.uploadStaffCertificate(userId, file, certName, notes);
+        return created(res, "agency.cert_upload_success");
+    }
+
+    @PutMapping("/staff/{staffId}/certificates/review")
+    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    public ResponseEntity<ApiResponse<CertificateRes>> reviewStaffCertificate(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long staffId,
+            @RequestParam("certName") String certName,
+            @Valid @RequestBody ReviewStaffCertificateReq req) {
+        CertificateRes res = agencyStaffService.reviewStaffCertificate(userId, staffId, certName, req);
+        return ok(res, "agency.cert_review_success");
+    }
+
+    @DeleteMapping("/staff/me/certificates")
+    @PreAuthorize("hasRole('AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> deleteStaffCertificate(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam("certName") String certName) {
+        agencyStaffService.deleteStaffCertificate(userId, certName);
+        return ok(null, "agency.cert_delete_success");
     }
 }

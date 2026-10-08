@@ -33,16 +33,24 @@ export default function RootLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const userInfo = useAuthStore((s) => s.userInfo);
 
-  // Luôn đảm bảo lắng nghe thông báo WebSocket khi user đăng nhập (kể cả sau khi login từ form)
   useEffect(() => {
     if (isAuthenticated && userInfo?.id) {
       console.log('[_layout] Kích hoạt notification listener cho userId:', userInfo.id);
       useNotificationStore.getState().fetchUnreadCount();
       useNotificationStore.getState().initWebSocketListener();
-      useBookingStore.getState().fetchMyBookings(true);
+
+      const isMuaOrStaff =
+        userInfo?.roles?.some((r) => r === 'ROLE_FREELANCE_MUA' || r === 'ROLE_AGENCY_STAFF') ||
+        Boolean(userInfo?.muaId);
+
+      // Chỉ khách hàng mới tải danh sách đơn đặt của khách (/api/v1/customer/bookings)
+      if (!isMuaOrStaff) {
+        useBookingStore.getState().fetchMyBookings(true);
+      }
+
       registerForPushNotificationsAsync();
     }
-  }, [isAuthenticated, userInfo?.id]);
+  }, [isAuthenticated, userInfo?.id, userInfo?.roles, userInfo?.muaId]);
 
   useEffect(() => {
     initializeAuth()

@@ -2,6 +2,7 @@ package com.makeup.platform.mapper.agency;
 
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
+import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.mua.MuaCertificateItem;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
@@ -125,10 +126,44 @@ public class AgencyStaffMapper {
             }
         }
 
+        AgencyProfileEntity agency = entity.getAgency();
+        Long agencyId = null;
+        String agencyCode = null;
+        String agencyName = null;
+        String agencyPhone = null;
+        String agencyAddress = null;
+        String agencyLogoUrl = null;
+
+        if (agency != null) {
+            agencyId = agency.getId();
+            agencyCode = agency.getAgencyCode();
+            agencyName = agency.getAgencyName();
+            agencyPhone = agency.getHotline();
+            agencyLogoUrl = agency.getLogoUrl();
+
+            List<String> addrList = new ArrayList<>();
+            if (agency.getAddressStreet() != null && !agency.getAddressStreet().isBlank()) {
+                addrList.add(agency.getAddressStreet().trim());
+            }
+            if (agency.getDistrict() != null && !agency.getDistrict().isBlank()) {
+                addrList.add(agency.getDistrict().trim());
+            }
+            if (agency.getCity() != null && !agency.getCity().isBlank()) {
+                addrList.add(agency.getCity().trim());
+            }
+            if (!addrList.isEmpty()) {
+                agencyAddress = String.join(", ", addrList);
+            }
+        }
+
         return AgencyStaffDetailRes.builder()
                 .id(entity.getId())
-                .agencyId(entity.getAgency() != null ? entity.getAgency().getId() : null)
-                .agencyName(entity.getAgency() != null ? entity.getAgency().getAgencyName() : null)
+                .agencyId(agencyId)
+                .agencyCode(agencyCode)
+                .agencyName(agencyName)
+                .agencyPhone(agencyPhone)
+                .agencyAddress(agencyAddress)
+                .agencyLogoUrl(agencyLogoUrl)
                 .muaId(muaId)
                 .muaCode(muaCode)
                 .fullName(fullName)

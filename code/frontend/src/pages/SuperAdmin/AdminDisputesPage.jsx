@@ -8,13 +8,10 @@ import {
   XCircle,
   DollarSign,
   Eye,
-  ImageIcon,
   AlertCircle,
   ShieldAlert,
   User as UserIcon,
   ExternalLink,
-  MapPin,
-  Calendar,
   Sparkles,
   Scale,
   Gavel,
@@ -29,7 +26,8 @@ import { Modal } from '../../components/base/Modal';
 import { Textarea } from '../../components/base/Textarea';
 import { Toast } from '../../components/base/Toast';
 import { getSavedPageSize } from '../../utils/pagination.util';
-import { formatDate, formatDateTime } from '../../utils/formatters';
+import { formatDate } from '../../utils/formatters';
+
 
 export const AdminDisputesPage = () => {
   const { t } = useI18nStore();

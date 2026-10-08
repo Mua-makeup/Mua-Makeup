@@ -117,7 +117,15 @@
     "shift_updated_success": "Shift updated successfully!",
     "shift_deleted_success": "Shift deleted successfully!",
     "bookings_fetch_success": "Retrieved studio bookings successfully.",
-    "logo_upload_success": "Studio logo uploaded successfully."
+    "logo_upload_success": "Studio logo uploaded successfully.",
+    "cert_upload_success": "Professional certificate uploaded successfully (pending Studio verification).",
+    "cert_review_success": "Staff certificate reviewed successfully.",
+    "cert_delete_success": "Certificate deleted successfully.",
+    "cannot_delete_verified_platform_cert": "Cannot delete certificate that was verified by Platform Super Admin.",
+    "review": {
+      "decision_required": "Decision is required.",
+      "decision_invalid": "Invalid decision. Only VERIFIED or REJECTED is accepted."
+    }
   },
   "catalog": {
     "style_not_found": "Makeup style not found with ID: {0}",

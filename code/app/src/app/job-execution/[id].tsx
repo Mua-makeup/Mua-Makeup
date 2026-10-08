@@ -24,6 +24,7 @@ import { BrandColors } from '@/constants/theme';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { JobTimelineStep } from '@/components/mua/JobTimelineStep';
 import { ProofCameraModal } from '@/components/mua/ProofCameraModal';
+import { OvertimeReportModal } from '@/components/staff/OvertimeReportModal';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
@@ -107,6 +108,7 @@ export default function JobExecutionScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isCameraVisible, setIsCameraVisible] = useState(false);
+  const [isOvertimeModalVisible, setIsOvertimeModalVisible] = useState(false);
 
   // Cancellation / Dispute Modal State
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
@@ -1617,14 +1619,23 @@ export default function JobExecutionScreen() {
               )}
 
               {currentStatus === 'IN_PROGRESS' && (
-                <TouchableOpacity
-                  style={[styles.completeActionBtn, isTransitioning && styles.disabledBtn]}
-                  onPress={() => setIsCameraVisible(true)}
-                  disabled={isTransitioning}
-                >
-                  <Ionicons name="camera" size={18} color="#FFFFFF" />
-                  <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
-                </TouchableOpacity>
+                <View style={{ gap: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.completeActionBtn, isTransitioning && styles.disabledBtn]}
+                    onPress={() => setIsCameraVisible(true)}
+                    disabled={isTransitioning}
+                  >
+                    <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.overtimeReportBtn}
+                    onPress={() => setIsOvertimeModalVisible(true)}
+                  >
+                    <Text style={styles.overtimeReportBtnText}>Giải trình làm quá giờ</Text>
+                  </TouchableOpacity>
+                </View>
               )}
 
               {(currentStatus === 'COMPLETED' || currentStatus === 'PAID_OUT') && (
@@ -1885,6 +1896,19 @@ export default function JobExecutionScreen() {
         onSuccess={(photoUrl) => {
           setIsCameraVisible(false);
           handleTransitionState('COMPLETED', photoUrl);
+        }}
+      />
+
+      {/* Modal Giải trình quá giờ dành cho thợ */}
+      <OvertimeReportModal
+        visible={isOvertimeModalVisible}
+        bookingId={bookingId}
+        bookingCode={booking?.bookingCode || id}
+        actualMinutes={Math.floor(elapsedSeconds / 60)}
+        estimatedMinutes={60}
+        onClose={() => setIsOvertimeModalVisible(false)}
+        onSuccess={() => {
+          setIsOvertimeModalVisible(false);
         }}
       />
 
@@ -4370,5 +4394,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
     lineHeight: 16,
+  },
+  overtimeReportBtn: {
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+  },
+  overtimeReportBtnText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#334155',
   },
 });

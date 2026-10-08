@@ -33,4 +33,6 @@ public interface AgencyDispatchService {
     EmergencyApprovalRes reviewEmergencyReport(Long ownerUserId, Long bookingId, Long staffId, ApproveEmergencyReportReq req);
 
     void confirmAssignment(Long muaUserId, Long assignmentId);
+
+    void confirmAssignmentByBooking(Long muaUserId, Long bookingId);
 }

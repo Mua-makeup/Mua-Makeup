@@ -18,7 +18,11 @@ public class AgencyStaffDetailRes {
 
     private Long id;
     private Long agencyId;
+    private String agencyCode;
     private String agencyName;
+    private String agencyPhone;
+    private String agencyAddress;
+    private String agencyLogoUrl;
     private Long muaId;
     private String muaCode;
     private String fullName;

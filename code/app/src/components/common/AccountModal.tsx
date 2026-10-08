@@ -23,6 +23,7 @@ export const AccountModal: React.FC = () => {
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+  const isFreelanceMUA = isMUA && !isAgencyStaff;
 
   const handleClose = () => {
     setShowLogoutConfirm(false);
@@ -146,7 +147,7 @@ export const AccountModal: React.FC = () => {
             </TouchableOpacity>
 
             {/* 2. Hồ Sơ Nghề Nghiệp Thợ MUA (Chỉ dành cho MUA) */}
-            {isMUA && (
+            {isFreelanceMUA && (
               <TouchableOpacity
                 style={styles.modalActionRow}
                 onPress={() => handleNavigate(() => router.push('/profile/mua-profile'))}
@@ -161,7 +162,7 @@ export const AccountModal: React.FC = () => {
             )}
 
             {/* 2.1. Quản Lý Gói Dịch Vụ Cá Nhân (Chỉ dành cho Freelance MUA) */}
-            {isMUA && (
+            {isFreelanceMUA && (
               <TouchableOpacity
                 style={styles.modalActionRow}
                 onPress={() => handleNavigate(() => router.replace('/mua/packages' as any))}
@@ -176,7 +177,7 @@ export const AccountModal: React.FC = () => {
             )}
 
             {/* 3. Trang Cá Nhân Công Khai (Chỉ dành cho MUA) */}
-            {isMUA && (
+            {isFreelanceMUA && (
               <TouchableOpacity
                 style={styles.modalActionRow}
                 onPress={() =>
@@ -194,6 +195,7 @@ export const AccountModal: React.FC = () => {
                 <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
               </TouchableOpacity>
             )}
+
 
             {/* 4. Hồ Sơ Nhân Sự Studio (Chỉ dành cho Agency Staff) */}
             {isAgencyStaff && (

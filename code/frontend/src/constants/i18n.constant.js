@@ -1698,8 +1698,27 @@ export const TRANSLATIONS = {
     proof_document_label: 'Ảnh minh chứng sự cố',
     proof_document_view_full: 'Xem ảnh gốc',
     dispatch_emergency_alert_banner: 'Đơn hàng phát sinh sự cố báo bận khẩn cấp',
+
+    // Agency Staff Certificates
+    staff_credentials_title: 'Hồ Sơ Năng Lực & Chứng Chỉ Nhân Viên',
+    staff_certs_title: 'Chứng Chỉ & Bằng Cấp Nghề Nghiệp',
+    staff_certs_empty: 'Chưa có chứng chỉ nghề nghiệp nào được ghi nhận.',
+    staff_no_cert_image: 'Không có ảnh đính kèm',
+    staff_btn_view_cert: 'Xem chi tiết',
+    staff_default_cert_name: 'Chứng chỉ tay nghề',
+    staff_cert_verified: 'Đã Duyệt',
+    staff_cert_pending: 'Chờ Duyệt',
+    staff_uploaded_date: 'Ngày nộp',
+    staff_bio_title: 'Giới Thiệu Nghề Nghiệp',
+    staff_portfolio_title: 'Tác Phẩm Thực Tế (Portfolio)',
+    staff_open_raw_image: 'Mở ảnh gốc trong tab mới',
+    staff_metric_rating: 'Đánh giá',
+    staff_metric_completed_jobs: 'Ca hoàn thành',
+    agency_staff_cert_review_verified: 'Đã phê duyệt chứng chỉ cho nhân viên.',
+    agency_staff_cert_review_rejected: 'Đã từ chối chứng chỉ của nhân viên.',
   },
   en: {
+
     // Navigation & Common
     app_title: 'MUA MAKEUP',
     platform_version: 'Platform 2.0',
@@ -3389,7 +3408,26 @@ export const TRANSLATIONS = {
     proof_document_label: 'Incident Proof Photo',
     proof_document_view_full: 'View original photo',
     dispatch_emergency_alert_banner: 'Emergency unavailability reported for this booking',
+
+    // Agency Staff Certificates
+    staff_credentials_title: 'Staff Credentials & Professional Certificates',
+    staff_certs_title: 'Professional Certificates & Diplomas',
+    staff_certs_empty: 'No professional certificates registered yet.',
+    staff_no_cert_image: 'No attached image',
+    staff_btn_view_cert: 'View details',
+    staff_default_cert_name: 'Professional Certificate',
+    staff_cert_verified: 'Verified',
+    staff_cert_pending: 'Pending',
+    staff_uploaded_date: 'Submitted on',
+    staff_bio_title: 'Professional Bio',
+    staff_portfolio_title: 'Showcase Portfolio',
+    staff_open_raw_image: 'Open raw image in new tab',
+    staff_metric_rating: 'Rating',
+    staff_metric_completed_jobs: 'Completed jobs',
+    agency_staff_cert_review_verified: 'Staff certificate approved successfully.',
+    agency_staff_cert_review_rejected: 'Staff certificate rejected.',
   },
 };
+
 
 

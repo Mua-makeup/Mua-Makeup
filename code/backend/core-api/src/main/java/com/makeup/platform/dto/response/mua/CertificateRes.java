@@ -23,4 +23,11 @@ public class CertificateRes {
     private String status;
     private String notes;
     private LocalDateTime uploadedAt;
+    private String scope;
+    private String verifierType;
+    private String verifierName;
+    private Long agencyId;
+    private String agencyName;
+    private LocalDateTime verifiedAt;
+    private String rejectionReason;
 }

@@ -218,3 +218,35 @@ Nhằm đảm bảo tính toàn vẹn của mã nguồn, quyền kiểm soát t�
    - Nghiêm cấm mọi hành vi tự ý hardcode, giả lập (mocking data), dùng `setTimeout` sinh dữ liệu ảo, timer ảo nhận đơn hoặc tạo object dữ liệu giả phía Frontend (cả Web SPA và Mobile App).
    - Mọi dữ liệu hiển thị (danh sách thợ, gói dịch vụ, thông tin cuốc hẹn, số tiền, trạng thái, tọa độ GPS) BẮT BUỘC 100% phải lấy trực tiếp từ Backend Spring Boot và CSDL PostgreSQL thông qua REST API hoặc WebSocket STOMP.
    - Mọi thao tác nghiệp vụ (tạo đơn, quét thợ, nhận ca, bỏ qua, cập nhật trạng thái làm việc) BẮT BUỘC gửi request thật lên Backend để xử lý giao dịch ACID và phân phối nghiệp vụ chuẩn xác.
+
+---
+
+## 7. Quy chuẩn Thiết Kế Giao Diện Mobile App (Clean, Human-Crafted UI & Strict Minimalist Iconography)
+
+Nhằm đảm bảo giao diện ứng dụng di động (React Native / Expo) mang tính thực tế cao, thanh lịch, tinh tế như sản phẩm do lập trình viên và Product Designer con người giàu kinh nghiệm trực tiếp thiết kế, TUYỆT ĐỐI KHÔNG mang phong cách "AI tự sinh rườm rà (AI-slop)", toàn bộ mã nguồn Mobile App BẮT BUỘC tuân thủ các quy tắc sau:
+
+### 7.1. Nguyên Tắc Icon: Tối Giản, Cần Thiết & Không Nền (Strict Iconography Standard)
+1. **Chỉ thêm những icon thực sự quan trọng và cần thiết**:
+   - Icon chỉ được xuất hiện tại các điểm điều hướng và hành động cốt lõi: Thanh điều hướng dưới cùng (Bottom Navigation Bar), nút quay lại (Back Button), nút đóng (Close/Dismiss Modal), thao tác Camera/Ảnh khi chụp nghiệm thu hoặc biểu tượng trạng thái cấp thiết.
+   - **Tuyệt đối KHÔNG thêm icon bừa bãi**: Cấm chèn icon trang trí trước mỗi dòng chữ, trước mỗi tiêu đề section, trước mỗi dòng thông tin hay đầu mỗi mục danh sách (list items) nếu không phục vụ chức năng hành động trực tiếp.
+2. **Icon nét nhỏ, thanh mảnh (Thin Stroke Outline Only)**:
+   - Toàn bộ icon sử dụng nét mảnh nhẹ nhàng (Outline style / Thin stroke width $\le$ 1.5–1.8), tạo cảm giác thanh thoát, hiện đại.
+   - Tránh dùng icon dạng khối đặc to bản, đậm nét (`filled` quá khổ) gây nặng nề thị giác.
+3. **Tuyệt đối KHÔNG dùng nền icon (No Icon Background Wrappers)**:
+   - Cấm bọc icon trong các khối hộp nền tròn/vuông nhiều màu sắc (ví dụ: cấm dùng `backgroundColor: '#F3E8FF'` hoặc `rounded-full bg-blue-100` bao quanh icon).
+   - Mọi icon phải đứng trần (naked/clean icon), hiển thị trực tiếp và tự nhiên trên nền của giao diện mà không có bất kỳ khối nền bao quanh nào.
+
+### 7.2. Tối Giản Màu Sắc & Bố Cục (Minimalist Palette & Layout)
+1. **Màu sắc trung tính, tinh tế**:
+   - Sử dụng bảng màu trung tính làm chủ đạo: Nền sáng nhẹ nhàng (`#FFFFFF`, `#F8FAFC`, `#F1F5F9`), màu chữ và viền phân cấp sắc thái Slate/Gray (`#0F172A`, `#334155`, `#64748B`, `#CBD5E1`).
+   - Cấm lạm dụng màu sắc sặc sỡ, cấm gradient màu mè, cấm hiệu ứng viền phát sáng (glow) hay bóng đổ lòe loẹt giả tạo.
+   - Chỉ dùng tối đa 1 màu nhấn (Accent/Primary CTA - ví dụ: tông màu thương hiệu Rose/Đỏ trầm hoặc Đen/Slate sang trọng) cho nút hành động chính.
+2. **Dẫn dắt bằng Typography & Whitespace thay vì Icon**:
+   - Phân cấp thông tin rõ ràng bằng kích cỡ chữ (`fontSize`), độ đậm chữ (`fontWeight`: Regular/Medium/Semibold) và khoảng cách đệm (Padding / Margin) thoáng đãng, hợp lý.
+   - Để nội dung văn bản và dữ liệu thật tự nói lên chức năng, không cần phải "dán nhãn" bằng một icon bên cạnh.
+
+### 7.3. Phong Cách Code Như Người Thật (Human-Crafted Engineering)
+1. **Tránh bẫy AI Code (No Generic Over-Styled UI)**:
+   - Thiết kế các component đơn giản, thực dụng, dễ bảo trì, đúng chuẩn React Native (`StyleSheet.create` sạch sẽ, rõ ràng, đặt tên class/style có nghĩa thực tế).
+   - Tối ưu không gian hiển thị, loại bỏ các chi tiết thừa thãi không mang lại giá trị cho người dùng cuối.
+

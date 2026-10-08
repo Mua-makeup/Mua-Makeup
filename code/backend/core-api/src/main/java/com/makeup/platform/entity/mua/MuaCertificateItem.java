@@ -29,4 +29,19 @@ public class MuaCertificateItem implements Serializable {
     private String notes;
     
     private LocalDateTime uploadedAt;
+
+    @Builder.Default
+    private String scope = "PLATFORM"; // PLATFORM | AGENCY
+
+    private String verifierType; // SUPER_ADMIN | AGENCY_ADMIN
+
+    private String verifierName;
+
+    private Long agencyId;
+
+    private String agencyName;
+
+    private LocalDateTime verifiedAt;
+
+    private String rejectionReason;
 }

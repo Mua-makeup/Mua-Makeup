@@ -130,4 +130,14 @@ public class AgencyDispatchController extends BaseController {
         agencyDispatchService.confirmAssignment(userId, assignmentId);
         return ok(null, "dispatch.assignment_confirm_success");
     }
+
+    @PostMapping("/bookings/{bookingId}/confirm-assignment")
+    @PreAuthorize("hasRole('AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> confirmAssignmentByBooking(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookingId
+    ) {
+        agencyDispatchService.confirmAssignmentByBooking(userId, bookingId);
+        return ok(null, "dispatch.assignment_confirm_success");
+    }
 }

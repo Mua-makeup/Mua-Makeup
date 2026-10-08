@@ -117,7 +117,15 @@
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
     "shift_deleted_success": "Xóa ca làm việc thành công!",
     "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
-    "logo_upload_success": "Tải lên logo của Studio thành công."
+    "logo_upload_success": "Tải lên logo của Studio thành công.",
+    "cert_upload_success": "Tải lên chứng chỉ nghề nghiệp thành công (chờ Studio phê duyệt).",
+    "cert_review_success": "Xử lý phê duyệt chứng chỉ nhân viên thành công.",
+    "cert_delete_success": "Xóa chứng chỉ thành công.",
+    "cannot_delete_verified_platform_cert": "Không thể xóa chứng chỉ đã được Ban Quản Trị Sàn phê duyệt.",
+    "review": {
+      "decision_required": "Quyết định phê duyệt là bắt buộc.",
+      "decision_invalid": "Quyết định phê duyệt không hợp lệ. Chỉ chấp nhận VERIFIED hoặc REJECTED."
+    }
   },
   "catalog": {
     "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",

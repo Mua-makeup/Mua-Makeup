@@ -442,4 +442,20 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         );
     }
 
+    @Override
+    @Transactional
+    public void confirmAssignmentByBooking(Long muaUserId, Long bookingId) {
+        BookingStaffAssignmentEntity assignment = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
+                .stream()
+                .filter(a -> a.getStaff() != null
+                        && a.getStaff().getMua() != null
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(muaUserId))
+                .findFirst()
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"));
+
+        confirmAssignment(muaUserId, assignment.getId());
+    }
+
 }

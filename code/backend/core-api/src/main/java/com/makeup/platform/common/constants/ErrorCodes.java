@@ -56,6 +56,7 @@ public final class ErrorCodes {
     public static final String ERR_MEDIA_STORAGE_FAILED = "MEDIA_STORAGE_FAILED";
 
     // Phân hệ Agency Management
+    public static final String ERR_CERTIFICATE_NOT_FOUND = "ERR_CERTIFICATE_NOT_FOUND";
     public static final String ERR_AGENCY_NOT_FOUND = "ERR_AGENCY_NOT_FOUND";
     public static final String ERR_AGENCY_NOT_VERIFIED = "ERR_AGENCY_NOT_VERIFIED";
     public static final String ERR_MUA_CERTIFICATE_NOT_VERIFIED = "ERR_MUA_CERTIFICATE_NOT_VERIFIED";

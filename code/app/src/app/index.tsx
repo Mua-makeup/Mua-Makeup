@@ -28,6 +28,7 @@ import { NearbyProviderRes } from '@/services/telemetry.service';
 import { WorkstationHeader } from '@/components/mua/WorkstationHeader';
 import { WorkstationStatCards } from '@/components/mua/WorkstationStatCards';
 import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
+import { DispatchedBookingCard } from '@/components/staff/DispatchedBookingCard';
 import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
@@ -98,8 +99,10 @@ export default function HomeScreen() {
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+  const isFreelanceMUA = isMUA && !isAgencyStaff;
   const isCustomer = userInfo?.roles?.includes('ROLE_CUSTOMER') || (!isMUA && !isAgencyStaff);
   const isWorkstationRole = (isMUA || isAgencyStaff) && isAuthenticated;
+
 
   const {
     profile: workstationProfile,
@@ -235,23 +238,38 @@ export default function HomeScreen() {
           activeOpacity={0.7}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (isMUA) router.push('/profile/mua-profile');
-            else fetchCurrentLocation(true);
+            if (isFreelanceMUA) {
+              router.push('/profile/mua-profile');
+            } else if (isAgencyStaff) {
+              router.push('/profile/staff-profile');
+            } else {
+              fetchCurrentLocation(true);
+            }
           }}
         >
           <Ionicons name="location" size={18} color={BrandColors.primary} />
           <View style={styles.locationCol}>
             <Text style={styles.locationSmall}>
-              {isMUA ? 'Địa điểm nhận ca' : 'Vị trí hiện tại của bạn'}
+              {isFreelanceMUA
+                ? 'Địa điểm nhận ca'
+                : isAgencyStaff
+                  ? 'Cơ sở Studio trực thuộc'
+                  : 'Vị trí hiện tại của bạn'}
             </Text>
             <View style={styles.locationRow}>
               <Text style={styles.locationText} numberOfLines={1}>
-                {isMUA ? (workstationProfile?.baseAddressText || 'Thiết lập địa điểm nhận ca') : (isLocating ? 'Đang định vị GPS...' : currentAddress)}
+                {isFreelanceMUA
+                  ? (workstationProfile?.baseAddressText || 'Thiết lập địa điểm nhận ca')
+                  : isAgencyStaff
+                    ? ((workstationProfile as any)?.agencyName || 'Cơ sở Studio trực thuộc')
+                    : (isLocating ? 'Đang định vị GPS...' : currentAddress)}
+
               </Text>
               <Ionicons name="chevron-down" size={14} color={BrandColors.slateHeading} />
             </View>
           </View>
         </TouchableOpacity>
+
 
         <View style={styles.headerRightActions}>
           <TouchableOpacity
@@ -310,7 +328,7 @@ export default function HomeScreen() {
               style={styles.profileShortcutBanner}
               activeOpacity={0.8}
               onPress={() => {
-                if (isMUA) {
+                if (isFreelanceMUA) {
                   router.push('/profile/mua-profile' as any);
                 } else {
                   router.push('/profile/staff-profile' as any);
@@ -319,19 +337,41 @@ export default function HomeScreen() {
             >
               <View style={styles.profileShortcutLeft}>
                 <View style={styles.profileShortcutIcon}>
-                  <Ionicons name={isMUA ? 'ribbon' : 'business'} size={16} color="#2563EB" />
+                  <Ionicons name={isFreelanceMUA ? 'ribbon' : 'business'} size={16} color="#2563EB" />
                 </View>
                 <View>
                   <Text style={styles.profileShortcutTitle}>
-                    {isMUA ? 'Hồ Sơ Nghề Nghiệp & Chứng Chỉ' : 'Hồ Sơ Nhân Sự Studio'}
+                    {isFreelanceMUA ? 'Hồ Sơ Nghề Nghiệp & Chứng Chỉ' : 'Hồ Sơ Nhân Sự Studio'}
                   </Text>
                   <Text style={styles.profileShortcutSub}>
-                    Cập nhật tiểu sử, số năm kinh nghiệm & chứng chỉ
+                    {isFreelanceMUA
+                      ? 'Cập nhật tiểu sử, số năm kinh nghiệm & chứng chỉ'
+                      : 'Xem cơ sở làm việc, hoa hồng & chứng chỉ Studio'}
                   </Text>
                 </View>
               </View>
+
               <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
+
+            {isAgencyStaff && (
+              <TouchableOpacity
+                style={styles.profileShortcutBanner}
+                activeOpacity={0.8}
+                onPress={() => router.push('/staff/schedule' as any)}
+              >
+                <View style={styles.profileShortcutLeft}>
+                  <Ionicons name="calendar-outline" size={18} color="#0F172A" />
+                  <View>
+                    <Text style={styles.profileShortcutTitle}>Lịch Ca Trực Studio & Lịch Bận</Text>
+                    <Text style={styles.profileShortcutSub}>
+                      Xem thời khóa biểu phân ca và khóa khung giờ bận cá nhân
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
 
             {/* Banner nổi bật khi có đơn hẹn mới đang chờ xác nhận hoặc có ca làm */}
             {pendingRequestedJob ? (
@@ -441,7 +481,13 @@ export default function HomeScreen() {
 
             {/* Danh sách ca hôm nay */}
             {todayBookings.length > 0 ? (
-              todayBookings.map((b) => <TodayBookingCard key={b.id} booking={b} />)
+              todayBookings.map((b) =>
+                isAgencyStaff ? (
+                  <DispatchedBookingCard key={b.id} booking={b} onRefresh={fetchWorkstationData} />
+                ) : (
+                  <TodayBookingCard key={b.id} booking={b} />
+                )
+              )
             ) : (
               <View style={styles.workstationEmptyContainer}>
                 <View style={styles.workstationEmptyIconCircle}>

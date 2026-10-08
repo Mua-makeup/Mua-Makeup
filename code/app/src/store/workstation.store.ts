@@ -3,9 +3,11 @@ import * as Haptics from 'expo-haptics';
 import { FreelancerBookingItem, ScheduledOfferItem, freelancerBookingService } from '@/services/freelancer-booking.service';
 import { telemetryService } from '@/services/telemetry.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
+import { staffProfileService } from '@/services/staff-profile.service';
 import { websocketService } from '@/services/websocket.service';
 import { soundManager } from '@/utils/sound';
 import { getTodayVN } from '@/utils/date';
+import { useAuthStore } from '@/store/auth.store';
 
 const shownFinalPaymentNotices = new Set<number>();
 const shownDepositNotices = new Set<number>();
@@ -165,8 +167,36 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       set({ isLoading: true });
       const todayStr = getTodayVN();
 
+      const authUser = useAuthStore.getState().userInfo;
+      const isStaff = authUser?.roles?.includes('ROLE_AGENCY_STAFF');
+
+      // Tách biệt gọi profile theo vai trò: Thợ Studio gọi getMyStaffProfile, Freelancer MUA gọi getMyProfile
+      const fetchProfilePromise = isStaff
+        ? staffProfileService
+            .getMyStaffProfile()
+            .then((staffRes) => {
+              if (!staffRes) return null;
+              return {
+                id: staffRes.id,
+                muaId: staffRes.muaId || staffRes.id,
+                fullName: staffRes.fullName,
+                phoneNumber: staffRes.phoneNumber,
+                avatarUrl: staffRes.avatarUrl,
+                agencyName: staffRes.agencyName,
+                ratingAverage: 5.0,
+                totalReviews: 0,
+                experienceYears: 0,
+                styles: staffRes.assignedStyles?.map((s) => s.styleName) || [],
+                certificates: staffRes.certificates || [],
+                status: staffRes.status,
+                isActive: staffRes.isActive,
+              } as unknown as MuaPublicProfile;
+            })
+            .catch(() => null)
+        : muaProfileService.getMyProfile().catch(() => null);
+
       const [profile, bookings] = await Promise.all([
-        muaProfileService.getMyProfile().catch(() => null),
+        fetchProfilePromise,
         freelancerBookingService.getMyAssignedBookings(todayStr, get().selectedFilter),
       ]);
 
