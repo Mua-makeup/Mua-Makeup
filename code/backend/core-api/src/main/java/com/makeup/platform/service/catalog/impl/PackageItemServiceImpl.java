@@ -40,7 +40,7 @@ public class PackageItemServiceImpl implements PackageItemService {
                     "ERR_INVALID_ITEM_PRICE", HttpStatus.BAD_REQUEST);
         }
 
-        List<PackageItemEntity> existingItems = packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId);
+        List<PackageItemEntity> existingItems = packageItemRepository.findByServicePackageIdAndIsDeletedFalseOrderByStepOrderAsc(packageId);
 
         // Chặn trùng thứ tự bước (stepOrder)
         boolean isDuplicateOrder = existingItems.stream()
@@ -84,7 +84,7 @@ public class PackageItemServiceImpl implements PackageItemService {
     public PackageItemRes updateItem(Long userId, Long packageId, Long itemId, CreatePackageItemReq req) {
         ServicePackageEntity pkg = checkPackageOwnership(userId, packageId);
 
-        PackageItemEntity item = packageItemRepository.findByIdAndServicePackageId(itemId, packageId)
+        PackageItemEntity item = packageItemRepository.findByIdAndServicePackageIdAndIsDeletedFalse(itemId, packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "ERR_PACKAGE_NOT_FOUND", itemId));
 
@@ -93,7 +93,7 @@ public class PackageItemServiceImpl implements PackageItemService {
                     "ERR_INVALID_ITEM_PRICE", HttpStatus.BAD_REQUEST);
         }
 
-        List<PackageItemEntity> existingItems = packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId);
+        List<PackageItemEntity> existingItems = packageItemRepository.findByServicePackageIdAndIsDeletedFalseOrderByStepOrderAsc(packageId);
 
         // Chặn trùng thứ tự bước (stepOrder) với các bước khác
         boolean isDuplicateOrder = existingItems.stream()
@@ -141,18 +141,20 @@ public class PackageItemServiceImpl implements PackageItemService {
     public void deleteItem(Long userId, Long packageId, Long itemId) {
         checkPackageOwnership(userId, packageId);
 
-        PackageItemEntity item = packageItemRepository.findByIdAndServicePackageId(itemId, packageId)
+        PackageItemEntity item = packageItemRepository.findByIdAndServicePackageIdAndIsDeletedFalse(itemId, packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "ERR_PACKAGE_NOT_FOUND", itemId));
 
-        packageItemRepository.delete(item);
+        item.setIsDeleted(true);
+        item.setIsActive(false);
+        packageItemRepository.save(item);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PackageItemRes> getItemsByPackageId(Long packageId) {
         return packageItemMapper.toResList(
-                packageItemRepository.findByServicePackageIdOrderByStepOrderAsc(packageId)
+                packageItemRepository.findByServicePackageIdAndIsDeletedFalseOrderByStepOrderAsc(packageId)
         );
     }
 

@@ -46,6 +46,7 @@ public class PortfolioMapper {
                 .imageUrl(entity.getImageUrl())
                 .thumbnailUrl(entity.getThumbnailUrl())
                 .styleName(entity.getStyle() != null ? entity.getStyle().getStyleName() : null)
+                .packageId(entity.getServicePackage() != null ? entity.getServicePackage().getId() : null)
                 .isFeatured(entity.getIsFeatured())
                 .createdAt(entity.getCreatedAt())
                 .build();
@@ -68,6 +69,7 @@ public class PortfolioMapper {
                 .thumbnailUrl(projection.getThumbnailUrl())
                 .imageUrl(projection.getImageUrl())
                 .styleName(projection.getStyleName())
+                .packageId(projection.getPackageId())
                 .isFeatured(projection.getIsFeatured())
                 .createdAt(projection.getCreatedAt())
                 .build();

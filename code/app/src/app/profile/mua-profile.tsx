@@ -23,7 +23,7 @@ import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 import { useWorkstationStore } from '@/store/workstation.store';
-
+import { useUndoStore } from '@/store/undo.store';
 import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
 
 export default function MuaWorkProfileScreen() {
@@ -230,19 +230,40 @@ export default function MuaWorkProfileScreen() {
   };
 
   const handleDeletePortfolioImage = (imageUrl: string) => {
-    Alert.alert('Xóa Ảnh Tác Phẩm', 'Bạn có chắc chắn muốn xóa ảnh này khỏi bộ sưu tập?', [
+    const targetIndex = portfolioImages.indexOf(imageUrl);
+
+    Alert.alert('Xóa Ảnh Tác Phẩm', 'Bạn có chắc chắn muốn xóa ảnh này khỏi bộ sưu tập? Bạn có thể hoàn tác ngay sau khi xóa.', [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            const updated = await muaProfileService.deletePortfolioImage(imageUrl);
-            setPortfolioImages(updated);
-          } catch (delErr) {
-            const parsed = parseApiError(delErr);
-            Alert.alert('Lỗi xóa ảnh', parsed.message);
-          }
+        onPress: () => {
+          // Loại bỏ lạc quan khỏi UI ngay lập tức
+          setPortfolioImages((prev) => prev.filter((img) => img !== imageUrl));
+
+          // Kích hoạt Toast thông báo xóa thành công kèm nút Hoàn tác
+          useUndoStore.getState().showUndoToast({
+            message: 'Đã xóa ảnh tác phẩm khỏi bộ sưu tập',
+            onUndo: () => {
+              setPortfolioImages((prev) => {
+                const next = [...prev];
+                if (targetIndex >= 0) {
+                  next.splice(targetIndex, 0, imageUrl);
+                } else {
+                  next.push(imageUrl);
+                }
+                return next;
+              });
+            },
+            onCommit: async () => {
+              try {
+                await muaProfileService.deletePortfolioImage(imageUrl);
+              } catch (delErr) {
+                const parsed = parseApiError(delErr);
+                console.warn('[handleDeletePortfolioImage] Lỗi xóa ảnh backend:', parsed.message);
+              }
+            },
+          });
         },
       },
     ]);

@@ -20,6 +20,7 @@ import {
 } from '@/services/package.service';
 import { PackageItemModal } from '@/components/mua/packages/PackageItemModal';
 import { parseApiError } from '@/utils/error';
+import { useUndoStore } from '@/store/undo.store';
 
 export default function PackageItemsScreen() {
   const insets = useSafeAreaInsets();
@@ -67,22 +68,41 @@ export default function PackageItemsScreen() {
   };
 
   const handleDeleteItem = (itemId: number) => {
+    const target = items.find((it) => it.id === itemId);
+    if (!target) return;
+    const targetIndex = items.findIndex((it) => it.id === itemId);
+
     Alert.alert(
       'Xóa Bước Thực Hiện',
-      'Bạn có chắc chắn muốn xóa bước dịch vụ này khỏi gói?',
+      `Bạn có chắc chắn muốn xóa bước "${target.itemName}" khỏi gói? Bạn có thể hoàn tác ngay sau khi xóa.`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await packageService.deletePackageItem(packageId, itemId);
-              setItems((prev) => prev.filter((it) => it.id !== itemId));
-            } catch (err) {
-              const parsed = parseApiError(err);
-              Alert.alert('Lỗi', parsed.message);
-            }
+          onPress: () => {
+            // Loại bỏ lạc quan khỏi giao diện ngay lập tức
+            setItems((prev) => prev.filter((it) => it.id !== itemId));
+
+            // Kích hoạt Toast thông báo xóa thành công có nút Hoàn tác
+            useUndoStore.getState().showUndoToast({
+              message: `Đã xóa bước "${target.itemName}"`,
+              onUndo: () => {
+                setItems((prev) => {
+                  const next = [...prev];
+                  next.splice(targetIndex, 0, target);
+                  return next;
+                });
+              },
+              onCommit: async () => {
+                try {
+                  await packageService.deletePackageItem(packageId, itemId);
+                } catch (err) {
+                  const parsed = parseApiError(err);
+                  console.warn('[handleDeleteItem] Lỗi xóa bước backend:', parsed.message);
+                }
+              },
+            });
           },
         },
       ]
@@ -91,6 +111,13 @@ export default function PackageItemsScreen() {
 
   const includedItems = items.filter((it) => it.itemType === 'COMPONENT' || it.itemType === 'INCLUDED' || !it.itemType);
   const addonItems = items.filter((it) => it.itemType === 'ADD_ON' || it.itemType === 'OPTIONAL_ADDON');
+
+  const packageDuration = packageDetail?.estimatedDurationMinutes || packageDetail?.durationMinutes || 60;
+  const usedComponentDuration = includedItems.reduce((acc, it) => acc + (it.durationMinutes || 0), 0);
+  const remainingComponentDuration = Math.max(0, packageDuration - usedComponentDuration);
+  const isOverDuration = usedComponentDuration > packageDuration;
+  const isFullDuration = usedComponentDuration === packageDuration;
+  const percentUsed = Math.min(100, Math.round((usedComponentDuration / packageDuration) * 100));
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -129,7 +156,7 @@ export default function PackageItemsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
-          {/* Thông tin gói tóm tắt */}
+          {/* Thông tin gói tóm tắt & Thanh đo thời lượng thông minh */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Giá Niêm Yết:</Text>
@@ -138,10 +165,58 @@ export default function PackageItemsScreen() {
               </Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Thời Lượng Dự Kiến:</Text>
+              <Text style={styles.summaryLabel}>Thời Lượng Gói Gốc:</Text>
               <Text style={styles.summaryValue}>
-                {packageDetail?.estimatedDurationMinutes || packageDetail?.durationMinutes || 60} phút
+                {packageDuration} phút
               </Text>
+            </View>
+
+            {/* Thanh đo phân bổ các bước COMPONENT */}
+            <View style={styles.durationMeterSection}>
+              <View style={styles.meterHeaderRow}>
+                <Text style={styles.meterTitle}>Phân Bổ Các Bước Mặc Định</Text>
+                <Text style={[
+                  styles.meterProgressText,
+                  isOverDuration && { color: BrandColors.danger },
+                  isFullDuration && { color: BrandColors.success },
+                ]}>
+                  {usedComponentDuration} / {packageDuration} phút ({percentUsed}%)
+                </Text>
+              </View>
+
+              {/* Progress bar */}
+              <View style={styles.meterTrack}>
+                <View
+                  style={[
+                    styles.meterFill,
+                    {
+                      width: `${Math.min(100, (usedComponentDuration / packageDuration) * 100)}%`,
+                      backgroundColor: isOverDuration
+                        ? BrandColors.danger
+                        : isFullDuration
+                        ? BrandColors.success
+                        : '#0284C7',
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Dòng trạng thái dung lượng khả dụng */}
+              <View style={styles.meterStatusRow}>
+                {isOverDuration ? (
+                  <Text style={[styles.meterStatusText, { color: BrandColors.danger }]}>
+                    ⚠️ Vượt quá {usedComponentDuration - packageDuration} phút so với thời lượng gói niêm yết!
+                  </Text>
+                ) : isFullDuration ? (
+                  <Text style={[styles.meterStatusText, { color: BrandColors.success }]}>
+                    ✓ Đã phân bổ trọn vẹn 100% thời lượng gói dịch vụ.
+                  </Text>
+                ) : (
+                  <Text style={styles.meterStatusText}>
+                    Còn trống <Text style={{ fontWeight: '700', color: '#0284C7' }}>{remainingComponentDuration} phút</Text> có thể phân bổ cho các bước mặc định khác.
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
 
@@ -263,6 +338,12 @@ export default function PackageItemsScreen() {
         visible={showItemModal}
         initialItem={editingItem}
         defaultStepOrder={items.length + 1}
+        totalPackageDuration={packageDuration}
+        otherComponentDuration={
+          editingItem && (editingItem.itemType === 'COMPONENT' || editingItem.itemType === 'INCLUDED' || !editingItem.itemType)
+            ? usedComponentDuration - (editingItem.durationMinutes || 0)
+            : usedComponentDuration
+        }
         onSave={handleSaveItem}
         onClose={() => {
           setShowItemModal(false);
@@ -365,6 +446,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: BrandColors.slateHeading,
+  },
+  durationMeterSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  meterHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  meterTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BrandColors.slateHeading,
+  },
+  meterProgressText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  meterTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E2E8F0',
+    overflow: 'hidden',
+    marginVertical: 4,
+  },
+  meterFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  meterStatusRow: {
+    marginTop: 4,
+  },
+  meterStatusText: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  addonExplainerBanner: {
+    marginTop: 14,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  addonExplainerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  addonExplainerTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6D28D9',
+  },
+  addonExplainerContent: {
+    fontSize: 11,
+    color: '#475569',
+    lineHeight: 16,
   },
   sectionHeader: {
     marginBottom: 12,

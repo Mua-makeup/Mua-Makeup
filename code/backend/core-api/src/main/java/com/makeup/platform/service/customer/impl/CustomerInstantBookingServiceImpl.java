@@ -21,6 +21,7 @@ import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
@@ -80,6 +81,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
     private final ServicePackageRepository servicePackageRepository;
+    private final PackageItemRepository packageItemRepository;
     private final MakeupStyleRepository makeupStyleRepository;
     private final SurgePricingService surgePricingService;
     private final BookingAuditService bookingAuditService;
@@ -893,6 +895,21 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     stringRedisTemplate.opsForValue().set("booking:selected_addons:" + bookingId, String.join(",,,", addOnNames));
                 }
             } catch (Exception ignored) {}
+
+            // Tự động tính toán cộng thêm thời gian từ các add-on đã chọn
+            if (booking.getServicePackage() != null) {
+                int baseDuration = (booking.getServicePackage().getEstimatedDurationMinutes() != null && booking.getServicePackage().getEstimatedDurationMinutes() > 0)
+                        ? booking.getServicePackage().getEstimatedDurationMinutes() : 60;
+                List<PackageItemEntity> packageAddons = packageItemRepository
+                        .findByServicePackageIdAndIsDeletedFalseOrderByStepOrderAsc(booking.getServicePackage().getId());
+                int extraMinutes = packageAddons.stream()
+                        .filter(item -> addOnNames.contains(item.getItemName()))
+                        .mapToInt(item -> item.getDurationMinutes() != null ? item.getDurationMinutes() : 0)
+                        .sum();
+                booking.setDurationMinutes(baseDuration + extraMinutes);
+                log.info("[ConfirmDeposit] Updated instant booking ID {} durationMinutes: {} (base: {}, addons: +{})",
+                        bookingId, baseDuration + extraMinutes, baseDuration, extraMinutes);
+            }
         } else {
             booking.setSelectedAddons(null);
             try {
@@ -1025,7 +1042,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         BigDecimal earnings = basePrice.subtract(platformFee).add(emergencyFee);
         BigDecimal total = basePrice.add(emergencyFee);
         String serviceName = "Trang Điểm Khẩn Cấp";
-        int durationMinutes = 60;
+        int durationMinutes = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
+                ? booking.getDurationMinutes() : 60;
         List<String> styleNames = new ArrayList<>();
         List<String> packageItems = new ArrayList<>();
 
@@ -1057,7 +1075,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 if (pkg.getPackageName() != null) {
                     serviceName = pkg.getPackageName();
                 }
-                if (pkg.getEstimatedDurationMinutes() != null) {
+                if ((booking.getDurationMinutes() == null || booking.getDurationMinutes() <= 0) && pkg.getEstimatedDurationMinutes() != null) {
                     durationMinutes = pkg.getEstimatedDurationMinutes();
                 }
                 if (pkg.getStyles() != null) {

@@ -334,6 +334,9 @@ public class BookingMapper {
             }
         }
 
+        Integer styleId = entity.getStyle() != null ? entity.getStyle().getId() : null;
+        String styleName = entity.getStyle() != null ? entity.getStyle().getStyleName() : null;
+
         return CustomerBookingItemRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -343,6 +346,8 @@ public class BookingMapper {
                 .muaPhoneNumber(muaPhoneNumber)
                 .packageName(packageName)
                 .packageCoverUrl(packageCoverUrl)
+                .styleId(styleId)
+                .styleName(styleName)
                 .bookingTime(bookingTime)
                 .destinationAddress(entity.getDestinationAddress())
                 .destinationLatitude(entity.getDestinationLatitude())

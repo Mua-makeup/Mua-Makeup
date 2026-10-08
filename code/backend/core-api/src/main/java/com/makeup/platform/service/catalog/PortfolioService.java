@@ -21,7 +21,7 @@ public interface PortfolioService {
 
     void softDeletePortfolio(Long userId, Long portfolioId);
 
-    PageResponse<PortfolioSummaryRes> getPublicGallery(Long muaId, Integer styleId, Boolean isFeatured, Pageable pageable);
+    PageResponse<PortfolioSummaryRes> getPublicGallery(Long muaId, Integer styleId, Long packageId, Boolean isFeatured, Pageable pageable);
 
     PageResponse<PortfolioDetailRes> getMyPortfolios(Long userId, Pageable pageable);
 

@@ -70,9 +70,9 @@ public class NotificationServiceImpl implements NotificationService {
             String filterType = StringUtils.hasText(type) ? type.trim() : null;
             page = notificationRepository.findFilteredNotifications(userId, agencyId, isRead, filterType, pageable);
         } else if (agencyId != null) {
-            page = notificationRepository.findByAgencyIdOrderByCreatedAtDesc(agencyId, pageable);
+            page = notificationRepository.findByAgencyIdAndIsDeletedFalseOrderByCreatedAtDesc(agencyId, pageable);
         } else {
-            page = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+            page = notificationRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, pageable);
         }
         return page.map(notificationMapper::toResponse);
     }
@@ -81,10 +81,10 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     public long getUnreadCount(Long userId, Long agencyId) {
         if (agencyId != null) {
-            return notificationRepository.countByAgencyIdAndIsReadFalse(agencyId);
+            return notificationRepository.countByAgencyIdAndIsReadFalseAndIsDeletedFalse(agencyId);
         }
         if (userId != null) {
-            return notificationRepository.countByUserIdAndIsReadFalse(userId);
+            return notificationRepository.countByUserIdAndIsReadFalseAndIsDeletedFalse(userId);
         }
         return 0;
     }
@@ -144,7 +144,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_NOTIFICATION_NOT_FOUND, "Thông báo không tồn tại"));
 
         validateNotificationOwnership(notification, currentUserId);
-        notificationRepository.delete(notification);
+        notification.setIsDeleted(true);
+        notificationRepository.save(notification);
     }
 
     @Override

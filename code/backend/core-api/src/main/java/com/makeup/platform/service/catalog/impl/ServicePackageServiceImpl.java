@@ -146,7 +146,9 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Override
     public void deletePackage(Long userId, Long packageId) {
         ServicePackageEntity pkg = findPackageAndCheckOwnership(userId, packageId);
-        packageRepository.delete(pkg);
+        pkg.setIsDeleted(true);
+        pkg.setIsAvailable(false);
+        packageRepository.save(pkg);
     }
 
     @Override
@@ -155,6 +157,10 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "catalog.package_not_found", packageId));
+        if (Boolean.TRUE.equals(pkg.getIsDeleted())) {
+            throw new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                    "catalog.package_not_found", packageId);
+        }
         return packageMapper.toDetailRes(pkg, getCoverImageUrl(pkg.getId()));
     }
 
@@ -163,6 +169,8 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     public List<PackageSummaryRes> listPackages(Long agencyId, Long muaId, Integer categoryId, Boolean availableOnly) {
         Specification<ServicePackageEntity> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            predicates.add(cb.isFalse(root.get("isDeleted")));
 
             if (agencyId != null) {
                 predicates.add(cb.equal(root.get("agency").get("id"), agencyId));
@@ -191,9 +199,9 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
         Page<ServicePackageEntity> page;
         if (owner.isAgency()) {
-            page = packageRepository.findByAgencyId(owner.getAgency().getId(), pageable);
+            page = packageRepository.findByAgencyIdAndIsDeletedFalse(owner.getAgency().getId(), pageable);
         } else {
-            page = packageRepository.findByMuaId(owner.getMua().getId(), pageable);
+            page = packageRepository.findByMuaIdAndIsDeletedFalse(owner.getMua().getId(), pageable);
         }
         // Lấy ảnh bìa (showcase đầu tiên) cho từng gói theo batch query
         Map<Long, String> coverMap = getCoverImageMap(page.getContent());
@@ -250,6 +258,11 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         ServicePackageEntity pkg = packageRepository.findById(packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "ERR_PACKAGE_NOT_FOUND", packageId));
+
+        if (Boolean.TRUE.equals(pkg.getIsDeleted())) {
+            throw new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                    "ERR_PACKAGE_NOT_FOUND", packageId);
+        }
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 

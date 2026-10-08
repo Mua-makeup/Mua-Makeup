@@ -17,28 +17,35 @@ import java.util.Optional;
 @Repository
 public interface ServicePackageRepository extends JpaRepository<ServicePackageEntity, Long>, JpaSpecificationExecutor<ServicePackageEntity> {
 
-    List<ServicePackageEntity> findByAgencyId(Long agencyId);
+    List<ServicePackageEntity> findByAgencyIdAndIsDeletedFalse(Long agencyId);
 
-    Page<ServicePackageEntity> findByAgencyId(Long agencyId, Pageable pageable);
+    Page<ServicePackageEntity> findByAgencyIdAndIsDeletedFalse(Long agencyId, Pageable pageable);
 
-    List<ServicePackageEntity> findByAgencyIdAndIsAvailableTrue(Long agencyId);
+    @Query("SELECT p FROM ServicePackageEntity p WHERE p.agency.id = :agencyId AND p.isAvailable = TRUE AND p.isDeleted = FALSE")
+    List<ServicePackageEntity> findByAgencyIdAndIsAvailableTrue(@Param("agencyId") Long agencyId);
 
-    List<ServicePackageEntity> findByMuaId(Long muaId);
+    List<ServicePackageEntity> findByAgencyIdAndIsAvailableTrueAndIsDeletedFalse(Long agencyId);
 
-    Page<ServicePackageEntity> findByMuaId(Long muaId, Pageable pageable);
+    List<ServicePackageEntity> findByMuaIdAndIsDeletedFalse(Long muaId);
 
-    List<ServicePackageEntity> findByMuaIdAndIsAvailableTrue(Long muaId);
+    Page<ServicePackageEntity> findByMuaIdAndIsDeletedFalse(Long muaId, Pageable pageable);
 
-    Optional<ServicePackageEntity> findByIdAndAgencyId(Long id, Long agencyId);
+    @Query("SELECT p FROM ServicePackageEntity p WHERE p.mua.id = :muaId AND p.isAvailable = TRUE AND p.isDeleted = FALSE")
+    List<ServicePackageEntity> findByMuaIdAndIsAvailableTrue(@Param("muaId") Long muaId);
 
-    Optional<ServicePackageEntity> findByIdAndMuaId(Long id, Long muaId);
+    List<ServicePackageEntity> findByMuaIdAndIsAvailableTrueAndIsDeletedFalse(Long muaId);
 
-    @Query("SELECT DISTINCT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id")
+    Optional<ServicePackageEntity> findByIdAndAgencyIdAndIsDeletedFalse(Long id, Long agencyId);
+
+    Optional<ServicePackageEntity> findByIdAndMuaIdAndIsDeletedFalse(Long id, Long muaId);
+
+    @Query("SELECT DISTINCT p FROM ServicePackageEntity p LEFT JOIN FETCH p.packageItems LEFT JOIN FETCH p.styles WHERE p.id = :id AND p.isDeleted = false")
     Optional<ServicePackageEntity> findByIdWithDetails(@Param("id") Long id);
+
     @Query("""
             SELECT p.mua.id AS muaId, MIN(p.price) AS startingPrice
             FROM ServicePackageEntity p
-            WHERE p.mua.id IN :muaIds AND p.isAvailable = TRUE
+            WHERE p.mua.id IN :muaIds AND p.isAvailable = TRUE AND p.isDeleted = FALSE
             GROUP BY p.mua.id
             """)
     List<MuaStartingPrice> findStartingPrices(@Param("muaIds") Collection<Long> muaIds);
@@ -50,6 +57,7 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackageEn
             WHERE p.mua.id IN :muaIds
               AND p.masterCategory.id = :categoryId
               AND p.isAvailable = TRUE
+              AND p.isDeleted = FALSE
               AND (:styleId IS NULL OR s.id = :styleId)
             """)
     List<Long> findMuaIdsByCandidateIdsAndCategoryAndStyle(
@@ -64,6 +72,7 @@ public interface ServicePackageRepository extends JpaRepository<ServicePackageEn
             WHERE p.mua.id = :muaId
               AND p.masterCategory.id = :categoryId
               AND p.isAvailable = TRUE
+              AND p.isDeleted = FALSE
               AND (:styleId IS NULL OR s.id = :styleId)
             ORDER BY p.price ASC
             """)

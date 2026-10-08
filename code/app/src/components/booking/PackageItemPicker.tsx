@@ -9,12 +9,14 @@ interface Props {
   items: PackageItem[];
   selectedAddOnIds: number[];
   onToggleAddOn: (addonId: number) => void;
+  baseDurationMinutes?: number;
 }
 
 export const PackageItemPicker: React.FC<Props> = ({
   items,
   selectedAddOnIds,
   onToggleAddOn,
+  baseDurationMinutes = 60,
 }) => {
   // Lọc trùng lặp items theo id (nếu có từ API response)
   const uniqueItems = items.filter(
@@ -30,6 +32,10 @@ export const PackageItemPicker: React.FC<Props> = ({
   );
 
   const displayAddOns: PackageItem[] = optionalItems;
+
+  const selectedAddons = displayAddOns.filter((item) => selectedAddOnIds.includes(item.id));
+  const addonsExtraMinutes = selectedAddons.reduce((sum, item) => sum + (item.durationMinutes || 0), 0);
+  const totalServiceDuration = baseDurationMinutes + addonsExtraMinutes;
 
   if (includedItems.length === 0 && displayAddOns.length === 0) {
     return null;
@@ -79,6 +85,15 @@ export const PackageItemPicker: React.FC<Props> = ({
           <Text style={styles.sectionSubtitle}>
             Chọn thêm các dịch vụ bổ trợ để diện mạo thêm lộng lẫy và hoàn hảo:
           </Text>
+
+          {addonsExtraMinutes > 0 && (
+            <View style={styles.durationNoticeBox}>
+              <Ionicons name="time" size={16} color="#B45309" />
+              <Text style={styles.durationNoticeText}>
+                Tổng thời lượng dịch vụ: <Text style={{ fontWeight: '700', color: '#92400E' }}>~{totalServiceDuration} phút</Text> (Đã cộng thêm +{addonsExtraMinutes} phút từ {selectedAddons.length} dịch vụ mua thêm)
+              </Text>
+            </View>
+          )}
 
           <View style={styles.addOnList}>
             {displayAddOns.map((addon, index) => {
@@ -231,5 +246,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: BrandColors.primary,
+  },
+  durationNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  durationNoticeText: {
+    fontSize: 13,
+    color: '#92400E',
+    flex: 1,
+    lineHeight: 18,
   },
 });

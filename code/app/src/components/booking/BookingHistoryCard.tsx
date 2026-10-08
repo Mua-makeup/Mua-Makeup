@@ -139,6 +139,15 @@ export const BookingHistoryCard: React.FC<Props> = ({
               {booking.packageName}
             </Text>
 
+            {booking.styleName ? (
+              <View style={styles.styleBadgeRow}>
+                <Ionicons name="sparkles" size={11} color={BrandColors.primary} />
+                <Text style={styles.styleBadgeText} numberOfLines={1}>
+                  Tone: {booking.styleName}
+                </Text>
+              </View>
+            ) : null}
+
             <View style={styles.muaRow}>
               <Ionicons name="person-outline" size={13} color="#64748B" />
               <Text style={styles.muaName} numberOfLines={1}>
@@ -364,6 +373,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  styleBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#FFE4E6',
+  },
+  styleBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BrandColors.primary,
   },
   muaRow: {
     flexDirection: 'row',

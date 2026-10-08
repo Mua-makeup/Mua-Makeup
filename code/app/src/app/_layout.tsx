@@ -15,6 +15,7 @@ import { AccountModal } from '@/components/common/AccountModal';
 import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
 import { DepositConfirmedModal } from '@/components/mua/DepositConfirmedModal';
 import { NotificationToast } from '@/components/notification/NotificationToast';
+import { UndoToast } from '@/components/common/UndoToast';
 import { setupAlertPolyfill } from '@/store/popup.store';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
@@ -163,6 +164,8 @@ export default function RootLayout() {
         <DepositConfirmedModal />
         {/* Banner Toast Thông Báo Trượt Mép Trên Toàn Cục */}
         <NotificationToast />
+        {/* Toast Hoàn Tác Xóa Toàn Cục */}
+        <UndoToast />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

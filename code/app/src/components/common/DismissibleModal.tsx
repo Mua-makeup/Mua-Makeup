@@ -3,6 +3,7 @@ import {
   Animated, KeyboardAvoidingView, Modal, ModalProps, PanResponder,
   Platform, Pressable, StyleProp, StyleSheet, useWindowDimensions, View, ViewStyle,
 } from 'react-native';
+import { UndoToast } from './UndoToast';
 
 interface SurfaceProps {
   visible: boolean;
@@ -137,6 +138,7 @@ export function DismissibleSurface({ visible, onClose, dismissDisabled = false, 
         </Animated.View>
       </View>
       {overlays}
+      <UndoToast bottomOffset={24} />
     </KeyboardAvoidingView>
   );
 }

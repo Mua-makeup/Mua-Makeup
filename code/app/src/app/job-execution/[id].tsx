@@ -32,6 +32,7 @@ import { telemetryService } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
 import { useWorkstationStore } from '@/store/workstation.store';
+import { useUndoStore } from '@/store/undo.store';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { getTodayVN, formatDateVN, formatTimeVN } from '@/utils/date';
@@ -372,12 +373,12 @@ export default function JobExecutionScreen() {
           setBooking((prev: any) =>
             prev
               ? {
-                  ...prev,
-                  packageName: msg.packageName,
-                  serviceSubtotal: msg.serviceSubtotal != null ? Number(msg.serviceSubtotal) : prev.serviceSubtotal,
-                  totalAmount: msg.totalAmount != null ? Number(msg.totalAmount) : prev.totalAmount,
-                  depositAmount: msg.depositAmount != null ? Number(msg.depositAmount) : prev.depositAmount,
-                }
+                ...prev,
+                packageName: msg.packageName,
+                serviceSubtotal: msg.serviceSubtotal != null ? Number(msg.serviceSubtotal) : prev.serviceSubtotal,
+                totalAmount: msg.totalAmount != null ? Number(msg.totalAmount) : prev.totalAmount,
+                depositAmount: msg.depositAmount != null ? Number(msg.depositAmount) : prev.depositAmount,
+              }
               : prev
           );
         }
@@ -430,12 +431,12 @@ export default function JobExecutionScreen() {
             setBooking((prev: any) =>
               prev
                 ? {
-                    ...prev,
-                    packageName: msg.packageName,
-                    serviceSubtotal: msg.serviceSubtotal != null ? Number(msg.serviceSubtotal) : prev.serviceSubtotal,
-                    totalAmount: msg.totalAmount != null ? Number(msg.totalAmount) : prev.totalAmount,
-                    depositAmount: msg.depositAmount != null ? Number(msg.depositAmount) : prev.depositAmount,
-                  }
+                  ...prev,
+                  packageName: msg.packageName,
+                  serviceSubtotal: msg.serviceSubtotal != null ? Number(msg.serviceSubtotal) : prev.serviceSubtotal,
+                  totalAmount: msg.totalAmount != null ? Number(msg.totalAmount) : prev.totalAmount,
+                  depositAmount: msg.depositAmount != null ? Number(msg.depositAmount) : prev.depositAmount,
+                }
                 : prev
             );
           }
@@ -485,11 +486,12 @@ export default function JobExecutionScreen() {
           setIsCashPromptModalVisible(false);
           setIsBothCashConfirmed(true);
           setCashReceiptConfirmed(true);
-          useWorkstationStore.getState().showDepositNotice({ type: 'PAYMENT_COMPLETED', bookingId, status: 'PAID_OUT',
-              bookingCode: detail.bookingCode, totalAmount: Number(detail.totalAmount || 0),
-              depositAmount: Number(detail.depositAmount || 0),
-              finalAmount: Number(detail.totalAmount || 0) - Number(detail.depositAmount || 0),
-              earningsAmount: Number(detail.earningsAmount || 0),
+          useWorkstationStore.getState().showDepositNotice({
+            type: 'PAYMENT_COMPLETED', bookingId, status: 'PAID_OUT',
+            bookingCode: detail.bookingCode, totalAmount: Number(detail.totalAmount || 0),
+            depositAmount: Number(detail.depositAmount || 0),
+            finalAmount: Number(detail.totalAmount || 0) - Number(detail.depositAmount || 0),
+            earningsAmount: Number(detail.earningsAmount || 0),
           });
         }
       } catch { /* Retry after reconnect. */ }
@@ -1176,7 +1178,7 @@ export default function JobExecutionScreen() {
             </View>
           </View>
         ) : (
-        
+
           <>
             {/* HERO CARD RIÊNG BIỆT DÀNH CHO ĐƠN ĐẶT LỊCH TRƯỚC (SCHEDULED) */}
             {isScheduled && (
@@ -1262,7 +1264,7 @@ export default function JobExecutionScreen() {
                   </View>
                 </View>
 
-            
+
               </View>
             )}
 
@@ -2040,7 +2042,16 @@ export default function JobExecutionScreen() {
                             <Text style={styles.proofSuccessText}>Ảnh minh chứng hợp lệ</Text>
                           </View>
                           <TouchableOpacity
-                            onPress={() => setDisputeProofUrl('')}
+                            onPress={() => {
+                              const oldUrl = disputeProofUrl;
+                              setDisputeProofUrl('');
+                              useUndoStore.getState().showUndoToast({
+                                message: 'Đã xóa ảnh minh chứng',
+                                onUndo: () => {
+                                  setDisputeProofUrl(oldUrl);
+                                },
+                              });
+                            }}
                             style={styles.proofDeleteBtn}
                             activeOpacity={0.7}
                           >
@@ -2270,80 +2281,80 @@ export default function JobExecutionScreen() {
       {/* MODAL XÁC NHẬN YÊU CẦU HỦY CA & NHẬN BỒI THƯỜNG CỌC 100% TỪ KHÁCH HÀNG     */}
       {/* ========================================================================= */}
       <DismissibleModal visible={isCancelRequestModalVisible} onClose={() => setIsCancelRequestModalVisible(false)} dismissDisabled={isHandlingCancelAction} overlayStyle={styles.cancelRequestOverlay} contentStyle={styles.cancelRequestCard}>
-            <View style={styles.cancelRequestHeader}>
-              <View style={styles.cancelRequestIconCircle}>
-                <Ionicons name="alert-circle" size={32} color="#DC2626" />
-              </View>
-              <Text style={styles.cancelRequestTitle}>Khách Hàng Yêu Cầu Hủy Ca</Text>
-              <Text style={styles.cancelRequestSubtitle}>
-                Khách hàng đề nghị hủy ca hẹn trong lúc bạn đang di chuyển
-              </Text>
+        <View style={styles.cancelRequestHeader}>
+          <View style={styles.cancelRequestIconCircle}>
+            <Ionicons name="alert-circle" size={32} color="#DC2626" />
+          </View>
+          <Text style={styles.cancelRequestTitle}>Khách Hàng Yêu Cầu Hủy Ca</Text>
+          <Text style={styles.cancelRequestSubtitle}>
+            Khách hàng đề nghị hủy ca hẹn trong lúc bạn đang di chuyển
+          </Text>
+        </View>
+
+        <View style={styles.cancelCustomerBox}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <UserAvatar
+              uri={booking?.customerAvatar}
+              name={booking?.customerName}
+              size={44}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cancelCustomerName}>{booking?.customerName || 'Khách hàng'}</Text>
+              <Text style={styles.cancelCustomerPhone}>{booking?.customerPhone || 'SĐT khách hàng'}</Text>
             </View>
+          </View>
 
-            <View style={styles.cancelCustomerBox}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <UserAvatar
-                  uri={booking?.customerAvatar}
-                  name={booking?.customerName}
-                  size={44}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cancelCustomerName}>{booking?.customerName || 'Khách hàng'}</Text>
-                  <Text style={styles.cancelCustomerPhone}>{booking?.customerPhone || 'SĐT khách hàng'}</Text>
-                </View>
-              </View>
+          <View style={styles.cancelReasonSection}>
+            <Text style={styles.cancelReasonLabel}>Lý do khách hàng đưa ra:</Text>
+            <Text style={styles.cancelReasonText}>
+              "{customerCancelReason || 'Khách hàng có việc bận đột xuất'}"
+            </Text>
+          </View>
+        </View>
 
-              <View style={styles.cancelReasonSection}>
-                <Text style={styles.cancelReasonLabel}>Lý do khách hàng đưa ra:</Text>
-                <Text style={styles.cancelReasonText}>
-                  "{customerCancelReason || 'Khách hàng có việc bận đột xuất'}"
-                </Text>
-              </View>
-            </View>
+        {/* HỘP BỒI THƯỜNG 100% CỌC */}
+        <View style={styles.cancelCompensationBox}>
+          <Ionicons name="shield-checkmark" size={24} color="#059669" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cancelCompensationTitle}>Quyền Lợi Bồi Thường 100%</Text>
+            <Text style={styles.cancelCompensationDesc}>
+              Nếu bạn đồng ý hủy ca, toàn bộ số tiền cọc{' '}
+              <Text style={{ fontWeight: '800', color: '#059669' }}>
+                {formatVnd(booking?.depositAmount || 0)}
+              </Text>{' '}
+              sẽ được chuyển thẳng vào Ví chuyên viên của bạn để bù đắp chi phí di chuyển.
+            </Text>
+          </View>
+        </View>
 
-            {/* HỘP BỒI THƯỜNG 100% CỌC */}
-            <View style={styles.cancelCompensationBox}>
-              <Ionicons name="shield-checkmark" size={24} color="#059669" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cancelCompensationTitle}>Quyền Lợi Bồi Thường 100%</Text>
-                <Text style={styles.cancelCompensationDesc}>
-                  Nếu bạn đồng ý hủy ca, toàn bộ số tiền cọc{' '}
-                  <Text style={{ fontWeight: '800', color: '#059669' }}>
-                    {formatVnd(booking?.depositAmount || 0)}
-                  </Text>{' '}
-                  sẽ được chuyển thẳng vào Ví chuyên viên của bạn để bù đắp chi phí di chuyển.
-                </Text>
-              </View>
-            </View>
+        {/* CẶP NÚT HÀNH ĐỘNG */}
+        <View style={styles.cancelActionRow}>
+          <TouchableOpacity
+            style={styles.cancelRejectBtn}
+            onPress={handleRejectCustomerCancel}
+            disabled={isHandlingCancelAction}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.cancelRejectBtnText}>Từ Chối Hủy</Text>
+          </TouchableOpacity>
 
-            {/* CẶP NÚT HÀNH ĐỘNG */}
-            <View style={styles.cancelActionRow}>
-              <TouchableOpacity
-                style={styles.cancelRejectBtn}
-                onPress={handleRejectCustomerCancel}
-                disabled={isHandlingCancelAction}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.cancelRejectBtnText}>Từ Chối Hủy</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.cancelAcceptBtn}
-                onPress={handleAcceptCustomerCancel}
-                disabled={isHandlingCancelAction}
-                activeOpacity={0.85}
-              >
-                {isHandlingCancelAction ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                    <Text style={styles.cancelAcceptBtnText}>Đồng Ý & Nhận Cọc</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </DismissibleModal>
+          <TouchableOpacity
+            style={styles.cancelAcceptBtn}
+            onPress={handleAcceptCustomerCancel}
+            disabled={isHandlingCancelAction}
+            activeOpacity={0.85}
+          >
+            {isHandlingCancelAction ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                <Text style={styles.cancelAcceptBtnText}>Đồng Ý & Nhận Cọc</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </DismissibleModal>
 
       {/* MODAL POPUP THÔNG BÁO KHÁCH ĐÃ CỌC THÀNH CÔNG CHO THỢ */}
 

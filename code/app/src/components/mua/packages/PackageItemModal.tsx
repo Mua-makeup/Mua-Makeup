@@ -8,17 +8,21 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { CreatePackageItemReq, PackageItem } from '@/services/package.service';
 import { packageItemSchema } from '@/schemas/package-builder.schema';
+import { parseApiError } from '@/utils/error';
 
 interface PackageItemModalProps {
   visible: boolean;
   initialItem?: PackageItem | null;
   defaultStepOrder?: number;
+  totalPackageDuration?: number;
+  otherComponentDuration?: number;
   onSave: (item: CreatePackageItemReq) => Promise<void>;
   onClose: () => void;
 }
@@ -44,6 +48,8 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
   visible,
   initialItem,
   defaultStepOrder = 1,
+  totalPackageDuration = 60,
+  otherComponentDuration = 0,
   onSave,
   onClose,
 }) => {
@@ -54,6 +60,12 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
   const [durationMinutes, setDurationMinutes] = useState('15');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  const totalPkgDur = totalPackageDuration ?? 60;
+  const otherCompDur = otherComponentDuration ?? 0;
+  const availableForComponent = Math.max(0, totalPkgDur - otherCompDur);
+  const currentInputDur = Number(durationMinutes) || 0;
+  const isExceeding = itemType === 'COMPONENT' && currentInputDur > availableForComponent;
 
   useEffect(() => {
     if (visible) {
@@ -114,12 +126,36 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
       return;
     }
 
+    // Kiểm tra nếu là bước COMPONENT và làm tổng thời lượng vượt quá thời lượng gói -> Hiển thị Pop-up cảnh báo
+    if (itemType === 'COMPONENT' && isExceeding) {
+      Alert.alert(
+        '⚠️ Vượt Quá Thời Lượng Gói',
+        `Thời lượng bước này (${currentInputDur} phút) làm tổng thời gian các bước thực hiện (${otherCompDur + currentInputDur} phút) vượt quá thời lượng niêm yết của gói dịch vụ (${totalPkgDur} phút).\n\nThời gian tối đa còn trống khả dụng là: ${availableForComponent} phút. Vui lòng điều chỉnh lại thời lượng hoặc tăng thời lượng của gói dịch vụ trong phần cài đặt gói.`,
+        [{ text: 'Đã hiểu & Điều chỉnh', style: 'default' }]
+      );
+      return;
+    }
+
     try {
       setSaving(true);
       await onSave(validation.data);
       onClose();
     } catch (err: any) {
-      setErrors({ form: err.message || 'Lưu bước dịch vụ thất bại.' });
+      const parsed = parseApiError(err);
+      if (
+        parsed.errorCode === 'ERR_PACKAGE_DURATION_EXCEEDED' ||
+        parsed.message?.includes('thời lượng') ||
+        parsed.message?.includes('DURATION_EXCEEDED')
+      ) {
+        Alert.alert(
+          '⚠️ Vượt Quá Thời Lượng Gói',
+          'Tổng thời lượng các bước thực hiện không được vượt quá thời lượng niêm yết của gói dịch vụ. Vui lòng giảm bớt thời lượng hoặc cập nhật thời lượng gói.',
+          [{ text: 'Đã hiểu & Điều chỉnh', style: 'default' }]
+        );
+      } else {
+        Alert.alert('Không Thể Lưu', parsed.message || 'Lưu bước dịch vụ thất bại.');
+      }
+      setErrors({ form: parsed.message || 'Lưu bước dịch vụ thất bại.' });
     } finally {
       setSaving(false);
     }
@@ -332,7 +368,6 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
               </TouchableOpacity>
 
               <View style={styles.stepperCenter}>
-                <Ionicons name="cash-outline" size={18} color={BrandColors.primary} />
                 <TextInput
                   style={[styles.stepperPriceInput, errors.itemPrice && styles.inputError]}
                   placeholder="0"
@@ -401,7 +436,7 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
           <View style={styles.fieldHeaderRow}>
             <Text style={styles.label}>Thời Lượng Dự Kiến</Text>
             <Text style={styles.durationHighlight}>
-              ⏱️ {durationMinutes || 15} phút
+              {durationMinutes || 15} phút
             </Text>
           </View>
 
@@ -417,7 +452,6 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
             </TouchableOpacity>
 
             <View style={styles.stepperCenter}>
-              <Ionicons name="time-outline" size={18} color={BrandColors.primary} />
               <TextInput
                 style={styles.stepperDurationInput}
                 keyboardType="number-pad"
@@ -464,6 +498,60 @@ export const PackageItemModal: React.FC<PackageItemModalProps> = ({
               );
             })}
           </View>
+
+          {/* Card tính toán thời lượng thông minh */}
+          {itemType === 'COMPONENT' ? (
+            <View
+              style={[
+                styles.durationCalcCard,
+                isExceeding && styles.durationCalcCardError,
+              ]}
+            >
+              <View style={styles.calcHeaderRow}>
+                <Ionicons
+                  name={isExceeding ? 'alert-circle' : 'time-outline'}
+                  size={16}
+                  color={isExceeding ? BrandColors.danger : '#0284C7'}
+                />
+                <Text
+                  style={[
+                    styles.calcHeaderTitle,
+                    isExceeding && { color: BrandColors.danger },
+                  ]}
+                >
+                  Phân Bổ Thời Lượng Gói Gốc ({totalPkgDur} phút)
+                </Text>
+              </View>
+
+              <View style={styles.calcStatsRow}>
+                <Text style={styles.calcStatText}>
+                  Bước này: <Text style={[styles.calcBold, { color: BrandColors.primary }]}>{currentInputDur}p</Text>
+                </Text>
+                <Text style={styles.calcStatText}>
+                  Các bước khác: <Text style={styles.calcBold}>{otherCompDur}p</Text>
+                </Text>
+                <Text style={styles.calcStatText}>
+                  Còn trống: <Text style={[styles.calcBold, { color: isExceeding ? BrandColors.danger : '#059669' }]}>
+                    {Math.max(0, totalPkgDur - otherCompDur - currentInputDur)}p
+                  </Text>
+                </Text>
+              </View>
+
+              {isExceeding ? (
+                <View style={styles.exceedingAlert}>
+                  <Text style={styles.exceedingAlertText}>
+                    ⚠️ Vượt quá thời lượng gói! Bước này ({currentInputDur}p) + các bước khác ({otherCompDur}p) = {otherCompDur + currentInputDur}p (tối đa gói là {totalPkgDur}p). Bạn chỉ còn tối đa {availableForComponent} phút cho bước này.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.validAlert}>
+                  <Text style={styles.validAlertText}>
+                    ✓ Hợp lệ! Đã dùng {otherCompDur + currentInputDur}/{totalPkgDur} phút (gói dịch vụ còn dư {totalPkgDur - otherCompDur - currentInputDur} phút).
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : null}
         </View>
 
         {/* Nút lưu */}
@@ -792,5 +880,118 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  // Duration calculation card
+  durationCalcCard: {
+    marginTop: 14,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  durationCalcCardError: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FECDD3',
+  },
+  calcHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  calcHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0369A1',
+  },
+  calcStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  calcStatText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  calcBold: {
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  exceedingAlert: {
+    marginTop: 8,
+    backgroundColor: '#FFE4E6',
+    borderRadius: 8,
+    padding: 8,
+  },
+  exceedingAlertText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BrandColors.danger,
+    lineHeight: 16,
+  },
+  validAlert: {
+    marginTop: 6,
+  },
+  validAlertText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  // Addon duration card
+  addonDurationCalcCard: {
+    marginTop: 14,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  addonExplainerText: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 2,
+    marginBottom: 8,
+    lineHeight: 16,
+  },
+  addonTimelineBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 10,
+    gap: 4,
+  },
+  addonTimelineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timelineLabel: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  timelineValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  timelineRowHighlight: {
+    paddingVertical: 3,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    marginVertical: 2,
+  },
+  timelineHighlightLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  timelineHighlightValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: BrandColors.primary,
   },
 });

@@ -21,6 +21,8 @@ public class CustomerBookingItemRes {
     private String muaPhoneNumber;
     private String packageName;
     private String packageCoverUrl;
+    private Integer styleId;
+    private String styleName;
     private LocalDateTime bookingTime;
     private String destinationAddress;
     private BigDecimal destinationLatitude;

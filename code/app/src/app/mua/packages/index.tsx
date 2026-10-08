@@ -17,6 +17,7 @@ import { packageService, PackageSummary } from '@/services/package.service';
 import { PackageCard } from '@/components/mua/packages/PackageCard';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { parseApiError } from '@/utils/error';
+import { useUndoStore } from '@/store/undo.store';
 
 export default function MuaPackagesScreen() {
   const insets = useSafeAreaInsets();
@@ -63,22 +64,41 @@ export default function MuaPackagesScreen() {
   };
 
   const handleDeletePackage = (packageId: number) => {
+    const target = packages.find((pkg) => pkg.id === packageId);
+    if (!target) return;
+    const targetIndex = packages.findIndex((pkg) => pkg.id === packageId);
+
     Alert.alert(
       'Xóa Gói Dịch Vụ',
-      'Bạn có chắc chắn muốn xóa gói này? Các thông tin cấu hình bước và album ảnh liên kết sẽ không còn hiển thị cho khách hàng.',
+      `Bạn có chắc chắn muốn xóa gói "${target.packageName}"? Bạn có thể hoàn tác ngay sau khi xóa.`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa Gói',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await packageService.deletePackage(packageId);
-              setPackages((prev) => prev.filter((pkg) => pkg.id !== packageId));
-            } catch (err) {
-              const parsed = parseApiError(err);
-              Alert.alert('Lỗi Xóa Gói', parsed.message);
-            }
+          onPress: () => {
+            // Loại bỏ lạc quan khỏi giao diện ngay lập tức
+            setPackages((prev) => prev.filter((pkg) => pkg.id !== packageId));
+
+            // Kích hoạt Toast thông báo xóa thành công có nút Hoàn tác
+            useUndoStore.getState().showUndoToast({
+              message: `Đã xóa gói "${target.packageName}"`,
+              onUndo: () => {
+                setPackages((prev) => {
+                  const next = [...prev];
+                  next.splice(targetIndex, 0, target);
+                  return next;
+                });
+              },
+              onCommit: async () => {
+                try {
+                  await packageService.deletePackage(packageId);
+                } catch (err) {
+                  const parsed = parseApiError(err);
+                  console.warn('[handleDeletePackage] Lỗi xóa gói backend:', parsed.message);
+                }
+              },
+            });
           },
         },
       ]

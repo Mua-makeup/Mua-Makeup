@@ -24,6 +24,7 @@ export const createBookingSchema = z.object({
     .min(-180, 'Kinh độ không hợp lệ')
     .max(180, 'Kinh độ không hợp lệ'),
   addOnItemIds: z.array(z.number()).default([]),
+  styleId: z.number().optional().nullable(),
   note: z.string().max(500, 'Ghi chú không được dài quá 500 ký tự.').optional(),
   voucherCode: z.string().optional(),
 });

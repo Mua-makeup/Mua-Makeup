@@ -1,4 +1,4 @@
-import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { DismissibleModal, DismissibleSurface } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -38,6 +38,10 @@ import { useAuthStore } from '@/store/auth.store';
 interface Props {
   visible: boolean;
   targetMua: NearbyProviderRes | null;
+  initialLocation?: {
+    address?: string;
+    coords?: { latitude: number; longitude: number } | null;
+  } | null;
   onClose: () => void;
   onFallbackRandomScan: () => void;
   onChooseAnotherMua: () => void;
@@ -66,6 +70,7 @@ const getDistanceKm = (
 export const DirectMuaBookingModal: React.FC<Props> = ({
   visible,
   targetMua,
+  initialLocation,
   onClose,
   onFallbackRandomScan,
   onChooseAnotherMua,
@@ -76,6 +81,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const [selectedPackage, setSelectedPackage] = useState<PackageSummary | null>(null);
   const [availableStyles, setAvailableStyles] = useState<MakeupStyle[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<MakeupStyle | null>(null);
+  const [showStyleModal, setShowStyleModal] = useState(false);
   const [isLoadingPackages, setIsLoadingPackages] = useState(false);
 
   const [address, setAddress] = useState('');
@@ -190,11 +196,17 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
     if (visible && targetMua) {
       setStep('IDLE');
       setTimeoutMessage(null);
-      setAddress(currentAddress || '');
-      setCoords(storeLat && storeLng ? { latitude: storeLat, longitude: storeLng } : null);
+      setShowStyleModal(false);
+      if (initialLocation?.address && initialLocation?.coords) {
+        setAddress(initialLocation.address);
+        setCoords(initialLocation.coords);
+      } else {
+        setAddress(currentAddress || '');
+        setCoords(storeLat && storeLng ? { latitude: storeLat, longitude: storeLng } : null);
+      }
       loadMuaPackages(targetMua.providerId);
     }
-  }, [visible, targetMua]);
+  }, [visible, targetMua, initialLocation]);
 
   const loadMuaPackages = async (muaId: number) => {
     try {
@@ -221,7 +233,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const updateStylesForPackage = (pkg: PackageSummary) => {
     if (pkg.styles && pkg.styles.length > 0) {
       setAvailableStyles(pkg.styles);
-      setSelectedStyle(pkg.styles[0]);
+      setSelectedStyle(null);
     } else {
       setAvailableStyles([]);
       setSelectedStyle(null);
@@ -450,18 +462,169 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   if (!targetMua) return null;
 
   return (
-    <DismissibleModal visible={visible} onClose={handleCancelRequest} overlayStyle={styles.overlay} contentStyle={styles.modalCard} overlays={<><SavedAddressModal
-        visible={isSavedAddressModalVisible}
-        selectedAddressId={selectedSavedAddressId}
-        onClose={() => setIsSavedAddressModalVisible(false)}
-        onSelectAddress={(selected) => {
-          setSelectedSavedAddressId(selected.id);
-          setAddress(selected.addressLine);
-          setCoords({ latitude: selected.latitude, longitude: selected.longitude });
-          setIsSavedAddressModalVisible(false);
-        }}
-      />
-<GlobalPopupOverlay /></>}>
+    <DismissibleModal
+      visible={visible}
+      onClose={handleCancelRequest}
+      overlayStyle={styles.overlay}
+      contentStyle={styles.modalCard}
+      overlays={
+        <>
+          <SavedAddressModal
+            visible={isSavedAddressModalVisible}
+            selectedAddressId={selectedSavedAddressId}
+            onClose={() => setIsSavedAddressModalVisible(false)}
+            onSelectAddress={(selected) => {
+              setSelectedSavedAddressId(selected.id);
+              setAddress(selected.addressLine);
+              setCoords({ latitude: selected.latitude, longitude: selected.longitude });
+              setIsSavedAddressModalVisible(false);
+            }}
+          />
+          <GlobalPopupOverlay />
+
+          {/* MODAL BOTTOMSHEET CHỌN PHONG CÁCH MAKE-UP */}
+          {showStyleModal && (
+            <View style={StyleSheet.absoluteFill}>
+              <DismissibleSurface
+                visible={showStyleModal}
+                onClose={() => setShowStyleModal(false)}
+                overlayStyle={styles.styleModalOverlay}
+                contentStyle={styles.styleBottomSheet}
+              >
+                <View style={styles.styleModalHeader}>
+                  <View>
+                    <Text style={styles.styleModalTitle}>Phong Cách Make-up</Text>
+                    <Text style={styles.styleModalSubtitle}>
+                      Chọn phong cách tương thích với gói dịch vụ này
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setShowStyleModal(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.closeBtn}
+                  >
+                    <Ionicons name="close" size={22} color="#0F172A" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  style={styles.stylesListScroll}
+                  contentContainerStyle={styles.stylesListScrollInner}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Tùy chọn 1: Bất kỳ phong cách nào (Mặc định) */}
+                  <TouchableOpacity
+                    style={[
+                      styles.styleRowCard,
+                      selectedStyle == null && styles.styleRowCardChecked,
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSelectedStyle(null);
+                      setShowStyleModal(false);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.styleRowLeft}>
+                      <View
+                        style={[
+                          styles.styleIconBox,
+                          selectedStyle == null && styles.styleIconBoxChecked,
+                        ]}
+                      >
+                        <Ionicons
+                          name={selectedStyle == null ? 'checkmark' : 'sparkles-outline'}
+                          size={15}
+                          color={selectedStyle == null ? BrandColors.primary : '#94A3B8'}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[
+                            styles.styleNameText,
+                            selectedStyle == null && styles.styleNameTextChecked,
+                          ]}
+                        >
+                          Bất kỳ phong cách nào (Mặc định)
+                        </Text>
+                        <Text style={styles.styleDescText}>
+                          Chuyên viên sẽ tư vấn tone make-up phù hợp nhất với gương mặt bạn
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.checkboxCircle,
+                        selectedStyle == null && styles.checkboxCircleChecked,
+                      ]}
+                    >
+                      {selectedStyle == null && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Danh sách các phong cách của gói */}
+                  {availableStyles.map((style) => {
+                    const isChecked = selectedStyle?.id === style.id;
+                    return (
+                      <TouchableOpacity
+                        key={style.id}
+                        style={[styles.styleRowCard, isChecked && styles.styleRowCardChecked]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSelectedStyle(style);
+                          setShowStyleModal(false);
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.styleRowLeft}>
+                          <View
+                            style={[
+                              styles.styleIconBox,
+                              isChecked && styles.styleIconBoxChecked,
+                            ]}
+                          >
+                            <Ionicons
+                              name={isChecked ? 'checkmark' : 'color-palette-outline'}
+                              size={15}
+                              color={isChecked ? BrandColors.primary : '#94A3B8'}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text
+                              style={[
+                                styles.styleNameText,
+                                isChecked && styles.styleNameTextChecked,
+                              ]}
+                            >
+                              {style.styleName}
+                            </Text>
+                            {style.description ? (
+                              <Text style={styles.styleDescText} numberOfLines={2}>
+                                {style.description}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.checkboxCircle,
+                            isChecked && styles.checkboxCircleChecked,
+                          ]}
+                        >
+                          {isChecked && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </DismissibleSurface>
+            </View>
+          )}
+        </>
+      }
+    >
             {/* VÙNG KÉO VUỐT XUỐNG ĐÓNG & HEADER */}
             <View style={styles.dragArea}>
 
@@ -574,29 +737,82 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
 
               {/* PHẦN 2: PHONG CÁCH TRANG ĐIỂM (STYLES CỦA THỢ) */}
               {availableStyles.length > 0 && (
-                <>
-                  <View style={[styles.sectionHeader, { marginTop: 18 }]}>
+                <View style={{ marginTop: 18 }}>
+                  <View style={styles.sectionHeader}>
                     <Ionicons name="color-palette-outline" size={16} color={BrandColors.primary} />
-                    <Text style={styles.sectionTitle}>Phong Cách Trang Điểm</Text>
+                    <Text style={styles.sectionTitle}>Phong Cách Make-up Tương Thích *</Text>
                   </View>
-                  <View style={styles.stylesWrap}>
-                    {availableStyles.map((st) => {
-                      const isSel = selectedStyle?.id === st.id;
-                      return (
-                        <TouchableOpacity
-                          key={st.id}
-                          style={[styles.styleChip, isSel && styles.styleChipSelected]}
-                          onPress={() => handleSelectStyle(st)}
-                          activeOpacity={0.8}
+
+                  {/* Nút bấm mở chọn phong cách */}
+                  <TouchableOpacity
+                    style={styles.styleSelectorButton}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setShowStyleModal(true);
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.styleSelectorLeft}>
+                      <View style={styles.paletteIconBox}>
+                        <Ionicons name="color-palette-outline" size={20} color={BrandColors.primary} />
+                      </View>
+                      <View style={styles.styleSelectorTextCol}>
+                        <Text
+                          style={[
+                            styles.styleSelectorMainText,
+                            selectedStyle ? styles.styleSelectorMainTextActive : null,
+                          ]}
+                          numberOfLines={1}
                         >
-                          <Text style={[styles.styleChipText, isSel && styles.styleChipTextSelected]}>
-                            {st.styleName}
-                          </Text>
+                          {selectedStyle ? selectedStyle.styleName : 'Bất kỳ phong cách nào (Mặc định)'}
+                        </Text>
+                        <Text style={styles.styleSelectorSubText} numberOfLines={1}>
+                          {selectedStyle ? 'Bấm để đổi phong cách make-up' : 'Bấm để chọn phong cách make-up cụ thể'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.styleSelectorRight}>
+                      {selectedStyle && (
+                        <View style={styles.styleCountBadge}>
+                          <Text style={styles.styleCountBadgeText}>1</Text>
+                        </View>
+                      )}
+                      <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Danh sách Tags bên dưới: CHỈ hiển thị phong cách khách chọn */}
+                  <View style={styles.styleTagsContainer}>
+                    {selectedStyle ? (
+                      <View style={styles.selectedTagPill}>
+                        <Text style={styles.selectedTagText}>{selectedStyle.styleName}</Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedStyle(null);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="close-circle" size={16} color="#BE185D" />
                         </TouchableOpacity>
-                      );
-                    })}
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.selectedTagPill, styles.selectedTagPillAny]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setShowStyleModal(true);
+                        }}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="sparkles" size={13} color="#BE185D" />
+                        <Text style={styles.selectedTagText}>Bất kỳ phong cách nào (Mặc định)</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                </>
+                </View>
               )}
 
               {/* PHẦN 3: ĐỊA CHỈ THỰC HIỆN MAKE-UP */}
@@ -1099,31 +1315,197 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: '#64748B',
   },
-  stylesWrap: {
+  styleSelectorButton: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  styleChip: {
-    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 68,
   },
-  styleChipSelected: {
-    backgroundColor: BrandColors.primary,
-    borderColor: BrandColors.primary,
+  styleSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
   },
-  styleChipText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
+  paletteIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FDA4AF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  styleChipTextSelected: {
-    color: '#FFFFFF',
+  styleSelectorTextCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  styleSelectorMainText: {
+    fontSize: 14,
     fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 20,
+  },
+  styleSelectorMainTextActive: {
+    color: '#E11D48',
+  },
+  styleSelectorSubText: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  styleSelectorRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  styleCountBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E11D48',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  styleCountBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  styleTagsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    minHeight: 36,
+  },
+  selectedTagPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignSelf: 'flex-start',
+  },
+  selectedTagPillAny: {
+    backgroundColor: '#FFF1F2',
+  },
+  selectedTagText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#9F1239',
+    lineHeight: 18,
+  },
+  styleModalOverlay: {
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  styleBottomSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
+    paddingBottom: 24,
+  },
+  styleModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  styleModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  styleModalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  stylesListScroll: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  stylesListScrollInner: {
+    paddingBottom: 20,
+    gap: 10,
+  },
+  styleRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  styleRowCardChecked: {
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FDA4AF',
+  },
+  styleRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+    marginRight: 10,
+  },
+  styleIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  styleIconBoxChecked: {
+    backgroundColor: '#FFE4E6',
+  },
+  styleNameText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  styleNameTextChecked: {
+    color: '#BE123C',
+    fontWeight: '700',
+  },
+  styleDescText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  checkboxCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxCircleChecked: {
+    backgroundColor: '#E11D48',
+    borderColor: '#E11D48',
   },
   addressHeaderRow: {
     flexDirection: 'row',

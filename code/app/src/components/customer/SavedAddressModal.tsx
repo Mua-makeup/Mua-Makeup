@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
 import { mapsService } from '@/services/maps.service';
 import { useLocationStore } from '@/store/location.store';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
+import { useUndoStore, UndoAction } from '@/store/undo.store';
 
 interface Props {
   visible: boolean;
@@ -56,6 +57,7 @@ export const SavedAddressModal: React.FC<Props> = ({
   // Xác nhận xóa
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<CustomerAddressItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const pendingUndoActionRef = useRef<UndoAction | null>(null);
 
   // Lưu trạng thái địa chỉ đang được tích chọn
   const [activeSelectedId, setActiveSelectedId] = useState<number | undefined>(selectedAddressId);
@@ -189,18 +191,42 @@ export const SavedAddressModal: React.FC<Props> = ({
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirmTarget) return;
+    const target = deleteConfirmTarget;
+    const targetId = target.id;
+    const targetIndex = addresses.findIndex((a) => a.id === targetId);
+
+    // 1. Tắt modal xác nhận và loại bỏ địa chỉ khỏi UI ngay lập tức
+    setDeleteConfirmTarget(null);
+    setAddresses((prev) => prev.filter((a) => a.id !== targetId));
+
     try {
-      setIsDeleting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await customerAddressService.deleteAddress(deleteConfirmTarget.id);
-      setDeleteConfirmTarget(null);
-      await fetchAddresses();
-      onAddressesUpdated?.();
-    } catch (err: any) {
-      Alert.alert('Lỗi', err.message || 'Không thể xóa địa chỉ.');
-    } finally {
-      setIsDeleting(false);
-    }
+    } catch {}
+
+    // 2. Kích hoạt Toast Hoàn tác ngay lập tức lên màn hình
+    useUndoStore.getState().showUndoToast({
+      message: `Đã xóa địa chỉ "${target.label || target.addressLine}"`,
+      onUndo: () => {
+        setAddresses((prev) => {
+          const next = [...prev];
+          if (targetIndex >= 0) {
+            next.splice(targetIndex, 0, target);
+          } else {
+            next.push(target);
+          }
+          return next;
+        });
+        onAddressesUpdated?.();
+      },
+      onCommit: async () => {
+        try {
+          await customerAddressService.deleteAddress(targetId);
+          onAddressesUpdated?.();
+        } catch (err: any) {
+          console.warn('[handleConfirmDelete] Lỗi xóa địa chỉ backend:', err.message);
+        }
+      },
+    });
   };
 
   const handleSetDefault = async (id: number) => {
@@ -213,15 +239,17 @@ export const SavedAddressModal: React.FC<Props> = ({
     }
   };
 
+  const handleCloseModal = () => {
+    setIsAdding(false);
+    setEditingId(null);
+    onClose();
+  };
+
   return (
     <SwipeableBottomSheet
       dismissDisabled={isSubmitting}
       visible={visible}
-      onClose={() => {
-        setIsAdding(false);
-        setEditingId(null);
-        onClose();
-      }}
+      onClose={handleCloseModal}
       title={isAdding ? (editingId ? 'Chỉnh Sửa Địa Chỉ' : 'Thêm Địa Chỉ Make-up Mới') : 'Sổ Địa Chỉ Trang Điểm'}
       subtitle={
         isAdding

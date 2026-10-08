@@ -102,6 +102,8 @@ export interface CustomerBookingItem {
   muaPhoneNumber?: string;
   packageName: string;
   packageCoverUrl?: string;
+  styleId?: number;
+  styleName?: string;
   bookingTime: string;
   destinationAddress: string;
   destinationLatitude?: number;
@@ -143,6 +145,7 @@ export interface BookingStatusDetailRes {
   depositAmount?: number;
   platformFee?: number;
   earningsAmount?: number;
+  styleId?: number;
   styleName?: string;
   packageName?: string;
   packagePrice?: number;

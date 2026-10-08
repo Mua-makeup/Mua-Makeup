@@ -271,7 +271,7 @@ export default function EditPackageScreen() {
               <View style={styles.fieldHeaderRow}>
                 <Text style={styles.sectionHeaderTitle}>Giá Niêm Yết (VNĐ) *</Text>
                 <Text style={styles.priceHighlight}>
-                  🏷️ {price ? `${price} đ` : 'Chưa đặt giá'}
+                  {price ? `${price} đ` : 'Chưa đặt giá'}
                 </Text>
               </View>
 
@@ -286,7 +286,6 @@ export default function EditPackageScreen() {
                 </TouchableOpacity>
 
                 <View style={styles.stepperCenter}>
-                  <Ionicons name="cash-outline" size={20} color={BrandColors.primary} />
                   <TextInput
                     style={[styles.stepperPriceInput, errors.price && styles.inputError]}
                     placeholder="850.000"
@@ -352,7 +351,7 @@ export default function EditPackageScreen() {
               <View style={styles.fieldHeaderRow}>
                 <Text style={styles.sectionHeaderTitle}>Thời Lượng Dự Kiến *</Text>
                 <Text style={styles.durationHighlight}>
-                  ⏱️ {durationMinutes || 60} phút ({formatDurationHuman(Number(durationMinutes))})
+                  {durationMinutes} phút
                 </Text>
               </View>
 
@@ -367,7 +366,6 @@ export default function EditPackageScreen() {
                 </TouchableOpacity>
 
                 <View style={styles.stepperCenter}>
-                  <Ionicons name="time-outline" size={20} color={BrandColors.primary} />
                   <TextInput
                     style={[
                       styles.stepperDurationInput,

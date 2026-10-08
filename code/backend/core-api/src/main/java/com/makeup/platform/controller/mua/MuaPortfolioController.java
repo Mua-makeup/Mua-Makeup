@@ -140,12 +140,15 @@ public class MuaPortfolioController extends BaseController {
     public ResponseEntity<ApiResponse<PageResponse<PortfolioSummaryRes>>> getPublicGallery(
             @PathVariable Long muaId,
             @RequestParam(value = "style_id", required = false) Integer styleId,
+            @RequestParam(value = "package_id", required = false) Long packageIdSnake,
+            @RequestParam(value = "packageId", required = false) Long packageIdCamel,
             @RequestParam(value = "is_featured", required = false) Boolean isFeatured,
             @RequestParam(value = "page", defaultValue = "0") @Min(value = 0, message = "{validation.page_min}") int page,
             @RequestParam(value = "size", defaultValue = "12") @Min(value = 1, message = "{validation.page_size_min}") @Max(value = 50, message = "{validation.page_size_max}") int size) {
 
+        Long packageId = packageIdSnake != null ? packageIdSnake : packageIdCamel;
         PageResponse<PortfolioSummaryRes> res = portfolioService.getPublicGallery(
-                muaId, styleId, isFeatured, PageRequest.of(page, size));
+                muaId, styleId, packageId, isFeatured, PageRequest.of(page, size));
         return ok(res, "mua.portfolios_list_success");
     }
 

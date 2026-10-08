@@ -21,35 +21,38 @@ public interface PortfolioShowcaseRepository extends JpaRepository<PortfolioShow
 
    
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId AND p.isFeatured = true AND p.isVisible = true")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId AND p.isFeatured = true AND p.isVisible = true AND p.isDeleted = false")
     List<PortfolioShowcaseEntity> findFeaturedForUpdate(@Param("muaId") Long muaId);
 
   
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id AND p.isDeleted = false")
     Optional<PortfolioShowcaseEntity> findByIdForUpdate(@Param("id") Long id);
 
     @Query("SELECT p.id AS id, p.title AS title, p.thumbnailUrl AS thumbnailUrl, " +
             "p.imageUrl AS imageUrl, p.style.styleName AS styleName, " +
+            "p.servicePackage.id AS packageId, " +
             "p.isFeatured AS isFeatured, p.createdAt AS createdAt " +
             "FROM PortfolioShowcaseEntity p " +
             "WHERE p.mua.id = :muaId " +
             "AND (:styleId IS NULL OR p.style.id = :styleId) " +
+            "AND (:packageId IS NULL OR p.servicePackage.id = :packageId) " +
             "AND (:isFeatured IS NULL OR p.isFeatured = :isFeatured) " +
-            "AND p.isVisible = true " +
+            "AND p.isVisible = true AND p.isDeleted = false " +
             "ORDER BY p.isFeatured DESC, p.createdAt DESC")
     Page<PortfolioSummaryProjection> findPublicGalleryProjected(
             @Param("muaId") Long muaId,
             @Param("styleId") Integer styleId,
+            @Param("packageId") Long packageId,
             @Param("isFeatured") Boolean isFeatured,
             Pageable pageable
     );
 
     
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId AND p.isDeleted = false ORDER BY p.createdAt DESC")
     Page<PortfolioShowcaseEntity> findAllByMuaIdOrderByCreatedAtDesc(@Param("muaId") Long muaId, Pageable pageable);
 
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id AND p.mua.id = :muaId")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id AND p.mua.id = :muaId AND p.isDeleted = false")
     Optional<PortfolioShowcaseEntity> findByIdAndMuaId(@Param("id") Long id, @Param("muaId") Long muaId);
 
 

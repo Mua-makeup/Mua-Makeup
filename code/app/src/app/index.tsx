@@ -169,6 +169,10 @@ export default function HomeScreen() {
   const [selectedTargetMua, setSelectedTargetMua] = useState<NearbyProviderRes | null>(null);
   const [isDirectModalVisible, setIsDirectModalVisible] = useState(false);
   const [directTargetMua, setDirectTargetMua] = useState<NearbyProviderRes | null>(null);
+  const [directTargetLocation, setDirectTargetLocation] = useState<{
+    address?: string;
+    coords?: { latitude: number; longitude: number } | null;
+  } | null>(null);
 
   const handleBookingPress = (muaId: number) => {
     router.push({
@@ -195,7 +199,10 @@ export default function HomeScreen() {
   };
 
   // Khi chọn "Đặt Ngay" trên một thợ online cụ thể -> Nếu chưa login thì chuyển sang trang login
-  const handleSelectOnlineMua = (mua: NearbyProviderRes) => {
+  const handleSelectOnlineMua = (
+    mua: NearbyProviderRes,
+    location?: { address?: string; coords?: { latitude: number; longitude: number } | null }
+  ) => {
     if (!isAuthenticated) {
       setIsOnlineListModalVisible(false);
       router.push('/(auth)/login');
@@ -203,6 +210,7 @@ export default function HomeScreen() {
     }
     setIsOnlineListModalVisible(false);
     setDirectTargetMua(mua);
+    setDirectTargetLocation(location || null);
     setIsDirectModalVisible(true);
   };
 
@@ -1053,18 +1061,22 @@ export default function HomeScreen() {
       <DirectMuaBookingModal
         visible={isDirectModalVisible}
         targetMua={directTargetMua}
+        initialLocation={directTargetLocation}
         onClose={() => {
           setIsDirectModalVisible(false);
           setDirectTargetMua(null);
+          setDirectTargetLocation(null);
         }}
         onFallbackRandomScan={() => {
           setIsDirectModalVisible(false);
           setDirectTargetMua(null);
+          setDirectTargetLocation(null);
           setIsRadarModalVisible(true);
         }}
         onChooseAnotherMua={() => {
           setIsDirectModalVisible(false);
           setDirectTargetMua(null);
+          setDirectTargetLocation(null);
           setIsOnlineListModalVisible(true);
         }}
       />

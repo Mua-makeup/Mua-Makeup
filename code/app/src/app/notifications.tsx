@@ -17,6 +17,7 @@ import { useNotificationStore } from '@/store/notification.store';
 import { useAuthStore } from '@/store/auth.store';
 import { NotificationItem } from '@/services/notification.service';
 import { BrandColors } from '@/constants/theme';
+import { useUndoStore } from '@/store/undo.store';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -54,15 +55,35 @@ export default function NotificationsScreen() {
 
   const handleClearAllConfirm = () => {
     if (notifications.length === 0) return;
+    const oldList = [...notifications];
+    const oldUnread = unreadCount;
+
     Alert.alert(
       'Xóa Tất Cả Thông Báo',
-      'Bạn có chắc chắn muốn xóa toàn bộ thông báo trong lịch sử không?',
+      'Bạn có chắc chắn muốn xóa toàn bộ thông báo trong lịch sử không? Bạn có thể hoàn tác ngay sau khi xóa.',
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa Sạch',
           style: 'destructive',
-          onPress: () => clearAll(),
+          onPress: () => {
+            // Loại bỏ lạc quan khỏi store
+            useNotificationStore.setState({ notifications: [], unreadCount: 0 });
+
+            // Kích hoạt Toast thông báo xóa thành công kèm nút Hoàn tác
+            useUndoStore.getState().showUndoToast({
+              message: 'Đã xóa toàn bộ thông báo trong lịch sử',
+              onUndo: () => {
+                useNotificationStore.setState({
+                  notifications: oldList,
+                  unreadCount: oldUnread,
+                });
+              },
+              onCommit: async () => {
+                await clearAll();
+              },
+            });
+          },
         },
       ]
     );

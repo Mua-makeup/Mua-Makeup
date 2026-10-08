@@ -28,6 +28,7 @@ interface BookingStoreState {
   destinationAddress: string;
   destinationLatitude: number;
   destinationLongitude: number;
+  selectedStyleId: number | null;
   selectedAddOnIds: number[];
   note: string;
   voucherCode: string;
@@ -49,6 +50,7 @@ interface BookingStoreState {
   setPackageAndProvider: (packageId: number, providerId: number, providerType?: 'FREELANCER' | 'AGENCY') => void;
   setDate: (date: string) => void;
   setTimeSlot: (timeSlot: string) => void;
+  setStyleId: (styleId: number | null) => void;
   setDestination: (address: string, lat: number, lng: number) => void;
   toggleAddOn: (addonId: number) => void;
   setNote: (note: string) => void;
@@ -72,6 +74,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   destinationAddress: '',
   destinationLatitude: 0,
   destinationLongitude: 0,
+  selectedStyleId: null,
   selectedAddOnIds: [],
   note: '',
   voucherCode: '',
@@ -100,6 +103,10 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   setTimeSlot: (timeSlot) => {
     set({ selectedTimeSlot: timeSlot });
     get().fetchInvoicePreview();
+  },
+
+  setStyleId: (selectedStyleId) => {
+    set({ selectedStyleId });
   },
 
   setDestination: (address, lat, lng) => {
@@ -192,6 +199,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
       destinationAddress,
       destinationLatitude,
       destinationLongitude,
+      selectedStyleId,
       selectedAddOnIds,
       note,
       voucherCode,
@@ -214,6 +222,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
       destinationAddress: destinationAddress || 'Vị trí hiện tại của khách hàng',
       destinationLatitude,
       destinationLongitude,
+      styleId: selectedStyleId || undefined,
       addOnItemIds: selectedAddOnIds,
       note: note || undefined,
       voucherCode: voucherCode || undefined,
@@ -358,6 +367,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
     set({
       selectedDate: '',
       selectedTimeSlot: '',
+      selectedStyleId: null,
       selectedAddOnIds: [],
       note: '',
       voucherCode: '',

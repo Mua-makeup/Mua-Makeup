@@ -17,6 +17,7 @@ import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
+import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
@@ -27,6 +28,7 @@ import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.agency.AgencyStaffCapacityService;
@@ -82,6 +84,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final ApplicationEventPublisher eventPublisher;
     private final BookingStateMachineService bookingStateMachineService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MakeupStyleRepository makeupStyleRepository;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final int DEFAULT_BUFFER_MINUTES = 30;
@@ -225,12 +228,18 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             String bookingCode = "BK-SCHED-" + (System.currentTimeMillis() % 10000000L);
             OffsetDateTime depositExpiredAt = OffsetDateTime.now(VIETNAM_OFFSET).plusMinutes(HOLD_DEPOSIT_MINUTES);
 
+            MakeupStyleEntity selectedStyle = null;
+            if (req.getStyleId() != null) {
+                selectedStyle = makeupStyleRepository.findById(req.getStyleId()).orElse(null);
+            }
+
             BookingEntity booking = BookingEntity.builder()
                     .bookingCode(bookingCode)
                     .customer(customer)
                     .agency(agencyProfile)
                     .mua(muaProfile)
                     .servicePackage(servicePackage)
+                    .style(selectedStyle)
                     .bookingType(BookingType.SCHEDULED)
                     .bookingPartner(req.getBookingPartner())
                     .status(BookingStatus.PENDING_DEPOSIT)

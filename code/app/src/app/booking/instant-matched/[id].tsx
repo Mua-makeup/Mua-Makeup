@@ -26,6 +26,7 @@ interface AddOnOption {
   id: string;
   name: string;
   price: number;
+  durationMinutes?: number;
   description: string;
 }
 
@@ -238,6 +239,7 @@ export default function InstantMatchedScreen() {
         id: String(item.id),
         name: item.itemName,
         price: Number(item.itemPrice || 0),
+        durationMinutes: Number(item.durationMinutes || 0),
         description: item.durationMinutes ? `Thời gian ước tính: ~${item.durationMinutes} phút` : 'Tiện ích mua thêm cho dịch vụ',
       }));
     }
@@ -246,6 +248,14 @@ export default function InstantMatchedScreen() {
 
   const selectedAddons = availableAddons.filter((a) => selectedAddonIds.includes(a.id));
   const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
+  const addonsExtraMinutes = selectedAddons.reduce((sum, a) => sum + (a.durationMinutes || 0), 0);
+  const baseServiceDuration = Number(
+    selectedPackage?.estimatedDurationMinutes ||
+    bookingDetail?.estimatedDurationMinutes ||
+    (bookingDetail as any)?.durationMinutes ||
+    60
+  );
+  const totalServiceDuration = baseServiceDuration + addonsExtraMinutes;
 
   const totalAmount = baseServicePrice + emergencySurcharge + distanceFee + addonsTotal;
   const depositAmount = Math.round(totalAmount * 0.3);
@@ -486,7 +496,7 @@ export default function InstantMatchedScreen() {
                 <View style={styles.singlePackageDurationRow}>
                   <Ionicons name="time-outline" size={12} color="#B45309" />
                   <Text style={styles.singlePackageDuration}>
-                    Thời lượng ước tính: ~{selectedPackage?.estimatedDurationMinutes || bookingDetail?.estimatedDurationMinutes || 60} phút
+                    Thời lượng ước tính: ~{totalServiceDuration} phút{addonsExtraMinutes > 0 ? ` (Gốc: ${baseServiceDuration}p + Mua thêm: ${addonsExtraMinutes}p)` : ''}
                   </Text>
                 </View>
               </View>
@@ -502,6 +512,27 @@ export default function InstantMatchedScreen() {
           <Text style={styles.sectionSubtitle}>
             Bạn có thể tích chọn thêm các tiện ích để thợ chuẩn bị đầy đủ dụng cụ:
           </Text>
+
+          {addonsExtraMinutes > 0 && (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+              backgroundColor: '#FEF3C7',
+              borderWidth: 1,
+              borderColor: '#FDE68A',
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              marginTop: 10,
+              marginBottom: 10,
+            }}>
+              <Ionicons name="time" size={16} color="#B45309" />
+              <Text style={{ fontSize: 13, color: '#92400E', flex: 1, lineHeight: 18 }}>
+                Tổng thời lượng dịch vụ: <Text style={{ fontWeight: '700', color: '#92400E' }}>~{totalServiceDuration} phút</Text> (Đã cộng thêm +{addonsExtraMinutes} phút từ {selectedAddons.length} dịch vụ mua thêm)
+              </Text>
+            </View>
+          )}
 
           {availableAddons.map((addon) => {
             const isSelected = selectedAddonIds.includes(addon.id);
@@ -563,6 +594,16 @@ export default function InstantMatchedScreen() {
               <Text style={[styles.billValue, { color: '#059669' }]}>+{formatVnd(addonsTotal)}</Text>
             </View>
           )}
+
+          <View style={styles.billRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.billLabel}>Thời gian phục vụ ước tính:</Text>
+              <Ionicons name="time-outline" size={13} color="#2563EB" />
+            </View>
+            <Text style={[styles.billValue, { color: '#2563EB', fontWeight: '700' }]}>
+              ~{totalServiceDuration} phút {addonsExtraMinutes > 0 ? `(+${addonsExtraMinutes}p)` : ''}
+            </Text>
+          </View>
 
           <View style={styles.billDivider} />
 

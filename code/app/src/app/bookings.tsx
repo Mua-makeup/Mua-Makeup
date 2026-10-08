@@ -180,6 +180,11 @@ export default function BookingsScreen() {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [expandedFilter, setExpandedFilter] = useState<'status' | 'timeframe' | 'sort' | null>(null);
 
+  // Phân trang tự động cuộn Load More chuẩn Shopee (Infinite Scroll Pipeline)
+  const PAGE_CHUNK_SIZE = 10;
+  const [displayLimit, setDisplayLimit] = useState<number>(PAGE_CHUNK_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+
   // Animation xoay icon Reload
   const spinAnim = useRef(new Animated.Value(0)).current;
 
@@ -453,7 +458,36 @@ export default function BookingsScreen() {
     return result;
   }, [rawList, selectedTimeframe, selectedStatus, searchKeyword, sortOption]);
 
+  // Pipeline hiển thị theo cơ chế Load More kiểu Shopee (Ban đầu nạp 10 đơn, cuộn xuống tự động nạp tiếp)
+  const totalFilteredCount = filteredAndSortedList.length;
+
+  const displayList = useMemo(() => {
+    if (activeTab !== 'HISTORY') {
+      return filteredAndSortedList;
+    }
+    return filteredAndSortedList.slice(0, displayLimit);
+  }, [filteredAndSortedList, displayLimit, activeTab]);
+
+  // Tự động reset về 10 đơn mỗi khi thay đổi từ khóa tìm kiếm, bộ lọc hoặc tab
+  useEffect(() => {
+    setDisplayLimit(PAGE_CHUNK_SIZE);
+  }, [searchKeyword, selectedStatus, selectedTimeframe, sortOption, activeTab]);
+
+  // Tự động nạp thêm 10 đơn tiếp theo khi cuộn đến đáy (Shopee Infinite Scroll)
+  const handleLoadMore = () => {
+    if (activeTab !== 'HISTORY') return;
+    if (isLoadingMore) return;
+    if (displayLimit >= filteredAndSortedList.length) return;
+
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setDisplayLimit((prev) => prev + PAGE_CHUNK_SIZE);
+      setIsLoadingMore(false);
+    }, 300);
+  };
+
   const handleRefresh = async () => {
+    setDisplayLimit(PAGE_CHUNK_SIZE);
     startSpin();
     try {
       if (isWorkstationRole) {
@@ -470,6 +504,7 @@ export default function BookingsScreen() {
     setActiveTab(newTab);
     setSelectedStatus('ALL');
     setSelectedTimeframe('ALL');
+    setDisplayLimit(PAGE_CHUNK_SIZE);
   };
 
   const handleResetFilters = () => {
@@ -477,6 +512,37 @@ export default function BookingsScreen() {
     setSelectedStatus('ALL');
     setSelectedTimeframe('ALL');
     setSortOption('CREATED_DESC');
+    setDisplayLimit(PAGE_CHUNK_SIZE);
+  };
+
+  // Footer của danh sách: hiển thị Spinner đang tải thêm hoặc thông báo đã xem hết kiểu Shopee
+  const renderListFooter = () => {
+    if (activeTab !== 'HISTORY' || totalFilteredCount === 0) {
+      return null;
+    }
+
+    if (displayLimit < totalFilteredCount) {
+      return (
+        <View style={styles.loadMoreFooter}>
+          <ActivityIndicator size="small" color={BrandColors.primary} />
+          <Text style={styles.loadMoreText}>Đang tải thêm 10 đơn tiếp theo...</Text>
+        </View>
+      );
+    }
+
+    if (totalFilteredCount > PAGE_CHUNK_SIZE) {
+      return (
+        <View style={styles.endOfListFooter}>
+          <View style={styles.endOfListLine} />
+          <Text style={styles.endOfListText}>
+            Đã hiển thị tất cả {totalFilteredCount} đơn
+          </Text>
+          <View style={styles.endOfListLine} />
+        </View>
+      );
+    }
+
+    return null;
   };
 
   const handleConfirmCancel = async (
@@ -612,7 +678,9 @@ export default function BookingsScreen() {
             {isWorkstationRole ? 'Lịch Ca Làm Việc' : 'Lịch Hẹn Của Tôi'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            Hiển thị {filteredAndSortedList.length} / {rawList.length} đơn
+            {activeTab === 'HISTORY'
+              ? `Hiển thị ${Math.min(displayLimit, totalFilteredCount)} / ${totalFilteredCount} đơn`
+              : `Hiển thị ${filteredAndSortedList.length} / ${rawList.length} đơn`}
           </Text>
         </View>
 
@@ -696,7 +764,7 @@ export default function BookingsScreen() {
         </View>
       ) : (
         <FlatList
-          data={filteredAndSortedList as any[]}
+          data={displayList as any[]}
           keyExtractor={(item) => `booking-${item.id}`}
           renderItem={({ item }) =>
             isWorkstationRole ? (
@@ -716,6 +784,9 @@ export default function BookingsScreen() {
           }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.25}
+          ListFooterComponent={renderListFooter}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -1206,6 +1277,36 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 95,
+  },
+  loadMoreFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  endOfListFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 12,
+  },
+  endOfListLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    maxWidth: 60,
+  },
+  endOfListText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   loadingContainer: {
     flex: 1,
