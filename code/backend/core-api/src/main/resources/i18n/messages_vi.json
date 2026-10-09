@@ -564,5 +564,13 @@
     "insufficient_balance": "Số dư ví không đủ để thực hiện giao dịch.",
     "customer_wallet_ok": "Lấy thông tin ví cá nhân thành công."
   },
-  "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!"
+  "support": {
+    "message_not_blank": "Nội dung câu hỏi không được để trống.",
+    "message_too_long": "Nội dung câu hỏi không được vượt quá 1000 ký tự.",
+    "session_code_required": "Mã phiên trò chuyện không được để trống.",
+    "session_not_found": "Không tìm thấy phiên trò chuyện yêu cầu.",
+    "chat_success": "Phản hồi từ trợ lý AI thành công."
+  },
+  "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!",
+  "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn."
 }

@@ -1,0 +1,3 @@
+
+ALTER TABLE interaction_schema.ai_chat_messages
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;

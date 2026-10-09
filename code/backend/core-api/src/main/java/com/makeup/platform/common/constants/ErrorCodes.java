@@ -171,6 +171,9 @@ public final class ErrorCodes {
     public static final String ERR_SETTLEMENT_ALREADY_EXISTS = "ERR_SETTLEMENT_ALREADY_EXISTS";
     public static final String ERR_SETTLEMENT_PREREQUISITE_NOT_MET = "ERR_SETTLEMENT_PREREQUISITE_NOT_MET";
     public static final String ERR_DEPOSIT_NOT_PAID = "ERR_DEPOSIT_NOT_PAID";
+
+    // Phân hệ Trợ lý AI CSKH (AI Support & RAG)
+    public static final String ERR_SUPPORT_SESSION_NOT_FOUND = "ERR_SUPPORT_SESSION_NOT_FOUND";
 }
 
 

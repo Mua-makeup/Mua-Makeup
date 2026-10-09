@@ -16,6 +16,7 @@ import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
 import { DepositConfirmedModal } from '@/components/mua/DepositConfirmedModal';
 import { NotificationToast } from '@/components/notification/NotificationToast';
 import { UndoToast } from '@/components/common/UndoToast';
+import { FloatingAiAssistantBubble } from '@/components/common/FloatingAiAssistantBubble';
 import { setupAlertPolyfill } from '@/store/popup.store';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
@@ -166,6 +167,8 @@ export default function RootLayout() {
         <NotificationToast />
         {/* Toast Hoàn Tác Xóa Toàn Cục */}
         <UndoToast />
+        {/* Bong Bóng Chat Trợ Lý AI CSKH Toàn Cục */}
+        <FloatingAiAssistantBubble />
       </ThemeProvider>
     </GestureHandlerRootView>
   );
