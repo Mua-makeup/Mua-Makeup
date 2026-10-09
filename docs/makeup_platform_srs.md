@@ -1,568 +1,1029 @@
-# TÀI LIỆU YÊU CẦU PHẦN MỀM (SRS)
-## NỀN TẢNG ĐẶT LỊCH MAKE-UP (MAKEUP BOOKING PLATFORM)
+# TÀI LIỆU ĐẶC TẢ YÊU CẦU PHẦN MỀM — MUA-MAKEUP
 
----
+## 1. Kiến trúc, công nghệ và tác nhân
 
-## I. GIỚI THIỆU (INTRODUCTION)
+### 1.1. Thành phần
 
-### 1. Mục đích (Purpose)
-Mục đích của dự án Nền tảng Đặt lịch Make-up (Makeup Booking Platform) là:
-* **Tin học hóa & Tự động hóa** quy trình đặt lịch trang điểm tận nơi hoặc tại Studio giữa Khách hàng, Thợ Make-up tự do (Freelance MUA) và các Đại lý/Studio Make-up.
-* **Tối ưu hóa khả năng điều phối**: Hỗ trợ các Đại lý Make-up quản lý đội ngũ thợ, nhận đơn và điều phối lịch ca làm việc minh bạch.
-* **Linh hoạt luồng đặt lịch theo thời gian**:
-  * **Luồng Đặt Ngay Realtime (Instant Booking):** Đáp ứng nhu cầu cần thợ trang điểm gấp trong vòng 30-60 phút.
-  * **Luồng Đặt Lịch Hẹn Trước (Scheduled Booking):** Cho phép đặt lịch cho các sự kiện tương lai (đám cưới, kỷ yếu, sự kiện).
-* **Hệ thống Thông báo Trực tiếp trên App (In-App Realtime Notifications via In-Memory EventBus):** Đẩy thông báo tức thì (<100ms) trực tiếp trên giao diện Ứng dụng qua kết nối Embedded WebSocket & Spring In-Memory EventBus (`ApplicationEventPublisher`), hoàn toàn loại bỏ sự phụ thuộc vào Email.
-* **Đầy đủ Đặc tả Backend Monolith & Frontend Phân hệ Độc lập:** Cung cấp chi tiết kiến trúc Backend Layered Architecture Monolith (`core-api`), Mô hình Phân quyền RBAC 4 Bảng, Phân vùng Ví 7 Bảng Sổ cái Kế toán Đúp, Database PostgreSQL + PostGIS 28 Bảng cốt lõi chia thành 8 Schemas độc lập; đồng thời quy định chuẩn hóa cấu trúc Frontend:
-  * **Cổng thông tin Web Quản trị (Web Portal):** Phát triển trên nền tảng **ReactJS + JavaScript (JSX)** phục vụ Quản trị viên Sàn (`ROLE_SUPER_ADMIN`) và Ban điều hành/Nhân viên Đại lý Studio (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`).
-  * **Ứng dụng Di động Đa nền tảng (Mobile App):** Phát triển trên nền tảng **React Native + TypeScript (TSX)** phục vụ Khách hàng đặt dịch vụ (`ROLE_CUSTOMER`) và Thợ Make-up nhận ca (`ROLE_FREELANCE_MUA`).
+| Thành phần | Công nghệ/cấu hình trong nguồn | Trách nhiệm |
+| --- | --- | --- |
+| Backend | Java **17**, Spring Boot **3.3.4**, Gradle | REST, xác thực, nghiệp vụ, DB, scheduler, WebSocket |
+| Web portal | React 18.2, JSX, Vite 5, Router 6, Tailwind 3, Zustand 4, Axios/Zod | Quản trị sàn/studio, landing, đăng nhập/đăng ký/gia nhập |
+| App/mobile | Expo **57**, React **19.2.3**, React Native **0.86.3**, TypeScript, Expo Router, Zustand 5 | Khách, freelancer, nhân viên studio; iOS/Android/Expo Web |
+| Database | PostgreSQL 16 + PostGIS 3.4, Flyway | Dữ liệu nghiệp vụ/địa lý/lịch sử/tài chính |
+| Redis | `redis:7-alpine`, Redisson 3.34.1 | Token/OTP, GEO, heartbeat, khóa, lời mời, offer, chống trùng |
+| Realtime | Spring WebSocket/STOMP, Application Events | Thông báo, vị trí và biến động nghiệp vụ |
+| Media | Cloudinary | Avatar, logo, chứng chỉ, portfolio, ảnh nghiệm thu/minh chứng |
+| Payment | VNPay và MoMo strategy | Checkout, IPN, return, query/sync |
+| Maps | Maps proxy/service, Goong và routing/fallback trong service | Geocode, autocomplete, place detail, khoảng cách/ETA |
+| Push | Expo Notifications/Expo Push | Token thiết bị, thông báo và mở đối tượng liên quan |
+| Email | Spring Mail | OTP đăng nhập quản trị; không còn “loại bỏ 100% email” |
+| AI | Gemini client + kho tri thức PostgreSQL | Chat hỗ trợ, retrieval và ngữ cảnh tài khoản |
 
-### 2. Phạm vi hệ thống (System Scope)
-* **Trong phạm vi (In-Scope):**
-  * **Cổng Thông tin Web Quản trị Sàn (Super Admin Web Portal - ReactJS + JavaScript):** Dashboard KPI toàn sàn, Phê duyệt chứng chỉ thợ (`/api/v1/admin/muas/{id}/certificates/verify`), Thẩm định đại lý mới, Quản trị danh mục gốc (Master Categories / Styles), Điều chỉnh Surge Pricing, Trung tâm giải quyết khiếu nại (Dispute Resolution & Escrow Refund), Quản lý Ví đối soát Sàn & Phê duyệt Payout.
-  * **Cổng Thông tin Web Quản lý Studio (Agency Admin Web Portal - ReactJS + JavaScript):** Dashboard doanh thu Studio, Quản lý hồ sơ nhân sự thợ (`agency_staff`), Ma trận xếp ca làm việc tuần (`agency_staff_shifts`), Bảng điều phối Job (Dispatching Board: Gán Thợ chính/Thợ phụ/Đổi thợ khẩn cấp), Quản trị bảng giá & phụ phí studio, Quản lý Quy chế Quá giờ & Duyệt giải trình ca làm vượt thời gian (`agency_overtime_rules`, `agency_staff_overtime_reports`), Ví Studio & Yêu cầu rút tiền.
-  * **Ứng dụng Di động Khách hàng (Customer Mobile App - React Native + TypeScript):** Radar GPS quét thợ xung quanh theo bán kính PostGIS/Redis GEO, Đặt lịch 2 luồng (Realtime khẩn cấp 30-60 phút & Scheduled hẹn trước), Live Tracking vị trí thợ di chuyển trên bản đồ qua WebSocket STOMP, Cổng thanh toán giữ cọc Escrow (MoMo, VNPay, VietQR, ZaloPay), Nghiệm thu ca làm, Đánh giá 1-5★, Tip tiền thợ.
-  * **Ứng dụng Di động Thợ Make-up (MUA Mobile App - React Native + TypeScript):** Nút công tắc chuyển đổi trạng thái Sẵn sàng/Bận, Dịch vụ chạy ngầm phát sóng tọa độ GPS Telemetry (5-10s), Popup đếm ngược 30s-45s nhận đơn khẩn cấp có âm thanh cảnh báo, Quy trình 5 chặng thực hiện ca làm việc (Bắt đầu đi $\rightarrow$ Đến nơi $\rightarrow$ Bắt đầu làm $\rightarrow$ Chụp ảnh nghiệm thu $\rightarrow$ Hoàn thành), Nộp giải trình quá giờ kèm ảnh đối chứng khi vượt thời lượng dự kiến, Lịch bận cá nhân (`mua_calendars`), Xem ca trực Studio (`agency_staff_shifts`), Quản lý Portfolio Album mẫu, Ví thợ & Yêu cầu Payout về ngân hàng cá nhân.
-  * **Hệ thống Backend Monolith:** Đóng gói đơn lẻ trong 1 ứng dụng Spring Boot (`core-api`: 8080) gồm 11 Domain Modules, **Embedded WebSocket Gateway** (`/ws-makeup`) và Event-Driven Architecture nội bộ qua Spring `ApplicationEventPublisher`.
-* **Ngoài phạm vi (Out-of-Scope):**
-  * Tích hợp máy POS quẹt thẻ phần cứng tại cửa hàng vật lý.
-  * Gửi Email thông báo truyền thống (thay thế 100% bằng In-App Realtime Notifications qua Embedded WebSocket & In-Memory EventBus).
+Phiên bản lấy từ manifest/build, không khẳng định mọi môi trường đang cài giống nhau. App dùng React Native components/StyleSheet; không mô tả NativeWind, React Native Maps hay Shadcn là dependency đã có khi manifest chưa khai báo.
 
-### 3. Mục tiêu hệ thống (System Objective)
-* **Tập trung hóa dữ liệu & Kết nối:** Lưu trữ toàn bộ thông tin tài khoản, lịch hẹn, hồ sơ tay nghề, lịch sử giao dịch trong một hệ thống CSDL duy nhất (`makeup_platform_db`) phân tách 8 Schemas.
-* **Thời gian thực (Realtime Efficiency):** Cập nhật vị trí di chuyển của thợ (GPS Telemetry) và Broadcast thông báo In-App qua Embedded WebSocket Gateway (<100ms).
-* **Minh bạch tài chính:** Đảm bảo công bằng trong việc phân chia doanh thu giữa Sàn - Đại lý - Thợ qua mô hình Ví 7 Bảng Sổ cái Kế toán Đúp (Double-Entry Ledger).
+Backend là monolith phân tầng `controller → service → repository → entity`, kèm DTO/mapper/config/security/common. REST tiền tố `/api/v1`, port mặc định 8080. WebSocket `/ws-makeup`, application prefix `/app`, simple broker `/topic`, `/queue`, có endpoint thường và SockJS. Event bus/simple broker nội bộ không phải broker bền vững dùng chung nhiều instance.
 
-### 4. Chữ viết tắt & Thuật ngữ (Abbreviations & Acronyms)
+Compose hiện chạy PostgreSQL/Redis, cổng 5432/6379; backend/web/app chạy riêng. Backend có `application.yml`, `application-dev.yml`, `application-prod.yml`; secrets phụ thuộc môi trường triển khai.
 
-| Từ viết tắt | Giải thích ý nghĩa chi tiết |
-| :--- | :--- |
-| **SRS** | Software Requirements Specification (Tài liệu đặc tả yêu cầu phần mềm) |
-| **MUA** | Makeup Artist (Thợ trang điểm chuyên nghiệp) |
-| **MBS / HMS** | Makeup Booking System (Hệ thống quản lý & đặt lịch trang điểm) |
-| **EDA** | Event-Driven Architecture (Kiến trúc hướng sự kiện bất đồng bộ) |
-| **WSS** | WebSocket Secure (Giao thức kết nối màng lưới thời gian thực có mã hóa SSL/TLS) |
-| **GPS** | Global Positioning System (Hệ thống định vị toàn cầu phát sóng tọa độ) |
-| **RBAC** | Role-Based Access Control (Cơ chế phân quyền người dùng dựa trên vai trò) |
-| **API** | Application Programming Interface (Giao diện lập trình ứng dụng giao tiếp dịch vụ) |
-| **CDN** | Content Delivery Network (Mạng lưới phân phối nội dung nén ảnh/video tốc độ cao) |
-| **JWT** | JSON Web Token (Mã định danh xác thực & phân quyền an toàn) |
-| **FCM** | Firebase Cloud Messaging (Dịch vụ thông báo đẩy Push Notification của Google) |
-| **TTL** | Time To Live (Thời gian tồn tại tối đa của dữ liệu trong RAM/Redis Cache) |
-| **ACID** | Atomicity, Consistency, Isolation, Durability (Các tính chất đảm bảo an toàn giao dịch DB) |
-| **WBS** | Work Breakdown Structure (Bảng phân rã cấu trúc công việc chi tiết) |
-| **Escrow** | Cơ chế tài khoản trung gian giữ tiền cọc an toàn cho đến khi đơn hàng hoàn tất |
+### 1.2. Vai trò
 
----
+| Vai trò | Phạm vi hiện tại |
+| --- | --- |
+| Guest | Landing, danh mục/gói/hồ sơ công khai, maps/nearby và AI công khai theo SecurityConfig |
+| `ROLE_CUSTOMER` | APP tìm dịch vụ, địa chỉ, booking/cọc/tracking/thanh toán/hủy/tranh chấp/ví/thông báo/hồ sơ |
+| `ROLE_FREELANCE_MUA` | APP hồ sơ/chứng chỉ/gói/showcase/online/nhận ca/thực hiện ca/ví; BE có lịch bận và gia nhập studio |
+| `ROLE_AGENCY_STAFF` | APP nhánh thợ/workstation/hồ sơ staff/ca được giao; BE có xác nhận assignment, lịch ca, báo bận, quá giờ theo quyền |
+| `ROLE_AGENCY_ADMIN` | WEB `/agency/*`: studio, nhân sự, ca, catalog, dispatch, booking, cấu hình |
+| `ROLE_SUPER_ADMIN` | WEB `/admin/*`: dashboard, booking, user, agency, chứng chỉ, taxonomy, pricing/H3, dispute |
 
-## II. MÔ TẢ TỔNG QUAN HỆ THỐNG & KIẾN TRÚC
+Router web hiện chỉ cho AGENCY_ADMIN vào `/agency`, không cho AGENCY_STAFF vào toàn portal. UI guard không thay thế kiểm tra role và ownership ở backend. User ID, MUA ID, staff ID và agency ID không thể hoán đổi.
 
-### 1. Kiến trúc Layered Monolith Chi tiết (Layered Architecture Monolith)
+## 2. Chức năng dùng chung
 
-Hệ thống Backend được thiết kế theo mô hình **Layered Architecture Monolith (Kiến trúc Monolith Phân tầng Chuẩn mực)**. Toàn bộ hệ thống đóng gói và triển khai trong **1 ứng dụng Spring Boot đơn lẻ (`core-api`, Port: 8080)**, phân tách theo các tầng Controller - Service - Repository - Entity kết hợp **Spring In-Memory EventBus (`ApplicationEventPublisher`)** (<5ms latency) và **Embedded WebSocket STOMP Gateway** phục vụ kết nối WSS thời gian thực.
+### 2.1. Tài khoản và hồ sơ
 
-```
-+---------------------------------------------------------------------------------------------------+
-|                              MAKEUP PLATFORM MONOLITH (core-api: 8080)                            |
-|                                                                                                   |
-|  [PRESENTATION LAYER: REST Controllers & Embedded STOMP WebSocket Gateway (/ws-makeup)]          |
-|  +-------------------+  +-------------------+  +-------------------+  +------------------------+  |
-|  | AuthController    |  | AgencyController  |  | CatalogController |  | BookingController      |  |
-|  | TelemetryCtrler   |  | PricingController |  | WalletController  |  | ReviewController       |  |
-|  +---------+---------+  +---------+---------+  +---------+---------+  +-----------+------------+  |
-|            |                      |                      |                        |               |
-|  +---------v----------------------v----------------------v------------------------v------------+  |
-|  | [BUSINESS LOGIC LAYER: Spring Services & In-Memory EventBus (ApplicationEventPublisher)]     |  |
-|  | AuthService, AgencyService, MuaService, CatalogService, BookingService, TelemetryService,     |  |
-|  | PricingService, WalletService (Double-Entry Ledger), NotificationService, ReviewService     |  |
-|  +---------+----------------------------------------------------------------------+------------+  |
-|            |                                                                      |               |
-|  +---------v----------------------------------------------------------------------v------------+  |
-|  | [DATA ACCESS LAYER: Spring Data JPA Repositories & Hibernate Entities mapped to 8 Schemas]    |  |
-|  | UserRepository, AgencyRepository, PackageRepository, BookingRepository, WalletRepository...  |  |
-|  +----------------------------------------------------+----------------------------------------+  |
-+-------------------------------------------------------|-------------------------------------------+
-                                                        |
-                           +----------------------------+----------------------------+
-                           |                                                         |
-              +------------v-----------+                                +------------v-----------+
-              |  PostgreSQL 16 + GIS   |                                |    Redis 7.2 Cache     |
-              |  (makeup_platform_db)  |                                |   (GEO, Redlock, TTL)  |
-              |  - 8 Business Schemas  |                                +------------------------+
-              +------------------------+
-```
+| ID | Chức năng | Hiện trạng |
+| --- | --- | --- |
+| AUTH-01 | Đăng ký, kiểm tra trùng email/điện thoại, tạo hồ sơ/mã nghiệp vụ theo loại tài khoản | BE, WEB; APP CUSTOMER/FREELANCER_MUA |
+| AUTH-02 | Login bằng email/điện thoại và mật khẩu; trả userInfo/roles/permissions/token | BE, WEB, APP |
+| AUTH-03 | OTP email 6 số cho super admin/agency admin, phiên 5 phút, gửi lại có giới hạn | BE, WEB modal 2FA; APP không có luồng quản trị tương đương |
+| AUTH-04 | Khôi phục phiên, refresh, logout/thu hồi token, xử lý lỗi phiên và điều hướng theo role | BE, WEB, APP |
+| AUTH-05 | Đổi mật khẩu, ngôn ngữ vi/en, lấy user hiện tại | BE, WEB; APP có API ngôn ngữ, chưa dịch toàn UI |
+| AUTH-06 | Sửa hồ sơ và avatar; khách có API profile riêng | BE, WEB theo modal quản trị, APP |
+| AUTH-07 | Đăng ký/cập nhật push token | BE, APP |
+| AUTH-08 | Onboarding, lưu đã xem, dọn phiên/listener khi logout | APP |
 
-#### **Cấu trúc Thư mục Mã nguồn Phân tầng (Layered Folder Structure):**
-```text
-code/backend/core-api/
-├── src/main/java/com/makeup/platform/
-│   ├── Application.java                   # Class bootstrap Spring Boot 3.3.x Monolith
-│   │
-│   ├── common/                            # Tiện ích và core classes dùng chung
-│   │   ├── base/                          # BaseEntity (@MappedSuperclass), BaseController, ApiResponse, BaseService, BaseServiceImpl
-│   │   ├── constants/                     # ErrorCodes, SecurityConstants, RegexConstants
-│   │   ├── exception/                     # GlobalExceptionHandler (@RestControllerAdvice), CustomBusinessException
-│   │   └── utils/                         # JwtUtils, CookieUtils, GeoSpatialUtils, DateUtils
-│   │
-│   ├── config/                            # Cấu hình Framework (Security, OpenAPI, Database, Redis, Redisson, WebSocket)
-│   ├── controller/                        # TẦNG GIAO TIẾP HTTP (auth/, agency/, catalog/, booking/, telemetry/, pricing/, wallet/, review/)
-│   ├── dto/                               # DATA TRANSFER OBJECT (request/ với @Valid, response/)
-│   ├── entity/                            # TẦNG MAP DATABASE (JPA Entity kế thừa BaseEntity, ánh xạ vào 8 PostgreSQL Schemas)
-│   ├── repository/                        # TẦNG TRUY VẤN DỮ LIỆU (Spring Data JPA & Custom Native Spatial Queries)
-│   ├── security/                          # TẦNG BẢO MẬT (JwtFilter, UserDetails, SecurityConfig)
-│   └── service/                           # TẦNG NGHIỆP VỤ LÕI
-│       ├── impl/                          # Triển khai code nghiệp vụ thực tế
-│       └── <Domain>Service.java           # Interfaces định nghĩa hợp đồng nghiệp vụ
-│
-├── src/main/resources/
-│   ├── application.yaml                   # Cấu hình port 8080, datasource (8 schemas), redis
-│   └── db/migration/                      # Scripts Flyway DDL cho CSDL duy nhất makeup_platform_db
-```
+Backend thiết lập cookie khi login/verify/refresh, đồng thời trả token trong response và hỗ trợ Bearer. Refresh/logout ưu tiên cookie rồi body fallback. Native lưu SecureStore; Expo Web dùng localStorage. Không áp quy định “mọi client chỉ dùng HttpOnly cookie” cho toàn dự án. JWT access mặc định 24 giờ; refresh **7 ngày** theo giá trị cấu hình, không phải comment “30 days”. BCrypt strength 12.
 
-Danh sách Phân hệ Nghiệp vụ trong Monolith Core (`core-api`):
-1. **Auth & Profile Module** (`controller.auth`, `service.AuthService`, `entity.auth.*`, `repository.auth.*`, `auth_schema`): Đăng ký, Đăng nhập, JWT 1 ngày, Refresh Token Cookie HttpOnly, Phân quyền RBAC 4 Bảng.
-2. **Agency Operations Module** (`controller.agency`, `service.AgencyService`, `entity.agency.*`, `repository.agency.*`, `agency_schema`): Quản lý Studio, mời/duyệt thợ, gán kỹ năng phong cách (`agency_staff_styles`), điều phối ca làm.
-3. **MUA Freelancer Module** (`controller.mua`, `service.MuaService`, `entity.mua.*`, `repository.mua.*`, `mua_schema`): Hồ sơ cá nhân thợ tự do, portfolio chứng chỉ bằng cấp, lịch làm việc.
-4. **Catalog & Media Module** (`controller.catalog`, `service.CatalogService`, `entity.catalog.*`, `repository.catalog.*`, `catalog_schema`): Gói dịch vụ Studio vs Freelancer, Album Portfolio ảnh hoàn thiện, bảng phụ phí.
-5. **Booking & Dispatching Module** (`controller.booking`, `service.BookingService`, `entity.booking.*`, `repository.booking.*`, `booking_schema`): Máy trạng thái đơn (State Machine), 2 luồng đặt lịch, chống race-condition bằng Redlock.
-6. **Location & Telemetry Module** (`controller.telemetry`, `service.TelemetryService`, `entity.telemetry.*`, `repository.telemetry.*`, `telemetry_schema`): Stream GPS thợ (5-10s) lưu Redis GEO & PostGIS Spatial Index.
-7. **Dynamic Pricing Module** (`controller.pricing`, `service.PricingService`, `entity.pricing.*`, `repository.pricing.*`, `catalog_schema`): Phí km di chuyển, phụ phí giờ sớm/đêm, Surge Pricing & Preview Hóa đơn.
-8. **Wallet & Escrow Module** (`controller.wallet`, `service.WalletService`, `entity.wallet.*`, `repository.wallet.*`, `wallet_schema`): Ví 7 Bảng Sổ cái Kế toán Đúp, Escrow cọc, Payout giải ngân Ngân hàng.
-9. **In-App Notification Module** (`service.NotificationService`, `entity.interaction.NotificationEntity`, `interaction_schema`): Bắt sự kiện In-Memory đẩy Toast Popup Realtime qua STOMP WebSocket <5ms.
-10. **Embedded WebSocket Gateway Module** (`config.WebSocketConfig`, STOMP broker `/ws-makeup`): Kênh kết nối 2 chiều WSS trực tiếp trong monolith `core-api`.
-11. **Review, Tip & Dispute Module** (`controller.review`, `service.ReviewService`, `entity.interaction.*`, `repository.interaction.*`, `interaction_schema`): Đánh giá sao, Tip tiền trực tiếp cho Thợ & Đơn khiếu nại.
+### 2.2. Catalog, portfolio và giá
 
----
+| ID | Chức năng | Hiện trạng |
+| --- | --- | --- |
+| CAT-01 | Công khai danh mục/phong cách; admin xem cả ẩn, tạo/sửa/bật/tắt | BE, WEB; APP đọc/chọn/lọc |
+| CAT-02 | Gói thuộc freelancer/agency: tạo/sửa/xóa/bật tắt, gói của mình, public list/detail | BE, WEB, APP |
+| CAT-03 | Item/bước trong gói: CRUD, giá/thời lượng; add-on cộng giá và thời lượng khi đặt | BE, WEB, APP |
+| CAT-04 | Phong cách hồ sơ/gói; gán kỹ năng và khả năng thực hiện gói cho staff | BE, WEB; APP hồ sơ/gói thợ |
+| CAT-05 | Portfolio ảnh hồ sơ, upload chứng chỉ; showcase gắn gói với ảnh nhiều góc, mô tả, style, nổi bật, ẩn/hiện, sửa/xóa | BE, APP; WEB quản lý chứng chỉ/nhân sự |
+| CAT-06 | CRUD/list/calculate phụ phí; giờ sớm/ngày lễ/ngoài bán kính theo cấu hình | BE, WEB; APP chưa có route CRUD riêng |
+| PRICE-01 | Preview hóa đơn gói/add-on/khoảng cách/phụ phí/surge/giảm giá/tổng/cọc; kiểm tra item thuộc gói, gói đang cung cấp | BE, WEB, APP |
+| PRICE-02 | Khoảng cách, ETA, bán kính, vị trí cơ sở/vị trí gần nhất/fallback | BE, APP; WEB map picker |
+| PRICE-03 | CRUD/bật tắt surge theo khung giờ/ngày/phạm vi, multiplier giảm giá Happy Hour | BE, WEB |
+| PRICE-04 | H3 surge cung/cầu; admin xem/bật tắt toàn cục, provider có cờ áp dụng | BE, WEB; APP xem báo giá |
 
-### 2. Danh mục Công nghệ Sử dụng (Technology Stack)
+Preview scheduled tính từ gói/add-on, di chuyển, phụ phí, surge; instant có phí khẩn cấp và cập nhật giá khi chốt gói. Snapshot giá booking và kết quả server là cơ sở đối chiếu thanh toán, không dùng công thức dự kiến cũ cho mọi nhánh.
 
-Hệ thống được xây dựng trên nền tảng công nghệ hiện đại, đảm bảo tính sẵn sàng cao, chịu tải lớn và độ trễ thấp (<5ms):
+### 2.3. Khám phá, địa chỉ
 
-| Phân hệ / Tầng | Thành phần Kỹ thuật | Công nghệ & Thư viện sử dụng | Lý do Lựa chọn & Vai trò Kỹ thuật |
-| :--- | :--- | :--- | :--- |
-| **Backend Core** | Ngôn ngữ & Runtime | **Java 21 LTS** | Hỗ trợ Virtual Threads (Project Loom) xử lý hàng chục nghìn kết nối đồng thời với mức tiêu hao RAM tối thiểu. |
-| | Framework Chính | **Spring Boot 3.3.x** | Chuẩn công nghiệp mạnh mẽ, tích hợp Spring Web, Spring Security, Spring Data JPA, Spring Validation. |
-| | Kiến trúc Ứng dụng | **Layered Architecture Monolith** | Đóng gói đơn lẻ (Single Deployment), cấu trúc phân tầng Controller - Service - Repository - Entity chuẩn mực, hiệu năng cao, dễ bảo trì và mở rộng. |
-| | In-Memory EventBus | **Spring ApplicationEvents** | Truyền phát sự kiện nội bộ bất đồng bộ (`@Async`) giữa các Domain Modules với độ trễ siêu thấp (<5ms), không tốn chi phí mạng. |
-| | Distributed Lock | **Redisson (Redis Lock)** | Cơ chế Redlock chống tranh chấp nhận đơn ca khẩn cấp (Race condition) giữa nhiều thợ cùng lúc. |
-| **Cơ sở Dữ liệu & Lưu trữ** | Hệ quản trị CSDL Quan hệ | **PostgreSQL 16** | Cơ sở dữ liệu chính tuân thủ chuẩn ACID, tối ưu hóa JSONB, Partitioning và độ tin cậy giao dịch tài chính cực cao. |
-| | Không gian Địa lý (GIS) | **PostGIS 3.4 Extension** | Xử lý tọa độ địa lý, chỉ mục không gian `GIST(location_point)`, tính khoảng cách cầu phẳng `ST_DistanceSphere` và quét bán kính `ST_DWithin`. |
-| | In-Memory Cache & GEO | **Redis 7.2** | Cấu trúc dữ liệu `GEOADD` / `GEORADIUS` quét thợ rảnh thời gian thực theo tọa độ GPS, lưu Session và Cache dữ liệu truy vấn cao. |
-| | Migration Công cụ | **Flyway 10.x** | Tự động hóa quản lý và đồng bộ phiên bản cấu trúc Database DDL giữa các môi trường phát triển và Production. |
-| **Frontend Clients** | Mobile App (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`) | **React Native (0.74+) & TypeScript (TSX)** | Đa nền tảng (iOS & Android) từ một codebase duy nhất, Static Typing TypeScript an toàn, React Navigation v6, tích hợp Native Modules phát sóng GPS ngầm (Background Task) và kết nối STOMP WSS. |
-| | Web Portal (`ROLE_SUPER_ADMIN`, `ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`) | **React 18 & JavaScript (JSX) + Vite** | Tốc độ bundle siêu nhanh với Vite, SPA gọn nhẹ, tối ưu hóa giao diện quản trị dữ liệu mật độ cao (Data-Dense Dashboard, Ma trận xếp ca, Bảng điều phối Dispatching thợ). |
-| | UI & Styling Framework | **Tailwind CSS & Shadcn UI (Web) / NativeWind (Mobile)** | Thiết kế hệ thống Design Token đồng nhất (Luxury Beauty Palette: Vàng Champagne, Hồng Rose Gold, Đen Obsidian), chuẩn Responsive mượt mà. |
-| | Bản đồ & Định vị SDK | **React Native Maps / Google Maps & Goong Maps API** | Tìm kiếm địa điểm (Autocomplete Places), Geocoding, tính toán ma trận khoảng cách km và render Live Tracking thợ di chuyển. |
-| **Giao tiếp Realtime** | WebSocket Protocol | **Spring WebSocket & STOMP (WSS)** | Kênh kết nối 2 chiều mã hóa TLS/SSL phục vụ Broadcast Popup đếm ngược nhận ca và Live Tracking GPS thợ di chuyển. |
-| | WebSocket Scale Adapter | **Redis Pub/Sub** | Cho phép đồng bộ màng lưới kết nối WebSocket khi scale ngang Monolith Core qua nhiều máy chủ. |
-| **Hạ tầng & Dịch vụ Bên ngoài** | Containerization | **Docker & Docker Compose** | Đóng gói môi trường đồng nhất giữa Local, Staging và Production (PostgreSQL, PostGIS, Redis). |
-| | Lưu trữ Đa phương tiện | **Cloudinary / AWS S3** | Lưu trữ nén ảnh Portfolio sản phẩm hoàn thiện, ảnh chứng chỉ bằng cấp thợ trang điểm với CDN tốc độ cao. |
-| | Thông báo Đẩy (Push Notif) | **Firebase Cloud Messaging (FCM)** | Đẩy thông báo Push Notification khi ứng dụng Mobile đang chạy ngầm hoặc tắt màn hình. |
-| | Cổng Thanh toán & Payout | **MoMo, VNPay, ZaloPay, VietQR (PayOS)** | Tích hợp đa kênh thanh toán nạp ví, giữ cọc Escrow và Payout giải ngân trực tiếp về Ngân hàng thợ. |
-| | Xác thực OTP Điện thoại | **Firebase Phone Auth / Twilio SMS** | Gửi mã OTP xác minh số điện thoại đăng ký/đăng nhập trong vòng 5 giây với tỷ lệ thành công 99.9%. |
+- **DISC-01:** Trang chủ/Explore tìm thợ/studio/gói, gợi ý/bộ lọc, hồ sơ công khai, giá khởi điểm, style, chứng chỉ, gallery, chi tiết gói và bước thực hiện.
+- **DISC-02:** Nearby theo tọa độ/bán kính/category/rating/provider type tùy request; tọa độ công khai có trường làm mờ vị trí.
+- **ADDR-01:** Xin quyền GPS, lấy vị trí hiện tại/gần nhất, reverse-geocode; xử lý GPS tắt/từ chối quyền/lỗi.
+- **ADDR-02:** Autocomplete, geocode, place detail, chọn map, sửa địa chỉ đích và địa chỉ gần đây.
+- **ADDR-03:** CRUD địa chỉ lưu và chọn mặc định; tọa độ dùng tính giá/tracking.
 
----
+### 2.4. Thông báo và realtime
 
-### 3. Biểu đồ Luồng công việc (Workflow Diagram)
+- **NOTI-01:** List, unread count, đọc, đảo đọc/chưa đọc, đọc hết, xóa một/xóa hết.
+- **NOTI-02:** Toast/dropdown/modal, mở booking/hồ sơ liên quan; sound/haptic cho offer trên app.
+- **NOTI-03:** STOMP cho offer, booking, dispatch, payment/cash, ví, dispute; reconnect/listener khi khôi phục phiên/foreground.
+- **NOTI-04:** Expo push token/gửi push; chạm thông báo mở ca đúng vai trò. Cần quyền thiết bị và cấu hình để nghiệm thu.
+- **NOTI-05:** Nhắc lịch 24h/2h, scheduler quét mỗi 15 phút, Redis chống trùng; có scheduler hết hạn tìm thợ/cọc/xác nhận.
 
-#### Luồng 1: Quy trình Đặt ca Khẩn cấp Realtime (Instant Booking Workflow)
-1. **Bước 1:** Khách hàng chọn gói dịch vụ & nhập địa điểm $\rightarrow$ Gọi Pricing Module (PricingService) tính tổng tiền (Giá gói + Phí km + Phụ phí).
-2. **Bước 2:** Telemetry/Location Module (TelemetryService) quét danh sách Thợ/Đại lý rảnh trong bán kính $R$ km dựa trên vị trí Redis GEO.
-3. **Bước 3:** Booking Engine phát sự kiện `INSTANT_BOOKING_CREATED` vào In-Memory EventBus.
-4. **Bước 4:** In-App Notification Module tiêu thụ sự kiện $\rightarrow$ Gọi Embedded WebSocket Gateway bật Popup đếm ngược (Countdown 30-45s) đồng loạt trên App các Thợ rảnh.
-5. **Bước 5:** Thợ nhấn "Chấp nhận" $\rightarrow$ Booking Engine xử lý Redlock (Redis Distributed Lock) đảm bảo duy nhất 1 thợ trúng đơn $\rightarrow$ Chuyển trạng thái đơn `ACCEPTED`.
-6. **Bước 6:** Thợ bật phát sóng GPS di chuyển $\rightarrow$ Cập nhật trạng thái chặng ca làm (Đã đến $\rightarrow$ Bắt đầu make $\rightarrow$ Chụp ảnh nghiệm thu $\rightarrow$ Hoàn thành).
-7. **Bước 7:** Wallet Module (WalletService) tự động giải ngân tiền từ Ví Escrow sang Ví Thợ sau khi trừ % hoa hồng Sàn.
+Topic gồm user/admin notifications, admin disputes, customer/mua/agency bookings, booking-status, gps-stream, offer, cash và wallet; ID phải theo service tương ứng. REST/DB dùng đối soát khi lỡ sự kiện. Không coi biết topic là đủ quyền truy cập; không cam kết độ trễ <5ms/<100ms chưa đo.
+## 3. Đặt lịch và thực hiện dịch vụ
 
-#### Luồng 2: Quy trình Đặt qua Đại lý & Điều phối Job (Agency Booking & Dispatching Workflow)
-1. **Bước 1 (Tiếp nhận đơn):** Khách hàng chọn Studio/Đại lý $\rightarrow$ Tạo đơn ở trạng thái `PENDING_AGENCY_DISPATCH`.
-2. **Bước 2 (Thông báo Realtime):** WebSocket Gateway đẩy thông báo Toast Popup Realtime về Web Portal của Đại lý.
-3. **Bước 3 (Ma trận Năng lực 4 Chiều):** Chủ Đại lý / Lễ tân mở Ma trận điều phối đối soát đồng thời 4 điều kiện qua 1 Single Native SQL Query (<15ms):
-   - Năng lực Gói dịch vụ (`agency_staff_services`).
-   - Kỹ năng Phong cách tone make-up (`agency_staff_styles`).
-   - Lịch trực ca Studio tuần/ngày (`agency_staff_shifts`).
-   - Lịch rảnh & đệm di chuyển 30 phút trong `mua_calendars` (PostgreSQL GiST `tstzrange &&`).
-4. **Bước 4 (Phân công Đa Nhân Sự):** Đại lý gán 1 Thợ chính (`PRIMARY_MUA`) + tối đa 2 Thợ phụ (`ASSISTANT_MUA`) qua Redisson Distributed MultiLock $\rightarrow$ Chuyển trạng thái sang `AGENCY_ASSIGNED`, tự động tạo slot khóa lịch trên `mua_calendars`.
-5. **Bước 5 (Xác nhận ca):** Thợ nhận thông báo phân công ca trên App $\rightarrow$ Nhấn xác nhận $\rightarrow$ Chuyển sang `ACCEPTED`.
-6. **Bước 6 (Báo bận Khẩn cấp & Cảnh báo Chuông đỏ):** Khi thợ gặp sự cố bất khả kháng:
-   - Thợ gửi yêu cầu báo bận kèm ảnh minh chứng.
-   - Phân loại Tier: Tier 1 ($\ge 4h$), Tier 2 ($2h - 4h$), Tier 3 ($< 2h$).
-   - Với Tier 3 (< 2h): Bắt buộc phải có ảnh/tài liệu minh chứng (`proofDocumentUrl`), nếu thiếu hệ thống từ chối (`ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL`).
-   - Giải phóng ngay lịch `mua_calendars` của thợ đó, bật cờ `needs_emergency_reassignment = true` và phát âm thanh chuông báo động STOMP WebSocket tới Studio Portal.
-7. **Bước 7 (Phê duyệt & Điều phối Thay thế):**
-   - **Cách 1 - Đổi thợ dự phòng (`reassignStaff`):** Studio chọn thợ mới rảnh từ ma trận, thợ cũ chuyển sang `REPLACED`.
-   - **Cách 2 - Duyệt 1 Thợ làm Solo (`proceedSolo`):** Khi thợ phụ báo bận và không còn ai rảnh, Studio duyệt cho Thợ chính kiêm nhiệm hoàn thành trọn gói.
-   - **Cách 3 - Từ chối đơn (`rejectBooking`):** Nếu không thể sắp xếp nhân sự, Studio từ chối đơn $\rightarrow$ Chuyển sang `CANCELLED`, hoàn cọc 100% cho khách qua Escrow.
+### 3.1. Hẹn trước — BOOK-SCH
 
----
+1. Khách chọn freelancer trực tiếp (`FREELANCER_DIRECT`) hoặc studio, gói/add-on, địa chỉ, ngày giờ.
+2. Backend kiểm tra gói, provider, thời gian, khả dụng/capacity, lịch bận và thời lượng gồm gói cộng add-on. Scheduled giới hạn tối đa 90 ngày đặt trước; validation thời gian tối thiểu theo DTO/validator.
+3. Preview giá rồi tạo booking với snapshot giá/add-on/địa chỉ; khóa lịch/provider và transaction bảo vệ tranh chấp cập nhật.
+4. Đơn `PENDING_DEPOSIT`, cọc mặc định **30%**, hạn cọc **15 phút**. Chờ cọc không đồng nghĩa đã độc quyền giữ slot: nguồn hiện tại kiểm tra lại slot lúc xác nhận tiền và có migration giải phóng lịch chưa thanh toán.
+5. Cọc được xác nhận: freelancer sang `REQUESTED`, studio sang `PENDING_AGENCY_DISPATCH`. Deadline xác nhận do server tính theo utility/nghiệp vụ; client dùng deadline trả về.
+6. Thợ nhận/từ chối; studio gán và xác nhận phân công. Từ chối/hết hạn cập nhật trạng thái, giải phóng lịch và xử lý cọc tương ứng.
+7. Khách xem danh sách/chi tiết/lịch sử/thanh toán, nhận nhắc lịch. App có polling/làm mới bổ sung realtime.
 
-### 4. Biểu đồ Chuyển đổi trạng thái (State Transition Diagram)
+BE còn có API ngày có lịch, slot khả dụng, block/unblock lịch bận freelancer/staff. Chưa có route APP quản lý lịch bận độc lập trong kiểm kê hiện tại.
 
-Bảng quy tắc chuyển đổi trạng thái Máy trạng thái Đơn hàng (Booking State Machine):
+### 3.2. Cấp tốc — BOOK-INS
 
-| Trạng thái Cũ (From State) | Hành động / Sự kiện Kích hoạt (Trigger Event) | Trạng thái Mới (To State) | Hành động Hệ thống Thực thi (System Actions) |
-| :--- | :--- | :--- | :--- |
-| **None** | Khách tạo đơn Realtime khẩn cấp | `REQUESTED` | Quét thợ Redis GEO + Broadcast WebSocket Popup đếm ngược 45s. |
-| **None** | Khách tạo đơn chọn Đại lý | `PENDING_AGENCY_DISPATCH` | Đẩy In-App Notification Toast về Web Portal Đại lý. |
-| **REQUESTED** | Thợ bấm "Chấp nhận" (Redlock) | `ACCEPTED` | Hủy Popup ở thợ khác, khóa đơn cho thợ nhận, Escrow giữ cọc. |
-| **REQUESTED** | Hết 45s không ai nhận | `CANCELLED` | Gửi thông báo cho Khách: Không tìm thấy thợ phù hợp. Giải phóng cọc Escrow. |
-| **PENDING_AGENCY_DISPATCH** | Đại lý gán thợ cho đơn | `AGENCY_ASSIGNED` | Gửi In-App Notification phân công ca đến App Thợ được gán, khóa lịch `mua_calendars`. |
-| **PENDING_AGENCY_DISPATCH** | Đại lý từ chối đơn do kín lịch | `CANCELLED` | Hoàn cọc 100% cho khách qua Escrow, giải phóng lịch. |
-| **AGENCY_ASSIGNED** | Thợ bấm xác nhận ca | `ACCEPTED` | Xác nhận ca làm chính thức (`is_confirmed_by_staff = true`). |
-| **ACCEPTED** | Thợ bấm "Bắt đầu đi" | `ON_THE_WAY` | Kích hoạt Background GPS Telemetry stream (mỗi 5-10s). |
-| **ON_THE_WAY** | Thợ bấm "Đã đến nơi" | `ARRIVED` | Bắn In-App Notification cho Khách: Thợ đã có mặt tại điểm hẹn. |
-| **ARRIVED** | Thợ bấm "Bắt đầu make-up" | `IN_PROGRESS` | Cập nhật đồng hồ đếm ngược thời gian trang điểm dự kiến. |
-| **IN_PROGRESS** | Thợ upload ảnh nghiệm thu & bấm "Hoàn thành" | `COMPLETED` | Phát Event `BOOKING_COMPLETED` qua Spring EventBus, dọn dẹp cờ khẩn cấp. |
-| **COMPLETED** | Wallet Module nhận Event từ EventBus | `PAID_OUT` | Cắt % hoa hồng Sàn, chuyển tiền còn lại về Ví Thợ / Ví Đại lý trong 1 `@Transactional`. |
-| **Bất kỳ (trước giờ hẹn > 2h)** | Khách / Đại lý hủy đơn | `CANCELLED` | **Khách tự hủy sát giờ (< 2h) bị chặn (`ERR_CANNOT_CANCEL_WITHIN_TWO_HOURS`)**. Khi hủy hợp lệ: Giải phóng lịch `mua_calendars`, dọn dẹp cờ khẩn cấp, xử lý hoàn cọc Escrow. |
-| **COMPLETED** | Khách gửi khiếu nại | `DISPUTED` | Tạm đóng băng tiền ví đơn hàng, đẩy ticket về Bộ phận CSKH. |
+1. Khách chọn vị trí, radar/danh sách online, gửi instant; có nhánh chọn thợ trực tiếp theo request/app.
+2. Backend tạo booking, tìm ứng viên, quản lý offer/lease/TTL trong Redis. Hằng số hiện có: tìm kiếm mặc định **45 giây**, offer cho thợ **20 giây**; nhánh cụ thể có thể điều chỉnh timeout. Nội dung UI “15–30 phút có thợ” không phải SLA đã đo.
+3. Thợ nhận popup đếm ngược, âm thanh/rung; nhận hoặc bỏ qua. Backend khóa nhận ca, rút offer không còn hợp lệ.
+4. Khách xem thợ ghép, có thể từ chối provider; chọn gói/add-on và xác nhận báo giá trước cọc.
+5. Instant cọc 30%, phí khẩn cấp mặc định **150.000 VND**, fallback giá cơ sở **500.000 VND** ở nhánh chưa xác định gói; gói đã chọn dùng giá tương ứng, không bị thay bằng fallback. Chốt gói cập nhật tiền/thời lượng.
+6. Đủ điều kiện cọc mới khởi hành; hết hạn/không có thợ/hủy dọn offer/lease, cập nhật các bên.
 
----
+Nguồn: `CustomerInstantBookingServiceImpl`, `FreelancerBookingServiceImpl`, `InstantDispatchLeaseService`, `InstantBookingExpirationScheduler`, modal radar/offer và `booking/instant-matched/[id]`.
 
-## III. ĐẶC TẢ CHI TIẾT GIAO DIỆN & MÀN HÌNH FRONTEND (CLIENT UI/UX SPECIFICATION)
+### 3.3. Trạng thái — BOOK-STATE
 
-### 1. Kiến trúc Tổng thể & Phân tách Nền tảng Frontend
-
-Để đáp ứng tối đa tính chuyên dụng của từng nhóm đối tượng sử dụng, hệ thống giao diện Frontend được tách biệt thành 2 nền tảng công nghệ riêng biệt:
-
-```
-                                +-------------------------------------------------------+
-                                |             HỆ THỐNG GIAO DIỆN FRONTEND               |
-                                +---------------------------+---------------------------+
-                                                            |
-                            +-------------------------------+-------------------------------+
-                            |                                                               |
-            +---------------v---------------+                               +---------------v---------------+
-            |     CỔNG THÔNG TIN WEB        |                               |       ỨNG DỤNG DI ĐỘNG        |
-            |     (REACTJS + JAVASCRIPT)    |                               |  (REACT NATIVE + TYPESCRIPT)  |
-            +---------------+---------------+                               +---------------+---------------+
-                            |                                                               |
-            +---------------+---------------+                               +---------------+---------------+
-            |                               |                               |                               |
-    +-------v-------+               +-------v-------+               +-------v-------+               +-------v-------+
-    |  SUPER ADMIN  |               | AGENCY STUDIO |               |   CUSTOMER    |               | FREELANCE MUA |
-    |  Web Portal   |               |  Web Portal   |               |  Mobile App   |               |  Mobile App   |
-    | (ROLE_SUPER_  |               | (ROLE_AGENCY_ |               | (ROLE_        |               | (ROLE_        |
-    |    ADMIN)     |               | ADMIN, STAFF) |               |  CUSTOMER)    |               | FREELANCE_MUA)|
-    +---------------+               +---------------+               +---------------+               +---------------+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_DEPOSIT: Hẹn trước
+    [*] --> REQUESTED: Nhánh instant
+    PENDING_DEPOSIT --> REQUESTED: Cọc / freelancer
+    PENDING_DEPOSIT --> PENDING_AGENCY_DISPATCH: Cọc / studio
+    PENDING_AGENCY_DISPATCH --> AGENCY_ASSIGNED: Gán thợ
+    AGENCY_ASSIGNED --> ACCEPTED: Xác nhận
+    AGENCY_ASSIGNED --> PENDING_AGENCY_DISPATCH: Điều phối lại
+    REQUESTED --> ACCEPTED: Thợ nhận
+    ACCEPTED --> ON_THE_WAY: Đủ cọc / bắt đầu đi
+    ON_THE_WAY --> ARRIVED: Đến nơi
+    ARRIVED --> IN_PROGRESS: Bắt đầu làm
+    IN_PROGRESS --> COMPLETED: Có ảnh nghiệm thu
+    COMPLETED --> PAID_OUT: Thanh toán / quyết toán
+    ACCEPTED --> DISPUTED: Khiếu nại
+    ON_THE_WAY --> DISPUTED
+    ARRIVED --> DISPUTED
+    IN_PROGRESS --> DISPUTED
+    COMPLETED --> DISPUTED
+    DISPUTED --> DISPUTE_REFUNDED: Admin hoàn khách
+    DISPUTED --> DISPUTE_COMPENSATED: Admin bồi thường thợ
 ```
 
-* **Cổng Thông tin Web Quản trị (Web Portal - ReactJS + JavaScript (JSX)):**
-  * **Công nghệ cốt lõi:** React 18, Vite, JavaScript (ES2023 JSX), Tailwind CSS, Shadcn UI / Radix Primitives, Lucide Icons, Axios, Zustand State Management, `@stomp/stompjs` WebSocket Client.
-  * **Đối tượng phục vụ:** `ROLE_SUPER_ADMIN` (Quản trị viên sàn toàn quốc) và `ROLE_AGENCY_ADMIN` / `ROLE_AGENCY_STAFF` (Chủ studio, quản lý và nhân viên điều phối đại lý).
-  * **Đặc tính thiết kế:** Giao diện mật độ dữ liệu cao (Data-Dense Dashboard), hiển thị bảng biểu, biểu đồ phân tích doanh thu, ma trận xếp ca tuần 7 ngày x 3 ca, bảng Kanban điều phối đơn chỉ định và trình duyệt thẩm định hồ sơ pháp lý/chứng chỉ thợ.
+Biểu đồ là luồng chính, không thay thế điều kiện service. Enum đầy đủ: `PENDING_DEPOSIT`, `REQUESTED`, `PENDING_AGENCY_DISPATCH`, `AGENCY_ASSIGNED`, `ACCEPTED`, `ON_THE_WAY`, `ARRIVED`, `IN_PROGRESS`, `COMPLETED`, `PAID_OUT`, `CANCELLED`, `CANCELLED_EXPIRED`, `DISPUTED`, `DISPUTE_REFUNDED`, `DISPUTE_COMPENSATED`.
 
-* **Ứng dụng Di động Đa nền tảng (Mobile App - React Native + TypeScript (TSX)):**
-  * **Công nghệ cốt lõi:** React Native 0.74+, TypeScript (Static Typing), React Navigation v6 (Native Stack & Animated Bottom Tabs), NativeWind (Tailwind CSS cho React Native), React Native Maps, Expo Location & TaskManager Background Geolocation Service, Zustand Store, `@stomp/stompjs` WSS Client.
-  * **Đối tượng phục vụ:** `ROLE_CUSTOMER` (Khách hàng đặt lịch make-up lưu động hoặc tại studio) và `ROLE_FREELANCE_MUA` (Thợ trang điểm tự do & Thợ thuộc Studio nhận job di chuyển).
-  * **Đặc tính thiết kế:** Chuẩn phong cách sang trọng đẳng cấp (Luxury Beauty Design System: Vàng Champagne `#D4AF37`, Hồng Rose Gold `#B76E79`, Đen Obsidian `#1A1A1A`), cử chỉ vuốt chạm Bottom Sheet mượt mà 60fps, radar quét thợ GPS theo bán kính động, popup đếm ngược 30-45s rung haptic + âm thanh nhận ca và live stream tọa độ di chuyển.
+State machine cho phép hủy tại một số trạng thái trước/đang di chuyển nhưng kiểm tra thêm actor/loại đơn. Scheduler/service chuyên biệt ghi trạng thái hết hạn hoặc kết quả dispute ngoài bảng chuyển chung. `DISPUTED → DISPUTED` bổ sung lời khai/minh chứng. State machine chung còn `DISPUTED → PAID_OUT/CANCELLED`; admin dispute dùng trạng thái kết quả riêng. `COMPLETED` chưa đồng nghĩa trả đủ; `PAID_OUT` là quyết toán booking, không phải rút ngân hàng.
 
----
+Bảng chuyển đầy đủ của `BookingStateMachineServiceImpl.isValidTransition` (chưa áp các điều kiện actor/cọc/ảnh):
 
-### 2. Cổng Thông tin Web Quản trị (Web Portal - ReactJS + JavaScript)
+| Từ | Đích được phép |
+| --- | --- |
+| PENDING_DEPOSIT | CANCELLED, REQUESTED, PENDING_AGENCY_DISPATCH |
+| REQUESTED | ACCEPTED, PENDING_AGENCY_DISPATCH, CANCELLED |
+| PENDING_AGENCY_DISPATCH | AGENCY_ASSIGNED, CANCELLED |
+| AGENCY_ASSIGNED | ACCEPTED, PENDING_AGENCY_DISPATCH, CANCELLED |
+| ACCEPTED | ON_THE_WAY, CANCELLED, DISPUTED |
+| ON_THE_WAY | ARRIVED, CANCELLED, DISPUTED |
+| ARRIVED | IN_PROGRESS, DISPUTED |
+| IN_PROGRESS | COMPLETED, DISPUTED |
+| COMPLETED | PAID_OUT, DISPUTED |
+| DISPUTED | PAID_OUT, CANCELLED; bổ sung đối chất cùng trạng thái qua nhánh riêng |
+| Các trạng thái khác | Không chuyển qua switch chung; tác vụ chuyên biệt có quy tắc riêng |
 
-#### A. Phân hệ Web Quản trị Đại lý / Studio (`ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`)
+### 3.4. Thực hiện ca và tracking — JOB
 
-Toàn bộ phân hệ Studio Web Portal được viết bằng **ReactJS + JavaScript**, tối ưu hóa giao diện điều hành và phân quyền nghiêm ngặt giữa Chủ Studio (`ROLE_AGENCY_ADMIN`) và Nhân viên Lễ tân/Điều phối (`ROLE_AGENCY_STAFF`). Mọi thao tác hủy / xóa dữ liệu bắt buộc phải qua modal xác nhận **`ConfirmDialog`**.
+- **JOB-01:** Workstation ở trang chủ theo role: thống kê, bán kính, online/offline, ca hôm nay, offer instant/scheduled. `/mua/workstation` hiện chuyển về `/`.
+- **JOB-02:** `job-execution/[id]`: thông tin ca/khách/địa chỉ/giá/thu nhập, timeline bắt đầu đi → đến nơi → làm → ảnh → hoàn thành.
+- **JOB-03:** Chặn khởi hành khi chưa cọc; bắt buộc ảnh khi COMPLETED; lịch sử lưu actor, trạng thái, thời gian/lý do.
+- **JOB-04:** REST `/telemetry/stream` hoặc STOMP `/app/telemetry/location`, Redis vị trí hiện hành, PostGIS log, ETA/mode chuyển động; API lịch sử và nén hành trình.
+- **JOB-05:** App lấy/gửi GPS bằng vòng chạy trong màn hình ca, điều chỉnh chu kỳ; heartbeat workstation 45 giây. Chưa chứng minh GPS task nền bền vững khi OS treo/đóng app.
+- **JOB-06:** Khách xem map/vị trí/ETA/tiến độ; Activity xem đơn hoạt động/lịch sử. Chi tiết/lịch sử hỗ trợ thanh toán/minh chứng/đối chất theo trạng thái.
 
-| STT | Tên Màn hình Web UI & Đường dẫn (Route) | Thành phần Giao diện (UI Components) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
-| :---: | :--- | :--- | :--- | :--- |
-| **A1** | **Dashboard Tổng quan Studio**<br>`/agency` | • Thẻ KPI số liệu: Doanh thu tháng, Số đơn hoàn tất, Số thợ đang trực, Tỷ lệ hủy.<br>• Biểu đồ Area Chart doanh thu 30 ngày gần nhất.<br>• Bảng cảnh báo Realtime: Đơn hẹn sắp tới trong 2 giờ chưa gán thợ.<br>• Widget Mini-Map vị trí thợ Studio đang di chuyển ngoài đường. | • Gọi API tải báo cáo tổng hợp theo Date Range picker.<br>• Đăng ký kênh WebSocket nhận biến động doanh thu & đơn mới.<br>• Click vào cảnh báo mở nhanh Drawer điều phối đơn. | • `GET /api/v1/agency/dashboard/stats`<br>• STOMP: `/topic/agency/{agencyId}/dashboard` |
-| **A2** | **Quản lý Nhân sự & Duyệt Thợ**<br>`/agency/staff` | • Bảng dữ liệu thợ (`agency_staff`): Họ tên, Avatar, SĐT, Số ca đã làm, Rating trung bình.<br>• Nút tạo Mã giới thiệu & Mã QR mời thợ gia nhập Studio (Hủy mã có `ConfirmDialog`).<br>• Modal cấu hình Tỷ lệ % Hoa hồng nội bộ (% Studio vs % Thợ).<br>• Drawer gán Kỹ năng Phong cách Make-up (`agency_staff_styles`) và Phân quyền Gói dịch vụ cho thợ.<br>• Thao tác xóa/buộc thôi việc thợ nội bộ (Bắt buộc xác nhận qua `ConfirmDialog`). | • Form validation cấu hình hoa hồng (tổng 2 bên = 100%).<br>• Copy link mời hoặc tải file ảnh QR Code 72h về máy.<br>• Toggle kích hoạt / tạm dừng hoạt động của thợ.<br>• Xóa nhân sự: Hiện `ConfirmDialog` cảnh báo trước khi xóa. | • `GET /api/v1/agency/staff`<br>• `POST /api/v1/agency/invitations`<br>• `DELETE /api/v1/agency/invitations/{code}`<br>• `PUT /api/v1/agency/staff/{staffId}/commission`<br>• `PUT /api/v1/agency/staff/{staffId}/styles`<br>• `DELETE /api/v1/agency/staff/{staffId}` |
-| **A3** | **Ma trận Xếp ca Tuần của Thợ**<br>`/agency/staff` (Tab Xếp Ca) | • Bảng Ma trận Tuần (Grid 7 ngày từ Thứ 2 $\rightarrow$ CN, mỗi ngày chia 3 ca: Sáng [6h-12h], Chiều [12h-18h], Tối [18h-23h]).<br>• Ô lịch hiển thị Avatar thợ trực ca, trạng thái: *Đã xếp*, *Đang làm*, *Vắng mặt* (`agency_staff_shifts`).<br>• Nút xóa ca làm việc (Bắt buộc xác nhận qua `ConfirmDialog`).<br>• Modal Sao chép Lịch tuần này sang Tuần sau (Copy Shift Template). | • Drag-and-drop hoặc Click vào ô ca làm để thêm thợ trực ca.<br>• Xóa ca trực: Bật `ConfirmDialog` xác nhận trước khi gọi DELETE API.<br>• Kiểm tra xung đột tự động: Cảnh báo đỏ nếu thợ đã có lịch bận cá nhân hoặc trùng ca. | • `GET /api/v1/agency/shifts/matrix`<br>• `POST /api/v1/agency/shifts`<br>• `DELETE /api/v1/agency/shifts/{shiftId}` |
-| **A4** | **Lịch Hẹn & Quản Lý Điều Phối Booking Studio**<br>`/agency/bookings` | • Thẻ KPI số liệu 4 Cards: Tổng đơn, Chờ phân công, Đã gán thợ, Hoàn tất.<br>• Tab lọc trạng thái đơn: Tất cả, Chờ phân công, Đang diễn ra, Hoàn thành, Đã hủy.<br>• Huy hiệu nhấp nháy đỏ `BÁO BẬN KHẨN CẤP` kèm âm thanh chuông báo động WebSocket STOMP.<br>• Modal Ma Trận Gán Thợ (`StaffAssignmentMatrixModal.jsx`): Đối soát 4 chiều Năng lực Gói, Style, Ca trực, Lịch rảnh GiST (<15ms).<br>• Modal Phê Duyệt Báo Bận (`EmergencyApprovalModal.jsx`): Xem lý do, phân loại Tier 1-3, ảnh minh chứng bất khả kháng, Duyệt/Từ chối báo bận.<br>• Modal Đổi Thợ Dự Phòng (`EmergencyReassignModal.jsx`): Chọn thợ mới rảnh từ ma trận HOẶC nút **[Xác Nhận Để 1 Thợ Làm Hết]** (`proceedSolo`) qua `ConfirmDialog` khi hết thợ phụ rảnh.<br>• Modal Hủy đơn có lý do (`AgencyCancelBookingModal.jsx`).<br>• Modal Chi Tiết Đơn Hàng (`AgencyBookingDetailModal.jsx`): Timeline 5 chặng, danh sách Thợ chính và Thợ phụ. | • Tự động nhận cảnh báo khẩn cấp realtime qua WebSocket STOMP.<br>• Phân công 1 Thợ chính + tối đa 2 Thợ phụ (Redisson Lock).<br>• Phê duyệt cho 1 thợ làm solo an toàn không cần hủy đơn.<br>• Hủy đơn hoàn cọc 100% qua Escrow. | • `GET /api/v1/agency/bookings`<br>• `GET /api/v1/agency/bookings/overview-stats`<br>• `POST /api/v1/agency/dispatch/bookings/{id}/assign`<br>• `POST /api/v1/agency/dispatch/bookings/{id}/reassign`<br>• `POST /api/v1/agency/dispatch/bookings/{id}/proceed-solo`<br>• `POST /api/v1/agency/dispatch/bookings/{id}/emergency-report/{staffId}/review`<br>• `POST /api/v1/agency/dispatch/bookings/{id}/reject`<br>• STOMP: `/topic/agency/{agencyId}/dispatch-alerts` |
-| **A5** | **Quản lý Gói Dịch vụ & Dịch vụ Con (Add-ons)**<br>`/agency/packages` | • Danh sách Gói dịch vụ của Studio (`service_packages`): Make cô dâu, dự tiệc, chụp kỷ yếu.<br>• Nút Xóa gói dịch vụ (Bắt buộc xác nhận qua `ConfirmDialog`).<br>• Modal Quản lý Dịch vụ Con / Add-ons (`package_items`): Thêm bước thực hiện & Xóa add-on có `ConfirmDialog`.<br>• Công tắc Ẩn / Hiện gói dịch vụ tức thì trên sàn khách hàng. | • Form nhập thông tin gói kèm validation Zod schema.<br>• Xóa gói / Xóa dịch vụ con: Bật `ConfirmDialog` cảnh báo nguy cơ ảnh hưởng đơn hẹn.<br>• Tích hợp Toast thông báo kết quả tự tắt sau 3 giây. | • `GET /api/v1/packages/my`<br>• `POST /api/v1/packages`<br>• `PUT /api/v1/packages/{id}`<br>• `DELETE /api/v1/packages/{id}`<br>• `PATCH /api/v1/packages/{id}/availability`<br>• `DELETE /api/v1/packages/{id}/items/{itemId}` |
-| **A6** | **Cài Đặt Cơ Sở & Bản Đồ Định Vị GPS**<br>`/agency/settings` | • Form thông tin Studio: Tên thương hiệu, Mã số thuế, Hotline, Địa chỉ trụ sở, Giờ mở/đóng cửa.<br>• Cấu hình Tỷ lệ % Hoa hồng sàn mặc định.<br>• **Bản đồ Tương tác Định vị Cơ sở (Interactive Map Picker):** Tích hợp Goong API & OpenStreetMap, Tự động nhận diện khu vực thông minh (Smart regional fallback Hà Nội / Đà Nẵng / TP.HCM khi chưa có tọa độ), Tự động Geocoding theo địa chỉ chữ.<br>• Nút **[Lưu Cài Đặt]**: Ghi nhận vĩnh viễn tọa độ `latitude` và `longitude` vào bảng `agency_schema.agency_profiles` của PostgreSQL. | • Khi cơ sở lưu tọa độ GPS chính xác: Goong Distance Matrix API tính toán cự ly điều phối và phụ phí di chuyển chuẩn xác 100% cho mọi đơn khách book.<br>• Sau khi logout và login lại, tọa độ vẫn được bảo toàn trọn vẹn từ CSDL.<br>• Toast thông báo cập nhật thành công tự tắt sau 3 giây. | • `GET /api/v1/agencies/profile`<br>• `PUT /api/v1/agencies/profile`<br>• `PUT /api/v1/agencies/commission` |
+### 3.5. Hủy, bồi thường và tranh chấp — DISPUTE
 
----
+| Tình huống | Hành vi hiện tại |
+| --- | --- |
+| Scheduled chưa cọc | Hủy hợp lệ, không hoàn tiền chưa nộp |
+| Đã cọc, thợ chưa xác nhận | Hoàn 100% cọc về ví khách theo nhánh hủy hợp lệ |
+| Scheduled ACCEPTED, còn >2 giờ | Hoàn 100% cọc về ví khách |
+| Scheduled ACCEPTED, còn ≤2 giờ và chưa tới giờ bắt đầu | Bồi thường cọc cho thợ |
+| ACCEPTED đã tới/quá giờ bắt đầu | Chặn khách tự hủy; xử lý qua khiếu nại |
+| Instant đã cọc | Chặn khách tự hủy thông thường |
+| Thợ đang đi | Khách gửi yêu cầu hủy chuyến; thợ xác nhận/từ chối bồi thường qua API riêng |
+| Thợ hủy hợp lệ, đã cọc | Hoàn cọc khách theo service |
+| Khiếu nại | Có lý do; thợ/agency báo khách vắng mặt phải có minh chứng theo điều kiện service |
+| DISPUTED | Bên còn lại bổ sung lời khai/ảnh, phân biệt người gửi và xem hồ sơ đối chất |
+| Admin giải quyết | `APPROVE_REFUND_CUSTOMER` hoặc `REJECT_AND_PAYOUT_MUA`, bắt buộc ghi chú; tác động ví/cọc/lịch/trạng thái/audit/realtime |
 
-#### B. Phân hệ Web Quản trị Toàn diện Sàn Nền tảng (`ROLE_SUPER_ADMIN`)
+Khách không được tự chuyển CANCELLED khi thợ đang đi/đã đến/đang làm. Hoàn cọc là ghi có ví nội bộ, không mặc định refund ra VNPay/MoMo/ngân hàng. API hủy khác nhau có điều kiện riêng. Portal có lọc/thống kê/chi tiết/giải quyết; APP có dossier và counter-dispute.
 
-Dành riêng cho Quản trị viên Sàn, viết bằng **ReactJS + JavaScript**, cung cấp các công cụ vận hành quy mô lớn, kiểm soát rủi ro gian lận, chuẩn hóa dữ liệu danh mục và quản lý chính sách giá động. Mọi thao tác xóa / thu hồi quyền / khóa tài khoản BẮT BUỘC phải qua `ConfirmDialog`.
+## 4. Thanh toán, ví và quyết toán
 
-| STT | Tên Màn hình Web UI & Đường dẫn (Route) | Thành phần Giao diện (UI Components) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
-| :---: | :--- | :--- | :--- | :--- |
-| **B1** | **Bảng Điều hành Toàn quốc (Platform Central Dashboard)**<br>`/admin` | • Thước đo KPI: Tổng studio, Số bằng cấp chờ thẩm định, Tỷ lệ trực tuyến của Core API.<br>• Bảng hàng chờ Chứng chỉ chuyên viên MUA (`pendingMuas`) với unique composite keys.<br>• Modal Review chứng chỉ chuyên sâu (`CertificateReviewModal.jsx`). | • Tự động polling và cập nhật trạng thái hệ thống.<br>• Phê duyệt hoặc từ chối chứng chỉ MUA kèm lý do đối chứng. | • `GET /api/v1/admin/agencies`<br>• `GET /api/v1/admin/muas/certificates`<br>• `PUT /api/v1/admin/muas/{id}/certificates/verify` |
-| **B2** | **Quản lý & Thẩm định Đại lý / Studio**<br>`/admin/agencies` | • Danh sách Studio toàn quốc: Mã Studio, Tên tiệm, Chủ sở hữu, Địa bàn, Hoa hồng, Đánh giá, Trạng thái.<br>• Cụm nút thao tác thẳng hàng (`whitespace-nowrap`): Nút **"👁 Chi Tiết"** (Xem Modal hồ sơ), Nút **"✓ Chấp Thuận"** (`variant="success"` Xanh ngọc Emerald) và Nút **"⊗ Từ Chối"** (`variant="danger"` Đỏ).<br>• Hộp thoại xác nhận **`ConfirmDialog`** bắt buộc kích hoạt khi thực hiện Thu hồi / Từ chối xác thực cơ sở. | • Tìm kiếm theo Tên đại lý, Mã đại lý, Hotline, Chủ sở hữu hoặc Tỉnh/Thành.<br>• Lọc theo trạng thái: Tất cả, Đã xác thực, Chờ thẩm định.<br>• Thao tác thu hồi xác thực: Hiện `ConfirmDialog` xác nhận trước khi chuyển trạng thái sang Chờ thẩm định. | • `GET /api/v1/admin/agencies`<br>• `PUT /api/v1/admin/agencies/{id}/verify?isVerified={bool}` |
-| **B3** | **Quản trị Người Dùng Toàn Sàn**<br>`/admin/users` | • Danh sách toàn bộ tài khoản người dùng: ID, Họ tên, SĐT, Email, Vai trò (`ROLE_*`), Trạng thái hoạt động.<br>• Hộp thoại xác nhận **`ConfirmDialog`** bắt buộc trước khi Khóa (`deactivate`) hoặc Mở khóa (`activate`) tài khoản. | • Tìm kiếm đa tiêu chí theo Từ khóa (Tên, SĐT, Email).<br>• Chặn đăng nhập tức thời khi tài khoản bị khóa qua cơ chế Redis Blacklist. | • `GET /api/v1/admin/users`<br>• `PUT /api/v1/admin/users/{id}/status?active={bool}` |
-| **B4** | **Quản trị Giá Động & Surge Pricing H3 Hexagon**<br>`/admin/pricing/surge-rules` | • Công tắc Bật / Tắt thuật toán Surge Pricing Hexagon cấp vùng toàn sàn.<br>• Bảng cấu hình Quy tắc Giá Động: Tên quy tắc, Mã vùng (`zone_code`), Hệ số nhân ($1.0\times - 3.0\times$), Cột Nguy cơ Cung/Cầu trực quan (Huy hiệu Badge Cân bằng `Scale` kèm tag `D/S`), Khung giờ áp dụng, Ngày áp dụng trong tuần (`applicable_days_of_week` hỗ trợ chuỗi độ dài đến 255 ký tự).<br>• Modal Thêm / Sửa quy tắc giá động (`SurgeRuleModal.jsx`).<br>• Thao tác Xóa quy tắc giá động: Bắt buộc xác nhận qua **`ConfirmDialog`**. | • Xác thực Zod schema chặt chẽ: Hệ số nhân $> 1.0$, Tỷ lệ cầu/cung $\ge 1.0$.<br>• Tích hợp Toast tự động ẩn sau 3 giây.<br>• Backend Flyway migration `V20260918095000__Alter_Surge_Pricing_Rules_Days_Length.sql` đảm bảo lưu trữ toàn vẹn mọi cấu hình ngày tuần. | • `GET /api/v1/admin/pricing/surge-rules`<br>• `POST /api/v1/admin/pricing/surge-rules`<br>• `PUT /api/v1/admin/pricing/surge-rules/{id}`<br>• `DELETE /api/v1/admin/pricing/surge-rules/{id}`<br>• `GET /api/v1/admin/pricing/surge-rules/h3-status`<br>• `POST /api/v1/admin/pricing/surge-rules/toggle-h3` |
-| **B5** | **Quản trị Danh Mục Dịch Vụ & Phong Cách Make-up**<br>`/admin/taxonomy` | • Tab 1: Danh mục Dịch vụ Gốc (`master_service_categories`).<br>• Tab 2: Tone Phong cách Trang điểm Chuẩn sàn (`makeup_styles`).<br>• Modal Thêm / Sửa Danh mục (`CategoryModal.jsx`) và Phong cách (`StyleModal.jsx`).<br>• Tích hợp Toast thông báo đa ngôn ngữ tự động biến mất sau 3 giây khi thêm/sửa thành công. | • Đồng bộ danh mục chuẩn cho toàn bộ Studio và Freelance MUA.<br>• Bật / Tắt trạng thái hoạt động của danh mục và tone make-up. | • `GET /api/v1/admin/master-categories/all`<br>• `POST /api/v1/admin/master-categories`<br>• `PUT /api/v1/admin/master-categories/{id}`<br>• `GET /api/v1/admin/makeup-styles/all`<br>• `POST /api/v1/admin/makeup-styles`<br>• `PUT /api/v1/admin/makeup-styles/{id}` |
-| **B6** | **Giám Sát Toàn Bộ Đơn Hàng Booking Toàn Sàn**<br>`/admin/bookings` | • Thẻ KPI số liệu 5 Cards toàn sàn: Tổng đơn, Chờ phân công, Hoàn thành, Đã hủy, Ca khẩn cấp.<br>• Thanh công cụ lọc trạng thái chuẩn hóa: Tất cả, Chờ xử lý, Đang diễn ra, Hoàn thành, Đã hủy.<br>• Bảng theo dõi mọi đơn đặt lịch: Mã đơn, Khách hàng, Studio/Thợ MUA, Vai trò thợ, Địa chỉ, Tổng tiền, Trạng thái đơn, Huy hiệu Báo bận khẩn cấp.<br>• Modal Chi Tiết Đơn Hàng Toàn Sàn (`BookingDetailModal.jsx`): Xem thông tin Thợ chính, Thợ phụ, Lý do báo bận, Ảnh minh chứng sự cố, Timeline 5 chặng. | • Giám sát trạng thái đơn hàng thời gian thực.<br>• Can thiệp xử lý các ca khẩn cấp hoặc tranh chấp.<br>• Tự động cập nhật số liệu qua API Overview Stats. | • `GET /api/v1/admin/bookings`<br>• `GET /api/v1/admin/bookings/overview-stats`<br>• `GET /api/v1/admin/bookings/{id}`<br>• `GET /api/v1/bookings/{id}/history` |
+### 4.1. PAY
 
----
+- **PAY-01:** List gateway cấu hình, create intent/checkout, tra payment code; strategy thực tế **VNPay/MoMo**, chưa có VietQR/ZaloPay.
+- **PAY-02:** Intent cọc theo booking, xem cọc/sync-query gateway; kiểm tra lại slot và xử lý `SLOT_TAKEN` nếu ca bị chiếm.
+- **PAY-03:** IPN GET/POST với hai dạng alias, return HTML; processor kiểm tra kết quả/số tiền theo gateway. Return client không tự chứng minh đã trả tiền.
+- **PAY-04:** Intent tiền còn lại, final-payment sync, reconciliation/posting/online settlement. App mở checkout và làm mới khi quay về.
+- **PAY-05:** Tiền mặt cần khách xác nhận đã trả và thợ xác nhận đã nhận; có API receipt status. Đủ hai phía mới thỏa điều kiện biên nhận quyết toán; thao tác lặp dùng record/idempotency.
+- **PAY-06:** Không ghi có/quyết toán trùng khi IPN/sync/confirm lặp; khóa, transaction, idempotency và kiểm tra record hiện có cần test concurrency.
 
-### 3. Quy chuẩn Bắt buộc về Trải nghiệm Người dùng, Bảo mật & Đa ngôn ngữ (System Standards)
+### 4.2. WALLET
 
-#### A. Quy chuẩn Bảo vệ Thao tác Nguy hiểm (`ConfirmDialog Mandatory Standard`)
-Hệ thống chuẩn hóa và áp dụng bắt buộc component **`ConfirmDialog`** trên 100% các thao tác có nguy cơ gây mất dữ liệu hoặc thay đổi trạng thái nhạy cảm trên toàn bộ giao diện Web Frontend:
-1. **Xóa Gói Dịch Vụ (`deletePackage`)**: Hiện modal cảnh báo nguy cơ ảnh hưởng các đơn hẹn đã đặt.
-2. **Xóa Dịch Vụ Con / Add-ons (`deletePackageItem`)**: Hiện modal xác nhận xóa bước trang điểm.
-3. **Hủy Mã Mời Tuyển Dụng QR (`cancelInvitation`)**: Cảnh báo vô hiệu hóa mã mời gia nhập studio.
-4. **Xóa Ca Làm Việc Tuần (`deleteShift`)**: Cảnh báo xóa ca trực của thợ.
-5. **Xóa Nhân Viên Khỏi Studio (`removeStaff`)**: Cảnh báo chấm dứt quyền hạn thợ tại đại lý.
-6. **Thu Hồi / Từ Chối Xác Thực Studio (`verifyAgency = false`)**: Cảnh báo hạ trạng thái đại lý về Chờ thẩm định.
-7. **Khóa / Mở Khóa Tài Khoản Người Dùng (`updateUserStatus`)**: Cảnh báo chặn đăng nhập tức thời.
-8. **Xóa Quy Tắc Giá Động (`deleteSurgeRule`)**: Cảnh báo hủy bỏ hệ số surge multiplier tại khu vực.
-9. **Đăng Xuất Tài Khoản Khỏi Hệ Thống (`logout`)**: Kích hoạt `ConfirmDialog` từ dropdown hồ sơ cá nhân trên Header trước khi dọn phiên.
-10. **Xác Nhận Để 1 Thợ Làm Hết (`proceedSolo`)**: Kích hoạt `ConfirmDialog` xác nhận cho Thợ chính kiêm nhiệm hoàn thành trọn gói khi cơ sở không còn thợ phụ rảnh.
+Khách xem số dư/hoàn cọc/lịch sử; thợ xem số dư/cọc giữ/giao dịch/quyết toán. APP có tab, lọc khoảng ngày, refresh, chi tiết giao dịch liên kết booking. Nhãn “khả dụng rút” hay “nạp/rút” chưa chứng minh đã có API nghiệp vụ nạp/rút.
 
-#### B. Cơ chế Xác thực Bảo mật Phiên qua HttpOnly Cookie (`Cookie-based Auth Architecture`)
-- **Loại bỏ hoàn toàn rủi ro rò rỉ Token qua XSS:** Hệ thống KHÔNG lưu trữ `accessToken`, `refreshToken`, thông tin tài khoản hay vai trò người dùng trong `localStorage`. Khóa duy nhất được phép lưu trữ tại `localStorage` là cài đặt ngôn ngữ giao diện (`mua_language`).
-- **HttpOnly Cookies:** Cả `accessToken` (thời hạn ngắn 15-30 phút) và `refreshToken` (thời hạn dài 7 ngày) được Backend Spring Boot cấp phát trực tiếp thông qua Header `Set-Cookie` với các cờ bảo mật cao cấp: `HttpOnly=true`, `SameSite=Strict` (hoặc `Lax`), `Path=/api`.
-- **Client Axios Interceptor (`api-client.js`):** Luôn gửi kèm `withCredentials: true` và Header `Accept-Language` theo ngôn ngữ hiện tại.
-- **Quản lý Phiên trong RAM (`useAuthStore.js`):** Trạng thái đăng nhập được lưu trữ 100% trên bộ nhớ RAM của Zustand store. Khi người dùng tải lại trang (F5), ứng dụng gọi endpoint `GET /api/v1/auth/me` để xác thực lại phiên làm việc mượt mà mà không gây giật lag hoặc lộ dữ liệu nhạy cảm.
+7 bảng tài chính thực tế: `payment_transactions`, `booking_deposits`, `wallets`, `wallet_holds`, `ledger_entries`, `booking_settlements`, `booking_cash_receipts`. Không suy ra đã có kế toán kép cân bằng mọi bút toán, ví sàn/agency hoặc payout ngân hàng chỉ từ việc có ledger.
 
-#### C. Quy chuẩn Đa ngôn ngữ (i18n) & Thông báo Toast
-- **100% Song ngữ Toàn diện (Vietnamese & English):** Tuyệt đối không hardcode chuỗi text trên UI. Toàn bộ tiêu đề, nhãn form, nút bấm, placeholder, thông báo lỗi, thông báo thành công và nội dung confirm dialog đều được quản lý tập trung tại `src/constants/i18n.constant.js` và đồng bộ với `messages_vi.json` / `messages_en.json` tại Backend.
-- **Chuyển đổi tức thời:** Khi người dùng đổi ngôn ngữ trên Header, Zustand store cập nhật `language`, lưu `localStorage`, đồng bộ `apiClient` và kích hoạt re-render toàn bộ giao diện ngay lập tức mà không cần reload trang.
-- **Auto-dismissing Toast:** Toàn bộ thông báo Toast thao tác thành công hoặc lỗi hệ thống tự động ẩn sau 3 giây (`setTimeout 3000ms`), loại bỏ sự bất tiện khi người dùng phải bấm nút tắt thủ công.
+Nhánh tiền mặt `BookingSettlementServiceImpl`:
 
----
+- `T`: tổng, `D`: cọc, `C`: phần tiền mặt còn lại; `F = round(T × commissionRate)` là phí sàn.
+- `E = T − F` là thu nhập; `N = D − F` ghi có ví thợ vì thợ đã nhận `C` ngoài hệ thống.
+- `N < 0`: `PENDING_FEE_COLLECTION`, không ghi có âm bằng nhánh này.
+- Tạo settlement/ledger có idempotency, tiêu thụ hold, cập nhật booking.
 
-### 3. Ứng dụng Di động Đa nền tảng (Mobile App - React Native + TypeScript)
+**Chưa đồng nhất:** nhiều offer/UI dùng 20%, cash settlement có mặc định `${app.settlement.commission-rate:0.1500}`. Không mô tả một tỷ lệ là đã thống nhất. Online có nhánh riêng; không áp công thức tiền mặt `N=D−F` cho toàn bộ thanh toán online.
 
-Ứng dụng di động được xây dựng trên một kiến trúc mã nguồn thống nhất bằng **React Native + TypeScript (TSX)**, tận dụng TypeScript Type-Definitions nghiêm ngặt, giao diện Native mượt mà và các Native Modules chuyên dụng cho GPS / STOMP.
+## 5. Vận hành studio và quản trị sàn
 
-#### A. Phân hệ Ứng dụng Khách hàng (`ROLE_CUSTOMER`)
+### 5.1. AGENCY
 
-| STT | Tên Màn hình Mobile UI & Component | Thành phần Giao diện & Type Definitions (TSX) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
-| :---: | :--- | :--- | :--- | :--- |
-| **C1** | **Trang chủ & Radar Khám phá Thợ**<br>`CustomerHomeScreen.tsx` | • Interactive Map (`react-native-maps`) hiển thị Vị trí người dùng (Blue Pin) và các Thợ/Studio rảnh xung quanh (Gold Pin).<br>• Switch chuyển đổi nhanh: **[Studio Chuyên Nghiệp]** $\leftrightarrow$ **[Thợ Make-up Tự Do]**.<br>• Vòng tròn Radar quét bán kính xung quanh vị trí hiện tại.<br>• Bottom Sheet trượt: Top Thợ xuất sắc nhất, Gói trang điểm HOT mùa này. | • Xin quyền định vị GPS thiết bị (`ACCESS_FINE_LOCATION`).<br>• Lấy tọa độ lat/lng hiện tại $\rightarrow$ Gọi Telemetry API quét thợ rảnh trong bán kính $R$ km.<br>• Bấm vào Pin trên bản đồ hiển thị Tooltip Card xem nhanh thông tin thợ.<br>• Chạm vào Card để điều hướng sang trang Hồ sơ chi tiết. | • `GET /api/v1/telemetry/nearby-muas?lat={lat}&lng={lng}&radius={km}`<br>• `GET /api/v1/catalog/promotions/hot` |
-| **C2** | **Bộ lọc Tìm kiếm Nâng cao**<br>`DiscoveryFilterScreen.tsx` | • Thanh tìm kiếm Search Bar tự động gợi ý từ khóa phong cách.<br>• Filter Chips chọn Tone Make-up: Tone Thái, Douyin, Hàn Quốc, Tone Tây, Tự nhiên.<br>• Slider chọn Khoảng cách tối đa (1km - 30km) và Khoảng giá (300k - 5 triệu VNĐ).<br>• Radio button chọn Đánh giá tối thiểu (4.0★, 4.5★, 5★). | • Cập nhật tham số bộ lọc vào Zustand `useCustomerFilterStore`.<br>• Gọi API tìm kiếm với cơ chế Debounce 300ms chống spam request.<br>• Hiển thị danh sách kết quả dạng FlashList 60fps tối ưu bộ nhớ. | • `GET /api/v1/catalog/search`<br>• `GET /api/v1/catalog/styles` |
-| **C3** | **Chi tiết Hồ sơ MUA / Studio & Portfolio**<br>`MuaProfileDetailScreen.tsx` | • Header Ảnh bìa & Avatar, Tên thợ, Huy hiệu Đã xác minh (Blue Tick).<br>• Thống kê: Số năm kinh nghiệm, Đánh giá trung bình, Số ca đã hoàn thành.<br>• Lightbox Album Showcase (`portfolio_showcases`): Bộ sưu tập ảnh sản phẩm hoàn thiện của khách trước đó chia theo từng phong cách.<br>• Danh sách Bảng giá Gói Dịch vụ (`service_packages`) & Bảng Phụ phí niêm yết.<br>• 2 Nút hành động cố định chân trang: **[ĐẶT KHẨN CẤP 30P]** & **[ĐẶT HẸN TRƯỚC]**. | • Xem ảnh phóng to chất lượng cao với thao tác Pinch-to-Zoom.<br>• Đọc danh sách đánh giá nhận xét thực tế từ các khách hàng trước.<br>• Chọn gói dịch vụ mong muốn $\rightarrow$ Chuyển dữ liệu sang màn hình Booking Flow. | • `GET /api/v1/muas/{id}/profile`<br>• `GET /api/v1/muas/{id}/portfolio`<br>• `GET /api/v1/muas/{id}/packages` |
-| **C4** | **Đặt lịch 2 Chế độ (Booking Flow)**<br>`BookingFlowScreen.tsx` | • Tab Luồng 1: **[Đặt Khẩn Cấp Realtime 30-60 Phút]**.<br>• Tab Luồng 2: **[Đặt Lịch Hẹn Trước Ngày/Giờ Tương Lai]**.<br>• Ô nhập Địa chỉ trang điểm tích hợp Google Places Autocomplete.<br>• Danh sách Add-on mua thêm: Làm tóc cô dâu, Dán mi giả, Chăm sóc da trước make.<br>• Hóa đơn Bóc tách Minh bạch: *Giá gốc + Phí km + Phụ phí giờ sớm/đêm - Voucher giảm giá = Tổng tiền*. | • Trích xuất tọa độ GPS từ địa chỉ nhà khách nhập.<br>• Gọi Pricing Service Preview Hóa đơn chi tiết tức thì.<br>• Đối với Luồng Realtime: Mở màn hình Radar đếm ngược 45s tìm kiếm thợ nhận ca.<br>• Khóa cọc đơn hàng vào Ví Escrow. | • `POST /api/v1/pricing/preview-invoice`<br>• `POST /api/v1/bookings/instant`<br>• `POST /api/v1/bookings/scheduled` |
-| **C5** | **Live Tracking Thợ Di chuyển Realtime**<br>`LiveTrackingMapScreen.tsx` | • Bản đồ dẫn đường toàn màn hình: Hiển thị Tuyến đường đi (Polyline) từ vị trí thợ đến nhà khách.<br>• Icon MUA Marker di chuyển mượt mà theo tọa độ GPS phát sóng.<br>• Card nổi tiến trình 5 chặng: *1. Đang đến nơi $\rightarrow$ 2. Đã có mặt $\rightarrow$ 3. Đang trang điểm $\rightarrow$ 4. Nghiệm thu $\rightarrow$ 5. Hoàn tất*.<br>• Ước tính thời gian đến (ETA) tính bằng phút.<br>• Nút Gọi điện thoại trực tiếp hoặc Mở Chat trao đổi In-App. | • Kết nối STOMP WebSocket kênh `/topic/booking/{bookingId}/location`.<br>• Giải mã dữ liệu tọa độ GPS `{ lat, lng, bearing, speed }` $\rightarrow$ Animate Marker di chuyển mượt mà trên bản đồ không giật lag.<br>• Lắng nghe sự kiện chuyển trạng thái đơn hàng để cập nhật Timeline chặng. | • STOMP Sub: `/topic/booking/{bookingId}/location`<br>• STOMP Sub: `/topic/booking/{bookingId}/status`<br>• `GET /api/v1/bookings/{id}/tracking` |
-| **C6** | **Thanh toán Cọc Escrow & Quản lý Ví**<br>`PaymentEscrowScreen.tsx` | • Thẻ Số dư Ví Khách, Nút Nạp tiền nhanh.<br>• Lựa chọn Phương thức Thanh toán: MoMo QR, VNPay Sandbox, VietQR chuyển khoản tự động, ZaloPay, Số dư Ví.<br>• Trạng thái Escrow: *Cọc được Sàn giữ an toàn 100% cho tới khi quý khách nghiệm thu hài lòng*. | • Mở Deep Link chuyển thẳng sang Ứng dụng MoMo / VNPay / Ngân hàng để quét mã QR.<br>• Lắng nghe Webhook IPN hoặc Polling trạng thái thanh toán thành công.<br>• Tự động chuyển màn hình khi tiền cọc đã được khóa an toàn vào Escrow. | • `POST /api/v1/payments/initiate`<br>• `GET /api/v1/payments/{txId}/status`<br>• `GET /api/v1/customer/wallet` |
-| **C7** | **Nghiệm thu, Đánh giá 1-5★ & Tip Thợ**<br>`ReviewTipDisputeScreen.tsx` | • Hiển thị Ảnh nghiệm thu do thợ chụp gửi lên sau khi trang điểm xong.<br>• Khung chấm điểm Rating 1 đến 5 sao & Ô nhập cảm nghĩ nhận xét.<br>• Khung chọn Tip tiền thưởng thêm cho thợ: [20.000đ], [50.000đ], [100.000đ] hoặc Số tiền tùy chọn.<br>• Nút "Gửi Khiếu Nại Dịch Vụ" nếu thợ làm không đúng yêu cầu hoặc trễ giờ nghiêm trọng. | • Gửi đánh giá sao về hệ thống.<br>• Nếu chọn Tip, tiền sẽ được trừ ngay từ Ví khách chuyển thẳng vào Ví thợ.<br>• Nếu bấm Khiếu nại, mở Form tải bằng chứng ảnh và chuyển đơn sang trạng thái `DISPUTED` (đóng băng cọc). | • `POST /api/v1/reviews`<br>• `POST /api/v1/bookings/{id}/tip`<br>• `POST /api/v1/disputes` |
+| ID | Nghiệp vụ | Giao diện/giới hạn |
+| --- | --- | --- |
+| AG-01 | Dashboard, thống kê, list/filter/detail booking | BE, WEB dashboard/bookings |
+| AG-02 | Hồ sơ/liên hệ/vị trí/logo/commission/surge | BE, WEB settings/modal; profile redirect về settings |
+| AG-03 | Tạo/list/thu hồi lời mời, mã/link/QR, public invitation, freelancer nhận lời và agency duyệt | BE, WEB `/join`/modal; APP chưa có route QR/gia nhập riêng |
+| AG-04 | List/detail nhân viên, xét duyệt, trạng thái, loại khỏi studio, commission riêng | BE, WEB staff/detail |
+| AG-05 | Gán style/kỹ năng và gói cho nhân viên | BE, WEB |
+| AG-06 | CRUD ca trực, ma trận tuần/ngày, lịch staff, kiểm tra xung đột | BE, WEB shifts; quyền sửa/xóa giới hạn theo controller |
+| AG-07 | CRUD gói/item/add-on/phụ phí studio | BE, WEB packages/surcharges |
+| AG-08 | Đơn chờ dispatch, ma trận đủ điều kiện, gán chính/phụ, đổi thợ, từ chối đơn | BE, WEB booking/assignment matrix |
+| AG-09 | Nhiều staff/booking, xác nhận assignment, `proceed-solo` | BE, WEB theo modal; APP không mặc định có UI mọi endpoint |
+| AG-10 | Báo bận khẩn cấp/lý do/minh chứng, agency duyệt/từ chối/đổi thợ | BE, WEB emergency approval/reassign; APP cần kiểm tra từng ca |
+| AG-11 | Rule quá giờ CRUD/bật tắt/list; submit/list/detail/review report | BE; WEB có cấu hình rule, chưa có route riêng bao phủ toàn report |
 
----
+Report quá giờ có kết quả `PENALIZED`, `APPROVED_WAIVED`, `CHARGED_CUSTOMER`; trạng thái report không tự chứng minh gateway đã thu/phạt. Dispatch kiểm tra ownership studio, năng lực, lịch và assignment của người xác nhận.
 
-#### B. Phân hệ Ứng dụng Thợ Make-up Chuyên nghiệp & Tự do (`ROLE_FREELANCE_MUA`)
+### 5.2. ADMIN
 
-Dành riêng cho Thợ Make-up (bao gồm thợ tự do và thợ thuộc Studio đi làm lưu động), được viết bằng **React Native + TypeScript**, đặc biệt tích hợp công nghệ phát sóng GPS chạy ngầm (Background Telemetry) và màn hình đếm ngược phản xạ nhanh.
+| ID | Nghiệp vụ | WEB |
+| --- | --- | --- |
+| ADM-01 | Dashboard thống kê, list/filter/page/detail booking toàn sàn | `/admin/dashboard`, `/admin/bookings` |
+| ADM-02 | Tạo/list user, đổi trạng thái | `/admin/users` |
+| ADM-03 | Tạo/list/thẩm định agency | `/admin/agencies` |
+| ADM-04 | List chứng chỉ, ảnh/hồ sơ, duyệt/từ chối | `/admin/muas/credentials` |
+| ADM-05 | Catalog/style CRUD và bật/tắt | `/admin/taxonomy` |
+| ADM-06 | Surge/giảm giá/H3 | `/admin/pricing` |
+| ADM-07 | Thống kê/lọc/hồ sơ/giải quyết dispute và tác động tài chính | `/admin/disputes` |
+| ADM-08 | Hồ sơ, đổi mật khẩu, ngôn ngữ/theme, realtime notification | Layout/modal |
 
-| STT | Tên Màn hình Mobile UI & Component | Thành phần Giao diện & Type Definitions (TSX) | Luồng Tương tác & Xử lý Kỹ thuật (Client-Side Logic) | Endpoint API & STOMP Kênh kết nối |
-| :---: | :--- | :--- | :--- | :--- |
-| **D1** | **Bàn làm việc & Công tắc Sẵn sàng (Status Toggle)**<br>`MuaWorkstationScreen.tsx` | • Công tắc lớn (Master Switch): **[ONLINE - SẴN SÀNG NHẬN CA]** $\leftrightarrow$ **[OFFLINE - NGHỈ NGƠI]**.<br>• Widget Thống kê Hôm nay: Số đơn hoàn thành, Thu nhập thực nhận (đã trừ phí sàn), Điểm Uy tín.<br>• Danh sách Ca làm việc hôm nay xếp theo trình tự thời gian.<br>• Huy hiệu cảnh báo nhắc ca hẹn sắp tới trong 30 phút. | • Khi gạt sang "Online", kích hoạt Native Service phát sóng tọa độ GPS chạy ngầm (`Expo Location TaskManager`) chu kỳ 5-10 giây một lần.<br>• Đăng ký lắng nghe kênh WebSocket cá nhân nhận thông báo đơn mới.<br>• Khi gạt sang "Offline", tắt dịch vụ GPS và xóa tọa độ khỏi Redis GEO. | • `PUT /api/v1/mua/readiness-status`<br>• `POST /api/v1/telemetry/ping-location`<br>• STOMP Sub: `/queue/mua/{muaId}/alerts` |
-| **D2** | **Popup Đếm ngược 30-45s Nhận Ca Realtime**<br>`InstantBookingModal.tsx` | • Modal Popup toàn màn hình tự động hiển thị đè lên các ứng dụng khác khi có ca khẩn cấp.<br>• Đồng hồ Đĩa tròn đếm ngược từ 45 giây về 0 kèm hiệu ứng màu chuyển từ Xanh $\rightarrow$ Vàng $\rightarrow$ Đỏ.<br>• Thẻ Thông tin Ca: Gói dịch vụ, Địa chỉ khách, Khoảng cách km, Thu nhập thợ thực nhận sau khi trừ hoa hồng sàn.<br>• Nút hành động lớn: **[CHẤP NHẬN CA LÀM]** (Màu xanh) và **[TỪ CHỐI]** (Màu xám). | • Phát chuông âm thanh cảnh báo nhận ca liên tục và kích hoạt rung Haptic thiết bị.<br>• Khi thợ bấm "Chấp nhận", gọi API tức thì với cơ chế Redlock (Redis Distributed Lock) kiểm tra tranh chấp.<br>• Nếu thành công, chuyển thẳng vào màn hình Tiến trình Ca làm.<br>• Nếu hết 45s hoặc bấm từ chối, modal tự đóng và ghi nhận bỏ lỡ. | • `POST /api/v1/bookings/{id}/accept`<br>• STOMP Sub: `/queue/mua/{muaId}/instant-job` |
-| **D3** | **Quản lý Lịch bận Cá nhân & Ca trực Studio**<br>`MuaCalendarScheduleScreen.tsx` | • Lịch tương tác tháng & tuần (Agenda Calendar View).<br>• Tab 1: **[Lịch bận Cá nhân (`mua_calendars`)]**: Cho phép thợ tự khóa các khung giờ bận việc gia đình, học tập chống trùng ca hẹn trước.<br>• Tab 2: **[Lịch Trực Studio (`agency_staff_shifts`)]**: Hiển thị các ca trực tại studio mà quản lý đã phân công trong tuần.<br>• Đánh dấu mã màu trực quan: Xanh (Ca đã đặt), Vàng (Ca trực studio), Đỏ (Khung giờ bận). | • Thêm mới khung giờ bận cá nhân với Date-time picker.<br>• Kiểm tra hợp lệ: Không cho khóa giờ nếu khung giờ đó đã có đơn đặt hẹn trước.<br>• Đồng bộ lịch hẹn vào ứng dụng Google Calendar / Apple Calendar của máy. | • `GET /api/v1/mua/calendars`<br>• `POST /api/v1/mua/calendars/block`<br>• `DELETE /api/v1/mua/calendars/{id}`<br>• `GET /api/v1/mua/agency-shifts` |
-| **D4** | **Tiến trình Thực hiện Ca làm 5 Chặng**<br>`JobExecutionFlowScreen.tsx` | • Thanh hiển thị 5 Chặng quy chuẩn:<br>  *1. Bắt đầu di chuyển $\rightarrow$ 2. Đã có mặt tại điểm hẹn $\rightarrow$ 3. Bắt đầu make-up $\rightarrow$ 4. Chụp ảnh nghiệm thu $\rightarrow$ 5. Hoàn thành ca*.<br>• Nút Mở Google Maps dẫn đường đến nhà khách.<br>• Bộ đếm thời gian thực hiện make-up dự kiến.<br>• Trình Camera tích hợp bắt buộc chụp ảnh sản phẩm hoàn thiện của khách trước khi bấm "Hoàn thành". | • Chặng 1 kích hoạt chế độ phát sóng GPS tần suất cao (3 giây/lần).<br>• Chặng 4 mở Camera chụp trực tiếp (không cho chọn ảnh cũ từ thư viện để chống gian lận) và upload lên CDN.<br>• Chặng 5 bấm Hoàn thành $\rightarrow$ Hệ thống tự động phát sự kiện giải ngân tiền ví. | • `PUT /api/v1/bookings/{id}/step-progress`<br>• `POST /api/v1/bookings/{id}/proof-photo`<br>• `PUT /api/v1/bookings/{id}/complete` |
-| **D5** | **Quản lý Hồ sơ Tay nghề & Portfolio Mẫu**<br>`MuaPortfolioManagerScreen.tsx` | • Form thông tin cá nhân: Họ tên nghệ danh, Bio phong cách sở trường, Số năm kinh nghiệm.<br>• Slider chọn Bán kính Nhận khách tối đa (ví dụ: tối đa 15km quanh nhà).<br>• Danh mục Album Showcase (`portfolio_showcases`): Tải lên các bộ ảnh khách hàng thực tế theo từng Tone Make-up.<br>• Form thiết lập Gói dịch vụ cá nhân (`service_packages`) và giá niêm yết cho khách. | • Nén ảnh tự động trên thiết bị (Client-side Image Compressor) giảm dung lượng trước khi upload.<br>• Chọn Tone phong cách gắn thẻ cho từng bức ảnh album.<br>• Bật/tắt các gói dịch vụ tùy theo lịch rảnh và định hướng của thợ. | • `GET /api/v1/mua/profile`<br>• `PUT /api/v1/mua/profile`<br>• `POST /api/v1/mua/portfolio/upload`<br>• `POST /api/v1/mua/packages` |
-| **D6** | **Ví Thợ, Sao kê Thu nhập & Rút tiền (Payout)**<br>`MuaWalletPayoutScreen.tsx` | • Thẻ Số dư Ví Khả dụng & Số tiền Đang phong tỏa giữ cọc.<br>• Thống kê Thu nhập tuần này, tháng này (đã trừ % hoa hồng Sàn).<br>• Danh sách Tài khoản Ngân hàng chính chủ đã liên kết (`user_bank_accounts`).<br>• Form Yêu cầu Rút tiền (`withdrawal_requests`) về Tài khoản Ngân hàng (Hỗ trợ VietQR 24/7). | • Bấm liên kết số tài khoản ngân hàng mới với OTP xác thực.<br>• Kiểm tra hạn mức rút tiền tối thiểu (ví dụ: 100.000 VNĐ).<br>• Gửi yêu cầu rút tiền $\rightarrow$ Nhận thông báo Toast biến động số dư khi tiền về tài khoản ngân hàng. | • `GET /api/v1/mua/wallet`<br>• `GET /api/v1/mua/wallet/transactions`<br>• `POST /api/v1/mua/bank-accounts`<br>• `POST /api/v1/mua/withdrawals` |
-| **D7** | **Giải trình Quá giờ & Ảnh Đối chứng**<br>`OvertimeExplanationModal.tsx` | • Modal cảnh báo tự động kích hoạt khi thợ bấm hoàn thành ca làm vượt quá thời gian dự kiến (`estimated_duration_minutes`).<br>• Thẻ tóm tắt: Thời gian dự kiến vs Thực tế, Số phút vượt quá.<br>• Dropdown chọn Lý do theo Quy chế Studio niêm yết sẵn (`rule_id`).<br>• Checkbox & Input "Lý do ngoại lệ khác" (`is_custom_exception`) kèm ô nhập chi tiết giải trình.<br>• Trình Camera chụp trực tiếp ảnh đối chứng tại chỗ (khách đến muộn, yêu cầu vẽ thêm họa tiết...). | • Kiểm tra thời lượng làm việc so với gói dịch vụ.<br>• Tải danh sách quy tắc studio từ API.<br>• Bắt buộc chụp ảnh trực tiếp tại chỗ nếu chọn lý do ngoại lệ ngoài quy định.<br>• Gửi giải trình lên Agency Admin duyệt để tránh bị khấu trừ hoa hồng tự động. | • `GET /api/v1/agency/overtime-rules/public`<br>• `POST /api/v1/agency/overtime-reports` |
+Chưa có route admin duyệt payout hay ví đối soát sàn; không ghi là WEB đã hoàn thành.
+## 6. Trợ lý AI — AI
 
----
+- **AI-01:** Bong bóng trợ lý dùng chung, `/support-chat`, gửi câu hỏi/nhận trả lời, tiếp tục sessionCode và xem lịch sử.
+- **AI-02:** `POST /support/chat`, `GET /support/history/{sessionCode}`; lưu session/message USER/ASSISTANT.
+- **AI-03:** Retrieval top 5 tài liệu, kết hợp cosine embedding và keyword, fallback keyword; giữ lịch sử hội thoại gần đây.
+- **AI-04:** Có userId thì bổ sung booking/ví/hồ sơ liên quan vào ngữ cảnh; guest được hướng dẫn login khi hỏi dữ liệu cá nhân.
+- **AI-05:** Prompt giới hạn hỗ trợ nền tảng/dịch vụ; không bảo đảm tuyệt đối câu trả lời luôn đúng.
+- **AI-06:** Generation/embedding model cấu hình môi trường; phụ thuộc API key/mạng/model thực tế.
 
-### 4. Quy chuẩn Trải nghiệm Người dùng, State Management & Tích hợp
+Chưa có agent tự đặt/hủy đơn, thanh toán hoặc giải quyết dispute. Tri thức seed/prompt có thể chứa kế hoạch cũ: prompt đang nhắc mốc hủy 24 giờ, khác rule 2 giờ của booking service. Cập nhật SRS không tự sửa prompt/dữ liệu đó.
 
-#### A. Ma trận Quyền hạn & Phân bổ Nền tảng (Role vs Platform Matrix)
+`/support/**` permitAll; endpoint history nhận sessionCode và controller không nhận principal. Cần xác minh quyền sở hữu phiên trước khi coi lịch sử cá nhân được bảo vệ đầy đủ.
 
-| Vai trò Người dùng (User Role) | Nền tảng Ứng dụng Phụ trách | Ngôn ngữ & Framework | Thư mục Mã nguồn | Phạm vi Chức năng Chính |
-| :--- | :--- | :--- | :--- | :--- |
-| **`ROLE_SUPER_ADMIN`** | Cổng Quản trị Sàn (Web Portal) | ReactJS 18 + JavaScript (JSX) | `code/frontend/` | Vận hành toàn diện, duyệt thợ, xử lý tranh chấp, đối soát kế toán đúp sổ cái. |
-| **`ROLE_AGENCY_ADMIN`** | Cổng Quản lý Đại lý (Web Portal) | ReactJS 18 + JavaScript (JSX) | `code/frontend/` | Điều phối đơn hàng, xếp ca nhân sự, cấu hình hoa hồng studio, rút tiền ví studio. |
-| **`ROLE_AGENCY_STAFF`** | Cổng Quản lý Đại lý (Web Portal) | ReactJS 18 + JavaScript (JSX) | `code/frontend/` | Hỗ trợ điều phối đơn hàng, xem ma trận ca trực, tiếp nhận yêu cầu khách. |
-| **`ROLE_CUSTOMER`** | Ứng dụng Di động Khách (Mobile App) | React Native 0.74+ & TypeScript | `code/mobile/` | Bản đồ quét thợ GPS, đặt lịch 2 luồng, thanh toán giữ cọc Escrow, live tracking thợ. |
-| **`ROLE_FREELANCE_MUA`** | Ứng dụng Di động Thợ (Mobile App) | React Native 0.74+ & TypeScript | `code/mobile/` | Bật/tắt phát sóng GPS, popup đếm ngược 30s nhận ca, tiến trình 5 chặng, rút tiền ví. |
+## 7. Giao diện và trải nghiệm
 
-#### B. Cơ chế Quản lý Trạng thái Khách hàng (Client State Architecture with Zustand)
-* **Web Portal (ReactJS + JS):**
-  * `useAuthStore`: Lưu trữ JWT token, thông tin Profile Admin/Agency, danh sách quyền hạn `permissions`.
-  * `useAgencyDispatchStore`: Quản lý danh sách đơn chờ gán thợ, trạng thái thợ trực ca và bộ lọc ma trận điều phối realtime.
-  * `useShiftMatrixStore`: Lưu trữ dữ liệu lịch tuần của các thợ, hỗ trợ kéo thả và copy tuần làm việc.
-* **Mobile App (React Native + TS):**
-  * `useCustomerBookingStore`: Quản lý trạng thái đơn đang đặt, thông tin gói dịch vụ, tọa độ đón và hóa đơn tính tiền preview.
-  * `useMuaTelemetryStore`: Quản lý trạng thái Online/Offline, tọa độ GPS hiện tại và chu kỳ phát sóng ngầm.
-  * `useRealtimeTrackingStore`: Lưu trữ tọa độ thợ di chuyển stream qua WebSocket và tính toán ETA hiển thị trên bản đồ.
+### 7.1. App/mobile
 
-#### C. Quy chuẩn Kết nối Realtime WebSocket STOMP Client
-* **Giao thức:** Kết nối qua giao thức an toàn `wss://{domain}/ws-makeup` sử dụng thư viện `@stomp/stompjs`.
-* **Xác thực phiên:** Gửi kèm Bearer JWT Token trong Header `CONNECT` khi khởi tạo bắt tay kết nối (Handshake).
-* **Chiến lược Tái kết nối (Auto Reconnect):**
-  * Cấu hình `reconnectDelay = 5000` (5 giây) với thuật toán Exponential Backoff tối đa 30 giây khi mạng chập chờn.
-  * Tự động đăng ký lại (Resubscribe) tất cả các topic/queue đang theo dõi ngay khi kết nối khôi phục thành công.
-* **Quy chuẩn Âm thanh & Rung:**
-  * Web Portal: Phát âm thanh thông báo Notification Chime ngắn (<1s) và hiển thị Toast góc trên bên phải màn hình khi có đơn chỉ định mới.
-  * Mobile App: Kích hoạt `react-native-sound` phát chuông cảnh báo lớn và rung liên tục theo nhịp Haptic Pattern `[0, 500, 200, 500]` khi có Popup đếm ngược nhận ca khẩn cấp.
+| Nhóm | Route/chức năng |
+| --- | --- |
+| Khởi động/auth | Splash, khôi phục phiên, onboarding, login/register, điều hướng theo role |
+| `/` | Khách: vị trí, khám phá, đặt gấp/hẹn trước. Thợ/staff: workstation, online/bán kính/offer/ca |
+| `/explore`, `/mua-detail/[id]` | Tìm/lọc, hồ sơ, chứng chỉ, gallery, style, package, đặt dịch vụ |
+| `/booking/create` | Provider/gói/add-on/slot/địa chỉ, preview, tạo lịch |
+| `/booking/instant-matched/[id]` | Thợ ghép, chốt gói/add-on, từ chối provider/chuyển cọc |
+| `/booking/deposit/[id]` | Cọc/countdown/checkout/sync/hủy/thoát theo điều kiện |
+| `/booking/tracking/[id]` | Map/ETA/tiến độ, yêu cầu hủy/thanh toán/khiếu nại theo trạng thái |
+| `/bookings`, `/activity` | Danh sách/lọc, đơn hoạt động, lịch sử biến động |
+| `/booking/detail/[id]`, `/booking/history-detail/[id]` | Giá/trạng thái/ảnh, cash/online, timeline, đối chất |
+| `/job-execution/[id]` | Thực hiện ca, GPS, ảnh bằng chứng, hoàn thành, xác nhận tiền/đối chất |
+| `/profile/edit` | Hồ sơ/avatar, địa chỉ lưu/mặc định |
+| `/profile/mua-profile` | Bio/kinh nghiệm/cơ sở/bán kính/style/portfolio/chứng chỉ |
+| `/profile/staff-profile` | Hồ sơ nhân viên và agency |
+| `/mua/packages/*` | CRUD/bật tắt gói, items, showcase, thêm tác phẩm |
+| `/profile/customer-wallet`, `/profile/freelancer-wallet` | Số dư/cọc giữ/giao dịch/lọc thời gian/chi tiết |
+| `/notifications` | List/đọc/xóa/mở đối tượng |
+| `/support-chat` | AI, session/history/loading/error |
 
-#### D. Cơ chế Định vị GPS Chạy ngầm (Background Geolocation Telemetry) trên Mobile App Thợ
-* **Nền tảng thực thi:** Sử dụng Native Task `Expo Location TaskManager` hoặc React Native Background Actions.
-* **Quyền hạn bắt buộc:** Xin quyền `ACCESS_FINE_LOCATION` và `ACCESS_BACKGROUND_LOCATION` (Android), `NSLocationAlwaysAndWhenInUseUsageDescription` (iOS).
-* **Chu kỳ phát sóng:**
-  * Trạng thái Chờ việc (Online Standby): Phát sóng tọa độ lat/lng mỗi **10 giây/lần** hoặc khi di chuyển vượt quá **15 mét** để tiết kiệm pin.
-  * Trạng thái Đang di chuyển đến nhà khách (`ON_THE_WAY`): Phát sóng mỗi **3-5 giây/lần** để khách hàng quan sát Marker di chuyển mượt mà trên bản đồ.
-  * Khi pin dưới 15%: Tự động giảm tần suất xuống 15 giây/lần kèm cảnh báo cho thợ.
+Modal dùng chung: tài khoản, popup/confirm, undo, địa chỉ/map, gallery/zoom, ngày giờ, hóa đơn, offer countdown/scheduled, cọc thành công, camera, hủy, dossier/counter-dispute, chi tiết giao dịch. Undo chỉ tại nơi đã tích hợp, không đồng nghĩa mọi backend mutation có rollback.
 
----
+### 7.2. Web portal
 
-## IV. THIẾT KẾ CHI TIẾT CƠ SỞ DỮ LIỆU (DATABASE DESIGN & SQL SPECIFICATION)
+Public: `/`, `/login`, `/register`, `/join`, fallback 404. Landing có hero, đối tượng sử dụng, phong cách, workflow, giới thiệu tính năng/điều phối, FAQ/CTA. Minh họa/số liệu landing không phải thống kê thật.
 
-Cơ sở dữ liệu hệ thống áp dụng mô hình **PostgreSQL 16 + PostGIS Extension** chuẩn hóa 3NF kết hợp Phân quyền RBAC 4 Bảng và Phân vùng Ví 7 Bảng Sổ cái Kế toán Đúp:
+Route admin/agency ở mục 6; có role guard, bảng, tìm kiếm/phân trang, modal/form, toast/confirm, notifications, vi/en/theme. Tệp `AgencyProfilePage.jsx` và `DashboardPage.jsx` vẫn tồn tại nhưng router không gắn thành trang độc lập tương ứng; phân biệt tồn tại page với route hoạt động.
 
-### **Danh sách 28 Bảng Dữ liệu Cốt lõi:**
-1. **`users`**: Quản lý tài khoản đăng nhập (Khách, Thợ tự do, Chủ Studio, Nhân viên Studio) với khóa chính `BIGINT Identity`.
-2. **`roles`**, **`user_roles`** & **`role_permissions`**: Mô hình phân quyền RBAC 4 Bảng đầy đủ (`ROLE_CUSTOMER`, `ROLE_FREELANCE_MUA`, `ROLE_AGENCY_ADMIN`, `ROLE_AGENCY_STAFF`) và danh sách `permission_code` chi tiết.
-3. **`agency_profiles`**: Hồ sơ Studio/Đại lý (Mã đại lý `AG-HN-00182`, hotline, địa chỉ, tỷ lệ % hoa hồng nội bộ studio/thợ).
-4. **`mua_profiles`**: Hồ sơ Thợ trang điểm (Mã thợ `MUA-2026-08912`, bio, kinh nghiệm, chứng chỉ JSONB, bán kính max km, rating).
-5. **`agency_staff`**: Mối quan hệ thợ thuộc studio & % hoa hồng thỏa thuận riêng.
-6. **`master_service_categories`**: Danh mục loại Make-up chuẩn sàn (Make tiệc, Kỷ yếu, Cô dâu, Mẹ cô dâu, Người nhà...).
-7. **`makeup_styles`**: Danh mục Tone/Phong cách trang điểm (Tone Thái, Douyin, Hồng Baby, Tone Tây, Tone Hàn...).
-8. **`service_packages`**: Gói dịch vụ chi tiết của Thợ tự do hoặc Studio.
-9. **`package_items`**: Chi tiết các bước thực hiện mặc định (`item_type = COMPONENT`) và Dịch vụ tùy chọn mua thêm (`item_type = ADD-ON`) như Làm tóc, Mi giả, Dưỡng ẩm...
-10. **`package_styles`**: Bảng nối N-N liên kết gói dịch vụ với các Tone/Phong cách make-up.
-11. **`agency_staff_services`**: Bảng gán kỹ năng Gói Dịch vụ cho thợ Studio.
-12. **`agency_staff_styles`** & **`mua_styles`**: Bảng gán kỹ năng Tone Make-up trực tiếp cho Thợ tự do & Thợ Studio (Douyin, Thái, Tây, Hàn...).
-13. **`portfolio_showcases`**: Album Ảnh sản phẩm make-up hoàn thiện của khách hàng trước đó theo từng [Gói Dịch Vụ + Tone Make-Up] của Thợ Tự Do & Thợ Studio.
-14. **`surcharges`**: Cấu hình phụ phí làm sớm (3h-5h sáng), phụ phí đi tỉnh, phụ phí ngày Lễ/Tết.
-15. **`bookings`**: Đơn đặt lịch chính (Mã đơn `BK-260908-A9X2K`, loại Realtime/Scheduled, luồng Direct/Agency, trạng thái, tổng tiền).
-16. **`booking_items`** & **`booking_history`**: Chi tiết gói dịch vụ được đặt & Nhật ký audit log lịch sử máy trạng thái đơn hàng.
-17. **`mua_calendars`**: Lịch bận cá nhân của thợ (Block Calendar) chống trùng ca hẹn trước.
-18. **`telemetry_logs`**: Lịch sử tọa độ GPS thợ di chuyển (Sử dụng kiểu dữ liệu PostGIS `GEOMETRY(Point, 4326)`).
-19. **`wallets`**: Quản lý số dư Ví khả dụng & đóng băng của Khách hàng, Thợ, Đại lý, Sàn (`CUSTOMER_WALLET`, `FREELANCER_WALLET`, `AGENCY_WALLET`, `SYSTEM_PLATFORM_WALLET`).
-20. **`user_bank_accounts`**: Quản lý danh sách Tài khoản Ngân hàng chính chủ đã liên kết.
-21. **`withdrawal_requests`**: Quản lý yêu cầu Rút tiền từ Ví về Ngân hàng (Mã `WTH-...`, số tiền, phí, số tiền thực nhận).
-22. **`payment_transactions`**: Quản lý giao dịch với Cổng thanh toán (MoMo, VNPay, ZaloPay, VietQR, Tiền mặt).
-23. **`transactions`**: Bảng Master quản lý giao dịch nghiệp vụ tổng hợp (`DEPOSIT`, `WITHDRAWAL`, `ESCROW_LOCK`, `ESCROW_RELEASE`, `PLATFORM_COMMISSION`, `REFUND`, `TIP`).
-24. **`wallet_transactions`**: Nhật ký sao kê biến động số dư chi tiết của từng Ví (`balance_before`, `balance_after`, `CREDIT`, `DEBIT`, `FREEZE`, `UNFREEZE`).
-25. **`ledger_entries`**: Bảng Sổ cái Kế toán Đúp (Double-Entry General Ledger) hạch toán Nợ (`debit_wallet_id`) / Có (`credit_wallet_id`).
-26. **`in_app_notifications`**, **`reviews`** & **`disputes`**: Thông báo In-App qua In-Memory EventBus & Embedded WebSocket, Đánh giá sao 1-5★, Tip tiền & Đơn khiếu nại chất lượng dịch vụ (`DSP-260908-A9X2K`).
-27. **`agency_overtime_rules`**: Cấu hình quy chế & mức phạt quá giờ nội bộ của từng Studio (Phạt cố định hoặc theo phút, tự động khấu trừ hoa hồng thợ).
-28. **`agency_staff_overtime_reports`**: Báo cáo giải trình thợ làm quá thời gian dự kiến (`estimated_duration_minutes`) kèm ảnh đối chứng và phán quyết toàn quyền của Agency Admin (`DEDUCT_BY_RULE`, `WAIVE_PENALTY`, `CUSTOM_PENALTY`, `CHARGE_CUSTOMER`).
+Các route studio thực tế: `/agency/dashboard`, `/agency/bookings`, `/agency/settings`, `/agency/packages`, `/agency/surcharges`, `/agency/staff`, `/agency/staff/:staffId`, `/agency/shifts`. `/agency` chuyển tới dashboard, `/agency/profile` chuyển tới settings; `/admin` chuyển tới `/admin/dashboard`.
 
----
+## 8. Dữ liệu, API và yêu cầu chất lượng
 
-## V. YÊU CẦU TÍCH HỢP HỆ THỐNG & BẢO MẬT (INTEGRATION & SECURITY REQUIREMENTS)
+### 8.1. Mô hình dữ liệu
 
-### 1. Tích hợp Hệ thống Thanh toán & Ví điện tử (Payment Integration)
-* **Phương thức:** MoMo, VNPay, ZaloPay, Thẻ ATM/Visa/Mastercard, VietQR, Tiền mặt.
-* **Cơ chế Escrow:** Tự động giữ cọc $\rightarrow$ Ca hoàn thành $\rightarrow$ Tự động cắt hoa hồng Sàn (%) $\rightarrow$ Chuyển tiền còn lại vào Ví Đại lý hoặc Ví Thợ tự do theo mô hình Sổ cái Kế toán Đúp.
+Tám schema tiếp tục tồn tại, không còn giới hạn “28 bảng”. Danh mục thực tế trích migration tại phụ lục; partition telemetry tách khỏi bảng nghiệp vụ.
 
-### 2. Tích hợp Định vị GPS & Maps (Telemetry Integration)
-* **Dịch vụ:** Google Maps / Goong Maps API kết hợp Redis GEO và PostGIS.
-* **Nhiệm vụ:** Tính khoảng cách di chuyển thực tế, tính phí ship/km và hiển thị vị trí thợ di chuyển Realtime.
+| Schema | Dữ liệu |
+| --- | --- |
+| `auth_schema` | User, role, user-role, role permission, saved address |
+| `agency_schema` | Profile/branch, staff, styles/services, shifts, overtime rule/report |
+| `mua_schema` | Profile, styles, calendars |
+| `catalog_schema` | Category/style/package/item/package-style/surcharge/showcase/surge/distance tier |
+| `booking_schema` | Booking/history/staff assignment |
+| `telemetry_schema` | Partitioned GPS logs, booking trips |
+| `wallet_schema` | Payment/deposit/wallet/hold/ledger/settlement/cash receipt |
+| `interaction_schema` | Notifications, AI knowledge/session/message |
 
-### 3. Tích hợp Hệ thống Thông báo Trực tiếp trên App qua In-Memory EventBus & Embedded WebSocket (In-App Notification Integration)
-#### A. An toàn & Bảo mật (Security & Compliance):
-* **Bảo mật Kết nối Realtime WebSocket:** Sử dụng mã hóa WSS (WebSocket Secure) qua TLS/SSL. Xác thực kết nối WebSocket bằng Short-lived JWT Token.
-* **Truyền phát Sự kiện Nội bộ Siêu tốc (In-Memory EventBus):** Áp dụng Spring `ApplicationEventPublisher` và `@EventListener` (`@Async`) trong cùng tiến trình JVM, bảo mật nội bộ và không phát sinh độ trễ mạng hay rủi ro network.
-* **Chống Spam & Trùng tin (Rate Limiting):** Sử dụng Idempotency Key / Event ID cho mỗi sự kiện thông báo tránh xử lý lặp lại.
-* **Bảo vệ Dữ liệu Nhạy cảm:** Payload thông báo được mã hóa và ẩn đi các thông tin tài chính nhạy cảm bằng Masking Data.
+Quan hệ chính: user → profile/customer booking; provider → package → item/showcase; booking → history/assignment/calendar/payment/deposit/receipt/settlement; user → wallet → hold/ledger; session → message. Booking lưu snapshot giá/add-on, không phụ thuộc hoàn toàn vào package sửa sau đó.
 
-#### B. Lợi ích Hệ thống mang lại (Key Benefits):
-* **Realtime Tức thì (<100ms):** Thông báo nhảy trực tiếp trên màn hình App qua WebSocket ngay khi sự kiện phát sinh (<100ms).
-* **Không Phụ thuộc Email:** Hoàn toàn loại bỏ rủi ro thông báo chui vào Spam folder như Email truyền thống, đảm bảo 100% Thợ không bị bỏ lỡ ca làm.
-* **Tương tác Cao (High Engagement):** Thông báo dạng In-App Toast/Banner tích hợp nút bấm hành động trực tiếp (VD: Nút "Chấp nhận ca" ngay trên Popup đếm ngược).
+Migration mới có soft-delete, trạng thái dispute, push token, slot-taken, giải phóng lịch chưa cọc và AI. Flyway/entity là nguồn chi tiết cột/index/constraint; không dùng DDL dự kiến cũ như schema đã triển khai.
 
-### 4. Quy tắc Sinh Mã Tự động Cấu hình (Auto-generated Code Settings)
-* **Mã Đơn Đặt Lịch (Booking Code):** Cú pháp `BK-[YYMMDD]-[RANDOM_5_ALPHANUMERIC]` (Ví dụ: `BK-260908-A9X2K`).
-* **Mã Đại lý / Studio (Agency Code):** Cú pháp `AG-[PROVINCE_CODE]-[ID_SEQUENTIAL]` (Ví dụ: `AG-HN-00182`, `AG-HCM-00509`).
-* **Mã Thợ Make-up (MUA Code):** Cú pháp `MUA-[YEAR]-[ID_SEQUENTIAL]` (Ví dụ: `MUA-2026-08912`).
-* **Mã Giao dịch Ví (Transaction Code):** Cú pháp `TXN-[TYPE]-[TIMESTAMP_MS]-[RANDOM_4_DIGITS]` (Ví dụ: `TXN-DEP-1757329500123-9812`).
-* **Mã Đơn Khiếu nại (Dispute Code):** Cú pháp `DSP-[YYMMDD]-[BOOKING_CODE_SHORT]` (Ví dụ: `DSP-260908-A9X2K`).
-* **Mã Yêu cầu Rút tiền (Withdrawal Code):** Cú pháp `WTH-[YYMMDD]-[RANDOM_5_ALPHANUMERIC]` (Ví dụ: `WTH-260908-X891A`).
+### 8.2. Hợp đồng
 
----
+REST JSON dùng `ApiResponse` (success/message/data/timestamp); phân trang theo DTO từng endpoint, không mặc định mọi list có chung Page. Upload multipart; lỗi qua GlobalExceptionHandler/mã lỗi/message đa ngôn ngữ. Phụ lục giữ alias và mapping không suffix. WebSocket/push là tín hiệu cập nhật; REST/DB đối soát khi refresh/reconnect.
 
-## VI. BẢNG PHÂN RÃ CÔNG VIỆC CHI TIẾT TỪNG TÍNH NĂNG (45-DAY GRANULAR WBS - 86 ISSUES / 7 SPRINTS)
+### 8.3. Yêu cầu chất lượng và giới hạn
 
-### Danh sách 86 Jira Issues Phân bổ trong 7 Sprints (11 - 14 Issues / Sprint):
+| ID | Tiêu chí | Hiện trạng cần kiểm chứng |
+| --- | --- | --- |
+| NFR-01 | Role/ownership đúng, không đọc/ghi người khác | SecurityConfig/method/service checks; cần test IDOR/API/topic |
+| NFR-02 | Không nhận trùng/ghi có trùng/settle trùng | Redis/Redisson, transaction, khóa/version, idempotency; cần test đồng thời |
+| NFR-03 | Callback chậm/lặp, reconnect/mất mạng | Sync/reconciliation/poll/dedup; cần test tích hợp |
+| NFR-04 | Lịch/countdown/hủy thống nhất UTC+7 | Nhiều service dùng +7, một số LocalDateTime.now; cần timezone nhất quán |
+| NFR-05 | Quyền ảnh/camera/GPS/push, fallback rõ | Cần thiết bị iOS/Android và Expo Web |
+| NFR-06 | Preview/booking/gateway/ledger/UI thống nhất | Commission còn khác mặc định, chưa tuyên bố đạt |
+| NFR-07 | Loading/empty/error/confirm/refresh, điều hướng đúng | Có component/handler; chưa chứng nhận accessibility toàn bộ |
+| NFR-08 | Secrets và HTTPS/WSS phù hợp triển khai | Cần cấu hình/review môi trường, SRS không chứa secret |
+| NFR-09 | Hiệu năng có benchmark | Chưa chứng minh <5ms/<100ms hoặc hàng chục nghìn kết nối |
+| NFR-10 | Nhiều backend không mất sự kiện | Event bus/simple broker nội bộ cần thiết kế mở rộng |
 
-| Mã Issue | Loại Issue | Tên Tính năng / Task Kỹ thuật | Trạng thái | Hạn chót | Ưu tiên | Phụ trách |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **SPRINT 0** | **INFRAS & AUTH** | **Sprint 0: Khởi Tạo Dự Án, DB & Auth (13 Issues)** | | | | |
-| **ISSUE-6** | Task | Khởi tạo Git Repository và cấu trúc thư mục Layered Monolith (core-api) | Done | 8/9/2026 | Medium | DE, SA |
-| **ISSUE-4** | User Story | Tạo cấu trúc thư mục dự án tổng quan | Done | 8/9/2026 | High | DE, SA |
-| **ISSUE-1** | User Story | Phân tích và tạo tài liệu đặc tả SRS cho phân hệ ADMIN | Done | 8/9/2026 | High | SA, BE1 |
-| **ISSUE-8.1** | Task | Cấu hình Docker Compose cho PostgreSQL 16 & PostGIS Extension | In Progress | 9/9/2026 | Medium | DE |
-| **ISSUE-8.2** | Task | Cấu hình Docker Compose cho Redis GEO Cluster & Cache | In Progress | 9/9/2026 | Medium | DE |
-| **ISSUE-8.3** | Task | Cấu hình Spring In-Memory EventBus (ApplicationEventPublisher) | In Progress | 9/9/2026 | Medium | DE |
-| **ISSUE-8.4** | Task | Viết Script DDL Migration 26 Bảng (RBAC 4 Bảng, Ví 7 Bảng) | In Progress | 9/9/2026 | High | BE1, DE |
-| **ISSUE-3** | User Story | Tạo file User Story cho hệ thống mua-makeup | To Do | 9/9/2026 | High | SA, QA |
-| **ISSUE-5** | User Story | Bổ sung file đặc tả cấu trúc hoàn chỉnh, Skills, Rules & Workflows | In Review | 9/9/2026 | High | SA |
-| **ISSUE-9.1** | User Story | Monolith Core Application - Khởi tạo Spring Boot App (:8080) | To Do | - | Medium | BE1, SA |
-| **ISSUE-9.2** | Task | Spring Security & JWT Filter Middleware trong Single App | To Do | - | Medium | BE1 |
-| **ISSUE-10.1** | User Story | Auth & Profile Module - API Đăng ký / Login & Phân hệ người dùng | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-10.2** | Task | Auth & Profile Module - Tích hợp Phân quyền RBAC 4 Bảng (`users`, `roles`, `user_roles`, `role_permissions`) | To Do | - | Medium | BE1 |
-| **SPRINT 1** | **PROFILE & CATALOG** | **Sprint 1: Hồ Sơ Thợ, Studio & Gói Dịch Vụ (14 Issues)** | | | | |
-| **ISSUE-11.1** | User Story | Hồ sơ Thợ Make-up (`mua_profiles`), Bio & Chứng chỉ | To Do | - | Medium | BE2, FE2 |
-| **ISSUE-11.2** | Task | Upload CDN (Cloudinary/S3) nén ảnh Portfolio chất lượng cao | To Do | - | Medium | BE2, FE2 |
-| **ISSUE-11.3** | Task | Quản lý Album Ảnh sản phẩm hoàn thiện của khách trước đó (`staff_portfolio_showcases`) | To Do | - | High | BE2, FE2 |
-| **ISSUE-12.1** | User Story | Quản lý Studio / Đại lý (`agency_profiles`), Hotline & Mã giới thiệu thợ | To Do | - | Medium | BE1, FE3 |
-| **ISSUE-12.2** | Task | Quản lý Nhân viên Studio (`agency_staff`) & Duyệt thợ gia nhập | To Do | - | Medium | BE1, FE3 |
-| **ISSUE-12.3** | Task | Cấu hình % Hoa hồng nội bộ giữa Studio và Thợ làm việc | To Do | - | Medium | BE1, FE3 |
-| **ISSUE-12.4** | Task | Quản lý Năng lực thợ Studio theo Tone Make-up (`agency_staff_styles`) | To Do | - | High | BE2 |
-| **ISSUE-12.5** | Task | Bảng ma trận Xếp ca làm việc cố định theo tuần của Thợ Studio (`agency_staff_shifts`) & Theo dõi trạng thái ca làm | To Do | - | High | BE1, FE3 |
-| **ISSUE-13.1** | User Story | CRUD Master Categories & Tone Make-up (`master_service_categories`, `makeup_styles`) | To Do | - | Medium | BE2, FE1 |
-| **ISSUE-13.2** | Task | CRUD Gói dịch vụ Studio/Freelancer (`service_packages`) | To Do | - | Medium | BE2, FE1 |
-| **ISSUE-13.3** | Task | Chi tiết các bước thực hiện mặc định & Option mua thêm (`package_items`) | To Do | - | Medium | BE2, FE1 |
-| **ISSUE-13.4** | Task | Gán Kỹ năng Gói Dịch vụ cho thợ Studio (`agency_staff_services`) | To Do | - | Medium | BE2, FE3 |
-| **ISSUE-13.5** | Task | Cấu hình Phụ phí (`surcharges`): Làm sớm 3h-5h sáng, đi tỉnh & ngày Lễ/Tết | To Do | - | Medium | BE2, FE1 |
-| **ISSUE-13.6** | Task | Quản lý Quy định & Duyệt Giải trình Thợ làm quá giờ (`agency_overtime_rules`, `agency_staff_overtime_reports`) | To Do | - | High | BE2, FE3 |
-| **SPRINT 2** | **TELEMETRY & PRICING**| **Sprint 2: Telemetry GPS & Dynamic Pricing (11 Issues)** | | | | |
-| **ISSUE-14.1** | User Story | Location Telemetry Module - Xây dựng Module Định vị GPS & Redis GEO trong Monolith | To Do | - | Medium | BE3, DE |
-| **ISSUE-14.2** | Task | Redis GEO Spatial Index lưu tọa độ Thợ rảnh Realtime | To Do | - | High | BE3 |
-| **ISSUE-14.3** | Task | GPS Telemetry Background Task trên Mobile App Thợ (Stream 5-10s) | To Do | - | High | FE2, BE3 |
-| **ISSUE-14.4** | Task | API Quét danh sách Thợ/Studio rảnh trong bán kính R km từ vị trí khách | To Do | - | High | BE3 |
-| **ISSUE-14.5** | Task | Bảng lưu vết Lịch sử tọa độ GPS di chuyển thợ (`telemetry_logs`) | To Do | - | Medium | BE3 |
-| **ISSUE-15.1** | User Story | Dynamic Pricing Module - Xây dựng Module Tính giá động & Phụ phí trong Monolith | To Do | - | Medium | BE3, FE1 |
-| **ISSUE-15.2** | Task | Tích hợp Maps API (Google Maps / Goong Maps API) tính khoảng cách km | To Do | - | High | BE3 |
-| **ISSUE-15.3** | Task | Thuật toán tính Phí di chuyển theo km (Distance Fee Calculator) | To Do | - | Medium | BE3 |
-| **ISSUE-15.4** | Task | Thuật toán Surge Pricing tự động tăng giá theo khung giờ cao điểm | To Do | - | Medium | BE3 |
-| **ISSUE-15.5** | Task | Tự động tính toán và tổng hợp Phụ phí làm sớm/đêm vào tổng tiền hóa đơn | To Do | - | Medium | BE3 |
-| **ISSUE-15.6** | Task | API Preview Hóa đơn Chi tiết Realtime trước khi Khách bấm Đặt đơn | To Do | - | High | BE3, FE1 |
-| **SPRINT 3** | **BOOKING & DISPATCH** | **Sprint 3: Booking Engine 2 Luồng & Dispatching (13 Issues)** | | | | |
-| **ISSUE-16.1** | User Story | Booking Engine - Máy trạng thái Đơn hàng (Booking State Machine) | To Do | - | Medium | BE1, SA |
-| **ISSUE-16.2** | Task | Nhật ký Audit Log lịch sử biến động trạng thái đơn (`booking_history`) | To Do | - | Medium | BE1 |
-| **ISSUE-16.3** | Task | Tích hợp Redlock (Redis Distributed Lock) chống tranh chấp ca khẩn cấp | To Do | - | High | BE1 |
-| **ISSUE-17.1** | User Story | Luồng 1: Đặt ca Khẩn cấp Realtime (Instant 30-60 phút) - API tạo đơn | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-17.2** | Task | Bắn Event `INSTANT_BOOKING_CREATED` qua Spring `ApplicationEventPublisher` | To Do | - | High | BE1, DE |
-| **ISSUE-17.3** | Task | Màn hình Popup Đếm ngược 30-45s nhận ca khẩn cấp trên App Thợ | To Do | - | High | FE2 |
-| **ISSUE-17.4** | Task | Logic Thợ bấm 'Chấp nhận' ca -> Khóa đơn duy nhất và phát sinh Escrow cọc | To Do | - | High | BE1, FE2 |
-| **ISSUE-18.1** | User Story | Luồng 2: Đặt Lịch Hẹn Trước cho tương lai (Scheduled Booking Flow) | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-18.2** | Task | Lịch bận cá nhân Thợ (`mua_calendars`) - Khóa ca làm trùng giờ | To Do | - | High | BE1, FE2 |
-| **ISSUE-18.3** | Task | Scheduler Cron Job tự động phát thông báo nhắc lịch ca hẹn trước 24h & 2h | To Do | - | Medium | BE1 |
-| **ISSUE-19.1** | User Story | Agency Dispatching Engine - Tiếp nhận đơn đặt chỉ định Studio | To Do | - | Medium | BE1, FE3 |
-| **ISSUE-19.2** | Task | UI Ma trận Lịch rảnh & Gán Thợ chính / Thợ phụ cho ca trên Web Studio | To Do | - | High | FE3, BE1 |
-| **ISSUE-19.3** | Task | Tính năng Đổi Thợ dự phòng khi Thợ chính báo bận đột xuất trên Web Studio | To Do | - | Medium | BE1, FE3 |
-| **SPRINT 4** | **WSS & IN-APP NOTIF** | **Sprint 4: Embedded WebSocket WSS & In-App Notification (11 Issues)** | | | | |
-| **ISSUE-20.1** | User Story | WebSocket Realtime Gateway - Tích hợp Embedded STOMP WebSocket trong core-api | To Do | - | Medium | BE2, SA |
-| **ISSUE-20.2** | Task | Kết nối màng lưới thời gian thực mã hóa WSS (WebSocket Secure qua SSL) | To Do | - | High | BE2, DE |
-| **ISSUE-20.3** | Task | Authentication Middleware xác thực kết nối WebSocket bằng Short-lived JWT | To Do | - | High | BE2 |
-| **ISSUE-20.4** | Task | Tích hợp Redis PubSub Adapter đồng bộ kết nối WebSocket trên nhiều Gateway | To Do | - | High | BE2, DE |
-| **ISSUE-20.5** | Task | Kênh Broadcast Popup Đếm ngược 30s đồng loạt đến App các Thợ rảnh | To Do | - | High | BE2, FE2 |
-| **ISSUE-20.6** | Task | Kênh Stream vị trí GPS Thợ di chuyển Realtime cho Khách xem trên bản đồ | To Do | - | High | BE2, FE1 |
-| **ISSUE-21.1** | User Story | In-App Notification Module - Xử lý thông báo In-App qua In-Memory EventBus | To Do | - | Medium | BE2, DE |
-| **ISSUE-21.2** | Task | @EventListener lắng nghe Event phát sinh từ các Domain Modules | To Do | - | High | BE2 |
-| **ISSUE-21.3** | Task | Xử lý chống trùng lặp thông báo Event qua Event ID | To Do | - | Medium | BE2 |
-| **ISSUE-21.4** | Task | In-App Toast Popup Notification Client-side (<100ms response time) | To Do | - | High | FE1, FE2, FE3 |
-| **ISSUE-21.5** | Task | Lưu danh sách thông báo In-App vào Bảng `in_app_notifications` & Đánh dấu Đã đọc | To Do | - | Medium | BE2 |
-| **SPRINT 5** | **WALLETS & PAYMENTS** | **Sprint 5: Ví 7 Bảng Sổ Cái & Thanh Toán Payout (11 Issues)** | | | | |
-| **ISSUE-22.1** | User Story | Phân vùng Ví 7 Bảng - Khởi tạo Schema Sổ cái Kế toán Đúp (`wallet_schema` trong core-api) | To Do | - | Medium | BE3, SA |
-| **ISSUE-22.2** | Task | Module Quản lý Số dư khả dụng & Số dư phong tỏa trong Bảng `wallets` | To Do | - | High | BE3 |
-| **ISSUE-22.3** | Task | Bảng Sổ cái Kế toán Đúp (`ledger_entries`) hạch toán Nợ (`debit`) / Có (`credit`) đối ứng | To Do | - | High | BE3 |
-| **ISSUE-22.4** | Task | Bảng Sao kê Biến động số dư từng Ví (`wallet_transactions`) CREDIT/DEBIT/FREEZE | To Do | - | High | BE3 |
-| **ISSUE-22.5** | Task | Cơ chế Escrow Tự động: Giữ cọc -> Giải ngân Ví Thợ/Studio -> Cắt % Hoa hồng Sàn | To Do | - | High | BE3 |
-| **ISSUE-23.1** | User Story | Bảng Quản lý Tài khoản Ngân hàng chính chủ đã liên kết (`user_bank_accounts`) | To Do | - | Medium | BE3, FE2 |
-| **ISSUE-23.2** | Task | Tích hợp Cổng thanh toán MoMo API (Khởi tạo QR & Webhook IPN xác nhận) | To Do | - | High | BE3, FE1 |
-| **ISSUE-23.3** | Task | Tích hợp Cổng thanh toán VNPay API (VNPay Sandbox Checkout & IPN) | To Do | - | High | BE3, FE1 |
-| **ISSUE-23.4** | Task | Tích hợp Cổng thanh toán ZaloPay & Phương thức VietQR Nạp tiền Ví | To Do | - | Medium | BE3, FE1 |
-| **ISSUE-23.5** | Task | Bảng Yêu cầu Rút tiền (`withdrawal_requests`) & Payout API giải ngân Ngân hàng | To Do | - | High | BE3, FE2, FE3 |
-| **ISSUE-23.6** | Task | Dashboard Quản lý Duyệt Yêu cầu Rút tiền cho Admin / Studio Web Portal | To Do | - | Medium | FE3, BE3 |
-| **SPRINT 6** | **TESTING & GO-LIVE** | **Sprint 6: Polish UI, Testing, Security & Go-Live (13 Issues)** | | | | |
-| **ISSUE-24.1** | User Story | Module Đánh giá Rating 1-5★ & Nhận xét chất lượng sản phẩm (`reviews`) | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-24.2** | Task | Tính năng Tip tiền trực tiếp cho Thợ từ Ví Khách hàng sau khi hoàn thành ca | To Do | - | Medium | BE3, FE1 |
-| **ISSUE-24.3** | Task | Module Đơn Khiếu nại Dịch vụ (`disputes`) & Quy trình Tạm đóng băng tiền | To Do | - | Medium | BE1, FE1 |
-| **ISSUE-25.1** | User Story | Hoàn thiện UI/UX App Khách hàng (Map tracking thợ, Lightbox Portfolio) | To Do | - | Medium | FE1 |
-| **ISSUE-25.2** | Task | Hoàn thiện UI/UX App Thợ (Công tắc On/Off phát sóng GPS, Đĩa đếm ngược) | To Do | - | Medium | FE2 |
-| **ISSUE-25.3** | Task | Hoàn thiện UI/UX Web Studio Portal (Dashboard Analytics, Ma trận xếp ca) | To Do | - | Medium | FE3 |
-| **ISSUE-26.1** | User Story | Viết Kịch bản Integration Test E2E: Đặt đơn -> EventBus -> WebSocket -> Ví | To Do | - | Medium | QA, BE1-3 |
-| **ISSUE-26.2** | Task | Thực thi Kiểm thử Tích hợp E2E trên Môi trường Staging | To Do | - | High | QA |
-| **ISSUE-27.1** | User Story | Load Testing Redis GEO & Embedded WSS: Giả lập 1,000 Thợ phát sóng GPS Telemetry đồng thời | To Do | - | Medium | QA, DE, SA |
-| **ISSUE-27.2** | Task | Stress Testing Booking Engine: Giả lập 500 yêu cầu Đặt ca khẩn cấp/giây | To Do | - | High | QA, DE |
-| **ISSUE-28.1** | User Story | Security Audit: Kiểm tra mã hóa TLS/WSS, Masking số dư Ví & OWASP Top 10 | To Do | - | Medium | SA, DE |
-| **ISSUE-28.2** | Task | Bug Fixing & Tối ưu hóa hiệu năng SQL Queries, B-Tree & GIST Spatial Indexes | To Do | - | High | BE1-3 |
-| **ISSUE-29.1** | User Story | Triển khai Kubernetes Cluster Production, Domain/SSL & Go-Live | To Do | - | Medium | Full Team |
+SecurityConfig hiện origin rộng, CSRF tắt và permitAll một số nhóm/actuator; STOMP CONNECT đọc JWT nhưng chưa chứng minh kiểm soát mọi SUBSCRIBE. Đây là giới hạn hiện trạng phải đánh giá khi nghiệm thu, không phải yêu cầu production phải để mở.
 
----
+## 9. Chức năng chưa hoàn thiện và sai khác cần theo dõi
 
-*Tài liệu Đặc tả SRS được chuẩn hóa 100% theo chuẩn ISO/IEC/IEEE 29148.*
+| ID | Nội dung | Phạm vi còn thiếu |
+| --- | --- | --- |
+| GAP-01 | Rating/review | Có UI/nút/cảm ơn; chưa có ReviewController/service lưu tương ứng |
+| GAP-02 | Tip | Chưa có API/UI thanh toán tip hoàn chỉnh |
+| GAP-03 | Nạp/rút ngân hàng/duyệt payout/ví sàn-agency | Có nền tảng ví/settlement, chưa có đủ API/route nghiệp vụ |
+| GAP-04 | ZaloPay/VietQR | Chưa có gateway strategy |
+| GAP-05 | GPS background khi OS treo/đóng app | Foreground stream đã có; task nền chưa hoàn chỉnh |
+| GAP-06 | APP lịch bận/ca studio/QR gia nhập/toàn bộ overtime-dispatch | BE có nghiệp vụ; APP thiếu route riêng bao phủ đủ |
+| GAP-07 | i18n APP/quyền portal staff | APP nhiều chuỗi tiếng Việt; agency web chỉ AGENCY_ADMIN |
+| GAP-08 | Commission | Offer/UI 20% khác mặc định settlement 15%; cần thống nhất |
+| GAP-09 | Prompt/tri thức AI | Mốc 24h khác service 2h, có tính năng kế hoạch trong tri thức |
+| GAP-10 | AI history/topic security | Cần ownership sessionCode, SUBSCRIBE, CORS/actuator theo môi trường |
+| GAP-11 | Minh họa/fallback | Landing mock; một số số điện thoại/profile fallback và rating alert không phải dữ liệu/luồng thật |
+| GAP-12 | Kế toán kép và chia tiền sàn–studio–thợ | Ledger chưa chứng minh cân bằng toàn bộ bút toán/phân chia/payout |
+| GAP-13 | Thiết bị/tích hợp/hiệu năng | Chưa nghiệm thu runtime trong lần sửa SRS này |
+
+POS phần cứng vẫn ngoài phạm vi. Không suy diễn chat trực tiếp khách–thợ hay nghiệp vụ khác là đã có từ nội dung định hướng.
+
+## 10. Tiêu chí nghiệm thu và truy vết
+
+| Nhóm | Kịch bản |
+| --- | --- |
+| Auth | Trùng đăng ký, sai mật khẩu/OTP, hết hạn/gửi lại, refresh/logout, đổi tài khoản, role guard |
+| Catalog | Ownership, gói ẩn/xóa, item sai gói, upload lỗi, duyệt chứng chỉ, showcase ẩn/nổi bật |
+| Scheduled | Slot bận, thời lượng add-on/buffer, cọc hết hạn, slot-taken sau payment, từ chối/không xác nhận |
+| Instant | Không thợ, offer hết hạn, nhận đồng thời, từ chối provider, chốt gói, mất mạng |
+| Agency | Lời mời hết hạn/thu hồi, duyệt staff, trùng ca, năng lực, nhiều thợ, đổi thợ/báo bận/quá giờ |
+| Job | Chưa cọc, actor sai, GPS tắt, thiếu ảnh, reconnect/history |
+| Payment/wallet | Chữ ký/số tiền sai, IPN/sync lặp, online final payment, cash một/hai bên, settlement lặp, hold/refund/compensate |
+| Dispute | Trước/sát/quá giờ, instant đã cọc, yêu cầu hủy khi đang đi, thiếu ảnh, đối chất, resolve lặp |
+| Notification | Ownership, đọc/xóa, dedup/reconnect, deep link đúng role/ca, nhắc 24h/2h |
+| AI | Guest/login, history/ownership, lỗi API, retrieval fallback, chính sách hủy đúng |
+
+Repo có test auth/JWT/i18n, catalog/surcharge, agency, pricing/H3/telemetry, payment posting/reconciliation/settlement/webhook amount. Có tệp test không đồng nghĩa đã pass hay đã đủ E2E. Lần cập nhật này kiểm tra tài liệu/truy vết, không sửa logic hoặc tuyên bố đã chạy toàn hệ thống.
+
+## 11. Phụ lục kiểm kê nguồn
+
+Các mục dưới trích trực tiếp working tree ngày 09/10/2026. Mapping giữ nguyên khai báo để không bỏ alias/method không suffix. Quyền/DTO/điều kiện trong controller/service; có API không đồng nghĩa có UI.
+
+### 11.1. Toàn bộ mapping backend
+
+
+#### AdminAgencyController
+
+Nguồn: [AdminAgencyController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/admin/AdminAgencyController.java). Base mapping: `"/api/v1/admin/agencies"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping` | `createAgency` | "hasRole('SUPER_ADMIN')" |
+| `@GetMapping` | `getAllAgencies` | "hasRole('SUPER_ADMIN')" |
+| `@PutMapping("/{agencyId}/verify")` | `verifyAgency` | "hasRole('SUPER_ADMIN')" |
+
+#### AdminBookingController
+
+Nguồn: [AdminBookingController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/admin/AdminBookingController.java). Base mapping: `"/api/v1/admin/bookings"`. Quyền cấp lớp: `"hasRole('SUPER_ADMIN')"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getAllBookings` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/stats")` | `getBookingStats` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/{id}")` | `getBookingDetail` | Theo security/service và quyền cấp lớp nếu có |
+
+#### AdminDisputeController
+
+Nguồn: [AdminDisputeController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/admin/AdminDisputeController.java). Base mapping: `"/api/v1/admin/disputes"`. Quyền cấp lớp: `"hasRole('SUPER_ADMIN')"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getAllDisputes` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/stats")` | `getDisputeStats` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/{bookingId}")` | `getDisputeDetail` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/{bookingId}/resolve")` | `resolveDispute` | Theo security/service và quyền cấp lớp nếu có |
+
+#### AdminMuaCredentialController
+
+Nguồn: [AdminMuaCredentialController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/admin/AdminMuaCredentialController.java). Base mapping: `"/api/v1/admin/muas"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/certificates")` | `getAllCertificates` | "hasRole('SUPER_ADMIN')" |
+| `@PutMapping("/{muaId}/certificates/verify")` | `verifyCertificate` | "hasRole('SUPER_ADMIN')" |
+
+#### AdminUserController
+
+Nguồn: [AdminUserController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/admin/AdminUserController.java). Base mapping: `"/api/v1/admin/users"`. Quyền cấp lớp: `"hasRole('SUPER_ADMIN')"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping` | `createUser` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping` | `getAllUsers` | Theo security/service và quyền cấp lớp nếu có |
+| `@PutMapping("/{id}/status")` | `updateUserStatus` | Theo security/service và quyền cấp lớp nếu có |
+
+#### AgencyBookingController
+
+Nguồn: [AgencyBookingController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyBookingController.java). Base mapping: `"/api/v1/agency/bookings"`. Quyền cấp lớp: `"hasRole('AGENCY_ADMIN')"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getAgencyBookings` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/stats")` | `getAgencyBookingStats` | Theo security/service và quyền cấp lớp nếu có |
+
+#### AgencyDispatchController
+
+Nguồn: [AgencyDispatchController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyDispatchController.java). Base mapping: `"/api/v1/agency/dispatch"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/pending-bookings")` | `getPendingDispatchBookings` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/bookings/{bookingId}/staff-matrix")` | `getStaffMatrix` | "hasRole('AGENCY_ADMIN')" |
+| `@PostMapping("/bookings/{bookingId}/assign")` | `assignStaff` | "hasRole('AGENCY_ADMIN')" |
+| `@PostMapping("/bookings/{bookingId}/reassign")` | `reassignStaff` | "hasRole('AGENCY_ADMIN')" |
+| `@PostMapping("/bookings/{bookingId}/reject")` | `rejectBooking` | "hasRole('AGENCY_ADMIN')" |
+| `@PostMapping("/bookings/{bookingId}/proceed-solo")` | `proceedSolo` | "hasRole('AGENCY_ADMIN')" |
+| `@PostMapping("/bookings/{bookingId}/report-emergency-busy")` | `reportEmergencyBusy` | "hasAnyRole('AGENCY_STAFF', 'FREELANCE_MUA')" |
+| `@PostMapping("/bookings/{bookingId}/emergency-approval/{staffId}")` | `reviewEmergencyReport` | "hasRole('AGENCY_ADMIN')" |
+| `@PostMapping("/assignments/{assignmentId}/confirm")` | `confirmAssignment` | "hasRole('AGENCY_STAFF')" |
+
+#### AgencyOvertimeController
+
+Nguồn: [AgencyOvertimeController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyOvertimeController.java). Base mapping: `"/api/v1/agency"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/overtime-rules")` | `createOrUpdateRule` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/overtime-rules")` | `getAgencyRules` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')" |
+| `@DeleteMapping("/overtime-rules/{ruleId}")` | `deleteRule` | "hasRole('AGENCY_ADMIN')" |
+| `@PatchMapping("/overtime-rules/{ruleId}/status")` | `toggleRuleStatus` | "hasRole('AGENCY_ADMIN')" |
+| `@PostMapping("/overtime-reports")` | `submitOvertimeReport` | "hasRole('FREELANCE_MUA') or hasRole('AGENCY_STAFF')" |
+| `@PostMapping("/overtime-reports/{reportId}/review")` | `reviewOvertimeReport` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/overtime-reports")` | `getOvertimeReports` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')" |
+| `@GetMapping("/overtime-reports/{reportId}")` | `getOvertimeReportDetail` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')" |
+
+#### AgencyProfileController
+
+Nguồn: [AgencyProfileController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyProfileController.java). Base mapping: `"/api/v1/agencies"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getPublicAgencies` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/profile")` | `getMyAgencyProfile` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/{agencyId}/profile")` | `getAgencyProfileById` | Theo security/service và quyền cấp lớp nếu có |
+| `@PutMapping("/profile")` | `updateAgencyProfile` | "hasRole('AGENCY_ADMIN')" |
+| `@PutMapping("/commission")` | `updateDefaultCommission` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/{agencyId}/location")` | `getAgencyLocation` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping(value = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)` | `uploadLogo` | "hasRole('AGENCY_ADMIN')" |
+
+#### AgencyShiftController
+
+Nguồn: [AgencyShiftController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyShiftController.java). Base mapping: `"/api/v1/agencies"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/shifts")` | `createShift` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')" |
+| `@PutMapping("/shifts/{shiftId}")` | `updateShift` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/shifts/matrix")` | `getWeeklyShiftMatrix` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')" |
+| `@GetMapping("/shifts/staff/{staffId}")` | `getStaffShifts` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')" |
+| `@DeleteMapping("/shifts/{shiftId}")` | `deleteShift` | "hasRole('AGENCY_ADMIN')" |
+
+#### AgencyStaffController
+
+Nguồn: [AgencyStaffController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyStaffController.java). Base mapping: `"/api/v1/agencies"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/invitations")` | `createInvitation` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/invitations")` | `getInvitations` | "hasRole('AGENCY_ADMIN')" |
+| `@DeleteMapping("/invitations/{inviteCode}")` | `cancelInvitation` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/invitations/{inviteCode}/public")` | `getPublicInvitationInfo` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/invitations/accept")` | `acceptInvitation` | "hasRole('FREELANCE_MUA')" |
+| `@GetMapping("/staff")` | `getStaffList` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')" |
+| `@GetMapping("/staff/me")` | `getMyStaffProfile` | "hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')" |
+| `@GetMapping("/staff/{staffId}")` | `getStaffDetail` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF')" |
+| `@PutMapping("/staff/{staffId}/review")` | `reviewStaffApplication` | "hasRole('AGENCY_ADMIN')" |
+| `@PutMapping("/staff/{staffId}/status")` | `updateStaffStatus` | "hasRole('AGENCY_ADMIN')" |
+| `@PutMapping("/staff/{staffId}/commission")` | `updateStaffCommission` | "hasRole('AGENCY_ADMIN')" |
+| `@DeleteMapping("/staff/{staffId}")` | `removeStaff` | "hasRole('AGENCY_ADMIN')" |
+
+#### AgencyStaffPackageController
+
+Nguồn: [AgencyStaffPackageController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyStaffPackageController.java). Base mapping: `"/api/v1"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PutMapping({"/agencies/staff/{staffId}/packages", "/packages/staff-assignments"})` | `assignPackagesToStaff` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/agencies/staff/{staffId}/packages")` | `getStaffPackages` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')" |
+
+#### AgencyStaffStyleController
+
+Nguồn: [AgencyStaffStyleController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/agency/AgencyStaffStyleController.java). Base mapping: `"/api/v1/agencies"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PutMapping("/staff/{staffId}/styles")` | `assignStaffStyles` | "hasRole('AGENCY_ADMIN')" |
+| `@GetMapping("/staff/{staffId}/styles")` | `getStaffStyles` | "hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')" |
+
+#### AuthController
+
+Nguồn: [AuthController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/AuthController.java). Base mapping: `"/api/v1/auth"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/register")` | `register` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/login")` | `login` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/verify-2fa")` | `verify2Fa` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/resend-2fa")` | `resend2Fa` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/refresh-token")` | `refreshToken` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/logout")` | `logout` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/change-password")` | `changePassword` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/me")` | `getCurrentUser` | Theo security/service và quyền cấp lớp nếu có |
+| `@PutMapping("/language")` | `updateLanguage` | Theo security/service và quyền cấp lớp nếu có |
+| `@PatchMapping("/push-token")` | `updatePushToken` | Theo security/service và quyền cấp lớp nếu có |
+
+#### UserProfileController
+
+Nguồn: [UserProfileController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/auth/UserProfileController.java). Base mapping: `"/api/v1/users"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)` | `uploadAvatar` | Theo security/service và quyền cấp lớp nếu có |
+| `@PutMapping("/profile")` | `updateProfile` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/me")` | `getCurrentUser` | Theo security/service và quyền cấp lớp nếu có |
+
+#### BookingAcceptanceController
+
+Nguồn: [BookingAcceptanceController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/booking/BookingAcceptanceController.java). Base mapping: `"/api/v1/freelancer/bookings"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getMyAssignedBookings` | "hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')" |
+| `@PostMapping("/{bookingId}/accept")` | `acceptBooking` | "hasRole('FREELANCE_MUA')" |
+| `@PostMapping({ "/{bookingId}/confirm-scheduled", "/{bookingId}/confirm" })` | `confirmScheduledBooking` | "hasRole('FREELANCE_MUA')" |
+| `@PostMapping({ "/{bookingId}/reject-scheduled", "/{bookingId}/reject" })` | `rejectScheduledBooking` | "hasRole('FREELANCE_MUA')" |
+| `@PostMapping("/{bookingId}/skip")` | `skipBooking` | "hasRole('FREELANCE_MUA')" |
+| `@GetMapping("/instant/pending-offer")` | `getPendingOffer` | "hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')" |
+| `@GetMapping("/scheduled/pending-offers")` | `getPendingScheduledOffers` | "hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')" |
+
+#### BookingHistoryController
+
+Nguồn: [BookingHistoryController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/booking/BookingHistoryController.java). Base mapping: `"/api/v1/bookings"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/{bookingId}/history")` | `getBookingHistory` | Theo security/service và quyền cấp lớp nếu có |
+
+#### BookingStateController
+
+Nguồn: [BookingStateController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/booking/BookingStateController.java). Base mapping: `"/api/v1/bookings"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/{bookingId}/transition")` | `transitionState` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping(value = "/{bookingId}/completion-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)` | `uploadCompletionPhoto` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping(value = "/{bookingId}/dispute-proof", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)` | `uploadDisputeProof` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/{bookingId}/status")` | `getBookingStatus` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/{bookingId}/request-cancel-trip")` | `requestCancelTrip` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/{bookingId}/confirm-cancel-compensation")` | `confirmCancelCompensation` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/{bookingId}/reject-cancel-compensation")` | `rejectCancelCompensation` | Theo security/service và quyền cấp lớp nếu có |
+
+#### MasterTaxonomyController
+
+Nguồn: [MasterTaxonomyController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/catalog/MasterTaxonomyController.java). Base mapping: `"/api/v1"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/master-categories")` | `getCategories` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/admin/master-categories/all")` | `getAllCategories` | "hasRole('SUPER_ADMIN')" |
+| `@PostMapping("/admin/master-categories")` | `createCategory` | "hasRole('SUPER_ADMIN')" |
+| `@PutMapping("/admin/master-categories/{id}")` | `updateCategory` | "hasRole('SUPER_ADMIN')" |
+| `@PatchMapping("/admin/master-categories/{id}/status")` | `toggleCategoryStatus` | "hasRole('SUPER_ADMIN')" |
+| `@GetMapping("/makeup-styles")` | `getStyles` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/admin/makeup-styles/all")` | `getAllStyles` | "hasRole('SUPER_ADMIN')" |
+| `@PostMapping("/admin/makeup-styles")` | `createStyle` | "hasRole('SUPER_ADMIN')" |
+| `@PutMapping("/admin/makeup-styles/{id}")` | `updateStyle` | "hasRole('SUPER_ADMIN')" |
+| `@PatchMapping("/admin/makeup-styles/{id}/status")` | `toggleStyleStatus` | "hasRole('SUPER_ADMIN')" |
+
+#### PackageItemController
+
+Nguồn: [PackageItemController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/catalog/PackageItemController.java). Base mapping: `"/api/v1/packages/{packageId}/items"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping` | `addItem` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@PutMapping("/{itemId}")` | `updateItem` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@DeleteMapping("/{itemId}")` | `deleteItem` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@GetMapping` | `getItems` | Theo security/service và quyền cấp lớp nếu có |
+
+#### ServicePackageController
+
+Nguồn: [ServicePackageController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/catalog/ServicePackageController.java). Base mapping: `"/api/v1/packages"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping` | `createPackage` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@PutMapping("/{id}")` | `updatePackage` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@DeleteMapping("/{id}")` | `deletePackage` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@PatchMapping({"/{id}/availability", "/{id}/status"})` | `toggleAvailability` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@GetMapping("/my")` | `listMyPackages` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@GetMapping("/{id}")` | `getPackageById` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping` | `listPackages` | Theo security/service và quyền cấp lớp nếu có |
+
+#### SurchargeController
+
+Nguồn: [SurchargeController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/catalog/SurchargeController.java). Base mapping: `"/api/v1/surcharges"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping` | `configureSurcharge` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@PutMapping("/{id}")` | `updateSurcharge` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@DeleteMapping("/{id}")` | `deleteSurcharge` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@GetMapping("/my-surcharges")` | `listMySurcharges` | "hasAnyRole('AGENCY_ADMIN', 'FREELANCE_MUA')" |
+| `@GetMapping` | `listSurcharges` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/calculate")` | `calculateSurcharges` | Theo security/service và quyền cấp lớp nếu có |
+
+#### CustomerAddressController
+
+Nguồn: [CustomerAddressController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerAddressController.java). Base mapping: `"/api/v1/customer/addresses"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getSavedAddresses` | "hasRole('CUSTOMER')" |
+| `@PostMapping` | `createAddress` | "hasRole('CUSTOMER')" |
+| `@PutMapping("/{id}")` | `updateAddress` | "hasRole('CUSTOMER')" |
+| `@DeleteMapping("/{id}")` | `deleteAddress` | "hasRole('CUSTOMER')" |
+| `@PatchMapping("/{id}/default")` | `setDefaultAddress` | "hasRole('CUSTOMER')" |
+
+#### CustomerCashPaymentController
+
+Nguồn: [CustomerCashPaymentController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerCashPaymentController.java). Base mapping: `"/api/v1/customer/bookings"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/{bookingId}/cash-confirmation")` | `confirmCash` | "hasRole('CUSTOMER')" |
+| `@GetMapping("/{bookingId}/cash-receipt-status")` | `getCashReceiptStatus` | "hasRole('CUSTOMER')" |
+
+#### CustomerDepositController
+
+Nguồn: [CustomerDepositController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerDepositController.java). Base mapping: `"/api/v1/customer/bookings"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/{bookingId}/final-payment/sync")` | `syncFinalPayment` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/deposit-intents")` | `createDepositIntent` | "hasRole('CUSTOMER')" |
+| `@GetMapping("/{bookingId}/deposit")` | `getDepositStatus` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/deposit/sync-payment")` | `syncDepositPayment` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/final-payment-intents")` | `createFinalPaymentIntent` | "hasRole('CUSTOMER')" |
+
+#### CustomerInstantBookingController
+
+Nguồn: [CustomerInstantBookingController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerInstantBookingController.java). Base mapping: `"/api/v1/customer/bookings"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/instant")` | `createInstantBooking` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/cancel")` | `cancelInstantBooking` | "hasRole('CUSTOMER')" |
+| `@GetMapping("/recent-addresses")` | `getRecentAddresses` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/reject-provider")` | `rejectMatchedProvider` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/confirm-deposit")` | `confirmDeposit` | "hasRole('CUSTOMER')" |
+
+#### CustomerProfileController
+
+Nguồn: [CustomerProfileController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerProfileController.java). Base mapping: `"/api/v1/customer/profile"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PutMapping` | `updateProfile` | Theo security/service và quyền cấp lớp nếu có |
+
+#### CustomerScheduledBookingController
+
+Nguồn: [CustomerScheduledBookingController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerScheduledBookingController.java). Base mapping: `"/api/v1/customer/bookings"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getMyBookings` | "hasRole('CUSTOMER')" |
+| `@GetMapping("/active-tracking")` | `getActiveTrackingBooking` | "hasAnyRole('CUSTOMER', 'FREELANCE_MUA', 'AGENCY_STAFF')" |
+| `@PostMapping({"", "/scheduled"})` | `createScheduledBooking` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/deposit")` | `confirmDepositPayment` | "hasRole('CUSTOMER')" |
+| `@PostMapping("/{bookingId}/cancel-requested")` | `cancelRequestedBooking` | "hasRole('CUSTOMER')" |
+
+#### CustomerWalletController
+
+Nguồn: [CustomerWalletController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/customer/CustomerWalletController.java). Base mapping: `"/api/v1/customer/wallet"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getWallet` | "hasAnyRole('CUSTOMER', 'SUPER_ADMIN')" |
+
+#### FreelancerCalendarController
+
+Nguồn: [FreelancerCalendarController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/freelancer/FreelancerCalendarController.java). Base mapping: `"/api/v1/freelancer/calendar"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/block")` | `blockPersonalSlot` | "hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')" |
+| `@DeleteMapping("/block/{calendarId}")` | `unblockPersonalSlot` | "hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')" |
+
+#### FreelancerWalletController
+
+Nguồn: [FreelancerWalletController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/freelancer/FreelancerWalletController.java). Base mapping: `"/api/v1/freelancer"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/wallet")` | `getWallet` | "hasRole('FREELANCE_MUA')" |
+| `@PostMapping("/bookings/{bookingId}/cash-confirmation")` | `confirmCash` | "hasRole('FREELANCE_MUA')" |
+| `@GetMapping("/bookings/{bookingId}/cash-receipt-status")` | `getCashReceiptStatus` | "hasRole('FREELANCE_MUA')" |
+
+#### MapsController
+
+Nguồn: [MapsController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/maps/MapsController.java). Base mapping: `"/api/v1/maps"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/reverse-geocode")` | `reverseGeocode` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/geocode")` | `geocode` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/places/autocomplete")` | `getPlaceAutoComplete` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/places/detail")` | `getPlaceDetail` | Theo security/service và quyền cấp lớp nếu có |
+
+#### MUACalendarQueryController
+
+Nguồn: [MUACalendarQueryController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/mua/MUACalendarQueryController.java). Base mapping: `"/api/v1/mua"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/{muaId}/calendar-days")` | `getCalendarDays` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/{muaId}/available-slots")` | `getAvailableSlots` | Theo security/service và quyền cấp lớp nếu có |
+
+#### MuaPortfolioController
+
+Nguồn: [MuaPortfolioController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/mua/MuaPortfolioController.java). Base mapping: `"/api/v1/muas"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping(value = "/my-profile/portfolios", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)` | `createPortfolio` | "hasRole('FREELANCE_MUA') and hasAuthority('portfolio:upload')" |
+| `@PutMapping("/my-profile/portfolios/{id}")` | `updatePortfolio` | "hasRole('FREELANCE_MUA')" |
+| `@PatchMapping("/my-profile/portfolios/{id}/featured")` | `updateFeaturedStatus` | "hasRole('FREELANCE_MUA')" |
+| `@PatchMapping("/my-profile/portfolios/{id}/visibility")` | `updateVisibilityStatus` | "hasRole('FREELANCE_MUA')" |
+| `@DeleteMapping("/my-profile/portfolios/{id}")` | `deletePortfolio` | "hasRole('FREELANCE_MUA') and hasAuthority('portfolio:delete')" |
+| `@GetMapping("/{muaId}/portfolios")` | `getPublicGallery` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/my-profile/portfolios")` | `getMyPortfolios` | "hasRole('FREELANCE_MUA')" |
+| `@GetMapping("/my-profile/portfolios/{id}")` | `getPortfolioDetail` | "hasRole('FREELANCE_MUA')" |
+
+#### MuaProfileController
+
+Nguồn: [MuaProfileController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/mua/MuaProfileController.java). Base mapping: `"/api/v1/muas"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping({"", "/public"})` | `getPublicMuas` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/{muaId}/profile")` | `getPublicProfile` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/my-profile")` | `getMyProfile` | "hasRole('FREELANCE_MUA')" |
+| `@PutMapping("/my-profile")` | `updateMyProfile` | "hasRole('FREELANCE_MUA')" |
+| `@PutMapping("/my-profile/radius")` | `updateServiceRadius` | "hasRole('FREELANCE_MUA')" |
+| `@PostMapping(value = "/my-profile/certificates", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)` | `uploadCertificate` | "hasRole('FREELANCE_MUA')" |
+| `@PostMapping(value = "/my-profile/portfolio-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)` | `uploadPortfolioImages` | "hasRole('FREELANCE_MUA')" |
+| `@DeleteMapping("/my-profile/portfolio-images")` | `deletePortfolioImage` | "hasRole('FREELANCE_MUA')" |
+
+#### MuaStyleController
+
+Nguồn: [MuaStyleController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/mua/MuaStyleController.java). Base mapping: `"/api/v1/muas/my-profile/styles"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PutMapping` | `assignStyles` | "hasRole('FREELANCE_MUA')" |
+| `@GetMapping` | `getMyStyles` | "hasRole('FREELANCE_MUA')" |
+
+#### NotificationController
+
+Nguồn: [NotificationController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/notification/NotificationController.java). Base mapping: `"/api/v1/notifications"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping` | `getNotifications` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/unread-count")` | `getUnreadCount` | Theo security/service và quyền cấp lớp nếu có |
+| `@PatchMapping("/{id}/read")` | `markAsRead` | Theo security/service và quyền cấp lớp nếu có |
+| `@PatchMapping("/{id}/toggle-read")` | `toggleRead` | Theo security/service và quyền cấp lớp nếu có |
+| `@PatchMapping("/read-all")` | `markAllAsRead` | Theo security/service và quyền cấp lớp nếu có |
+| `@DeleteMapping("/{id}")` | `deleteNotification` | Theo security/service và quyền cấp lớp nếu có |
+| `@DeleteMapping("/clear-all")` | `clearAllNotifications` | Theo security/service và quyền cấp lớp nếu có |
+
+#### PaymentCallbackController
+
+Nguồn: [PaymentCallbackController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/payment/PaymentCallbackController.java). Base mapping: `"/api/v1/payments"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping({"/ipn/{gateway}", "/{gateway}/ipn"})` | `handleGetCallback` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping({"/ipn/{gateway}", "/{gateway}/ipn"})` | `handlePostCallback` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping(value = {"/return/{gateway}", "/{gateway}/return"}, produces = MediaType.TEXT_HTML_VALUE)` | `handleReturnCallback` | Theo security/service và quyền cấp lớp nếu có |
+
+#### PaymentController
+
+Nguồn: [PaymentController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/payment/PaymentController.java). Base mapping: `"/api/v1/payments"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/gateways")` | `getGateways` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/create-intent")` | `createIntent` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/{paymentCode}")` | `getPaymentDetail` | Theo security/service và quyền cấp lớp nếu có |
+
+#### DynamicPricingController
+
+Nguồn: [DynamicPricingController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/pricing/DynamicPricingController.java). Base mapping: `"/api/v1/pricing"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/providers")` | `getAvailableProviders` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/preview-invoice")` | `previewInvoice` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/calculate-distance")` | `calculateDistance` | Theo security/service và quyền cấp lớp nếu có |
+
+#### SurgeRuleAdminController
+
+Nguồn: [SurgeRuleAdminController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/pricing/SurgeRuleAdminController.java). Base mapping: `"/api/v1/admin/pricing/surge-rules"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping` | `createRule` | "hasRole('SUPER_ADMIN')" |
+| `@PutMapping("/{id}")` | `updateRule` | "hasRole('SUPER_ADMIN')" |
+| `@PatchMapping("/{id}/status")` | `toggleRuleStatus` | "hasRole('SUPER_ADMIN')" |
+| `@DeleteMapping("/{id}")` | `deleteRule` | "hasRole('SUPER_ADMIN')" |
+| `@GetMapping` | `listRules` | "hasRole('SUPER_ADMIN')" |
+| `@GetMapping("/h3-status")` | `getH3SurgeStatus` | "hasRole('SUPER_ADMIN')" |
+| `@PostMapping("/toggle-h3")` | `toggleH3Surge` | "hasRole('SUPER_ADMIN')" |
+
+#### CustomerAiSupportController
+
+Nguồn: [CustomerAiSupportController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/support/CustomerAiSupportController.java). Base mapping: `"/api/v1/support"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/chat")` | `chat` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/history/{sessionCode}")` | `getSessionHistory` | Theo security/service và quyền cấp lớp nếu có |
+
+#### LocationStreamController
+
+Nguồn: [LocationStreamController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/telemetry/LocationStreamController.java). Base mapping: `"/api/v1/telemetry"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@PostMapping("/availability")` | `toggleAvailability` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/stream")` | `streamLocation` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/heartbeat")` | `heartbeat` | Theo security/service và quyền cấp lớp nếu có |
+
+#### TelemetryQueryController
+
+Nguồn: [TelemetryQueryController.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/telemetry/TelemetryQueryController.java). Base mapping: `"/api/v1/telemetry"`.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@GetMapping("/nearby")` | `getNearbyProviders` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/bookings/{id}/track")` | `trackBookingLive` | Theo security/service và quyền cấp lớp nếu có |
+| `@GetMapping("/bookings/{id}/history")` | `getBookingTripHistory` | Theo security/service và quyền cấp lớp nếu có |
+| `@PostMapping("/bookings/{id}/compress")` | `compressTripRoute` | Theo security/service và quyền cấp lớp nếu có |
+
+#### WebSocketTelemetryHandler
+
+Nguồn: [WebSocketTelemetryHandler.java](../code/backend/core-api/src/main/java/com/makeup/platform/controller/telemetry/WebSocketTelemetryHandler.java). Base mapping: ``.
+
+| Mapping method (ghép với base) | Handler | Quyền tại method |
+| --- | --- | --- |
+| `@MessageMapping("/telemetry/location")` | `handleLocationStream` | Theo security/service và quyền cấp lớp nếu có |
+
+Tổng: **45 controller, 203 khai báo mapping method** (alias trong một annotation chưa tách thành endpoint riêng; bao gồm STOMP).
+
+### 11.2. Tất cả tệp route/layout APP
+
+Đường dẫn trong bảng tính từ `code/app/src/app`. `_layout` là bố cục, nhóm `(auth)` không tạo segment URL; `index` là route gốc của thư mục. Route tồn tại không chứng minh mọi nút bên trong đã có backend.
+
+| Tệp | Nguồn |
+| --- | --- |
+| `_layout.tsx` | [Mã nguồn](../code/app/src/app/_layout.tsx) |
+| `(auth)/_layout.tsx` | [Mã nguồn](../code/app/src/app/(auth)/_layout.tsx) |
+| `(auth)/login.tsx` | [Mã nguồn](../code/app/src/app/(auth)/login.tsx) |
+| `(auth)/onboarding.tsx` | [Mã nguồn](../code/app/src/app/(auth)/onboarding.tsx) |
+| `(auth)/register.tsx` | [Mã nguồn](../code/app/src/app/(auth)/register.tsx) |
+| `activity.tsx` | [Mã nguồn](../code/app/src/app/activity.tsx) |
+| `booking/create.tsx` | [Mã nguồn](../code/app/src/app/booking/create.tsx) |
+| `booking/deposit/[id].tsx` | [Mã nguồn](../code/app/src/app/booking/deposit/[id].tsx) |
+| `booking/detail/[id].tsx` | [Mã nguồn](../code/app/src/app/booking/detail/[id].tsx) |
+| `booking/history-detail/[id].tsx` | [Mã nguồn](../code/app/src/app/booking/history-detail/[id].tsx) |
+| `booking/instant-matched/[id].tsx` | [Mã nguồn](../code/app/src/app/booking/instant-matched/[id].tsx) |
+| `booking/tracking/[id].tsx` | [Mã nguồn](../code/app/src/app/booking/tracking/[id].tsx) |
+| `bookings.tsx` | [Mã nguồn](../code/app/src/app/bookings.tsx) |
+| `explore.tsx` | [Mã nguồn](../code/app/src/app/explore.tsx) |
+| `index.tsx` | [Mã nguồn](../code/app/src/app/index.tsx) |
+| `job-execution/[id].tsx` | [Mã nguồn](../code/app/src/app/job-execution/[id].tsx) |
+| `mua-detail/[id].tsx` | [Mã nguồn](../code/app/src/app/mua-detail/[id].tsx) |
+| `mua/packages/[id]/add-showcase.tsx` | [Mã nguồn](../code/app/src/app/mua/packages/[id]/add-showcase.tsx) |
+| `mua/packages/[id]/edit.tsx` | [Mã nguồn](../code/app/src/app/mua/packages/[id]/edit.tsx) |
+| `mua/packages/[id]/items.tsx` | [Mã nguồn](../code/app/src/app/mua/packages/[id]/items.tsx) |
+| `mua/packages/[id]/showcase.tsx` | [Mã nguồn](../code/app/src/app/mua/packages/[id]/showcase.tsx) |
+| `mua/packages/create.tsx` | [Mã nguồn](../code/app/src/app/mua/packages/create.tsx) |
+| `mua/packages/index.tsx` | [Mã nguồn](../code/app/src/app/mua/packages/index.tsx) |
+| `mua/workstation.tsx` | [Mã nguồn](../code/app/src/app/mua/workstation.tsx) |
+| `notifications.tsx` | [Mã nguồn](../code/app/src/app/notifications.tsx) |
+| `profile/customer-wallet.tsx` | [Mã nguồn](../code/app/src/app/profile/customer-wallet.tsx) |
+| `profile/edit.tsx` | [Mã nguồn](../code/app/src/app/profile/edit.tsx) |
+| `profile/freelancer-wallet.tsx` | [Mã nguồn](../code/app/src/app/profile/freelancer-wallet.tsx) |
+| `profile/mua-profile.tsx` | [Mã nguồn](../code/app/src/app/profile/mua-profile.tsx) |
+| `profile/staff-profile.tsx` | [Mã nguồn](../code/app/src/app/profile/staff-profile.tsx) |
+| `support-chat.tsx` | [Mã nguồn](../code/app/src/app/support-chat.tsx) |
+
+### 11.3. Tất cả tệp page WEB
+
+Router thực tế: [routes/index.jsx](../code/frontend/src/routes/index.jsx). Page không được router tham chiếu không được tính là màn hình đang hoạt động độc lập.
+
+| Tệp | Nguồn |
+| --- | --- |
+| `Agency/AgencyBookingsPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/AgencyBookingsPage.jsx) |
+| `Agency/AgencyDashboardPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/AgencyDashboardPage.jsx) |
+| `Agency/AgencyProfilePage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/AgencyProfilePage.jsx) |
+| `Agency/AgencySettingsPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/AgencySettingsPage.jsx) |
+| `Agency/ServicePackageListPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/ServicePackageListPage.jsx) |
+| `Agency/ShiftSchedulePage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/ShiftSchedulePage.jsx) |
+| `Agency/StaffDetailPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/StaffDetailPage.jsx) |
+| `Agency/StaffManagementPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/StaffManagementPage.jsx) |
+| `Agency/SurchargeConfigPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Agency/SurchargeConfigPage.jsx) |
+| `Auth/LoginPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Auth/LoginPage.jsx) |
+| `Auth/RegisterPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Auth/RegisterPage.jsx) |
+| `Dashboard/DashboardPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Dashboard/DashboardPage.jsx) |
+| `Join/JoinAgencyPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Join/JoinAgencyPage.jsx) |
+| `Landing/LandingPage.jsx` | [Mã nguồn](../code/frontend/src/pages/Landing/LandingPage.jsx) |
+| `NotFound/NotFoundPage.jsx` | [Mã nguồn](../code/frontend/src/pages/NotFound/NotFoundPage.jsx) |
+| `SuperAdmin/AdminAgenciesPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/AdminAgenciesPage.jsx) |
+| `SuperAdmin/AdminBookingsPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/AdminBookingsPage.jsx) |
+| `SuperAdmin/AdminDashboardPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/AdminDashboardPage.jsx) |
+| `SuperAdmin/AdminDisputesPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/AdminDisputesPage.jsx) |
+| `SuperAdmin/AdminUsersPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/AdminUsersPage.jsx) |
+| `SuperAdmin/MuaVerificationPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/MuaVerificationPage.jsx) |
+| `SuperAdmin/SurgePricingManagementPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/SurgePricingManagementPage.jsx) |
+| `SuperAdmin/TaxonomyManagementPage.jsx` | [Mã nguồn](../code/frontend/src/pages/SuperAdmin/TaxonomyManagementPage.jsx) |
+
+### 11.4. Bảng dữ liệu theo migration
+
+Đếm khai báo CREATE TABLE, không phải truy vấn DB đang chạy. Partition telemetry được liệt kê riêng, không tính là bảng nghiệp vụ mới. Chi tiết ALTER/constraint/index theo toàn bộ migration sau file khởi tạo.
+
+| Bảng nghiệp vụ | Migration khởi tạo |
+| --- | --- |
+| `agency_schema.agency_branches` | [V20260914210900__Init_Location_Telemetry_Module.sql](../code/backend/core-api/src/main/resources/db/migration/V20260914210900__Init_Location_Telemetry_Module.sql) |
+| `agency_schema.agency_overtime_rules` | [V20260915104000__Agency_Staff_Services_And_Overtime.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915104000__Agency_Staff_Services_And_Overtime.sql) |
+| `agency_schema.agency_profiles` | [V2__Init_Auth_And_Profiles.sql](../code/backend/core-api/src/main/resources/db/migration/V2__Init_Auth_And_Profiles.sql) |
+| `agency_schema.agency_staff` | [V20260915102000__Agency_Staff_Management.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915102000__Agency_Staff_Management.sql) |
+| `agency_schema.agency_staff_overtime_reports` | [V20260915104000__Agency_Staff_Services_And_Overtime.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915104000__Agency_Staff_Services_And_Overtime.sql) |
+| `agency_schema.agency_staff_services` | [V20260915104000__Agency_Staff_Services_And_Overtime.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915104000__Agency_Staff_Services_And_Overtime.sql) |
+| `agency_schema.agency_staff_shifts` | [V20260915103000__Agency_Staff_Styles_And_Shifts.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915103000__Agency_Staff_Styles_And_Shifts.sql) |
+| `agency_schema.agency_staff_styles` | [V20260915103000__Agency_Staff_Styles_And_Shifts.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915103000__Agency_Staff_Styles_And_Shifts.sql) |
+| `auth_schema.customer_saved_addresses` | [V20260929140000__Create_Customer_Saved_Addresses.sql](../code/backend/core-api/src/main/resources/db/migration/V20260929140000__Create_Customer_Saved_Addresses.sql) |
+| `auth_schema.role_permissions` | [V2__Init_Auth_And_Profiles.sql](../code/backend/core-api/src/main/resources/db/migration/V2__Init_Auth_And_Profiles.sql) |
+| `auth_schema.roles` | [V2__Init_Auth_And_Profiles.sql](../code/backend/core-api/src/main/resources/db/migration/V2__Init_Auth_And_Profiles.sql) |
+| `auth_schema.user_roles` | [V2__Init_Auth_And_Profiles.sql](../code/backend/core-api/src/main/resources/db/migration/V2__Init_Auth_And_Profiles.sql) |
+| `auth_schema.users` | [V2__Init_Auth_And_Profiles.sql](../code/backend/core-api/src/main/resources/db/migration/V2__Init_Auth_And_Profiles.sql) |
+| `booking_schema.booking_history` | [V20260916162000__Create_Booking_And_History_Tables.sql](../code/backend/core-api/src/main/resources/db/migration/V20260916162000__Create_Booking_And_History_Tables.sql) |
+| `booking_schema.booking_staff_assignments` | [V20260924083000__Create_Agency_Dispatch_And_Multi_Staff_Assignments.sql](../code/backend/core-api/src/main/resources/db/migration/V20260924083000__Create_Agency_Dispatch_And_Multi_Staff_Assignments.sql) |
+| `booking_schema.bookings` | [V20260916162000__Create_Booking_And_History_Tables.sql](../code/backend/core-api/src/main/resources/db/migration/V20260916162000__Create_Booking_And_History_Tables.sql) |
+| `catalog_schema.distance_fee_tiers` | [V20260915153000__Add_Surge_Pricing_And_Distance_Tiers.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915153000__Add_Surge_Pricing_And_Distance_Tiers.sql) |
+| `catalog_schema.makeup_styles` | [V3__Init_Catalog_And_Surcharges.sql](../code/backend/core-api/src/main/resources/db/migration/V3__Init_Catalog_And_Surcharges.sql) |
+| `catalog_schema.master_service_categories` | [V3__Init_Catalog_And_Surcharges.sql](../code/backend/core-api/src/main/resources/db/migration/V3__Init_Catalog_And_Surcharges.sql) |
+| `catalog_schema.package_items` | [V3__Init_Catalog_And_Surcharges.sql](../code/backend/core-api/src/main/resources/db/migration/V3__Init_Catalog_And_Surcharges.sql) |
+| `catalog_schema.package_styles` | [V3__Init_Catalog_And_Surcharges.sql](../code/backend/core-api/src/main/resources/db/migration/V3__Init_Catalog_And_Surcharges.sql) |
+| `catalog_schema.portfolio_showcases` | [V4__Init_Mua_Portfolio_Gallery.sql](../code/backend/core-api/src/main/resources/db/migration/V4__Init_Mua_Portfolio_Gallery.sql) |
+| `catalog_schema.service_packages` | [V3__Init_Catalog_And_Surcharges.sql](../code/backend/core-api/src/main/resources/db/migration/V3__Init_Catalog_And_Surcharges.sql) |
+| `catalog_schema.surcharges` | [V3__Init_Catalog_And_Surcharges.sql](../code/backend/core-api/src/main/resources/db/migration/V3__Init_Catalog_And_Surcharges.sql) |
+| `catalog_schema.surge_pricing_rules` | [V20260915153000__Add_Surge_Pricing_And_Distance_Tiers.sql](../code/backend/core-api/src/main/resources/db/migration/V20260915153000__Add_Surge_Pricing_And_Distance_Tiers.sql) |
+| `interaction_schema.ai_chat_messages` | [V20261009110000__Init_Ai_Support_Knowledge_And_Chat.sql](../code/backend/core-api/src/main/resources/db/migration/V20261009110000__Init_Ai_Support_Knowledge_And_Chat.sql) |
+| `interaction_schema.ai_chat_sessions` | [V20261009110000__Init_Ai_Support_Knowledge_And_Chat.sql](../code/backend/core-api/src/main/resources/db/migration/V20261009110000__Init_Ai_Support_Knowledge_And_Chat.sql) |
+| `interaction_schema.ai_knowledge_documents` | [V20261009110000__Init_Ai_Support_Knowledge_And_Chat.sql](../code/backend/core-api/src/main/resources/db/migration/V20261009110000__Init_Ai_Support_Knowledge_And_Chat.sql) |
+| `interaction_schema.in_app_notifications` | [V20260922160000__Create_In_App_Notifications_Table.sql](../code/backend/core-api/src/main/resources/db/migration/V20260922160000__Create_In_App_Notifications_Table.sql) |
+| `mua_schema.mua_calendars` | [V20260922094000__Create_Mua_Calendars_And_Scheduled_Booking.sql](../code/backend/core-api/src/main/resources/db/migration/V20260922094000__Create_Mua_Calendars_And_Scheduled_Booking.sql) |
+| `mua_schema.mua_profiles` | [V2__Init_Auth_And_Profiles.sql](../code/backend/core-api/src/main/resources/db/migration/V2__Init_Auth_And_Profiles.sql) |
+| `mua_schema.mua_styles` | [V4__Init_Mua_Portfolio_Gallery.sql](../code/backend/core-api/src/main/resources/db/migration/V4__Init_Mua_Portfolio_Gallery.sql) |
+| `telemetry_schema.booking_trips` | [V20260914210900__Init_Location_Telemetry_Module.sql](../code/backend/core-api/src/main/resources/db/migration/V20260914210900__Init_Location_Telemetry_Module.sql) |
+| `telemetry_schema.telemetry_logs` | [V20260914210900__Init_Location_Telemetry_Module.sql](../code/backend/core-api/src/main/resources/db/migration/V20260914210900__Init_Location_Telemetry_Module.sql) |
+| `wallet_schema.booking_cash_receipts` | [V20260930142000__Init_Deposit_And_Wallet_Foundation.sql](../code/backend/core-api/src/main/resources/db/migration/V20260930142000__Init_Deposit_And_Wallet_Foundation.sql) |
+| `wallet_schema.booking_deposits` | [V20260930142000__Init_Deposit_And_Wallet_Foundation.sql](../code/backend/core-api/src/main/resources/db/migration/V20260930142000__Init_Deposit_And_Wallet_Foundation.sql) |
+| `wallet_schema.booking_settlements` | [V20260930142000__Init_Deposit_And_Wallet_Foundation.sql](../code/backend/core-api/src/main/resources/db/migration/V20260930142000__Init_Deposit_And_Wallet_Foundation.sql) |
+| `wallet_schema.ledger_entries` | [V20260930142000__Init_Deposit_And_Wallet_Foundation.sql](../code/backend/core-api/src/main/resources/db/migration/V20260930142000__Init_Deposit_And_Wallet_Foundation.sql) |
+| `wallet_schema.payment_transactions` | [V20260928163000__Init_Payment_Transactions_Module.sql](../code/backend/core-api/src/main/resources/db/migration/V20260928163000__Init_Payment_Transactions_Module.sql) |
+| `wallet_schema.wallet_holds` | [V20260930142000__Init_Deposit_And_Wallet_Foundation.sql](../code/backend/core-api/src/main/resources/db/migration/V20260930142000__Init_Deposit_And_Wallet_Foundation.sql) |
+| `wallet_schema.wallets` | [V20260930142000__Init_Deposit_And_Wallet_Foundation.sql](../code/backend/core-api/src/main/resources/db/migration/V20260930142000__Init_Deposit_And_Wallet_Foundation.sql) |
+
+Tổng **41 bảng nghiệp vụ**, **17 partition telemetry**, **51 tệp migration** được kiểm kê. Các schema/tables nằm theo khai báo SQL, không suy đoán theo tên package Java.
+
+Partition: `telemetry_schema.telemetry_logs_2026_01`, `telemetry_schema.telemetry_logs_2026_02`, `telemetry_schema.telemetry_logs_2026_03`, `telemetry_schema.telemetry_logs_2026_04`, `telemetry_schema.telemetry_logs_2026_05`, `telemetry_schema.telemetry_logs_2026_06`, `telemetry_schema.telemetry_logs_2026_07`, `telemetry_schema.telemetry_logs_2026_08`, `telemetry_schema.telemetry_logs_2026_09`, `telemetry_schema.telemetry_logs_2026_10`, `telemetry_schema.telemetry_logs_2026_11`, `telemetry_schema.telemetry_logs_2026_12`, `telemetry_schema.telemetry_logs_2027_01`, `telemetry_schema.telemetry_logs_2027_02`, `telemetry_schema.telemetry_logs_2027_03`, `telemetry_schema.telemetry_logs_2027_04`, `telemetry_schema.telemetry_logs_default`.
+
+### 11.5. Điểm vào truy vết nghiệp vụ
+
+- [Backend service](../code/backend/core-api/src/main/java/com/makeup/platform/service): quy tắc nghiệp vụ, deadline, scheduler, tích hợp và quyền sở hữu.
+- [Backend DTO](../code/backend/core-api/src/main/java/com/makeup/platform/dto): hợp đồng request/response và validation.
+- [Backend tests](../code/backend/core-api/src/test/java/com/makeup/platform): phạm vi test hiện có; không thay thế nghiệm thu E2E.
+- [App services](../code/app/src/services) và [stores](../code/app/src/store): API được client gọi, phiên, state, realtime.
+- [Web services](../code/frontend/src/services) và [components](../code/frontend/src/components/features): thao tác trong page/modal và API liên quan.
