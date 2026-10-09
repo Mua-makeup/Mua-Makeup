@@ -8,8 +8,20 @@ const REFRESH_TOKEN_KEY = 'makeup_refresh_token';
  * Lưu cặp Access Token & Refresh Token an toàn vào phần cứng thiết bị
  * (iOS Keychain & Android Keystore; Fallback localStorage trên Web).
  */
-export const saveTokens = async (accessToken: string, refreshToken: string): Promise<void> => {
+export const saveTokens = async (accessToken?: string | null, refreshToken?: string | null): Promise<void> => {
   try {
+    if (
+      !accessToken ||
+      typeof accessToken !== 'string' ||
+      !refreshToken ||
+      typeof refreshToken !== 'string'
+    ) {
+      console.warn('saveTokens: Bỏ qua do accessToken hoặc refreshToken không phải là chuỗi hợp lệ', {
+        hasAccessToken: typeof accessToken === 'string' && accessToken.length > 0,
+        hasRefreshToken: typeof refreshToken === 'string' && refreshToken.length > 0,
+      });
+      return;
+    }
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined') {
         localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);

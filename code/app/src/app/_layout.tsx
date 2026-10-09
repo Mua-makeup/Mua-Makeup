@@ -38,7 +38,7 @@ export default function RootLayout() {
     if (isAuthenticated && userInfo?.id) {
       console.log('[_layout] Kích hoạt notification listener cho userId:', userInfo.id);
       useNotificationStore.getState().fetchUnreadCount();
-      useNotificationStore.getState().initWebSocketListener();
+      useNotificationStore.getState().initWebSocketListener(userInfo.id);
       useBookingStore.getState().fetchMyBookings(true);
       registerForPushNotificationsAsync();
     }
@@ -100,7 +100,7 @@ export default function RootLayout() {
         const state = useAuthStore.getState();
         if (state.isAuthenticated) {
           useNotificationStore.getState().fetchUnreadCount();
-          useNotificationStore.getState().initWebSocketListener();
+          useNotificationStore.getState().initWebSocketListener(state.userInfo?.id);
           registerForPushNotificationsAsync();
         }
 
