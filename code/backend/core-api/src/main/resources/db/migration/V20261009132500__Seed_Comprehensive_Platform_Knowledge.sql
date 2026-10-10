@@ -1,4 +1,3 @@
-=====================================================================
 
 INSERT INTO interaction_schema.ai_knowledge_documents (category, title, content, keywords)
 VALUES

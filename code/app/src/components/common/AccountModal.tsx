@@ -231,23 +231,6 @@ export const AccountModal: React.FC = () => {
               <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
             </TouchableOpacity>
 
-            {/* Trợ Lý AI CSKH 24/7 */}
-            <TouchableOpacity
-              style={styles.modalActionRow}
-              onPress={() => handleNavigate(() => router.push('/support-chat' as any))}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chatbubbles-outline" size={22} color={BrandColors.primary} />
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.modalActionText, { color: BrandColors.slateHeading, fontWeight: '700' }]}>
-                  Trợ Lý AI CSKH
-                </Text>
-                <View style={{ backgroundColor: BrandColors.light, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: BrandColors.primary }}>24/7</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
-            </TouchableOpacity>
 
             <View style={styles.modalDivider} />
 
