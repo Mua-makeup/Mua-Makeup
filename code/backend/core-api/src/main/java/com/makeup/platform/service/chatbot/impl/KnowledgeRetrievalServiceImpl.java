@@ -1,11 +1,12 @@
-package com.makeup.platform.service.impl;
+package com.makeup.platform.service.chatbot.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.makeup.platform.entity.interaction.AiKnowledgeDocumentEntity;
 import com.makeup.platform.repository.interaction.AiKnowledgeDocumentRepository;
-import com.makeup.platform.service.GeminiClientService;
-import com.makeup.platform.service.KnowledgeRetrievalService;
+import com.makeup.platform.service.chatbot.GeminiClientService;
+import com.makeup.platform.service.chatbot.KnowledgeRetrievalService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

@@ -1,4 +1,4 @@
-package com.makeup.platform.service.impl;
+package com.makeup.platform.service.chatbot.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
@@ -20,9 +20,10 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.interaction.AiChatMessageRepository;
 import com.makeup.platform.repository.interaction.AiChatSessionRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
-import com.makeup.platform.service.AiSupportService;
-import com.makeup.platform.service.GeminiClientService;
-import com.makeup.platform.service.KnowledgeRetrievalService;
+import com.makeup.platform.service.chatbot.AiSupportService;
+import com.makeup.platform.service.chatbot.GeminiClientService;
+import com.makeup.platform.service.chatbot.KnowledgeRetrievalService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

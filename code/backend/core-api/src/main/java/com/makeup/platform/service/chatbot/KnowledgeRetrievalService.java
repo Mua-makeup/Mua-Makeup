@@ -1,4 +1,4 @@
-package com.makeup.platform.service;
+package com.makeup.platform.service.chatbot;
 
 import com.makeup.platform.entity.interaction.AiKnowledgeDocumentEntity;
 

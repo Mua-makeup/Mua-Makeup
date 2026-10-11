@@ -5,7 +5,8 @@ import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.dto.request.support.AiChatRequest;
 import com.makeup.platform.dto.response.support.AiChatResponse;
 import com.makeup.platform.dto.response.support.AiChatSessionHistoryResponse;
-import com.makeup.platform.service.AiSupportService;
+import com.makeup.platform.service.chatbot.AiSupportService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

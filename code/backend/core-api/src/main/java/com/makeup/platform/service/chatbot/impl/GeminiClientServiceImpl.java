@@ -1,8 +1,9 @@
-package com.makeup.platform.service.impl;
+package com.makeup.platform.service.chatbot.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.makeup.platform.service.GeminiClientService;
+import com.makeup.platform.service.chatbot.GeminiClientService;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
