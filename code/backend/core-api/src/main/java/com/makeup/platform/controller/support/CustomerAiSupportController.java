@@ -39,4 +39,11 @@ public class CustomerAiSupportController extends BaseController {
         AiChatSessionHistoryResponse response = aiSupportService.getSessionHistory(sessionCode);
         return ok(response);
     }
+
+    @PostMapping("/session/{sessionCode}/close")
+    public ResponseEntity<ApiResponse<Void>> closeSession(
+            @PathVariable String sessionCode) {
+        aiSupportService.closeSession(sessionCode, null);
+        return ok(null, "support.session_closed_success");
+    }
 }

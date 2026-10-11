@@ -13,4 +13,6 @@ public interface AiChatSessionRepository extends JpaRepository<AiChatSessionEnti
     Optional<AiChatSessionEntity> findBySessionCode(String sessionCode);
 
     List<AiChatSessionEntity> findTop10ByUserIdOrderByUpdatedAtDesc(Long userId);
+
+    List<AiChatSessionEntity> findByUserId(Long userId);
 }

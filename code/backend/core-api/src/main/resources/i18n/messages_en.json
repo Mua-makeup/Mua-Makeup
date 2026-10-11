@@ -563,7 +563,8 @@
     "message_too_long": "Question content cannot exceed 1000 characters.",
     "session_code_required": "Chat session code is required.",
     "session_not_found": "The requested chat session was not found.",
-    "chat_success": "AI Assistant response received successfully."
+    "chat_success": "AI Assistant response received successfully.",
+    "session_closed_success": "Chat session ended successfully."
   },
   "ERR_SLOT_ALREADY_BOOKED": "This appointment slot was just booked and paid by another customer. Please choose another time slot!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired."

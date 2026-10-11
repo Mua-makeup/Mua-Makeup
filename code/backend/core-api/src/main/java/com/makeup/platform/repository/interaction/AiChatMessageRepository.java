@@ -10,4 +10,6 @@ import java.util.List;
 public interface AiChatMessageRepository extends JpaRepository<AiChatMessageEntity, Long> {
 
     List<AiChatMessageEntity> findBySessionIdOrderByCreatedAtAsc(Long sessionId);
+
+    List<AiChatMessageEntity> findTop10BySessionIdOrderByCreatedAtDesc(Long sessionId);
 }

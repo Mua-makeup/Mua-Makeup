@@ -12,12 +12,14 @@ import {
   Animated,
   PanResponder,
   Keyboard,
+  Alert,
 } from 'react-native';
 import { usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { supportService, AiChatMessage } from '@/services/support.service';
 import { parseApiError } from '@/utils/error';
+import { useAuthStore } from '@/store/auth.store';
 
 const BUBBLE_SIZE = 54;
 
@@ -32,6 +34,7 @@ export function FloatingAiAssistantBubble() {
   const pathname = usePathname();
   const { width, height } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
+  const { isAuthenticated, userInfo } = useAuthStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [sessionCode, setSessionCode] = useState<string | undefined>(undefined);
@@ -46,6 +49,22 @@ export function FloatingAiAssistantBubble() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Reset toàn bộ tin nhắn, sessionCode & ĐÓNG NGAY POP-UP khi đăng xuất hoặc chuyển tài khoản
+  useEffect(() => {
+    Keyboard.dismiss();
+    setIsOpen(false);
+    setSessionCode(undefined);
+    setInputText('');
+    setMessages([
+      {
+        role: 'ASSISTANT',
+        content:
+          'Xin chào! Tôi có thể hỗ trợ gì cho bạn về cách sử dụng ứng dụng, đặt lịch hẹn, chính sách tiền cọc và hoàn tiền?',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  }, [isAuthenticated, userInfo?.id]);
 
   // Vị trí kéo trượt của bong bóng chat
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
@@ -151,6 +170,40 @@ export function FloatingAiAssistantBubble() {
     }
   };
 
+  const handleNewChat = () => {
+    const hasUserMessage = messages.some((m) => m.role === 'USER');
+    if (!hasUserMessage) {
+      return;
+    }
+
+    Alert.alert(
+      'Cuộc Trò Chuyện Mới',
+      'Bạn có chắc chắn muốn làm mới cuộc trò chuyện? Lịch sử tin nhắn hiện tại sẽ được dọn dẹp để bắt đầu chủ đề mới.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Làm Mới',
+          style: 'destructive',
+          onPress: () => {
+            if (sessionCode) {
+              supportService.closeSession(sessionCode).catch(() => {});
+            }
+            setSessionCode(undefined);
+            setInputText('');
+            setMessages([
+              {
+                role: 'ASSISTANT',
+                content:
+                  'Xin chào! Tôi có thể hỗ trợ gì cho bạn về cách sử dụng ứng dụng, đặt lịch hẹn, chính sách tiền cọc và hoàn tiền?',
+                createdAt: new Date().toISOString(),
+              },
+            ]);
+          },
+        },
+      ]
+    );
+  };
+
   // Không hiển thị khi ở màn hình auth
   if (
     !pathname ||
@@ -196,17 +249,28 @@ export function FloatingAiAssistantBubble() {
                 <Text style={styles.headerTitle}>Hỗ trợ trực tuyến</Text>
                 <Text style={styles.headerSubtitle}>Trực tuyến 24/7</Text>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setIsOpen(false);
-                }}
-                style={styles.closeBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.closeBtnText}>Đóng</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TouchableOpacity
+                  onPress={handleNewChat}
+                  style={styles.newChatBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Tạo cuộc trò chuyện mới"
+                >
+                  <Ionicons name="create-outline" size={16} color="#475569" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setIsOpen(false);
+                  }}
+                  style={styles.closeBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.closeBtnText}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Danh sách tin nhắn */}
@@ -283,8 +347,14 @@ export function FloatingAiAssistantBubble() {
                 placeholder="Nhập câu hỏi..."
                 placeholderTextColor="#94A3B8"
                 editable={!isLoading}
-                onSubmitEditing={() => handleSend()}
-                returnKeyType="send"
+                multiline={true}
+                textAlignVertical="top"
+                onKeyPress={(e: any) => {
+                  if (Platform.OS === 'web' && e.nativeEvent?.key === 'Enter' && !e.nativeEvent?.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
               />
               <TouchableOpacity
                 style={[
@@ -388,6 +458,14 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
+  newChatBtn: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   closeBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -447,6 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    flexShrink: 1,
   },
   bubbleUser: {
     backgroundColor: '#0F172A',
@@ -458,7 +537,12 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
+    flexShrink: 1,
+    // @ts-ignore
+    wordBreak: 'break-word',
+    // @ts-ignore
+    whiteSpace: 'pre-wrap',
   },
   messageTextUser: {
     color: '#FFFFFF',
@@ -492,6 +576,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#0F172A',
     maxHeight: 80,
+    minHeight: 36,
   },
   sendBtn: {
     backgroundColor: '#0F172A',

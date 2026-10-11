@@ -95,6 +95,8 @@ export const useAuthStore = create((set) => ({
       // Ignored if server error
     } finally {
       localStorage.removeItem('mua_logged_in');
+      localStorage.removeItem('ai_chat_session_code');
+      localStorage.removeItem('ai_support_session_code');
       sessionStorage.removeItem('auth_redirect_toast');
       useToastStore.getState().hideToast();
       set({

@@ -10,13 +10,15 @@ import {
   ActivityIndicator,
   StyleSheet,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BrandColors } from '@/constants/theme';
 import { supportService, AiChatMessage } from '@/services/support.service';
 import { parseApiError } from '@/utils/error';
+import { useAuthStore } from '@/store/auth.store';
+import { BrandColors } from '@/constants/theme';
 
 const QUICK_PROMPTS = [
   '⚡ Đặt lịch khẩn cấp 30s',
@@ -29,6 +31,7 @@ const QUICK_PROMPTS = [
 export default function SupportChatScreen() {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
+  const { isAuthenticated, userInfo } = useAuthStore();
 
   const [sessionCode, setSessionCode] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<AiChatMessage[]>([
@@ -41,6 +44,53 @@ export default function SupportChatScreen() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Tự động reset tin nhắn & sessionCode khi người dùng đăng xuất hoặc chuyển tài khoản
+  useEffect(() => {
+    setSessionCode(undefined);
+    setMessages([
+      {
+        role: 'ASSISTANT',
+        content:
+          'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup ✨ Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  }, [isAuthenticated, userInfo?.id]);
+
+  const handleNewChat = () => {
+    const hasUserMessage = messages.some((m) => m.role === 'USER');
+    if (!hasUserMessage) {
+      return;
+    }
+
+    Alert.alert(
+      'Cuộc Trò Chuyện Mới',
+      'Bạn có chắc chắn muốn làm mới cuộc trò chuyện? Lịch sử tin nhắn hiện tại sẽ được dọn dẹp để bắt đầu chủ đề mới.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Làm Mới',
+          style: 'destructive',
+          onPress: () => {
+            if (sessionCode) {
+              supportService.closeSession(sessionCode).catch(() => {});
+            }
+            setSessionCode(undefined);
+            setInputText('');
+            setMessages([
+              {
+                role: 'ASSISTANT',
+                content:
+                  'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup ✨ Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
+                createdAt: new Date().toISOString(),
+              },
+            ]);
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     // Tự động scroll xuống cuối khi có tin nhắn mới
@@ -118,7 +168,14 @@ export default function SupportChatScreen() {
           </View>
         </View>
 
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          style={styles.newChatButton}
+          onPress={handleNewChat}
+          activeOpacity={0.7}
+          accessibilityLabel="Tạo đoạn chat mới"
+        >
+          <Ionicons name="create-outline" size={20} color={BrandColors.slateHeading} />
+        </TouchableOpacity>
       </View>
 
       {/* Danh Sách Tin Nhắn */}
@@ -210,8 +267,15 @@ export default function SupportChatScreen() {
             value={inputText}
             onChangeText={setInputText}
             multiline
+            textAlignVertical="top"
             maxLength={1000}
             editable={!isLoading}
+            onKeyPress={(e: any) => {
+              if (Platform.OS === 'web' && e.nativeEvent?.key === 'Enter' && !e.nativeEvent?.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
           />
 
           <TouchableOpacity
@@ -251,6 +315,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newChatButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -356,6 +428,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 18,
+    flexShrink: 1,
   },
   bubbleUser: {
     backgroundColor: BrandColors.primary,
@@ -374,7 +447,12 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
+    flexShrink: 1,
+    // @ts-ignore
+    wordBreak: 'break-word',
+    // @ts-ignore
+    whiteSpace: 'pre-wrap',
   },
   messageTextUser: {
     color: '#FFFFFF',

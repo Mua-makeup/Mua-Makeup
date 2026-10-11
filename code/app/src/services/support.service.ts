@@ -42,4 +42,11 @@ export const supportService = {
     const res = await apiClient.get<{ success: boolean; data: AiChatSessionHistoryResponse }>(`/support/history/${sessionCode}`);
     return res.data.data;
   },
+
+  /**
+   * Đóng phiên trò chuyện hiện tại và xóa cache
+   */
+  async closeSession(sessionCode: string): Promise<void> {
+    await apiClient.post(`/support/session/${sessionCode}/close`);
+  },
 };
