@@ -107,12 +107,6 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                         "booking.access_denied", HttpStatus.FORBIDDEN);
             }
 
-            // Chỉ áp dụng cho FREELANCER_DIRECT
-            if (booking.getBookingPartner() != BookingPartner.FREELANCER_DIRECT) {
-                throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_FREELANCER_DIRECT,
-                        "booking.deposit_not_freelancer_direct", HttpStatus.BAD_REQUEST);
-            }
-
             // Lấy hoặc tạo booking_deposit
             BookingDepositEntity deposit = bookingDepositRepository.findByBookingIdWithLock(bookingId)
                     .orElseGet(() -> createBookingDeposit(booking));
@@ -864,6 +858,30 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                     messagingTemplate.convertAndSend("/topic/mua-scheduled-offer/" + muaId, scheduledOfferPayload);
                     log.info("[Deposit] Dispatched NEW_SCHEDULED_OFFER P2P to MUA userId={} (muaId={})", muaUserId, muaId);
                 }
+            }
+
+            if (booking.getAgency() != null) {
+                Long agencyId = booking.getAgency().getId();
+                Map<String, Object> agencyDispatchPayload = new HashMap<>();
+                agencyDispatchPayload.put("type", "NEW_BOOKING");
+                agencyDispatchPayload.put("bookingId", bookingId);
+                agencyDispatchPayload.put("bookingCode", booking.getBookingCode());
+                agencyDispatchPayload.put("agencyId", agencyId);
+                agencyDispatchPayload.put("status", booking.getStatus().name());
+                agencyDispatchPayload.put("customerName", booking.getCustomer() != null ? booking.getCustomer().getFullName() : "Khách hàng");
+                agencyDispatchPayload.put("customerPhone", booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : "");
+                agencyDispatchPayload.put("servicePackageName", booking.getServicePackage() != null ? booking.getServicePackage().getPackageName() : "");
+                agencyDispatchPayload.put("bookingDate", booking.getBookingDate() != null ? booking.getBookingDate().toString() : null);
+                agencyDispatchPayload.put("startTime", booking.getStartTime() != null ? booking.getStartTime().toString() : null);
+                agencyDispatchPayload.put("totalAmount", booking.getTotalAmount());
+                agencyDispatchPayload.put("depositAmount", deposit.getPaidAmount());
+                agencyDispatchPayload.put("timestamp", System.currentTimeMillis());
+                agencyDispatchPayload.put("message", "Đơn đặt lịch #" + booking.getBookingCode() + " đã cọc thành công, đang chờ Studio điều phối thợ.");
+
+                String agencyTopic = "/topic/agency/" + agencyId + "/bookings";
+                messagingTemplate.convertAndSend(agencyTopic, agencyDispatchPayload);
+                messagingTemplate.convertAndSend("/topic/agency/bookings", agencyDispatchPayload);
+                log.info("[Deposit] Broadcasted NEW_BOOKING deposit confirmed to agency topic {}", agencyTopic);
             }
             log.info("[Deposit] Broadcasted deposit paid event for bookingId={}", bookingId);
         } catch (Exception e) {

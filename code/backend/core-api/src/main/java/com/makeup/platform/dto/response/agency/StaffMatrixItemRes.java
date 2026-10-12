@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -32,8 +33,12 @@ public class StaffMatrixItemRes {
     @JsonProperty("isFullyQualified")
     private boolean isFullyQualified;
     private String disqualificationReason;
+    private String cancellationReason;
 
     // Current assignment if already assigned
     private String currentRole; // PRIMARY_MUA, ASSISTANT_MUA, or null
+    private BigDecimal commissionRate;
+    private BigDecimal commissionAmount;
+    private String commissionNote;
     private Double distanceMeters;
 }

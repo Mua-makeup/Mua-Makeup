@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -67,6 +68,24 @@ public class BookingStaffAssignmentEntity extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "replaced_by_staff_id")
     private AgencyStaffEntity replacedByStaff;
+
+    @Column(name = "commission_rate", precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal commissionRate = BigDecimal.ZERO;
+
+    @Column(name = "commission_amount", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal commissionAmount = BigDecimal.ZERO;
+
+    @Column(name = "commission_note", columnDefinition = "TEXT")
+    private String commissionNote;
+
+    @Column(name = "payout_status", nullable = false, length = 20)
+    @Builder.Default
+    private String payoutStatus = "PENDING";
+
+    @Column(name = "payout_at")
+    private OffsetDateTime payoutAt;
 
     @CreationTimestamp
     @Column(name = "assigned_at", nullable = false, updatable = false)

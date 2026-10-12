@@ -292,7 +292,7 @@ export const AgencyBookingsPage = () => {
       accessor: 'staffName',
       render: (row) => {
         const assistants = (row.assignedStaff || []).filter(
-          (s) => s.role === 'ASSISTANT_MUA' && (!s.status || s.status === 'ACTIVE')
+          (s) => s.role === 'ASSISTANT_MUA' && s.status === 'ACTIVE'
         );
         return row.staffName ? (
           <div className="space-y-0.5">

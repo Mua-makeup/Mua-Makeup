@@ -24,6 +24,7 @@ import { BrandColors } from '@/constants/theme';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { JobTimelineStep } from '@/components/mua/JobTimelineStep';
 import { ProofCameraModal } from '@/components/mua/ProofCameraModal';
+import { OvertimeReportModal } from '@/components/staff/OvertimeReportModal';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
@@ -107,6 +108,7 @@ export default function JobExecutionScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isCameraVisible, setIsCameraVisible] = useState(false);
+  const [isOvertimeModalVisible, setIsOvertimeModalVisible] = useState(false);
 
   // Cancellation / Dispute Modal State
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
@@ -885,20 +887,26 @@ export default function JobExecutionScreen() {
     try {
       setIsConfirmingCash(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const res = await depositService.confirmFreelancerCashReceipt(bookingId, 'v1');
+      const res = await depositService.confirmWorkerCashReceipt(bookingId, 'v1');
       setCashReceiptConfirmed(true);
       setIsCashPromptModalVisible(false);
       setIsBothCashConfirmed(true);
       setCurrentStatus('PAID_OUT');
       setBooking((prev: any) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const isAgency = booking?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
       Alert.alert(
         'Quyết Toán Thành Công! 🎉',
-        'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow (sau khi trừ phí sàn) đã được quyết toán vào Ví của bạn.',
-        [
-          { text: 'Xem Ví Thợ', onPress: () => router.push('/profile/freelancer-wallet') },
-          { text: 'Đóng' }
-        ]
+        isAgency
+          ? 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow đã được quyết toán vào Ví Studio.'
+          : 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow (sau khi trừ phí sàn) đã được quyết toán vào Ví của bạn.',
+        isAgency
+          ? [{ text: 'Đóng' }]
+          : [
+              { text: 'Xem Ví Thợ', onPress: () => router.push('/profile/freelancer-wallet') },
+              { text: 'Đóng' }
+            ]
       );
       loadBookingDetail();
     } catch (err: any) {
@@ -1059,6 +1067,32 @@ export default function JobExecutionScreen() {
               </Text>
               <Text style={styles.waitingNoticeSub}>
                 Khoản cọc đã được khóa bảo chứng an toàn. Vui lòng kiểm tra lịch trình và bấm TIẾP NHẬN CA HẸN bên dưới để xác nhận phục vụ khách hàng.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* ========================================================================= */}
+        {/* GIAO DIỆN CHUYÊN BIỆT: CA ĐƯỢC STUDIO ĐIỀU PHỐI (AGENCY_ASSIGNED)         */}
+        {/* ========================================================================= */}
+        {currentStatus === 'AGENCY_ASSIGNED' && (
+          <View style={styles.waitingContainer}>
+            <View style={[styles.waitingTimerBox, { borderColor: '#BAE6FD', backgroundColor: '#F0F9FF' }]}>
+              <View style={[styles.timerCircleBig, { borderColor: '#0284C7', backgroundColor: '#E0F2FE' }]}>
+                <Ionicons name="business" size={28} color="#0284C7" />
+                <Text style={[styles.timerBigNumber, { color: '#0369A1', fontSize: 16, marginTop: 4 }]}>
+                  {booking?.bookingDate ? formatDateVN(booking.bookingDate) : 'Ca Studio'}
+                </Text>
+                <Text style={[styles.timerBigUnit, { color: '#0369A1' }]}>
+                  {booking?.startTime ? `Giờ: ${booking.startTime}` : 'Studio Chỉ Định'}
+                </Text>
+              </View>
+
+              <Text style={[styles.waitingNoticeTitle, { color: '#0369A1' }]}>
+                Bạn đã được Studio điều phối thực hiện ca làm này!
+              </Text>
+              <Text style={styles.waitingNoticeSub}>
+                Vui lòng kiểm tra kỹ thông tin dịch vụ, điểm hẹn và bấm XÁC NHẬN ĐƠN HÀNG bên dưới để tiếp nhận ca làm trước khi bắt đầu di chuyển.
               </Text>
             </View>
           </View>
@@ -1506,6 +1540,53 @@ export default function JobExecutionScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        ) : currentStatus === 'AGENCY_ASSIGNED' ? (
+          /* ========================================================================= */
+          /* NÚT HÀNH ĐỘNG KHI ĐƠN ĐƯỢC STUDIO ĐIỀU PHỐI (AGENCY_ASSIGNED)              */
+          /* ========================================================================= */
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.cancelSecondaryBtn}
+              onPress={() => {
+                setCancelModalType('MUA_CANCEL');
+                setCancelReason('');
+                setIsCancelModalVisible(true);
+              }}
+              disabled={isTransitioning}
+            >
+              <Ionicons name="warning-outline" size={16} color="#DC2626" />
+              <Text style={styles.cancelSecondaryBtnText}>Báo Bận</Text>
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <TouchableOpacity
+                style={[styles.primaryActionBtn, { backgroundColor: '#2563EB' }, isTransitioning && styles.disabledBtn]}
+                onPress={async () => {
+                  try {
+                    setIsTransitioning(true);
+                    await freelancerBookingService.transitionBookingState(bookingId, 'ACCEPTED');
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    Alert.alert('Tiếp Nhận Thành Công 🎉', 'Bạn đã xác nhận tiếp nhận đơn hàng của Studio.');
+                    await loadBookingDetail();
+                  } catch (err: any) {
+                    const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận tiếp nhận đơn hàng.';
+                    Alert.alert('Lỗi Tiếp Nhận', msg);
+                  } finally {
+                    setIsTransitioning(false);
+                  }
+                }}
+                disabled={isTransitioning}
+              >
+                {isTransitioning ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.btnText}>XÁC NHẬN ĐƠN HÀNG</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         ) : currentStatus === 'ACCEPTED' && !isDepositPaid ? (
           /* ========================================================================= */
           /* NÚT HÀNH ĐỘNG KHI ĐANG CHỜ KHÁCH ĐẶT CỌC:                                 */
@@ -1565,7 +1646,7 @@ export default function JobExecutionScreen() {
             )}
 
             <View style={{ flex: 1 }}>
-              {(currentStatus === 'ACCEPTED' || currentStatus === 'AGENCY_ASSIGNED') && (
+              {currentStatus === 'ACCEPTED' && (
                 <TouchableOpacity
                   style={[styles.primaryActionBtn, { backgroundColor: '#059669' }, isTransitioning && styles.disabledBtn]}
                   onPress={handleStartMoving}
@@ -1617,14 +1698,23 @@ export default function JobExecutionScreen() {
               )}
 
               {currentStatus === 'IN_PROGRESS' && (
-                <TouchableOpacity
-                  style={[styles.completeActionBtn, isTransitioning && styles.disabledBtn]}
-                  onPress={() => setIsCameraVisible(true)}
-                  disabled={isTransitioning}
-                >
-                  <Ionicons name="camera" size={18} color="#FFFFFF" />
-                  <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
-                </TouchableOpacity>
+                <View style={{ gap: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.completeActionBtn, isTransitioning && styles.disabledBtn]}
+                    onPress={() => setIsCameraVisible(true)}
+                    disabled={isTransitioning}
+                  >
+                    <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.overtimeReportBtn}
+                    onPress={() => setIsOvertimeModalVisible(true)}
+                  >
+                    <Text style={styles.overtimeReportBtnText}>Giải trình làm quá giờ</Text>
+                  </TouchableOpacity>
+                </View>
               )}
 
               {(currentStatus === 'COMPLETED' || currentStatus === 'PAID_OUT') && (
@@ -1885,6 +1975,19 @@ export default function JobExecutionScreen() {
         onSuccess={(photoUrl) => {
           setIsCameraVisible(false);
           handleTransitionState('COMPLETED', photoUrl);
+        }}
+      />
+
+      {/* Modal Giải trình quá giờ dành cho thợ */}
+      <OvertimeReportModal
+        visible={isOvertimeModalVisible}
+        bookingId={bookingId}
+        bookingCode={booking?.bookingCode || id}
+        actualMinutes={Math.floor(elapsedSeconds / 60)}
+        estimatedMinutes={60}
+        onClose={() => setIsOvertimeModalVisible(false)}
+        onSuccess={() => {
+          setIsOvertimeModalVisible(false);
         }}
       />
 
@@ -4370,5 +4473,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
     lineHeight: 16,
+  },
+  overtimeReportBtn: {
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+  },
+  overtimeReportBtnText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#334155',
   },
 });

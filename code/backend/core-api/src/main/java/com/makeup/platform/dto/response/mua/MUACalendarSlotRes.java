@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import com.makeup.platform.entity.mua.CalendarSlotType;
+
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
@@ -35,6 +37,9 @@ public class MUACalendarSlotRes {
 
     @JsonProperty("is_locked")
     private Boolean isLocked;
+
+    @JsonProperty("slot_type")
+    private CalendarSlotType slotType;
 
     @JsonProperty("reason")
     private String reason;

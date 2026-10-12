@@ -54,4 +54,21 @@ public interface AgencyStaffService {
 
     // Staff/MUA: Lấy thông tin hồ sơ nhân viên trực thuộc Studio của tài khoản hiện tại
     AgencyStaffDetailRes getMyStaffProfile(Long userId);
+
+    // Staff: Tải lên chứng chỉ nghề nghiệp nộp cho Studio
+    com.makeup.platform.dto.response.mua.CertificateRes uploadStaffCertificate(
+            Long userId,
+            org.springframework.web.multipart.MultipartFile file,
+            String certName,
+            String notes);
+
+    // Studio Admin: Phê duyệt (VERIFIED) hoặc Từ chối (REJECTED) chứng chỉ của nhân viên
+    com.makeup.platform.dto.response.mua.CertificateRes reviewStaffCertificate(
+            Long ownerUserId,
+            Long staffId,
+            String certName,
+            com.makeup.platform.dto.request.agency.ReviewStaffCertificateReq req);
+
+    // Staff: Xóa chứng chỉ khi ở trạng thái PENDING hoặc REJECTED
+    void deleteStaffCertificate(Long userId, String certName);
 }

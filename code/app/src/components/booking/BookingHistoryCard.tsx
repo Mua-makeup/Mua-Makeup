@@ -24,6 +24,10 @@ export const BookingHistoryCard: React.FC<Props> = ({
   onReviewPress,
   onRebookPress,
 }) => {
+  const isStudioBooking =
+    booking.bookingPartner === 'AGENCY_DISPATCH' ||
+    Boolean(booking.agencyId || booking.agencyName);
+
   const isSlotTakenCancelled =
     booking.status === 'CANCELLED' &&
     ((booking.cancellationReason && (
@@ -41,6 +45,8 @@ export const BookingHistoryCard: React.FC<Props> = ({
         return { label: 'Chờ Đặt Cọc', color: '#D97706', bg: '#FEF3C7' };
       case 'REQUESTED':
         return { label: 'Chờ Xác Nhận', color: '#D97706', bg: '#FEF3C7' };
+      case 'PENDING_AGENCY_DISPATCH':
+        return { label: 'Chờ Studio Phân Công', color: '#D97706', bg: '#FEF3C7' };
       case 'AGENCY_ASSIGNED':
       case 'ACCEPTED':
         return { label: 'Đã Nhận Đơn', color: '#2563EB', bg: '#DBEAFE' };
@@ -105,10 +111,14 @@ export const BookingHistoryCard: React.FC<Props> = ({
           }
         }}
       >
-        {/* HEADER: MÃ ĐƠN & STATUS */}
+        {/* HEADER: MÃ ĐƠN, LOẠI ĐƠN & STATUS */}
         <View style={styles.headerRow}>
           <View style={styles.codeRow}>
-            <Text style={styles.codeLabel}>Mã đơn:</Text>
+            <View style={isStudioBooking ? styles.partnerTypeBadgeStudio : styles.partnerTypeBadgeFreelancer}>
+              <Text style={isStudioBooking ? styles.partnerTypeBadgeTextStudio : styles.partnerTypeBadgeTextFreelancer}>
+                {isStudioBooking ? 'STUDIO' : 'THỢ TỰ DO'}
+              </Text>
+            </View>
             <Text style={styles.codeText} numberOfLines={1} ellipsizeMode="tail">
               {booking.bookingCode || `#BK-${booking.id}`}
             </Text>
@@ -125,11 +135,11 @@ export const BookingHistoryCard: React.FC<Props> = ({
 
         <View style={styles.divider} />
 
-        {/* THÔNG TIN DỊCH VỤ & THỢ */}
+        {/* THÔNG TIN DỊCH VỤ & THỢ (TÁCH BIỆT STUDIO / THỢ TỰ DO) */}
         <View style={styles.bodyRow}>
           <UserAvatar
-            uri={booking.packageCoverUrl || booking.muaAvatarUrl}
-            name={booking.packageName || booking.muaName}
+            uri={isStudioBooking ? (booking.agencyLogoUrl || booking.packageCoverUrl) : (booking.packageCoverUrl || booking.muaAvatarUrl)}
+            name={isStudioBooking ? (booking.agencyName || booking.packageName) : (booking.packageName || booking.muaName)}
             size={64}
             borderRadius={10}
             style={{ marginRight: 12 }}
@@ -140,20 +150,42 @@ export const BookingHistoryCard: React.FC<Props> = ({
             </Text>
 
             {booking.styleName ? (
-              <View style={styles.styleBadgeRow}>
-                <Ionicons name="sparkles" size={11} color={BrandColors.primary} />
-                <Text style={styles.styleBadgeText} numberOfLines={1}>
-                  Tone: {booking.styleName}
-                </Text>
-              </View>
+              <Text style={styles.styleTextSimple} numberOfLines={1}>
+                Tone: {booking.styleName}
+              </Text>
             ) : null}
 
-            <View style={styles.muaRow}>
-              <Ionicons name="person-outline" size={13} color="#64748B" />
-              <Text style={styles.muaName} numberOfLines={1}>
-                Thợ: {booking.muaName || 'Chuyên viên trang điểm'}
-              </Text>
-            </View>
+            {isStudioBooking ? (
+              <>
+                <View style={styles.infoLine}>
+                  <Text style={styles.infoLabel}>Studio:</Text>
+                  <Text style={styles.infoValueBold} numberOfLines={1}>
+                    {booking.agencyName || 'Studio trang điểm'}
+                  </Text>
+                </View>
+                <View style={styles.infoLine}>
+                  <Text style={styles.infoLabel}>Thợ chính:</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {booking.staffName || booking.muaName || 'Studio đang phân công'}
+                  </Text>
+                </View>
+                {booking.assistantNames && booking.assistantNames.length > 0 ? (
+                  <View style={styles.infoLine}>
+                    <Text style={styles.infoLabel}>Thợ phụ:</Text>
+                    <Text style={styles.infoValue} numberOfLines={1}>
+                      {booking.assistantNames.join(', ')}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            ) : (
+              <View style={styles.infoLine}>
+                <Text style={styles.infoLabel}>Chuyên viên:</Text>
+                <Text style={styles.infoValueBold} numberOfLines={1}>
+                  {booking.muaName || 'Chuyên viên trang điểm'}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.detailRow}>
               <Ionicons name="time-outline" size={13} color="#64748B" />
@@ -306,6 +338,60 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     marginBottom: 12,
+  },
+  partnerTypeBadgeStudio: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  partnerTypeBadgeTextStudio: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#334155',
+    letterSpacing: 0.2,
+  },
+  partnerTypeBadgeFreelancer: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  partnerTypeBadgeTextFreelancer: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  styleTextSimple: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  infoLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  infoLabel: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  infoValue: {
+    fontSize: 11.5,
+    color: '#334155',
+    fontWeight: '500',
+    flex: 1,
+  },
+  infoValueBold: {
+    fontSize: 12,
+    color: '#1E293B',
+    fontWeight: '700',
+    flex: 1,
   },
   headerRow: {
     flexDirection: 'row',

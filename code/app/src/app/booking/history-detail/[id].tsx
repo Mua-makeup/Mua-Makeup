@@ -272,6 +272,14 @@ export default function BookingHistoryDetailScreen() {
   const depositAmount = bookingDetail.depositAmount ?? Math.round(totalAmount * 0.3);
   const remainingAmount = Math.max(0, totalAmount - depositAmount);
 
+  const isStudioBooking =
+    bookingDetail.bookingPartner === 'AGENCY_DISPATCH' ||
+    Boolean(bookingDetail.agencyId || bookingDetail.agencyName);
+
+  const activeStaffList = (bookingDetail.assignedStaff || []).filter(
+    (s) => s.status === 'ACTIVE'
+  );
+
   // Phân loại ngữ cảnh hủy đơn và hoàn cọc
   const cancelReasonLower = (bookingDetail.cancellationReason || '').toLowerCase();
   const isSlotTakenCancelled =
@@ -1419,8 +1427,112 @@ export default function BookingHistoryDetailScreen() {
           </View>
         )}
 
-        {/* THÔNG TIN ĐỐI TÁC (THỢ HOẶC KHÁCH HÀNG) */}
-        {!isWorkstationRole && !hasAssignedMua ? (
+        {/* THÔNG TIN ĐỐI TÁC: PHÂN BIỆT STUDIO VÀ THỢ TỰ DO */}
+        {!isWorkstationRole && isStudioBooking ? (
+          <>
+            {/* CARD 1: THÔNG TIN STUDIO */}
+            <View style={styles.card}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={styles.cardSectionTitle}>Studio Làm Đẹp</Text>
+                <View style={styles.badgeStudioSimple}>
+                  <Text style={styles.badgeStudioSimpleText}>STUDIO</Text>
+                </View>
+              </View>
+
+              <View style={styles.partnerRow}>
+                <UserAvatar
+                  uri={bookingDetail.agencyLogoUrl}
+                  name={bookingDetail.agencyName || 'Studio'}
+                  size={52}
+                />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.partnerName} numberOfLines={1}>
+                    {bookingDetail.agencyName || 'Studio Trang Điểm'}
+                  </Text>
+                  {bookingDetail.agencyCode ? (
+                    <Text style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                      Mã: {bookingDetail.agencyCode}
+                    </Text>
+                  ) : null}
+                  {bookingDetail.agencyAddress ? (
+                    <Text style={{ fontSize: 11, color: '#64748B', marginTop: 2 }} numberOfLines={2}>
+                      Địa chỉ: {bookingDetail.agencyAddress}
+                    </Text>
+                  ) : null}
+                  {bookingDetail.agencyPhone ? (
+                    <Text style={styles.partnerPhone}>
+                      Hotline: {bookingDetail.agencyPhone}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {bookingDetail.agencyPhone ? (
+                  <TouchableOpacity
+                    style={styles.partnerCallBtn}
+                    onPress={() => Linking.openURL(`tel:${bookingDetail.agencyPhone}`)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="call" size={18} color="#059669" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+            {/* CARD 2: ĐỘI NGŨ CHUYÊN VIÊN STUDIO */}
+            <View style={styles.card}>
+              <Text style={styles.cardSectionTitle}>Đội Ngũ Chuyên Viên Studio</Text>
+
+              {activeStaffList.length > 0 ? (
+                <View style={{ gap: 10, marginTop: 4 }}>
+                  {activeStaffList.map((staff, idx) => {
+                    const isPrimary = staff.role === 'PRIMARY_MUA';
+                    return (
+                      <View key={staff.id || idx} style={styles.staffItemBox}>
+                        <UserAvatar
+                          uri={staff.staffAvatarUrl}
+                          name={staff.staffName || 'Chuyên viên'}
+                          size={40}
+                        />
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.staffItemName} numberOfLines={1}>
+                              {staff.staffName || 'Chuyên viên'}
+                            </Text>
+                            <View style={isPrimary ? styles.tagStaffPrimary : styles.tagStaffAssistant}>
+                              <Text style={isPrimary ? styles.tagStaffPrimaryText : styles.tagStaffAssistantText}>
+                                {isPrimary ? 'Thợ chính' : 'Thợ phụ'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={{ fontSize: 11, color: '#64748B', marginTop: 1 }}>
+                            {staff.staffPhone ? `SĐT: ${staff.staffPhone}` : 'Chuyên viên trang điểm'}
+                          </Text>
+                        </View>
+                        {staff.staffPhone ? (
+                          <TouchableOpacity
+                            style={styles.staffCallBtnSmall}
+                            onPress={() => Linking.openURL(`tel:${staff.staffPhone}`)}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons name="call" size={15} color="#059669" />
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={{ paddingVertical: 8 }}>
+                  <Text style={{ fontSize: 12, color: '#64748B', fontStyle: 'italic' }}>
+                    {bookingDetail.muaName
+                      ? `Chuyên viên đảm nhiệm: ${bookingDetail.muaName}`
+                      : 'Studio đang điều phối nhân sự cho ca hẹn.'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        ) : !isWorkstationRole && !hasAssignedMua ? (
           <View style={styles.card}>
             <Text style={styles.cardSectionTitle}>Chuyên Viên Trang Điểm</Text>
             <View style={styles.noMuaNoticeBox}>
@@ -1460,7 +1572,7 @@ export default function BookingHistoryDetailScreen() {
                   </Text>
                   <View style={[styles.roleTag, isWorkstationRole ? styles.roleTagCustomer : styles.roleTagMua]}>
                     <Text style={[styles.roleTagText, isWorkstationRole ? styles.roleTagTextCustomer : styles.roleTagTextMua]}>
-                      {isWorkstationRole ? 'Khách Hàng' : 'PRO MUA'}
+                      {isWorkstationRole ? 'Khách Hàng' : 'Thợ tự do'}
                     </Text>
                   </View>
                 </View>
@@ -2356,6 +2468,70 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 12,
+  },
+  badgeStudioSimple: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  badgeStudioSimpleText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
+    letterSpacing: 0.3,
+  },
+  staffItemBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  staffItemName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  tagStaffPrimary: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  tagStaffPrimaryText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  tagStaffAssistant: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  tagStaffAssistantText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  staffCallBtnSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   noMuaNoticeBox: {
     flexDirection: 'row',

@@ -52,13 +52,16 @@ export default function BookingDepositScreen() {
   const hasNavigatedRef = useRef<boolean>(false);
   const isPaymentBrowserOpenRef = useRef<boolean>(false);
 
-  const navigateToBookingDetail = (delay: number = 800) => {
+  const navigateToBookingDetail = (delay: number = 300) => {
     if (hasNavigatedRef.current) return;
     hasNavigatedRef.current = true;
     try {
       WebBrowser.dismissBrowser();
     } catch {}
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
     setPaymentPolling(false);
     setIsPaidSuccess(true);
     setTimeout(() => {
@@ -313,6 +316,7 @@ export default function BookingDepositScreen() {
 
   // Kiểm tra 1 lần trạng thái cọc
   const checkDepositStatusOnce = async () => {
+    if (hasNavigatedRef.current) return;
     try {
       const status = await depositService.getDepositStatus(bookingId);
       if (status?.depositStatus === 'PAID') {
@@ -320,7 +324,7 @@ export default function BookingDepositScreen() {
         setIsPaidSuccess(true);
         setPaymentPolling(false);
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        navigateToBookingDetail(600);
+        navigateToBookingDetail(300);
       } else if (
         status?.depositStatus === 'SLOT_TAKEN' ||
         status?.isSlotTaken === true ||
@@ -342,6 +346,7 @@ export default function BookingDepositScreen() {
 
   // Đồng bộ / kiểm tra giao dịch thanh toán cọc thủ công từ gateway
   const handleManualSync = async () => {
+    if (hasNavigatedRef.current) return;
     try {
       setIsProcessing(true);
       const res = await depositService.syncDepositPayment(bookingId);
@@ -350,7 +355,7 @@ export default function BookingDepositScreen() {
         setIsPaidSuccess(true);
         setPaymentPolling(false);
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        navigateToBookingDetail(600);
+        navigateToBookingDetail(300);
       } else if (
         res?.depositStatus === 'SLOT_TAKEN' ||
         res?.isSlotTaken === true ||

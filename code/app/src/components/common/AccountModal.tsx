@@ -23,6 +23,7 @@ export const AccountModal: React.FC = () => {
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+  const isFreelanceMUA = isMUA && !isAgencyStaff;
 
   const handleClose = () => {
     setShowLogoutConfirm(false);
@@ -146,7 +147,7 @@ export const AccountModal: React.FC = () => {
             </TouchableOpacity>
 
             {/* 2. Hồ Sơ Nghề Nghiệp Thợ MUA (Chỉ dành cho MUA) */}
-            {isMUA && (
+            {isFreelanceMUA && (
               <TouchableOpacity
                 style={styles.modalActionRow}
                 onPress={() => handleNavigate(() => router.push('/profile/mua-profile'))}
@@ -161,7 +162,7 @@ export const AccountModal: React.FC = () => {
             )}
 
             {/* 2.1. Quản Lý Gói Dịch Vụ Cá Nhân (Chỉ dành cho Freelance MUA) */}
-            {isMUA && (
+            {isFreelanceMUA && (
               <TouchableOpacity
                 style={styles.modalActionRow}
                 onPress={() => handleNavigate(() => router.replace('/mua/packages' as any))}
@@ -176,7 +177,7 @@ export const AccountModal: React.FC = () => {
             )}
 
             {/* 3. Trang Cá Nhân Công Khai (Chỉ dành cho MUA) */}
-            {isMUA && (
+            {isFreelanceMUA && (
               <TouchableOpacity
                 style={styles.modalActionRow}
                 onPress={() =>
@@ -195,6 +196,7 @@ export const AccountModal: React.FC = () => {
               </TouchableOpacity>
             )}
 
+
             {/* 4. Hồ Sơ Nhân Sự Studio (Chỉ dành cho Agency Staff) */}
             {isAgencyStaff && (
               <TouchableOpacity
@@ -210,12 +212,31 @@ export const AccountModal: React.FC = () => {
               </TouchableOpacity>
             )}
 
-            {/* 5. Ví Tiền & Cọc Escrow */}
+            {/* Lịch ca trực (Chỉ cho Nhân viên Studio) */}
+            {isAgencyStaff && (
+              <TouchableOpacity
+                style={styles.modalActionRow}
+                onPress={() =>
+                  handleNavigate(() => {
+                    router.push('/staff/schedule');
+                  })
+                }
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={22} color={BrandColors.primary} />
+                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
+                  Lịch Ca Trực Studio
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
+              </TouchableOpacity>
+            )}
+
+            {/* 5. Ví Tiền & Tài Chính (Chuyên viên Thợ/Nhân viên hoặc Khách hàng) */}
             <TouchableOpacity
               style={styles.modalActionRow}
               onPress={() =>
                 handleNavigate(() => {
-                  if (isMUA) {
+                  if (isMUA || isAgencyStaff) {
                     router.push('/profile/freelancer-wallet');
                   } else {
                     router.push('/profile/customer-wallet');
@@ -226,7 +247,7 @@ export const AccountModal: React.FC = () => {
             >
               <Ionicons name="wallet-outline" size={22} color={BrandColors.primary} />
               <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
-                {isMUA ? 'Ví & Tài Chính Thợ' : 'Ví Cá Nhân Của Tôi'}
+                {isAgencyStaff ? 'Ví & Tài Chính Nhân Viên' : (isMUA ? 'Ví & Tài Chính Thợ' : 'Ví Cá Nhân Của Tôi')}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
             </TouchableOpacity>

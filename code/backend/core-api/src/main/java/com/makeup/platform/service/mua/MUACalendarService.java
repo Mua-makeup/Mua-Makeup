@@ -29,4 +29,8 @@ public interface MUACalendarService {
     void releaseSlotByBookingId(Long bookingId);
 
     void releaseSlotByBookingIdAndMuaId(Long bookingId, Long muaId);
+
+    void convertSlotToEmergencyBlocked(Long bookingId, Long muaId, String emergencyReason);
+
+    List<MUACalendarSlotRes> getMyBlockedSlots(Long muaId, LocalDate fromDate);
 }

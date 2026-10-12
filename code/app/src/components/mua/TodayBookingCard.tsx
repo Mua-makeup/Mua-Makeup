@@ -24,6 +24,10 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
         return { label: 'Chờ Đặt Cọc', bg: '#FEF3C7', text: '#D97706', icon: 'card-outline' };
       case 'REQUESTED':
         return { label: 'Chờ Tiếp Nhận', bg: '#FFF1F2', text: '#E11D48', icon: 'hourglass-outline' };
+      case 'PENDING_AGENCY_DISPATCH':
+        return { label: 'Chờ Điều Phối', bg: '#FEF3C7', text: '#D97706', icon: 'sync-outline' };
+      case 'AGENCY_ASSIGNED':
+        return { label: 'Studio Chỉ Định', bg: '#E0F2FE', text: '#0284C7', icon: 'business-outline' };
       case 'ACCEPTED':
         return { label: 'Đã Tiếp Nhận', bg: '#EFF6FF', text: '#2563EB', icon: 'checkmark-circle' };
       case 'ON_THE_WAY':

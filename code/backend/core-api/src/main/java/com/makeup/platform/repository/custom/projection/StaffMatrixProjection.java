@@ -22,5 +22,7 @@ public interface StaffMatrixProjection {
 
     Boolean getHasReportedBusy();
 
+    String getCancellationReason();
+
     String getCurrentRole();
 }

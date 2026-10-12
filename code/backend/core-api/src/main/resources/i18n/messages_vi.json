@@ -113,11 +113,20 @@
     "staff_not_active": "Nhân viên chưa kích hoạt hoặc không thể xếp ca.",
     "shift_time_invalid": "Thời gian kết thúc ca làm phải sau thời gian bắt đầu.",
     "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
+    "staff_busy_slot_conflict": "Thợ {0} đã đăng ký lịch bận cá nhân từ {1} đến {2} (Lý do: {3}). Không thể xếp ca vào khung giờ này!",
     "shift_created_success": "Tạo ca làm việc thành công!",
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
     "shift_deleted_success": "Xóa ca làm việc thành công!",
     "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
-    "logo_upload_success": "Tải lên logo của Studio thành công."
+    "logo_upload_success": "Tải lên logo của Studio thành công.",
+    "cert_upload_success": "Tải lên chứng chỉ nghề nghiệp thành công (chờ Studio phê duyệt).",
+    "cert_review_success": "Xử lý phê duyệt chứng chỉ nhân viên thành công.",
+    "cert_delete_success": "Xóa chứng chỉ thành công.",
+    "cannot_delete_verified_platform_cert": "Không thể xóa chứng chỉ đã được Ban Quản Trị Sàn phê duyệt.",
+    "review": {
+      "decision_required": "Quyết định phê duyệt là bắt buộc.",
+      "decision_invalid": "Quyết định phê duyệt không hợp lệ. Chỉ chấp nhận VERIFIED hoặc REJECTED."
+    }
   },
   "catalog": {
     "style_not_found": "Không tìm thấy phong cách make-up với ID: {0}",
@@ -377,7 +386,9 @@
     "page_size_max": "Kích thước trang tối đa không được vượt quá 50.",
     "booking_target_status_required": "Trạng thái đích không được để trống.",
     "booking_target_status_invalid": "Trạng thái đích không hợp lệ.",
-    "booking_reason_max": "Lý do không được vượt quá 500 ký tự."
+    "booking_reason_max": "Lý do không được vượt quá 500 ký tự.",
+    "splits_not_empty": "Danh sách phân chia hoa hồng không được để trống.",
+    "commission_amount_min": "Số tiền hoa hồng không được âm."
   },
   "admin": {
     "agency_verify_success": "Cập nhật trạng thái phê duyệt Studio Agency thành công!",
@@ -436,6 +447,8 @@
     "slot_unblocked_success": "Mở lại khung giờ làm việc thành công!",
     "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
     "days_fetch_success": "Lấy tổng quan lịch 30 ngày thành công.",
+    "blocks_fetch_success": "Lấy danh sách khung giờ bận thành công.",
+    "staff_cannot_block_during_shift": "Bạn đã được Studio phân công ca trực ''{0}'' (từ {1} đến {2}). Vui lòng liên hệ Quản lý Studio để xin đổi ca hoặc xin nghỉ trực thay vì tự khóa lịch.",
     "cannot_unblock_booked_slot": "Không thể mở khóa slot lịch đã được gắn với đơn đặt hẹn của khách hàng.",
     "slot_not_found": "Không tìm thấy khung giờ lịch làm việc."
   },
@@ -501,6 +514,8 @@
     "certificate_upload_content": "Thợ trang điểm {0} vừa tải lên chứng chỉ '{1}' cần được Ban Quản Trị phê duyệt.",
     "booking_accepted_title": "Thợ đã nhận ca làm đẹp!",
     "booking_accepted_content": "Chuyên viên {0} đã xác nhận nhận lịch hẹn #{1} của bạn.",
+    "staff_dispatch_assigned_title": "Studio đã phân công ca làm việc mới!",
+    "staff_dispatch_assigned_content": "Studio {0} đã phân công bạn ({1}) cho ca hẹn #{2} vào ngày {3} lúc {4}. Vui lòng xác nhận tiếp nhận ca!",
     "scheduled_booking_accepted_title": "Chuyên viên đã nhận lịch hẹn của bạn!",
     "scheduled_booking_accepted_content": "Chuyên viên {0} đã xác nhận nhận lịch hẹn #{1} vào ngày {2} lúc {3}.",
     "booking_on_the_way_title": "Thợ đang di chuyển đến bạn!",
@@ -572,6 +587,29 @@
     "chat_success": "Phản hồi từ trợ lý AI thành công.",
     "session_closed_success": "Đã kết thúc phiên trò chuyện thành công."
   },
+  "dispatch": {
+    "fetch_pending_success": "Lấy danh sách đơn hàng chờ điều phối thành công.",
+    "fetch_matrix_success": "Lấy ma trận khả dụng của thợ thành công.",
+    "assign_success": "Phân công thợ cho đơn hàng thành công.",
+    "reassign_success": "Đổi thợ dự phòng khẩn cấp thành công.",
+    "reject_success": "Studio từ chối tiếp nhận đơn hàng thành công.",
+    "proceed_solo_success": "Xác nhận thợ chính phục vụ đơn lẻ thành công.",
+    "emergency_report_success": "Báo bận khẩn cấp thành công.",
+    "emergency_review_success": "Duyệt báo bận khẩn cấp thành công.",
+    "assignment_confirm_success": "Xác nhận nhận ca thành công.",
+    "update_commissions_success": "Cập nhật phân chia hoa hồng cho các thợ thành công.",
+    "no_active_staff_to_update_commission": "Không tìm thấy thợ nào đang hoạt động trong ca này để cập nhật hoa hồng.",
+    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng."
+  },
   "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!",
-  "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn."
+  "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn.",
+  "cash_receipt": {
+    "customer_confirmed": "Khách hàng xác nhận thanh toán tiền mặt thành công.",
+    "worker_confirmed": "Chuyên viên xác nhận đã nhận đủ tiền mặt thành công.",
+    "freelancer_confirmed": "Chuyên viên xác nhận đã nhận đủ tiền mặt thành công.",
+    "status_ok": "Lấy trạng thái biên nhận tiền mặt thành công.",
+    "not_found": "Không tìm thấy biên nhận tiền mặt của đơn hàng.",
+    "worker_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt.",
+    "freelancer_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt."
+  }
 }

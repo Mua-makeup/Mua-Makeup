@@ -62,6 +62,10 @@ export const agencyService = {
     apiClient.put(`/agencies/staff/${staffId}/status`, data),
   updateStaffCommission: (staffId, data) =>
     apiClient.put(`/agencies/staff/${staffId}/commission`, data),
+  reviewStaffCertificate: (staffId, certName, data) =>
+    apiClient.put(`/agencies/staff/${staffId}/certificates/review`, data, {
+      params: { certName },
+    }),
   removeStaff: (staffId) => apiClient.delete(`/agencies/staff/${staffId}`),
 
   // Phân quyền Style & Gói dịch vụ cho thợ
@@ -105,5 +109,7 @@ export const agencyService = {
   reviewEmergencyReport: (bookingId, staffId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/emergency-approval/${staffId}`, data),
   proceedSolo: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/proceed-solo`, data),
   confirmAssignment: (assignmentId) => apiClient.post(`/agency/dispatch/assignments/${assignmentId}/confirm`),
+  updateStaffCommissions: (bookingId, data) =>
+    apiClient.put(`/agency/dispatch/bookings/${bookingId}/staff-commissions`, data),
 };
 

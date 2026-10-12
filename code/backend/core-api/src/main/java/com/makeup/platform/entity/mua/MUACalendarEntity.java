@@ -14,6 +14,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
@@ -33,6 +36,11 @@ public class MUACalendarEntity extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id")
     private BookingEntity booking;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "slot_type", length = 50, nullable = false)
+    @Builder.Default
+    private CalendarSlotType slotType = CalendarSlotType.PERSONAL_BLOCKED;
 
     @Column(name = "booking_date", nullable = false)
     private LocalDate bookingDate;

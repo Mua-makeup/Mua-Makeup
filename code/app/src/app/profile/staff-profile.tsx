@@ -6,13 +6,18 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { BrandColors } from '@/constants/theme';
-import { staffProfileService, AgencyStaffProfile } from '@/services/staff-profile.service';
+import { staffProfileService, AgencyStaffProfile, StaffCertificate } from '@/services/staff-profile.service';
 import { parseApiError } from '@/utils/error';
 
 export default function StaffWorkProfileScreen() {
@@ -20,11 +25,17 @@ export default function StaffWorkProfileScreen() {
   const [staffProfile, setStaffProfile] = useState<AgencyStaffProfile | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadStaffProfile();
-  }, []);
+  // State Modal tải lên chứng chỉ
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [certNameInput, setCertNameInput] = useState('');
+  const [notesInput, setNotesInput] = useState('');
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isSubmittingCert, setIsSubmittingCert] = useState(false);
 
-  const loadStaffProfile = async () => {
+  // State xem ảnh preview lớn
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  const refreshStaffProfile = async () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -38,6 +49,134 @@ export default function StaffWorkProfileScreen() {
     }
   };
 
+  useEffect(() => {
+    let isMounted = true;
+    staffProfileService
+      .getMyStaffProfile()
+      .then((data) => {
+        if (isMounted) setStaffProfile(data);
+      })
+      .catch((err: any) => {
+        if (isMounted) {
+          const parsed = parseApiError(err);
+          setErrorMessage(parsed.message || 'Chưa tìm thấy thông tin Studio liên kết.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedImageUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Không thể mở thư viện ảnh.');
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh bằng cấp.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setSelectedImageUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert('Lỗi', 'Không thể mở máy ảnh.');
+    }
+  };
+
+  const handleSubmitCertificate = async () => {
+    if (!certNameInput.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên chứng chỉ hoặc bằng cấp.');
+      return;
+    }
+    if (!selectedImageUri) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng chọn hoặc chụp ảnh bằng cấp.');
+      return;
+    }
+
+    setIsSubmittingCert(true);
+    try {
+      const formData = new FormData();
+      const fileName = `cert_${Date.now()}.jpg`;
+
+      if (Platform.OS === 'web') {
+        const fetchRes = await fetch(selectedImageUri);
+        const blob = await fetchRes.blob();
+        formData.append('file', blob, fileName);
+      } else {
+        formData.append('file', {
+          uri: selectedImageUri,
+          name: fileName,
+          type: 'image/jpeg',
+        } as any);
+      }
+
+      formData.append('certName', certNameInput.trim());
+      if (notesInput.trim()) {
+        formData.append('notes', notesInput.trim());
+      }
+
+      await staffProfileService.uploadStaffCertificate(formData);
+      Alert.alert('Thành công', 'Đã nộp chứng chỉ lên Studio để kiểm duyệt.');
+      setIsUploadModalOpen(false);
+      setCertNameInput('');
+      setNotesInput('');
+      setSelectedImageUri(null);
+      await refreshStaffProfile();
+    } catch (err: any) {
+      const parsed = parseApiError(err);
+      Alert.alert('Lỗi tải lên', parsed.message || 'Không thể tải lên chứng chỉ.');
+    } finally {
+      setIsSubmittingCert(false);
+    }
+  };
+
+  const handleDeleteCertificate = (cert: StaffCertificate) => {
+    Alert.alert(
+      'Xóa chứng chỉ',
+      `Bạn có chắc chắn muốn xóa chứng chỉ "${cert.certName}"?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await staffProfileService.deleteStaffCertificate(cert.certName);
+              await refreshStaffProfile();
+            } catch (err: any) {
+              const parsed = parseApiError(err);
+              Alert.alert('Lỗi', parsed.message || 'Không thể xóa chứng chỉ.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* HEADER */}
@@ -47,7 +186,7 @@ export default function StaffWorkProfileScreen() {
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />
+          <Ionicons name="arrow-back" size={22} color={BrandColors.slateHeading} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hồ Sơ Nhân Sự Studio</Text>
         <View style={{ width: 40 }} />
@@ -60,12 +199,12 @@ export default function StaffWorkProfileScreen() {
         </View>
       ) : errorMessage ? (
         <View style={styles.centerBox}>
-          <Ionicons name="business-outline" size={48} color={BrandColors.slateMuted} />
+          <Ionicons name="business-outline" size={40} color={BrandColors.slateMuted} />
           <Text style={styles.errorTitle}>Chưa Liên Kết Studio</Text>
           <Text style={styles.errorSub}>{errorMessage}</Text>
           <TouchableOpacity
             style={styles.retryBtn}
-            onPress={loadStaffProfile}
+            onPress={refreshStaffProfile}
             activeOpacity={0.7}
           >
             <Text style={styles.retryBtnText}>Thử lại</Text>
@@ -88,7 +227,7 @@ export default function StaffWorkProfileScreen() {
                 />
               ) : (
                 <View style={styles.studioLogoPlaceholder}>
-                  <Ionicons name="business" size={24} color={BrandColors.primary} />
+                  <Ionicons name="business-outline" size={22} color={BrandColors.primary} />
                 </View>
               )}
               <View style={styles.studioHeaderInfo}>
@@ -99,9 +238,9 @@ export default function StaffWorkProfileScreen() {
                 <View style={styles.statusPill}>
                   <Text style={styles.statusPillText}>
                     {staffProfile.status === 'ACTIVE'
-                      ? '✓ Đang làm việc chính thức'
+                      ? 'Đang làm việc chính thức'
                       : staffProfile.status === 'PENDING'
-                        ? '⏳ Chờ phê duyệt gia nhập'
+                        ? 'Chờ phê duyệt gia nhập'
                         : staffProfile.status}
                   </Text>
                 </View>
@@ -112,13 +251,13 @@ export default function StaffWorkProfileScreen() {
 
             {/* Thông tin liên hệ cơ sở */}
             <View style={styles.infoRow}>
-              <Ionicons name="call-outline" size={16} color={BrandColors.slateMuted} />
+              <Ionicons name="call-outline" size={15} color={BrandColors.slateMuted} />
               <Text style={styles.infoText}>
                 Hotline Studio: {staffProfile.agencyPhone || 'Chưa cập nhật'}
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={16} color={BrandColors.slateMuted} />
+              <Ionicons name="location-outline" size={15} color={BrandColors.slateMuted} />
               <Text style={styles.infoText} numberOfLines={2}>
                 Địa chỉ: {staffProfile.agencyAddress || 'Chưa cập nhật'}
               </Text>
@@ -128,7 +267,7 @@ export default function StaffWorkProfileScreen() {
           {/* CHÍNH SÁCH HOA HỒNG & ĐÃI NGỘ */}
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
-              <Ionicons name="wallet-outline" size={18} color={BrandColors.primary} />
+              <Ionicons name="wallet-outline" size={16} color={BrandColors.slateHeading} />
               <Text style={styles.cardTitle}>Chính Sách Hoa Hồng Thỏa Thuận</Text>
             </View>
             <View style={styles.commissionBox}>
@@ -143,10 +282,149 @@ export default function StaffWorkProfileScreen() {
             </View>
           </View>
 
+          {/* CHỨNG CHỈ & BẰNG CẤP NGHỀ NGHIỆP */}
+          <View style={styles.card}>
+            <View style={styles.cardHeaderWithAction}>
+              <View style={styles.cardTitleRow}>
+                <Ionicons name="ribbon-outline" size={16} color={BrandColors.slateHeading} />
+                <Text style={styles.cardTitle} numberOfLines={1}>Chứng Chỉ Nghề Nghiệp</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.addCertBtn}
+                onPress={() => setIsUploadModalOpen(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add" size={14} color={BrandColors.primary} />
+                <Text style={styles.addCertBtnText}>Thêm mới</Text>
+              </TouchableOpacity>
+            </View>
+
+
+            {(!staffProfile.certificates || staffProfile.certificates.length === 0) ? (
+              <View style={styles.emptyCertBox}>
+                <Text style={styles.emptyText}>Chưa có chứng chỉ nghề nghiệp nào được ghi nhận.</Text>
+                <Text style={styles.emptySubText}>
+                  Bạn có thể nộp chứng chỉ để Studio kiểm duyệt và xác nhận tay nghề.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.certList}>
+                {staffProfile.certificates.map((cert, index) => {
+                  const isPlatform = cert.scope === 'PLATFORM';
+                  const isVerified = cert.status === 'VERIFIED';
+                  const isRejected = cert.status === 'REJECTED';
+                  const isPending = cert.status === 'PENDING';
+
+                  return (
+                    <View key={`cert-${index}`} style={styles.certItem}>
+                      <TouchableOpacity
+                        style={styles.certThumbBox}
+                        onPress={() => cert.imageUrl && setPreviewImageUrl(cert.imageUrl)}
+                        activeOpacity={0.8}
+                      >
+                        {cert.imageUrl ? (
+                          <Image
+                            source={{ uri: cert.imageUrl }}
+                            style={styles.certThumb}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <Ionicons name="document-text-outline" size={24} color={BrandColors.slateMuted} />
+                        )}
+                      </TouchableOpacity>
+
+                      <View style={styles.certMeta}>
+                        <View style={styles.certTitleLine}>
+                          <Text style={styles.certNameText} numberOfLines={1}>
+                            {cert.certName}
+                          </Text>
+                          {/* Nút xóa nếu chưa duyệt hoặc bị từ chối */}
+                          {(isPending || isRejected) && (
+                            <TouchableOpacity
+                              onPress={() => handleDeleteCertificate(cert)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#94A3B8" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        {/* Phân loại nguồn chứng chỉ (Scope) & Trạng thái */}
+                        <View style={styles.certBadgeRow}>
+                          <View
+                            style={[
+                              styles.scopeBadge,
+                              isPlatform ? styles.scopePlatformBadge : styles.scopeAgencyBadge,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.scopeBadgeText,
+                                isPlatform ? styles.scopePlatformText : styles.scopeAgencyText,
+                              ]}
+                            >
+                              {isPlatform ? 'Toàn sàn' : 'Studio'}
+                            </Text>
+                          </View>
+
+                          <View
+                            style={[
+                              styles.certStatusBadge,
+                              isVerified
+                                ? styles.statusVerifiedBadge
+                                : isRejected
+                                  ? styles.statusRejectedBadge
+                                  : styles.statusPendingBadge,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.certStatusText,
+                                isVerified
+                                  ? styles.statusVerifiedText
+                                  : isRejected
+                                    ? styles.statusRejectedText
+                                    : styles.statusPendingText,
+                              ]}
+                            >
+                              {isVerified
+                                ? 'Đã duyệt'
+                                : isRejected
+                                  ? 'Từ chối'
+                                  : 'Chờ duyệt'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {cert.notes ? (
+                          <Text style={styles.certNotesText} numberOfLines={2}>
+                            {cert.notes}
+                          </Text>
+                        ) : null}
+
+                        {isRejected && cert.rejectionReason ? (
+                          <Text style={styles.rejectionReasonText} numberOfLines={2}>
+                            Lý do: {cert.rejectionReason}
+                          </Text>
+                        ) : null}
+
+                        {isVerified && cert.verifierName ? (
+                          <Text style={styles.verifierInfoText}>
+                            Người duyệt: {cert.verifierName}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
           {/* NĂNG LỰC PHONG CÁCH ĐƯỢC PHỤ TRÁCH */}
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
-              <Ionicons name="color-palette-outline" size={18} color={BrandColors.primary} />
+              <Ionicons name="color-palette-outline" size={16} color={BrandColors.slateHeading} />
               <Text style={styles.cardTitle}>Phong Cách Được Gán Phụ Trách</Text>
             </View>
 
@@ -158,7 +436,7 @@ export default function StaffWorkProfileScreen() {
                   <View key={`style-${s.id}`} style={styles.styleChip}>
                     <Text style={styles.styleChipText}>{s.styleName}</Text>
                     {s.isQualified && (
-                      <Ionicons name="checkmark-circle" size={14} color="#15803D" />
+                      <Ionicons name="checkmark" size={13} color="#15803D" />
                     )}
                   </View>
                 ))}
@@ -176,6 +454,143 @@ export default function StaffWorkProfileScreen() {
           <View style={{ height: 30 }} />
         </ScrollView>
       ) : null}
+
+      {/* MODAL TẢI LÊN CHỨNG CHỈ NGHỀ NGHIỆP */}
+      <Modal
+        visible={isUploadModalOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => !isSubmittingCert && setIsUploadModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tải Lên Chứng Chỉ Nghề Nghiệp</Text>
+              <TouchableOpacity
+                onPress={() => !isSubmittingCert && setIsUploadModalOpen(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={20} color={BrandColors.slateMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Tên chứng chỉ / bằng cấp *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="VD: Chứng chỉ Makeup Cô Dâu Nâng Cao"
+                placeholderTextColor={BrandColors.slateMuted}
+                value={certNameInput}
+                onChangeText={setCertNameInput}
+                editable={!isSubmittingCert}
+              />
+
+              <Text style={styles.inputLabel}>Ghi chú thêm (tùy chọn)</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                placeholder="Nơi cấp bằng, khóa học, ngày hoàn thành..."
+                placeholderTextColor={BrandColors.slateMuted}
+                value={notesInput}
+                onChangeText={setNotesInput}
+                multiline
+                numberOfLines={3}
+                editable={!isSubmittingCert}
+              />
+
+              <Text style={styles.inputLabel}>Ảnh chụp chứng chỉ / bằng cấp *</Text>
+              {selectedImageUri ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image
+                    source={{ uri: selectedImageUri }}
+                    style={styles.imagePreview}
+                    contentFit="cover"
+                  />
+                  <TouchableOpacity
+                    style={styles.removeImageBtn}
+                    onPress={() => setSelectedImageUri(null)}
+                    disabled={isSubmittingCert}
+                  >
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.imagePickerActions}>
+                  <TouchableOpacity
+                    style={styles.pickerBtn}
+                    onPress={handlePickImage}
+                    disabled={isSubmittingCert}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="images-outline" size={18} color={BrandColors.slateHeading} />
+                    <Text style={styles.pickerBtnText}>Chọn từ thư viện</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.pickerBtn}
+                    onPress={handleTakePhoto}
+                    disabled={isSubmittingCert}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="camera-outline" size={18} color={BrandColors.slateHeading} />
+                    <Text style={styles.pickerBtnText}>Chụp ảnh mới</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <Text style={styles.guidelineText}>
+                * Chứng chỉ sau khi tải lên sẽ được Studio xem xét và duyệt nội bộ.
+              </Text>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setIsUploadModalOpen(false)}
+                disabled={isSubmittingCert}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitBtn, isSubmittingCert && { opacity: 0.7 }]}
+                onPress={handleSubmitCertificate}
+                disabled={isSubmittingCert}
+                activeOpacity={0.7}
+              >
+                {isSubmittingCert ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Gửi Duyệt</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL XEM PHÓNG TO ẢNH CHỨNG CHỈ */}
+      <Modal
+        visible={!!previewImageUrl}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setPreviewImageUrl(null)}
+      >
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity
+            style={styles.closeImageModalBtn}
+            onPress={() => setPreviewImageUrl(null)}
+          >
+            <Ionicons name="close" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+          {previewImageUrl && (
+            <Image
+              source={{ uri: previewImageUrl }}
+              style={styles.fullPreviewImage}
+              contentFit="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -186,7 +601,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
-    height: 56,
+    height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -196,14 +611,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F1F5F9',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: BrandColors.slateHeading,
   },
@@ -215,11 +629,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: 13,
     color: BrandColors.slateMuted,
   },
   errorTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: BrandColors.slateHeading,
     marginTop: 8,
@@ -232,14 +646,14 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     marginTop: 8,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: BrandColors.primary,
     borderRadius: 8,
   },
   retryBtnText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   body: {
@@ -247,11 +661,11 @@ const styles = StyleSheet.create({
   },
   bodyContent: {
     padding: 16,
-    gap: 16,
+    gap: 14,
   },
   studioCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -263,15 +677,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   studioLogo: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 10,
   },
   studioLogoPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#FFE4E6',
+    width: 52,
+    height: 52,
+    borderRadius: 10,
+    backgroundColor: '#FFF1F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -290,15 +704,17 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#F0FDF4',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
     marginTop: 2,
   },
   statusPillText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#15803D',
   },
   divider: {
@@ -317,42 +733,197 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 12,
   },
   cardTitleRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    marginRight: 6,
+  },
+  cardHeaderWithAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
   cardTitle: {
-    fontSize: 15,
+    flexShrink: 1,
+    fontSize: 14,
     fontWeight: '700',
     color: BrandColors.slateHeading,
   },
-  commissionBox: {
-    backgroundColor: '#FFF1F2',
-    borderRadius: 12,
-    padding: 14,
+  addCertBtn: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#FECDD3',
+    backgroundColor: '#FFF1F2',
+  },
+  addCertBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: BrandColors.primary,
+  },
+
+  commissionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     gap: 4,
   },
   commissionVal: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: BrandColors.primary,
   },
   commissionDesc: {
     fontSize: 12,
-    color: '#9F1239',
+    color: BrandColors.slateMuted,
     lineHeight: 16,
+  },
+  emptyCertBox: {
+    paddingVertical: 8,
+    gap: 4,
   },
   emptyText: {
     fontSize: 13,
+    color: BrandColors.slateHeading,
+    fontWeight: '500',
+  },
+  emptySubText: {
+    fontSize: 12,
+    color: BrandColors.slateMuted,
+    lineHeight: 16,
+  },
+  certList: {
+    gap: 10,
+  },
+  certItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#FAFAFA',
+  },
+  certThumbBox: {
+    width: 58,
+    height: 58,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  certThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  certMeta: {
+    flex: 1,
+    gap: 4,
+  },
+  certTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  certNameText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: BrandColors.slateHeading,
+    flex: 1,
+    marginRight: 6,
+  },
+  certBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  scopeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  scopePlatformBadge: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
+  },
+  scopeAgencyBadge: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+  },
+  scopeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  scopePlatformText: {
+    color: '#475569',
+  },
+  scopeAgencyText: {
+    color: '#0369A1',
+  },
+  certStatusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  statusVerifiedBadge: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  statusPendingBadge: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  statusRejectedBadge: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  certStatusText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  statusVerifiedText: {
+    color: '#15803D',
+  },
+  statusPendingText: {
+    color: '#B45309',
+  },
+  statusRejectedText: {
+    color: '#B91C1C',
+  },
+  certNotesText: {
+    fontSize: 11,
+    color: BrandColors.slateMuted,
+    lineHeight: 15,
+  },
+  rejectionReasonText: {
+    fontSize: 11,
+    color: '#B91C1C',
+    lineHeight: 15,
+  },
+  verifierInfoText: {
+    fontSize: 10,
     color: BrandColors.slateMuted,
   },
   stylesWrap: {
@@ -363,16 +934,16 @@ const styles = StyleSheet.create({
   styleChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   styleChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: BrandColors.slateHeading,
   },
@@ -381,4 +952,160 @@ const styles = StyleSheet.create({
     color: BrandColors.slateHeading,
     lineHeight: 18,
   },
+  // MODAL STYLES
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    maxHeight: '85%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: BrandColors.slateHeading,
+  },
+  modalBody: {
+    padding: 16,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BrandColors.slateHeading,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  textInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: BrandColors.slateHeading,
+  },
+  textArea: {
+    minHeight: 64,
+    textAlignVertical: 'top',
+  },
+  imagePickerActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  pickerBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  pickerBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BrandColors.slateHeading,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    height: 140,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guidelineText: {
+    fontSize: 11,
+    color: BrandColors.slateMuted,
+    lineHeight: 16,
+    marginTop: 14,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 14,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: BrandColors.slateHeading,
+  },
+  submitBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: BrandColors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // IMAGE PREVIEW MODAL
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeImageModalBtn: {
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+  },
+  fullPreviewImage: {
+    width: '90%',
+    height: '80%',
+  },
 });
+

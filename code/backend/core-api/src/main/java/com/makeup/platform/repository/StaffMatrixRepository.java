@@ -57,8 +57,25 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                 SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
                 WHERE bsa_canc.staff_id = s.id 
                   AND bsa_canc.booking_id = :bookingId 
-                  AND bsa_canc.status = 'EMERGENCY_CANCELLED'
+                  AND (
+                      bsa_canc.status = 'EMERGENCY_CANCELLED'
+                      OR bsa_canc.cancellation_reason IS NOT NULL
+                      OR (bsa_canc.status = 'REPLACED' AND bsa_canc.replaced_by_staff_id IS NOT NULL)
+                  )
             ) AS hasReportedBusy,
+            (
+                SELECT bsa_canc.cancellation_reason 
+                FROM booking_schema.booking_staff_assignments bsa_canc
+                WHERE bsa_canc.staff_id = s.id 
+                  AND bsa_canc.booking_id = :bookingId 
+                  AND (
+                      bsa_canc.status = 'EMERGENCY_CANCELLED'
+                      OR bsa_canc.cancellation_reason IS NOT NULL
+                      OR (bsa_canc.status = 'REPLACED' AND bsa_canc.replaced_by_staff_id IS NOT NULL)
+                  )
+                ORDER BY bsa_canc.id DESC
+                LIMIT 1
+            ) AS cancellationReason,
             bsa.assignment_role AS currentRole
         FROM agency_schema.agency_staff s
         JOIN mua_schema.mua_profiles mp ON s.mua_id = mp.id

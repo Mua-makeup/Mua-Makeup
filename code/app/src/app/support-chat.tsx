@@ -38,7 +38,7 @@ export default function SupportChatScreen() {
     {
       role: 'ASSISTANT',
       content:
-        'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup ✨ Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
+        'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup. Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
       createdAt: new Date().toISOString(),
     },
   ]);
@@ -52,7 +52,7 @@ export default function SupportChatScreen() {
       {
         role: 'ASSISTANT',
         content:
-          'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup ✨ Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
+          'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup. Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
         createdAt: new Date().toISOString(),
       },
     ]);
@@ -82,7 +82,7 @@ export default function SupportChatScreen() {
               {
                 role: 'ASSISTANT',
                 content:
-                  'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup ✨ Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
+                  'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup. Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
                 createdAt: new Date().toISOString(),
               },
             ]);

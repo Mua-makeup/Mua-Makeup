@@ -56,6 +56,7 @@ public final class ErrorCodes {
     public static final String ERR_MEDIA_STORAGE_FAILED = "MEDIA_STORAGE_FAILED";
 
     // Phân hệ Agency Management
+    public static final String ERR_CERTIFICATE_NOT_FOUND = "ERR_CERTIFICATE_NOT_FOUND";
     public static final String ERR_AGENCY_NOT_FOUND = "ERR_AGENCY_NOT_FOUND";
     public static final String ERR_AGENCY_NOT_VERIFIED = "ERR_AGENCY_NOT_VERIFIED";
     public static final String ERR_MUA_CERTIFICATE_NOT_VERIFIED = "ERR_MUA_CERTIFICATE_NOT_VERIFIED";
@@ -116,6 +117,8 @@ public final class ErrorCodes {
 
     // Phân hệ Scheduled Booking & MUA Calendar Engine (ISSUE-18)
     public static final String ERR_SLOT_ALREADY_BOOKED = "ERR_SLOT_ALREADY_BOOKED";
+    public static final String ERR_OVERLAPPING_AGENCY_SHIFT = "ERR_OVERLAPPING_AGENCY_SHIFT";
+    public static final String ERR_STAFF_BUSY_SLOT = "ERR_STAFF_BUSY_SLOT";
     public static final String ERR_BUFFER_TIME_VIOLATION = "ERR_BUFFER_TIME_VIOLATION";
     public static final String ERR_DEPOSIT_PAYMENT_TIMEOUT = "ERR_DEPOSIT_PAYMENT_TIMEOUT";
     public static final String ERR_INVALID_TIME_RANGE = "ERR_INVALID_TIME_RANGE";

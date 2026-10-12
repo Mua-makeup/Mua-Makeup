@@ -21,6 +21,7 @@ public class MUACalendarMapper {
                 .calendarId(entity.getId())
                 .muaId(entity.getMua() != null ? entity.getMua().getId() : null)
                 .bookingId(entity.getBooking() != null ? entity.getBooking().getId() : null)
+                .slotType(entity.getSlotType())
                 .bookingDate(entity.getBookingDate())
                 .startAt(entity.getStartAt())
                 .endAt(entity.getEndAt())
@@ -39,6 +40,7 @@ public class MUACalendarMapper {
 
         return MUACalendarEntity.builder()
                 .mua(muaProfile)
+                .slotType(com.makeup.platform.entity.mua.CalendarSlotType.PERSONAL_BLOCKED)
                 .bookingDate(req.getBookingDate())
                 .startAt(startAt)
                 .endAt(endAt)

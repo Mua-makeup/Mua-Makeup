@@ -16,6 +16,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
+import { useAuthStore } from '@/store/auth.store';
 import { depositService, FreelancerWalletInfo, FreelancerBookingDepositItem, FreelancerTransactionItem } from '@/services/deposit.service';
 import {
   TransactionDetailModal,
@@ -115,6 +116,17 @@ export default function FreelancerWalletScreen() {
   };
 
   useFocusEffect(useCallback(() => {
+    const roles = useAuthStore.getState().userInfo?.roles || [];
+    const isArtist = roles.includes('ROLE_FREELANCE_MUA') || roles.includes('ROLE_AGENCY_STAFF');
+    if (!isArtist) {
+      setIsLoading(false);
+      Alert.alert(
+        'Không Có Quyền Truy Cập',
+        'Trang ví này chỉ dành riêng cho Chuyên viên trang điểm (Thợ tự do / Nhân viên Studio).',
+        [{ text: 'Quay lại', onPress: () => (router.canGoBack() ? router.back() : router.replace('/')) }]
+      );
+      return;
+    }
     void fetchWallet();
   }, []));
 

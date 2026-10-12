@@ -32,16 +32,26 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
     boolean existsActiveMembershipByMuaId(@Param("muaId") Long muaId);
 
     @Query("SELECT s FROM AgencyStaffEntity s " +
+           "JOIN FETCH s.agency " +
            "JOIN FETCH s.mua m " +
            "JOIN FETCH m.user " +
            "WHERE s.id = :staffId AND s.agency.id = :agencyId")
     Optional<AgencyStaffEntity> findByIdAndAgencyIdWithMuaAndUser(@Param("staffId") Long staffId,
                                                                    @Param("agencyId") Long agencyId);
 
-    @Query("SELECT s FROM AgencyStaffEntity s WHERE s.mua.user.id = :userId AND s.isActive = true")
+    @Query("SELECT s FROM AgencyStaffEntity s " +
+           "JOIN FETCH s.agency " +
+           "LEFT JOIN FETCH s.mua m " +
+           "LEFT JOIN FETCH m.user " +
+           "WHERE s.mua.user.id = :userId AND s.isActive = true")
     Optional<AgencyStaffEntity> findActiveStaffByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT s FROM AgencyStaffEntity s WHERE s.mua.id = :muaId AND s.isActive = true AND s.status = 'ACTIVE'")
+    @Query("SELECT s FROM AgencyStaffEntity s " +
+           "JOIN FETCH s.agency a " +
+           "LEFT JOIN FETCH a.owner o " +
+           "LEFT JOIN FETCH s.mua m " +
+           "LEFT JOIN FETCH m.user u " +
+           "WHERE s.mua.id = :muaId AND s.isActive = true AND s.status = 'ACTIVE'")
     Optional<AgencyStaffEntity> findActiveStaffByMuaId(@Param("muaId") Long muaId);
     @Query("SELECT s FROM AgencyStaffEntity s JOIN FETCH s.mua WHERE s.agency.id = :agencyId AND s.mua.id IN :muaIds")
     List<AgencyStaffEntity> findCommissionRates(@Param("agencyId") Long agencyId,

@@ -222,7 +222,7 @@ export const AdminBookingsPage = () => {
       accessor: 'muaName',
       render: (row) => {
         const assistants = (row.assignedStaff || []).filter(
-          (s) => s.role === 'ASSISTANT_MUA' && (!s.status || s.status === 'ACTIVE')
+          (s) => s.role === 'ASSISTANT_MUA' && s.status === 'ACTIVE'
         );
 
         return (

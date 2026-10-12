@@ -4,6 +4,8 @@ import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEv
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 public interface EmailService {
 
@@ -125,6 +127,33 @@ public interface EmailService {
             BigDecimal totalAmount,
             BigDecimal depositAmount,
             BigDecimal remainingAmount
+    );
+
+    void sendStaffDispatchNotificationEmail(
+            String toEmail,
+            String staffName,
+            String agencyName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            String assignmentRole
+    );
+
+    void sendAgencyStaffBlockedTimeNotification(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            LocalDate blockDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String reason
     );
 }
 

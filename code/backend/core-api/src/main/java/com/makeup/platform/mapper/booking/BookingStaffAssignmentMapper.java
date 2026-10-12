@@ -43,12 +43,18 @@ public class BookingStaffAssignmentMapper {
                 .staffId(staffId)
                 .staffName(staffName)
                 .staffPhone(staffPhone)
+                .staffAvatarUrl(staffAvatarUrl)
                 .role(entity.getAssignmentRole())
                 .status(entity.getStatus())
                 .assignedAt(entity.getAssignedAt() != null ? entity.getAssignedAt().toLocalDateTime() : null)
                 .confirmedAt(entity.getConfirmedAt() != null ? entity.getConfirmedAt().toLocalDateTime() : null)
                 .cancellationReason(entity.getCancellationReason())
                 .proofDocumentUrl(entity.getProofDocumentUrl())
+                .commissionRate(entity.getCommissionRate())
+                .commissionAmount(entity.getCommissionAmount())
+                .commissionNote(entity.getCommissionNote())
+                .payoutStatus(entity.getPayoutStatus())
+                .payoutAt(entity.getPayoutAt() != null ? entity.getPayoutAt().toLocalDateTime() : null)
                 .build();
     }
 
