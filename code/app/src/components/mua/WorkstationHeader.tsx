@@ -230,64 +230,68 @@ export const WorkstationHeader: React.FC = () => {
       </View>
 
 
-      {/* Switch Bar: Sẵn sàng nhận ca */}
-      <View style={[styles.toggleCard, isOnline ? styles.toggleCardActive : styles.toggleCardInactive]}>
-        <View style={styles.toggleLeft}>
-          <View style={[styles.iconCircle, { backgroundColor: isOnline ? '#DCFCE7' : '#F1F5F9' }]}>
-            <Ionicons
-              name={isOnline ? 'radio-outline' : 'moon-outline'}
-              size={20}
-              color={isOnline ? '#10B981' : '#64748B'}
-            />
-          </View>
-          <View style={styles.toggleTextGroup}>
-            <Text style={[styles.toggleTitle, { color: isOnline ? '#065F46' : '#1E293B' }]}>
-              {isOnline ? 'Đang trực tuyến' : 'Đang Tạm Nghỉ (Offline)'}
-            </Text>
-            <Text style={styles.toggleSubtitle}>
-              {isOnline
-                ? 'Nhận đơn quanh địa điểm nhận ca đã lưu'
-                : 'Bật trực tuyến để nhận đơn quanh điểm nhận ca'}
-            </Text>
-          </View>
-        </View>
+      {/* Switch Bar & Bán Kính: Chỉ dành cho thợ tự do (Freelance MUA), thợ Studio làm việc theo ca trực & điều phối */}
+      {!isAgencyStaff && (
+        <>
+          <View style={[styles.toggleCard, isOnline ? styles.toggleCardActive : styles.toggleCardInactive]}>
+            <View style={styles.toggleLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: isOnline ? '#DCFCE7' : '#F1F5F9' }]}>
+                <Ionicons
+                  name={isOnline ? 'radio-outline' : 'moon-outline'}
+                  size={20}
+                  color={isOnline ? '#10B981' : '#64748B'}
+                />
+              </View>
+              <View style={styles.toggleTextGroup}>
+                <Text style={[styles.toggleTitle, { color: isOnline ? '#065F46' : '#1E293B' }]}>
+                  {isOnline ? 'Đang trực tuyến' : 'Đang Tạm Nghỉ (Offline)'}
+                </Text>
+                <Text style={styles.toggleSubtitle}>
+                  {isOnline
+                    ? 'Nhận đơn quanh địa điểm nhận ca đã lưu'
+                    : 'Bật trực tuyến để nhận đơn quanh điểm nhận ca'}
+                </Text>
+              </View>
+            </View>
 
-        {isToggling ? (
-          <ActivityIndicator size="small" color="#E11D48" />
-        ) : (
-          <Switch
-            value={isOnline}
-            onValueChange={handleToggle}
-            trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
-            thumbColor={isOnline ? '#10B981' : '#FFFFFF'}
-          />
-        )}
-      </View>
-
-      {/* Bán Kính Nhận Ca: Dạng Dropdown Bar Tinh Tế Ngay Dưới Nút Bật/Tắt */}
-      <TouchableOpacity
-        style={styles.radiusSelectorBar}
-        activeOpacity={0.7}
-        onPress={() => {
-          setSelectedRadius(currentRadius);
-          setShowRadiusModal(true);
-        }}
-      >
-        <View style={styles.radiusBarLeft}>
-          <View style={styles.radiusIconBadge}>
-            <Ionicons name="navigate" size={13} color="#2563EB" />
+            {isToggling ? (
+              <ActivityIndicator size="small" color="#E11D48" />
+            ) : (
+              <Switch
+                value={isOnline}
+                onValueChange={handleToggle}
+                trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
+                thumbColor={isOnline ? '#10B981' : '#FFFFFF'}
+              />
+            )}
           </View>
-          <Text style={styles.radiusBarLabel}>Bán kính nhận ca:</Text>
-          <View style={styles.radiusPill}>
-            <Text style={styles.radiusPillText}>{currentRadius} km</Text>
-          </View>
-        </View>
 
-        <View style={styles.radiusBarRight}>
-          <Text style={styles.radiusChangeText}>Thay đổi</Text>
-          <Ionicons name="chevron-down" size={14} color="#2563EB" />
-        </View>
-      </TouchableOpacity>
+          {/* Bán Kính Nhận Ca: Dạng Dropdown Bar Tinh Tế Ngay Dưới Nút Bật/Tắt */}
+          <TouchableOpacity
+            style={styles.radiusSelectorBar}
+            activeOpacity={0.7}
+            onPress={() => {
+              setSelectedRadius(currentRadius);
+              setShowRadiusModal(true);
+            }}
+          >
+            <View style={styles.radiusBarLeft}>
+              <View style={styles.radiusIconBadge}>
+                <Ionicons name="navigate" size={13} color="#2563EB" />
+              </View>
+              <Text style={styles.radiusBarLabel}>Bán kính nhận ca:</Text>
+              <View style={styles.radiusPill}>
+                <Text style={styles.radiusPillText}>{currentRadius} km</Text>
+              </View>
+            </View>
+
+            <View style={styles.radiusBarRight}>
+              <Text style={styles.radiusChangeText}>Thay đổi</Text>
+              <Ionicons name="chevron-down" size={14} color="#2563EB" />
+            </View>
+          </TouchableOpacity>
+        </>
+      )}
 
       {/* Bottom Sheet Thiết Lập Bán Kính (Chỉ lưu khi bấm Xác Nhận & Đóng) */}
       <SwipeableBottomSheet

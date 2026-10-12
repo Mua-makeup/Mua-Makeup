@@ -16,6 +16,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
+import { useAuthStore } from '@/store/auth.store';
 import { depositService, CustomerWalletInfo, CustomerWalletTransaction } from '@/services/deposit.service';
 import {
   TransactionDetailModal,
@@ -114,6 +115,16 @@ export default function CustomerWalletScreen() {
   };
 
   useFocusEffect(useCallback(() => {
+    const roles = useAuthStore.getState().userInfo?.roles || [];
+    if (!roles.includes('ROLE_CUSTOMER')) {
+      setIsLoading(false);
+      Alert.alert(
+        'Không Có Quyền Truy Cập',
+        'Trang ví này chỉ dành riêng cho tài khoản Khách hàng.',
+        [{ text: 'Quay lại', onPress: () => (router.canGoBack() ? router.back() : router.replace('/')) }]
+      );
+      return;
+    }
     void fetchWallet();
   }, []));
 

@@ -495,7 +495,9 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.workstationEmptyTitle}>Chưa Có Ca Làm Việc Hôm Nay</Text>
                 <Text style={styles.workstationEmptySubtext}>
-                  Hãy bật công tắc Trực tuyến để hệ thống tự động phát sóng GPS và điều phối đơn khẩn cấp và khách đặt hẹn đến bạn.
+                  {isAgencyStaff
+                    ? 'Hiện tại chưa có ca làm việc nào được phân công hôm nay. Hãy kiểm tra thời khóa biểu ca trực Studio của bạn.'
+                    : 'Hãy bật công tắc Trực tuyến để hệ thống tự động phát sóng GPS và điều phối đơn khẩn cấp và khách đặt hẹn đến bạn.'}
                 </Text>
               </View>
             )}

@@ -13,6 +13,7 @@ import com.makeup.platform.dto.response.booking.BookingStatusDetailRes;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
@@ -24,6 +25,7 @@ import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
@@ -89,6 +91,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final LedgerEntryRepository ledgerEntryRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
+    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
@@ -366,6 +369,26 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                             bookingId, targetStatus);
                 } catch (Exception ex) {
                     log.warn("[StateMachine] Failed to release calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
+                }
+            }
+
+            // 5c. Đồng bộ xác nhận ca của nhân viên studio khi chuyển từ AGENCY_ASSIGNED sang ACCEPTED
+            if (currentStatus == BookingStatus.AGENCY_ASSIGNED && targetStatus == BookingStatus.ACCEPTED) {
+                try {
+                    bookingStaffAssignmentRepository.findWithStaffAndUserByBookingIdAndStatus(savedBooking.getId(), AssignmentStatus.ACTIVE)
+                            .stream()
+                            .filter(a -> a.getStaff() != null && a.getStaff().getMua() != null
+                                    && a.getStaff().getMua().getUser() != null
+                                    && a.getStaff().getMua().getUser().getId().equals(userId))
+                            .findFirst()
+                            .ifPresent(a -> {
+                                a.setIsConfirmedByStaff(true);
+                                a.setConfirmedAt(OffsetDateTime.now());
+                                bookingStaffAssignmentRepository.save(a);
+                                log.info("[StateMachine] Synced isConfirmedByStaff=true for staff userId={} on bookingId={}", userId, bookingId);
+                            });
+                } catch (Exception ex) {
+                    log.warn("[StateMachine] Failed to sync staff assignment confirmation for bookingId={}: {}", bookingId, ex.getMessage());
                 }
             }
 

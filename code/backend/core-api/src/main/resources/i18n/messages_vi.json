@@ -509,6 +509,8 @@
     "certificate_upload_content": "Thợ trang điểm {0} vừa tải lên chứng chỉ '{1}' cần được Ban Quản Trị phê duyệt.",
     "booking_accepted_title": "Thợ đã nhận ca làm đẹp!",
     "booking_accepted_content": "Chuyên viên {0} đã xác nhận nhận lịch hẹn #{1} của bạn.",
+    "staff_dispatch_assigned_title": "Studio đã phân công ca làm việc mới!",
+    "staff_dispatch_assigned_content": "Studio {0} đã phân công bạn ({1}) cho ca hẹn #{2} vào ngày {3} lúc {4}. Vui lòng xác nhận tiếp nhận ca!",
     "scheduled_booking_accepted_title": "Chuyên viên đã nhận lịch hẹn của bạn!",
     "scheduled_booking_accepted_content": "Chuyên viên {0} đã xác nhận nhận lịch hẹn #{1} vào ngày {2} lúc {3}.",
     "booking_on_the_way_title": "Thợ đang di chuyển đến bạn!",
@@ -581,5 +583,14 @@
     "session_closed_success": "Đã kết thúc phiên trò chuyện thành công."
   },
   "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!",
-  "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn."
+  "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn.",
+  "cash_receipt": {
+    "customer_confirmed": "Khách hàng xác nhận thanh toán tiền mặt thành công.",
+    "worker_confirmed": "Chuyên viên xác nhận đã nhận đủ tiền mặt thành công.",
+    "freelancer_confirmed": "Chuyên viên xác nhận đã nhận đủ tiền mặt thành công.",
+    "status_ok": "Lấy trạng thái biên nhận tiền mặt thành công.",
+    "not_found": "Không tìm thấy biên nhận tiền mặt của đơn hàng.",
+    "worker_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt.",
+    "freelancer_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt."
+  }
 }

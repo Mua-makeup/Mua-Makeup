@@ -859,6 +859,30 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                     log.info("[Deposit] Dispatched NEW_SCHEDULED_OFFER P2P to MUA userId={} (muaId={})", muaUserId, muaId);
                 }
             }
+
+            if (booking.getAgency() != null) {
+                Long agencyId = booking.getAgency().getId();
+                Map<String, Object> agencyDispatchPayload = new HashMap<>();
+                agencyDispatchPayload.put("type", "NEW_BOOKING");
+                agencyDispatchPayload.put("bookingId", bookingId);
+                agencyDispatchPayload.put("bookingCode", booking.getBookingCode());
+                agencyDispatchPayload.put("agencyId", agencyId);
+                agencyDispatchPayload.put("status", booking.getStatus().name());
+                agencyDispatchPayload.put("customerName", booking.getCustomer() != null ? booking.getCustomer().getFullName() : "Khách hàng");
+                agencyDispatchPayload.put("customerPhone", booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : "");
+                agencyDispatchPayload.put("servicePackageName", booking.getServicePackage() != null ? booking.getServicePackage().getPackageName() : "");
+                agencyDispatchPayload.put("bookingDate", booking.getBookingDate() != null ? booking.getBookingDate().toString() : null);
+                agencyDispatchPayload.put("startTime", booking.getStartTime() != null ? booking.getStartTime().toString() : null);
+                agencyDispatchPayload.put("totalAmount", booking.getTotalAmount());
+                agencyDispatchPayload.put("depositAmount", deposit.getPaidAmount());
+                agencyDispatchPayload.put("timestamp", System.currentTimeMillis());
+                agencyDispatchPayload.put("message", "Đơn đặt lịch #" + booking.getBookingCode() + " đã cọc thành công, đang chờ Studio điều phối thợ.");
+
+                String agencyTopic = "/topic/agency/" + agencyId + "/bookings";
+                messagingTemplate.convertAndSend(agencyTopic, agencyDispatchPayload);
+                messagingTemplate.convertAndSend("/topic/agency/bookings", agencyDispatchPayload);
+                log.info("[Deposit] Broadcasted NEW_BOOKING deposit confirmed to agency topic {}", agencyTopic);
+            }
             log.info("[Deposit] Broadcasted deposit paid event for bookingId={}", bookingId);
         } catch (Exception e) {
             log.warn("[Deposit] Failed to broadcast deposit paid WebSocket event for booking {}: {}", bookingId, e.getMessage());

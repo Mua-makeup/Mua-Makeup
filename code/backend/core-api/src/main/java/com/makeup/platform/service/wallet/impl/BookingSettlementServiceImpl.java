@@ -2,6 +2,7 @@ package com.makeup.platform.service.wallet.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
@@ -158,40 +159,56 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
 
         settlementRepository.save(settlement);
 
-        // Ghi có ví thợ nếu N > 0
-        if (N.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null) {
-            Long freelancerUserId = booking.getMua().getUser().getId();
-            WalletEntity freelancerWallet = walletRepository.findByUserIdWithLock(freelancerUserId)
-                    .orElseGet(() -> {
-                        WalletEntity newWallet = WalletEntity.builder()
-                                .user(booking.getMua().getUser())
-                                .availableBalance(BigDecimal.ZERO)
-                                .frozenBalance(BigDecimal.ZERO)
-                                .currency("VND")
-                                .build();
-                        return walletRepository.save(newWallet);
-                    });
+        // Ghi có ví thợ / ví Agency nếu N > 0
+        if (N.compareTo(BigDecimal.ZERO) > 0) {
+            UserEntity beneficiaryUser = null;
+            String beneficiaryDesc = null;
 
-            String ledgerKey = "settle:credit:" + bookingId + ":" + freelancerUserId;
-            if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
-                BigDecimal balanceBefore = freelancerWallet.getAvailableBalance();
-                freelancerWallet.setAvailableBalance(balanceBefore.add(N));
-                walletRepository.save(freelancerWallet);
+            if (booking.getAgency() != null && booking.getAgency().getOwner() != null) {
+                beneficiaryUser = booking.getAgency().getOwner();
+                beneficiaryDesc = "Agency " + (booking.getAgency().getAgencyName() != null ? booking.getAgency().getAgencyName() : "");
+            } else if (booking.getMua() != null && booking.getMua().getUser() != null) {
+                beneficiaryUser = booking.getMua().getUser();
+                beneficiaryDesc = "Freelancer " + (beneficiaryUser.getFullName() != null ? beneficiaryUser.getFullName() : "");
+            }
 
-                LedgerEntryEntity credit = LedgerEntryEntity.builder()
-                        .referenceType("BOOKING_SETTLEMENT")
-                        .referenceId(bookingId)
-                        .wallet(freelancerWallet)
-                        .entryType("CREDIT")
-                        .amount(N)
-                        .balanceAfter(freelancerWallet.getAvailableBalance())
-                        .description("Quyết toán booking #" + booking.getBookingCode() + " (N=D-F)")
-                        .idempotencyKey(ledgerKey)
-                        .build();
-                ledgerEntryRepository.save(credit);
+            if (beneficiaryUser != null) {
+                Long beneficiaryUserId = beneficiaryUser.getId();
+                final UserEntity finalBeneficiary = beneficiaryUser;
+                WalletEntity targetWallet = walletRepository.findByUserIdWithLock(beneficiaryUserId)
+                        .orElseGet(() -> {
+                            WalletEntity newWallet = WalletEntity.builder()
+                                    .user(finalBeneficiary)
+                                    .availableBalance(BigDecimal.ZERO)
+                                    .frozenBalance(BigDecimal.ZERO)
+                                    .currency("VND")
+                                    .build();
+                            return walletRepository.save(newWallet);
+                        });
 
-                log.info("[Settlement] Credited {} VND to freelancer wallet (userId={}) for booking {}",
-                        N, freelancerUserId, bookingId);
+                String ledgerKey = "settle:credit:" + bookingId + ":" + beneficiaryUserId;
+                if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
+                    BigDecimal balanceBefore = targetWallet.getAvailableBalance();
+                    targetWallet.setAvailableBalance(balanceBefore.add(N));
+                    walletRepository.save(targetWallet);
+
+                    LedgerEntryEntity credit = LedgerEntryEntity.builder()
+                            .referenceType("BOOKING_SETTLEMENT")
+                            .referenceId(bookingId)
+                            .wallet(targetWallet)
+                            .entryType("CREDIT")
+                            .amount(N)
+                            .balanceAfter(targetWallet.getAvailableBalance())
+                            .description("Quyết toán booking #" + booking.getBookingCode() + " cho " + beneficiaryDesc + " (N=D-F)")
+                            .idempotencyKey(ledgerKey)
+                            .build();
+                    ledgerEntryRepository.save(credit);
+
+                    log.info("[Settlement] Credited {} VND to wallet (userId={}, beneficiary={}) for booking {}",
+                            N, beneficiaryUserId, beneficiaryDesc, bookingId);
+                }
+            } else {
+                log.warn("[Settlement] No beneficiary found (neither Agency Owner nor Freelancer) for bookingId={}", bookingId);
             }
         }
 
@@ -263,38 +280,54 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                 .build();
         settlementRepository.save(settlement);
 
-        if (E.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null) {
-            Long freelancerUserId = booking.getMua().getUser().getId();
-            WalletEntity freelancerWallet = walletRepository.findByUserIdWithLock(freelancerUserId)
-                    .orElseGet(() -> {
-                        WalletEntity newWallet = WalletEntity.builder()
-                                .user(booking.getMua().getUser())
-                                .availableBalance(BigDecimal.ZERO)
-                                .frozenBalance(BigDecimal.ZERO)
-                                .currency("VND")
-                                .build();
-                        return walletRepository.save(newWallet);
-                    });
+        if (E.compareTo(BigDecimal.ZERO) > 0) {
+            UserEntity beneficiaryUser = null;
+            String beneficiaryDesc = null;
 
-            String ledgerKey = "settle:credit:online:" + bookingId + ":" + freelancerUserId;
-            if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
-                BigDecimal balanceBefore = freelancerWallet.getAvailableBalance();
-                freelancerWallet.setAvailableBalance(balanceBefore.add(E));
-                walletRepository.save(freelancerWallet);
+            if (booking.getAgency() != null && booking.getAgency().getOwner() != null) {
+                beneficiaryUser = booking.getAgency().getOwner();
+                beneficiaryDesc = "Agency " + (booking.getAgency().getAgencyName() != null ? booking.getAgency().getAgencyName() : "");
+            } else if (booking.getMua() != null && booking.getMua().getUser() != null) {
+                beneficiaryUser = booking.getMua().getUser();
+                beneficiaryDesc = "Freelancer " + (beneficiaryUser.getFullName() != null ? beneficiaryUser.getFullName() : "");
+            }
 
-                LedgerEntryEntity credit = LedgerEntryEntity.builder()
-                        .referenceType("BOOKING_SETTLEMENT")
-                        .referenceId(bookingId)
-                        .wallet(freelancerWallet)
-                        .entryType("CREDIT")
-                        .amount(E)
-                        .balanceAfter(freelancerWallet.getAvailableBalance())
-                        .description("Quyết toán online booking #" + booking.getBookingCode())
-                        .idempotencyKey(ledgerKey)
-                        .build();
-                ledgerEntryRepository.save(credit);
-                log.info("[SettlementOnline] Credited full earnings {} VND to freelancer wallet (userId={}) for booking {}",
-                        E, freelancerUserId, bookingId);
+            if (beneficiaryUser != null) {
+                Long beneficiaryUserId = beneficiaryUser.getId();
+                final UserEntity finalBeneficiary = beneficiaryUser;
+                WalletEntity targetWallet = walletRepository.findByUserIdWithLock(beneficiaryUserId)
+                        .orElseGet(() -> {
+                            WalletEntity newWallet = WalletEntity.builder()
+                                    .user(finalBeneficiary)
+                                    .availableBalance(BigDecimal.ZERO)
+                                    .frozenBalance(BigDecimal.ZERO)
+                                    .currency("VND")
+                                    .build();
+                            return walletRepository.save(newWallet);
+                        });
+
+                String ledgerKey = "settle:credit:online:" + bookingId + ":" + beneficiaryUserId;
+                if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
+                    BigDecimal balanceBefore = targetWallet.getAvailableBalance();
+                    targetWallet.setAvailableBalance(balanceBefore.add(E));
+                    walletRepository.save(targetWallet);
+
+                    LedgerEntryEntity credit = LedgerEntryEntity.builder()
+                            .referenceType("BOOKING_SETTLEMENT")
+                            .referenceId(bookingId)
+                            .wallet(targetWallet)
+                            .entryType("CREDIT")
+                            .amount(E)
+                            .balanceAfter(targetWallet.getAvailableBalance())
+                            .description("Quyết toán online booking #" + booking.getBookingCode() + " cho " + beneficiaryDesc)
+                            .idempotencyKey(ledgerKey)
+                            .build();
+                    ledgerEntryRepository.save(credit);
+                    log.info("[SettlementOnline] Credited full earnings {} VND to wallet (userId={}, beneficiary={}) for booking {}",
+                            E, beneficiaryUserId, beneficiaryDesc, bookingId);
+                }
+            } else {
+                log.warn("[SettlementOnline] No beneficiary found for bookingId={}", bookingId);
             }
         }
 

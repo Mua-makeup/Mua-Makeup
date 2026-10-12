@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkstationStore } from '@/store/workstation.store';
@@ -7,14 +7,16 @@ import { useAuthStore } from '@/store/auth.store';
 
 export const WorkstationStatCards: React.FC = () => {
   const stats = useWorkstationStore((s) => s.stats);
+  const isAgencyStaff = useAuthStore((s) => s.userInfo?.roles?.includes('ROLE_AGENCY_STAFF'));
   const isMUA = useAuthStore((s) => s.userInfo?.roles?.includes('ROLE_FREELANCE_MUA'));
+  const isArtist = isMUA || isAgencyStaff;
 
   const formatVnd = (amount: number) => {
     return (amount || 0).toLocaleString('vi-VN') + ' đ';
   };
 
   const handleOpenWallet = () => {
-    router.push(isMUA ? '/profile/freelancer-wallet' : '/profile/customer-wallet');
+    router.push(isArtist ? '/profile/freelancer-wallet' : '/profile/customer-wallet');
   };
 
   return (
@@ -39,7 +41,7 @@ export const WorkstationStatCards: React.FC = () => {
           activeOpacity={0.8}
           onPress={handleOpenWallet}
           accessibilityRole="button"
-          accessibilityLabel={isMUA ? 'Mở ví thợ' : 'Mở ví khách hàng'}
+          accessibilityLabel={isArtist ? 'Mở ví chuyên viên' : 'Mở ví khách hàng'}
         >
           <Text style={styles.heroActionBtnText}>Ví tiền</Text>
           <Ionicons name="chevron-forward" size={13} color="#E11D48" />

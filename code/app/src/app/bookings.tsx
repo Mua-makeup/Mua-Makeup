@@ -826,7 +826,9 @@ export default function BookingsScreen() {
                 <Text style={styles.emptySubtitle}>
                   {isWorkstationRole
                     ? (activeTab === 'UPCOMING'
-                        ? 'Hãy bật công tắc Trực tuyến tại Bàn làm việc để hệ thống điều phối đơn khách hàng và đơn khẩn cấp đến bạn.'
+                        ? (isAgencyStaff
+                            ? 'Các ca làm việc do Studio điều phối hoặc được phân công sẽ hiển thị tại đây.'
+                            : 'Hãy bật công tắc Trực tuyến tại Bàn làm việc để hệ thống điều phối đơn khách hàng và đơn khẩn cấp đến bạn.')
                         : 'Các ca làm việc sau khi hoàn tất hoặc kết thúc sẽ được lưu trữ tại đây.')
                     : 'Khám phá ngay các dịch vụ trang điểm chuyên nghiệp gần bạn và đặt lịch nhanh chóng.'}
                 </Text>

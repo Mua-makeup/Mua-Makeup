@@ -1,6 +1,7 @@
 package com.makeup.platform.service.agency.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
+import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.agency.ApproveEmergencyReportReq;
@@ -15,6 +16,7 @@ import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
+import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.StaffMatrixRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
@@ -231,6 +233,15 @@ public class AgencyEmergencyService {
         );
 
         support.broadcastDispatchUpdate(agency.getId(), savedBooking);
+
+        eventPublisher.publishEvent(new BookingStateChangedEvent(
+                this,
+                savedBooking.getId(),
+                savedBooking.getBookingCode(),
+                savedBooking.getStatus(),
+                BookingStatus.AGENCY_ASSIGNED,
+                agency.getOwner().getId()
+        ));
 
         return EmergencyReassignmentRes.builder()
                 .bookingId(booking.getId())

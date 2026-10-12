@@ -191,25 +191,36 @@ export const depositService = {
   },
 
   /**
-   * Thợ tự do xác nhận đã nhận đủ tiền mặt từ khách
+   * Chuyên viên thi công (Freelancer hoặc Nhân viên Studio) xác nhận đã nhận đủ tiền mặt từ khách
    */
-  async confirmFreelancerCashReceipt(
+  async confirmWorkerCashReceipt(
     bookingId: number,
     invoiceVersion: string = 'v1',
     idempotencyKey?: string
   ): Promise<CashReceiptStatus> {
     const finalKey =
       idempotencyKey ||
-      `cash_fl_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      `cash_wk_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const headers: Record<string, string> = {
       'Idempotency-Key': finalKey,
     };
     const res = await apiClient.post(
-      `/freelancer/bookings/${bookingId}/cash-confirmation`,
+      `/bookings/${bookingId}/cash-confirmation`,
       { invoiceVersion, idempotencyKey: finalKey },
       { headers }
     );
     return res.data?.data;
+  },
+
+  /**
+   * Thợ tự do xác nhận đã nhận đủ tiền mặt từ khách (Ủy quyền tới confirmWorkerCashReceipt)
+   */
+  async confirmFreelancerCashReceipt(
+    bookingId: number,
+    invoiceVersion: string = 'v1',
+    idempotencyKey?: string
+  ): Promise<CashReceiptStatus> {
+    return this.confirmWorkerCashReceipt(bookingId, invoiceVersion, idempotencyKey);
   },
 
   /**

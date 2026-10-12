@@ -509,6 +509,8 @@
     "certificate_upload_content": "Makeup Artist {0} uploaded certificate '{1}' requiring Super Admin approval.",
     "booking_accepted_title": "Artist accepted your booking!",
     "booking_accepted_content": "Makeup Artist {0} has confirmed your appointment #{1}.",
+    "staff_dispatch_assigned_title": "New booking assigned by Studio!",
+    "staff_dispatch_assigned_content": "Studio {0} assigned you as {1} for booking #{2} on {3} at {4}. Please confirm your assignment!",
     "scheduled_booking_accepted_title": "Artist confirmed your scheduled appointment!",
     "scheduled_booking_accepted_content": "Makeup Artist {0} has confirmed appointment #{1} on {2} at {3}.",
     "booking_on_the_way_title": "Artist is on the way!",
@@ -575,5 +577,14 @@
     "session_closed_success": "Chat session ended successfully."
   },
   "ERR_SLOT_ALREADY_BOOKED": "This appointment slot was just booked and paid by another customer. Please choose another time slot!",
-  "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired."
+  "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired.",
+  "cash_receipt": {
+    "customer_confirmed": "Customer cash payment confirmed successfully.",
+    "worker_confirmed": "Artist cash collection confirmed successfully.",
+    "freelancer_confirmed": "Artist cash collection confirmed successfully.",
+    "status_ok": "Retrieved cash receipt status successfully.",
+    "not_found": "Cash receipt record not found for this booking.",
+    "worker_not_assigned": "You are not assigned to this booking to confirm cash receipt.",
+    "freelancer_not_assigned": "You are not assigned to this booking to confirm cash receipt."
+  }
 }

@@ -47,7 +47,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
           }
         } else if (isAgencyStaff) {
           if (activeTab !== 'explore') {
-            navigateTab('/bookings');
+            navigateTab('/staff/schedule');
           }
         } else {
           if (activeTab !== 'explore') {

@@ -23,6 +23,12 @@ public interface CashPaymentService {
     CashReceiptStatusRes confirmByFreelancer(Long bookingId, Long muaUserId, CashPaymentConfirmationReq req);
 
     /**
+     * Chuyên viên thi công (Freelancer MUA hoặc Nhân viên Agency) xác nhận đã nhận tiền mặt từ khách.
+     * Tự động xác thực vai trò thi công trên đơn hàng và kích hoạt quyết toán ví tương ứng.
+     */
+    CashReceiptStatusRes confirmByWorker(Long bookingId, Long workerUserId, CashPaymentConfirmationReq req);
+
+    /**
      * Lấy trạng thái xác nhận tiền mặt của booking.
      */
     CashReceiptStatusRes getStatus(Long bookingId, Long actorUserId);
