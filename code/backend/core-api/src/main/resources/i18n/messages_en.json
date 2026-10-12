@@ -113,6 +113,7 @@
     "staff_not_active": "Staff member is not active or eligible for scheduling.",
     "shift_time_invalid": "Shift end time must be after start time.",
     "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today.",
+    "staff_busy_slot_conflict": "Artist {0} has registered a personal busy slot from {1} to {2} (Reason: {3}). Cannot schedule shift during this time!",
     "shift_created_success": "Shift created successfully!",
     "shift_updated_success": "Shift updated successfully!",
     "shift_deleted_success": "Shift deleted successfully!",
@@ -446,6 +447,8 @@
     "slot_unblocked_success": "Personal busy slot unblocked successfully!",
     "slots_fetch_success": "Available time slots retrieved successfully.",
     "days_fetch_success": "Calendar 30-day overview retrieved successfully.",
+    "blocks_fetch_success": "Successfully fetched blocked calendar slots.",
+    "staff_cannot_block_during_shift": "You are assigned to Studio shift ''{0}'' (from {1} to {2}). Please contact Studio Management to request shift change or leave instead of blocking schedule.",
     "cannot_unblock_booked_slot": "Cannot unblock a calendar slot assigned to an active customer booking.",
     "slot_not_found": "Calendar slot not found."
   },

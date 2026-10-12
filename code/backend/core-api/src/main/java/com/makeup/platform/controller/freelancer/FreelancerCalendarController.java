@@ -12,14 +12,20 @@ import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.service.mua.MUACalendarService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/freelancer/calendar")
@@ -39,6 +45,18 @@ public class FreelancerCalendarController extends BaseController {
 
         MUACalendarSlotRes res = muaCalendarService.blockPersonalSlot(muaProfile.getId(), req);
         return createdWithKey(res, "calendar.slot_blocked_success");
+    }
+
+    @GetMapping("/my-blocks")
+    @PreAuthorize("hasAnyRole('FREELANCE_MUA', 'AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<List<MUACalendarSlotRes>>> getMyBlockedSlots(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate) {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        MuaProfileEntity muaProfile = muaProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "mua.profile_not_found"));
+
+        List<MUACalendarSlotRes> res = muaCalendarService.getMyBlockedSlots(muaProfile.getId(), fromDate);
+        return okWithKey(res, "calendar.blocks_fetch_success");
     }
 
     @DeleteMapping("/block/{calendarId}")

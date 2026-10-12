@@ -22,6 +22,7 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.catalog.SurchargeRepository;
 import com.makeup.platform.repository.mua.MUACalendarRepository;
 import com.makeup.platform.repository.pricing.SurgePricingRuleRepository;
+import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.mua.MUACalendarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +55,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
     private final AgencyStaffShiftRepository agencyStaffShiftRepository;
     private final SurgePricingRuleRepository surgePricingRuleRepository;
     private final SurchargeRepository surchargeRepository;
+    private final NotificationService notificationService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final LocalTime WORK_DAY_START = LocalTime.of(4, 0);
@@ -458,10 +460,41 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         MuaProfileEntity muaProfile = muaProfileRepository.findById(muaId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "mua.profile_not_found"));
 
+        // 1. Nếu thợ thuộc Studio, kiểm tra xem khung giờ này có trùng với ca trực đã được Studio xếp không
+        Optional<AgencyStaffEntity> activeStaffOpt = agencyStaffRepository.findActiveStaffByMuaId(muaId);
+        if (activeStaffOpt.isPresent()) {
+            Long staffId = activeStaffOpt.get().getId();
+            LocalDate bookingDate = req.getBookingDate();
+            int javaDow = bookingDate.getDayOfWeek().getValue();
+            int dayOfWeek = (javaDow == 7) ? 1 : javaDow + 1;
+            List<AgencyStaffShiftEntity> staffShifts = agencyStaffShiftRepository.findActiveShiftsForStaffOnDate(staffId, bookingDate, dayOfWeek);
+
+            LocalTime reqStart = req.getStartTime();
+            LocalTime reqEnd = req.getEndTime();
+
+            for (AgencyStaffShiftEntity shift : staffShifts) {
+                LocalTime shiftStart = shift.getStartTime();
+                LocalTime shiftEnd = shift.getEndTime();
+                LocalTime maxStart = reqStart.isAfter(shiftStart) ? reqStart : shiftStart;
+                LocalTime minEnd = reqEnd.isBefore(shiftEnd) ? reqEnd : shiftEnd;
+                if (maxStart.isBefore(minEnd)) {
+                    String startStr = shiftStart.toString().substring(0, 5);
+                    String endStr = shiftEnd.toString().substring(0, 5);
+                    throw new CustomBusinessException(
+                            ErrorCodes.ERR_OVERLAPPING_AGENCY_SHIFT,
+                            "calendar.staff_cannot_block_during_shift",
+                            shift.getShiftName(),
+                            startStr,
+                            endStr
+                    );
+                }
+            }
+        }
+
         OffsetDateTime startAt = req.getBookingDate().atTime(req.getStartTime()).atOffset(VIETNAM_OFFSET);
         OffsetDateTime endAt = req.getBookingDate().atTime(req.getEndTime()).atOffset(VIETNAM_OFFSET);
 
-        // Kiểm tra xem khoảng thời gian này có trùng với ca nào đã có không
+        // 2. Kiểm tra xem khoảng thời gian này có trùng với ca nào đã có trong lịch không
         if (muaCalendarRepository.existsOverlappingSlot(muaId, startAt, endAt)) {
             throw new CustomBusinessException(ErrorCodes.ERR_SLOT_ALREADY_BOOKED, "booking.slot_already_booked");
         }
@@ -470,7 +503,34 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         MUACalendarEntity saved = muaCalendarRepository.save(entity);
         log.info("MUA ID: {} successfully blocked calendar slot ID: {}", muaId, saved.getId());
 
+        // 3. Nếu thợ thuộc Studio, tự động bắn In-App Notification và gửi Email cho Agency Admin
+        if (activeStaffOpt.isPresent()) {
+            AgencyStaffEntity staff = activeStaffOpt.get();
+            try {
+                notificationService.createStaffBlockedTimeNotification(
+                        staff.getAgency(),
+                        staff,
+                        req.getBookingDate(),
+                        req.getStartTime(),
+                        req.getEndTime(),
+                        req.getReason()
+                );
+            } catch (Exception ex) {
+                log.error("[MUACalendarService] Lỗi khi tạo thông báo/email ca bận cho Studio: {}", ex.getMessage());
+            }
+        }
+
         return muaCalendarMapper.toSlotResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MUACalendarSlotRes> getMyBlockedSlots(Long muaId, LocalDate fromDate) {
+        LocalDate effectiveFromDate = (fromDate != null) ? fromDate : LocalDate.now();
+        List<MUACalendarEntity> blockedSlots = muaCalendarRepository.findPersonalBlockedSlotsFromDate(muaId, effectiveFromDate);
+        return blockedSlots.stream()
+                .map(muaCalendarMapper::toSlotResponse)
+                .toList();
     }
 
     @Override
@@ -537,9 +597,14 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         muaCalendarRepository.deleteByBookingIdAndMuaId(bookingId, muaId);
         muaCalendarRepository.flush();
 
+        com.makeup.platform.entity.mua.CalendarSlotType slotType = (reason != null && reason.contains("ASSIGNED_"))
+                ? com.makeup.platform.entity.mua.CalendarSlotType.AGENCY_ASSIGNED
+                : com.makeup.platform.entity.mua.CalendarSlotType.BOOKING;
+
         MUACalendarEntity calendarSlot = MUACalendarEntity.builder()
                 .mua(muaProfile)
                 .booking(booking)
+                .slotType(slotType)
                 .bookingDate(bookingDate)
                 .startAt(startAt)
                 .endAt(endAt)
@@ -548,7 +613,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                 .build();
 
         muaCalendarRepository.save(calendarSlot);
-        log.info("Locked calendar slot for booking ID: {} and MUA ID: {}", bookingId, muaId);
+        log.info("Locked calendar slot for booking ID: {} and MUA ID: {} with slotType: {}", bookingId, muaId, slotType);
     }
 
     @Override

@@ -10,9 +10,11 @@ import com.makeup.platform.dto.response.agency.WeeklyShiftMatrixRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffShiftEntity;
+import com.makeup.platform.entity.mua.MUACalendarEntity;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.AgencyStaffShiftRepository;
+import com.makeup.platform.repository.mua.MUACalendarRepository;
 import com.makeup.platform.service.agency.AgencyShiftService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -35,6 +40,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyStaffRepository agencyStaffRepository;
     private final AgencyStaffShiftRepository agencyStaffShiftRepository;
+    private final MUACalendarRepository muaCalendarRepository;
 
     private static final List<Integer> ORDERED_DAYS_OF_WEEK = List.of(2, 3, 4, 5, 6, 7, 1);
 
@@ -98,6 +104,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
         }
 
         validateNoOverlappingShifts(overlapping);
+        validateNoStaffBusySlotConflict(staff, req.getWorkDate(), req.getStartTime(), req.getEndTime());
 
         AgencyStaffShiftEntity shift = AgencyStaffShiftEntity.builder()
                 .agency(agency)
@@ -237,6 +244,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
         }
 
         validateNoOverlappingShifts(overlapping);
+        validateNoStaffBusySlotConflict(staff, targetWorkDate, req.getStartTime(), req.getEndTime());
 
         shift.setStaff(staff);
         shift.setDayOfWeek(dayOfWeek);
@@ -331,5 +339,52 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
                 .isRecurring(entity.getIsRecurring())
                 .isActive(entity.getIsActive())
                 .build();
+    }
+
+    private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
+
+    private void validateNoStaffBusySlotConflict(AgencyStaffEntity staff, LocalDate workDate, LocalTime startTime, LocalTime endTime) {
+        if (workDate == null || staff == null || staff.getMua() == null) {
+            return;
+        }
+
+        List<MUACalendarEntity> busySlots = muaCalendarRepository.findActiveSlotsByMuaIdAndDate(
+                staff.getMua().getId(),
+                workDate
+        );
+
+        if (busySlots.isEmpty()) {
+            return;
+        }
+
+        OffsetDateTime shiftStartAt = workDate.atTime(startTime).atOffset(VIETNAM_OFFSET);
+        OffsetDateTime shiftEndAt = workDate.atTime(endTime).atOffset(VIETNAM_OFFSET);
+
+        for (MUACalendarEntity busy : busySlots) {
+            OffsetDateTime busyStartAt = busy.getStartAt();
+            OffsetDateTime busyEndAt = busy.getEndAt();
+
+            // So sánh giao thoa tuyệt đối giữa ca trực và slot bận
+            OffsetDateTime maxStart = shiftStartAt.isAfter(busyStartAt) ? shiftStartAt : busyStartAt;
+            OffsetDateTime minEnd = shiftEndAt.isBefore(busyEndAt) ? shiftEndAt : busyEndAt;
+
+            if (maxStart.isBefore(minEnd)) {
+                LocalTime busyStartLocal = busyStartAt.withOffsetSameInstant(VIETNAM_OFFSET).toLocalTime();
+                LocalTime busyEndLocal = busyEndAt.withOffsetSameInstant(VIETNAM_OFFSET).toLocalTime();
+                String startStr = busyStartLocal.toString().substring(0, 5);
+                String endStr = busyEndLocal.toString().substring(0, 5);
+                String staffName = (staff.getMua() != null && staff.getMua().getUser() != null && staff.getMua().getUser().getFullName() != null)
+                        ? staff.getMua().getUser().getFullName()
+                        : "nhân viên";
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_STAFF_BUSY_SLOT,
+                        "agency.staff_busy_slot_conflict",
+                        staffName,
+                        startStr,
+                        endStr,
+                        busy.getReason() != null ? busy.getReason() : "Bận việc cá nhân"
+                );
+            }
+        }
     }
 }
