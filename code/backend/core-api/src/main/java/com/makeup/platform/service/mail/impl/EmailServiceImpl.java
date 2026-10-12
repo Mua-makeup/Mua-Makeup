@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
@@ -2927,6 +2929,160 @@ public class EmailServiceImpl implements EmailService {
                 address,
                 role,
                 appUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendAgencyStaffBlockedTimeNotification(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            LocalDate blockDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String reason
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send staff blocked time email: agency owner email missing");
+            return;
+        }
+
+        String subject = "[MUA Platform] Thông Báo: Nhân Viên " + staffName + " Báo Khóa Khung Giờ Bận Cá Nhân";
+        String htmlContent = buildStaffBlockedTimeNotificationHtml(
+                agencyOwnerName,
+                agencyName,
+                staffName,
+                staffPhone,
+                blockDate,
+                startTime,
+                endTime,
+                reason
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildStaffBlockedTimeNotificationHtml(
+            String ownerName,
+            String agency,
+            String staff,
+            String phone,
+            LocalDate date,
+            LocalTime start,
+            LocalTime end,
+            String reason
+    ) {
+        String owner = (ownerName != null && !ownerName.isBlank()) ? ownerName : "Quản Lý Studio";
+        String studioName = (agency != null && !agency.isBlank()) ? agency : "Studio";
+        String staffPhone = (phone != null && !phone.isBlank()) ? phone : "Chưa cập nhật";
+        String timeRange = (start != null ? start.toString().substring(0, 5) : "--:--") + " - " + (end != null ? end.toString().substring(0, 5) : "--:--");
+        String dateFormatted = date != null ? date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "--/--/----";
+        String busyReason = (reason != null && !reason.isBlank()) ? reason : "Bận việc cá nhân";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thông Báo Nhân Viên Báo Bận</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #78350f 50%%, #b45309 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(253, 230, 138, 0.4); margin-bottom: 10px;">
+                            <span style="color: #fde68a; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; QUẢN LÝ NHÂN SỰ
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 21px; font-weight: 800; letter-spacing: 0.5px;">
+                            THÔNG BÁO NHÂN VIÊN BÁO BẬN CÁ NHÂN
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #fef3c7; font-size: 13px;">
+                            Studio: <strong>%s</strong>
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #1e293b;">
+                            Kính gửi <strong>%s</strong> (Quản lý Studio %s),
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            Hệ thống ghi nhận nhân viên <strong>%s</strong> vừa đăng ký khóa khung giờ bận cá nhân trên ứng dụng. Chi tiết thời gian như sau:
+                          </p>
+
+                          <!-- Detail Card -->
+                          <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 24px; border-top: 1px solid #fef3c7; border-right: 1px solid #fef3c7; border-bottom: 1px solid #fef3c7;">
+                            <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; width: 140px; font-weight: 600;">Nhân viên:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #1e293b; font-weight: 750;">%s (%s)</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; font-weight: 600;">Ngày bận:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #1e293b; font-weight: 700;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; font-weight: 600;">Khung giờ bận:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #dc2626; font-weight: 800;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; font-weight: 600;">Lý do báo bận:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #1e293b; font-style: italic;">"%s"</td>
+                              </tr>
+                            </table>
+                          </div>
+
+                          <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+                            <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                              💡 <strong>Lưu ý:</strong> Hệ thống sẽ tự động khóa không nhận đơn đặt lịch cho nhân viên này trong khung giờ trên. Khi xếp ca trực hoặc điều phối đơn, Studio vui lòng tránh khung giờ này để đảm bảo tiến độ phục vụ.
+                            </p>
+                          </div>
+
+                          <div style="text-align: center; margin-top: 28px;">
+                            <a href="%s/agency/shifts" style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #0f172a 0%%, #1e293b 100%%); color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);">
+                              Xem Ma Trận Lịch Trực Studio &rarr;
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ Studio 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                studioName,
+                owner,
+                studioName,
+                staff,
+                staff,
+                staffPhone,
+                dateFormatted,
+                timeRange,
+                busyReason,
+                frontendUrl
         );
     }
 }

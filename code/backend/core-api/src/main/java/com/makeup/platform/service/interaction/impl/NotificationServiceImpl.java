@@ -6,6 +6,7 @@ import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.response.notification.NotificationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.mapper.interaction.NotificationMapper;
@@ -13,6 +14,8 @@ import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.interaction.NotificationRepository;
 import com.makeup.platform.service.interaction.NotificationService;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -711,6 +714,93 @@ public class NotificationServiceImpl implements NotificationService {
             log.info("[WebSocket] Sent dispute notification to /topic/admin/notifications for bookingId={}", booking.getId());
         } catch (Exception e) {
             log.error("[WebSocket] Failed to broadcast dispute notification to /topic/admin/notifications", e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createStaffBlockedTimeNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            LocalDate blockDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String reason
+    ) {
+        if (agency == null || staff == null) return;
+
+        UserEntity owner = agency.getOwner();
+        UserEntity staffUser = (staff.getMua() != null) ? staff.getMua().getUser() : null;
+        String staffName = (staffUser != null && staffUser.getFullName() != null) ? staffUser.getFullName() : "Nhân viên";
+        String staffPhone = (staffUser != null && staffUser.getPhoneNumber() != null) ? staffUser.getPhoneNumber() : "Chưa cập nhật";
+
+        String timeStr = startTime.toString().substring(0, 5) + " - " + endTime.toString().substring(0, 5);
+        String dateStr = blockDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String title = "Nhân Viên Báo Bận Lịch Cá Nhân";
+        String content = "Nhân viên " + staffName + " vừa đăng ký khóa khung giờ bận ngày " + dateStr + " (" + timeStr + "). Lý do: " + (reason != null ? reason : "Bận việc cá nhân");
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("staffId", staff.getId());
+        metadata.put("staffName", staffName);
+        metadata.put("blockDate", blockDate.toString());
+        metadata.put("startTime", startTime.toString());
+        metadata.put("endTime", endTime.toString());
+        metadata.put("reason", reason);
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .agency(agency)
+                .user(owner)
+                .type("STAFF_BLOCKED_TIME")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+
+        // Gửi WebSocket realtime cho Agency
+        try {
+            Map<String, Object> payload = new HashMap<>(metadata);
+            payload.put("id", saved.getId());
+            payload.put("type", "STAFF_BLOCKED_TIME");
+            payload.put("title", saved.getTitle());
+            payload.put("content", saved.getContent());
+            payload.put("agencyId", agency.getId());
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/agency-notifications/" + agency.getId(), payload);
+            if (owner != null) {
+                messagingTemplate.convertAndSendToUser(
+                        String.valueOf(owner.getId()),
+                        "/queue/notifications",
+                        payload
+                );
+            }
+        } catch (Exception e) {
+            log.warn("[Notification] Lỗi broadcast WebSocket cho ca bận: {}", e.getMessage());
+        }
+
+        // Gửi Email thông báo cho Agency Owner
+        if (owner != null && owner.getEmail() != null) {
+            try {
+                log.info("[Notification] Đang gửi email thông báo nhân viên báo bận tới chủ Studio: {}", owner.getEmail());
+                emailService.sendAgencyStaffBlockedTimeNotification(
+                        owner.getEmail(),
+                        owner.getFullName(),
+                        agency.getAgencyName(),
+                        staffName,
+                        staffPhone,
+                        blockDate,
+                        startTime,
+                        endTime,
+                        reason
+                );
+            } catch (Exception ex) {
+                log.error("[Notification] Lỗi gửi email thông báo nhân viên báo bận: {}", ex.getMessage());
+            }
+        } else {
+            log.warn("[Notification] Không thể gửi email: Chủ Studio hoặc email chủ Studio bị thiếu cho agency id={}", agency.getId());
         }
     }
 }

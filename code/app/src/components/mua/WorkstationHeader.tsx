@@ -15,6 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { muaProfileService } from '@/services/mua-profile.service';
+import { agencyStaffService, StaffShiftItem } from '@/services/agency-staff.service';
+import { getTodayVN } from '@/utils/date';
 import { router } from 'expo-router';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 import { useAuthStore } from '@/store/auth.store';
@@ -28,10 +30,28 @@ const RADIUS_OPTIONS = [
 ];
 
 export const WorkstationHeader: React.FC = () => {
-  const { isOnline, profile, toggleOnline } = useWorkstationStore();
+  const { isOnline, profile, toggleOnline, todayBookings } = useWorkstationStore();
   const { userInfo } = useAuthStore();
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF') && !userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const [isToggling, setIsToggling] = useState(false);
+  const [staffShifts, setStaffShifts] = useState<StaffShiftItem[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isAgencyStaff && profile?.id) {
+      agencyStaffService
+        .getMyStaffShifts(profile.id)
+        .then((shifts) => {
+          if (isMounted) {
+            setStaffShifts(shifts || []);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isAgencyStaff, profile?.id]);
 
   const [showRadiusModal, setShowRadiusModal] = useState(false);
   const [currentRadius, setCurrentRadius] = useState<number>(
@@ -176,6 +196,100 @@ export const WorkstationHeader: React.FC = () => {
     setShowRadiusModal(false);
   };
 
+  const staffDutyStatus = React.useMemo(() => {
+    if (!isAgencyStaff) {
+      return {
+        isActive: isOnline,
+        text: isOnline ? 'Đang trực tuyến' : 'Đang Tạm Nghỉ (Offline)',
+        detail: '',
+      };
+    }
+
+    // 1. Đang có đơn hàng phục vụ trực tiếp (Ca làm việc thực tế)
+    const ongoingBooking = todayBookings?.find((b) =>
+      ['IN_PROGRESS', 'ARRIVED', 'ON_THE_WAY'].includes(b.status)
+    );
+    if (ongoingBooking) {
+      const statusLabel =
+        ongoingBooking.status === 'IN_PROGRESS'
+          ? 'Đang thực hiện trang điểm'
+          : ongoingBooking.status === 'ARRIVED'
+          ? 'Đã đến điểm hẹn phục vụ'
+          : 'Đang di chuyển đến khách';
+      return {
+        isActive: true,
+        text: 'Đang trong ca làm việc',
+        detail: `${statusLabel} (#${ongoingBooking.bookingCode})`,
+      };
+    }
+
+    // 2. Kiểm tra khung giờ ca trực hiện tại (Shift)
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const todayStr = getTodayVN();
+    const jsDay = now.getDay();
+    const todayDayOfWeek = jsDay === 0 ? 1 : jsDay + 1; // 1: CN, 2: T2, ..., 7: T7
+
+    // Danh sách ca trực của ngày hôm nay
+    const todayShifts = staffShifts.filter((s) => {
+      if (!s.isActive) return false;
+      return (
+        (s.isRecurring && s.dayOfWeek === todayDayOfWeek) ||
+        (s.workDate && s.workDate === todayStr)
+      );
+    });
+
+    // Ca trực đang diễn ra đúng trong khung giờ hiện tại
+    const currentActiveShift = todayShifts.find((s) => {
+      const [startH, startM] = (s.startTime || '00:00').split(':').map(Number);
+      const [endH, endM] = (s.endTime || '23:59').split(':').map(Number);
+      const startMins = (startH || 0) * 60 + (startM || 0);
+      const endMins = (endH || 0) * 60 + (endM || 0);
+      return currentMinutes >= startMins && currentMinutes <= endMins;
+    });
+
+    if (currentActiveShift) {
+      const timeStr = `${currentActiveShift.startTime.slice(0, 5)} - ${currentActiveShift.endTime.slice(0, 5)}`;
+      return {
+        isActive: true,
+        text: 'Đang trong ca trực',
+        detail: `${currentActiveShift.shiftName} (${timeStr})`,
+      };
+    }
+
+    // 3. Có đơn hàng đã tiếp nhận hoặc được phân công hôm nay
+    const assignedBooking = todayBookings?.find((b) =>
+      ['ACCEPTED', 'CONFIRMED', 'ASSIGNED'].includes(b.status)
+    );
+    if (assignedBooking) {
+      return {
+        isActive: true,
+        text: 'Đang trong ca làm việc',
+        detail: `Đã nhận đơn #${assignedBooking.bookingCode} hôm nay`,
+      };
+    }
+
+    // 4. Có ca trực hôm nay (dù chưa đến giờ hoặc sắp tới trong ngày)
+    if (todayShifts.length > 0) {
+      const firstShift = todayShifts[0];
+      const timeStr = `${firstShift.startTime.slice(0, 5)} - ${firstShift.endTime.slice(0, 5)}`;
+      return {
+        isActive: true,
+        text: 'Đang trong ca trực',
+        detail: `${firstShift.shiftName} (${timeStr})`,
+      };
+    }
+
+    // 5. Không có ca làm việc / ca trực nào
+    return {
+      isActive: false,
+      text: 'Không có ca làm việc',
+      detail: 'Hôm nay chưa có ca trực hoặc đơn phân công từ Studio',
+    };
+  }, [isAgencyStaff, isOnline, todayBookings, staffShifts]);
+
+  const isIndicatorActive = isAgencyStaff ? staffDutyStatus.isActive : isOnline;
+
   const avatarUrl = profile?.avatarUrl;
 
   return (
@@ -194,7 +308,7 @@ export const WorkstationHeader: React.FC = () => {
         >
           <View style={styles.avatarWrapper}>
             <UserAvatar uri={avatarUrl} name={profile?.fullName} size={48} />
-            <View style={[styles.statusDot, { backgroundColor: isOnline ? '#10B981' : '#94A3B8' }]} />
+            <View style={[styles.statusDot, { backgroundColor: isIndicatorActive ? '#10B981' : '#94A3B8' }]} />
           </View>
           <View style={styles.nameBlock}>
             <View style={styles.nameBadgeRow}>
@@ -209,7 +323,7 @@ export const WorkstationHeader: React.FC = () => {
             </View>
             <Text style={styles.roleSubtext}>
               {isAgencyStaff
-                ? 'Nhân viên trực thuộc Studio'
+                ? `${staffDutyStatus.text} • ${profile?.agencyName || 'Studio'}`
                 : `${profile?.experienceYears ? `${profile.experienceYears} năm kinh nghiệm` : 'Thợ trang điểm tự do'} • Bán kính ${currentRadius}km`}
             </Text>
           </View>
@@ -229,6 +343,51 @@ export const WorkstationHeader: React.FC = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Thẻ hiển thị Trạng thái Ca Trực & Ca Làm Việc cho Nhân Viên Studio */}
+      {isAgencyStaff && (
+        <View
+          style={[
+            styles.toggleCard,
+            staffDutyStatus.isActive ? styles.toggleCardActive : styles.toggleCardInactive,
+          ]}
+        >
+          <View style={styles.toggleLeft}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: staffDutyStatus.isActive ? '#DCFCE7' : '#F1F5F9' },
+              ]}
+            >
+              <Ionicons
+                name={staffDutyStatus.isActive ? 'briefcase-outline' : 'calendar-clear-outline'}
+                size={20}
+                color={staffDutyStatus.isActive ? '#10B981' : '#64748B'}
+              />
+            </View>
+            <View style={styles.toggleTextGroup}>
+              <Text
+                style={[
+                  styles.toggleTitle,
+                  { color: staffDutyStatus.isActive ? '#065F46' : '#1E293B' },
+                ]}
+              >
+                {staffDutyStatus.text}
+              </Text>
+              <Text style={styles.toggleSubtitle} numberOfLines={1}>
+                {staffDutyStatus.detail}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.scheduleBadgeBtn}
+            onPress={() => router.push('/staff/schedule')}
+          >
+            <Text style={styles.scheduleBadgeText}>Lịch trực</Text>
+            <Ionicons name="chevron-forward" size={13} color="#0284C7" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Switch Bar & Bán Kính: Chỉ dành cho thợ tự do (Freelance MUA), thợ Studio làm việc theo ca trực & điều phối */}
       {!isAgencyStaff && (
@@ -509,6 +668,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     marginTop: 2,
+  },
+  scheduleBadgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  scheduleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0284C7',
   },
 
   // Bán kính selector bar đặt ngay dưới nút Bật/Tắt

@@ -113,6 +113,7 @@
     "staff_not_active": "Nhân viên chưa kích hoạt hoặc không thể xếp ca.",
     "shift_time_invalid": "Thời gian kết thúc ca làm phải sau thời gian bắt đầu.",
     "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
+    "staff_busy_slot_conflict": "Thợ {0} đã đăng ký lịch bận cá nhân từ {1} đến {2} (Lý do: {3}). Không thể xếp ca vào khung giờ này!",
     "shift_created_success": "Tạo ca làm việc thành công!",
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
     "shift_deleted_success": "Xóa ca làm việc thành công!",
@@ -444,6 +445,8 @@
     "slot_unblocked_success": "Mở lại khung giờ làm việc thành công!",
     "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
     "days_fetch_success": "Lấy tổng quan lịch 30 ngày thành công.",
+    "blocks_fetch_success": "Lấy danh sách khung giờ bận thành công.",
+    "staff_cannot_block_during_shift": "Bạn đã được Studio phân công ca trực ''{0}'' (từ {1} đến {2}). Vui lòng liên hệ Quản lý Studio để xin đổi ca hoặc xin nghỉ trực thay vì tự khóa lịch.",
     "cannot_unblock_booked_slot": "Không thể mở khóa slot lịch đã được gắn với đơn đặt hẹn của khách hàng.",
     "slot_not_found": "Không tìm thấy khung giờ lịch làm việc."
   },

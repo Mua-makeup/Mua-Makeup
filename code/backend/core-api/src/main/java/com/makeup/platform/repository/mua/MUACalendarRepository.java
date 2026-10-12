@@ -47,35 +47,38 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
 
     @Query("""
         SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
         WHERE c.mua.id = :muaId 
           AND c.isLocked = true 
-          AND (c.booking IS NULL OR (c.booking.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED 
-               AND c.booking.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED 
-               AND c.booking.status != com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+          AND (b IS NULL OR (b.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED 
+               AND b.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED 
+               AND b.status != com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaId(@Param("muaId") Long muaId);
 
     @Query("""
         SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
         WHERE c.mua.id = :muaId 
           AND c.bookingDate = :date 
           AND c.isLocked = true 
-          AND (c.booking IS NULL OR (c.booking.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED 
-               AND c.booking.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED 
-               AND c.booking.status != com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+          AND (b IS NULL OR (b.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED 
+               AND b.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED 
+               AND b.status != com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdAndDate(@Param("muaId") Long muaId, @Param("date") LocalDate date);
 
     @Query("""
         SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
         WHERE c.mua.id = :muaId 
           AND c.bookingDate BETWEEN :startDate AND :endDate 
           AND c.isLocked = true 
-          AND (c.booking IS NULL OR (c.booking.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED 
-               AND c.booking.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED 
-               AND c.booking.status != com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+          AND (b IS NULL OR (b.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED 
+               AND b.status != com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED 
+               AND b.status != com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdAndDateBetween(
@@ -97,4 +100,17 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
     @Modifying
     @Query("DELETE FROM MUACalendarEntity c WHERE c.booking.id = :bookingId AND c.mua.id = :muaId")
     void deleteByBookingIdAndMuaId(@Param("bookingId") Long bookingId, @Param("muaId") Long muaId);
+
+    @Query("""
+        SELECT c FROM MUACalendarEntity c 
+        WHERE c.mua.id = :muaId 
+          AND c.booking IS NULL 
+          AND c.isLocked = true 
+          AND c.bookingDate >= :fromDate 
+        ORDER BY c.bookingDate ASC, c.startAt ASC
+    """)
+    List<MUACalendarEntity> findPersonalBlockedSlotsFromDate(
+        @Param("muaId") Long muaId,
+        @Param("fromDate") LocalDate fromDate
+    );
 }

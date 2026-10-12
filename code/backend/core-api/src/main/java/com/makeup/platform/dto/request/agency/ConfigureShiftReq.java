@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.request.agency;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import jakarta.validation.constraints.Max;
@@ -22,8 +23,10 @@ import java.time.LocalTime;
 public class ConfigureShiftReq {
 
     @NotNull(message = "{validation.staff_id_required}")
+    @JsonAlias({"staff_id", "staffId"})
     private Long staffId;
 
+    @JsonAlias({"work_date", "workDate"})
     private LocalDate workDate;
 
     private Integer dayOfWeek; // 1: Chủ Nhật, 2: Thứ 2, ..., 7: Thứ 7

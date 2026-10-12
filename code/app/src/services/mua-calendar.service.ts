@@ -132,11 +132,74 @@ export const muaCalendarService = {
   },
 
   /**
+   * Lấy danh sách các khung giờ bận cá nhân thợ đã khóa
+   */
+  async getMyBlockedSlots(fromDate?: string): Promise<BlockedSlotItem[]> {
+    const res = await apiClient.get<{ success: boolean; data: any[] }>(
+      '/freelancer/calendar/my-blocks',
+      {
+        params: { fromDate },
+      }
+    );
+    const rawList = res.data?.data || [];
+    return rawList.map((item: any) => {
+      const id = item.calendar_id ?? item.calendarId ?? item.id;
+      const bDate = item.booking_date ?? item.bookingDate ?? '';
+      const start = item.start_at ?? item.startAt ?? item.start_time ?? item.startTime ?? '';
+      const end = item.end_at ?? item.endAt ?? item.end_time ?? item.endTime ?? '';
+      const startTime = start.includes('T') ? start.slice(11, 16) : (start ? start.slice(0, 5) : '--:--');
+      const endTime = end.includes('T') ? end.slice(11, 16) : (end ? end.slice(0, 5) : '--:--');
+
+      return {
+        id,
+        calendar_id: id,
+        muaId: item.mua_id ?? item.muaId,
+        mua_id: item.mua_id ?? item.muaId,
+        bookingId: item.booking_id ?? item.bookingId,
+        bookingDate: bDate,
+        booking_date: bDate,
+        startAt: start,
+        start_at: start,
+        endAt: end,
+        end_at: end,
+        startTime,
+        endTime,
+        isLocked: item.is_locked ?? item.isLocked ?? true,
+        is_locked: item.is_locked ?? item.isLocked ?? true,
+        slotType: item.slot_type ?? item.slotType ?? 'PERSONAL_BLOCKED',
+        slot_type: item.slot_type ?? item.slotType ?? 'PERSONAL_BLOCKED',
+        reason: item.reason || 'Bận việc cá nhân',
+      };
+    });
+  },
+
+  /**
    * Mở lại khung giờ bận cá nhân đã khóa
    */
   async unblockPersonalSlot(calendarId: number): Promise<void> {
     await apiClient.delete(`/freelancer/calendar/block/${calendarId}`);
   },
 };
+
+export interface BlockedSlotItem {
+  id: number;
+  calendar_id: number;
+  muaId?: number;
+  mua_id?: number;
+  bookingId?: number | null;
+  slotType?: string;
+  slot_type?: string;
+  booking_date: string;
+  bookingDate: string;
+  start_at: string;
+  startAt: string;
+  end_at: string;
+  endAt: string;
+  startTime?: string;
+  endTime?: string;
+  isLocked: boolean;
+  is_locked: boolean;
+  reason: string;
+}
 
 

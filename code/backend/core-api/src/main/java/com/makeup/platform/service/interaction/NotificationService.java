@@ -4,6 +4,7 @@ import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEv
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.dto.response.notification.NotificationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
@@ -11,6 +12,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 public interface NotificationService {
 
@@ -63,4 +66,13 @@ public interface NotificationService {
     NotificationEntity createEmergencyNotification(EmergencyReassignmentRequestedEvent event);
 
     void createDisputeNotification(BookingEntity booking);
+
+    void createStaffBlockedTimeNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            LocalDate blockDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String reason
+    );
 }
