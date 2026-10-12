@@ -160,7 +160,8 @@ public class AgencyBookingMapper {
         final List<StaffAssignmentDetailRes> assignedStaff = (b.getStaffAssignments() != null && !b.getStaffAssignments().isEmpty())
                 ? bookingStaffAssignmentMapper.toDetailResList(
                         b.getStaffAssignments().stream()
-                                .filter(sa -> sa.getStatus() != AssignmentStatus.REPLACED)
+                                .filter(sa -> sa.getStatus() == AssignmentStatus.ACTIVE
+                                        || (Boolean.TRUE.equals(b.getNeedsEmergencyReassignment()) && sa.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED))
                                 .toList()
                   )
                 : Collections.emptyList();

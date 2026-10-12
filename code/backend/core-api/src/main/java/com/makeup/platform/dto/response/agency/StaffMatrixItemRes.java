@@ -33,6 +33,7 @@ public class StaffMatrixItemRes {
     @JsonProperty("isFullyQualified")
     private boolean isFullyQualified;
     private String disqualificationReason;
+    private String cancellationReason;
 
     // Current assignment if already assigned
     private String currentRole; // PRIMARY_MUA, ASSISTANT_MUA, or null

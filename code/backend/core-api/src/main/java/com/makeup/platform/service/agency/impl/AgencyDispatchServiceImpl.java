@@ -43,6 +43,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.makeup.platform.service.booking.BookingStateMachineService;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -52,7 +55,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -72,6 +77,8 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
     private final StaffMatrixRepository staffMatrixRepository;
     private final MUACalendarService muaCalendarService;
     private final BookingAuditService bookingAuditService;
+    private final BookingStateMachineService bookingStateMachineService;
+    private final SimpMessagingTemplate messagingTemplate;
     private final RedissonClient redissonClient;
     private final TransactionTemplate transactionTemplate;
     private final ApplicationEventPublisher eventPublisher;
@@ -281,7 +288,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             bookingStaffAssignmentRepository.saveAllAndFlush(emergencyAssignments);
             for (BookingStaffAssignmentEntity ea : emergencyAssignments) {
                 if (ea.getStaff() != null && ea.getStaff().getMua() != null) {
-                    muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), ea.getStaff().getMua().getId());
+                    muaCalendarService.convertSlotToEmergencyBlocked(booking.getId(), ea.getStaff().getMua().getId(), ea.getCancellationReason());
                 }
             }
         }
@@ -439,6 +446,10 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         booking.setStatus(BookingStatus.AGENCY_ASSIGNED);
         booking.setNeedsEmergencyReassignment(false);
         booking.setEmergencyReason(null);
+        if (booking.getStaffAssignments() != null) {
+            booking.getStaffAssignments().clear();
+            booking.getStaffAssignments().addAll(allSaved);
+        }
         BookingEntity savedBooking = bookingRepository.save(booking);
 
         log.info("Assigned {} staff members to booking {} (Primary: {})",
@@ -505,7 +516,13 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
         BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
 
-        if (booking.getStatus() != BookingStatus.PENDING_AGENCY_DISPATCH) {
+        if (booking.getStatus() == BookingStatus.COMPLETED
+                || booking.getStatus() == BookingStatus.PAID_OUT
+                || booking.getStatus() == BookingStatus.CANCELLED
+                || booking.getStatus() == BookingStatus.CANCELLED_EXPIRED
+                || booking.getStatus() == BookingStatus.DISPUTED
+                || booking.getStatus() == BookingStatus.DISPUTE_REFUNDED
+                || booking.getStatus() == BookingStatus.DISPUTE_COMPENSATED) {
             throw new CustomBusinessException(ErrorCodes.ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS, "dispatch.cannot_dispatch_in_status");
         }
 
@@ -522,6 +539,9 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         // Release any slots
         muaCalendarService.releaseSlotByBookingId(savedBooking.getId());
 
+        // Hoàn 100% tiền ký quỹ / tiền cọc vào ví khách hàng
+        bookingStateMachineService.refundDepositToCustomer(savedBooking, reason);
+
         log.warn("Agency {} rejected booking {}: {}", agency.getId(), savedBooking.getBookingCode(), req.getRejectionReason());
 
         // Audit log transition into booking_history
@@ -532,6 +552,25 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 agency.getOwner().getId(),
                 reason
         );
+
+        // Broadcast WebSocket to Customer: Studio từ chối ca & hoàn cọc vào ví
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "AGENCY_REJECTED_BOOKING");
+            payload.put("bookingId", savedBooking.getId());
+            payload.put("bookingCode", savedBooking.getBookingCode());
+            payload.put("status", "CANCELLED");
+            payload.put("message", isEnReject
+                    ? "Studio could not fulfill your booking. Your deposit has been 100% refunded to your wallet."
+                    : "Studio không thể tiếp nhận ca hẹn. Tiền ký quỹ/cọc đã được hoàn 100% về ví của bạn.");
+            payload.put("timestamp", System.currentTimeMillis());
+            if (savedBooking.getCustomer() != null) {
+                messagingTemplate.convertAndSend("/topic/customer-bookings/" + savedBooking.getCustomer().getId(), payload);
+            }
+            messagingTemplate.convertAndSend("/topic/booking-status/" + savedBooking.getId(), payload);
+        } catch (Exception ex) {
+            log.warn("[AgencyDispatch] Failed to broadcast AGENCY_REJECTED_BOOKING: {}", ex.getMessage());
+        }
 
         // Publish state change event & broadcast STOMP updates
         eventPublisher.publishEvent(new BookingStateChangedEvent(

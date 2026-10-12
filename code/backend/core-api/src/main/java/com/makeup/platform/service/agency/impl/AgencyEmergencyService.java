@@ -144,9 +144,14 @@ public class AgencyEmergencyService {
             oldAssignment.setReplacedByStaff(newStaff);
             bookingStaffAssignmentRepository.saveAndFlush(oldAssignment);
 
-            // Release old staff's calendar slot if still present
+            // Convert old staff's calendar slot to emergency blocked if they reported emergency, otherwise release
             if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getMua() != null) {
-                muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), oldAssignment.getStaff().getMua().getId());
+                if (oldAssignment.getCancellationReason() != null || req.getReassignmentReason() != null) {
+                    muaCalendarService.convertSlotToEmergencyBlocked(booking.getId(), oldAssignment.getStaff().getMua().getId(),
+                            oldAssignment.getCancellationReason() != null ? oldAssignment.getCancellationReason() : req.getReassignmentReason());
+                } else {
+                    muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), oldAssignment.getStaff().getMua().getId());
+                }
             }
         }
 
@@ -339,7 +344,7 @@ public class AgencyEmergencyService {
             bookingStaffAssignmentRepository.save(ea);
 
             if (ea.getStaff() != null && ea.getStaff().getMua() != null) {
-                muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), ea.getStaff().getMua().getId());
+                muaCalendarService.convertSlotToEmergencyBlocked(booking.getId(), ea.getStaff().getMua().getId(), ea.getCancellationReason());
             }
         }
 
@@ -366,7 +371,23 @@ public class AgencyEmergencyService {
             String transferNote = " [Làm Solo toàn bộ ca: Nhận gộp +" + transferredRate + "% hoa hồng từ thợ báo bận: " + cancelledStaffNames + "]";
             primaryAssignment.setCommissionNote(currentNote + transferNote);
 
-            bookingStaffAssignmentRepository.save(primaryAssignment);
+            bookingStaffAssignmentRepository.saveAndFlush(primaryAssignment);
+        }
+
+        // Synchronize in-memory collection on booking so cascade does not overwrite with stale data
+        if (booking.getStaffAssignments() != null) {
+            for (BookingStaffAssignmentEntity bsa : booking.getStaffAssignments()) {
+                if (bsa.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED) {
+                    bsa.setStatus(AssignmentStatus.REPLACED);
+                    bsa.setReplacedByStaff(primaryStaff);
+                    bsa.setCommissionRate(BigDecimal.ZERO);
+                    bsa.setCommissionAmount(BigDecimal.ZERO);
+                } else if (bsa.getId() != null && bsa.getId().equals(primaryAssignment.getId())) {
+                    bsa.setCommissionRate(primaryAssignment.getCommissionRate());
+                    bsa.setCommissionAmount(primaryAssignment.getCommissionAmount());
+                    bsa.setCommissionNote(primaryAssignment.getCommissionNote());
+                }
+            }
         }
 
         // Clear emergency flag on booking
@@ -450,9 +471,9 @@ public class AgencyEmergencyService {
         assignment.setCancelledAt(OffsetDateTime.now());
         bookingStaffAssignmentRepository.save(assignment);
 
-        // Immediately release staff's calendar slot for this booking so they are not blocked or causing conflicts
+        // Convert staff's calendar slot to PERSONAL_BLOCKED so it is recorded as busy in mua_calendars
         if (staff.getMua() != null) {
-            muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), staff.getMua().getId());
+            muaCalendarService.convertSlotToEmergencyBlocked(booking.getId(), staff.getMua().getId(), req.getEmergencyReason());
         }
 
         // Update booking to trigger emergency reassignment

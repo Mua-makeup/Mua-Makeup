@@ -8,6 +8,7 @@ import {
   ExternalLink,
   CheckCircle2,
   User,
+  UserX,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
@@ -180,6 +181,58 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       );
     });
 
+  // Lấy danh sách thợ đã báo bận cần đổi
+  const busyStaffMap = new Map();
+  emergencyAssignments.forEach((a) => {
+    busyStaffMap.set(a.staffId || a.muaId, {
+      staffId: a.staffId || a.muaId,
+      staffName: a.staffName,
+      staffPhone: a.staffPhone,
+      role: a.role,
+      cancellationReason: a.cancellationReason || booking?.emergencyReason,
+      commissionRate: a.commissionRate,
+    });
+  });
+
+  if (matrixData?.staffList) {
+    matrixData.staffList.forEach((s) => {
+      if (s.hasReportedBusy && !busyStaffMap.has(s.staffId)) {
+        busyStaffMap.set(s.staffId, {
+          staffId: s.staffId,
+          staffName: s.staffName,
+          staffPhone: s.staffPhone,
+          role: s.currentRole || 'PRIMARY_MUA',
+          cancellationReason: booking?.emergencyReason,
+          commissionRate: s.commissionRate,
+        });
+      }
+    });
+  }
+
+  if (busyStaffMap.size === 0 && (booking?.needsEmergencyReassignment || booking?.emergencyReason)) {
+    if (detectedOldStaff) {
+      busyStaffMap.set(detectedOldStaff.staffId || 1, {
+        staffId: detectedOldStaff.staffId,
+        staffName: detectedOldStaff.staffName || booking?.staffName,
+        staffPhone: detectedOldStaff.staffPhone || booking?.staffPhone,
+        role: detectedOldStaff.role || 'PRIMARY_MUA',
+        cancellationReason: booking?.emergencyReason,
+        commissionRate: detectedOldStaff.commissionRate,
+      });
+    } else if (booking?.staffName) {
+      busyStaffMap.set(booking.staffMuaId || 1, {
+        staffId: booking.staffMuaId,
+        staffName: booking.staffName,
+        staffPhone: booking.staffPhone,
+        role: 'PRIMARY_MUA',
+        cancellationReason: booking.emergencyReason,
+        commissionRate: null,
+      });
+    }
+  }
+
+  const busyStaffList = Array.from(busyStaffMap.values());
+
   // Tính toán % hoa hồng chuyển giao khi để 1 thợ làm hết
   const emergencyCommissionRate = emergencyAssignments.reduce(
     (sum, s) => sum + (Number(s.commissionRate) || 0),
@@ -209,7 +262,47 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
             <span>{t('dispatch_emergency_alert_title')}</span>
           </div>
 
-          <div className="text-xs text-slate-900 dark:text-white font-semibold leading-relaxed">
+          {/* Danh Sách Thợ Đã Báo Bận */}
+          {busyStaffList.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <UserX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                {t('dispatch_busy_staff_card_title') || 'Thợ Đã Báo Bận (Cần Thay Thế)'}:
+              </span>
+              <div className="space-y-1.5">
+                {busyStaffList.map((st) => (
+                  <div
+                    key={st.staffId}
+                    className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/60 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-bold text-xs flex items-center justify-center shrink-0 border border-rose-200 dark:border-rose-800">
+                        {st.staffName?.charAt(0) || 'M'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">
+                            {st.staffName}
+                          </span>
+                          <Badge variant={st.role === 'PRIMARY_MUA' ? 'gold' : 'neutral'} size="sm">
+                            {st.role === 'PRIMARY_MUA' ? t('dispatch_badge_primary') : t('dispatch_badge_assistant')}
+                          </Badge>
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono block">
+                          {st.staffPhone}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                      {t('dispatch_badge_reported_busy')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="text-xs text-slate-900 dark:text-white font-semibold leading-relaxed pt-1 border-t border-red-200 dark:border-red-800">
             <p>
               <strong className="text-red-800 dark:text-red-200">{t('dispatch_emergency_reason_label')}</strong>{' '}
               {cleanEmergencyReason(booking.emergencyReason) || t('dispatch_emergency_fallback_reason')}

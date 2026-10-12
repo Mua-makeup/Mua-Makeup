@@ -344,7 +344,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
                 const fallbackPrimaryPhone = b.muaPhone || b.staffPhone;
 
                 const assistantList = staffList.filter(
-                  (s) => s.role === 'ASSISTANT_MUA' && (!s.status || s.status === 'ACTIVE')
+                  (s) => s.role === 'ASSISTANT_MUA' && s.status === 'ACTIVE'
                 );
 
                 const hasPrimary = primaryStaff || fallbackPrimaryName;

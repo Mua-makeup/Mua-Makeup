@@ -20,7 +20,7 @@ export const StaffCommissionSplitMatrix = ({
 
   // Filter active assigned staff
   const staffList = (booking.assignedStaff || []).filter(
-    (s) => s.status !== 'REPLACED'
+    (s) => s.status === 'ACTIVE'
   );
 
   const formatCurrency = (val) =>
@@ -28,7 +28,6 @@ export const StaffCommissionSplitMatrix = ({
 
   // Compute total staff commission
   const totalStaffCommission = staffList
-    .filter((s) => s.status === 'ACTIVE' || !s.status)
     .reduce((sum, s) => {
       if (s.commissionAmount !== undefined && s.commissionAmount !== null && Number(s.commissionAmount) > 0) {
         return sum + Number(s.commissionAmount);

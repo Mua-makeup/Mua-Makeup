@@ -67,6 +67,7 @@ public class DispatchMatrixMapper {
                 .hasReportedBusy(hasReportedBusy)
                 .isFullyQualified(isFullyQualified)
                 .disqualificationReason(disqualificationReason)
+                .cancellationReason(projection.getCancellationReason())
                 .currentRole(projection.getCurrentRole())
                 .build();
     }

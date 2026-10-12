@@ -119,6 +119,12 @@ export interface CustomerBookingItem {
   isDepositRefunded?: boolean;
   createdAt: string;
   updatedAt?: string;
+  bookingPartner?: string;
+  agencyId?: number;
+  agencyName?: string;
+  agencyLogoUrl?: string;
+  staffName?: string;
+  assistantNames?: string[];
 }
 
 export interface BookingStatusDetailRes {

@@ -179,7 +179,8 @@ public class BookingMapper {
         final List<StaffAssignmentDetailRes> assignedStaff = (entity.getStaffAssignments() != null && !entity.getStaffAssignments().isEmpty())
                 ? bookingStaffAssignmentMapper.toDetailResList(
                         entity.getStaffAssignments().stream()
-                                .filter(sa -> sa.getStatus() != AssignmentStatus.REPLACED)
+                                .filter(sa -> sa.getStatus() == AssignmentStatus.ACTIVE
+                                        || (Boolean.TRUE.equals(entity.getNeedsEmergencyReassignment()) && sa.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED))
                                 .toList()
                   )
                 : List.of();
@@ -357,6 +358,32 @@ public class BookingMapper {
         Integer styleId = entity.getStyle() != null ? entity.getStyle().getId() : null;
         String styleName = entity.getStyle() != null ? entity.getStyle().getStyleName() : null;
 
+        // Trích xuất thông tin Studio Agency & Đội ngũ nhân sự
+        String bookingPartner = entity.getBookingPartner() != null ? entity.getBookingPartner().name() : null;
+        Long agencyId = null;
+        String agencyName = null;
+        String agencyLogoUrl = null;
+        if (entity.getAgency() != null) {
+            agencyId = entity.getAgency().getId();
+            agencyName = entity.getAgency().getAgencyName();
+            agencyLogoUrl = entity.getAgency().getLogoUrl();
+        }
+
+        String staffName = muaName;
+        java.util.List<String> assistantNames = new java.util.ArrayList<>();
+        if (entity.getStaffAssignments() != null && !entity.getStaffAssignments().isEmpty()) {
+            for (BookingStaffAssignmentEntity sa : entity.getStaffAssignments()) {
+                if (sa.getStatus() == AssignmentStatus.ACTIVE && sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getUser() != null) {
+                    String name = sa.getStaff().getMua().getUser().getFullName();
+                    if (sa.getAssignmentRole() == AssignmentRole.PRIMARY_MUA) {
+                        staffName = name;
+                    } else if (sa.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA) {
+                        assistantNames.add(name);
+                    }
+                }
+            }
+        }
+
         return CustomerBookingItemRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -382,6 +409,12 @@ public class BookingMapper {
                 .isDepositRefunded(isDepositRefunded)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .bookingPartner(bookingPartner)
+                .agencyId(agencyId)
+                .agencyName(agencyName)
+                .agencyLogoUrl(agencyLogoUrl)
+                .staffName(staffName)
+                .assistantNames(assistantNames)
                 .build();
     }
 }

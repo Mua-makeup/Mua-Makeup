@@ -9,6 +9,7 @@ import {
   Coins,
   Percent,
   Loader2,
+  UserX,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
@@ -46,8 +47,47 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
   const [rejectReason, setRejectReason] = useState('');
   const [rejectNote, setRejectNote] = useState('');
 
+  const cleanEmergencyReason = (reason) => {
+    if (!reason) return '';
+    return reason.replace(/^\[[^\]]*\]\s*/, '');
+  };
+
   const bookingId = booking?.bookingId || booking?.id;
   const totalBookingAmount = Number(matrixData?.totalAmount || booking?.totalAmount || booking?.totalPrice || 0);
+
+  // Danh sách thợ đã báo bận trong ca này để hiển thị rõ ràng cho Agency
+  const reportedBusyStaffList = useMemo(() => {
+    const map = new Map();
+    (matrixData?.staffList || []).forEach((s) => {
+      if (s.hasReportedBusy) {
+        map.set(s.staffId, {
+          staffId: s.staffId,
+          staffName: s.staffName,
+          staffPhone: s.staffPhone,
+          role: s.currentRole || 'PRIMARY_MUA',
+          cancellationReason: s.cancellationReason || matrixData?.emergencyReason || booking?.emergencyReason,
+        });
+      }
+    });
+    const allAssignments = [
+      ...(matrixData?.currentAssignments || []),
+      ...(booking?.assignedStaff || []),
+    ];
+    allAssignments.forEach((a) => {
+      if (a && (a.status === 'EMERGENCY_CANCELLED' || a.hasReportedBusy) && a.staffId) {
+        if (!map.has(a.staffId)) {
+          map.set(a.staffId, {
+            staffId: a.staffId,
+            staffName: a.staffName,
+            staffPhone: a.staffPhone,
+            role: a.role || a.assignmentRole || 'PRIMARY_MUA',
+            cancellationReason: a.cancellationReason || matrixData?.emergencyReason || booking?.emergencyReason,
+          });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [matrixData, booking]);
 
   useEffect(() => {
     if (isOpen && bookingId) {
@@ -80,15 +120,15 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
       const data = res?.data || res;
       setMatrixData(data);
 
-      // Pre-select existing assignments ONLY IF they are currently qualified
+      // Pre-select existing assignments ONLY IF they are currently qualified and NOT reported busy
       if (data?.staffList) {
         const existingPrimary = data.staffList.find(
-          (s) => s.currentRole === 'PRIMARY_MUA' && isStaffQualified(s)
+          (s) => s.currentRole === 'PRIMARY_MUA' && isStaffQualified(s) && !s.hasReportedBusy
         );
         setPrimaryStaffId(existingPrimary ? existingPrimary.staffId : null);
 
         const existingAssistants = data.staffList
-          .filter((s) => s.currentRole === 'ASSISTANT_MUA' && Boolean(s.hasShift && s.hasCalendarFree))
+          .filter((s) => s.currentRole === 'ASSISTANT_MUA' && Boolean(s.hasShift && s.hasCalendarFree) && !s.hasReportedBusy)
           .map((s) => s.staffId);
         setAssistantStaffIds(existingAssistants);
       }
@@ -588,12 +628,65 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             <span className="line-clamp-1">{booking?.destinationAddress}</span>
           </div>
 
-          {matrixData?.needsEmergencyReassignment && (
-            <div className="flex items-center gap-2 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 p-2.5 text-xs text-rose-700 dark:text-rose-300">
-              <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
-              <span>
-                <strong>{t('dispatch_emergency_reason_label')}</strong> {matrixData.emergencyReason}
-              </span>
+          {/* Banner & Danh Sách Thợ Đã Báo Bận */}
+          {(matrixData?.needsEmergencyReassignment || reportedBusyStaffList.length > 0) && (
+            <div className="rounded-xl border-2 border-rose-500/80 bg-rose-50/70 dark:bg-rose-950/40 p-3.5 space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-extrabold text-xs uppercase tracking-wide">
+                  <UserX className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                  <span>{t('dispatch_busy_staff_card_title') || 'Thợ Đã Báo Bận (Cần Thay Thế)'}</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-600 text-white shadow-2xs">
+                  {t('dispatch_badge_reported_busy')}
+                </span>
+              </div>
+
+              {reportedBusyStaffList.length > 0 && (
+                <div className="space-y-1.5">
+                  {reportedBusyStaffList.map((st) => (
+                    <div
+                      key={st.staffId}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-bold text-xs flex items-center justify-center shrink-0 border border-rose-200 dark:border-rose-800">
+                          {st.staffName?.charAt(0) || 'M'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                              {st.staffName}
+                            </span>
+                            <Badge variant={st.role === 'PRIMARY_MUA' ? 'gold' : 'neutral'} size="sm">
+                              {st.role === 'PRIMARY_MUA' ? t('dispatch_badge_primary') : t('dispatch_badge_assistant')}
+                            </Badge>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono block">
+                            {st.staffPhone}
+                          </span>
+                          {st.cancellationReason && (
+                            <span className="text-[11px] text-rose-600 dark:text-rose-400 block mt-0.5">
+                              Lý do: {cleanEmergencyReason(st.cancellationReason)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                        {t('dispatch_badge_reported_busy')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(matrixData?.emergencyReason || booking?.emergencyReason) && (
+                <div className="text-xs text-rose-800 dark:text-rose-200 font-medium pt-1 border-t border-rose-200 dark:border-rose-900/60">
+                  <p>
+                    <strong className="text-rose-900 dark:text-rose-100">{t('dispatch_emergency_reason_label')}</strong>{' '}
+                    {cleanEmergencyReason(matrixData?.emergencyReason || booking?.emergencyReason)}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
