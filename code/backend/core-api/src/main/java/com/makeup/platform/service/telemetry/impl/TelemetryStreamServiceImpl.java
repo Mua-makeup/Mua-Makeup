@@ -18,6 +18,7 @@ import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.entity.telemetry.ProviderType;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
+import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.telemetry.RedisGeoService;
 import com.makeup.platform.service.telemetry.TelemetryLogService;
@@ -41,6 +42,7 @@ import java.util.Map;
 public class TelemetryStreamServiceImpl implements TelemetryStreamService {
 
     private final MuaProfileRepository muaProfileRepository;
+    private final AgencyStaffRepository agencyStaffRepository;
     private final ServicePackageRepository servicePackageRepository;
     private final BookingRepository bookingRepository;
     private final RedisGeoService redisGeoService;
@@ -58,24 +60,28 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
                         "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND));
 
         if (Boolean.TRUE.equals(req.getIsAvailable())) {
-            List<MuaCertificateItem> certs = mua.getCertificates();
-            boolean hasVerifiedCert = certs != null && certs.stream()
-                    .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
-            if (!hasVerifiedCert) {
-                log.warn("MUA {} attempted to go ONLINE without verified certificates", mua.getId());
-                if (certs == null || certs.isEmpty()) {
+            // Đối với thợ Studio chính thức, Studio bảo lãnh tay nghề nên cho phép bật GPS trực tuyến
+            boolean isStaffOfAgency = agencyStaffRepository.existsActiveMembershipByMuaId(mua.getId());
+            if (!isStaffOfAgency) {
+                List<MuaCertificateItem> certs = mua.getCertificates();
+                boolean hasVerifiedCert = certs != null && certs.stream()
+                        .anyMatch(c -> Boolean.TRUE.equals(c.getIsVerified()) || "VERIFIED".equalsIgnoreCase(c.getStatus()));
+                if (!hasVerifiedCert) {
+                    log.warn("MUA {} attempted to go ONLINE without verified certificates", mua.getId());
+                    if (certs == null || certs.isEmpty()) {
+                        throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                                "mua.certificate_missing_cannot_operate", HttpStatus.FORBIDDEN);
+                    }
+                    boolean hasPending = certs.stream()
+                            .anyMatch(c -> "PENDING".equalsIgnoreCase(c.getStatus()) || (!Boolean.TRUE.equals(c.getIsVerified()) && !"REJECTED".equalsIgnoreCase(c.getStatus())));
+                    if (hasPending) {
+                        throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
+                                "mua.certificate_pending_cannot_operate", HttpStatus.FORBIDDEN);
+                    }
+                    // All uploaded certificates are rejected
                     throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
-                            "mua.certificate_missing_cannot_operate", HttpStatus.FORBIDDEN);
+                            "mua.certificate_rejected_cannot_operate", HttpStatus.FORBIDDEN);
                 }
-                boolean hasPending = certs.stream()
-                        .anyMatch(c -> "PENDING".equalsIgnoreCase(c.getStatus()) || (!Boolean.TRUE.equals(c.getIsVerified()) && !"REJECTED".equalsIgnoreCase(c.getStatus())));
-                if (hasPending) {
-                    throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
-                            "mua.certificate_pending_cannot_operate", HttpStatus.FORBIDDEN);
-                }
-                // All uploaded certificates are rejected
-                throw new CustomBusinessException(ErrorCodes.ERR_MUA_CERTIFICATE_NOT_VERIFIED,
-                        "mua.certificate_rejected_cannot_operate", HttpStatus.FORBIDDEN);
             }
 
             if (mua.getBaseAddressLat() == null || mua.getBaseAddressLng() == null) {

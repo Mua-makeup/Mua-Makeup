@@ -23,10 +23,14 @@ import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 import { useWorkstationStore } from '@/store/workstation.store';
+import { useAuthStore } from '@/store/auth.store';
+
 import { useUndoStore } from '@/store/undo.store';
 import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
 
 export default function MuaWorkProfileScreen() {
+  const { userInfo } = useAuthStore();
+  const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF') && !userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,8 +64,13 @@ export default function MuaWorkProfileScreen() {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
+    if (isAgencyStaff) {
+      router.replace('/profile/staff-profile');
+      return;
+    }
     void loadMuaProfile();
-  }, []));
+  }, [isAgencyStaff]));
+
 
   const loadMuaProfile = async () => {
     setIsLoading(true);
@@ -346,8 +355,43 @@ export default function MuaWorkProfileScreen() {
   };
 
 
+  if (isAgencyStaff) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Hồ Sơ Nhân Sự Studio</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerLoading}>
+          <Ionicons name="business-outline" size={48} color={BrandColors.primary} />
+          <Text style={[styles.loadingText, { fontWeight: '700', fontSize: 16, color: BrandColors.slateHeading, marginTop: 12 }]}>
+            Tài Khoản Nhân Viên Studio
+          </Text>
+          <Text style={[styles.loadingText, { textAlign: 'center', marginHorizontal: 24, marginTop: 4, lineHeight: 20 }]}>
+            Thông tin hoạt động, hoa hồng và chứng chỉ nghề nghiệp của bạn được quản lý tập trung tại Hồ Sơ Nhân Sự Studio.
+          </Text>
+          <TouchableOpacity
+            style={[styles.saveButton, { marginTop: 20, paddingHorizontal: 24 }]}
+            onPress={() => router.replace('/profile/staff-profile')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveButtonText}>Xem Hồ Sơ Studio</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -714,23 +758,26 @@ export default function MuaWorkProfileScreen() {
       )}
 
       {/* FOOTER SAVE BUTTON */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
-          onPress={handleSaveMuaProfile}
-          disabled={isSubmitting || isLocatingAddress || isLoading || !!loadError || !profile}
-          activeOpacity={0.8}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="save-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      {!loadError && !!profile && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+            onPress={handleSaveMuaProfile}
+            disabled={isSubmitting || isLocatingAddress || isLoading || !profile}
+            activeOpacity={0.8}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="save-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
 
       {/* MODAL THÊM CHỨNG CHỈ (HỖ TRỢ CLICK RA NGOÀI & KÉO TRƯỢT XUỐNG ĐỂ ĐÓNG) */}
       <SwipeableBottomSheet

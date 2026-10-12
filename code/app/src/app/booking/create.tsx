@@ -317,6 +317,8 @@ export default function CreateBookingScreen() {
         >
           <DateTimeSelector
             muaId={targetMuaId}
+            agencyId={providerType === 'AGENCY' ? providerId : undefined}
+            providerType={providerType}
             durationMinutes={totalDurationMinutes}
             selectedDate={selectedDate}
             selectedTimeSlot={selectedTimeSlot}

@@ -78,4 +78,65 @@ export const muaCalendarService = {
     );
     return res.data.data;
   },
+
+  /**
+   * Lấy danh sách tổng quan ngày của Agency Studio
+   */
+  async getAgencyCalendarDays(
+    agencyId: number,
+    startDate?: string,
+    days: number = 30,
+    durationMinutes: number = 60
+  ): Promise<CalendarDayOverview[]> {
+    const res = await apiClient.get<{ success: boolean; data: CalendarDayOverview[] }>(
+      `/agencies/${agencyId}/calendar-days`,
+      {
+        params: {
+          start_date: startDate,
+          days,
+          duration_minutes: durationMinutes,
+        },
+      }
+    );
+    return res.data.data;
+  },
+
+  /**
+   * Lấy danh sách khung giờ khả dụng theo năng lực của Studio
+   */
+  async getAgencyAvailableSlots(
+    agencyId: number,
+    date: string,
+    durationMinutes: number = 60,
+    stepMinutes: number = 15
+  ): Promise<AvailableSlotsResponse> {
+    const res = await apiClient.get<{ success: boolean; data: AvailableSlotsResponse }>(
+      `/agencies/${agencyId}/available-slots`,
+      {
+        params: {
+          date,
+          duration_minutes: durationMinutes,
+          step_minutes: stepMinutes,
+        },
+      }
+    );
+    return res.data.data;
+  },
+
+  /**
+   * Khóa khung giờ bận cá nhân của thợ (chống bị gán đơn trùng giờ)
+   */
+  async blockPersonalSlot(req: { booking_date: string; start_time: string; end_time: string; reason?: string }): Promise<any> {
+    const res = await apiClient.post('/freelancer/calendar/block', req);
+    return res.data?.data;
+  },
+
+  /**
+   * Mở lại khung giờ bận cá nhân đã khóa
+   */
+  async unblockPersonalSlot(calendarId: number): Promise<void> {
+    await apiClient.delete(`/freelancer/calendar/block/${calendarId}`);
+  },
 };
+
+

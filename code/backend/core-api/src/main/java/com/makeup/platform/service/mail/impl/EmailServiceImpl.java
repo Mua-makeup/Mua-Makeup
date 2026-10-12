@@ -2741,4 +2741,192 @@ public class EmailServiceImpl implements EmailService {
                 trackingUrl
         );
     }
+
+    @Override
+    @Async
+    public void sendStaffDispatchNotificationEmail(
+            String toEmail,
+            String staffName,
+            String agencyName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            String assignmentRole
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send staff dispatch email: recipient email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] Thông Báo Phân Công Ca Làm Việc Mới - #" + bookingCode;
+        String htmlContent = buildStaffDispatchNotificationEmailHtml(
+                staffName, agencyName, bookingCode, customerName, customerPhone,
+                packageName, styleName, destinationAddress, bookingDate, startTime, assignmentRole
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildStaffDispatchNotificationEmailHtml(
+            String staffName,
+            String agencyName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            String assignmentRole
+    ) {
+        String name = (staffName != null && !staffName.isBlank()) ? staffName : "Chuyên viên";
+        String agency = (agencyName != null && !agencyName.isBlank()) ? agencyName : "Studio Đối tác";
+        String code = (bookingCode != null && !bookingCode.isBlank()) ? bookingCode : "N/A";
+        String client = (customerName != null && !customerName.isBlank()) ? customerName : "Khách hàng";
+        String phone = (customerPhone != null && !customerPhone.isBlank()) ? customerPhone : "Chưa cập nhật";
+        String pkg = (packageName != null && !packageName.isBlank()) ? packageName : "Dịch vụ trang điểm";
+        String style = (styleName != null && !styleName.isBlank()) ? styleName : "Tiêu chuẩn";
+        String address = (destinationAddress != null && !destinationAddress.isBlank()) ? destinationAddress : "Tại cơ sở Studio";
+        String dateStr = (bookingDate != null && !bookingDate.isBlank()) ? bookingDate : "Theo lịch hẹn";
+        String timeStr = (startTime != null && !startTime.isBlank()) ? startTime : "Theo giờ hẹn";
+        String role = (assignmentRole != null && !assignmentRole.isBlank()) ? assignmentRole : "Chuyên viên trang điểm";
+        String appUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000");
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thông Báo Phân Công Ca Làm Việc</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e3a8a 50%%, #1d4ed8 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(147, 197, 253, 0.4); margin-bottom: 10px;">
+                            <span style="color: #93c5fd; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; STUDIO DISPATCH
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 21px; font-weight: 800; letter-spacing: 0.5px;">
+                            PHÂN CÔNG CA LÀM VIỆC MỚI
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #bfdbfe; font-size: 13px;">
+                            Điều phối từ Studio: <strong>%s</strong>
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #1e293b;">
+                            Xin chào <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            Studio <strong>%s</strong> vừa phân công bạn phụ trách ca làm đẹp cho đơn hàng <strong>#%s</strong> với vai trò <strong><span style="color: #1d4ed8; background-color: #dbeafe; padding: 2px 8px; border-radius: 6px;">%s</span></strong>.
+                          </p>
+
+                          <!-- Assignment Highlight Box -->
+                          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin-bottom: 24px;">
+                            <h3 style="margin: 0 0 14px 0; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                              THÔNG TIN CHI TIẾT CA HẸN
+                            </h3>
+                            <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="font-size: 13px; color: #334155;">
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b; width: 38%;">Mã ca hẹn:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #0f172a;">#%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Thời gian:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #0284c7;">%s ngày %s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Khách hàng:</td>
+                                <td style="padding: 6px 0; font-weight: 600;">%s &bull; <a href="tel:%s" style="color: #059669; text-decoration: none; font-weight: 700;">%s</a></td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Gói dịch vụ:</td>
+                                <td style="padding: 6px 0; font-weight: 600;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Phong cách:</td>
+                                <td style="padding: 6px 0; font-weight: 600;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Địa điểm:</td>
+                                <td style="padding: 6px 0; font-weight: 600; color: #e11d48;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Vai trò đảm nhiệm:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #1d4ed8;">%s</td>
+                              </tr>
+                            </table>
+                          </div>
+
+                          <!-- Notice Box -->
+                          <div style="background-color: #fefce8; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 18px; margin-bottom: 28px;">
+                            <p style="margin: 0; font-size: 13px; color: #854d0e; line-height: 1.5;">
+                              <strong>Yêu cầu tiếp nhận:</strong> Vui lòng mở ứng dụng và bấm <strong>XÁC NHẬN ĐƠN HÀNG</strong> trước giờ hẹn để studio và khách hàng nắm được lịch trình của bạn.
+                            </p>
+                          </div>
+
+                          <!-- Action Button -->
+                          <div style="text-align: center; margin-bottom: 28px;">
+                            <a href="%s" style="display: inline-block; background: linear-gradient(135deg, #1d4ed8 0%%, #2563eb 100%%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35);">
+                              MỞ ỨNG DỤNG TIẾP NHẬN CA
+                            </a>
+                          </div>
+
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Chúc bạn có một buổi làm đẹp thành công và nhận được đánh giá xuất sắc từ khách hàng!<br>
+                            <strong>Ban Quản Trị MUA Makeup Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ chuyên viên 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                agency,
+                name,
+                agency,
+                code,
+                role,
+                code,
+                timeStr,
+                dateStr,
+                client,
+                phone,
+                phone,
+                pkg,
+                style,
+                address,
+                role,
+                appUrl
+        );
+    }
 }

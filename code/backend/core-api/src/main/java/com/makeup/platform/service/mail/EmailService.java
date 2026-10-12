@@ -126,5 +126,20 @@ public interface EmailService {
             BigDecimal depositAmount,
             BigDecimal remainingAmount
     );
+
+    void sendStaffDispatchNotificationEmail(
+            String toEmail,
+            String staffName,
+            String agencyName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            String assignmentRole
+    );
 }
 

@@ -64,14 +64,13 @@ export const StudioServicesModal: React.FC<Props> = ({
     }
   };
 
-  const handleCallHotline = (phone?: string) => {
-    if (!phone) {
-      Alert.alert('Thông báo', 'Studio chưa cập nhật số hotline.');
-      return;
-    }
+  const handleViewProfile = () => {
+    if (!studio) return;
     Haptics.selectionAsync();
-    Linking.openURL(`tel:${phone}`).catch(() => {
-      Alert.alert('Không thể thực hiện cuộc gọi', `Số hotline: ${phone}`);
+    onClose();
+    router.push({
+      pathname: '/studio/[id]',
+      params: { id: studio.id.toString() },
     });
   };
 
@@ -176,23 +175,25 @@ export const StudioServicesModal: React.FC<Props> = ({
           </View>
         </View>
 
-        {/* HOTLINE CALL ACTION */}
-        {studio.hotline && (
-          <TouchableOpacity
-            style={styles.hotlineBar}
-            onPress={() => handleCallHotline(studio.hotline)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.hotlineLeft}>
-              <Ionicons name="call" size={14} color="#059669" />
-              <Text style={styles.hotlineLabel}>Hotline tư vấn:</Text>
+        {/* THÔNG TIN HOTLINE & NÚT XEM PROFILE CHI TIẾT */}
+        <View style={styles.actionRowContainer}>
+          {!!studio.hotline && (
+            <View style={styles.hotlineTextBar}>
+              <Ionicons name="call-outline" size={13} color="#059669" />
+              <Text style={styles.hotlineLabel}>Hotline: </Text>
               <Text style={styles.hotlineNumber}>{studio.hotline}</Text>
             </View>
-            <View style={styles.callNowBtn}>
-              <Text style={styles.callNowBtnText}>Gọi ngay</Text>
-            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.viewProfileBtn}
+            onPress={handleViewProfile}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.viewProfileBtnText}>Xem hồ sơ Studio</Text>
+            <Ionicons name="arrow-forward" size={13} color="#FFFFFF" />
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
       {/* DANH SÁCH GÓI DỊCH VỤ CỦA STUDIO */}
@@ -236,16 +237,14 @@ export const StudioServicesModal: React.FC<Props> = ({
               Hiện chưa có gói dịch vụ công khai trên ứng dụng. Quý khách vui lòng liên hệ
               hotline để được tư vấn bảng giá và xếp lịch thợ nhanh chóng.
             </Text>
-            {studio.hotline && (
-              <TouchableOpacity
-                style={styles.emptyCallBtn}
-                onPress={() => handleCallHotline(studio.hotline)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="call" size={15} color="#FFFFFF" />
-                <Text style={styles.emptyCallBtnText}>Gọi {studio.hotline}</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.emptyCallBtn}
+              onPress={handleViewProfile}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="business-outline" size={15} color="#FFFFFF" />
+              <Text style={styles.emptyCallBtnText}>Xem hồ sơ chi tiết Studio</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           packages.map((pkg) => {
@@ -460,41 +459,46 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     flex: 1,
   },
-  hotlineBar: {
+  actionRowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ECFDF5',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 10,
     marginTop: 10,
-    borderWidth: 0.8,
-    borderColor: '#A7F3D0',
   },
-  hotlineLeft: {
+  hotlineTextBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 0.8,
+    borderColor: '#BBF7D0',
+    flex: 1,
+    gap: 4,
   },
   hotlineLabel: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#047857',
     fontWeight: '500',
   },
   hotlineNumber: {
-    fontSize: 12.5,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#047857',
   },
-  callNowBtn: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  viewProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BrandColors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 8,
+    gap: 4,
   },
-  callNowBtnText: {
-    fontSize: 11,
+  viewProfileBtnText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
   },

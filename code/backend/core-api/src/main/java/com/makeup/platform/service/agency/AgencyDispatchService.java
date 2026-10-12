@@ -36,4 +36,6 @@ public interface AgencyDispatchService {
     void confirmAssignment(Long muaUserId, Long assignmentId);
 
     AgencyBookingRes updateStaffCommissions(Long ownerUserId, Long bookingId, UpdateStaffCommissionSplitReq req);
+
+    void confirmAssignmentByBooking(Long muaUserId, Long bookingId);
 }

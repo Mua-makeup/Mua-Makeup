@@ -22,11 +22,16 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.util.StringUtils;
 
+import com.makeup.platform.entity.booking.AssignmentRole;
+import com.makeup.platform.entity.booking.AssignmentStatus;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -41,6 +46,7 @@ public class DomainNotificationEventListener {
     private final UserWebSocketNotificationService webSocketNotificationService;
     private final JsonMessageSource messageSource;
     private final EmailService emailService;
+    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
 
     @Async("notificationTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -81,8 +87,10 @@ public class DomainNotificationEventListener {
             dispatchCustomerEmailNotifications(booking, event);
         }
 
-        // 4. Xử lý thông báo cho Thợ MUA (nếu có ca bị hủy hoặc chuyển giao)
-        if (booking.getMua() != null && booking.getMua().getUser() != null) {
+        // 4. Xử lý thông báo cho Thợ MUA
+        if (event.getToStatus() == BookingStatus.AGENCY_ASSIGNED) {
+            dispatchStaffDispatchAssignedNotification(booking, event);
+        } else if (booking.getMua() != null && booking.getMua().getUser() != null) {
             dispatchMuaNotification(booking, booking.getMua().getUser(), event.getToStatus(), customerName, bookingCode);
         }
     }
@@ -203,6 +211,122 @@ public class DomainNotificationEventListener {
 
         // Bắn WebSocket P2P tới Thợ MUA
         webSocketNotificationService.sendNotificationToUser(muaUser.getId(), saved, unreadCount);
+    }
+
+    private void dispatchStaffDispatchAssignedNotification(BookingEntity booking, BookingStateChangedEvent event) {
+        List<BookingStaffAssignmentEntity> assignments = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
+
+        if (assignments.isEmpty()) {
+            return;
+        }
+
+        String agencyName = booking.getAgency() != null && StringUtils.hasText(booking.getAgency().getAgencyName())
+                ? booking.getAgency().getAgencyName()
+                : "Studio";
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+        String dateStr = booking.getBookingDate() != null
+                ? booking.getBookingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                : "ngày hẹn";
+        String timeStr = booking.getStartTime() != null
+                ? booking.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                : "giờ hẹn";
+        String packageName = booking.getServicePackage() != null
+                ? booking.getServicePackage().getPackageName()
+                : "Dịch vụ trang điểm";
+        String styleName = booking.getStyle() != null
+                ? booking.getStyle().getStyleName()
+                : "Tiêu chuẩn";
+        String customerName = (booking.getCustomer() != null && StringUtils.hasText(booking.getCustomer().getFullName()))
+                ? booking.getCustomer().getFullName()
+                : "Khách hàng";
+        String customerPhone = (booking.getCustomer() != null && StringUtils.hasText(booking.getCustomer().getPhoneNumber()))
+                ? booking.getCustomer().getPhoneNumber()
+                : "Chưa cập nhật";
+        String destinationAddress = StringUtils.hasText(booking.getDestinationAddress())
+                ? booking.getDestinationAddress()
+                : "Tại cơ sở Studio";
+
+        for (BookingStaffAssignmentEntity assignment : assignments) {
+            if (assignment.getStaff() == null || assignment.getStaff().getMua() == null
+                    || assignment.getStaff().getMua().getUser() == null) {
+                continue;
+            }
+
+            UserEntity staffUser = assignment.getStaff().getMua().getUser();
+            Locale locale = resolveLocale(staffUser);
+            boolean isPrimary = assignment.getAssignmentRole() == AssignmentRole.PRIMARY_MUA;
+            String roleName = isPrimary
+                    ? (locale.getLanguage().equals("en") ? "Primary Artist" : "Thợ chính")
+                    : (locale.getLanguage().equals("en") ? "Assistant" : "Thợ phụ");
+
+            // 1. In-App Notification (Database + STOMP WebSocket)
+            String title = messageSource.getLocalizedMessage(
+                    "notification.staff_dispatch_assigned_title",
+                    null,
+                    "Studio đã phân công ca làm việc mới!",
+                    locale
+            );
+            String content = messageSource.getLocalizedMessage(
+                    "notification.staff_dispatch_assigned_content",
+                    new Object[]{agencyName, roleName, bookingCode, dateStr, timeStr},
+                    "Studio " + agencyName + " đã phân công bạn (" + roleName + ") cho ca hẹn #" + bookingCode + " vào ngày " + dateStr + " lúc " + timeStr + ". Vui lòng xác nhận tiếp nhận ca!",
+                    locale
+            );
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("bookingId", booking.getId());
+            metadata.put("bookingCode", bookingCode);
+            metadata.put("assignmentRole", assignment.getAssignmentRole().name());
+            metadata.put("agencyId", booking.getAgency() != null ? booking.getAgency().getId() : null);
+            metadata.put("agencyName", agencyName);
+            metadata.put("bookingDate", dateStr);
+            metadata.put("startTime", timeStr);
+            metadata.put("destinationAddress", destinationAddress);
+
+            NotificationEntity entity = NotificationEntity.builder()
+                    .user(staffUser)
+                    .booking(booking)
+                    .agency(booking.getAgency())
+                    .type("STAFF_DISPATCH_ASSIGNED")
+                    .title(title)
+                    .content(content)
+                    .metadata(metadata)
+                    .isRead(false)
+                    .build();
+
+            NotificationEntity saved = notificationRepository.save(entity);
+            long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+
+            webSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+            log.info("[DomainNotification] Sent in-app dispatch notification to staff userId={} for bookingCode={}",
+                    staffUser.getId(), bookingCode);
+
+            // 2. Email Notification
+            if (StringUtils.hasText(staffUser.getEmail())) {
+                try {
+                    emailService.sendStaffDispatchNotificationEmail(
+                            staffUser.getEmail().trim(),
+                            staffUser.getFullName(),
+                            agencyName,
+                            bookingCode,
+                            customerName,
+                            customerPhone,
+                            packageName,
+                            styleName,
+                            destinationAddress,
+                            dateStr,
+                            timeStr,
+                            roleName
+                    );
+                    log.info("[DomainNotification] Sent dispatch email to staff={} ({}) for bookingCode={}",
+                            staffUser.getFullName(), staffUser.getEmail(), bookingCode);
+                } catch (Exception ex) {
+                    log.error("[DomainNotification] Failed to send dispatch email to staff {}: {}",
+                            staffUser.getEmail(), ex.getMessage(), ex);
+                }
+            }
+        }
     }
 
     private Locale resolveLocale(UserEntity user) {

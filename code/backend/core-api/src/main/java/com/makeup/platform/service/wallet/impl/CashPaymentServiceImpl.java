@@ -4,13 +4,17 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.wallet.CashPaymentConfirmationReq;
 import com.makeup.platform.dto.response.wallet.CashReceiptStatusRes;
+import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.wallet.BookingCashReceiptEntity;
 import com.makeup.platform.repository.MuaProfileRepository;
+import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
 import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
@@ -44,6 +48,8 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     private final BookingRepository bookingRepository;
     private final BookingCashReceiptRepository cashReceiptRepository;
     private final MuaProfileRepository muaProfileRepository;
+    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
+    private final UserRepository userRepository;
     private final BookingSettlementService bookingSettlementService;
     private final SimpMessagingTemplate messagingTemplate;
     private final EmailService emailService;
@@ -105,15 +111,35 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     @Override
     @Transactional
     public CashReceiptStatusRes confirmByFreelancer(Long bookingId, Long muaUserId, CashPaymentConfirmationReq req) {
-        // Verify MUA is assigned to this booking
+        return confirmByWorker(bookingId, muaUserId, req);
+    }
+
+    @Override
+    @Transactional
+    public CashReceiptStatusRes confirmByWorker(Long bookingId, Long workerUserId, CashPaymentConfirmationReq req) {
         BookingEntity booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
                         "booking.not_found", HttpStatus.NOT_FOUND));
 
-        if (booking.getMua() == null || !booking.getMua().getUser().getId().equals(muaUserId)) {
-            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
-                    "cash_receipt.freelancer_not_assigned", HttpStatus.FORBIDDEN);
+        boolean isPrimaryMua = booking.getMua() != null && booking.getMua().getUser() != null
+                && booking.getMua().getUser().getId().equals(workerUserId);
+        boolean isAssignedStaff = false;
+        if (!isPrimaryMua && booking.getAgency() != null) {
+            isAssignedStaff = bookingStaffAssignmentRepository.findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
+                    .stream()
+                    .anyMatch(a -> a.getStaff() != null && a.getStaff().getMua() != null
+                            && a.getStaff().getMua().getUser() != null
+                            && a.getStaff().getMua().getUser().getId().equals(workerUserId));
         }
+
+        if (!isPrimaryMua && !isAssignedStaff) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
+                    "cash_receipt.worker_not_assigned", HttpStatus.FORBIDDEN);
+        }
+
+        UserEntity workerUser = userRepository.findById(workerUserId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
+                        "auth.user_not_found", HttpStatus.NOT_FOUND));
 
         BookingCashReceiptEntity receipt = cashReceiptRepository.findByBookingIdWithLock(bookingId)
                 .orElseGet(() -> {
@@ -126,7 +152,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
                             .expectedAmount(expectedCash.max(BigDecimal.ZERO))
                             .status("PENDING")
                             .customerUser(booking.getCustomer())
-                            .freelancerUser(booking.getMua().getUser())
+                            .freelancerUser(workerUser)
                             .build();
 
                     return cashReceiptRepository.save(newReceipt);
@@ -139,7 +165,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             }
             receipt = checkAndTriggerSettlement(receipt, bookingId);
             cashReceiptRepository.save(receipt);
-            log.info("[CashReceipt] Freelancer {} confirmed cash for booking {}, returning settled receipt", muaUserId, bookingId);
+            log.info("[CashReceipt] Worker {} confirmed cash for booking {}, returning settled receipt", workerUserId, bookingId);
             return mapToRes(receipt, bookingId);
         }
 
@@ -149,7 +175,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
         }
 
         receipt.setFreelancerConfirmedAt(OffsetDateTime.now(VIETNAM_OFFSET));
-        receipt.setFreelancerUser(booking.getMua().getUser());
+        receipt.setFreelancerUser(workerUser);
         receipt.setIdempotencyKeyFreelancer(req.getIdempotencyKey());
 
         if (receipt.getCustomerConfirmedAt() == null) {
@@ -159,7 +185,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
         receipt = checkAndTriggerSettlement(receipt, bookingId);
         cashReceiptRepository.save(receipt);
 
-        log.info("[CashReceipt] Freelancer {} confirmed cash for booking {}", muaUserId, bookingId);
+        log.info("[CashReceipt] Worker {} confirmed cash for booking {}", workerUserId, bookingId);
         return mapToRes(receipt, bookingId);
     }
 

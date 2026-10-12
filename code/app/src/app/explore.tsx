@@ -409,9 +409,11 @@ export default function ExploreScreen() {
     const fullAddress = [item.addressStreet, item.district, item.city].filter(Boolean).join(', ');
 
     const openStudioServices = () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSelectedStudioForModal(item);
-      setIsStudioModalVisible(true);
+      Haptics.selectionAsync();
+      router.push({
+        pathname: '/studio/[id]',
+        params: { id: item.id.toString() },
+      });
     };
 
     return (

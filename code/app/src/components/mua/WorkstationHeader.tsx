@@ -17,6 +17,7 @@ import { useWorkstationStore } from '@/store/workstation.store';
 import { muaProfileService } from '@/services/mua-profile.service';
 import { router } from 'expo-router';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
+import { useAuthStore } from '@/store/auth.store';
 
 const RADIUS_OPTIONS = [
   { km: 5, label: '5 km', desc: 'Bán kính gần (Nội quận, 10–15 phút di chuyển)' },
@@ -28,7 +29,10 @@ const RADIUS_OPTIONS = [
 
 export const WorkstationHeader: React.FC = () => {
   const { isOnline, profile, toggleOnline } = useWorkstationStore();
+  const { userInfo } = useAuthStore();
+  const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF') && !userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const [isToggling, setIsToggling] = useState(false);
+
   const [showRadiusModal, setShowRadiusModal] = useState(false);
   const [currentRadius, setCurrentRadius] = useState<number>(
     profile?.maxServiceRadiusKm ? Number(profile.maxServiceRadiusKm) : 15
@@ -78,7 +82,7 @@ export const WorkstationHeader: React.FC = () => {
               { text: 'Để Sau', style: 'cancel' },
               {
                 text: 'Kiểm Tra & Tải Lại',
-                onPress: () => router.push('/profile/mua-profile'),
+                onPress: () => router.push(isAgencyStaff ? '/profile/staff-profile' : '/profile/mua-profile'),
               },
             ]
           );
@@ -96,7 +100,7 @@ export const WorkstationHeader: React.FC = () => {
               { text: 'Đã Hiểu', style: 'cancel' },
               {
                 text: 'Xem Hồ Sơ',
-                onPress: () => router.push('/profile/mua-profile'),
+                onPress: () => router.push(isAgencyStaff ? '/profile/staff-profile' : '/profile/mua-profile'),
               },
             ]
           );
@@ -109,11 +113,12 @@ export const WorkstationHeader: React.FC = () => {
               { text: 'Để Sau', style: 'cancel' },
               {
                 text: 'Tải Chứng Chỉ Ngay',
-                onPress: () => router.push('/profile/mua-profile'),
+                onPress: () => router.push(isAgencyStaff ? '/profile/staff-profile' : '/profile/mua-profile'),
               },
             ]
           );
         }
+
       } else {
         const displayMsg =
           apiMessage ||
@@ -179,7 +184,13 @@ export const WorkstationHeader: React.FC = () => {
         <TouchableOpacity
           style={styles.profileInfo}
           activeOpacity={0.8}
-          onPress={() => router.push('/profile/mua-profile')}
+          onPress={() => {
+            if (isAgencyStaff) {
+              router.push('/profile/staff-profile');
+            } else {
+              router.push('/profile/mua-profile');
+            }
+          }}
         >
           <View style={styles.avatarWrapper}>
             <UserAvatar uri={avatarUrl} name={profile?.fullName} size={48} />
@@ -188,84 +199,99 @@ export const WorkstationHeader: React.FC = () => {
           <View style={styles.nameBlock}>
             <View style={styles.nameBadgeRow}>
               <Text style={styles.fullName} numberOfLines={1}>
-                {profile?.fullName || 'Chuyên Viên Make-up'}
+                {profile?.fullName || (isAgencyStaff ? 'Nhân Viên Studio' : 'Chuyên Viên Make-up')}
               </Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>Pro MUA</Text>
+              <View style={[styles.badge, isAgencyStaff && { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}>
+                <Text style={[styles.badgeText, isAgencyStaff && { color: '#0369A1' }]}>
+                  {isAgencyStaff ? 'Thợ Studio' : 'Pro MUA'}
+                </Text>
               </View>
             </View>
             <Text style={styles.roleSubtext}>
-              {profile?.experienceYears ? `${profile.experienceYears} năm kinh nghiệm` : 'Thợ trang điểm tự do'} • Bán kính {currentRadius}km
+              {isAgencyStaff
+                ? 'Nhân viên trực thuộc Studio'
+                : `${profile?.experienceYears ? `${profile.experienceYears} năm kinh nghiệm` : 'Thợ trang điểm tự do'} • Bán kính ${currentRadius}km`}
             </Text>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.profileEditBtn}
-          onPress={() => router.push('/profile/mua-profile')}
+          onPress={() => {
+            if (isAgencyStaff) {
+              router.push('/profile/staff-profile');
+            } else {
+              router.push('/profile/mua-profile');
+            }
+          }}
         >
-          <Ionicons name="options-outline" size={20} color="#0F172A" />
+          <Ionicons name={isAgencyStaff ? 'business-outline' : 'options-outline'} size={19} color="#0F172A" />
         </TouchableOpacity>
       </View>
 
-      {/* Switch Bar: Sẵn sàng nhận ca */}
-      <View style={[styles.toggleCard, isOnline ? styles.toggleCardActive : styles.toggleCardInactive]}>
-        <View style={styles.toggleLeft}>
-          <View style={[styles.iconCircle, { backgroundColor: isOnline ? '#DCFCE7' : '#F1F5F9' }]}>
-            <Ionicons
-              name={isOnline ? 'radio-outline' : 'moon-outline'}
-              size={20}
-              color={isOnline ? '#10B981' : '#64748B'}
-            />
-          </View>
-          <View style={styles.toggleTextGroup}>
-            <Text style={[styles.toggleTitle, { color: isOnline ? '#065F46' : '#1E293B' }]}>
-              {isOnline ? 'Đang trực tuyến' : 'Đang Tạm Nghỉ (Offline)'}
-            </Text>
-            <Text style={styles.toggleSubtitle}>
-              {isOnline
-                ? 'Nhận đơn quanh địa điểm nhận ca đã lưu'
-                : 'Bật trực tuyến để nhận đơn quanh điểm nhận ca'}
-            </Text>
-          </View>
-        </View>
 
-        {isToggling ? (
-          <ActivityIndicator size="small" color="#E11D48" />
-        ) : (
-          <Switch
-            value={isOnline}
-            onValueChange={handleToggle}
-            trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
-            thumbColor={isOnline ? '#10B981' : '#FFFFFF'}
-          />
-        )}
-      </View>
+      {/* Switch Bar & Bán Kính: Chỉ dành cho thợ tự do (Freelance MUA), thợ Studio làm việc theo ca trực & điều phối */}
+      {!isAgencyStaff && (
+        <>
+          <View style={[styles.toggleCard, isOnline ? styles.toggleCardActive : styles.toggleCardInactive]}>
+            <View style={styles.toggleLeft}>
+              <View style={[styles.iconCircle, { backgroundColor: isOnline ? '#DCFCE7' : '#F1F5F9' }]}>
+                <Ionicons
+                  name={isOnline ? 'radio-outline' : 'moon-outline'}
+                  size={20}
+                  color={isOnline ? '#10B981' : '#64748B'}
+                />
+              </View>
+              <View style={styles.toggleTextGroup}>
+                <Text style={[styles.toggleTitle, { color: isOnline ? '#065F46' : '#1E293B' }]}>
+                  {isOnline ? 'Đang trực tuyến' : 'Đang Tạm Nghỉ (Offline)'}
+                </Text>
+                <Text style={styles.toggleSubtitle}>
+                  {isOnline
+                    ? 'Nhận đơn quanh địa điểm nhận ca đã lưu'
+                    : 'Bật trực tuyến để nhận đơn quanh điểm nhận ca'}
+                </Text>
+              </View>
+            </View>
 
-      {/* Bán Kính Nhận Ca: Dạng Dropdown Bar Tinh Tế Ngay Dưới Nút Bật/Tắt */}
-      <TouchableOpacity
-        style={styles.radiusSelectorBar}
-        activeOpacity={0.7}
-        onPress={() => {
-          setSelectedRadius(currentRadius);
-          setShowRadiusModal(true);
-        }}
-      >
-        <View style={styles.radiusBarLeft}>
-          <View style={styles.radiusIconBadge}>
-            <Ionicons name="navigate" size={13} color="#2563EB" />
+            {isToggling ? (
+              <ActivityIndicator size="small" color="#E11D48" />
+            ) : (
+              <Switch
+                value={isOnline}
+                onValueChange={handleToggle}
+                trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
+                thumbColor={isOnline ? '#10B981' : '#FFFFFF'}
+              />
+            )}
           </View>
-          <Text style={styles.radiusBarLabel}>Bán kính nhận ca:</Text>
-          <View style={styles.radiusPill}>
-            <Text style={styles.radiusPillText}>{currentRadius} km</Text>
-          </View>
-        </View>
 
-        <View style={styles.radiusBarRight}>
-          <Text style={styles.radiusChangeText}>Thay đổi</Text>
-          <Ionicons name="chevron-down" size={14} color="#2563EB" />
-        </View>
-      </TouchableOpacity>
+          {/* Bán Kính Nhận Ca: Dạng Dropdown Bar Tinh Tế Ngay Dưới Nút Bật/Tắt */}
+          <TouchableOpacity
+            style={styles.radiusSelectorBar}
+            activeOpacity={0.7}
+            onPress={() => {
+              setSelectedRadius(currentRadius);
+              setShowRadiusModal(true);
+            }}
+          >
+            <View style={styles.radiusBarLeft}>
+              <View style={styles.radiusIconBadge}>
+                <Ionicons name="navigate" size={13} color="#2563EB" />
+              </View>
+              <Text style={styles.radiusBarLabel}>Bán kính nhận ca:</Text>
+              <View style={styles.radiusPill}>
+                <Text style={styles.radiusPillText}>{currentRadius} km</Text>
+              </View>
+            </View>
+
+            <View style={styles.radiusBarRight}>
+              <Text style={styles.radiusChangeText}>Thay đổi</Text>
+              <Ionicons name="chevron-down" size={14} color="#2563EB" />
+            </View>
+          </TouchableOpacity>
+        </>
+      )}
 
       {/* Bottom Sheet Thiết Lập Bán Kính (Chỉ lưu khi bấm Xác Nhận & Đóng) */}
       <SwipeableBottomSheet

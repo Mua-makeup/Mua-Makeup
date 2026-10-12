@@ -151,7 +151,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                     LocalTime finalStart = currentStart;
                     LocalTime finalEnd = currentEnd;
                     boolean insideShift = staffShifts.stream().anyMatch(shift ->
-                            !finalStart.isBefore(shift.getStartTime()) && !finalEnd.isAfter(shift.getEndTime()));
+                            !finalStart.isBefore(shift.getStartTime()) && finalStart.isBefore(shift.getEndTime()));
                     if (!insideShift) {
                         currentStart = currentStart.plusMinutes(30);
                         continue;
@@ -262,7 +262,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                 LocalTime finalStart = currentStart;
                 LocalTime finalEnd = currentEnd;
                 boolean insideShift = staffShifts.stream().anyMatch(shift ->
-                        !finalStart.isBefore(shift.getStartTime()) && !finalEnd.isAfter(shift.getEndTime()));
+                        !finalStart.isBefore(shift.getStartTime()) && finalStart.isBefore(shift.getEndTime()));
 
                 if (!insideShift) {
                     slotItems.add(AvailableTimeSlotRes.TimeSlotItemRes.builder()
@@ -512,7 +512,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
             LocalTime startTime = startAt.toLocalTime();
             LocalTime endTime = endAt.toLocalTime();
             boolean insideShift = staffShifts.stream().anyMatch(shift ->
-                    !startTime.isBefore(shift.getStartTime()) && !endTime.isAfter(shift.getEndTime()));
+                    !startTime.isBefore(shift.getStartTime()) && startTime.isBefore(shift.getEndTime()));
 
             if (!insideShift) {
                 return false;

@@ -133,6 +133,16 @@ public class AgencyDispatchController extends BaseController {
         return ok(null, "dispatch.assignment_confirm_success");
     }
 
+    @PostMapping("/bookings/{bookingId}/confirm-assignment")
+    @PreAuthorize("hasRole('AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> confirmAssignmentByBooking(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookingId
+    ) {
+        agencyDispatchService.confirmAssignmentByBooking(userId, bookingId);
+        return ok(null, "dispatch.assignment_confirm_success");
+    }
+
     @PutMapping("/bookings/{bookingId}/staff-commissions")
     @PreAuthorize("hasRole('AGENCY_ADMIN')")
     public ResponseEntity<ApiResponse<AgencyBookingRes>> updateStaffCommissions(

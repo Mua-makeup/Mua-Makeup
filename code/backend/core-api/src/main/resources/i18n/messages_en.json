@@ -117,7 +117,15 @@
     "shift_updated_success": "Shift updated successfully!",
     "shift_deleted_success": "Shift deleted successfully!",
     "bookings_fetch_success": "Retrieved studio bookings successfully.",
-    "logo_upload_success": "Studio logo uploaded successfully."
+    "logo_upload_success": "Studio logo uploaded successfully.",
+    "cert_upload_success": "Professional certificate uploaded successfully (pending Studio verification).",
+    "cert_review_success": "Staff certificate reviewed successfully.",
+    "cert_delete_success": "Certificate deleted successfully.",
+    "cannot_delete_verified_platform_cert": "Cannot delete certificate that was verified by Platform Super Admin.",
+    "review": {
+      "decision_required": "Decision is required.",
+      "decision_invalid": "Invalid decision. Only VERIFIED or REJECTED is accepted."
+    }
   },
   "catalog": {
     "style_not_found": "Makeup style not found with ID: {0}",
@@ -501,6 +509,8 @@
     "certificate_upload_content": "Makeup Artist {0} uploaded certificate '{1}' requiring Super Admin approval.",
     "booking_accepted_title": "Artist accepted your booking!",
     "booking_accepted_content": "Makeup Artist {0} has confirmed your appointment #{1}.",
+    "staff_dispatch_assigned_title": "New booking assigned by Studio!",
+    "staff_dispatch_assigned_content": "Studio {0} assigned you as {1} for booking #{2} on {3} at {4}. Please confirm your assignment!",
     "scheduled_booking_accepted_title": "Artist confirmed your scheduled appointment!",
     "scheduled_booking_accepted_content": "Makeup Artist {0} has confirmed appointment #{1} on {2} at {3}.",
     "booking_on_the_way_title": "Artist is on the way!",
@@ -587,5 +597,14 @@
     "commission_amount_min": "Commission amount cannot be negative."
   },
   "ERR_SLOT_ALREADY_BOOKED": "This appointment slot was just booked and paid by another customer. Please choose another time slot!",
-  "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired."
+  "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired.",
+  "cash_receipt": {
+    "customer_confirmed": "Customer cash payment confirmed successfully.",
+    "worker_confirmed": "Artist cash collection confirmed successfully.",
+    "freelancer_confirmed": "Artist cash collection confirmed successfully.",
+    "status_ok": "Retrieved cash receipt status successfully.",
+    "not_found": "Cash receipt record not found for this booking.",
+    "worker_not_assigned": "You are not assigned to this booking to confirm cash receipt.",
+    "freelancer_not_assigned": "You are not assigned to this booking to confirm cash receipt."
+  }
 }

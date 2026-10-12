@@ -457,6 +457,24 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
 
         log.info("Staff {} confirmed assignment {}", muaUserId, assignmentId);
 
+        BookingEntity booking = assignment.getBooking();
+        BookingStatus previousStatus = booking.getStatus();
+
+        if (assignment.getAssignmentRole() == AssignmentRole.PRIMARY_MUA
+                && previousStatus == BookingStatus.AGENCY_ASSIGNED) {
+            booking.setStatus(BookingStatus.ACCEPTED);
+            bookingRepository.save(booking);
+
+            eventPublisher.publishEvent(new BookingStateChangedEvent(
+                    this,
+                    booking.getId(),
+                    booking.getBookingCode(),
+                    previousStatus,
+                    BookingStatus.ACCEPTED,
+                    muaUserId
+            ));
+        }
+
         String staffName = (assignment.getStaff() != null && assignment.getStaff().getMua() != null && assignment.getStaff().getMua().getUser() != null)
                 ? assignment.getStaff().getMua().getUser().getFullName() : (support.isEnglishLocale() ? "Artist" : "Chuyên viên");
         boolean isEnConfirm = support.isEnglishLocale();
@@ -464,12 +482,28 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 ? ("Artist (" + staffName + ") confirmed assignment (" + assignment.getAssignmentRole().name() + ")")
                 : ("Thợ (" + staffName + ") xác nhận nhận ca (" + assignment.getAssignmentRole().name() + ")");
         bookingAuditService.logTransition(
-                assignment.getBooking(),
-                assignment.getBooking().getStatus(),
-                assignment.getBooking().getStatus(),
+                booking,
+                previousStatus,
+                booking.getStatus(),
                 muaUserId,
                 confirmNote
         );
+    }
+
+    @Override
+    @Transactional
+    public void confirmAssignmentByBooking(Long muaUserId, Long bookingId) {
+        BookingStaffAssignmentEntity assignment = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
+                .stream()
+                .filter(a -> a.getStaff() != null
+                        && a.getStaff().getMua() != null
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(muaUserId))
+                .findFirst()
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"));
+
+        confirmAssignment(muaUserId, assignment.getId());
     }
 
     @Override
