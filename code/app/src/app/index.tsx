@@ -873,8 +873,10 @@ export default function HomeScreen() {
                       activeOpacity={0.88}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedStudioForModal(st);
-                        setIsStudioModalVisible(true);
+                        router.push({
+                          pathname: '/studio/[id]',
+                          params: { id: st.id.toString() },
+                        });
                       }}
                     >
                       <View style={styles.featuredStudioTop}>

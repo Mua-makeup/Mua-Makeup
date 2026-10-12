@@ -107,12 +107,6 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                         "booking.access_denied", HttpStatus.FORBIDDEN);
             }
 
-            // Chỉ áp dụng cho FREELANCER_DIRECT
-            if (booking.getBookingPartner() != BookingPartner.FREELANCER_DIRECT) {
-                throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_FREELANCER_DIRECT,
-                        "booking.deposit_not_freelancer_direct", HttpStatus.BAD_REQUEST);
-            }
-
             // Lấy hoặc tạo booking_deposit
             BookingDepositEntity deposit = bookingDepositRepository.findByBookingIdWithLock(bookingId)
                     .orElseGet(() -> createBookingDeposit(booking));

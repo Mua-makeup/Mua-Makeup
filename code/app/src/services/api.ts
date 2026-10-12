@@ -154,7 +154,12 @@ apiClient.interceptors.response.use(
         const newAccessToken = refreshResponse.data?.data?.accessToken;
         const newRefreshToken = refreshResponse.data?.data?.refreshToken || currentRefreshToken;
 
-        if (newAccessToken) {
+        if (
+          typeof newAccessToken === 'string' &&
+          newAccessToken.length > 0 &&
+          typeof newRefreshToken === 'string' &&
+          newRefreshToken.length > 0
+        ) {
           await saveTokens(newAccessToken, newRefreshToken);
           processQueue(null, newAccessToken);
 

@@ -81,6 +81,20 @@ public class BookingHistoryMapper {
         String actionTitle = resolveActionTitle(entity.getToStatus());
         String formattedTime = entity.getCreatedAt() != null ? entity.getCreatedAt().format(TIME_FORMATTER) : null;
 
+        String note = entity.getNote();
+        if ((note == null || note.isBlank() || note.startsWith("Chuyển trạng thái") || note.equals("Đơn hàng đã bị hủy theo yêu cầu.")) && booking != null) {
+            if (entity.getToStatus() == BookingStatus.CANCELLED || entity.getToStatus() == BookingStatus.CANCELLED_EXPIRED) {
+                if (booking.getCancellationReason() != null && !booking.getCancellationReason().isBlank()) {
+                    note = booking.getCancellationReason();
+                }
+            } else if (entity.getToStatus() == BookingStatus.DISPUTED || entity.getToStatus() == BookingStatus.DISPUTE_REFUNDED || entity.getToStatus() == BookingStatus.DISPUTE_COMPENSATED) {
+                String disputeReason = booking.getEmergencyReason() != null ? booking.getEmergencyReason() : booking.getCancellationReason();
+                if (disputeReason != null && !disputeReason.isBlank()) {
+                    note = disputeReason;
+                }
+            }
+        }
+
         return BookingHistoryLogRes.builder()
                 .id(entity.getId())
                 .fromStatus(entity.getFromStatus() != null ? entity.getFromStatus().name() : null)
@@ -92,7 +106,7 @@ public class BookingHistoryMapper {
                 .artistPhone(artistPhone)
                 .originAddress(originAddress)
                 .destinationAddress(destinationAddress)
-                .note(entity.getNote())
+                .note(note)
                 .formattedTime(formattedTime)
                 .createdAt(entity.getCreatedAt())
                 .build();

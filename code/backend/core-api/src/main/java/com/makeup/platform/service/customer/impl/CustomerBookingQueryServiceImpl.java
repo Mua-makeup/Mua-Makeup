@@ -49,6 +49,7 @@ public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryServ
         if (statusGroup != null && !statusGroup.isBlank() && !"ALL".equalsIgnoreCase(statusGroup)) {
             if ("UPCOMING".equalsIgnoreCase(statusGroup)) {
                 Set<BookingStatus> upcomingStatuses = Set.of(
+                        BookingStatus.PENDING_DEPOSIT,
                         BookingStatus.REQUESTED,
                         BookingStatus.PENDING_AGENCY_DISPATCH,
                         BookingStatus.AGENCY_ASSIGNED,
@@ -101,6 +102,7 @@ public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryServ
         }
 
         Set<BookingStatus> activeStatuses = Set.of(
+                BookingStatus.PENDING_DEPOSIT,
                 BookingStatus.REQUESTED,
                 BookingStatus.PENDING_AGENCY_DISPATCH,
                 BookingStatus.AGENCY_ASSIGNED,
@@ -114,7 +116,11 @@ public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryServ
         BookingEntity targetBooking = bookings.stream()
                 .filter(b -> activeStatuses.contains(b.getStatus()))
                 .findFirst()
-                .orElse(bookings.get(0)); // Nếu không có đơn active, fallback về đơn gần nhất
+                .orElse(null);
+
+        if (targetBooking == null) {
+            return null;
+        }
 
         List<BookingHistoryEntity> historyList = bookingHistoryRepository
                 .findByBookingIdOrderByCreatedAtAsc(targetBooking.getId());

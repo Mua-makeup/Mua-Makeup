@@ -64,6 +64,8 @@ function formatCurrency(amount: number): string {
 
 interface Props {
   muaId: number;
+  agencyId?: number;
+  providerType?: 'FREELANCER' | 'AGENCY';
   durationMinutes?: number;
   selectedDate: string; // YYYY-MM-DD
   selectedTimeSlot: string; // HH:mm
@@ -73,12 +75,16 @@ interface Props {
 
 export const DateTimeSelector: React.FC<Props> = ({
   muaId,
+  agencyId,
+  providerType = 'FREELANCER',
   durationMinutes = 60,
   selectedDate,
   selectedTimeSlot,
   onSelectDate,
   onSelectTimeSlot,
 }) => {
+  const isAgency = providerType === 'AGENCY' || (agencyId != null && agencyId > 0);
+  const targetId = isAgency ? (agencyId || muaId) : muaId;
   const [calendarDays, setCalendarDays] = useState<CalendarDayOverview[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlotItem[]>([]);
   const [isLoadingDays, setIsLoadingDays] = useState(false);
@@ -128,7 +134,7 @@ export const DateTimeSelector: React.FC<Props> = ({
   useEffect(() => {
     let isMounted = true;
     async function fetchDays() {
-      if (!muaId) return;
+      if (!targetId) return;
       setIsLoadingDays(true);
       try {
         const today = new Date();
@@ -137,15 +143,18 @@ export const DateTimeSelector: React.FC<Props> = ({
         const d = String(today.getDate()).padStart(2, '0');
         const startDate = `${y}-${m}-${d}`;
 
-        const days = await muaCalendarService.getCalendarDays(muaId, startDate, 90, durationMinutes);
+        const days = isAgency
+          ? await muaCalendarService.getAgencyCalendarDays(targetId, startDate, 90, durationMinutes)
+          : await muaCalendarService.getCalendarDays(targetId, startDate, 90, durationMinutes);
+
         if (isMounted) {
           setCalendarDays(days);
 
           // Chỉ tự động đổi ngày nếu ngày người dùng đang chọn trước đó bị kín lịch
           if (selectedDate) {
-            const currentDayObj = days.find((item) => item.date === selectedDate);
+            const currentDayObj = days.find((item: CalendarDayOverview) => item.date === selectedDate);
             if (currentDayObj?.is_fully_booked) {
-              const firstAvailable = days.find((item) => !item.is_fully_booked);
+              const firstAvailable = days.find((item: CalendarDayOverview) => !item.is_fully_booked);
               if (firstAvailable) {
                 onSelectDate(firstAvailable.date);
               }
@@ -162,21 +171,29 @@ export const DateTimeSelector: React.FC<Props> = ({
     return () => {
       isMounted = false;
     };
-  }, [muaId, durationMinutes]);
+  }, [targetId, isAgency, durationMinutes]);
 
   // 2. Tải danh sách các khung giờ của ngày được chọn từ Backend
   useEffect(() => {
     let isMounted = true;
     async function fetchSlots() {
-      if (!muaId || !selectedDate) return;
+      if (!targetId || !selectedDate) return;
       setIsLoadingSlots(true);
       try {
-        const res = await muaCalendarService.getAvailableSlots(
-          muaId,
-          selectedDate,
-          durationMinutes,
-          15
-        );
+        const res = isAgency
+          ? await muaCalendarService.getAgencyAvailableSlots(
+              targetId,
+              selectedDate,
+              durationMinutes,
+              15
+            )
+          : await muaCalendarService.getAvailableSlots(
+              targetId,
+              selectedDate,
+              durationMinutes,
+              15
+            );
+
         if (isMounted) {
           const slots = res.slots || [];
           setTimeSlots(slots);
@@ -184,9 +201,9 @@ export const DateTimeSelector: React.FC<Props> = ({
           // Chỉ tự động điều chỉnh slot nếu người dùng ĐÃ chọn giờ trước đó nhưng giờ đó bị kín
           if (selectedTimeSlot) {
             const curFormatted = selectedTimeSlot.length === 5 ? `${selectedTimeSlot}:00` : selectedTimeSlot;
-            const matched = slots.find((s) => s.start_time.startsWith(curFormatted.substring(0, 5)));
+            const matched = slots.find((s: TimeSlotItem) => s.start_time.startsWith(curFormatted.substring(0, 5)));
             if (!matched || !matched.is_available) {
-              const firstAvailable = slots.find((s) => s.is_available);
+              const firstAvailable = slots.find((s: TimeSlotItem) => s.is_available);
               if (firstAvailable) {
                 const newTime = firstAvailable.start_time.substring(0, 5);
                 setTempTimeSlot(newTime);
@@ -205,7 +222,7 @@ export const DateTimeSelector: React.FC<Props> = ({
     return () => {
       isMounted = false;
     };
-  }, [muaId, selectedDate, durationMinutes, isTimeModalVisible]);
+  }, [targetId, isAgency, selectedDate, durationMinutes, isTimeModalVisible]);
 
   // Map tra cứu nhanh 90 ngày theo chuỗi 'YYYY-MM-DD'
   const calendarDaysMap = useMemo(() => {

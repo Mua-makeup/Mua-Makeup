@@ -72,12 +72,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await authService.login(credentials);
+
+      // Nếu tài khoản Admin / Agency yêu cầu xác thực 2FA
+      if ((res as any).requires2fa) {
+        throw new Error(
+          'Tài khoản Quản trị viên yêu cầu xác thực 2FA. Vui lòng đăng nhập tại Cổng Quản Trị Web Portal trên máy tính!'
+        );
+      }
+
       const roles = res.userInfo?.roles || [];
       const isAdminRole = roles.includes('ROLE_SUPER_ADMIN') || roles.includes('ROLE_AGENCY_ADMIN');
       if (isAdminRole) {
         throw new Error(
           'Tài khoản Quản trị viên không hỗ trợ trên ứng dụng di động. Vui lòng đăng nhập tại Cổng Quản Trị Web Portal trên máy tính!'
         );
+      }
+
+      if (!res.accessToken || !res.refreshToken) {
+        throw new Error('Đăng nhập thất bại: Máy chủ không trả về mã token hợp lệ.');
       }
 
       await saveTokens(res.accessToken, res.refreshToken);
@@ -92,9 +104,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       registerForPushNotificationsAsync();
 
       // Kích hoạt notification store & websocket listener cho phiên đăng nhập mới
-      useNotificationStore.getState().cleanWebSocketListener();
+      const loggedInUserId = res.userInfo?.id;
+      useNotificationStore.getState().cleanWebSocketListener(loggedInUserId);
       useNotificationStore.getState().fetchUnreadCount();
-      useNotificationStore.getState().initWebSocketListener();
+      useNotificationStore.getState().initWebSocketListener(loggedInUserId);
     } finally {
       set({ isLoading: false });
     }
@@ -145,6 +158,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         notifications: [],
         unreadCount: 0,
         isSubscribed: false,
+        subscribedUserId: null,
         activeToast: null,
       });
 

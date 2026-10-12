@@ -48,6 +48,8 @@ export default function RootLayout() {
         useBookingStore.getState().fetchMyBookings(true);
       }
 
+      useNotificationStore.getState().initWebSocketListener(userInfo.id);
+      useBookingStore.getState().fetchMyBookings(true);
       registerForPushNotificationsAsync();
     }
   }, [isAuthenticated, userInfo?.id, userInfo?.roles, userInfo?.muaId]);
@@ -108,7 +110,7 @@ export default function RootLayout() {
         const state = useAuthStore.getState();
         if (state.isAuthenticated) {
           useNotificationStore.getState().fetchUnreadCount();
-          useNotificationStore.getState().initWebSocketListener();
+          useNotificationStore.getState().initWebSocketListener(state.userInfo?.id);
           registerForPushNotificationsAsync();
         }
 

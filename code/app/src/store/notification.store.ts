@@ -4,7 +4,6 @@ import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import { notificationService, NotificationItem } from '@/services/notification.service';
 import { websocketService } from '@/services/websocket.service';
-import { useAuthStore } from '@/store/auth.store';
 
 // Bộ nhớ đệm chống trùng lặp thông báo realtime (khi Backend gửi qua cả kênh P2P lẫn Topic)
 const processedNotificationIds = new Set<number>();
@@ -20,6 +19,7 @@ interface NotificationState {
   filterIsRead?: boolean;
   activeToast: NotificationItem | null;
   isSubscribed: boolean;
+  subscribedUserId: number | null;
 
   // Actions
   fetchUnreadCount: () => Promise<void>;
@@ -34,8 +34,8 @@ interface NotificationState {
   closeModal: () => void;
   showToast: (item: NotificationItem) => void;
   dismissToast: () => void;
-  initWebSocketListener: () => void;
-  cleanWebSocketListener: () => void;
+  initWebSocketListener: (userId?: number | null) => void;
+  cleanWebSocketListener: (userId?: number | null) => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -49,6 +49,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   filterIsRead: undefined,
   activeToast: null,
   isSubscribed: false,
+  subscribedUserId: null,
 
   fetchUnreadCount: async () => {
     try {
@@ -183,10 +184,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ activeToast: null });
   },
 
-  initWebSocketListener: () => {
-    get().cleanWebSocketListener();
-    const currentUserId = useAuthStore.getState().userInfo?.id;
-    console.log('[NotificationStore] Khởi tạo WebSocket listener cho userId:', currentUserId);
+  initWebSocketListener: (userId?: number | null) => {
+    const targetUserId = userId !== undefined ? userId : get().subscribedUserId;
+    get().cleanWebSocketListener(targetUserId);
+    set({ subscribedUserId: targetUserId ?? null });
+    console.log('[NotificationStore] Khởi tạo WebSocket listener cho userId:', targetUserId);
 
     const handleIncomingNotification = (payload: any) => {
       console.log('[NotificationStore] Realtime notification received:', payload);
@@ -276,19 +278,19 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     websocketService.subscribe('/user/queue/notifications', handleIncomingNotification);
 
     // 2. Kênh Topic dự phòng trực tiếp theo userId
-    if (currentUserId) {
-      websocketService.subscribe(`/topic/user-notifications/${currentUserId}`, handleIncomingNotification);
+    if (targetUserId) {
+      websocketService.subscribe(`/topic/user-notifications/${targetUserId}`, handleIncomingNotification);
     }
 
     set({ isSubscribed: true });
   },
 
-  cleanWebSocketListener: () => {
+  cleanWebSocketListener: (userId?: number | null) => {
     websocketService.unsubscribe('/user/queue/notifications');
-    const currentUserId = useAuthStore.getState().userInfo?.id;
-    if (currentUserId) {
-      websocketService.unsubscribe(`/topic/user-notifications/${currentUserId}`);
+    const targetUserId = userId !== undefined ? userId : get().subscribedUserId;
+    if (targetUserId) {
+      websocketService.unsubscribe(`/topic/user-notifications/${targetUserId}`);
     }
-    set({ isSubscribed: false });
+    set({ isSubscribed: false, subscribedUserId: null });
   },
 }));

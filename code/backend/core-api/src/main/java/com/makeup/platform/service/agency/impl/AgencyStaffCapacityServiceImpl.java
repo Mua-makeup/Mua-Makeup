@@ -44,12 +44,13 @@ public class AgencyStaffCapacityServiceImpl implements AgencyStaffCapacityServic
         OffsetDateTime windowEnd = date.atTime(endTime).atOffset(VIETNAM_OFFSET);
 
         for (AgencyStaffEntity staff : activeStaffList) {
-            // 1. Kiểm tra thợ có ca trực bao trọn khoảng thời gian booking hay không
+            // 1. Kiểm tra thợ có ca trực: chỉ cần giờ bắt đầu (startTime) nằm trong ca trực
+            // (kể cả thời lượng dịch vụ kéo dài quá giờ kết thúc ca, phần dôi ra được tính tăng ca cho thợ)
             List<AgencyStaffShiftEntity> staffShifts = agencyStaffShiftRepository.findActiveShiftsForStaffOnDate(
                     staff.getId(), date, dayOfWeek);
 
             boolean insideShift = staffShifts.stream().anyMatch(shift ->
-                    !startTime.isBefore(shift.getStartTime()) && !endTime.isAfter(shift.getEndTime()));
+                    !startTime.isBefore(shift.getStartTime()) && startTime.isBefore(shift.getEndTime()));
 
             if (!insideShift) {
                 continue; // Thợ không trong ca trực tại khung giờ này

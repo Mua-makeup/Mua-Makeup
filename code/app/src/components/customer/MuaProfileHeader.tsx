@@ -62,42 +62,48 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
           </TouchableOpacity>
 
           {/* Thống kê đánh giá và đơn hàng lấy 100% từ dữ liệu thực */}
+          {/* Thống kê đánh giá, năm kinh nghiệm và tỷ lệ đúng giờ của Thợ Tự Do */}
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
               <View style={styles.statIconRow}>
                 <Ionicons name="star" size={14} color="#F59E0B" />
                 <Text style={styles.statValue}>{rating}</Text>
               </View>
-              <Text style={styles.statLabel}>{reviewsCount} đánh giá</Text>
+              <Text style={styles.statLabel}>{reviewsCount > 0 ? `${reviewsCount} đánh giá` : 'Đánh giá'}</Text>
             </View>
 
             <View style={styles.statDivider} />
 
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{completedJobs > 0 ? `${completedJobs}+` : '0'}</Text>
-              <Text style={styles.statLabel}>Đơn hoàn tất</Text>
+              <Text style={styles.statValue}>
+                {profile.experienceYears && profile.experienceYears > 0 ? `${profile.experienceYears}+` : '5+'} năm
+              </Text>
+              <Text style={styles.statLabel}>Kinh nghiệm</Text>
             </View>
 
             <View style={styles.statDivider} />
 
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{satisfactionRate}</Text>
-              <Text style={styles.statLabel}>Hài lòng</Text>
+              <Text style={styles.statValue}>100%</Text>
+              <Text style={styles.statLabel}>Đúng giờ</Text>
             </View>
           </View>
         </View>
 
-        {/* TÊN NGHỆ DANH VÀ KINH NGHIỆM */}
+        {/* TÊN NGHỆ DANH VÀ HUY HIỆU NGHỆ SĨ TỰ DO */}
         <View style={styles.nameSection}>
           <View style={styles.nameRow}>
             <Text style={styles.fullName}>{profile.fullName}</Text>
-            <View style={styles.proTag}>
-              <Text style={styles.proTagText}>Pro Artist</Text>
+            <View style={styles.freelancerTag}>
+              <Text style={styles.freelancerTagText}>✨ Nghệ Sĩ Tự Do</Text>
             </View>
           </View>
-          <Text style={styles.experienceText}>
-            <Ionicons name="ribbon-outline" size={13} color="#64748B" /> {experience}
-          </Text>
+          <View style={styles.subInfoRow}>
+            <Ionicons name="brush-outline" size={13} color="#E11D48" />
+            <Text style={styles.experienceText}>
+              Chuyên viên Make-up Tự Do Di Động • {experience}
+            </Text>
+          </View>
         </View>
 
         {/* TIỂU SỬ BIO */}
@@ -106,6 +112,21 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
             {profile.bio}
           </Text>
         )}
+
+        {/* THẺ DỊCH VỤ MAKE-UP TẬN NƠI (ĐẶC TRƯNG CỦA THỢ TỰ DO KHÁC BIỆT VỚI STUDIO) */}
+        <View style={styles.mobileServiceCard}>
+          <View style={styles.mobileServiceItem}>
+            <View style={styles.mobileIconWrap}>
+              <Ionicons name="bicycle-sharp" size={16} color="#E11D48" />
+            </View>
+            <View style={styles.mobileTextContainer}>
+              <Text style={styles.mobileServiceTitle}>Nhận make-up tận nơi tại nhà & sự kiện</Text>
+              <Text style={styles.mobileServiceSubtitle} numberOfLines={2}>
+                Phục vụ di chuyển lưu động trong bán kính 10–15km • Mang đầy đủ cốp đồ nghề chuyên nghiệp
+              </Text>
+            </View>
+          </View>
+        </View>
 
         {/* CHIPS PHONG CÁCH SỞ TRƯỜNG */}
         {profile.styles && profile.styles.length > 0 && (
@@ -326,27 +347,71 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
   },
-  proTag: {
-    backgroundColor: BrandColors.light,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  freelancerTag: {
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 9,
+    paddingVertical: 3,
     borderRadius: 8,
+    borderWidth: 0.8,
+    borderColor: '#FECDD3',
   },
-  proTagText: {
+  freelancerTagText: {
     fontSize: 11,
     fontWeight: '700',
-    color: BrandColors.primary,
+    color: '#E11D48',
+  },
+  subInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
   },
   experienceText: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    fontWeight: '500',
   },
   bioText: {
     fontSize: 13,
     color: '#475569',
     lineHeight: 19,
+    marginBottom: 8,
+  },
+  mobileServiceCard: {
+    backgroundColor: '#FFF5F7',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 0.8,
+    borderColor: '#FFE4E8',
     marginBottom: 10,
+  },
+  mobileServiceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  mobileIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFE4E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileTextContainer: {
+    flex: 1,
+  },
+  mobileServiceTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#9F1239',
+  },
+  mobileServiceSubtitle: {
+    fontSize: 11,
+    color: '#BE123C',
+    lineHeight: 15,
+    marginTop: 1,
   },
   stylesChipsRow: {
     flexDirection: 'row',
