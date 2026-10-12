@@ -34,6 +34,7 @@ import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.security.CustomUserDetails;
 import com.makeup.platform.service.auth.AuthService;
 import com.makeup.platform.service.auth.RedisTokenService;
+import com.makeup.platform.service.chatbot.AiSupportService;
 import com.makeup.platform.service.mail.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final RedisTemplate<String, Object> redisTemplate;
     private final WalletRepository walletRepository;
+    private final AiSupportService aiSupportService;
 
     @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
@@ -304,6 +306,15 @@ public class AuthServiceImpl implements AuthService {
             String cleanToken = accessToken.startsWith(SecurityConstants.TOKEN_PREFIX)
                     ? accessToken.substring(SecurityConstants.TOKEN_PREFIX.length())
                     : accessToken;
+
+            try {
+                Long userId = jwtUtils.getUserId(cleanToken);
+                if (userId != null) {
+                    aiSupportService.closeSession(null, userId);
+                }
+            } catch (Exception ex) {
+                log.debug("Unable to close AI chat sessions on logout: {}", ex.getMessage());
+            }
 
             long remainingMs = jwtUtils.getRemainingExpirationMs(cleanToken);
             if (remainingMs > 0) {

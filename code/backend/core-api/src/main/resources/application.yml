@@ -82,4 +82,10 @@ payment:
       return-url: ${MOMO_REDIRECT_URL:http://192.168.1.109:8080/api/v1/payments/return/momo}
       ipn-url: ${MOMO_IPN_URL:http://192.168.1.109:8080/api/v1/payments/ipn/momo}
 
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+  model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
+  embedding-model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+
 
