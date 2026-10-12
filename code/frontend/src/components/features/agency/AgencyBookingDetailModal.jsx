@@ -21,6 +21,7 @@ import { agencyService } from '../../../services/agency.service';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { formatDateTime, formatBookingDateTime } from '../../../utils/formatters';
 import { AgencyCancelBookingModal } from './AgencyCancelBookingModal';
+import { StaffCommissionSplitMatrix } from './StaffCommissionSplitMatrix';
 
 export const AgencyBookingDetailModal = ({
   isOpen,
@@ -598,41 +599,14 @@ export const AgencyBookingDetailModal = ({
           )}
         </div>
 
-        {/* Financial & Commission Breakdown */}
-        <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3">
-          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-xs uppercase tracking-wider">
-            <DollarSign className="w-4 h-4 text-amber-600" />
-            <span>{t('field_revenue_commission')}</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-            <div>
-              <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">{t('col_total_amount')}</div>
-              <div className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
-                {formatCurrency(booking.totalAmount)}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1">
-                <span>{t('col_staff_commission')}</span>
-                <span className="font-mono text-[10px] text-slate-500">
-                  ({booking.staffCommissionRate || 0}%)
-                </span>
-              </div>
-              <div className="text-base font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                {formatCurrency(booking.estimatedStaffCommission)}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">{t('col_studio_net')}</div>
-              <div className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {formatCurrency(booking.estimatedStudioNet)}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Financial & Commission Breakdown Matrix */}
+        <StaffCommissionSplitMatrix
+          booking={currentBooking || booking}
+          onBookingUpdated={(updated) => {
+            setCurrentBooking(updated);
+            onBookingUpdated?.(updated);
+          }}
+        />
 
         {/* Notes or Cancellation Reason */}
         {booking.notes && (

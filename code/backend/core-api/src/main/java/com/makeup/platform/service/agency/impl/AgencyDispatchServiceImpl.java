@@ -9,6 +9,8 @@ import com.makeup.platform.dto.request.agency.ProceedSoloReq;
 import com.makeup.platform.dto.request.agency.ReassignStaffReq;
 import com.makeup.platform.dto.request.agency.RejectDispatchBookingReq;
 import com.makeup.platform.dto.request.agency.ReportEmergencyBusyReq;
+import com.makeup.platform.dto.request.agency.StaffCommissionSplitItem;
+import com.makeup.platform.dto.request.agency.UpdateStaffCommissionSplitReq;
 import com.makeup.platform.dto.response.agency.AgencyBookingRes;
 import com.makeup.platform.dto.response.agency.DispatchAssignmentRes;
 import com.makeup.platform.dto.response.agency.EmergencyApprovalRes;
@@ -41,6 +43,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -244,13 +248,28 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             muaCalendarService.releaseSlotByBookingId(booking.getId());
         }
 
+        BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+        boolean isEn = support.isEnglishLocale();
+
         // 4. Create Primary MUA Assignment & Calendar Lock
+        BigDecimal primaryRate = (primaryStaff.getAgreedCommissionRate() != null)
+                ? primaryStaff.getAgreedCommissionRate()
+                : ((agency.getCommissionRateInternal() != null) ? agency.getCommissionRateInternal() : BigDecimal.valueOf(30.0));
+        BigDecimal primaryAmount = totalAmount.multiply(primaryRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        String primaryNote = isEn
+                ? ("Lead Artist - Contract Rate (" + primaryRate + "%)")
+                : ("Thợ chính - Hợp đồng thỏa thuận (" + primaryRate + "%)");
+
         BookingStaffAssignmentEntity primaryAssignment = BookingStaffAssignmentEntity.builder()
                 .booking(booking)
                 .staff(primaryStaff)
                 .assignmentRole(AssignmentRole.PRIMARY_MUA)
                 .status(AssignmentStatus.ACTIVE)
                 .assignedAt(OffsetDateTime.now())
+                .commissionRate(primaryRate)
+                .commissionAmount(primaryAmount)
+                .commissionNote(primaryNote)
+                .payoutStatus("PENDING")
                 .build();
         BookingStaffAssignmentEntity savedPrimary = bookingStaffAssignmentRepository.save(primaryAssignment);
 
@@ -268,12 +287,24 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
 
         // 5. Create Assistant MUAs Assignments & Calendar Locks
         for (AgencyStaffEntity astStaff : assistantStaffList) {
+            BigDecimal astRate = (astStaff.getAgreedCommissionRate() != null)
+                    ? astStaff.getAgreedCommissionRate()
+                    : BigDecimal.valueOf(10.0);
+            BigDecimal astAmount = totalAmount.multiply(astRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            String astNote = isEn
+                    ? ("Assistant Artist - Service Support (" + astRate + "%)")
+                    : ("Thợ phụ - Hỗ trợ dịch vụ (" + astRate + "%)");
+
             BookingStaffAssignmentEntity astAssignment = BookingStaffAssignmentEntity.builder()
                     .booking(booking)
                     .staff(astStaff)
                     .assignmentRole(AssignmentRole.ASSISTANT_MUA)
                     .status(AssignmentStatus.ACTIVE)
                     .assignedAt(OffsetDateTime.now())
+                    .commissionRate(astRate)
+                    .commissionAmount(astAmount)
+                    .commissionNote(astNote)
+                    .payoutStatus("PENDING")
                     .build();
             BookingStaffAssignmentEntity savedAst = bookingStaffAssignmentRepository.save(astAssignment);
             allSaved.add(savedAst);
@@ -299,7 +330,6 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 allSaved.size(), savedBooking.getBookingCode(), primaryStaff.getId());
 
         // 7. Audit log transition into booking_history
-        boolean isEn = support.isEnglishLocale();
         String primaryName = (primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
                 ? primaryStaff.getMua().getUser().getFullName() : (isEn ? "Primary Artist" : "Thợ chính");
         StringBuilder noteBuilder = new StringBuilder(isEn ? "Studio assigned primary artist: " : "Studio đã phân công thợ chính: ")
@@ -442,4 +472,44 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         );
     }
 
+    @Override
+    @Transactional
+    public AgencyBookingRes updateStaffCommissions(Long ownerUserId, Long bookingId, UpdateStaffCommissionSplitReq req) {
+        AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
+        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
+
+        List<BookingStaffAssignmentEntity> activeAssignments = bookingStaffAssignmentRepository
+                .findByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE);
+
+        if (activeAssignments.isEmpty()) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.no_active_staff_to_update_commission");
+        }
+
+        BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+
+        for (StaffCommissionSplitItem item : req.getSplits()) {
+            for (BookingStaffAssignmentEntity sa : activeAssignments) {
+                if (sa.getStaff() != null && sa.getStaff().getId().equals(item.getStaffId())) {
+                    if (item.getCommissionRate() != null) {
+                        sa.setCommissionRate(item.getCommissionRate());
+                    }
+                    if (item.getCommissionAmount() != null) {
+                        sa.setCommissionAmount(item.getCommissionAmount());
+                    } else if (item.getCommissionRate() != null) {
+                        BigDecimal calculated = totalAmount.multiply(item.getCommissionRate())
+                                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        sa.setCommissionAmount(calculated);
+                    }
+                    if (item.getCommissionNote() != null && !item.getCommissionNote().isBlank()) {
+                        sa.setCommissionNote(item.getCommissionNote().trim());
+                    }
+                    bookingStaffAssignmentRepository.save(sa);
+                }
+            }
+        }
+
+        bookingStaffAssignmentRepository.flush();
+        BookingEntity refreshedBooking = bookingRepository.findById(bookingId).orElse(booking);
+        return agencyBookingMapper.toRes(refreshedBooking, agency);
+    }
 }

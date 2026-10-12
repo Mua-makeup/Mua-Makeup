@@ -49,6 +49,11 @@ public class BookingStaffAssignmentMapper {
                 .confirmedAt(entity.getConfirmedAt() != null ? entity.getConfirmedAt().toLocalDateTime() : null)
                 .cancellationReason(entity.getCancellationReason())
                 .proofDocumentUrl(entity.getProofDocumentUrl())
+                .commissionRate(entity.getCommissionRate())
+                .commissionAmount(entity.getCommissionAmount())
+                .commissionNote(entity.getCommissionNote())
+                .payoutStatus(entity.getPayoutStatus())
+                .payoutAt(entity.getPayoutAt() != null ? entity.getPayoutAt().toLocalDateTime() : null)
                 .build();
     }
 

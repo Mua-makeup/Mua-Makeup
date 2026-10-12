@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -28,4 +29,9 @@ public class StaffAssignmentDetailRes {
     private LocalDateTime confirmedAt;
     private String cancellationReason;
     private String proofDocumentUrl;
+    private BigDecimal commissionRate;
+    private BigDecimal commissionAmount;
+    private String commissionNote;
+    private String payoutStatus;
+    private LocalDateTime payoutAt;
 }

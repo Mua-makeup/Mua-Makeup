@@ -32,6 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -175,12 +177,26 @@ public class AgencyEmergencyService {
         }
 
         // Create new active assignment
+        BigDecimal total = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal newRate = (roleToAssign == AssignmentRole.PRIMARY_MUA)
+                ? ((newStaff.getAgreedCommissionRate() != null) ? newStaff.getAgreedCommissionRate() : ((agency.getCommissionRateInternal() != null) ? agency.getCommissionRateInternal() : BigDecimal.valueOf(30.0)))
+                : ((newStaff.getAgreedCommissionRate() != null) ? newStaff.getAgreedCommissionRate() : BigDecimal.valueOf(10.0));
+        BigDecimal newAmount = total.multiply(newRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        boolean isEn = support.isEnglishLocale();
+        String newNote = (roleToAssign == AssignmentRole.PRIMARY_MUA)
+                ? (isEn ? ("Lead Artist (Backup) - " + newRate + "%") : ("Thợ chính (Dự phòng) - " + newRate + "%"))
+                : (isEn ? ("Assistant Artist (Backup) - " + newRate + "%") : ("Thợ phụ (Dự phòng) - " + newRate + "%"));
+
         BookingStaffAssignmentEntity newAssignment = BookingStaffAssignmentEntity.builder()
                 .booking(booking)
                 .staff(newStaff)
                 .assignmentRole(roleToAssign)
                 .status(AssignmentStatus.ACTIVE)
                 .assignedAt(OffsetDateTime.now())
+                .commissionRate(newRate)
+                .commissionAmount(newAmount)
+                .commissionNote(newNote)
+                .payoutStatus("PENDING")
                 .build();
         bookingStaffAssignmentRepository.save(newAssignment);
 

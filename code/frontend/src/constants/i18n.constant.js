@@ -1630,6 +1630,24 @@ export const TRANSLATIONS = {
     dispatch_default_reassign_reason: 'Đổi thợ dự phòng do thợ chính báo bận đột xuất',
     dispatch_err_reassign_unqualified: 'Thợ được chọn không đủ điều kiện phân công. Vui lòng chọn thợ khác.',
 
+    // Commission Split Matrix Keys
+    commission_split_matrix_title: 'Phân Bổ Hoa Hồng Thợ Chính & Thợ Phụ',
+    commission_split_modal_title: 'Điều Chỉnh Hoa Hồng Ca Làm Cho Thợ',
+    commission_split_modal_desc: 'Cấu hình tỷ lệ % hoặc số tiền hoa hồng thực nhận và căn cứ tính cho từng thợ tham gia ca.',
+    btn_edit_commissions: 'Điều chỉnh hoa hồng',
+    unassigned_staff_commission_note: 'Chưa có thợ nào được phân công cho đơn hàng này.',
+    col_commission_rate: 'Tỷ lệ hoa hồng',
+    col_commission_amount: 'Tiền hoa hồng',
+    col_commission_reason: 'Căn cứ / Lý do tính hoa hồng',
+    col_commission_reason_placeholder: 'VD: Hợp đồng thỏa thuận 30%, Hỗ trợ bới tóc 10%...',
+    reason_primary_contract: 'Hợp đồng thợ chính',
+    reason_assistant_support: 'Hỗ trợ dịch vụ & làm tóc',
+    total_staff_commission: 'Tổng hoa hồng nhân sự',
+    payout_status_pending: 'Chờ hoàn tất ca',
+    payout_status_settled: 'Đã giải ngân ví',
+    payout_cancelled: 'Đã hủy ca',
+    commission_err_exceeds_total: 'Tổng hoa hồng của các thợ không được vượt quá tổng giá trị đơn!',
+
     // Notifications & Realtime Alerts
     notifications_title: 'Thông Báo Hệ Thống',
     notifications_empty: 'Không có thông báo mới nào',
@@ -3320,6 +3338,24 @@ export const TRANSLATIONS = {
     dispatch_no_qualified_staff: 'No other staff currently meet all 4 criteria (Shift, Package, Style, Calendar).',
     dispatch_default_reassign_reason: 'Emergency backup reassignment due to primary staff unavailability',
     dispatch_err_reassign_unqualified: 'Selected staff does not meet qualification criteria. Please choose another artist.',
+
+    // Commission Split Matrix Keys
+    commission_split_matrix_title: 'Lead & Assistant Commission Split Breakdown',
+    commission_split_modal_title: 'Adjust Staff Commission for Booking',
+    commission_split_modal_desc: 'Configure commission rate %, exact amount, and calculation basis for each assigned artist.',
+    btn_edit_commissions: 'Adjust Commissions',
+    unassigned_staff_commission_note: 'No artists have been assigned to this booking yet.',
+    col_commission_rate: 'Commission Rate',
+    col_commission_amount: 'Commission Amount',
+    col_commission_reason: 'Commission Basis / Reason',
+    col_commission_reason_placeholder: 'E.g.: Contract rate 30%, Hair styling support 10%...',
+    reason_primary_contract: 'Lead Artist Contract',
+    reason_assistant_support: 'Service Support & Hair Styling',
+    total_staff_commission: 'Total Staff Commission',
+    payout_status_pending: 'Pending Completion',
+    payout_status_settled: 'Settled to Wallet',
+    payout_cancelled: 'Cancelled',
+    commission_err_exceeds_total: 'Total staff commission cannot exceed total booking amount!',
 
     // Notifications & Realtime Alerts
     notifications_title: 'System Notifications',

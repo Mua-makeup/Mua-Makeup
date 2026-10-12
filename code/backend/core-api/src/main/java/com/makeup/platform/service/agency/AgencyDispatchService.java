@@ -6,6 +6,7 @@ import com.makeup.platform.dto.request.agency.ProceedSoloReq;
 import com.makeup.platform.dto.request.agency.ReassignStaffReq;
 import com.makeup.platform.dto.request.agency.RejectDispatchBookingReq;
 import com.makeup.platform.dto.request.agency.ReportEmergencyBusyReq;
+import com.makeup.platform.dto.request.agency.UpdateStaffCommissionSplitReq;
 import com.makeup.platform.dto.response.agency.AgencyBookingRes;
 import com.makeup.platform.dto.response.agency.DispatchAssignmentRes;
 import com.makeup.platform.dto.response.agency.EmergencyApprovalRes;
@@ -33,4 +34,6 @@ public interface AgencyDispatchService {
     EmergencyApprovalRes reviewEmergencyReport(Long ownerUserId, Long bookingId, Long staffId, ApproveEmergencyReportReq req);
 
     void confirmAssignment(Long muaUserId, Long assignmentId);
+
+    AgencyBookingRes updateStaffCommissions(Long ownerUserId, Long bookingId, UpdateStaffCommissionSplitReq req);
 }

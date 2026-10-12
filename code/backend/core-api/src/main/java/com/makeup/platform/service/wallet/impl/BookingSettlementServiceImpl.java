@@ -2,7 +2,10 @@ package com.makeup.platform.service.wallet.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.entity.booking.AssignmentRole;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.entity.wallet.BookingCashReceiptEntity;
@@ -11,6 +14,7 @@ import com.makeup.platform.entity.wallet.LedgerEntryEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.entity.wallet.WalletHoldEntity;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
 import com.makeup.platform.repository.wallet.BookingSettlementRepository;
@@ -46,6 +50,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     private final WalletRepository walletRepository;
     private final WalletHoldRepository walletHoldRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
+    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
 
     @Override
     @Transactional
@@ -158,8 +163,60 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
 
         settlementRepository.save(settlement);
 
-        // Ghi có ví thợ nếu N > 0
-        if (N.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null) {
+        // Ghi có ví thợ: hỗ trợ phân chia đa nhân sự cho thợ chính và thợ phụ
+        List<BookingStaffAssignmentEntity> activeStaffAssignments = (booking.getStaffAssignments() != null && !booking.getStaffAssignments().isEmpty())
+                ? booking.getStaffAssignments().stream().filter(sa -> sa.getStatus() == AssignmentStatus.ACTIVE).toList()
+                : bookingStaffAssignmentRepository.findByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE);
+
+        if (!activeStaffAssignments.isEmpty()) {
+            for (BookingStaffAssignmentEntity sa : activeStaffAssignments) {
+                BigDecimal staffEarnings = (sa.getCommissionAmount() != null && sa.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0)
+                        ? sa.getCommissionAmount()
+                        : BigDecimal.ZERO;
+
+                if (staffEarnings.compareTo(BigDecimal.ZERO) > 0 && sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getUser() != null) {
+                    Long staffUserId = sa.getStaff().getMua().getUser().getId();
+                    WalletEntity staffWallet = walletRepository.findByUserIdWithLock(staffUserId)
+                            .orElseGet(() -> {
+                                WalletEntity newWallet = WalletEntity.builder()
+                                        .user(sa.getStaff().getMua().getUser())
+                                        .availableBalance(BigDecimal.ZERO)
+                                        .frozenBalance(BigDecimal.ZERO)
+                                        .currency("VND")
+                                        .build();
+                                return walletRepository.save(newWallet);
+                            });
+
+                    String ledgerKey = "settle:credit:staff:" + bookingId + ":" + sa.getId();
+                    if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
+                        BigDecimal balanceBefore = staffWallet.getAvailableBalance();
+                        staffWallet.setAvailableBalance(balanceBefore.add(staffEarnings));
+                        walletRepository.save(staffWallet);
+
+                        String roleLabel = sa.getAssignmentRole() == AssignmentRole.PRIMARY_MUA ? "Thợ chính" : "Thợ phụ";
+                        String noteDesc = (sa.getCommissionNote() != null && !sa.getCommissionNote().isBlank()) ? (" - " + sa.getCommissionNote()) : "";
+                        LedgerEntryEntity credit = LedgerEntryEntity.builder()
+                                .referenceType("BOOKING_SETTLEMENT")
+                                .referenceId(bookingId)
+                                .wallet(staffWallet)
+                                .entryType("CREDIT")
+                                .amount(staffEarnings)
+                                .balanceAfter(staffWallet.getAvailableBalance())
+                                .description("Quyết toán ca #" + booking.getBookingCode() + " (" + roleLabel + noteDesc + ")")
+                                .idempotencyKey(ledgerKey)
+                                .build();
+                        ledgerEntryRepository.save(credit);
+
+                        sa.setPayoutStatus("SETTLED");
+                        sa.setPayoutAt(OffsetDateTime.now(VIETNAM_OFFSET));
+                        bookingStaffAssignmentRepository.save(sa);
+
+                        log.info("[Settlement] Credited {} VND to staff wallet (userId={}, role={}) for booking {}",
+                                staffEarnings, staffUserId, sa.getAssignmentRole(), bookingId);
+                    }
+                }
+            }
+        } else if (N.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null) {
             Long freelancerUserId = booking.getMua().getUser().getId();
             WalletEntity freelancerWallet = walletRepository.findByUserIdWithLock(freelancerUserId)
                     .orElseGet(() -> {
@@ -263,7 +320,60 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                 .build();
         settlementRepository.save(settlement);
 
-        if (E.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null) {
+        // Ghi có ví thợ: hỗ trợ phân chia đa nhân sự cho thợ chính và thợ phụ
+        List<BookingStaffAssignmentEntity> activeStaffAssignments = (booking.getStaffAssignments() != null && !booking.getStaffAssignments().isEmpty())
+                ? booking.getStaffAssignments().stream().filter(sa -> sa.getStatus() == AssignmentStatus.ACTIVE).toList()
+                : bookingStaffAssignmentRepository.findByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE);
+
+        if (!activeStaffAssignments.isEmpty()) {
+            for (BookingStaffAssignmentEntity sa : activeStaffAssignments) {
+                BigDecimal staffEarnings = (sa.getCommissionAmount() != null && sa.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0)
+                        ? sa.getCommissionAmount()
+                        : BigDecimal.ZERO;
+
+                if (staffEarnings.compareTo(BigDecimal.ZERO) > 0 && sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getUser() != null) {
+                    Long staffUserId = sa.getStaff().getMua().getUser().getId();
+                    WalletEntity staffWallet = walletRepository.findByUserIdWithLock(staffUserId)
+                            .orElseGet(() -> {
+                                WalletEntity newWallet = WalletEntity.builder()
+                                        .user(sa.getStaff().getMua().getUser())
+                                        .availableBalance(BigDecimal.ZERO)
+                                        .frozenBalance(BigDecimal.ZERO)
+                                        .currency("VND")
+                                        .build();
+                                return walletRepository.save(newWallet);
+                            });
+
+                    String ledgerKey = "settle:credit:online:staff:" + bookingId + ":" + sa.getId();
+                    if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
+                        BigDecimal balanceBefore = staffWallet.getAvailableBalance();
+                        staffWallet.setAvailableBalance(balanceBefore.add(staffEarnings));
+                        walletRepository.save(staffWallet);
+
+                        String roleLabel = sa.getAssignmentRole() == AssignmentRole.PRIMARY_MUA ? "Thợ chính" : "Thợ phụ";
+                        String noteDesc = (sa.getCommissionNote() != null && !sa.getCommissionNote().isBlank()) ? (" - " + sa.getCommissionNote()) : "";
+                        LedgerEntryEntity credit = LedgerEntryEntity.builder()
+                                .referenceType("BOOKING_SETTLEMENT")
+                                .referenceId(bookingId)
+                                .wallet(staffWallet)
+                                .entryType("CREDIT")
+                                .amount(staffEarnings)
+                                .balanceAfter(staffWallet.getAvailableBalance())
+                                .description("Quyết toán online ca #" + booking.getBookingCode() + " (" + roleLabel + noteDesc + ")")
+                                .idempotencyKey(ledgerKey)
+                                .build();
+                        ledgerEntryRepository.save(credit);
+
+                        sa.setPayoutStatus("SETTLED");
+                        sa.setPayoutAt(OffsetDateTime.now(VIETNAM_OFFSET));
+                        bookingStaffAssignmentRepository.save(sa);
+
+                        log.info("[SettlementOnline] Credited {} VND to staff wallet (userId={}, role={}) for booking {}",
+                                staffEarnings, staffUserId, sa.getAssignmentRole(), bookingId);
+                    }
+                }
+            }
+        } else if (E.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null) {
             Long freelancerUserId = booking.getMua().getUser().getId();
             WalletEntity freelancerWallet = walletRepository.findByUserIdWithLock(freelancerUserId)
                     .orElseGet(() -> {

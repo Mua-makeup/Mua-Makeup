@@ -566,6 +566,26 @@
     "chat_success": "AI Assistant response received successfully.",
     "session_closed_success": "Chat session ended successfully."
   },
+  "dispatch": {
+    "fetch_pending_success": "Fetched pending dispatch bookings successfully.",
+    "fetch_matrix_success": "Fetched staff availability matrix successfully.",
+    "assign_success": "Assigned staff to booking successfully.",
+    "reassign_success": "Reassigned emergency backup staff successfully.",
+    "reject_success": "Studio rejected booking successfully.",
+    "proceed_solo_success": "Confirmed primary artist to proceed solo successfully.",
+    "emergency_report_success": "Reported emergency busy successfully.",
+    "emergency_review_success": "Reviewed emergency report successfully.",
+    "assignment_confirm_success": "Confirmed assignment successfully.",
+    "update_commissions_success": "Updated staff commission split successfully.",
+    "no_active_staff_to_update_commission": "No active staff found in this booking to update commissions."
+  },
+  "validation": {
+    "splits_not_empty": "Commission split list cannot be empty.",
+    "staff_id_required": "Staff ID is required.",
+    "commission_rate_min": "Commission rate cannot be less than 0%.",
+    "commission_rate_max": "Commission rate cannot exceed 100%.",
+    "commission_amount_min": "Commission amount cannot be negative."
+  },
   "ERR_SLOT_ALREADY_BOOKED": "This appointment slot was just booked and paid by another customer. Please choose another time slot!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired."
 }

@@ -8,6 +8,7 @@ import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
 import com.makeup.platform.repository.AgencyStaffRepository;
@@ -73,8 +74,25 @@ public class AgencyBookingMapper {
         }
 
         BigDecimal totalAmount = b.getTotalAmount() != null ? b.getTotalAmount() : BigDecimal.ZERO;
-        BigDecimal commissionMultiplier = staffCommissionRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-        BigDecimal estimatedStaffCommission = totalAmount.multiply(commissionMultiplier).setScale(2, RoundingMode.HALF_UP);
+        
+        BigDecimal sumStaffCommissions = BigDecimal.ZERO;
+        boolean hasStaffCommissionAmounts = false;
+        if (b.getStaffAssignments() != null && !b.getStaffAssignments().isEmpty()) {
+            for (BookingStaffAssignmentEntity sa : b.getStaffAssignments()) {
+                if (sa.getStatus() == AssignmentStatus.ACTIVE && sa.getCommissionAmount() != null && sa.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    sumStaffCommissions = sumStaffCommissions.add(sa.getCommissionAmount());
+                    hasStaffCommissionAmounts = true;
+                }
+            }
+        }
+
+        BigDecimal estimatedStaffCommission;
+        if (hasStaffCommissionAmounts) {
+            estimatedStaffCommission = sumStaffCommissions;
+        } else {
+            BigDecimal commissionMultiplier = staffCommissionRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+            estimatedStaffCommission = totalAmount.multiply(commissionMultiplier).setScale(2, RoundingMode.HALF_UP);
+        }
         BigDecimal estimatedStudioNet = totalAmount.subtract(estimatedStaffCommission).setScale(2, RoundingMode.HALF_UP);
 
         String servicePkgName = null;
