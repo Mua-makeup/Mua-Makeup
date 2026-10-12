@@ -1,11 +1,16 @@
 package com.makeup.platform.mapper.agency;
 
+import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
 import com.makeup.platform.dto.response.agency.StaffAvailabilityMatrixRes;
 import com.makeup.platform.dto.response.agency.StaffMatrixItemRes;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
 import com.makeup.platform.repository.custom.projection.StaffMatrixProjection;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -13,7 +18,10 @@ import java.util.Collections;
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class DispatchMatrixMapper {
+
+    private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
 
     public StaffMatrixItemRes toItemRes(StaffMatrixProjection projection) {
         if (projection == null) {
@@ -68,6 +76,14 @@ public class DispatchMatrixMapper {
             return null;
         }
 
+        List<StaffAssignmentDetailRes> currentAssignments = List.of();
+        if (booking.getStaffAssignments() != null && !booking.getStaffAssignments().isEmpty()) {
+            List<BookingStaffAssignmentEntity> activeAssignments = booking.getStaffAssignments().stream()
+                    .filter(a -> a.getStatus() == AssignmentStatus.ACTIVE)
+                    .toList();
+            currentAssignments = bookingStaffAssignmentMapper.toDetailResList(activeAssignments);
+        }
+
         List<StaffMatrixItemRes> staffList = Collections.emptyList();
         int qualifiedCount = 0;
 
@@ -76,6 +92,16 @@ public class DispatchMatrixMapper {
             for (StaffMatrixProjection p : projections) {
                 StaffMatrixItemRes item = toItemRes(p);
                 if (item != null) {
+                    if (currentAssignments != null && !currentAssignments.isEmpty()) {
+                        for (StaffAssignmentDetailRes assign : currentAssignments) {
+                            if (assign.getStaffId() != null && assign.getStaffId().equals(item.getStaffId())) {
+                                item.setCommissionRate(assign.getCommissionRate());
+                                item.setCommissionAmount(assign.getCommissionAmount());
+                                item.setCommissionNote(assign.getCommissionNote());
+                                break;
+                            }
+                        }
+                    }
                     staffList.add(item);
                     if (item.isFullyQualified()) {
                         qualifiedCount++;
@@ -107,7 +133,10 @@ public class DispatchMatrixMapper {
                 .emergencyProofUrl(booking.getEmergencyProofUrl())
                 .totalStaffCount(staffList.size())
                 .qualifiedCount(qualifiedCount)
+                .totalAmount(booking.getTotalAmount())
+                .depositAmount(booking.getDepositAmount())
                 .staffList(staffList)
+                .currentAssignments(currentAssignments)
                 .build();
     }
 }

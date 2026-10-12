@@ -254,7 +254,7 @@ export default function CustomerBookingDetailScreen() {
       case 'REQUESTED':
         return { label: 'Chờ Chuyên Viên Tiếp Nhận', color: '#D97706', bg: '#FEF3C7', icon: 'hourglass-outline' };
       case 'PENDING_AGENCY_DISPATCH':
-        return { label: 'Đang Điều Thợ', color: '#D97706', bg: '#FEF3C7', icon: 'sync-outline' };
+        return { label: 'Chờ Studio Phân Công', color: '#D97706', bg: '#FEF3C7', icon: 'sync-outline' };
       case 'AGENCY_ASSIGNED':
       case 'ACCEPTED':
         return { label: 'Đã Nhận Đơn', color: '#2563EB', bg: '#DBEAFE', icon: 'checkmark-circle-outline' };
@@ -281,14 +281,17 @@ export default function CustomerBookingDetailScreen() {
     }
   };
 
-  const handleCallMUA = () => {
+  const handleCallPhone = (phone?: string, name?: string) => {
     Haptics.selectionAsync();
-    const phone = bookingDetail?.muaPhone || bookingDetail?.muaPhoneNumber;
     if (phone) {
       Linking.openURL(`tel:${phone}`);
     } else {
-      Alert.alert('Liên Hệ', 'Số điện thoại của thợ: 0987.654.321');
+      Alert.alert('Liên Hệ', `Số điện thoại của ${name || 'đối tác'}: 0987.654.321`);
     }
+  };
+
+  const handleCallMUA = () => {
+    handleCallPhone(bookingDetail?.muaPhone || bookingDetail?.muaPhoneNumber, bookingDetail?.muaName || 'Chuyên viên');
   };
 
   const handleConfirmCancel = async (
@@ -464,6 +467,10 @@ export default function CustomerBookingDetailScreen() {
   const remainingAmount = Math.max(0, (bookingDetail.totalAmount || 0) - (bookingDetail.depositAmount || 0));
 
   const isScheduled = bookingDetail.bookingType === 'SCHEDULED' || bookingDetail.bookingCode?.startsWith('BK-SCHED');
+  const isAgencyBooking =
+    bookingDetail.bookingPartner === 'AGENCY' ||
+    Boolean(bookingDetail.agencyId) ||
+    Boolean(bookingDetail.agencyName);
 
   // Xác định bước tiến trình (Tách riêng cho Đặt Trước vs Đặt Gấp)
   const getStepIndex = (status: BookingStatusType) => {
@@ -590,9 +597,15 @@ export default function CustomerBookingDetailScreen() {
         {isScheduled && (
           <View style={styles.scheduledHeroCard}>
             <View style={styles.scheduledHeroHeader}>
-              <View style={styles.scheduledHeroBadge}>
-                <Ionicons name="calendar-outline" size={13} color="#2563EB" />
-                <Text style={styles.scheduledHeroBadgeText}>LỊCH ĐẶT TRƯỚC</Text>
+              <View style={[styles.scheduledHeroBadge, isAgencyBooking && styles.agencyHeroBadge]}>
+                <Ionicons
+                  name={isAgencyBooking ? 'business-outline' : 'calendar-outline'}
+                  size={13}
+                  color={isAgencyBooking ? '#7E22CE' : '#2563EB'}
+                />
+                <Text style={[styles.scheduledHeroBadgeText, isAgencyBooking && styles.agencyHeroBadgeText]}>
+                  {isAgencyBooking ? 'ĐẶT QUA STUDIO' : 'LỊCH ĐẶT TRƯỚC'}
+                </Text>
               </View>
               <Text style={styles.scheduledHeroCode}>{bookingDetail.bookingCode}</Text>
             </View>
@@ -914,7 +927,7 @@ export default function CustomerBookingDetailScreen() {
 
             <TouchableOpacity
               style={styles.pendingDepositCtaBtn}
-              onPress={() => router.push(`/booking/deposit/${bookingId}` as any)}
+              onPress={() => router.replace(`/booking/deposit/${bookingId}` as any)}
               activeOpacity={0.88}
             >
               <Ionicons name="card-outline" size={18} color="#FFFFFF" />
@@ -1012,82 +1025,287 @@ export default function CustomerBookingDetailScreen() {
           </View>
         )}
 
-        {/* THÔNG TIN CHUYÊN VIÊN TRANG ĐIỂM (MUA) */}
-        {!hasAssignedMua ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
-            <View style={styles.noMuaNoticeBox}>
-              <View style={styles.noMuaIconWrap}>
-                <Ionicons name="person-remove-outline" size={22} color="#D97706" />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
-                  <Text style={[styles.noMuaTitle, { flexShrink: 1 }]}>Chưa có chuyên viên tiếp nhận</Text>
-                  <View style={styles.noMuaBadge}>
-                    <Text style={styles.noMuaBadgeText}>Chưa có thợ</Text>
-                  </View>
+        {/* THÔNG TIN ĐƠN VỊ THỰC HIỆN: STUDIO CHUYÊN NGHIỆP VS THỢ TỰ DO */}
+        {isAgencyBooking ? (
+          <>
+            {/* 1. THẺ THÔNG TIN STUDIO ĐỐI TÁC */}
+            <View style={styles.agencyCard}>
+              <View style={styles.agencyBadgeHeader}>
+                <View style={styles.agencyTypeBadge}>
+                  <Ionicons name="business" size={13} color="#33b3eaff" />
+                  <Text style={styles.agencyTypeBadgeText}>Studio Chuyên Nghiệp</Text>
                 </View>
-                <Text style={styles.noMuaDesc}>
-                  Đơn hàng bị hủy do không tìm thấy chuyên viên trang điểm khả dụng trong khu vực để nhận ca.
-                </Text>
+                {bookingDetail.agencyCode ? (
+                  <Text style={styles.agencyCodeText}>{bookingDetail.agencyCode}</Text>
+                ) : null}
               </View>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
-            <View style={styles.muaCardBody}>
-              <UserAvatar
-                uri={bookingDetail.muaAvatar}
-                name={bookingDetail.muaName}
-                size={64}
-                style={{ marginRight: 14 }}
-              />
-              <View style={styles.muaInfoCol}>
-                <View style={styles.muaNameRow}>
-                  <Text style={styles.muaName} numberOfLines={1}>
-                    {bookingDetail.muaName || 'Chuyên viên đối tác'}
-                  </Text>
-                  <View style={styles.proBadge}>
-                    <Text style={styles.proBadgeText}>PRO MUA</Text>
-                  </View>
-                </View>
-                <View style={styles.muaRatingRow}>
-                  <Ionicons name="star" size={14} color="#F59E0B" />
-                  <Text style={styles.muaRatingScore}>
-                    {bookingDetail.rating ? bookingDetail.rating.toFixed(1) : '5.0'}
-                  </Text>
-                  <Text style={styles.muaRatingCount}>(Đánh giá cao)</Text>
-                </View>
-                <Text style={styles.muaPhoneText}>
-                  SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
-                </Text>
-              </View>
-            </View>
 
-            {/* NÚT TƯƠNG TÁC VỚI THỢ */}
-            <View style={styles.muaActionsRow}>
+              <View style={styles.agencyMainRow}>
+                <Image
+                  source={{
+                    uri:
+                      bookingDetail.agencyLogoUrl ||
+                      'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=300&q=80',
+                  }}
+                  style={styles.agencyLogoImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+                <View style={styles.agencyInfoCol}>
+                  <Text style={styles.agencyName} numberOfLines={2}>
+                    {bookingDetail.agencyName || 'Makeup & Beauty Studio'}
+                  </Text>
+                  <View style={styles.agencyHotlineRow}>
+                    <Ionicons name="call-outline" size={14} color="#7E22CE" />
+                    <Text style={styles.agencyHotlineText}>
+                      Hotline: {bookingDetail.agencyPhone || 'Đang cập nhật'}
+                    </Text>
+                  </View>
+                  {bookingDetail.agencyAddress ? (
+                    <View style={styles.agencyAddressRow}>
+                      <Ionicons name="location-outline" size={14} color="#64748B" />
+                      <Text style={styles.agencyAddressText} numberOfLines={2}>
+                        {bookingDetail.agencyAddress}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* NÚT LIÊN HỆ HOTLINE STUDIO */}
               <TouchableOpacity
-                style={styles.callMuaBtn}
-                onPress={handleCallMUA}
-                activeOpacity={0.8}
+                style={styles.callAgencyBtn}
+                onPress={() => handleCallPhone(bookingDetail.agencyPhone, bookingDetail.agencyName || 'Studio')}
+                activeOpacity={0.85}
               >
                 <Ionicons name="call" size={15} color="#FFFFFF" />
-                <Text style={styles.callMuaBtnText}>Gọi Cho Thợ</Text>
+                <Text style={styles.callAgencyBtnText}>Gọi Hotline Studio</Text>
               </TouchableOpacity>
-
-              {bookingDetail.muaId ? (
-                <TouchableOpacity
-                  style={styles.profileMuaBtn}
-                  onPress={() => router.push(`/mua-detail/${bookingDetail.muaId}` as any)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="person-outline" size={15} color="#1E293B" />
-                  <Text style={styles.profileMuaBtnText}>Xem Hồ Sơ</Text>
-                </TouchableOpacity>
-              ) : null}
             </View>
-          </View>
+
+            {/* 2. THẺ ĐỘI NGŨ CHUYÊN VIÊN TRANG ĐIỂM (STUDIO STAFF TEAM) */}
+            <View style={styles.card}>
+              <View style={styles.teamHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>Đội Ngũ Chuyên Viên Phục Vụ</Text>
+                  <Text style={styles.teamSubtitle}>
+                    {bookingDetail.assignedStaff && bookingDetail.assignedStaff.length > 0
+                      ? `${bookingDetail.assignedStaff.length} chuyên viên được Studio điều phối phụ trách`
+                      : 'Được Studio tuyển chọn và đào tạo kỹ lưỡng'}
+                  </Text>
+                </View>
+                {bookingDetail.assignedStaff && bookingDetail.assignedStaff.length > 0 ? (
+                  <View style={styles.teamCountBadge}>
+                    <Ionicons name="people" size={13} color="#2563EB" />
+                    <Text style={styles.teamCountText}>{bookingDetail.assignedStaff.length} Thợ</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {bookingDetail.assignedStaff && bookingDetail.assignedStaff.length > 0 ? (
+                <View style={styles.staffListContainer}>
+                  {[...bookingDetail.assignedStaff]
+                    .sort((a, b) => (a.role === 'PRIMARY_MUA' ? -1 : 1))
+                    .map((staff, sIdx) => {
+                      const isPrimary = staff.role === 'PRIMARY_MUA';
+                      return (
+                        <View
+                          key={`staff-${staff.id || sIdx}`}
+                          style={[styles.staffItemCard, isPrimary && styles.staffItemPrimaryCard]}
+                        >
+                          <View style={styles.staffHeaderRow}>
+                            <View
+                              style={[
+                                styles.staffRolePill,
+                                isPrimary ? styles.staffRolePrimaryPill : styles.staffRoleAssistantPill,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.staffRolePillText,
+                                  isPrimary ? styles.staffRolePrimaryPillText : styles.staffRoleAssistantPillText,
+                                ]}
+                              >
+                                {isPrimary ? 'THỢ CHÍNH' : 'THỢ PHỤ'}
+                              </Text>
+                            </View>
+                            {staff.status === 'ACTIVE' && (
+                              <View style={styles.activeStaffDotRow}>
+                                <View style={styles.activeStaffDot} />
+                                <Text style={styles.activeStaffText}>Đang nhận ca</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <View style={styles.staffBodyRow}>
+                            <UserAvatar
+                              uri={staff.staffAvatarUrl}
+                              name={staff.staffName}
+                              size={50}
+                              style={{ marginRight: 12 }}
+                            />
+                            <View style={{ flex: 1, justifyContent: 'center' }}>
+                              <Text style={styles.staffNameText} numberOfLines={1}>
+                                {staff.staffName || 'Chuyên viên Make-up'}
+                              </Text>
+                              <Text style={styles.staffPhoneText}>
+                                SĐT: {staff.staffPhone || 'Đang cập nhật'}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              style={styles.callStaffMiniBtn}
+                              onPress={() => handleCallPhone(staff.staffPhone, staff.staffName)}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="call" size={13} color="#FFFFFF" />
+                              <Text style={styles.callStaffMiniBtnText}>Gọi Thợ</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                </View>
+              ) : hasAssignedMua ? (
+                /* Fallback nếu chưa có assignedStaff nhưng có muaName */
+                <View style={styles.staffItemCard}>
+                  <View style={styles.staffHeaderRow}>
+                    <View style={[styles.staffRolePill, styles.staffRolePrimaryPill]}>
+                      <Ionicons name="star" size={11} color="#92400E" />
+                      <Text style={[styles.staffRolePillText, styles.staffRolePrimaryPillText]}>
+                        CHUYÊN VIÊN STUDIO
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.staffBodyRow}>
+                    <UserAvatar
+                      uri={bookingDetail.muaAvatar}
+                      name={bookingDetail.muaName}
+                      size={50}
+                      style={{ marginRight: 12 }}
+                    />
+                    <View style={{ flex: 1, justifyContent: 'center' }}>
+                      <Text style={styles.staffNameText} numberOfLines={1}>
+                        {bookingDetail.muaName || 'Chuyên viên đối tác'}
+                      </Text>
+                      <Text style={styles.staffPhoneText}>
+                        SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.callStaffMiniBtn}
+                      onPress={handleCallMUA}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="call" size={13} color="#FFFFFF" />
+                      <Text style={styles.callStaffMiniBtnText}>Gọi Thợ</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                /* Đang điều phối thợ */
+                <View style={styles.pendingDispatchBox}>
+                  <View style={styles.pendingDispatchIconWrap}>
+                    <Ionicons name="hourglass-outline" size={24} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingDispatchTitle}>Studio Đang Điều Phối Thợ</Text>
+                    <Text style={styles.pendingDispatchDesc}>
+                      Studio đang lựa chọn và phân công đội ngũ chuyên viên trang điểm & làm tóc phù hợp nhất cho lịch hẹn của bạn. Thông tin chuyên viên sẽ hiển thị tại đây ngay khi hoàn tất!
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </>
+        ) : (
+          /* GIAO DIỆN ĐẶT THỢ TỰ DO (FREELANCER MUA) */
+          <>
+            {!hasAssignedMua ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+                <View style={styles.noMuaNoticeBox}>
+                  <View style={styles.noMuaIconWrap}>
+                    <Ionicons name="person-remove-outline" size={22} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 6,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <Text style={[styles.noMuaTitle, { flexShrink: 1 }]}>Chưa có chuyên viên tiếp nhận</Text>
+                      <View style={styles.noMuaBadge}>
+                        <Text style={styles.noMuaBadgeText}>Chưa có thợ</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.noMuaDesc}>
+                      Đơn hàng bị hủy do không tìm thấy chuyên viên trang điểm khả dụng trong khu vực để nhận ca.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+                <View style={styles.muaCardBody}>
+                  <UserAvatar
+                    uri={bookingDetail.muaAvatar}
+                    name={bookingDetail.muaName}
+                    size={64}
+                    style={{ marginRight: 14 }}
+                  />
+                  <View style={styles.muaInfoCol}>
+                    <View style={styles.muaNameRow}>
+                      <Text style={styles.muaName} numberOfLines={1}>
+                        {bookingDetail.muaName || 'Chuyên viên đối tác'}
+                      </Text>
+                      <View style={styles.proBadge}>
+                        <Text style={styles.proBadgeText}>PRO MUA</Text>
+                      </View>
+                    </View>
+                    <View style={styles.muaRatingRow}>
+                      <Ionicons name="star" size={14} color="#F59E0B" />
+                      <Text style={styles.muaRatingScore}>
+                        {bookingDetail.rating ? bookingDetail.rating.toFixed(1) : '5.0'}
+                      </Text>
+                      <Text style={styles.muaRatingCount}>(Đánh giá cao)</Text>
+                    </View>
+                    <Text style={styles.muaPhoneText}>
+                      SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* NÚT TƯƠNG TÁC VỚI THỢ */}
+                <View style={styles.muaActionsRow}>
+                  <TouchableOpacity
+                    style={styles.callMuaBtn}
+                    onPress={handleCallMUA}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="call" size={15} color="#FFFFFF" />
+                    <Text style={styles.callMuaBtnText}>Gọi Cho Thợ</Text>
+                  </TouchableOpacity>
+
+                  {bookingDetail.muaId ? (
+                    <TouchableOpacity
+                      style={styles.profileMuaBtn}
+                      onPress={() => router.push(`/mua-detail/${bookingDetail.muaId}` as any)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="person-outline" size={15} color="#1E293B" />
+                      <Text style={styles.profileMuaBtnText}>Xem Hồ Sơ</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+            )}
+          </>
         )}
 
         {/* THÔNG TIN GÓI DỊCH VỤ & CÁC BƯỚC */}
@@ -2814,5 +3032,259 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  agencyHeroBadge: {
+    backgroundColor: '#F3E8FF',
+  },
+  agencyHeroBadgeText: {
+    color: '#248ddcff',
+  },
+  agencyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#F3E8FF',
+    shadowColor: '#2092e8ff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  agencyBadgeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  agencyTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FAF5FF',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+  },
+  agencyTypeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2e85e2ff',
+    letterSpacing: 0.3,
+  },
+  agencyCodeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  agencyMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  agencyLogoImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  agencyInfoCol: {
+    flex: 1,
+    gap: 4,
+  },
+  agencyName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 22,
+  },
+  agencyHotlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  agencyHotlineText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2298ceff',
+  },
+  agencyAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+  agencyAddressText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+    flex: 1,
+  },
+  callAgencyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#338feaff',
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginTop: 14,
+    shadowColor: '#33cceaff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  callAgencyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  teamHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  teamSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  teamCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  teamCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  staffListContainer: {
+    gap: 10,
+  },
+  staffItemCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  staffItemPrimaryCard: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  staffHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  staffRolePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  staffRolePrimaryPill: {
+    backgroundColor: '#FEF3C7',
+  },
+  staffRoleAssistantPill: {
+    backgroundColor: '#DBEAFE',
+  },
+  staffRolePillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  staffRolePrimaryPillText: {
+    color: '#92400E',
+  },
+  staffRoleAssistantPillText: {
+    color: '#1E40AF',
+  },
+  activeStaffDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  activeStaffDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  activeStaffText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  staffBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  staffNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  staffPhoneText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  callStaffMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  callStaffMiniBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pendingDispatchBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    gap: 12,
+  },
+  pendingDispatchIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingDispatchTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  pendingDispatchDesc: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
   },
 });

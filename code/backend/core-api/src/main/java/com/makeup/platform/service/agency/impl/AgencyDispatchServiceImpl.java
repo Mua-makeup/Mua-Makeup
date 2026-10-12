@@ -160,7 +160,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 throw new CustomBusinessException(ErrorCodes.ERR_LOCK_ACQUISITION_TIMEOUT, "common.system_busy");
             }
 
-            return transactionTemplate.execute(status -> executeStaffAssignment(agency, bookingId, req.getPrimaryStaffId(), assistantIds));
+            return transactionTemplate.execute(status -> executeStaffAssignment(agency, bookingId, req.getPrimaryStaffId(), assistantIds, req));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new CustomBusinessException(ErrorCodes.ERR_LOCK_ACQUISITION_TIMEOUT, "common.system_busy");
@@ -172,7 +172,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
     }
 
     @Transactional
-    protected DispatchAssignmentRes executeStaffAssignment(AgencyProfileEntity agency, Long bookingId, Long primaryStaffId, List<Long> assistantIds) {
+    protected DispatchAssignmentRes executeStaffAssignment(AgencyProfileEntity agency, Long bookingId, Long primaryStaffId, List<Long> assistantIds, AssignStaffToBookingReq req) {
         BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
         BookingStatus oldStatus = booking.getStatus();
 
@@ -238,7 +238,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             assistantStaffList.add(astStaff);
         }
 
-        // 3. Mark previous active assignments as REPLACED and flush immediately so partial unique index is not violated
+        // 3. Mark previous active assignments and emergency-cancelled assignments as REPLACED
         List<BookingStaffAssignmentEntity> previousActive = bookingStaffAssignmentRepository.findByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
         if (!previousActive.isEmpty()) {
             for (BookingStaffAssignmentEntity pa : previousActive) {
@@ -248,17 +248,113 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             muaCalendarService.releaseSlotByBookingId(booking.getId());
         }
 
+        List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
+                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
+        BigDecimal transferredEmergencyRate = BigDecimal.ZERO;
+        BigDecimal transferredEmergencyAmount = BigDecimal.ZERO;
+        StringBuilder cancelledStaffNames = new StringBuilder();
+
+        if (!emergencyAssignments.isEmpty()) {
+            for (BookingStaffAssignmentEntity ea : emergencyAssignments) {
+                if (ea.getCommissionRate() != null && ea.getCommissionRate().compareTo(BigDecimal.ZERO) > 0) {
+                    transferredEmergencyRate = transferredEmergencyRate.add(ea.getCommissionRate());
+                }
+                if (ea.getCommissionAmount() != null && ea.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    transferredEmergencyAmount = transferredEmergencyAmount.add(ea.getCommissionAmount());
+                }
+                String staffName = (ea.getStaff() != null && ea.getStaff().getMua() != null && ea.getStaff().getMua().getUser() != null)
+                        ? ea.getStaff().getMua().getUser().getFullName() : "Thợ báo bận";
+                if (cancelledStaffNames.length() > 0) {
+                    cancelledStaffNames.append(", ");
+                }
+                cancelledStaffNames.append(staffName);
+
+                ea.setStatus(AssignmentStatus.REPLACED);
+                ea.setReplacedByStaff(primaryStaff);
+                ea.setCommissionRate(BigDecimal.ZERO);
+                ea.setCommissionAmount(BigDecimal.ZERO);
+                String oldNote = ea.getCommissionNote() != null ? ea.getCommissionNote() + " | " : "";
+                String targetPrimaryName = (primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
+                        ? primaryStaff.getMua().getUser().getFullName() : "Thợ chính";
+                ea.setCommissionNote(oldNote + "Đã chuyển giao hoa hồng khi điều phối lại: " + targetPrimaryName);
+            }
+            bookingStaffAssignmentRepository.saveAllAndFlush(emergencyAssignments);
+            for (BookingStaffAssignmentEntity ea : emergencyAssignments) {
+                if (ea.getStaff() != null && ea.getStaff().getMua() != null) {
+                    muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), ea.getStaff().getMua().getId());
+                }
+            }
+        }
+
         BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
         boolean isEn = support.isEnglishLocale();
 
-        // 4. Create Primary MUA Assignment & Calendar Lock
+        // 4. Validate tổng hoa hồng nếu client gửi custom splits
+        if (req.getCommissionSplits() != null && !req.getCommissionSplits().isEmpty()) {
+            BigDecimal totalSplitRate = BigDecimal.ZERO;
+            BigDecimal totalSplitAmount = BigDecimal.ZERO;
+            for (StaffCommissionSplitItem item : req.getCommissionSplits()) {
+                if (item.getCommissionRate() != null) {
+                    totalSplitRate = totalSplitRate.add(item.getCommissionRate());
+                }
+                if (item.getCommissionAmount() != null) {
+                    totalSplitAmount = totalSplitAmount.add(item.getCommissionAmount());
+                }
+            }
+            if (totalSplitRate.compareTo(BigDecimal.valueOf(100.0)) > 0 || totalSplitAmount.compareTo(totalAmount) > 0) {
+                throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.total_commission_exceeds_max");
+            }
+        }
+
+        // 5. Create Primary MUA Assignment & Calendar Lock
         BigDecimal primaryRate = (primaryStaff.getAgreedCommissionRate() != null)
                 ? primaryStaff.getAgreedCommissionRate()
                 : ((agency.getCommissionRateInternal() != null) ? agency.getCommissionRateInternal() : BigDecimal.valueOf(30.0));
+
+        // Nếu 1 thợ làm hết (không có thợ phụ) và có thợ báo bận trước đó: Chuyển gộp toàn bộ % hoa hồng của thợ báo bận
+        if (assistantStaffList.isEmpty() && transferredEmergencyRate.compareTo(BigDecimal.ZERO) > 0) {
+            primaryRate = primaryRate.add(transferredEmergencyRate);
+            if (primaryRate.compareTo(BigDecimal.valueOf(100.0)) > 0) {
+                primaryRate = BigDecimal.valueOf(100.0);
+            }
+        }
+
         BigDecimal primaryAmount = totalAmount.multiply(primaryRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         String primaryNote = isEn
                 ? ("Lead Artist - Contract Rate (" + primaryRate + "%)")
                 : ("Thợ chính - Hợp đồng thỏa thuận (" + primaryRate + "%)");
+        if (assistantStaffList.isEmpty() && transferredEmergencyRate.compareTo(BigDecimal.ZERO) > 0) {
+            primaryNote += isEn
+                    ? (" [Solo: +" + transferredEmergencyRate + "% from " + cancelledStaffNames + "]")
+                    : (" [Làm Solo toàn bộ ca: Nhận gộp +" + transferredEmergencyRate + "% hoa hồng từ thợ báo bận: " + cancelledStaffNames + "]");
+        }
+
+        if (req.getCommissionSplits() != null) {
+            req.getCommissionSplits().stream()
+                    .filter(s -> s.getStaffId() != null && s.getStaffId().equals(primaryStaff.getId()))
+                    .findFirst()
+                    .ifPresent(customSplit -> {
+                        // Ghi đè theo tùy chỉnh nếu có
+                    });
+        }
+        StaffCommissionSplitItem primaryCustom = (req.getCommissionSplits() != null)
+                ? req.getCommissionSplits().stream()
+                .filter(s -> s.getStaffId() != null && s.getStaffId().equals(primaryStaff.getId()))
+                .findFirst().orElse(null)
+                : null;
+        if (primaryCustom != null) {
+            if (primaryCustom.getCommissionRate() != null) {
+                primaryRate = primaryCustom.getCommissionRate();
+            }
+            if (primaryCustom.getCommissionAmount() != null) {
+                primaryAmount = primaryCustom.getCommissionAmount();
+            } else if (primaryCustom.getCommissionRate() != null) {
+                primaryAmount = totalAmount.multiply(primaryRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            }
+            if (primaryCustom.getCommissionNote() != null && !primaryCustom.getCommissionNote().isBlank()) {
+                primaryNote = primaryCustom.getCommissionNote().trim();
+            }
+        }
 
         BookingStaffAssignmentEntity primaryAssignment = BookingStaffAssignmentEntity.builder()
                 .booking(booking)
@@ -285,7 +381,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         List<BookingStaffAssignmentEntity> allSaved = new ArrayList<>();
         allSaved.add(savedPrimary);
 
-        // 5. Create Assistant MUAs Assignments & Calendar Locks
+        // 6. Create Assistant MUAs Assignments & Calendar Locks
         for (AgencyStaffEntity astStaff : assistantStaffList) {
             BigDecimal astRate = (astStaff.getAgreedCommissionRate() != null)
                     ? astStaff.getAgreedCommissionRate()
@@ -294,6 +390,25 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             String astNote = isEn
                     ? ("Assistant Artist - Service Support (" + astRate + "%)")
                     : ("Thợ phụ - Hỗ trợ dịch vụ (" + astRate + "%)");
+
+            StaffCommissionSplitItem astCustom = (req.getCommissionSplits() != null)
+                    ? req.getCommissionSplits().stream()
+                    .filter(s -> s.getStaffId() != null && s.getStaffId().equals(astStaff.getId()))
+                    .findFirst().orElse(null)
+                    : null;
+            if (astCustom != null) {
+                if (astCustom.getCommissionRate() != null) {
+                    astRate = astCustom.getCommissionRate();
+                }
+                if (astCustom.getCommissionAmount() != null) {
+                    astAmount = astCustom.getCommissionAmount();
+                } else if (astCustom.getCommissionRate() != null) {
+                    astAmount = totalAmount.multiply(astRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                }
+                if (astCustom.getCommissionNote() != null && !astCustom.getCommissionNote().isBlank()) {
+                    astNote = astCustom.getCommissionNote().trim();
+                }
+            }
 
             BookingStaffAssignmentEntity astAssignment = BookingStaffAssignmentEntity.builder()
                     .booking(booking)

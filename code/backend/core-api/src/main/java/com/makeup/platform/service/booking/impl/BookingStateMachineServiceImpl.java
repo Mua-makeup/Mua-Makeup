@@ -7,20 +7,24 @@ import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.constants.MediaConstants;
 import com.makeup.platform.common.utils.FileValidationUtils;
 import com.makeup.platform.dto.request.booking.TransitionBookingStateReq;
+import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
 import com.makeup.platform.dto.response.booking.BookingCompletionPhotoRes;
 import com.makeup.platform.dto.response.booking.BookingStateTransitionRes;
 import com.makeup.platform.dto.response.booking.BookingStatusDetailRes;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
+import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
 import com.makeup.platform.entity.catalog.PackageItemType;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.mapper.booking.BookingMapper;
+import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
@@ -92,6 +96,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
+    private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
@@ -897,6 +902,47 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
+        // Trích xuất thông tin Studio Agency và Đội ngũ thợ phụ trách (nếu có)
+        String bookingPartner = booking.getBookingPartner() != null ? booking.getBookingPartner().name() : null;
+        Long agencyId = null;
+        String agencyCode = null;
+        String agencyName = null;
+        String agencyLogoUrl = null;
+        String agencyPhone = null;
+        String agencyAddress = null;
+        if (booking.getAgency() != null) {
+            AgencyProfileEntity agency = booking.getAgency();
+            agencyId = agency.getId();
+            agencyCode = agency.getAgencyCode();
+            agencyName = agency.getAgencyName();
+            agencyLogoUrl = agency.getLogoUrl();
+            agencyPhone = agency.getHotline();
+            StringBuilder addr = new StringBuilder();
+            if (StringUtils.hasText(agency.getAddressStreet())) {
+                addr.append(agency.getAddressStreet());
+            }
+            if (StringUtils.hasText(agency.getDistrict())) {
+                if (addr.length() > 0) addr.append(", ");
+                addr.append(agency.getDistrict());
+            }
+            if (StringUtils.hasText(agency.getCity())) {
+                if (addr.length() > 0) addr.append(", ");
+                addr.append(agency.getCity());
+            }
+            agencyAddress = addr.toString();
+        }
+
+        List<StaffAssignmentDetailRes> assignedStaff = List.of();
+        try {
+            List<BookingStaffAssignmentEntity> assignments = bookingStaffAssignmentRepository
+                    .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
+            if (assignments != null && !assignments.isEmpty()) {
+                assignedStaff = bookingStaffAssignmentMapper.toDetailResList(assignments);
+            }
+        } catch (Exception e) {
+            log.warn("[StateMachine] Unable to fetch staff assignments for bookingId={}: {}", booking.getId(), e.getMessage());
+        }
+
         return BookingStatusDetailRes.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingCode())
@@ -945,6 +991,14 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .inProgressElapsedSeconds(inProgressElapsedSeconds)
                 .isCancelRequested(isCancelRequested)
                 .cancelRequestedReason(cancelRequestedReason)
+                .bookingPartner(bookingPartner)
+                .agencyId(agencyId)
+                .agencyCode(agencyCode)
+                .agencyName(agencyName)
+                .agencyLogoUrl(agencyLogoUrl)
+                .agencyPhone(agencyPhone)
+                .agencyAddress(agencyAddress)
+                .assignedStaff(assignedStaff)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
                 .build();
     }

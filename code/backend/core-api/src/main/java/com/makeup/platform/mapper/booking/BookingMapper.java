@@ -13,13 +13,16 @@ import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.catalog.PackageItemType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -141,7 +144,24 @@ public class BookingMapper {
                 categoryName = pkg.getMasterCategory().getCategoryName();
             }
             if (pkg.getPackageItems() != null) {
+                Set<String> selectedAddonSet = new HashSet<>();
+                if (entity.getSelectedAddons() != null && !entity.getSelectedAddons().isBlank()) {
+                    String[] parts = entity.getSelectedAddons().split(",,,");
+                    for (String p : parts) {
+                        if (p != null && !p.isBlank()) {
+                            selectedAddonSet.add(p.trim().toLowerCase());
+                        }
+                    }
+                }
+
                 packageItems = pkg.getPackageItems().stream()
+                        .filter(item -> {
+                            if (item == null) return false;
+                            if (item.getItemType() == PackageItemType.ADD_ON) {
+                                return item.getItemName() != null && selectedAddonSet.contains(item.getItemName().trim().toLowerCase());
+                            }
+                            return true;
+                        })
                         .map(item -> PackageItemRes.builder()
                                 .id(item.getId())
                                 .itemType(item.getItemType())

@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.response.booking;
 
+import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
 import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -67,4 +68,15 @@ public class BookingStatusDetailRes {
     private Boolean isDirectBooking;
     private List<CandidatePackageRes> availablePackages;
     private LocalDateTime updatedAt;
+
+    // Phân hệ Studio Agency & Đội ngũ thợ phụ trách
+    private String bookingPartner;
+    private Long agencyId;
+    private String agencyCode;
+    private String agencyName;
+    private String agencyLogoUrl;
+    private String agencyPhone;
+    private String agencyAddress;
+    @Builder.Default
+    private List<StaffAssignmentDetailRes> assignedStaff = List.of();
 }

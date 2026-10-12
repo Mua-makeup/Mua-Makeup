@@ -43,6 +43,7 @@ public class BookingStaffAssignmentMapper {
                 .staffId(staffId)
                 .staffName(staffName)
                 .staffPhone(staffPhone)
+                .staffAvatarUrl(staffAvatarUrl)
                 .role(entity.getAssignmentRole())
                 .status(entity.getStatus())
                 .assignedAt(entity.getAssignedAt() != null ? entity.getAssignedAt().toLocalDateTime() : null)

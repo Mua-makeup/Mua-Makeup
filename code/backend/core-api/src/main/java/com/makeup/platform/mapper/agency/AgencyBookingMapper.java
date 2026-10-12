@@ -9,6 +9,7 @@ import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
+import com.makeup.platform.entity.catalog.PackageItemType;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
 import com.makeup.platform.repository.AgencyStaffRepository;
@@ -19,8 +20,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -114,7 +117,27 @@ public class AgencyBookingMapper {
                 categoryName = pkg.getMasterCategory().getCategoryName();
             }
             if (pkg.getPackageItems() != null) {
+                Set<String> selectedAddonSet = new HashSet<>();
+                if (b.getSelectedAddons() != null && !b.getSelectedAddons().isBlank()) {
+                    String[] parts = b.getSelectedAddons().split(",,,");
+                    for (String p : parts) {
+                        if (p != null && !p.isBlank()) {
+                            selectedAddonSet.add(p.trim().toLowerCase());
+                        }
+                    }
+                }
+
                 packageItems = pkg.getPackageItems().stream()
+                        .filter(item -> {
+                            if (item == null) return false;
+                            // Chỉ hiển thị các dịch vụ khách đặt:
+                            // 1. Dịch vụ bắt buộc/thành phần cốt lõi của gói (COMPONENT hoặc isRequired = true)
+                            // 2. Dịch vụ đi kèm (ADD_ON) mà khách ĐÃ CHỌN ĐẶT (nằm trong selectedAddons)
+                            if (item.getItemType() == PackageItemType.ADD_ON) {
+                                return item.getItemName() != null && selectedAddonSet.contains(item.getItemName().trim().toLowerCase());
+                            }
+                            return true;
+                        })
                         .map(item -> PackageItemRes.builder()
                                 .id(item.getId())
                                 .itemType(item.getItemType())
@@ -177,6 +200,7 @@ public class AgencyBookingMapper {
                 .packageDurationMinutes(packageDurationMinutes)
                 .categoryName(categoryName)
                 .packageItems(packageItems)
+                .selectedAddons(b.getSelectedAddons())
                 .scheduledStartTime(scheduledStartTime)
                 .scheduledEndTime(scheduledEndTime)
                 .destinationAddress(b.getDestinationAddress())

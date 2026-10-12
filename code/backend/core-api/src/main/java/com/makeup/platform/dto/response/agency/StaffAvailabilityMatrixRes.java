@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -33,6 +34,12 @@ public class StaffAvailabilityMatrixRes {
     private int totalStaffCount;
     private int qualifiedCount;
 
+    private BigDecimal totalAmount;
+    private BigDecimal depositAmount;
+
     @Builder.Default
     private List<StaffMatrixItemRes> staffList = List.of();
+
+    @Builder.Default
+    private List<StaffAssignmentDetailRes> currentAssignments = List.of();
 }

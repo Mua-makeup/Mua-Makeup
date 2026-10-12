@@ -41,6 +41,8 @@ export const BookingHistoryCard: React.FC<Props> = ({
         return { label: 'Chờ Đặt Cọc', color: '#D97706', bg: '#FEF3C7' };
       case 'REQUESTED':
         return { label: 'Chờ Xác Nhận', color: '#D97706', bg: '#FEF3C7' };
+      case 'PENDING_AGENCY_DISPATCH':
+        return { label: 'Chờ Studio Phân Công', color: '#D97706', bg: '#FEF3C7' };
       case 'AGENCY_ASSIGNED':
       case 'ACCEPTED':
         return { label: 'Đã Nhận Đơn', color: '#2563EB', bg: '#DBEAFE' };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
+  AlertCircle,
   ShieldAlert,
   Loader2,
   FileText,
@@ -179,6 +180,18 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       );
     });
 
+  // Tính toán % hoa hồng chuyển giao khi để 1 thợ làm hết
+  const emergencyCommissionRate = emergencyAssignments.reduce(
+    (sum, s) => sum + (Number(s.commissionRate) || 0),
+    0
+  );
+  const activeStaffBaseRate = Number(activeStaff?.commissionRate) || 70;
+  const soloTotalRate = Math.min(100, activeStaffBaseRate + emergencyCommissionRate);
+  const totalBookingAmount = booking?.totalAmount ? Number(booking.totalAmount) : 0;
+  const soloTotalAmount = totalBookingAmount > 0
+    ? Math.round((totalBookingAmount * soloTotalRate) / 100)
+    : 0;
+
   return (
     <>
     <Modal
@@ -262,45 +275,63 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
         ) : (
           /* Selection Screen */
           <div className="space-y-4">
+            {/* Solo Option Banner if activeStaff exists */}
+            {activeStaff && (
+              <div className="rounded-xl border-2 border-emerald-500/80 bg-emerald-50/70 dark:bg-emerald-950/40 p-4 space-y-3 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs uppercase tracking-wide">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>{t('proceed_solo_card_title')}</span>
+                  </div>
+                  <Badge variant="success" size="sm">
+                    Nhận trọn {soloTotalRate}% hoa hồng
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                  {t('proceed_solo_card_desc')}
+                </p>
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-emerald-600" />
+                      <div>
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">
+                          {activeStaff.staffName || booking.staffName}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block font-mono">
+                          {activeStaff.staffPhone || booking.staffPhone || ''}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge variant="gold" size="sm">
+                      {t('dispatch_badge_primary')}
+                    </Badge>
+                  </div>
+
+                  <div className="pt-2 border-t border-emerald-100 dark:border-emerald-900/60 flex flex-wrap items-center justify-between text-xs gap-2">
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Hoa hồng thợ solo: <strong className="text-slate-900 dark:text-white">{activeStaffBaseRate}%</strong>
+                      {emergencyCommissionRate > 0 && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold"> + {emergencyCommissionRate}% (chuyển từ thợ bận)</span>
+                      )}
+                    </span>
+                    <span className="font-mono font-extrabold text-emerald-700 dark:text-emerald-300 text-xs">
+                      = {soloTotalRate}% {soloTotalAmount > 0 ? `(${soloTotalAmount.toLocaleString('vi-VN')} đ)` : ''}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                {t('dispatch_reassign_select_new')}
+                {qualifiedStaff.length > 0 ? t('dispatch_reassign_select_new') : 'Hoặc chọn thợ thay thế:'}
               </label>
 
               {qualifiedStaff.length === 0 ? (
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                    <AlertTriangle className="w-5 h-5 text-amber-500 mx-auto mb-1.5" />
-                    <p>{t('dispatch_no_qualified_staff')}</p>
-                  </div>
-
-                  {activeStaff && (
-                    <div className="rounded-xl border-2 border-emerald-500/80 bg-emerald-50/70 dark:bg-emerald-950/40 p-4 space-y-3 shadow-xs">
-                      <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs uppercase tracking-wide">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                        <span>{t('proceed_solo_card_title')}</span>
-                      </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-                        {t('proceed_solo_card_desc')}
-                      </p>
-                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-emerald-600" />
-                          <div>
-                            <span className="font-bold text-xs text-slate-900 dark:text-white">
-                              {activeStaff.staffName || booking.staffName}
-                            </span>
-                            <span className="text-[10px] text-slate-500 block font-mono">
-                              {activeStaff.staffPhone || booking.staffPhone || ''}
-                            </span>
-                          </div>
-                        </div>
-                        <Badge variant="gold" size="sm">
-                          {t('dispatch_badge_primary')}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 mx-auto mb-1.5" />
+                  <p>{t('dispatch_no_qualified_staff')}</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
@@ -357,47 +388,44 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
                 value={reassignReason}
                 onChange={(e) => setReassignReason(e.target.value)}
                 rows={2}
-                placeholder="Nhập lý do đổi thợ dự phòng..."
+                placeholder="Nhập lý do đổi thợ dự phòng hoặc ghi chú xử lý..."
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80 p-3 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
                 {t('cancel')}
               </Button>
-              {qualifiedStaff.length > 0 ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleInitiateReassign}
-                  disabled={!selectedNewStaffId || isSubmitting || loading}
-                  isLoading={isSubmitting}
-                >
-                  {t('dispatch_reassign_confirm_btn')}
-                </Button>
-              ) : activeStaff ? (
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setShowSoloConfirmModal(true)}
-                  disabled={isSubmitting || loading}
-                  isLoading={isSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer shadow-xs"
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                  <span>{t('btn_proceed_solo')}</span>
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={true}
-                >
-                  {t('dispatch_reassign_confirm_btn')}
-                </Button>
-              )}
+
+              <div className="flex items-center gap-2">
+                {activeStaff && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowSoloConfirmModal(true)}
+                    disabled={isSubmitting || loading}
+                    isLoading={isSubmitting}
+                    className="border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 font-bold cursor-pointer shadow-xs"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" />
+                    <span>{t('btn_proceed_solo')}</span>
+                  </Button>
+                )}
+
+                {qualifiedStaff.length > 0 && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleInitiateReassign}
+                    disabled={!selectedNewStaffId || isSubmitting || loading}
+                    isLoading={isSubmitting}
+                  >
+                    {t('dispatch_reassign_confirm_btn')}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -460,7 +488,33 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       onConfirm={handleExecuteProceedSolo}
       title={t('confirm_proceed_solo_title') || 'Xác Nhận Để 1 Thợ Làm Hết'}
       message={
-        t('confirm_proceed_solo_msg')?.replace('{name}', activeStaff?.staffName || booking?.staffName || 'Thợ chính')
+        <div className="space-y-3">
+          <p className="text-slate-700 dark:text-slate-200 leading-relaxed text-xs">
+            Bạn có chắc chắn muốn để thợ{' '}
+            <strong className="text-emerald-700 dark:text-emerald-400">
+              {activeStaff?.staffName || booking?.staffName || 'Thợ chính'}
+            </strong>{' '}
+            đảm nhiệm toàn bộ ca này một mình (Solo) không?
+          </p>
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 space-y-1.5 text-xs">
+            <div className="flex justify-between items-center text-emerald-900 dark:text-emerald-200 font-semibold">
+              <span>Thợ đảm nhiệm solo:</span>
+              <span>{activeStaff?.staffName || booking?.staffName}</span>
+            </div>
+            {emergencyCommissionRate > 0 && (
+              <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                <span>Chuyển từ thợ báo bận:</span>
+                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">+{emergencyCommissionRate}%</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-1 border-t border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-white font-bold">
+              <span>Tổng hoa hồng thợ nhận:</span>
+              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold">
+                {soloTotalRate}% {soloTotalAmount > 0 ? `(${soloTotalAmount.toLocaleString('vi-VN')} đ)` : ''}
+              </span>
+            </div>
+          </div>
+        </div>
       }
       confirmText={t('confirm_proceed_solo_btn') || 'Xác Nhận Để 1 Thợ'}
       cancelText={t('cancel')}

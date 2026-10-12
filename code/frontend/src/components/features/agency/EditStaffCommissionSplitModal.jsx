@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Percent, AlertCircle, Save } from 'lucide-react';
+import { DollarSign, Percent, AlertCircle, Save, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { Input } from '../../base/Input';
@@ -17,6 +17,7 @@ export const EditStaffCommissionSplitModal = ({
   const [items, setItems] = useState([]);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const totalAmount = Number(booking?.totalAmount || 0);
 
@@ -59,6 +60,7 @@ export const EditStaffCommissionSplitModal = ({
 
       setItems(mapped);
       setError('');
+      setIsConfirmOpen(false);
     }
   }, [booking, totalAmount, t]);
 
@@ -110,8 +112,8 @@ export const EditStaffCommissionSplitModal = ({
   const formatCurrency = (val) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleOpenConfirm = (e) => {
+    e?.preventDefault();
     setError('');
 
     if (totalCommissions > totalAmount) {
@@ -119,6 +121,11 @@ export const EditStaffCommissionSplitModal = ({
       return;
     }
 
+    setIsConfirmOpen(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    setError('');
     setIsLoading(true);
     try {
       const payload = {
@@ -132,146 +139,236 @@ export const EditStaffCommissionSplitModal = ({
 
       const res = await agencyService.updateStaffCommissions(booking.id || booking.bookingId, payload);
       onSuccess?.(res?.data || res);
+      setIsConfirmOpen(false);
       onClose();
     } catch (err) {
       setError(err.response?.data?.message || err.message || t('error_general'));
+      setIsConfirmOpen(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={
-        <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-          <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-          <span>{t('commission_split_modal_title')}</span>
-        </div>
-      }
-      maxWidth="max-w-2xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{error}</span>
+    <>
+      {/* Modal Chỉnh Sửa Hoa Hồng Chính */}
+      <Modal
+        isOpen={isOpen && !isConfirmOpen}
+        onClose={onClose}
+        title={
+          <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+            <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            <span>{t('commission_split_modal_title')}</span>
           </div>
-        )}
+        }
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleOpenConfirm} className="space-y-3">
+          {error && (
+            <div className="p-2.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>{error}</span>
+            </div>
+          )}
 
-        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs space-y-1">
-          <p className="font-semibold text-slate-800 dark:text-slate-200">
-            {t('booking_label')}: #{booking.bookingCode || booking.id} — {booking.servicePackageName || booking.packageName}
-          </p>
-          <p className="text-slate-500 dark:text-slate-400">
-            {t('commission_split_modal_desc')}
-          </p>
-        </div>
+          {/* Booking Summary Pill */}
+          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs flex flex-wrap items-center justify-between gap-1">
+            <div className="font-semibold text-slate-800 dark:text-slate-200">
+              #{booking.bookingCode || booking.id} — {booking.servicePackageName || booking.packageName}
+            </div>
+            <div className="text-slate-500 dark:text-slate-400">
+              {t('col_total_amount')}: <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(totalAmount)}</span>
+            </div>
+          </div>
 
-        {/* Staff Rows */}
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-          {items.map((staff, idx) => (
-            <div
-              key={staff.staffId || idx}
-              className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-slate-900 dark:text-white">
-                    {staff.staffName}
-                  </span>
-                  {staff.staffPhone && (
-                    <span className="text-xs text-slate-500 font-mono">
-                      ({staff.staffPhone})
+          {/* Staff Rows - Compact Layout 1 hàng 3 ô, không cuộn lồng */}
+          <div className="space-y-2.5">
+            {items.map((staff, idx) => (
+              <div
+                key={staff.staffId || idx}
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 space-y-2 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      {staff.staffName}
                     </span>
-                  )}
+                    {staff.staffPhone && (
+                      <span className="text-xs text-slate-500 font-mono">
+                        ({staff.staffPhone})
+                      </span>
+                    )}
+                  </div>
+                  <Badge
+                    variant={staff.role === 'PRIMARY_MUA' ? 'gold' : 'purple'}
+                    size="sm"
+                  >
+                    {staff.role === 'PRIMARY_MUA'
+                      ? t('dispatch_badge_primary')
+                      : t('dispatch_badge_assistant')}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={staff.role === 'PRIMARY_MUA' ? 'gold' : 'purple'}
-                  size="sm"
-                >
-                  {staff.role === 'PRIMARY_MUA'
-                    ? t('dispatch_badge_primary')
-                    : t('dispatch_badge_assistant')}
-                </Badge>
+
+                <div className="grid grid-cols-12 gap-2.5 items-end">
+                  <div className="col-span-12 sm:col-span-3">
+                    <Input
+                      label={`${t('col_commission_rate')} (%)`}
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      value={staff.commissionRate}
+                      onChange={(e) => handleRateChange(idx, e.target.value)}
+                      placeholder="30"
+                      icon={Percent}
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="col-span-12 sm:col-span-4">
+                    <Input
+                      label={`${t('col_commission_amount')} (₫)`}
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={staff.commissionAmount}
+                      onChange={(e) => handleAmountChange(idx, e.target.value)}
+                      placeholder="300000"
+                      icon={DollarSign}
+                      className="text-xs"
+                    />
+                  </div>
+                  <div className="col-span-12 sm:col-span-5">
+                    <Input
+                      label={t('col_commission_reason')}
+                      type="text"
+                      value={staff.commissionNote}
+                      onChange={(e) => handleNoteChange(idx, e.target.value)}
+                      placeholder={t('col_commission_reason_placeholder')}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
               </div>
+            ))}
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  label={`${t('col_commission_rate')} (%)`}
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={staff.commissionRate}
-                  onChange={(e) => handleRateChange(idx, e.target.value)}
-                  placeholder="30"
-                  icon={<Percent className="w-4 h-4 text-slate-400" />}
-                />
-                <Input
-                  label={`${t('col_commission_amount')} (₫)`}
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={staff.commissionAmount}
-                  onChange={(e) => handleAmountChange(idx, e.target.value)}
-                  placeholder="300000"
-                  icon={<DollarSign className="w-4 h-4 text-slate-400" />}
-                />
+          {/* Financial Summary */}
+          <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 text-xs">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <span className="text-slate-500 block text-[11px] mb-0.5">{t('col_total_amount')}</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {formatCurrency(totalAmount)}
+                </span>
               </div>
+              <div>
+                <span className="text-slate-500 block text-[11px] mb-0.5">{t('total_staff_commission')}</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">
+                  {formatCurrency(totalCommissions)}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px] mb-0.5">{t('col_studio_net')}</span>
+                <span className={`font-bold ${studioNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
+                  {formatCurrency(studioNet)}
+                </span>
+              </div>
+            </div>
+          </div>
 
-              <Input
-                label={t('col_commission_reason')}
-                type="text"
-                value={staff.commissionNote}
-                onChange={(e) => handleNoteChange(idx, e.target.value)}
-                placeholder={t('col_commission_reason_placeholder')}
-              />
-            </div>
-          ))}
-        </div>
+          {/* Modal Actions - Nút Hủy 1/3, Nút Lưu 2/3 */}
+          <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+              className="col-span-1 w-full justify-center"
+            >
+              {t('btn_cancel') || t('cancel') || 'Hủy Bỏ'}
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isLoading}
+              className="col-span-2 w-full justify-center flex items-center gap-1.5"
+            >
+              <Save className="w-4 h-4" />
+              <span>{t('btn_save_changes') || t('save') || 'Lưu Thay Đổi'}</span>
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-        {/* Financial Summary */}
-        <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-xs">
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <span className="text-slate-500 block mb-0.5">{t('col_total_amount')}</span>
-              <span className="font-bold text-slate-900 dark:text-white">
-                {formatCurrency(totalAmount)}
-              </span>
+      {/* Modal Xác Nhận Lưu Thay Đổi */}
+      <Modal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        title={
+          <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            <span>{t('confirm_commission_title') || 'Xác Nhận Điều Chỉnh Hoa Hồng'}</span>
+          </div>
+        }
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-3.5 text-xs text-slate-700 dark:text-slate-300">
+          <p className="text-slate-600 dark:text-slate-400">
+            {t('confirm_commission_msg') || 'Bạn có chắc chắn muốn lưu mức phân chia hoa hồng này cho ca làm? Mức hoa hồng sẽ được áp dụng khi hoàn thành đơn.'}
+          </p>
+
+          {/* Breakdown box */}
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+            <div className="font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-1.5">
+              Tóm tắt phân chia ({items.length} thợ):
             </div>
-            <div>
-              <span className="text-slate-500 block mb-0.5">{t('total_staff_commission')}</span>
-              <span className="font-bold text-amber-600 dark:text-amber-400">
-                {formatCurrency(totalCommissions)}
-              </span>
+            {items.map((st, i) => (
+              <div key={i} className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 dark:text-slate-400">
+                  {st.staffName} ({st.role === 'PRIMARY_MUA' ? 'Thợ chính' : 'Thợ phụ'}):
+                </span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {st.commissionRate}% — {formatCurrency(st.commissionAmount)}
+                </span>
+              </div>
+            ))}
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-1.5 flex justify-between items-center font-bold">
+              <span>Tổng hoa hồng thợ:</span>
+              <span className="text-amber-600 dark:text-amber-400">{formatCurrency(totalCommissions)}</span>
             </div>
-            <div>
-              <span className="text-slate-500 block mb-0.5">{t('col_studio_net')}</span>
-              <span className={`font-bold ${studioNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}`}>
+            <div className="flex justify-between items-center font-bold">
+              <span>Studio giữ lại:</span>
+              <span className={studioNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}>
                 {formatCurrency(studioNet)}
               </span>
             </div>
           </div>
-        </div>
 
-        {/* Modal Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
-            {t('btn_cancel')}
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            isLoading={isLoading}
-            className="flex items-center gap-1.5"
-          >
-            <Save className="w-4 h-4" />
-            <span>{t('btn_save_changes')}</span>
-          </Button>
+          {/* Actions: Hủy 1/3, Lưu 2/3 */}
+          <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsConfirmOpen(false)}
+              disabled={isLoading}
+              className="col-span-1 w-full justify-center"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+              <span>{t('btn_cancel') || t('cancel') || 'Quay Lại'}</span>
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleConfirmSubmit}
+              isLoading={isLoading}
+              className="col-span-2 w-full justify-center flex items-center gap-1.5"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{t('btn_confirm') || t('confirm') || 'Xác Nhận Lưu'}</span>
+            </Button>
+          </div>
         </div>
-      </form>
-    </Modal>
+      </Modal>
+    </>
   );
 };

@@ -9,6 +9,7 @@ import { EditStaffCommissionSplitModal } from './EditStaffCommissionSplitModal';
 export const StaffCommissionSplitMatrix = ({
   booking,
   onBookingUpdated,
+  onOpenEditModal,
 }) => {
   const { t } = useI18nStore();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -54,7 +55,13 @@ export const StaffCommissionSplitMatrix = ({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setIsEditModalOpen(true)}
+            onClick={() => {
+              if (onOpenEditModal) {
+                onOpenEditModal();
+              } else {
+                setIsEditModalOpen(true);
+              }
+            }}
             className="text-xs h-7 px-2.5 flex items-center gap-1.5 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100/60 dark:hover:bg-amber-900/40"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -223,8 +230,8 @@ export const StaffCommissionSplitMatrix = ({
         </div>
       </div>
 
-      {/* Edit Modal */}
-      {isEditModalOpen && (
+      {/* Edit Modal (Fallback khi không dùng standalone modal ngoài) */}
+      {!onOpenEditModal && isEditModalOpen && (
         <EditStaffCommissionSplitModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}

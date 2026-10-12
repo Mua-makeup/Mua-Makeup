@@ -307,17 +307,66 @@ public class AgencyEmergencyService {
         String primaryStaffName = (primaryStaff != null && primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
                 ? primaryStaff.getMua().getUser().getFullName() : "Thợ chính";
 
-        // Mark previous emergency-cancelled staff assignments as REPLACED by solo primary staff
+        // Mark previous emergency-cancelled staff assignments as REPLACED by solo primary staff and transfer commission
         List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
                 .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
+
+        BigDecimal transferredRate = BigDecimal.ZERO;
+        BigDecimal transferredAmount = BigDecimal.ZERO;
+        StringBuilder cancelledStaffNames = new StringBuilder();
+
         for (BookingStaffAssignmentEntity ea : emergencyAssignments) {
+            if (ea.getCommissionRate() != null && ea.getCommissionRate().compareTo(BigDecimal.ZERO) > 0) {
+                transferredRate = transferredRate.add(ea.getCommissionRate());
+            }
+            if (ea.getCommissionAmount() != null && ea.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0) {
+                transferredAmount = transferredAmount.add(ea.getCommissionAmount());
+            }
+
+            String staffName = (ea.getStaff() != null && ea.getStaff().getMua() != null && ea.getStaff().getMua().getUser() != null)
+                    ? ea.getStaff().getMua().getUser().getFullName() : "Thợ báo bận";
+            if (cancelledStaffNames.length() > 0) {
+                cancelledStaffNames.append(", ");
+            }
+            cancelledStaffNames.append(staffName);
+
             ea.setStatus(AssignmentStatus.REPLACED);
             ea.setReplacedByStaff(primaryStaff);
+            ea.setCommissionRate(BigDecimal.ZERO);
+            ea.setCommissionAmount(BigDecimal.ZERO);
+            String oldNote = ea.getCommissionNote() != null ? ea.getCommissionNote() + " | " : "";
+            ea.setCommissionNote(oldNote + "Toàn bộ hoa hồng đã chuyển giao cho thợ làm Solo: " + primaryStaffName);
             bookingStaffAssignmentRepository.save(ea);
 
             if (ea.getStaff() != null && ea.getStaff().getMua() != null) {
                 muaCalendarService.releaseSlotByBookingIdAndMuaId(booking.getId(), ea.getStaff().getMua().getId());
             }
+        }
+
+        // Transfer all commission to primaryAssignment
+        if (transferredRate.compareTo(BigDecimal.ZERO) > 0 || transferredAmount.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal currentRate = primaryAssignment.getCommissionRate() != null ? primaryAssignment.getCommissionRate() : BigDecimal.ZERO;
+            BigDecimal newRate = currentRate.add(transferredRate);
+            if (newRate.compareTo(BigDecimal.valueOf(100.0)) > 0) {
+                newRate = BigDecimal.valueOf(100.0);
+            }
+            primaryAssignment.setCommissionRate(newRate);
+
+            BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal newAmount;
+            if (totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+                newAmount = totalAmount.multiply(newRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            } else {
+                BigDecimal currentAmount = primaryAssignment.getCommissionAmount() != null ? primaryAssignment.getCommissionAmount() : BigDecimal.ZERO;
+                newAmount = currentAmount.add(transferredAmount);
+            }
+            primaryAssignment.setCommissionAmount(newAmount);
+
+            String currentNote = primaryAssignment.getCommissionNote() != null ? primaryAssignment.getCommissionNote() : "";
+            String transferNote = " [Làm Solo toàn bộ ca: Nhận gộp +" + transferredRate + "% hoa hồng từ thợ báo bận: " + cancelledStaffNames + "]";
+            primaryAssignment.setCommissionNote(currentNote + transferNote);
+
+            bookingStaffAssignmentRepository.save(primaryAssignment);
         }
 
         // Clear emergency flag on booking
@@ -331,9 +380,13 @@ public class AgencyEmergencyService {
         String noteSuffix = (req != null && req.getResolutionNote() != null && !req.getResolutionNote().isBlank())
                 ? (isEn ? " Note: " + req.getResolutionNote().trim() : " Ghi chú: " + req.getResolutionNote().trim())
                 : "";
+        String commissionTransferMsg = (transferredRate.compareTo(BigDecimal.ZERO) > 0)
+                ? (isEn ? (" Transferred " + transferredRate + "% commission to " + primaryStaffName + ".")
+                        : (" Đã chuyển gộp toàn bộ " + transferredRate + "% hoa hồng của thợ báo bận cho " + primaryStaffName + "."))
+                : "";
         String auditNote = isEn
-                ? ("Studio confirmed artist " + primaryStaffName + " will fulfill the booking solo (no replacement needed)." + noteSuffix)
-                : ("Studio xác nhận để thợ " + primaryStaffName + " đảm nhiệm toàn bộ đơn hàng (không cần phân công thêm thợ thay thế)." + noteSuffix);
+                ? ("Studio confirmed artist " + primaryStaffName + " will fulfill the booking solo (no replacement needed)." + commissionTransferMsg + noteSuffix)
+                : ("Studio xác nhận để thợ " + primaryStaffName + " đảm nhiệm toàn bộ đơn hàng (không cần phân công thêm thợ thay thế)." + commissionTransferMsg + noteSuffix);
 
         bookingAuditService.logTransition(
                 savedBooking,
@@ -344,7 +397,8 @@ public class AgencyEmergencyService {
         );
 
         support.broadcastDispatchUpdate(agency.getId(), savedBooking);
-        log.info("Booking {} emergency resolved as solo assignment for staff {}", savedBooking.getBookingCode(), primaryStaffName);
+        log.info("Booking {} emergency resolved as solo assignment for staff {} with transferred rate {}%",
+                savedBooking.getBookingCode(), primaryStaffName, transferredRate);
     }
 
     @Transactional
