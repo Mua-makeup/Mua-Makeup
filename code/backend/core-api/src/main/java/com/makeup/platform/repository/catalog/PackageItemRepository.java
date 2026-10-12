@@ -12,7 +12,13 @@ public interface PackageItemRepository extends JpaRepository<PackageItemEntity, 
 
     List<PackageItemEntity> findByServicePackageIdOrderByStepOrderAsc(Long packageId);
 
+    List<PackageItemEntity> findByServicePackageIdAndIsDeletedFalseOrderByStepOrderAsc(Long packageId);
+
     List<PackageItemEntity> findByServicePackageIdAndIsActiveTrueOrderByStepOrderAsc(Long packageId);
 
+    List<PackageItemEntity> findByServicePackageIdAndIsActiveTrueAndIsDeletedFalseOrderByStepOrderAsc(Long packageId);
+
     Optional<PackageItemEntity> findByIdAndServicePackageId(Long id, Long packageId);
+
+    Optional<PackageItemEntity> findByIdAndServicePackageIdAndIsDeletedFalse(Long id, Long packageId);
 }

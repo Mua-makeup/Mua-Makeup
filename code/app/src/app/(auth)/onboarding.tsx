@@ -79,7 +79,7 @@ export default function OnboardingScreen() {
         <View style={styles.topRow}>
           <View style={styles.brandGroup}>
             <View style={styles.miniIconBox}>
-              <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+              <Text style={styles.miniMonogram}>M</Text>
             </View>
             <Text style={styles.brandText}>MUA MAKEUP</Text>
           </View>
@@ -165,6 +165,12 @@ const styles = StyleSheet.create({
     backgroundColor: BrandColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  miniMonogram: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   brandText: {
     fontSize: 14,

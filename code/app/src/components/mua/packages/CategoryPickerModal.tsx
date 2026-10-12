@@ -82,7 +82,7 @@ export const CategoryPickerModal: React.FC<CategoryPickerModalProps> = ({
                     <View style={styles.itemContent}>
                       <View style={[styles.iconBox, isSelected && styles.iconBoxSelected]}>
                         <Ionicons
-                          name="sparkles-outline"
+                          name="grid-outline"
                           size={18}
                           color={isSelected ? BrandColors.primary : BrandColors.slateMuted}
                         />

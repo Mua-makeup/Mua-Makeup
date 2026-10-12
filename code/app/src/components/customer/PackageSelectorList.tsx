@@ -78,7 +78,7 @@ export const PackageSelectorList: React.FC<Props> = ({
   if (packages.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="sparkles-outline" size={24} color="#94A3B8" />
+        <Ionicons name="albums-outline" size={24} color="#94A3B8" />
         <Text style={styles.emptyText}>Thợ hiện chưa có gói dịch vụ nào hoạt động.</Text>
       </View>
     );

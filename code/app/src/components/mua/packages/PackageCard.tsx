@@ -68,26 +68,31 @@ export const PackageCard: React.FC<PackageCardProps> = ({
           </View>
         )}
 
-        {/* Category Badge */}
-        {item.categoryName ? (
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryBadgeText}>{item.categoryName}</Text>
-          </View>
-        ) : null}
+        {/* Top Header Overlay: Category Badge & Status Switch (No Overlap) */}
+        <View style={styles.topOverlayRow}>
+          {item.categoryName ? (
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText} numberOfLines={1} ellipsizeMode="tail">
+                {item.categoryName}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
 
-        {/* Status Switch Overlay */}
-        <View style={styles.statusSwitchWrapper}>
-          <Text style={[styles.statusText, { color: isAvailable ? BrandColors.success : BrandColors.slateMuted }]}>
-            {isAvailable ? 'Đang Nhận Ca' : 'Tạm Đóng'}
-          </Text>
-          <Switch
-            value={isAvailable}
-            onValueChange={handleToggle}
-            disabled={updatingStatus}
-            trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
-            thumbColor={isAvailable ? BrandColors.success : '#94A3B8'}
-            style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-          />
+          <View style={styles.statusSwitchWrapper}>
+            <Text style={[styles.statusText, { color: isAvailable ? BrandColors.success : BrandColors.slateMuted }]}>
+              {isAvailable ? 'Đang Nhận Ca' : 'Tạm Đóng'}
+            </Text>
+            <Switch
+              value={isAvailable}
+              onValueChange={handleToggle}
+              disabled={updatingStatus}
+              trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
+              thumbColor={isAvailable ? BrandColors.success : '#94A3B8'}
+              style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+            />
+          </View>
         </View>
       </View>
 
@@ -210,14 +215,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: BrandColors.primary,
   },
-  categoryBadge: {
+  topOverlayRow: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+    top: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    zIndex: 10,
+  },
+  categoryBadge: {
+    flexShrink: 1,
+    maxWidth: '56%',
+    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 9,
   },
   categoryBadgeText: {
     color: '#FFFFFF',
@@ -225,16 +240,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusSwitchWrapper: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    flexShrink: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 10,
+    paddingLeft: 8,
     paddingRight: 2,
     paddingVertical: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 3,
   },
   statusText: {
     fontSize: 11,

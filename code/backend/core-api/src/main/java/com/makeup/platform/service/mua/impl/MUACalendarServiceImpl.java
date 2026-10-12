@@ -494,6 +494,12 @@ public class MUACalendarServiceImpl implements MUACalendarService {
     @Override
     @Transactional(readOnly = true)
     public boolean isSlotAvailableWithBuffer(Long muaId, OffsetDateTime startAt, OffsetDateTime endAt, int bufferMinutes) {
+        return isSlotAvailableWithBufferExcludingBooking(muaId, startAt, endAt, bufferMinutes, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isSlotAvailableWithBufferExcludingBooking(Long muaId, OffsetDateTime startAt, OffsetDateTime endAt, int bufferMinutes, Long excludeBookingId) {
         // Nếu là Thợ Studio, kiểm tra xem slot có nằm trong ca trực hợp lệ không
         Optional<AgencyStaffEntity> activeStaffOpt = agencyStaffRepository.findActiveStaffByMuaId(muaId);
         if (activeStaffOpt.isPresent()) {
@@ -515,7 +521,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
 
         OffsetDateTime windowStart = startAt.minusMinutes(bufferMinutes);
         OffsetDateTime windowEnd = endAt.plusMinutes(bufferMinutes);
-        return !muaCalendarRepository.existsOverlappingSlot(muaId, windowStart, windowEnd);
+        return !muaCalendarRepository.existsOverlappingSlotExcludingBooking(muaId, windowStart, windowEnd, excludeBookingId);
     }
 
     @Override

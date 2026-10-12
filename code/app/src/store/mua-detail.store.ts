@@ -81,15 +81,11 @@ export const useMuaDetailStore = create<MuaDetailState>((set, get) => ({
         package_id: pkg.id,
       });
 
-      // Nếu thợ đã tải ảnh riêng theo gói -> hiển thị
-      // Nếu chưa có ảnh theo gói, fallback lấy toàn bộ ảnh featured hoặc gallery của thợ
-      let items = res.content || [];
-      if (items.length === 0) {
-        const allRes = await muaProfileService.getPublicPortfolios(profile.muaId, {
-          is_featured: true,
-        });
-        items = allRes.content || [];
-      }
+      // Lấy danh sách ảnh mẫu gắn đúng với gói dịch vụ này
+      // Nếu gói chưa có ảnh -> showcases rỗng để hiển thị Empty State rõ ràng
+      const items = (res.content || []).filter(
+        (it) => it.packageId !== undefined && it.packageId !== null && Number(it.packageId) === Number(pkg.id)
+      );
 
       set({ showcases: items });
     } catch (err) {

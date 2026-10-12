@@ -17,7 +17,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       {/* Brand Header Row */}
       <View style={styles.logoRow}>
         <View style={styles.iconBox}>
-          <Ionicons name="sparkles" size={22} color="#FFFFFF" />
+          <Text style={styles.brandIconText}>M</Text>
         </View>
         <Text style={styles.brandName}>MUA MAKEUP</Text>
       </View>
@@ -53,6 +53,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 4,
+  },
+  brandIconText: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
   brandName: {
     fontSize: 24,

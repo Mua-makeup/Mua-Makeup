@@ -224,15 +224,15 @@ public class PortfolioServiceImpl implements PortfolioService {
         showcase.setIsFeatured(false);
         showcase.setIsDeleted(true);
         showcase.setDeletedAt(LocalDateTime.now());
-        portfolioRepository.delete(showcase);
+        portfolioRepository.save(showcase);
     }
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "mua_portfolios", key = "#muaId + '_' + #styleId + '_' + #isFeatured + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
-    public PageResponse<PortfolioSummaryRes> getPublicGallery(Long muaId, Integer styleId, Boolean isFeatured, Pageable pageable) {
+    @Cacheable(value = "mua_portfolios", key = "#muaId + '_' + #styleId + '_' + #packageId + '_' + #isFeatured + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
+    public PageResponse<PortfolioSummaryRes> getPublicGallery(Long muaId, Integer styleId, Long packageId, Boolean isFeatured, Pageable pageable) {
         Page<PortfolioSummaryProjection> projectedPage = portfolioRepository.findPublicGalleryProjected(
-                muaId, styleId, isFeatured, pageable
+                muaId, styleId, packageId, isFeatured, pageable
         );
 
         List<PortfolioSummaryRes> dtoList = portfolioMapper.toSummaryResListFromProjections(projectedPage.getContent());

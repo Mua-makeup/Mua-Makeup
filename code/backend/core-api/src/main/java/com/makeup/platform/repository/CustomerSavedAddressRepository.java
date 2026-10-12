@@ -12,9 +12,17 @@ public interface CustomerSavedAddressRepository extends JpaRepository<CustomerSa
 
     List<CustomerSavedAddressEntity> findByUserIdOrderByIsDefaultDescCreatedAtDesc(Long userId);
 
+    List<CustomerSavedAddressEntity> findByUserIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(Long userId);
+
     Optional<CustomerSavedAddressEntity> findByIdAndUserId(Long id, Long userId);
+
+    Optional<CustomerSavedAddressEntity> findByIdAndUserIdAndIsDeletedFalse(Long id, Long userId);
 
     Optional<CustomerSavedAddressEntity> findByUserIdAndIsDefaultTrue(Long userId);
 
+    Optional<CustomerSavedAddressEntity> findByUserIdAndIsDefaultTrueAndIsDeletedFalse(Long userId);
+
     long countByUserId(Long userId);
+
+    long countByUserIdAndIsDeletedFalse(Long userId);
 }

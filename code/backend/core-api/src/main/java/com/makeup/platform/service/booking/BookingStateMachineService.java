@@ -14,6 +14,8 @@ public interface BookingStateMachineService {
 
     BookingCompletionPhotoRes uploadCompletionPhoto(Long bookingId, Long userId, MultipartFile file);
 
+    BookingCompletionPhotoRes uploadDisputeProof(Long bookingId, Long userId, MultipartFile file);
+
     BookingStatusDetailRes getBookingStatusDetail(Long bookingId);
 
     void refundDepositToCustomer(BookingEntity booking, String reason);

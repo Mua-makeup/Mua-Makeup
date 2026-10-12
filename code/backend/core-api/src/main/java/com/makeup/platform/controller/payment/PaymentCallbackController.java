@@ -18,8 +18,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
+import com.makeup.platform.service.payment.BookingDepositService;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @RestController
@@ -29,6 +33,7 @@ public class PaymentCallbackController {
 
     private final PaymentWebhookProcessor paymentWebhookProcessor;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final BookingDepositService bookingDepositService;
 
     @GetMapping({"/ipn/{gateway}", "/{gateway}/ipn"})
     public ResponseEntity<Object> handleGetCallback(
@@ -75,8 +80,14 @@ public class PaymentCallbackController {
         String amountFormatted = "";
         boolean isSuccess = false;
 
+        String momoResultCode = queryParams.get("resultCode");
+        String vnpResponseCode = queryParams.get("vnp_ResponseCode");
+        if ("0".equals(momoResultCode) || "00".equals(vnpResponseCode)) {
+            isSuccess = true;
+        }
+
         if (paymentCode != null) {
-            Optional<PaymentTransactionEntity> transactionOpt = paymentTransactionRepository.findByPaymentCode(paymentCode);
+            Optional<PaymentTransactionEntity> transactionOpt = paymentTransactionRepository.findByPaymentCodeWithBooking(paymentCode);
             if (transactionOpt.isPresent()) {
                 PaymentTransactionEntity tx = transactionOpt.get();
                 if (tx.getBooking() != null) {
@@ -86,18 +97,37 @@ public class PaymentCallbackController {
                 if (tx.getAmount() != null) {
                     amountFormatted = String.format("%,d đ", tx.getAmount().longValue());
                 }
+
+                // Nếu gateway xác nhận thành công, cập nhật SUCCESS và kích hoạt xử lý cọc/hoàn cọc
+                if (isSuccess) {
+                    if (!"SUCCESS".equalsIgnoreCase(tx.getStatus())) {
+                        log.info("[ReturnCallback] Gateway confirmed success for payment {}. Updating to SUCCESS and applying deposit...", paymentCode);
+                        tx.setStatus("SUCCESS");
+                        tx.setPaidAt(OffsetDateTime.now(ZoneOffset.ofHours(7)));
+                        String transId = queryParams.get("transId");
+                        if (transId == null) transId = queryParams.get("vnp_TransactionNo");
+                        if (transId != null) tx.setGatewayTransactionId(transId);
+                        paymentTransactionRepository.save(tx);
+                    }
+
+                    if ("BOOKING_DEPOSIT".equals(tx.getPurpose())
+                            && !"APPLIED".equals(tx.getApplicationStatus())
+                            && !"REFUNDED".equals(tx.getApplicationStatus())) {
+                        try {
+                            bookingDepositService.applyDepositFromPayment(tx.getId());
+                            log.info("[ReturnCallback] Successfully applied deposit from return callback for payment {}", paymentCode);
+                        } catch (Exception ex) {
+                            log.error("[ReturnCallback] Failed to apply deposit for payment {}: {}", paymentCode, ex.getMessage(), ex);
+                        }
+                    }
+                }
+
                 isSuccess = "SUCCESS".equalsIgnoreCase(tx.getStatus());
             }
         }
 
-        String momoResultCode = queryParams.get("resultCode");
-        String vnpResponseCode = queryParams.get("vnp_ResponseCode");
-        if ("0".equals(momoResultCode) || "00".equals(vnpResponseCode)) {
-            isSuccess = true;
-        }
-
         String hostHeader = request.getHeader("Host");
-        String host = "192.168.1.122";
+        String host = "192.168.1.109";
         if (hostHeader != null && !hostHeader.isBlank()) {
             String clientHost = hostHeader.split(":")[0];
             if (!"127.0.0.1".equals(clientHost) && !"localhost".equalsIgnoreCase(clientHost)) {
@@ -105,13 +135,14 @@ public class PaymentCallbackController {
             }
         }
 
+        // Đảm bảo expoUrl luôn luôn có route hợp lệ, tuyệt đối không trỏ về /--/ rỗng
         String expoUrl = bookingId != null
-                ? "exp://" + host + ":8081/--/booking/detail/" + bookingId
-                : "exp://" + host + ":8081";
+                ? "exp://" + host + ":8081/--/booking/deposit/" + bookingId + "?status=" + (isSuccess ? "success" : "failed")
+                : "exp://" + host + ":8081/--/bookings";
 
         String nativeUrl = bookingId != null
-                ? "app://booking/detail/" + bookingId
-                : "app://";
+                ? "app://booking/deposit/" + bookingId + "?status=" + (isSuccess ? "success" : "failed")
+                : "app://bookings";
 
         String html = buildReturnHtmlPage(isSuccess, gateway, paymentCode, bookingCode, amountFormatted, expoUrl, nativeUrl, bookingId);
         HttpHeaders responseHeaders = new HttpHeaders();

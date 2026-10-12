@@ -37,6 +37,10 @@ public class CreateScheduledBookingReq {
     @JsonAlias({"addOnItemIds", "addonItemIds"})
     private List<Long> addOnItemIds;
 
+    @JsonProperty("style_id")
+    @JsonAlias({"styleId", "makeupStyleId"})
+    private Integer styleId;
+
     @NotNull(message = "validation.booking_partner_required")
     @JsonProperty("booking_partner")
     @JsonAlias({"bookingPartner"})

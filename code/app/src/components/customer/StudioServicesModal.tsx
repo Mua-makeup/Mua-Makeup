@@ -18,6 +18,7 @@ import { BrandColors } from '@/constants/theme';
 import { AgencyPublicProfile } from '@/services/agency.service';
 import { packageService, PackageSummary } from '@/services/package.service';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { useAuthStore } from '@/store/auth.store';
 
 interface Props {
   visible: boolean;
@@ -78,6 +79,10 @@ export const StudioServicesModal: React.FC<Props> = ({
     if (!studio) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onClose();
+    if (!useAuthStore.getState().isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
     // Điều hướng trực tiếp sang quy trình Đặt Lịch với vai trò AGENCY
     router.push({
       pathname: '/booking/create',
@@ -106,7 +111,7 @@ export const StudioServicesModal: React.FC<Props> = ({
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.studioTypeBadge}>
-            <Ionicons name="business" size={13} color="#7C3AED" />
+            <Ionicons name="business-outline" size={13} color="#334155" />
             <Text style={styles.studioTypeBadgeText}>Cơ sở / Viện Áo Cưới</Text>
           </View>
 
@@ -193,7 +198,6 @@ export const StudioServicesModal: React.FC<Props> = ({
       {/* DANH SÁCH GÓI DỊCH VỤ CỦA STUDIO */}
       <View style={styles.servicesHeaderRow}>
         <View style={styles.servicesHeaderLeft}>
-          <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
           <Text style={styles.servicesTitle}>Bảng Giá Dịch Vụ Của Studio</Text>
         </View>
         {!isLoading && (
@@ -363,7 +367,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -371,7 +375,7 @@ const styles = StyleSheet.create({
   studioTypeBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#334155',
   },
   closeBtn: {
     width: 28,

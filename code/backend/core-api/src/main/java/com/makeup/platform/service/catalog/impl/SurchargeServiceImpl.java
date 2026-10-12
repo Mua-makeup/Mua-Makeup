@@ -95,7 +95,9 @@ public class SurchargeServiceImpl implements SurchargeService {
     @Override
     public void deleteSurcharge(Long userId, Long surchargeId) {
         SurchargeEntity surcharge = checkSurchargeOwnership(userId, surchargeId);
-        surchargeRepository.delete(surcharge);
+        surcharge.setIsDeleted(true);
+        surcharge.setIsActive(false);
+        surchargeRepository.save(surcharge);
     }
 
     @Override
@@ -104,9 +106,9 @@ public class SurchargeServiceImpl implements SurchargeService {
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
         List<SurchargeEntity> list;
         if (owner.isAgency()) {
-            list = surchargeRepository.findByAgencyId(owner.getAgency().getId());
+            list = surchargeRepository.findByAgencyIdAndIsDeletedFalse(owner.getAgency().getId());
         } else {
-            list = surchargeRepository.findByMuaId(owner.getMua().getId());
+            list = surchargeRepository.findByMuaIdAndIsDeletedFalse(owner.getMua().getId());
         }
         return surchargeMapper.toResList(list);
     }
@@ -115,9 +117,9 @@ public class SurchargeServiceImpl implements SurchargeService {
     @Transactional(readOnly = true)
     public List<SurchargeDetailRes> listSurchargesByOwner(Long agencyId, Long muaId) {
         if (agencyId != null) {
-            return surchargeMapper.toResList(surchargeRepository.findByAgencyIdAndIsActiveTrue(agencyId));
+            return surchargeMapper.toResList(surchargeRepository.findByAgencyIdAndIsActiveTrueAndIsDeletedFalse(agencyId));
         } else if (muaId != null) {
-            return surchargeMapper.toResList(surchargeRepository.findByMuaIdAndIsActiveTrue(muaId));
+            return surchargeMapper.toResList(surchargeRepository.findByMuaIdAndIsActiveTrueAndIsDeletedFalse(muaId));
         }
         return List.of();
     }
@@ -134,8 +136,8 @@ public class SurchargeServiceImpl implements SurchargeService {
         }
 
         List<SurchargeEntity> surcharges = hasAgency
-                ? surchargeRepository.findByAgencyIdAndIsActiveTrue(req.getAgencyId())
-                : surchargeRepository.findByMuaIdAndIsActiveTrue(req.getMuaId());
+                ? surchargeRepository.findByAgencyIdAndIsActiveTrueAndIsDeletedFalse(req.getAgencyId())
+                : surchargeRepository.findByMuaIdAndIsActiveTrueAndIsDeletedFalse(req.getMuaId());
 
         List<SurchargeCalculationRes.AppliedSurchargeItem> appliedItems = new ArrayList<>();
         BigDecimal totalSurcharge = BigDecimal.ZERO;
@@ -211,6 +213,11 @@ public class SurchargeServiceImpl implements SurchargeService {
         SurchargeEntity surcharge = surchargeRepository.findById(surchargeId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_SURCHARGE_NOT_FOUND,
                         "ERR_SURCHARGE_NOT_FOUND", surchargeId));
+
+        if (Boolean.TRUE.equals(surcharge.getIsDeleted())) {
+            throw new ResourceNotFoundException(ErrorCodes.ERR_SURCHARGE_NOT_FOUND,
+                    "ERR_SURCHARGE_NOT_FOUND", surchargeId);
+        }
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 

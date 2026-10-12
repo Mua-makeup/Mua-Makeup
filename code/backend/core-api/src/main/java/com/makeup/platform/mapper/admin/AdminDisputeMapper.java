@@ -40,6 +40,25 @@ public class AdminDisputeMapper {
             agencyName = booking.getAgency().getAgencyName();
         }
 
+        String rawReason = booking.getEmergencyReason() != null ? booking.getEmergencyReason() : booking.getCancellationReason();
+        String disputeOrigin = "CUSTOMER";
+        if (rawReason != null) {
+            String lower = rawReason.toLowerCase();
+            boolean hasCustomerTag = rawReason.contains("[Khách hàng]");
+            boolean hasMuaTag = rawReason.contains("[Chuyên viên MUA]");
+            if (hasCustomerTag && hasMuaTag) {
+                disputeOrigin = "DUAL";
+            } else if (hasCustomerTag) {
+                disputeOrigin = "CUSTOMER";
+            } else if (hasMuaTag) {
+                disputeOrigin = "MUA";
+            } else if (lower.contains("vắng mặt") || lower.contains("no-show") || lower.contains("không gặp khách") || lower.contains("khách không có mặt")) {
+                disputeOrigin = "MUA";
+            } else {
+                disputeOrigin = "CUSTOMER";
+            }
+        }
+
         return AdminDisputeRes.builder()
                 .id(booking.getId())
                 .bookingId(booking.getId())
@@ -62,6 +81,7 @@ public class AdminDisputeMapper {
                 .emergencyProofUrl(booking.getEmergencyProofUrl())
                 .emergencyReportedAt(booking.getEmergencyReportedAt())
                 .cancellationReason(booking.getCancellationReason())
+                .disputeOrigin(disputeOrigin)
                 .serviceSubtotal(booking.getServiceSubtotal())
                 .surchargeFee(booking.getSurchargeFee())
                 .distanceFee(booking.getDistanceFee())

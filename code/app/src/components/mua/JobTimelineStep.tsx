@@ -17,7 +17,7 @@ interface StepItem {
 const STEPS: StepItem[] = [
   { key: 'ON_THE_WAY', label: 'Di chuyển', icon: 'navigate', stepNum: 1 },
   { key: 'ARRIVED', label: 'Tới nơi', icon: 'location', stepNum: 2 },
-  { key: 'IN_PROGRESS', label: 'Trang điểm', icon: 'sparkles', stepNum: 3 },
+  { key: 'IN_PROGRESS', label: 'Trang điểm', icon: 'brush', stepNum: 3 },
   { key: 'COMPLETED', label: 'Hoàn thành', icon: 'checkmark-circle', stepNum: 4 },
 ];
 

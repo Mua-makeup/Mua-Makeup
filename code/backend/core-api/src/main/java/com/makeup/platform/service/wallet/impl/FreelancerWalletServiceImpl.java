@@ -66,14 +66,14 @@ public class FreelancerWalletServiceImpl implements FreelancerWalletService {
         for (WalletHoldEntity hold : rawActiveHolds) {
             BookingEntity b = hold.getBooking();
             if (b != null) {
-                if (b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT) {
+                if (b.getStatus() == BookingStatus.COMPLETED || b.getStatus() == BookingStatus.PAID_OUT || b.getStatus() == BookingStatus.DISPUTE_COMPENSATED) {
                     hold.setStatus("CONSUMED");
                     hold.setReleasedAt(OffsetDateTime.now());
                     walletHoldRepository.save(hold);
-                } else if (b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED) {
+                } else if (b.getStatus() == BookingStatus.CANCELLED || b.getStatus() == BookingStatus.CANCELLED_EXPIRED || b.getStatus() == BookingStatus.DISPUTE_REFUNDED) {
                     String depStatus = hold.getDeposit() != null ? hold.getDeposit().getStatus() : null;
                     if ("COMPENSATED_TO_MUA".equalsIgnoreCase(depStatus) || "FORFEITED".equalsIgnoreCase(depStatus)) {
-                        hold.setStatus("COMPENSATED_TO_MUA");
+                        hold.setStatus("CONSUMED");
                     } else {
                         hold.setStatus("REFUNDED");
                         if (hold.getDeposit() != null && !"REFUNDED".equals(hold.getDeposit().getStatus())) {

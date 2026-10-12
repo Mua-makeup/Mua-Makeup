@@ -3,6 +3,7 @@ import {
   Animated, KeyboardAvoidingView, Modal, ModalProps, PanResponder,
   Platform, Pressable, StyleProp, StyleSheet, useWindowDimensions, View, ViewStyle,
 } from 'react-native';
+import { UndoToast } from './UndoToast';
 
 interface SurfaceProps {
   visible: boolean;
@@ -15,10 +16,11 @@ interface SurfaceProps {
   fullHeight?: boolean;
   onDismissStart?: () => void;
   avoidKeyboard?: boolean;
+  showHandle?: boolean;
 }
 
 /** Shared backdrop and drag handle. Scroll views, maps and inputs keep their own gestures. */
-export function DismissibleSurface({ visible, onClose, dismissDisabled = false, overlayStyle, contentStyle, children, overlays, fullHeight, onDismissStart, avoidKeyboard = false }: SurfaceProps) {
+export function DismissibleSurface({ visible, onClose, dismissDisabled = false, overlayStyle, contentStyle, children, overlays, fullHeight, onDismissStart, avoidKeyboard = false, showHandle = true }: SurfaceProps) {
   const { height } = useWindowDimensions();
   const translateY = useRef(new Animated.Value(0)).current;
   const dismissing = useRef(false);
@@ -121,19 +123,22 @@ export function DismissibleSurface({ visible, onClose, dismissDisabled = false, 
       <View style={[styles.overlay, overlayStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => dismiss()} disabled={dismissDisabled} accessibilityRole="button" accessibilityLabel="Đóng cửa sổ" />
         <Animated.View style={[styles.surface, fullHeight && styles.fullHeight, contentStyle, { transform: [{ translateY }] }]} accessibilityViewIsModal>
-          <View
-            {...pan.panHandlers}
-            style={styles.dragArea}
-            hitSlop={{ top: 20, bottom: 25, left: 150, right: 150 }}
-            accessibilityLabel="Kéo xuống để đóng"
-            onAccessibilityEscape={dismiss}
-          >
-            <View style={styles.handle} />
-          </View>
+          {showHandle && (
+            <View
+              {...pan.panHandlers}
+              style={styles.dragArea}
+              hitSlop={{ top: 20, bottom: 25, left: 150, right: 150 }}
+              accessibilityLabel="Kéo xuống để đóng"
+              onAccessibilityEscape={dismiss}
+            >
+              <View style={styles.handle} />
+            </View>
+          )}
           {children}
         </Animated.View>
       </View>
       {overlays}
+      <UndoToast bottomOffset={24} />
     </KeyboardAvoidingView>
   );
 }
@@ -144,8 +149,15 @@ interface Props extends SurfaceProps {
 
 export function DismissibleModal(props: Props) {
   return (
-    <Modal visible={props.visible} transparent animationType={props.animationType ?? 'fade'} statusBarTranslucent
-      onRequestClose={() => { if (!props.dismissDisabled) props.onClose(); }}>
+    <Modal
+      visible={props.visible}
+      transparent
+      animationType={props.animationType ?? 'fade'}
+      statusBarTranslucent
+      navigationBarTranslucent
+      presentationStyle="overFullScreen"
+      onRequestClose={() => { if (!props.dismissDisabled) props.onClose(); }}
+    >
       <DismissibleSurface {...props} />
     </Modal>
   );
@@ -153,9 +165,31 @@ export function DismissibleModal(props: Props) {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  overlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.55)', paddingTop: 28 },
-  surface: { width: '100%', maxHeight: '92%', flexShrink: 1, backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
-  fullHeight: { height: '94%' },
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    paddingTop: 28,
+    paddingBottom: 0,
+    marginBottom: 0,
+  },
+  surface: {
+    width: '100%',
+    maxHeight: '94%',
+    flexShrink: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    overflow: 'hidden',
+  },
+  fullHeight: {
+    height: '98%',
+    maxHeight: '98%',
+  },
   dragArea: { height: 42, width: '100%', alignItems: 'center', justifyContent: 'center', flexShrink: 0, paddingVertical: 8 },
   handle: { height: 5, width: 48, borderRadius: 3, backgroundColor: '#CBD5E1' },
 });

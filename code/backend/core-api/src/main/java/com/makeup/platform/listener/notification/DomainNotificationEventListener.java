@@ -5,11 +5,13 @@ import com.makeup.platform.common.i18n.JsonMessageSource;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.booking.BookingType;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.interaction.NotificationRepository;
 import com.makeup.platform.service.interaction.NotificationDeduplicationService;
 import com.makeup.platform.service.interaction.UserWebSocketNotificationService;
+import com.makeup.platform.service.mail.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -20,6 +22,10 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +40,7 @@ public class DomainNotificationEventListener {
     private final NotificationDeduplicationService deduplicationService;
     private final UserWebSocketNotificationService webSocketNotificationService;
     private final JsonMessageSource messageSource;
+    private final EmailService emailService;
 
     @Async("notificationTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -71,6 +78,7 @@ public class DomainNotificationEventListener {
         // 3. Xử lý thông báo cho Khách hàng
         if (booking.getCustomer() != null) {
             dispatchCustomerNotification(booking, booking.getCustomer(), event.getToStatus(), muaName, bookingCode);
+            dispatchCustomerEmailNotifications(booking, event);
         }
 
         // 4. Xử lý thông báo cho Thợ MUA (nếu có ca bị hủy hoặc chuyển giao)
@@ -94,35 +102,18 @@ public class DomainNotificationEventListener {
 
         switch (status) {
             case ACCEPTED:
-                titleKey = "notification.booking_accepted_title";
-                contentKey = "notification.booking_accepted_content";
-                args = new Object[]{muaName, bookingCode};
-                notificationType = "BOOKING_ACCEPTED";
-                break;
-            case ON_THE_WAY:
-                titleKey = "notification.booking_on_the_way_title";
-                contentKey = "notification.booking_on_the_way_content";
-                args = new Object[]{muaName};
-                notificationType = "BOOKING_ON_THE_WAY";
-                break;
-            case ARRIVED:
-                titleKey = "notification.booking_arrived_title";
-                contentKey = "notification.booking_arrived_content";
-                args = new Object[]{muaName, bookingCode};
-                notificationType = "BOOKING_ARRIVED";
-                break;
-            case IN_PROGRESS:
-                titleKey = "notification.booking_in_progress_title";
-                contentKey = "notification.booking_in_progress_content";
-                args = new Object[]{muaName};
-                notificationType = "BOOKING_IN_PROGRESS";
-                break;
-            case COMPLETED:
-            case PAID_OUT:
-                titleKey = "notification.booking_completed_title";
-                contentKey = "notification.booking_completed_content";
-                args = new Object[]{bookingCode, muaName};
-                notificationType = "BOOKING_COMPLETED";
+                if (booking.getBookingType() == BookingType.SCHEDULED) {
+                    titleKey = "notification.scheduled_booking_accepted_title";
+                    contentKey = "notification.scheduled_booking_accepted_content";
+                    String dateStr = booking.getBookingDate() != null
+                            ? booking.getBookingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            : "ngày đã đặt";
+                    String timeStr = booking.getStartTime() != null
+                            ? booking.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                            : "giờ đã hẹn";
+                    args = new Object[]{muaName, bookingCode, dateStr, timeStr};
+                    notificationType = "SCHEDULED_BOOKING_ACCEPTED";
+                }
                 break;
             case CANCELLED:
             case CANCELLED_EXPIRED:
@@ -133,6 +124,8 @@ public class DomainNotificationEventListener {
                 notificationType = "BOOKING_CANCELLED";
                 break;
             default:
+                // Các bước tiến trình đơn hàng (ON_THE_WAY, ARRIVED, IN_PROGRESS, COMPLETED)
+                // được theo dõi trực quan tại Tab "Theo Dõi" (Activity Tracking), không tạo rác hòm thư Quả Chuông.
                 break;
         }
 
@@ -163,7 +156,7 @@ public class DomainNotificationEventListener {
         NotificationEntity saved = notificationRepository.save(entity);
         long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(customer.getId());
 
-        // Bắn WebSocket P2P tới Khách Hàng
+        // Bắn WebSocket P2P tới Khách Hàng (Chuông thông báo in-app)
         webSocketNotificationService.sendNotificationToUser(customer.getId(), saved, unreadCount);
     }
 
@@ -217,5 +210,135 @@ public class DomainNotificationEventListener {
             return Locale.forLanguageTag(user.getLanguage());
         }
         return Locale.forLanguageTag("vi");
+    }
+
+    private void dispatchCustomerEmailNotifications(BookingEntity booking, BookingStateChangedEvent event) {
+        if (booking == null || booking.getCustomer() == null || !StringUtils.hasText(booking.getCustomer().getEmail())) {
+            return;
+        }
+
+        String toEmail = booking.getCustomer().getEmail().trim();
+        String customerName = booking.getCustomer().getFullName();
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+
+        // LUỒNG 1: ĐẶT LỊCH HẸN TRƯỚC (SCHEDULED) - Gửi mail khi Thợ xác nhận tiếp nhận đơn sau khi khách cọc
+        if (booking.getBookingType() == BookingType.SCHEDULED) {
+            if (event.getToStatus() == BookingStatus.ACCEPTED) {
+                try {
+                    String artistName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                            ? booking.getMua().getUser().getFullName()
+                            : "Chuyên viên trang điểm";
+                    String artistPhone = (booking.getMua() != null && booking.getMua().getUser() != null)
+                            ? booking.getMua().getUser().getPhoneNumber()
+                            : "Chưa cập nhật";
+                    String artistRating = (booking.getMua() != null && booking.getMua().getRatingAvg() != null)
+                            ? String.format(Locale.US, "%.1f", booking.getMua().getRatingAvg())
+                            : "5.0";
+                    String packageName = booking.getServicePackage() != null
+                            ? booking.getServicePackage().getPackageName()
+                            : "Gói Dịch Vụ Đặt Lịch";
+                    String styleName = booking.getStyle() != null
+                            ? booking.getStyle().getStyleName()
+                            : "Tiêu chuẩn";
+                    String destinationAddress = booking.getDestinationAddress();
+                    String bookingDate = booking.getBookingDate() != null
+                            ? booking.getBookingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                            : "Theo lịch hẹn";
+                    String startTime = booking.getStartTime() != null
+                            ? booking.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                            : "Theo giờ hẹn";
+                    BigDecimal totalAmount = booking.getTotalAmount() != null
+                            ? booking.getTotalAmount()
+                            : BigDecimal.ZERO;
+                    BigDecimal depositAmount = booking.getDepositAmount() != null
+                            ? booking.getDepositAmount()
+                            : BigDecimal.ZERO;
+                    BigDecimal remainingAmount = totalAmount.subtract(depositAmount).max(BigDecimal.ZERO);
+
+                    emailService.sendCustomerScheduledBookingConfirmedEmail(
+                            toEmail, customerName, bookingCode, artistName, artistPhone,
+                            artistRating, packageName, styleName, destinationAddress,
+                            bookingDate, startTime, totalAmount, depositAmount, remainingAmount
+                    );
+                    log.info("[DomainNotification] Triggered SCHEDULED booking confirmed email for bookingCode={} to customer={}",
+                            bookingCode, toEmail);
+                } catch (Exception ex) {
+                    log.error("[DomainNotification] Failed to send SCHEDULED booking confirmed email for bookingId={}: {}",
+                            booking.getId(), ex.getMessage(), ex);
+                }
+            }
+            return;
+        }
+
+        // LUỒNG 2: ĐƠN KHẨN CẤP (REALTIME_INSTANT) - Toàn bộ luồng email khẩn cấp CHỈ áp dụng cho REALTIME_INSTANT
+        if (booking.getBookingType() != BookingType.REALTIME_INSTANT) {
+            return;
+        }
+
+        String bookingType = booking.getBookingType().name();
+
+        // Phần 1: Khi thợ bắt đầu di chuyển (ON_THE_WAY)
+        if (event.getToStatus() == BookingStatus.ON_THE_WAY) {
+            try {
+                String artistName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                        ? booking.getMua().getUser().getFullName()
+                        : "Chuyên viên trang điểm";
+                String artistPhone = (booking.getMua() != null && booking.getMua().getUser() != null)
+                        ? booking.getMua().getUser().getPhoneNumber()
+                        : "Chưa cập nhật";
+                String artistRating = (booking.getMua() != null && booking.getMua().getRatingAvg() != null)
+                        ? String.format(Locale.US, "%.1f", booking.getMua().getRatingAvg())
+                        : "5.0";
+                String packageName = booking.getServicePackage() != null
+                        ? booking.getServicePackage().getPackageName()
+                        : "Gói Dịch Vụ Khẩn Cấp";
+                String styleName = booking.getStyle() != null
+                        ? booking.getStyle().getStyleName()
+                        : "Tiêu chuẩn";
+                String destinationAddress = booking.getDestinationAddress();
+                String startedAt = OffsetDateTime.now(ZoneOffset.ofHours(7))
+                        .format(DateTimeFormatter.ofPattern("HH:mm - dd/MM/yyyy"));
+
+                emailService.sendCustomerArtistOnTheWayEmail(
+                        toEmail, customerName, bookingCode, bookingType,
+                        artistName, artistPhone, artistRating, packageName,
+                        styleName, destinationAddress, startedAt
+                );
+                log.info("[DomainNotification] Triggered ON_THE_WAY email for bookingCode={} to customer={}",
+                        bookingCode, toEmail);
+            } catch (Exception ex) {
+                log.error("[DomainNotification] Failed to send ON_THE_WAY email for bookingId={}: {}",
+                        booking.getId(), ex.getMessage(), ex);
+            }
+        }
+
+        // Phần 3: Khi đơn hàng bị hủy khi thợ đang ở bước di chuyển (từ ON_THE_WAY sang CANCELLED hoặc CANCELLED_EXPIRED)
+        if (event.getFromStatus() == BookingStatus.ON_THE_WAY
+                && (event.getToStatus() == BookingStatus.CANCELLED || event.getToStatus() == BookingStatus.CANCELLED_EXPIRED)) {
+            try {
+                String artistName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                        ? booking.getMua().getUser().getFullName()
+                        : "Chuyên viên trang điểm";
+                String destinationAddress = booking.getDestinationAddress();
+                String reason = StringUtils.hasText(booking.getCancellationReason())
+                        ? booking.getCancellationReason()
+                        : (StringUtils.hasText(booking.getEmergencyReason())
+                                ? booking.getEmergencyReason()
+                                : "Chuyên viên gặp sự cố bất khả kháng trên đường di chuyển");
+                BigDecimal refundAmount = booking.getDepositAmount() != null
+                        ? booking.getDepositAmount()
+                        : BigDecimal.ZERO;
+
+                emailService.sendCustomerBookingCancelledOnTheWayEmail(
+                        toEmail, customerName, bookingCode, bookingType,
+                        artistName, destinationAddress, reason, refundAmount
+                );
+                log.info("[DomainNotification] Triggered CANCELLED ON_THE_WAY email for bookingCode={} to customer={}",
+                        bookingCode, toEmail);
+            } catch (Exception ex) {
+                log.error("[DomainNotification] Failed to send CANCELLED ON_THE_WAY email for bookingId={}: {}",
+                        booking.getId(), ex.getMessage(), ex);
+            }
+        }
     }
 }

@@ -15,6 +15,8 @@ public interface PortfolioSummaryProjection {
 
     String getStyleName();
 
+    Long getPackageId();
+
     Boolean getIsFeatured();
 
     LocalDateTime getCreatedAt();

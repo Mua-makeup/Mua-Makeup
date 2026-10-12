@@ -199,4 +199,36 @@ export const freelancerBookingService = {
       photoUrl: finalPhotoUrl,
     };
   },
+
+  /**
+   * Tải ảnh minh chứng sự cố / khách vắng mặt lên hệ thống (áp dụng cho mọi trạng thái trước hoàn thành)
+   */
+  async uploadDisputeProof(bookingId: number, imageUri: string): Promise<BookingCompletionPhotoRes> {
+    const formData = new FormData();
+    const filename = imageUri.split('/').pop() || `dispute_proof_${Date.now()}.jpg`;
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    if (Platform.OS === 'web') {
+      const fetchRes = await fetch(imageUri);
+      const blob = await fetchRes.blob();
+      formData.append('file', blob, filename);
+    } else {
+      formData.append('file', {
+        uri: imageUri,
+        name: filename,
+        type,
+      } as any);
+    }
+
+    const response = await apiClient.post(`/bookings/${bookingId}/dispute-proof`, formData);
+
+    const data = response.data?.data;
+    const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;
+    return {
+      ...data,
+      completionPhotoUrl: finalPhotoUrl,
+      photoUrl: finalPhotoUrl,
+    };
+  },
 };

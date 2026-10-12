@@ -1,5 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { useBookingStore } from '@/store/booking.store';
-import { CustomerBookingItem } from '@/services/booking.service';
+import { useWorkstationStore } from '@/store/workstation.store';
+import { CustomerBookingItem, bookingService } from '@/services/booking.service';
+import { websocketService } from '@/services/websocket.service';
+import { parseApiError } from '@/utils/error';
 import {
   freelancerBookingService,
   FreelancerBookingItem,
@@ -160,6 +163,14 @@ export default function BookingsScreen() {
 
   const [selectedBookingToCancel, setSelectedBookingToCancel] = useState<CustomerBookingItem | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelResultModal, setCancelResultModal] = useState<{
+    visible: boolean;
+    success: boolean;
+    isCompensatedToMua: boolean;
+    title: string;
+    message: string;
+    depositAmount?: number;
+  } | null>(null);
 
   // Tìm kiếm và bảng bộ lọc, sắp xếp dùng chung.
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -168,6 +179,11 @@ export default function BookingsScreen() {
   const [sortOption, setSortOption] = useState<SortOption>('CREATED_DESC');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [expandedFilter, setExpandedFilter] = useState<'status' | 'timeframe' | 'sort' | null>(null);
+
+  // Phân trang tự động cuộn Load More chuẩn Shopee (Infinite Scroll Pipeline)
+  const PAGE_CHUNK_SIZE = 10;
+  const [displayLimit, setDisplayLimit] = useState<number>(PAGE_CHUNK_SIZE);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   // Animation xoay icon Reload
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -260,6 +276,67 @@ export default function BookingsScreen() {
     }, [isAuthenticated, isWorkstationRole])
   );
 
+  // Tự động lắng nghe cập nhật realtime từ WebSocket để làm mới màn hình không cần bấm thủ công
+  const { profile } = useWorkstationStore();
+  const effectiveMuaId = profile?.muaId;
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let isSubscribed = true;
+    const activeTopics: string[] = [];
+
+    const setupWs = async () => {
+      try {
+        await websocketService.connect();
+        if (!isSubscribed) return;
+
+        if (isWorkstationRole) {
+          // Lắng nghe topic của thợ MUA
+          const dismissTopic = '/topic/instant-dismiss';
+          websocketService.subscribe(dismissTopic, () => {
+            fetchFreelancerBookings(true);
+          });
+          activeTopics.push(dismissTopic);
+
+          if (effectiveMuaId) {
+            const muaTopic = `/topic/mua-bookings/${effectiveMuaId}`;
+            websocketService.subscribe(muaTopic, () => {
+              fetchFreelancerBookings(true);
+            });
+            activeTopics.push(muaTopic);
+
+            const revokeTopic = `/topic/mua-offer-revoked/${effectiveMuaId}`;
+            websocketService.subscribe(revokeTopic, () => {
+              fetchFreelancerBookings(true);
+            });
+            activeTopics.push(revokeTopic);
+          }
+        } else if (userInfo?.id) {
+          // Lắng nghe topic của khách hàng
+          const customerTopic = `/topic/customer-bookings/${userInfo.id}`;
+          websocketService.subscribe(customerTopic, () => {
+            fetchMyBookings(true);
+          });
+          activeTopics.push(customerTopic);
+        }
+      } catch (err) {
+        console.warn('[BookingsScreen] WebSocket setup warning:', err);
+      }
+    };
+
+    setupWs();
+
+    return () => {
+      isSubscribed = false;
+      activeTopics.forEach((t) => {
+        try {
+          websocketService.unsubscribe(t);
+        } catch {}
+      });
+    };
+  }, [isAuthenticated, isWorkstationRole, effectiveMuaId, userInfo?.id]);
+
   const upcomingCount = isWorkstationRole ? freelancerUpcoming.length : upcomingBookings.length;
   const historyCount = isWorkstationRole ? freelancerHistory.length : historyBookings.length;
   const isLoading = isWorkstationRole ? isLoadingFreelancer : isLoadingBookings;
@@ -321,7 +398,16 @@ export default function BookingsScreen() {
 
     // 2. Lọc theo trạng thái đơn hàng
     if (selectedStatus !== 'ALL') {
-      result = result.filter((item) => item.status === selectedStatus);
+      if (selectedStatus === 'DISPUTED') {
+        result = result.filter(
+          (item) =>
+            item.status === 'DISPUTED' ||
+            item.status === 'DISPUTE_REFUNDED' ||
+            item.status === 'DISPUTE_COMPENSATED'
+        );
+      } else {
+        result = result.filter((item) => item.status === selectedStatus);
+      }
     }
 
     // 3. Lọc theo từ khóa tìm kiếm (mã đơn, dịch vụ, thợ/khách, địa chỉ)
@@ -372,7 +458,36 @@ export default function BookingsScreen() {
     return result;
   }, [rawList, selectedTimeframe, selectedStatus, searchKeyword, sortOption]);
 
+  // Pipeline hiển thị theo cơ chế Load More kiểu Shopee (Ban đầu nạp 10 đơn, cuộn xuống tự động nạp tiếp)
+  const totalFilteredCount = filteredAndSortedList.length;
+
+  const displayList = useMemo(() => {
+    if (activeTab !== 'HISTORY') {
+      return filteredAndSortedList;
+    }
+    return filteredAndSortedList.slice(0, displayLimit);
+  }, [filteredAndSortedList, displayLimit, activeTab]);
+
+  // Tự động reset về 10 đơn mỗi khi thay đổi từ khóa tìm kiếm, bộ lọc hoặc tab
+  useEffect(() => {
+    setDisplayLimit(PAGE_CHUNK_SIZE);
+  }, [searchKeyword, selectedStatus, selectedTimeframe, sortOption, activeTab]);
+
+  // Tự động nạp thêm 10 đơn tiếp theo khi cuộn đến đáy (Shopee Infinite Scroll)
+  const handleLoadMore = () => {
+    if (activeTab !== 'HISTORY') return;
+    if (isLoadingMore) return;
+    if (displayLimit >= filteredAndSortedList.length) return;
+
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setDisplayLimit((prev) => prev + PAGE_CHUNK_SIZE);
+      setIsLoadingMore(false);
+    }, 300);
+  };
+
   const handleRefresh = async () => {
+    setDisplayLimit(PAGE_CHUNK_SIZE);
     startSpin();
     try {
       if (isWorkstationRole) {
@@ -389,6 +504,7 @@ export default function BookingsScreen() {
     setActiveTab(newTab);
     setSelectedStatus('ALL');
     setSelectedTimeframe('ALL');
+    setDisplayLimit(PAGE_CHUNK_SIZE);
   };
 
   const handleResetFilters = () => {
@@ -396,16 +512,113 @@ export default function BookingsScreen() {
     setSelectedStatus('ALL');
     setSelectedTimeframe('ALL');
     setSortOption('CREATED_DESC');
+    setDisplayLimit(PAGE_CHUNK_SIZE);
   };
 
-  const handleConfirmCancel = async (bookingId: number, reason: string) => {
+  // Footer của danh sách: hiển thị Spinner đang tải thêm hoặc thông báo đã xem hết kiểu Shopee
+  const renderListFooter = () => {
+    if (activeTab !== 'HISTORY' || totalFilteredCount === 0) {
+      return null;
+    }
+
+    if (displayLimit < totalFilteredCount) {
+      return (
+        <View style={styles.loadMoreFooter}>
+          <ActivityIndicator size="small" color={BrandColors.primary} />
+          <Text style={styles.loadMoreText}>Đang tải thêm 10 đơn tiếp theo...</Text>
+        </View>
+      );
+    }
+
+    if (totalFilteredCount > PAGE_CHUNK_SIZE) {
+      return (
+        <View style={styles.endOfListFooter}>
+          <View style={styles.endOfListLine} />
+          <Text style={styles.endOfListText}>
+            Đã hiển thị tất cả {totalFilteredCount} đơn
+          </Text>
+          <View style={styles.endOfListLine} />
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  const handleConfirmCancel = async (
+    bookingId: number,
+    reason: string,
+    isWithin2Hours: boolean,
+    isDispute?: boolean,
+    emergencyProofUrl?: string
+  ) => {
     setIsCancelling(true);
+    const targetBooking = selectedBookingToCancel;
     try {
-      await cancelBooking(bookingId, reason);
-      setSelectedBookingToCancel(null);
-      Alert.alert('Đã Hủy Lịch Hẹn', 'Yêu cầu hủy ca làm đẹp của bạn đã được ghi nhận.');
+      if (isDispute) {
+        // Khách hàng khiếu nại lên Admin do đã đến hoặc quá giờ hẹn
+        await bookingService.transitionBookingState(bookingId, 'DISPUTED', reason, emergencyProofUrl);
+        setSelectedBookingToCancel(null);
+
+        const formattedDeposit = targetBooking?.depositAmount
+          ? new Intl.NumberFormat('vi-VN').format(targetBooking.depositAmount) + ' đ'
+          : '0 đ';
+
+        setCancelResultModal({
+          visible: true,
+          success: true,
+          isCompensatedToMua: false,
+          title: 'Đã Gửi Khiếu Nại Lên Admin',
+          message: `Báo cáo khiếu nại của bạn về đơn hẹn #${targetBooking?.bookingCode || bookingId} đã được chuyển tới Ban Quản Trị. Admin sẽ xác minh sự việc và hoàn trả tiền cọc (${formattedDeposit}) về Ví của bạn sau khi duyệt.`,
+          depositAmount: targetBooking?.depositAmount,
+        });
+      } else if (targetBooking?.status === 'REQUESTED') {
+        await bookingService.cancelRequestedBooking(bookingId, reason);
+        setSelectedBookingToCancel(null);
+
+        const formattedDeposit = targetBooking?.depositAmount
+          ? new Intl.NumberFormat('vi-VN').format(targetBooking.depositAmount) + ' đ'
+          : '0 đ';
+
+        setCancelResultModal({
+          visible: true,
+          success: true,
+          isCompensatedToMua: isWithin2Hours,
+          title: 'Đã Hủy Lịch Hẹn Thành Công',
+          message: `Yêu cầu hủy lịch hẹn của bạn đã hoàn tất. 100% tiền cọc (${formattedDeposit}) đã được hoàn trả về Ví của bạn.`,
+          depositAmount: targetBooking?.depositAmount,
+        });
+      } else {
+        await cancelBooking(bookingId, reason);
+        setSelectedBookingToCancel(null);
+
+        const formattedDeposit = targetBooking?.depositAmount
+          ? new Intl.NumberFormat('vi-VN').format(targetBooking.depositAmount) + ' đ'
+          : '0 đ';
+
+        setCancelResultModal({
+          visible: true,
+          success: true,
+          isCompensatedToMua: isWithin2Hours,
+          title: isWithin2Hours ? 'Đã Hủy Ca (Bồi Thường Cho Thợ)' : 'Đã Hủy Lịch Hẹn Thành Công',
+          message: isWithin2Hours
+            ? `Lịch hẹn đã được hủy. Vì bạn hủy trong vòng 2 tiếng trước giờ hẹn, toàn bộ số tiền cọc (${formattedDeposit}) đã được dùng để bồi thường cho chuyên viên make-up.`
+            : `Yêu cầu hủy lịch hẹn của bạn đã hoàn tất. 100% tiền cọc (${formattedDeposit}) đã được hoàn trả về Ví của bạn.`,
+          depositAmount: targetBooking?.depositAmount,
+        });
+      }
+
+      await fetchMyBookings(true);
     } catch (err: any) {
-      Alert.alert('Lỗi Hủy Ca', err.message || 'Không thể hủy đơn tại thời điểm này.');
+      const parsed = parseApiError(err);
+      setSelectedBookingToCancel(null);
+      setCancelResultModal({
+        visible: true,
+        success: false,
+        isCompensatedToMua: false,
+        title: 'Không Thể Hủy Ca Hẹn',
+        message: parsed.message || 'Hệ thống không thể xử lý yêu cầu hủy ca lúc này. Vui lòng thử lại sau.',
+      });
     } finally {
       setIsCancelling(false);
     }
@@ -465,7 +678,9 @@ export default function BookingsScreen() {
             {isWorkstationRole ? 'Lịch Ca Làm Việc' : 'Lịch Hẹn Của Tôi'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            Hiển thị {filteredAndSortedList.length} / {rawList.length} đơn
+            {activeTab === 'HISTORY'
+              ? `Hiển thị ${Math.min(displayLimit, totalFilteredCount)} / ${totalFilteredCount} đơn`
+              : `Hiển thị ${filteredAndSortedList.length} / ${rawList.length} đơn`}
           </Text>
         </View>
 
@@ -549,11 +764,14 @@ export default function BookingsScreen() {
         </View>
       ) : (
         <FlatList
-          data={filteredAndSortedList as any[]}
+          data={displayList as any[]}
           keyExtractor={(item) => `booking-${item.id}`}
           renderItem={({ item }) =>
             isWorkstationRole ? (
-              <TodayBookingCard booking={item as FreelancerBookingItem} />
+              <TodayBookingCard
+                booking={item as FreelancerBookingItem}
+                onRefresh={handleRefresh}
+              />
             ) : (
               <BookingHistoryCard
                 booking={item as CustomerBookingItem}
@@ -566,6 +784,9 @@ export default function BookingsScreen() {
           }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.25}
+          ListFooterComponent={renderListFooter}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -816,6 +1037,79 @@ export default function BookingsScreen() {
         onClose={() => setSelectedBookingToCancel(null)}
       />
 
+      {/* MODAL KẾT QUẢ HỦY CA HẸN (HIỂN THỊ RÕ RÀNG TRÁNH BỊ IOS NUỐT) */}
+      <DismissibleModal
+        visible={!!cancelResultModal?.visible}
+        onClose={() => setCancelResultModal(null)}
+        overlayStyle={styles.resultModalOverlay}
+        contentStyle={styles.resultModalBox}
+      >
+        <View
+          style={[
+            styles.resultIconCircle,
+            {
+              backgroundColor: !cancelResultModal?.success
+                ? '#FEE2E2'
+                : cancelResultModal.isCompensatedToMua
+                ? '#FEF3C7'
+                : '#ECFDF5',
+            },
+          ]}
+        >
+          <Ionicons
+            name={
+              !cancelResultModal?.success
+                ? 'alert-circle'
+                : cancelResultModal.isCompensatedToMua
+                ? 'warning'
+                : 'checkmark-circle'
+            }
+            size={38}
+            color={
+              !cancelResultModal?.success
+                ? '#DC2626'
+                : cancelResultModal.isCompensatedToMua
+                ? '#D97706'
+                : '#059669'
+            }
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.resultTitle,
+            {
+              color: !cancelResultModal?.success
+                ? '#DC2626'
+                : cancelResultModal.isCompensatedToMua
+                ? '#B45309'
+                : '#0F172A',
+            },
+          ]}
+        >
+          {cancelResultModal?.title}
+        </Text>
+
+        <Text style={styles.resultMessage}>{cancelResultModal?.message}</Text>
+
+        <TouchableOpacity
+          style={[
+            styles.resultCloseBtn,
+            {
+              backgroundColor: !cancelResultModal?.success
+                ? '#DC2626'
+                : cancelResultModal.isCompensatedToMua
+                ? '#D97706'
+                : '#0F172A',
+            },
+          ]}
+          onPress={() => setCancelResultModal(null)}
+          activeOpacity={0.88}
+        >
+          <Text style={styles.resultCloseBtnText}>Đã Hiểu</Text>
+        </TouchableOpacity>
+      </DismissibleModal>
+
       {/* THANH ĐIỀU HƯỚNG DƯỚI CÙNG */}
       <AppBottomNavBar activeTab="appointments" />
     </SafeAreaView>
@@ -983,6 +1277,36 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 95,
+  },
+  loadMoreFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  endOfListFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 12,
+  },
+  endOfListLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    maxWidth: 60,
+  },
+  endOfListText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   loadingContainer: {
     flex: 1,
@@ -1180,5 +1504,58 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: BrandColors.primary,
+  },
+  resultModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  resultModalBox: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  resultIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  resultTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  resultMessage: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 18,
+  },
+  resultCloseBtn: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultCloseBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

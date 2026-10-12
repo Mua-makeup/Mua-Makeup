@@ -14,6 +14,7 @@ import com.makeup.platform.dto.request.auth.RefreshTokenReq;
 import com.makeup.platform.dto.request.auth.RegisterReq;
 import com.makeup.platform.dto.request.auth.Resend2FaReq;
 import com.makeup.platform.dto.request.auth.UpdateLanguageReq;
+import com.makeup.platform.dto.request.auth.UpdatePushTokenReq;
 import com.makeup.platform.dto.request.auth.Verify2FaReq;
 import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
@@ -33,6 +34,7 @@ import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.security.CustomUserDetails;
 import com.makeup.platform.service.auth.AuthService;
 import com.makeup.platform.service.auth.RedisTokenService;
+import com.makeup.platform.service.chatbot.AiSupportService;
 import com.makeup.platform.service.mail.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -76,6 +78,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final RedisTemplate<String, Object> redisTemplate;
     private final WalletRepository walletRepository;
+    private final AiSupportService aiSupportService;
 
     @Value("${jwt.access-token-expiration-ms:86400000}")
     private long accessTokenExpirationMs;
@@ -304,6 +307,15 @@ public class AuthServiceImpl implements AuthService {
                     ? accessToken.substring(SecurityConstants.TOKEN_PREFIX.length())
                     : accessToken;
 
+            try {
+                Long userId = jwtUtils.getUserId(cleanToken);
+                if (userId != null) {
+                    aiSupportService.closeSession(null, userId);
+                }
+            } catch (Exception ex) {
+                log.debug("Unable to close AI chat sessions on logout: {}", ex.getMessage());
+            }
+
             long remainingMs = jwtUtils.getRemainingExpirationMs(cleanToken);
             if (remainingMs > 0) {
                 redisTokenService.blacklistAccessToken(cleanToken, remainingMs);
@@ -508,5 +520,17 @@ public class AuthServiceImpl implements AuthService {
             return "CT";
         }
         return "VN";
+    }
+
+    @Override
+    @Transactional
+    public void updatePushToken(Long userId, UpdatePushTokenReq req) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
+                        "auth.user_not_found", HttpStatus.NOT_FOUND));
+        String token = req.getPushToken() != null ? req.getPushToken().trim() : null;
+        user.setPushToken(token);
+        userRepository.save(user);
+        log.info("Updated Expo push token for userId={}: {}", userId, token);
     }
 }

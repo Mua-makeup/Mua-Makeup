@@ -158,6 +158,9 @@ public class BookingEntity extends BaseEntity {
     @Builder.Default
     private Boolean reminder2hSent = false;
 
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
+
     @Version
     @Column(name = "version", nullable = false)
     @Builder.Default
@@ -169,9 +172,10 @@ public class BookingEntity extends BaseEntity {
 
     public LocalDateTime getScheduledEndTime() {
         LocalDateTime start = getScheduledStartTime();
-        if (start != null && servicePackage != null && servicePackage.getEstimatedDurationMinutes() != null) {
-            return start.plusMinutes(servicePackage.getEstimatedDurationMinutes());
-        }
-        return start != null ? start.plusMinutes(60) : null;
+        if (start == null) return null;
+        int dur = (durationMinutes != null && durationMinutes > 0)
+                ? durationMinutes
+                : (servicePackage != null && servicePackage.getEstimatedDurationMinutes() != null ? servicePackage.getEstimatedDurationMinutes() : 60);
+        return start.plusMinutes(dur);
     }
 }

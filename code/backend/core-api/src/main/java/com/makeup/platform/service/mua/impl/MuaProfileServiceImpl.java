@@ -318,6 +318,19 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         }
         muaProfileRepository.save(mua);
 
+        // Bắn thông báo In-App + WebSocket P2P + Gửi Email thông báo tới Thợ MUA
+        try {
+            boolean isVerified = Boolean.TRUE.equals(req.getIsVerified());
+            notificationService.createCertificateVerificationResultNotification(
+                    mua,
+                    targetCert.getCertName(),
+                    isVerified,
+                    targetCert.getNotes()
+            );
+        } catch (Exception ex) {
+            log.error("Failed to dispatch certificate verification notification for muaId={}", muaId, ex);
+        }
+
         return muaProfileMapper.toCertificateRes(targetCert);
     }
 

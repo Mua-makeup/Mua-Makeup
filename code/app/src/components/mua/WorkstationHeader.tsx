@@ -191,7 +191,6 @@ export const WorkstationHeader: React.FC = () => {
                 {profile?.fullName || 'Chuyên Viên Make-up'}
               </Text>
               <View style={styles.badge}>
-                <Ionicons name="sparkles" size={10} color="#D97706" />
                 <Text style={styles.badgeText}>Pro MUA</Text>
               </View>
             </View>
@@ -432,6 +431,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
+
   profileEditBtn: {
     width: 38,
     height: 38,

@@ -1,18 +1,15 @@
-import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
+  FlatList,
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Image,
-  Dimensions,
 } from 'react-native';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandColors } from '@/constants/theme';
@@ -20,9 +17,9 @@ import { packageService, PackageDetail } from '@/services/package.service';
 import { muaShowcaseService } from '@/services/mua-showcase.service';
 import { PortfolioShowcase } from '@/services/mua-profile.service';
 import { ShowcaseGridCard } from '@/components/mua/showcase/ShowcaseGridCard';
+import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
 import { parseApiError } from '@/utils/error';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useUndoStore } from '@/store/undo.store';
 
 export default function PackageShowcaseScreen() {
   const insets = useSafeAreaInsets();
@@ -34,38 +31,37 @@ export default function PackageShowcaseScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Lightbox preview state
-  const [previewItem, setPreviewItem] = useState<PortfolioShowcase | null>(null);
-  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  // Xem chi tiết tác phẩm trong Modal Gallery
+  const [selectedShowcaseIndex, setSelectedShowcaseIndex] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
+    if (!packageId) return;
     try {
-      setLoading(true);
-      const [pkg, res] = await Promise.all([
-        packageService.getPackageById(packageId),
-        muaShowcaseService.getMyPortfolios(0, 50),
+      const [pkg, portfoliosRes] = await Promise.all([
+        packageService.getPackageById(packageId).catch(() => null),
+        muaShowcaseService.getMyPortfolios(0, 100).catch(() => ({ content: [] as PortfolioShowcase[] })),
       ]);
-      setPackageDetail(pkg);
 
-      // Lọc các tác phẩm thuộc riêng gói này
-      const filtered = (res.content || []).filter((item) => item.packageId === packageId);
+      if (pkg) {
+        setPackageDetail(pkg);
+      }
+
+      const allItems = (portfoliosRes as any)?.content || [];
+      // Lọc các tác phẩm thuộc đúng gói dịch vụ này
+      const filtered = allItems.filter((item: PortfolioShowcase) => Number(item.packageId) === packageId);
       setShowcases(filtered);
     } catch (err: any) {
       const parsed = parseApiError(err);
-      console.error('Lỗi tải album tác phẩm:', parsed.message);
+      console.warn('Lỗi tải album tác phẩm:', parsed.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [packageId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (packageId) {
-        loadData();
-      }
-    }, [loadData, packageId])
-  );
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -76,62 +72,77 @@ export default function PackageShowcaseScreen() {
     try {
       await muaShowcaseService.toggleFeatured(showcaseId, isFeatured);
       setShowcases((prev) =>
-        prev.map((s) => (s.id === showcaseId ? { ...s, isFeatured } : s))
+        prev.map((item) => (item.id === showcaseId ? { ...item, isFeatured } : item))
       );
     } catch (err: any) {
       const parsed = parseApiError(err);
-      Alert.alert('Lỗi', parsed.message);
+      Alert.alert('Lỗi', parsed.message || 'Không thể đổi trạng thái nổi bật.');
       throw err;
     }
   };
 
   const handleDeleteShowcase = (showcaseId: number) => {
+    const target = showcases.find((item) => item.id === showcaseId);
+    if (!target) return;
+    const targetIndex = showcases.findIndex((item) => item.id === showcaseId);
+
     Alert.alert(
       'Xóa Tác Phẩm',
-      'Bạn có chắc chắn muốn xóa tác phẩm này khỏi album của gói dịch vụ?',
+      `Bạn có chắc chắn muốn xóa tác phẩm "${target.title}" khỏi album?`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Xóa',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await muaShowcaseService.deletePortfolioShowcase(showcaseId);
-              setShowcases((prev) => prev.filter((s) => s.id !== showcaseId));
-            } catch (err: any) {
-              const parsed = parseApiError(err);
-              Alert.alert('Lỗi Xóa Tác Phẩm', parsed.message);
-            }
+          onPress: () => {
+            // Xóa lạc quan
+            setShowcases((prev) => prev.filter((item) => item.id !== showcaseId));
+
+            // Kích hoạt Undo Toast
+            useUndoStore.getState().showUndoToast({
+              message: `Đã xóa tác phẩm "${target.title}"`,
+              onUndo: () => {
+                setShowcases((prev) => {
+                  const next = [...prev];
+                  next.splice(targetIndex, 0, target);
+                  return next;
+                });
+              },
+              onCommit: async () => {
+                try {
+                  await muaShowcaseService.deletePortfolioShowcase(showcaseId);
+                } catch (err: any) {
+                  const parsed = parseApiError(err);
+                  console.warn('Lỗi xóa tác phẩm backend:', parsed.message);
+                }
+              },
+            });
           },
         },
       ]
     );
   };
 
-  const allPreviewImages = previewItem
-    ? [previewItem.imageUrl, ...(previewItem.additionalImages || [])]
-    : [];
-
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
+    <View style={styles.emptyContainer}>
       <View style={styles.emptyIconBox}>
-        <Ionicons name="images-outline" size={42} color={BrandColors.primary} />
+        <Ionicons name="images-outline" size={48} color={BrandColors.primary} />
       </View>
       <Text style={styles.emptyTitle}>Chưa Có Tác Phẩm Nào</Text>
       <Text style={styles.emptySubtitle}>
-        Đăng tải ảnh khách hàng sau khi make-up thực tế của gói này để tạo dựng uy tín và tăng tỷ lệ khách đặt lịch.
+        Đăng tải hình ảnh các layout thực tế mà bạn đã thực hiện cho gói "{packageDetail?.packageName || 'này'}" để khách hàng yên tâm lựa chọn.
       </Text>
       <TouchableOpacity
-        style={styles.emptyCreateBtn}
+        style={styles.emptyAddBtn}
         onPress={() =>
           router.push({
             pathname: '/mua/packages/[id]/add-showcase',
             params: { id: packageId },
           })
         }
-        activeOpacity={0.8}>
-        <Ionicons name="camera" size={20} color="#FFFFFF" />
-        <Text style={styles.emptyCreateBtnText}>Đăng Tác Phẩm Đầu Tiên</Text>
+        activeOpacity={0.85}>
+        <Ionicons name="camera" size={18} color="#FFFFFF" />
+        <Text style={styles.emptyAddBtnText}>Thêm Tác Phẩm Đầu Tiên</Text>
       </TouchableOpacity>
     </View>
   );
@@ -142,15 +153,15 @@ export default function PackageShowcaseScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace(`/mua/packages` as any))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/mua/packages' as any))}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={24} color={BrandColors.slateHeading} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleBox}>
-          <Text style={styles.headerTitle}>Album Tác Phẩm Thực Tế</Text>
+          <Text style={styles.headerTitle}>Album Tác Phẩm</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {packageDetail?.packageName || 'Gói Dịch Vụ'}
+            {packageDetail?.packageName || 'Gói Dịch Vụ'} ({showcases.length} ảnh)
           </Text>
         </View>
 
@@ -163,16 +174,16 @@ export default function PackageShowcaseScreen() {
             })
           }
           activeOpacity={0.8}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
-          <Text style={styles.headerAddBtnText}>Đăng Ảnh</Text>
+          <Ionicons name="add" size={18} color="#FFFFFF" />
+          <Text style={styles.headerAddBtnText}>Đăng Tác Phẩm</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Main Grid */}
+      {/* Danh sách ảnh tác phẩm */}
       {loading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải album ảnh mẫu...</Text>
+          <Text style={styles.loadingText}>Đang tải album tác phẩm...</Text>
         </View>
       ) : (
         <FlatList
@@ -180,7 +191,10 @@ export default function PackageShowcaseScreen() {
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           columnWrapperStyle={styles.columnWrapper}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            showcases.length === 0 && { flex: 1, justifyContent: 'center' },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -191,68 +205,26 @@ export default function PackageShowcaseScreen() {
             />
           }
           ListEmptyComponent={renderEmptyState}
-          renderItem={({ item }) => (
-            <ShowcaseGridCard
-              item={item}
-              onPress={(selected) => {
-                setPreviewItem(selected);
-                setActivePhotoIdx(0);
-              }}
-              onToggleFeatured={handleToggleFeatured}
-              onDelete={handleDeleteShowcase}
-            />
+          renderItem={({ item, index }) => (
+            <View style={styles.gridItemWrapper}>
+              <ShowcaseGridCard
+                item={item}
+                onPress={() => setSelectedShowcaseIndex(index)}
+                onToggleFeatured={handleToggleFeatured}
+                onDelete={handleDeleteShowcase}
+              />
+            </View>
           )}
         />
       )}
 
-      {/* Fullscreen Photo Lightbox Modal */}
-      {previewItem && (
-        <DismissibleModal visible={!!previewItem} onClose={() => setPreviewItem(null)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
-          <View style={styles.lightboxOverlay}>
-            <View style={[styles.lightboxHeader, { paddingTop: insets.top + 10, justifyContent: 'center' }]}>
-              <Text style={styles.lightboxCounter}>
-                {activePhotoIdx + 1} / {allPreviewImages.length}
-              </Text>
-            </View>
-
-            {/* Main Preview Image */}
-            <View style={styles.lightboxImageBox}>
-              <Image
-                source={{ uri: allPreviewImages[activePhotoIdx] }}
-                style={styles.lightboxImage}
-                resizeMode="contain"
-              />
-            </View>
-
-            {/* Bottom Caption & Thumbnail Strip */}
-            <View style={[styles.lightboxBottomBar, { paddingBottom: insets.bottom + 16 }]}>
-              <Text style={styles.lightboxTitle}>{previewItem.title}</Text>
-              {previewItem.description ? (
-                <Text style={styles.lightboxDesc} numberOfLines={2}>
-                  {previewItem.description}
-                </Text>
-              ) : null}
-
-              {/* Thumbnails row */}
-              {allPreviewImages.length > 1 && (
-                <View style={styles.lightboxThumbStrip}>
-                  {allPreviewImages.map((uri, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.lightboxThumb,
-                        idx === activePhotoIdx && styles.lightboxThumbActive,
-                      ]}
-                      onPress={() => setActivePhotoIdx(idx)}>
-                      <Image source={{ uri }} style={styles.thumbImage} resizeMode="cover" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          </View>
-        </DismissibleModal>
-      )}
+      {/* Modal phóng to xem ảnh chi tiết */}
+      <ShowcaseGalleryModal
+        visible={selectedShowcaseIndex !== null}
+        showcases={showcases}
+        initialIndex={selectedShowcaseIndex ?? 0}
+        onClose={() => setSelectedShowcaseIndex(null)}
+      />
     </View>
   );
 }
@@ -319,23 +291,27 @@ const styles = StyleSheet.create({
     color: BrandColors.slateMuted,
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: 12,
+    paddingBottom: 36,
   },
   columnWrapper: {
-    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  emptyState: {
+  gridItemWrapper: {
+    width: '48.5%',
+  },
+  emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 32,
     paddingVertical: 60,
-    paddingHorizontal: 24,
   },
   emptyIconBox: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: BrandColors.subtle,
+    backgroundColor: '#FDF2F8',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -350,94 +326,27 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 13,
     color: BrandColors.slateMuted,
-    lineHeight: 20,
+    lineHeight: 19,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  emptyCreateBtn: {
+  emptyAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: BrandColors.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 14,
-    gap: 6,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: BrandColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  emptyCreateBtnText: {
+  emptyAddBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
-  },
-  lightboxOverlay: {
-    flex: 1,
-    backgroundColor: '#000000',
-    justifyContent: 'space-between',
-  },
-  lightboxHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    zIndex: 10,
-  },
-  lightboxCloseBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lightboxCounter: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  lightboxImageBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lightboxImage: {
-    width: SCREEN_WIDTH,
-    height: '100%',
-  },
-  lightboxBottomBar: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-  },
-  lightboxTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  lightboxDesc: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  lightboxThumbStrip: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-  },
-  lightboxThumb: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  lightboxThumbActive: {
-    borderColor: BrandColors.primary,
-  },
-  thumbImage: {
-    width: '100%',
-    height: '100%',
   },
 });

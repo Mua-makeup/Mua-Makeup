@@ -231,6 +231,7 @@ export const AccountModal: React.FC = () => {
               <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
             </TouchableOpacity>
 
+
             <View style={styles.modalDivider} />
 
             {/* 6. Đăng Xuất Tài Khoản */}

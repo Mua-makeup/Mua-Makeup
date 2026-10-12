@@ -33,7 +33,7 @@ public class CustomerAddressServiceImpl implements CustomerAddressService {
     @Transactional
     public List<CustomerAddressRes> getSavedAddresses(Long userId) {
         log.info("Fetching saved addresses for user ID: {}", userId);
-        List<CustomerSavedAddressEntity> addresses = customerSavedAddressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId);
+        List<CustomerSavedAddressEntity> addresses = customerSavedAddressRepository.findByUserIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(userId);
         if (addresses.isEmpty()) {
             return Collections.emptyList();
         }
@@ -59,11 +59,11 @@ public class CustomerAddressServiceImpl implements CustomerAddressService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
                         "auth.user_not_found", HttpStatus.NOT_FOUND));
 
-        long count = customerSavedAddressRepository.countByUserId(userId);
+        long count = customerSavedAddressRepository.countByUserIdAndIsDeletedFalse(userId);
         boolean shouldBeDefault = Boolean.TRUE.equals(req.getIsDefault()) || count == 0;
 
         if (shouldBeDefault) {
-            List<CustomerSavedAddressEntity> existing = customerSavedAddressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId);
+            List<CustomerSavedAddressEntity> existing = customerSavedAddressRepository.findByUserIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(userId);
             for (CustomerSavedAddressEntity curr : existing) {
                 if (Boolean.TRUE.equals(curr.getIsDefault())) {
                     curr.setIsDefault(false);
@@ -84,15 +84,15 @@ public class CustomerAddressServiceImpl implements CustomerAddressService {
     @Transactional
     public CustomerAddressRes updateAddress(Long userId, Long addressId, SaveCustomerAddressReq req) {
         log.info("Updating saved address ID: {} for user ID: {}", addressId, userId);
-        CustomerSavedAddressEntity address = customerSavedAddressRepository.findByIdAndUserId(addressId, userId)
+        CustomerSavedAddressEntity address = customerSavedAddressRepository.findByIdAndUserIdAndIsDeletedFalse(addressId, userId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ADDRESS_NOT_FOUND,
                         "customer_address.not_found", HttpStatus.NOT_FOUND));
 
-        long count = customerSavedAddressRepository.countByUserId(userId);
+        long count = customerSavedAddressRepository.countByUserIdAndIsDeletedFalse(userId);
         boolean shouldBeDefault = count == 1 || Boolean.TRUE.equals(req.getIsDefault());
 
         if (shouldBeDefault) {
-            List<CustomerSavedAddressEntity> existing = customerSavedAddressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId);
+            List<CustomerSavedAddressEntity> existing = customerSavedAddressRepository.findByUserIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(userId);
             for (CustomerSavedAddressEntity curr : existing) {
                 if (!curr.getId().equals(addressId) && Boolean.TRUE.equals(curr.getIsDefault())) {
                     curr.setIsDefault(false);
@@ -113,15 +113,17 @@ public class CustomerAddressServiceImpl implements CustomerAddressService {
     @Transactional
     public void deleteAddress(Long userId, Long addressId) {
         log.info("Deleting saved address ID: {} for user ID: {}", addressId, userId);
-        CustomerSavedAddressEntity address = customerSavedAddressRepository.findByIdAndUserId(addressId, userId)
+        CustomerSavedAddressEntity address = customerSavedAddressRepository.findByIdAndUserIdAndIsDeletedFalse(addressId, userId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ADDRESS_NOT_FOUND,
                         "customer_address.not_found", HttpStatus.NOT_FOUND));
 
         boolean wasDefault = Boolean.TRUE.equals(address.getIsDefault());
-        customerSavedAddressRepository.delete(address);
-        log.info("Successfully deleted saved address ID: {} for user ID: {}", addressId, userId);
+        address.setIsDeleted(true);
+        address.setIsDefault(false);
+        customerSavedAddressRepository.save(address);
+        log.info("Successfully soft-deleted saved address ID: {} for user ID: {}", addressId, userId);
 
-        List<CustomerSavedAddressEntity> remaining = customerSavedAddressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId);
+        List<CustomerSavedAddressEntity> remaining = customerSavedAddressRepository.findByUserIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(userId);
         if (!remaining.isEmpty()) {
             long defaultRemaining = remaining.stream().filter(a -> Boolean.TRUE.equals(a.getIsDefault())).count();
             if (wasDefault || defaultRemaining != 1) {
@@ -140,11 +142,11 @@ public class CustomerAddressServiceImpl implements CustomerAddressService {
     @Transactional
     public CustomerAddressRes setDefaultAddress(Long userId, Long addressId) {
         log.info("Setting address ID: {} as default for user ID: {}", addressId, userId);
-        CustomerSavedAddressEntity target = customerSavedAddressRepository.findByIdAndUserId(addressId, userId)
+        CustomerSavedAddressEntity target = customerSavedAddressRepository.findByIdAndUserIdAndIsDeletedFalse(addressId, userId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ADDRESS_NOT_FOUND,
                         "customer_address.not_found", HttpStatus.NOT_FOUND));
 
-        List<CustomerSavedAddressEntity> all = customerSavedAddressRepository.findByUserIdOrderByIsDefaultDescCreatedAtDesc(userId);
+        List<CustomerSavedAddressEntity> all = customerSavedAddressRepository.findByUserIdAndIsDeletedFalseOrderByIsDefaultDescCreatedAtDesc(userId);
         for (CustomerSavedAddressEntity addr : all) {
             boolean isTarget = addr.getId().equals(addressId);
             if (!Boolean.valueOf(isTarget).equals(addr.getIsDefault())) {

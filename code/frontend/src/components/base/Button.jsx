@@ -31,6 +31,8 @@ export const Button = ({
       'bg-red-600 hover:bg-red-700 active:bg-red-800 active:scale-[0.98] text-white shadow-sm focus:ring-red-500 border border-transparent',
     success:
       'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-[0.98] text-white shadow-sm hover:shadow focus:ring-emerald-500 border border-transparent',
+    purple:
+      'bg-purple-600 hover:bg-purple-700 active:bg-purple-800 active:scale-[0.98] text-white shadow-sm hover:shadow focus:ring-purple-500 border border-transparent',
     outline:
       'bg-transparent hover:bg-rose-50 active:bg-rose-100 active:scale-[0.98] text-rose-600 border border-rose-300 focus:ring-rose-400 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/30',
     ghost:

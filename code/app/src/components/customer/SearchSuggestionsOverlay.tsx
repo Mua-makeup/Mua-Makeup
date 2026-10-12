@@ -130,7 +130,6 @@ export const SearchSuggestionsOverlay: React.FC<Props> = ({
           {/* PHẦN 1: CÁC LOẠI HÌNH MAKE-UP CHÍNH */}
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
               <Text style={styles.sectionTitle}>Gợi Ý Loại Hình Dịch Vụ</Text>
             </View>
             <Text style={styles.sectionHint}>Chạm để tìm nhanh</Text>

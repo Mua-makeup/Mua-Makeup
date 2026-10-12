@@ -22,6 +22,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -119,6 +120,18 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             ORDER BY b.confirmDeadline ASC NULLS LAST, b.createdAt ASC
             """)
     List<BookingEntity> findPendingRequestedScheduledBookingsByMuaId(@Param("muaId") Long muaId);
+
+    @Query("""
+            SELECT b FROM BookingEntity b
+            WHERE b.mua.id = :muaId
+              AND b.bookingDate = :date
+              AND b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT
+              AND b.id <> :excludeBookingId
+            """)
+    List<BookingEntity> findPendingDepositBookingsByMuaAndDate(
+            @Param("muaId") Long muaId,
+            @Param("date") LocalDate date,
+            @Param("excludeBookingId") Long excludeBookingId);
 
     boolean existsByCustomerIdAndBookingTypeAndStatusIn(
             Long customerId,
@@ -245,10 +258,17 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
 
     @Query("""
             SELECT b FROM BookingEntity b
-            WHERE b.status = com.makeup.platform.entity.booking.BookingStatus.REQUESTED
-              AND b.confirmDeadline IS NOT NULL
-              AND b.confirmDeadline < :now
+            WHERE (b.status = com.makeup.platform.entity.booking.BookingStatus.REQUESTED
+                   OR b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_AGENCY_DISPATCH)
+              AND (
+                  (b.confirmDeadline IS NOT NULL AND b.confirmDeadline < :now)
+                  OR (b.bookingDate < :today)
+                  OR (b.bookingDate = :today AND (b.startTime IS NULL OR b.startTime <= :currentTime))
+              )
             """)
-    List<BookingEntity> findExpiredRequestedBookings(@Param("now") OffsetDateTime now);
+    List<BookingEntity> findExpiredRequestedBookings(
+            @Param("now") OffsetDateTime now,
+            @Param("today") LocalDate today,
+            @Param("currentTime") LocalTime currentTime);
     boolean existsByIdAndCustomerId(Long id, Long customerId);
 }

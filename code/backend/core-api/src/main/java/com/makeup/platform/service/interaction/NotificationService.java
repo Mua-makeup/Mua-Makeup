@@ -4,10 +4,13 @@ import com.makeup.platform.common.event.booking.EmergencyReassignmentRequestedEv
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.dto.response.notification.NotificationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
 
 public interface NotificationService {
 
@@ -42,5 +45,22 @@ public interface NotificationService {
             String imageUrl
     );
 
+    void createCertificateVerificationResultNotification(
+            MuaProfileEntity mua,
+            String certName,
+            boolean isVerified,
+            String notes
+    );
+
+    void createStaffApplicationResultNotification(
+            AgencyProfileEntity agency,
+            MuaProfileEntity mua,
+            boolean isApproved,
+            BigDecimal commissionRate,
+            String notes
+    );
+
     NotificationEntity createEmergencyNotification(EmergencyReassignmentRequestedEvent event);
+
+    void createDisputeNotification(BookingEntity booking);
 }

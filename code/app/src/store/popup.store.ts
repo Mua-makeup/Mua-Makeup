@@ -7,7 +7,7 @@ export interface PopupButton {
   style?: 'default' | 'cancel' | 'destructive';
 }
 
-export type PopupType = 'success' | 'error' | 'warning' | 'info' | 'confirm';
+export type PopupType = 'success' | 'error' | 'warning' | 'info' | 'confirm' | 'cash';
 
 export interface PopupOptions {
   title: string;
@@ -51,33 +51,46 @@ export const showGlobalPopup = (
   const tLower = (title || '').toLowerCase();
   const mLower = (message || '').toLowerCase();
 
-  let type: PopupType = 'info';
-  if (tLower.includes('thành công') || tLower.includes('success') || mLower.includes('thành công')) {
-    type = 'success';
-  } else if (
-    tLower.includes('hủy') ||
-    tLower.includes('cancel') ||
-    tLower.includes('lỗi') ||
-    tLower.includes('thất bại') ||
-    tLower.includes('error') ||
-    tLower.includes('thiếu') ||
-    mLower.includes('lỗi') ||
-    mLower.includes('thất bại')
-  ) {
-    type = 'error';
-  } else if (
-    tLower.includes('cảnh báo') ||
-    tLower.includes('quyền') ||
-    tLower.includes('warning') ||
-    tLower.includes('lưu ý')
-  ) {
-    type = 'warning';
-  } else if (
-    buttons &&
-    buttons.length > 1 &&
-    (tLower.includes('xác nhận') || tLower.includes('bạn có chắc') || buttons.some((b) => b.style === 'cancel'))
-  ) {
-    type = 'confirm';
+  let type: PopupType = options?.type || 'info';
+  if (!options?.type) {
+    if (
+      tLower.includes('tiền') ||
+      tLower.includes('thu đủ') ||
+      tLower.includes('thanh toán') ||
+      tLower.includes('quyết toán') ||
+      mLower.includes('tiền mặt') ||
+      mLower.includes('quyết toán') ||
+      mLower.includes('thu đủ') ||
+      mLower.includes('cọc escrow')
+    ) {
+      type = 'cash';
+    } else if (tLower.includes('thành công') || tLower.includes('success') || mLower.includes('thành công')) {
+      type = 'success';
+    } else if (
+      tLower.includes('hủy') ||
+      tLower.includes('cancel') ||
+      tLower.includes('lỗi') ||
+      tLower.includes('thất bại') ||
+      tLower.includes('error') ||
+      tLower.includes('thiếu') ||
+      mLower.includes('lỗi') ||
+      mLower.includes('thất bại')
+    ) {
+      type = 'error';
+    } else if (
+      tLower.includes('cảnh báo') ||
+      tLower.includes('quyền') ||
+      tLower.includes('warning') ||
+      tLower.includes('lưu ý')
+    ) {
+      type = 'warning';
+    } else if (
+      buttons &&
+      buttons.length > 1 &&
+      (tLower.includes('xác nhận') || tLower.includes('bạn có chắc') || buttons.some((b) => b.style === 'cancel'))
+    ) {
+      type = 'confirm';
+    }
   }
 
   const mappedButtons: PopupButton[] =

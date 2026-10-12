@@ -10,7 +10,7 @@ interface LocationState {
   isLoading: boolean;
   error: string | null;
 
-  fetchCurrentLocation: () => Promise<void>;
+  fetchCurrentLocation: (force?: boolean) => Promise<void>;
   setCustomLocation: (address: string, lat: number, lng: number) => void;
 }
 
@@ -22,9 +22,20 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchCurrentLocation: async () => {
+  fetchCurrentLocation: async (force = false) => {
     // Tránh gọi trùng lặp
     if (get().isLoading) return;
+
+    // Nếu đã có địa chỉ và tọa độ hợp lệ, không cần quét lại trừ khi người dùng chủ động yêu cầu (force = true)
+    if (
+      !force &&
+      get().latitude !== null &&
+      get().longitude !== null &&
+      get().currentAddress &&
+      !get().currentAddress.startsWith('Đang xác định')
+    ) {
+      return;
+    }
 
     set({ isLoading: true, error: null });
 

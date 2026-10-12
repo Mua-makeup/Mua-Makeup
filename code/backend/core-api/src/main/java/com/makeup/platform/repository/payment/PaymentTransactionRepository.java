@@ -18,6 +18,9 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     Optional<PaymentTransactionEntity> findByPaymentCode(String paymentCode);
 
+    @Query("SELECT p FROM PaymentTransactionEntity p LEFT JOIN FETCH p.booking LEFT JOIN FETCH p.user WHERE p.paymentCode = :paymentCode")
+    Optional<PaymentTransactionEntity> findByPaymentCodeWithBooking(@Param("paymentCode") String paymentCode);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM PaymentTransactionEntity p WHERE p.paymentCode = :paymentCode")
     Optional<PaymentTransactionEntity> findByPaymentCodeWithLock(@Param("paymentCode") String paymentCode);

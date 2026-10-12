@@ -5,10 +5,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Dimensions,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
@@ -30,6 +30,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
   initialIndex = 0,
   onClose,
 }) => {
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [selectedAngleIndex, setSelectedAngleIndex] = useState(0);
 
@@ -71,9 +72,9 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
   return (
     <DismissibleModal visible={visible} onClose={onClose} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
       <View style={styles.backdrop}>
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
           {/* HEADER BAR */}
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
               <Ionicons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
@@ -118,7 +119,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
           </View>
 
           {/* FOOTER INFO & THUMBNAILS */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.captionArea}>
               <View style={styles.badgeRow}>
                 {currentPhoto.styleName && (
@@ -211,7 +212,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
               </ScrollView>
             )}
           </View>
-        </SafeAreaView>
+        </View>
       </View>
     </DismissibleModal>
   );
@@ -291,10 +292,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
     paddingTop: 12,
   },
   captionArea: {

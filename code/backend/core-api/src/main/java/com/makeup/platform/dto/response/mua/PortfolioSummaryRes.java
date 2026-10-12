@@ -20,6 +20,7 @@ public class PortfolioSummaryRes {
     private String thumbnailUrl;
     private String imageUrl;
     private String styleName;
+    private Long packageId;
     private Boolean isFeatured;
     private LocalDateTime createdAt;
 }

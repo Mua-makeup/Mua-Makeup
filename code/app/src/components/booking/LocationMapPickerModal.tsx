@@ -6,11 +6,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   Platform,
   Image,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { mapsService } from '@/services/maps.service';
@@ -34,6 +34,7 @@ export const LocationMapPickerModal: React.FC<Props> = ({
   onClose,
   onConfirm,
 }) => {
+  const insets = useSafeAreaInsets();
   const [currentLat, setCurrentLat] = useState(initialLat);
   const [currentLng, setCurrentLng] = useState(initialLng);
   const [zoom, setZoom] = useState(16);
@@ -123,7 +124,7 @@ export const LocationMapPickerModal: React.FC<Props> = ({
 
   return (
     <DismissibleModal visible={visible} onClose={onClose} contentStyle={{ backgroundColor: '#FFFFFF' }} fullHeight>
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         {/* HEADER */}
         <View style={styles.header}>
 
@@ -225,7 +226,7 @@ export const LocationMapPickerModal: React.FC<Props> = ({
         </View>
 
         {/* PANEL ĐỊA CHỈ PHÍA DƯỚI */}
-        <View style={styles.bottomCard}>
+        <View style={[styles.bottomCard, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <View style={styles.addressHeaderRow}>
             <Ionicons name="location-sharp" size={18} color={BrandColors.primary} />
             <Text style={styles.addressLabel}>Vị trí ghim trang điểm:</Text>
@@ -253,7 +254,7 @@ export const LocationMapPickerModal: React.FC<Props> = ({
             <Text style={styles.confirmBtnText}>Xác Nhận Địa Chỉ Này</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </DismissibleModal>
   );
 };
@@ -404,6 +405,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.05,

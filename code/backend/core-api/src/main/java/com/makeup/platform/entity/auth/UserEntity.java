@@ -53,6 +53,9 @@ public class UserEntity extends BaseEntity {
     @Builder.Default
     private String language = "en";
 
+    @Column(name = "push_token", length = 255)
+    private String pushToken;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",

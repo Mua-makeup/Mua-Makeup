@@ -21,6 +21,8 @@ public class CustomerBookingItemRes {
     private String muaPhoneNumber;
     private String packageName;
     private String packageCoverUrl;
+    private Integer styleId;
+    private String styleName;
     private LocalDateTime bookingTime;
     private String destinationAddress;
     private BigDecimal destinationLatitude;
@@ -31,6 +33,8 @@ public class CustomerBookingItemRes {
     private BigDecimal remainingAmount;
     private String note;
     private Boolean isDepositPaid;
+    private String cancellationReason;
+    private Boolean isDepositRefunded;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

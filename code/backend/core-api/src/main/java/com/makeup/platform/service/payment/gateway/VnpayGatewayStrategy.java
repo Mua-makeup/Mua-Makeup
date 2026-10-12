@@ -86,20 +86,21 @@ public class VnpayGatewayStrategy implements PaymentGatewayStrategy {
         StringBuilder hashData = new StringBuilder();
         StringBuilder query = new StringBuilder();
 
-        for (int i = 0; i < fieldNames.size(); i++) {
-            String fieldName = fieldNames.get(i);
+        for (String fieldName : fieldNames) {
             String fieldValue = vnpParams.get(fieldName);
             if (fieldValue != null && !fieldValue.isEmpty()) {
                 String encodedKey = URLEncoder.encode(fieldName, StandardCharsets.US_ASCII);
                 String encodedVal = URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII);
 
-                hashData.append(fieldName).append('=').append(encodedVal);
-                query.append(encodedKey).append('=').append(encodedVal);
-
-                if (i < fieldNames.size() - 1) {
+                if (hashData.length() > 0) {
                     hashData.append('&');
+                }
+                hashData.append(fieldName).append('=').append(encodedVal);
+
+                if (query.length() > 0) {
                     query.append('&');
                 }
+                query.append(encodedKey).append('=').append(encodedVal);
             }
         }
 
@@ -132,15 +133,14 @@ public class VnpayGatewayStrategy implements PaymentGatewayStrategy {
         Collections.sort(fieldNames);
 
         StringBuilder hashData = new StringBuilder();
-        for (int i = 0; i < fieldNames.size(); i++) {
-            String fieldName = fieldNames.get(i);
+        for (String fieldName : fieldNames) {
             String fieldValue = fields.get(fieldName);
             if (fieldValue != null && !fieldValue.isEmpty()) {
                 String encodedVal = URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII);
-                hashData.append(fieldName).append('=').append(encodedVal);
-                if (i < fieldNames.size() - 1) {
+                if (hashData.length() > 0) {
                     hashData.append('&');
                 }
+                hashData.append(fieldName).append('=').append(encodedVal);
             }
         }
 

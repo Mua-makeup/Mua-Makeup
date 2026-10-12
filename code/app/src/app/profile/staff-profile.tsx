@@ -156,7 +156,6 @@ export default function StaffWorkProfileScreen() {
               <View style={styles.stylesWrap}>
                 {staffProfile.assignedStyles.map((s) => (
                   <View key={`style-${s.id}`} style={styles.styleChip}>
-                    <Ionicons name="sparkles" size={12} color={BrandColors.primary} />
                     <Text style={styles.styleChipText}>{s.styleName}</Text>
                     {s.isQualified && (
                       <Ionicons name="checkmark-circle" size={14} color="#15803D" />

@@ -6,8 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { useAccountModalStore } from '@/store/account-modal.store';
+import { useNotificationStore } from '@/store/notification.store';
 
-export type BottomNavTab = 'home' | 'explore' | 'appointments' | 'messages' | 'account';
+export type BottomNavTab = 'home' | 'explore' | 'appointments' | 'tracking' | 'messages' | 'account';
 
 interface AppBottomNavBarProps {
   activeTab: BottomNavTab;
@@ -20,41 +21,51 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { userInfo, isAuthenticated } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
 
   const handleTabPress = (tab: BottomNavTab) => {
+    // Luôn dọn dẹp sạch stack các màn hình con trước khi chuyển tab ("không lưu stack trang cũ")
+    const navigateTab = (targetRoute: string) => {
+      if (router.canDismiss()) {
+        router.dismissAll();
+      }
+      router.replace(targetRoute as any);
+    };
+
     switch (tab) {
       case 'home':
         if (activeTab !== 'home') {
-          router.replace('/');
+          navigateTab('/');
         }
         break;
       case 'explore':
         if (isMUA) {
           if (activeTab !== 'explore') {
-            router.replace('/mua/packages' as any);
+            navigateTab('/mua/packages');
           }
         } else if (isAgencyStaff) {
           if (activeTab !== 'explore') {
-            router.replace('/bookings');
+            navigateTab('/bookings');
           }
         } else {
           if (activeTab !== 'explore') {
-            router.replace('/explore');
+            navigateTab('/explore');
           }
         }
         break;
       case 'appointments':
         if (activeTab !== 'appointments') {
-          router.replace('/bookings');
+          navigateTab('/bookings');
         }
         break;
+      case 'tracking':
       case 'messages':
         if (!isAuthenticated) {
           router.push('/(auth)/login');
-        } else {
-          Alert.alert('Tin Nhắn', 'Hộp thư tin nhắn tư vấn và hỗ trợ realtime.');
+        } else if (activeTab !== 'tracking') {
+          navigateTab('/activity');
         }
         break;
       case 'account':
@@ -163,24 +174,33 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
         </Text>
       </TouchableOpacity>
 
-      {/* 4. Tin Nhắn */}
+      {/* 4. Theo Dõi (Tiến trình đơn hàng) */}
       <TouchableOpacity
         style={styles.bottomNavItem}
         activeOpacity={0.8}
-        onPress={() => handleTabPress('messages')}
+        onPress={() => handleTabPress('tracking')}
       >
-        <Ionicons
-          name={activeTab === 'messages' ? 'chatbubbles' : 'chatbubbles-outline'}
-          size={22}
-          color={activeTab === 'messages' ? BrandColors.primary : BrandColors.slateMuted}
-        />
+        <View style={styles.iconContainer}>
+          <Ionicons
+            name={activeTab === 'tracking' ? 'time' : 'time-outline'}
+            size={22}
+            color={activeTab === 'tracking' ? BrandColors.primary : BrandColors.slateMuted}
+          />
+          {unreadCount > 0 ? (
+            <View style={styles.badgePill}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Text
           style={[
             styles.bottomNavLabel,
-            activeTab === 'messages' && styles.bottomNavLabelActive,
+            activeTab === 'tracking' && styles.bottomNavLabelActive,
           ]}
         >
-          Tin Nhắn
+          Theo Dõi
         </Text>
       </TouchableOpacity>
 
@@ -251,5 +271,28 @@ const styles = StyleSheet.create({
   bottomNavLabelActive: {
     color: BrandColors.primary,
     fontWeight: '700',
+  },
+  iconContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgePill: {
+    position: 'absolute',
+    top: -5,
+    right: -10,
+    backgroundColor: '#EF4444',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    lineHeight: 12,
   },
 });

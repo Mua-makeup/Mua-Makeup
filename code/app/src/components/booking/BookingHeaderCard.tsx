@@ -13,9 +13,15 @@ interface Props {
   packageDetail: PackageDetail | null;
   muaProfile: MuaPublicProfile | null;
   agencyProfile?: AgencyPublicProfile | null;
+  totalDurationMinutes?: number;
 }
 
-export const BookingHeaderCard: React.FC<Props> = ({ packageDetail, muaProfile, agencyProfile }) => {
+export const BookingHeaderCard: React.FC<Props> = ({
+  packageDetail,
+  muaProfile,
+  agencyProfile,
+  totalDurationMinutes,
+}) => {
   const isAgency = !!agencyProfile || !!packageDetail?.agencyName || !!packageDetail?.agencyId;
   const providerName = isAgency
     ? agencyProfile?.agencyName || packageDetail?.agencyName || 'Studio & Viện Áo Cưới'
@@ -76,7 +82,7 @@ export const BookingHeaderCard: React.FC<Props> = ({ packageDetail, muaProfile, 
           <View style={styles.durationChip}>
             <Ionicons name="time-outline" size={12} color="#64748B" />
             <Text style={styles.durationText}>
-              {packageDetail?.durationMinutes || 60} phút
+              ~{totalDurationMinutes || packageDetail?.estimatedDurationMinutes || packageDetail?.durationMinutes || 60} phút
             </Text>
           </View>
         </View>

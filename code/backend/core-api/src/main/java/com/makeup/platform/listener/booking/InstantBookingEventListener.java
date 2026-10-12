@@ -110,6 +110,16 @@ public class InstantBookingEventListener {
 
             messagingTemplate.convertAndSend("/topic/booking-status/" + event.getBookingId(), payload);
             messagingTemplate.convertAndSend("/topic/booking-matched/" + event.getBookingId(), payload);
+            if (event.getBookingId() != null) {
+                bookingRepository.findById(event.getBookingId()).ifPresent(b -> {
+                    if (b.getCustomer() != null) {
+                        messagingTemplate.convertAndSend("/topic/customer-bookings/" + b.getCustomer().getId(), payload);
+                    }
+                    if (b.getMua() != null) {
+                        messagingTemplate.convertAndSend("/topic/mua-bookings/" + b.getMua().getId(), payload);
+                    }
+                });
+            }
             log.info("[WebSocket] Broadcasted status update for bookingId={} to /topic/booking-status/{}",
                     event.getBookingId(), event.getBookingId());
 

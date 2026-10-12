@@ -323,6 +323,20 @@ public class BookingMapper {
             }
         }
 
+        boolean isDepositRefunded = false;
+        if (entity.getStatus() == BookingStatus.CANCELLED || entity.getStatus() == BookingStatus.DISPUTE_REFUNDED) {
+            String reason = entity.getCancellationReason();
+            if (reason != null && (reason.toLowerCase().contains("khách hàng khác")
+                    || reason.toLowerCase().contains("trùng")
+                    || reason.toLowerCase().contains("hoàn trả")
+                    || reason.toLowerCase().contains("hoàn cọc"))) {
+                isDepositRefunded = true;
+            }
+        }
+
+        Integer styleId = entity.getStyle() != null ? entity.getStyle().getId() : null;
+        String styleName = entity.getStyle() != null ? entity.getStyle().getStyleName() : null;
+
         return CustomerBookingItemRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -332,6 +346,8 @@ public class BookingMapper {
                 .muaPhoneNumber(muaPhoneNumber)
                 .packageName(packageName)
                 .packageCoverUrl(packageCoverUrl)
+                .styleId(styleId)
+                .styleName(styleName)
                 .bookingTime(bookingTime)
                 .destinationAddress(entity.getDestinationAddress())
                 .destinationLatitude(entity.getDestinationLatitude())
@@ -342,6 +358,8 @@ public class BookingMapper {
                 .remainingAmount(remainingAmount)
                 .note(entity.getEmergencyReason())
                 .isDepositPaid(isDepositPaid)
+                .cancellationReason(entity.getCancellationReason())
+                .isDepositRefunded(isDepositRefunded)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

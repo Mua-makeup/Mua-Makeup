@@ -23,7 +23,7 @@ import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 import { useWorkstationStore } from '@/store/workstation.store';
-
+import { useUndoStore } from '@/store/undo.store';
 import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
 
 export default function MuaWorkProfileScreen() {
@@ -230,19 +230,40 @@ export default function MuaWorkProfileScreen() {
   };
 
   const handleDeletePortfolioImage = (imageUrl: string) => {
-    Alert.alert('Xóa Ảnh Tác Phẩm', 'Bạn có chắc chắn muốn xóa ảnh này khỏi bộ sưu tập?', [
+    const targetIndex = portfolioImages.indexOf(imageUrl);
+
+    Alert.alert('Xóa Ảnh Tác Phẩm', 'Bạn có chắc chắn muốn xóa ảnh này khỏi bộ sưu tập? Bạn có thể hoàn tác ngay sau khi xóa.', [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            const updated = await muaProfileService.deletePortfolioImage(imageUrl);
-            setPortfolioImages(updated);
-          } catch (delErr) {
-            const parsed = parseApiError(delErr);
-            Alert.alert('Lỗi xóa ảnh', parsed.message);
-          }
+        onPress: () => {
+          // Loại bỏ lạc quan khỏi UI ngay lập tức
+          setPortfolioImages((prev) => prev.filter((img) => img !== imageUrl));
+
+          // Kích hoạt Toast thông báo xóa thành công kèm nút Hoàn tác
+          useUndoStore.getState().showUndoToast({
+            message: 'Đã xóa ảnh tác phẩm khỏi bộ sưu tập',
+            onUndo: () => {
+              setPortfolioImages((prev) => {
+                const next = [...prev];
+                if (targetIndex >= 0) {
+                  next.splice(targetIndex, 0, imageUrl);
+                } else {
+                  next.push(imageUrl);
+                }
+                return next;
+              });
+            },
+            onCommit: async () => {
+              try {
+                await muaProfileService.deletePortfolioImage(imageUrl);
+              } catch (delErr) {
+                const parsed = parseApiError(delErr);
+                console.warn('[handleDeletePortfolioImage] Lỗi xóa ảnh backend:', parsed.message);
+              }
+            },
+          });
         },
       },
     ]);
@@ -430,7 +451,7 @@ export default function MuaWorkProfileScreen() {
           {/* CARD CHUYÊN MÔN, TIỂU SỬ & KINH NGHIỆM */}
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
-              <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+              <Ionicons name="document-text-outline" size={18} color={BrandColors.primary} />
               <Text style={styles.formCardTitle}>Giới thiệu & Kinh nghiệm</Text>
             </View>
 
@@ -718,8 +739,14 @@ export default function MuaWorkProfileScreen() {
         onClose={() => setIsCertModalVisible(false)}
         title="Thêm Chứng Chỉ Nghề Nghiệp"
         subtitle="Tải lên bằng cấp để xác thực hồ sơ và kích hoạt nhận đơn trực tuyến"
+        avoidKeyboard={true}
       >
-        <View style={styles.certModalBody}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.certModalBody}
+          bounces={false}
+        >
           <Text style={styles.fieldLabel}>
             Tên Chứng Chỉ / Bằng Cấp <Text style={styles.required}>*</Text>
           </Text>
@@ -760,7 +787,7 @@ export default function MuaWorkProfileScreen() {
               <Text style={styles.submitCertBtnText}>Tải Lên Chứng Chỉ</Text>
             )}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </SwipeableBottomSheet>
 
       {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
@@ -1226,6 +1253,7 @@ const styles = StyleSheet.create({
   },
   certModalBody: {
     gap: 8,
+    paddingBottom: 24,
   },
   certImageUploadBox: {
     height: 120,

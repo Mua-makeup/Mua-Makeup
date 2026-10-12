@@ -9,10 +9,10 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +42,7 @@ export const AddressEditModal: React.FC<Props> = ({
   onOpenSavedAddresses,
   onOpenMapPicker,
 }) => {
+  const insets = useSafeAreaInsets();
   const { latitude: userLat, longitude: userLng } = useLocationStore();
   const [inputText, setInputText] = useState(initialAddress);
   const [selectedLat, setSelectedLat] = useState(initialLat);
@@ -253,7 +254,7 @@ export const AddressEditModal: React.FC<Props> = ({
 
   return (
     <DismissibleModal visible={visible} onClose={onClose} contentStyle={{ backgroundColor: '#FFFFFF' }} fullHeight>
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.safeArea}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardContainer}
@@ -365,7 +366,6 @@ export const AddressEditModal: React.FC<Props> = ({
             {suggestions.length > 0 && (
               <View style={styles.listSection}>
                 <View style={styles.listSectionHeader}>
-                  <Ionicons name="sparkles" size={14} color="#D97706" />
                   <Text style={styles.listSectionTitle}>GỢI Ý ĐỊA ĐIỂM CHÍNH XÁC</Text>
                 </View>
                 {suggestions.map((item) => (
@@ -440,7 +440,7 @@ export const AddressEditModal: React.FC<Props> = ({
           </ScrollView>
 
           {/* 5. KHỐI XÁC NHẬN CHÂN MODAL */}
-          <View style={styles.confirmBottomBar}>
+          <View style={[styles.confirmBottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.selectedAddressPreview}>
               <Ionicons name="pin" size={16} color={BrandColors.primary} style={{ marginTop: 2 }} />
               <View style={{ flex: 1 }}>
@@ -468,7 +468,7 @@ export const AddressEditModal: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     </DismissibleModal>
   );
 };
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     backgroundColor: BrandColors.primary,
   },
   savedBtn: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#334155',
   },
   mapBtn: {
     backgroundColor: '#2563EB',
@@ -668,7 +668,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06,

@@ -21,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { BrandColors } from '@/constants/theme';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { useNotificationStore } from '@/store/notification.store';
 import { bookingService } from '@/services/booking.service';
 import { depositService } from '@/services/deposit.service';
 import { telemetryService, LiveTrackingRes } from '@/services/telemetry.service';
@@ -323,6 +324,48 @@ export default function BookingLiveTrackingScreen() {
             bookingService.getBookingStatus(bookingId).then((refreshed) => {
               if (refreshed && isMounted) setBookingDetail(refreshed);
             }).catch(() => {});
+
+            // Kích hoạt Toast thông báo chữ nổi bật toàn cục trượt từ trên xuống
+            let toastTitle = 'Cập Nhật Đơn Hàng';
+            let toastContent = statusMsg?.message || `Lịch hẹn #${bookingDetail?.bookingCode || bookingId} vừa có cập nhật mới.`;
+            let toastType = 'NOTIFICATION';
+
+            if (nextStatus === 'ON_THE_WAY') {
+              toastTitle = 'Chuyên Viên Đang Di Chuyển';
+              toastContent = 'Chuyên viên make-up đang trên đường di chuyển đến điểm hẹn của bạn.';
+              toastType = 'BOOKING_ON_THE_WAY';
+            } else if (nextStatus === 'ARRIVED') {
+              toastTitle = 'Chuyên Viên Đã Đến Nơi';
+              toastContent = 'Chuyên viên make-up đã có mặt tại điểm hẹn của bạn. Vui lòng đón thợ!';
+              toastType = 'BOOKING_ARRIVED';
+            } else if (nextStatus === 'IN_PROGRESS') {
+              toastTitle = 'Đang Tiến Hành Make-Up';
+              toastContent = 'Chuyên viên đã chính thức bắt đầu buổi làm đẹp cho bạn.';
+              toastType = 'BOOKING_IN_PROGRESS';
+            } else if (nextStatus === 'COMPLETED') {
+              toastTitle = 'Buổi Make-Up Hoàn Tất';
+              toastContent = 'Dịch vụ trang điểm đã hoàn tất thành công. Vui lòng thanh toán phần còn lại!';
+              toastType = 'BOOKING_COMPLETED';
+            } else if (nextStatus === 'CANCELLED') {
+              toastTitle = 'Đơn Hàng Đã Bị Hủy';
+              toastContent = statusMsg?.message || 'Lịch hẹn trang điểm đã bị hủy.';
+              toastType = 'BOOKING_CANCELLED';
+            } else if (nextStatus === 'PAID_OUT' || statusMsg?.type === 'PAYMENT_COMPLETED') {
+              toastTitle = 'Thanh Toán Thành Công';
+              toastContent = 'Khoản thanh toán dịch vụ đã hoàn tất trọn vẹn.';
+              toastType = 'PAID_OUT';
+            }
+
+            useNotificationStore.getState().showToast({
+              id: Date.now(),
+              type: toastType,
+              title: toastTitle,
+              content: toastContent,
+              bookingId,
+              bookingCode: bookingDetail?.bookingCode,
+              isRead: false,
+              createdAt: new Date().toISOString(),
+            });
 
             if (nextStatus === 'CANCELLED') {
               setIsWaitingCancelConfirm(false);
@@ -808,7 +851,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="flash" size={16} color="#2563EB" />
+                <Ionicons name="power-outline" size={16} color="#2563EB" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Ổ cắm điện sẵn sàng</Text>
@@ -818,7 +861,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="sparkles" size={16} color="#E11D48" />
+                <Ionicons name="water-outline" size={16} color="#0284C7" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Làm sạch da mặt cơ bản</Text>
@@ -897,7 +940,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="eye" size={16} color="#8B5CF6" />
+                <Ionicons name="eye-outline" size={16} color="#0284C7" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Nhắm mắt thư giãn</Text>
@@ -932,7 +975,7 @@ export default function BookingLiveTrackingScreen() {
           {/* BANNER CHÚC MỪNG HOÀN THÀNH */}
           <View style={styles.completedCelebrationCard}>
             <View style={styles.celebrationIconBox}>
-              <Ionicons name="sparkles" size={32} color="#F59E0B" />
+              <Ionicons name="checkmark-circle" size={32} color="#059669" />
             </View>
             <Text style={styles.celebrationTitle}>Buổi Trang Điểm Đã Hoàn Tất!</Text>
             <Text style={styles.celebrationSub}>
@@ -999,17 +1042,51 @@ export default function BookingLiveTrackingScreen() {
               </View>
             </View>
           ) : isCashPaidConfirmed ? (
-            <View style={[styles.cardBox, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A', borderWidth: 1 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name="time" size={28} color="#D97706" />
+            <View style={[styles.cardBox, { backgroundColor: '#FFFFFF', borderColor: '#FDE68A', borderWidth: 1.5, padding: 18 }]}>
+              {/* Top badge & action */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A' }}>
+                  <Ionicons name="time" size={13} color="#D97706" />
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#92400E' }}>CHỜ XÁC NHẬN TIỀN MẶT</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsCashPaidConfirmed(false)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 6 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="swap-horizontal" size={14} color="#64748B" />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B' }}>Đổi cách thanh toán</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#F59E0B' }}>
+                  <Ionicons name="hourglass" size={24} color="#D97706" />
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#92400E' }}>
-                    Đang Chờ Chuyên Viên Xác Nhận Tiền Mặt
+                  <Text style={{ fontSize: 16, fontWeight: '900', color: '#0F172A' }}>
+                    Đã Báo Thanh Toán Tiền Mặt
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#B45309', marginTop: 2 }}>
-                    Bạn đã bấm báo gửi tiền mặt {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}. Vui lòng nhờ chuyên viên bấm xác nhận trên ứng dụng của họ để hoàn tất đơn.
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    Vui lòng trao tiền mặt trực tiếp cho chuyên viên
                   </Text>
                 </View>
+              </View>
+
+              {/* Hộp số tiền tiền mặt nổi bật */}
+              <View style={{ backgroundColor: '#F8FAFC', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '600' }}>Số tiền mặt cần thanh toán:</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900', color: '#E11D48' }}>
+                  {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}
+                </Text>
+              </View>
+
+              {/* Hướng dẫn thợ bấm xác nhận */}
+              <View style={{ backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#FEF08A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={16} color="#D97706" />
+                <Text style={{ fontSize: 12, color: '#92400E', flex: 1, lineHeight: 16 }}>
+                  Chuyên viên sẽ bấm <Text style={{ fontWeight: '800' }}>"Đã Nhận Đủ"</Text> trên màn hình máy họ để hoàn tất đơn và xuất biên lai.
+                </Text>
               </View>
             </View>
           ) : (
@@ -1241,8 +1318,8 @@ export default function BookingLiveTrackingScreen() {
                   statusPopup?.type === 'ARRIVED'
                     ? 'location'
                     : statusPopup?.type === 'IN_PROGRESS'
-                    ? 'sparkles'
-                    : 'trophy'
+                    ? 'brush'
+                    : 'checkmark-done-circle'
                 }
                 size={36}
                 color={

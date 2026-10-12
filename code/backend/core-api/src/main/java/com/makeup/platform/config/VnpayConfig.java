@@ -20,7 +20,7 @@ public class VnpayConfig {
     @Value("${payment.gateways.vnpay.pay-url:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}")
     private String payUrl;
 
-    @Value("${payment.gateways.vnpay.return-url:http://192.168.1.122:8080/api/v1/payments/return/vnpay}")
+    @Value("${payment.gateways.vnpay.return-url:http://192.168.1.109:8080/api/v1/payments/return/vnpay}")
     private String returnUrl;
 
     @Value("${payment.gateways.vnpay.api-url:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}")
