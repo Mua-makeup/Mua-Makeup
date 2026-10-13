@@ -8,6 +8,7 @@ import com.makeup.platform.dto.request.agency.ProceedSoloReq;
 import com.makeup.platform.dto.request.agency.ReassignStaffReq;
 import com.makeup.platform.dto.request.agency.RejectDispatchBookingReq;
 import com.makeup.platform.dto.request.agency.ReportEmergencyBusyReq;
+import com.makeup.platform.dto.request.agency.UpdateStaffCommissionSplitReq;
 import com.makeup.platform.dto.response.agency.AgencyBookingRes;
 import com.makeup.platform.dto.response.agency.DispatchAssignmentRes;
 import com.makeup.platform.dto.response.agency.EmergencyApprovalRes;
@@ -22,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -139,5 +141,16 @@ public class AgencyDispatchController extends BaseController {
     ) {
         agencyDispatchService.confirmAssignmentByBooking(userId, bookingId);
         return ok(null, "dispatch.assignment_confirm_success");
+    }
+
+    @PutMapping("/bookings/{bookingId}/staff-commissions")
+    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    public ResponseEntity<ApiResponse<AgencyBookingRes>> updateStaffCommissions(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookingId,
+            @Valid @RequestBody UpdateStaffCommissionSplitReq req
+    ) {
+        AgencyBookingRes res = agencyDispatchService.updateStaffCommissions(userId, bookingId, req);
+        return ok(res, "dispatch.update_commissions_success");
     }
 }

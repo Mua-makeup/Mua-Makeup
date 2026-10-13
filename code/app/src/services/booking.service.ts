@@ -119,6 +119,12 @@ export interface CustomerBookingItem {
   isDepositRefunded?: boolean;
   createdAt: string;
   updatedAt?: string;
+  bookingPartner?: string;
+  agencyId?: number;
+  agencyName?: string;
+  agencyLogoUrl?: string;
+  staffName?: string;
+  assistantNames?: string[];
 }
 
 export interface BookingStatusDetailRes {
@@ -176,10 +182,32 @@ export interface BookingStatusDetailRes {
   cancellationReason?: string;
   isCancelRequested?: boolean;
   cancelRequestedReason?: string;
-  disputeOrigin?: 'CUSTOMER' | 'MUA' | 'DUAL' | string;
   isDirectBooking?: boolean;
   availablePackages?: CandidatePackageRes[];
+  bookingPartner?: 'AGENCY' | 'FREELANCER' | string;
+  agencyId?: number;
+  agencyCode?: string;
+  agencyName?: string;
+  agencyLogoUrl?: string;
+  agencyPhone?: string;
+  agencyAddress?: string;
+  assignedStaff?: StaffAssignmentItem[];
   updatedAt: string;
+}
+
+export interface StaffAssignmentItem {
+  id: number;
+  staffId?: number;
+  staffName?: string;
+  staffPhone?: string;
+  staffAvatarUrl?: string;
+  role: 'PRIMARY_MUA' | 'ASSISTANT_MUA' | string;
+  status: 'ACTIVE' | 'EMERGENCY_CANCELLED' | 'REPLACED' | string;
+  assignedAt?: string;
+  confirmedAt?: string;
+  commissionRate?: number;
+  commissionAmount?: number;
+  commissionNote?: string;
 }
 
 export interface CandidatePackageRes {

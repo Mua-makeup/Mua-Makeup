@@ -109,5 +109,7 @@ export const agencyService = {
   reviewEmergencyReport: (bookingId, staffId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/emergency-approval/${staffId}`, data),
   proceedSolo: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/proceed-solo`, data),
   confirmAssignment: (assignmentId) => apiClient.post(`/agency/dispatch/assignments/${assignmentId}/confirm`),
+  updateStaffCommissions: (bookingId, data) =>
+    apiClient.put(`/agency/dispatch/bookings/${bookingId}/staff-commissions`, data),
 };
 

@@ -11,6 +11,7 @@ import com.makeup.platform.entity.agency.AgencyStaffShiftEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.catalog.SurchargeEntity;
 import com.makeup.platform.entity.catalog.SurchargeType;
+import com.makeup.platform.entity.mua.CalendarSlotType;
 import com.makeup.platform.entity.mua.MUACalendarEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.pricing.SurgePricingRuleEntity;
@@ -648,10 +649,64 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         log.info("Released calendar slot for booking ID: {} and MUA ID: {}", bookingId, muaId);
     }
 
-    /**
-     * Thuật toán kiểm tra giao thoa 2 khoảng [start1, end1] và [start2, end2]
-     * max(start1, start2) < min(end1, end2)
-     */
+    @Override
+    @Transactional
+    public void convertSlotToEmergencyBlocked(Long bookingId, Long muaId, String emergencyReason) {
+        List<MUACalendarEntity> slots = muaCalendarRepository.findByBookingIdAndMuaId(bookingId, muaId);
+        String reasonText = (emergencyReason != null && !emergencyReason.isBlank())
+                ? ("EMERGENCY_UNAVAILABLE: " + emergencyReason.trim())
+                : "EMERGENCY_UNAVAILABLE";
+
+        if (!slots.isEmpty()) {
+            for (MUACalendarEntity slot : slots) {
+                slot.setBooking(null);
+                slot.setSlotType(CalendarSlotType.PERSONAL_BLOCKED);
+                slot.setIsLocked(true);
+                slot.setReason(reasonText);
+            }
+            muaCalendarRepository.saveAll(slots);
+            log.info("Converted calendar slots for MUA ID {} from booking ID {} to PERSONAL_BLOCKED due to emergency", muaId, bookingId);
+        } else {
+            // Nếu chưa tìm thấy theo booking_id (do đã unbind booking hoặc chưa có), tìm theo thời gian và cập nhật/tạo mới
+            bookingRepository.findById(bookingId).ifPresent(b -> {
+                muaProfileRepository.findById(muaId).ifPresent(mua -> {
+                    LocalDate bookingDate = b.getBookingDate();
+                    LocalTime startTime = b.getStartTime();
+                    int duration = (b.getServicePackage() != null && b.getServicePackage().getEstimatedDurationMinutes() != null)
+                            ? b.getServicePackage().getEstimatedDurationMinutes() : 60;
+                    LocalTime endTime = startTime != null ? startTime.plusMinutes(duration) : LocalTime.of(23, 59);
+                    OffsetDateTime startTs = bookingDate != null && startTime != null ? bookingDate.atTime(startTime).atOffset(VIETNAM_OFFSET) : OffsetDateTime.now();
+                    OffsetDateTime endTs = bookingDate != null && startTime != null ? bookingDate.atTime(endTime).atOffset(VIETNAM_OFFSET) : startTs.plusHours(2);
+
+                    List<MUACalendarEntity> overlapping = muaCalendarRepository.findOverlappingSlots(muaId, startTs, endTs);
+                    if (!overlapping.isEmpty()) {
+                        for (MUACalendarEntity exSlot : overlapping) {
+                            exSlot.setBooking(null);
+                            exSlot.setSlotType(CalendarSlotType.PERSONAL_BLOCKED);
+                            exSlot.setIsLocked(true);
+                            exSlot.setReason(reasonText);
+                        }
+                        muaCalendarRepository.saveAll(overlapping);
+                        log.info("Updated existing overlapping calendar slots for MUA ID {} to PERSONAL_BLOCKED due to emergency", muaId);
+                    } else {
+                        MUACalendarEntity slot = MUACalendarEntity.builder()
+                                .mua(mua)
+                                .booking(null)
+                                .slotType(CalendarSlotType.PERSONAL_BLOCKED)
+                                .bookingDate(bookingDate)
+                                .startAt(startTs)
+                                .endAt(endTs)
+                                .isLocked(true)
+                                .reason(reasonText)
+                                .build();
+                        muaCalendarRepository.save(slot);
+                        log.info("Created new PERSONAL_BLOCKED calendar slot for MUA ID {} due to emergency report on booking ID {}", muaId, bookingId);
+                    }
+                });
+            });
+        }
+    }
+
     private boolean isOverlapping(OffsetDateTime start1, OffsetDateTime end1, OffsetDateTime start2, OffsetDateTime end2) {
         OffsetDateTime maxStart = start1.isAfter(start2) ? start1 : start2;
         OffsetDateTime minEnd = end1.isBefore(end2) ? end1 : end2;

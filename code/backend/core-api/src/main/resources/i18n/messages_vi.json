@@ -386,7 +386,9 @@
     "page_size_max": "Kích thước trang tối đa không được vượt quá 50.",
     "booking_target_status_required": "Trạng thái đích không được để trống.",
     "booking_target_status_invalid": "Trạng thái đích không hợp lệ.",
-    "booking_reason_max": "Lý do không được vượt quá 500 ký tự."
+    "booking_reason_max": "Lý do không được vượt quá 500 ký tự.",
+    "splits_not_empty": "Danh sách phân chia hoa hồng không được để trống.",
+    "commission_amount_min": "Số tiền hoa hồng không được âm."
   },
   "admin": {
     "agency_verify_success": "Cập nhật trạng thái phê duyệt Studio Agency thành công!",
@@ -584,6 +586,20 @@
     "session_not_found": "Không tìm thấy phiên trò chuyện yêu cầu.",
     "chat_success": "Phản hồi từ trợ lý AI thành công.",
     "session_closed_success": "Đã kết thúc phiên trò chuyện thành công."
+  },
+  "dispatch": {
+    "fetch_pending_success": "Lấy danh sách đơn hàng chờ điều phối thành công.",
+    "fetch_matrix_success": "Lấy ma trận khả dụng của thợ thành công.",
+    "assign_success": "Phân công thợ cho đơn hàng thành công.",
+    "reassign_success": "Đổi thợ dự phòng khẩn cấp thành công.",
+    "reject_success": "Studio từ chối tiếp nhận đơn hàng thành công.",
+    "proceed_solo_success": "Xác nhận thợ chính phục vụ đơn lẻ thành công.",
+    "emergency_report_success": "Báo bận khẩn cấp thành công.",
+    "emergency_review_success": "Duyệt báo bận khẩn cấp thành công.",
+    "assignment_confirm_success": "Xác nhận nhận ca thành công.",
+    "update_commissions_success": "Cập nhật phân chia hoa hồng cho các thợ thành công.",
+    "no_active_staff_to_update_commission": "Không tìm thấy thợ nào đang hoạt động trong ca này để cập nhật hoa hồng.",
+    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng."
   },
   "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn.",

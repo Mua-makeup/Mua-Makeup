@@ -140,6 +140,9 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
     @Query("DELETE FROM MUACalendarEntity c WHERE c.booking.id = :bookingId AND c.mua.id = :muaId")
     void deleteByBookingIdAndMuaId(@Param("bookingId") Long bookingId, @Param("muaId") Long muaId);
 
+    @Query("SELECT c FROM MUACalendarEntity c WHERE c.booking.id = :bookingId AND c.mua.id = :muaId")
+    List<MUACalendarEntity> findByBookingIdAndMuaId(@Param("bookingId") Long bookingId, @Param("muaId") Long muaId);
+
     @Query("""
         SELECT c FROM MUACalendarEntity c 
         WHERE c.mua.id = :muaId 
@@ -151,5 +154,16 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
     List<MUACalendarEntity> findPersonalBlockedSlotsFromDate(
         @Param("muaId") Long muaId,
         @Param("fromDate") LocalDate fromDate
+    );
+
+    @Query(value = """
+        SELECT c.* FROM mua_schema.mua_calendars c
+        WHERE c.mua_id = :muaId
+          AND tstzrange(c.start_at, c.end_at) && tstzrange(:windowStart, :windowEnd)
+    """, nativeQuery = true)
+    List<MUACalendarEntity> findOverlappingSlots(
+        @Param("muaId") Long muaId,
+        @Param("windowStart") OffsetDateTime windowStart,
+        @Param("windowEnd") OffsetDateTime windowEnd
     );
 }

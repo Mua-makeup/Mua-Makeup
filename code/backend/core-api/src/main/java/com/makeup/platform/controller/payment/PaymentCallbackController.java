@@ -135,14 +135,21 @@ public class PaymentCallbackController {
             }
         }
 
-        // Đảm bảo expoUrl luôn luôn có route hợp lệ, tuyệt đối không trỏ về /--/ rỗng
-        String expoUrl = bookingId != null
-                ? "exp://" + host + ":8081/--/booking/deposit/" + bookingId + "?status=" + (isSuccess ? "success" : "failed")
-                : "exp://" + host + ":8081/--/bookings";
-
-        String nativeUrl = bookingId != null
-                ? "app://booking/deposit/" + bookingId + "?status=" + (isSuccess ? "success" : "failed")
-                : "app://bookings";
+        // Đảm bảo expoUrl luôn luôn có route hợp lệ: thành công thì vào thẳng detail, thất bại thì về deposit
+        String expoUrl;
+        String nativeUrl;
+        if (bookingId != null) {
+            if (isSuccess) {
+                expoUrl = "exp://" + host + ":8081/--/booking/detail/" + bookingId;
+                nativeUrl = "app://booking/detail/" + bookingId;
+            } else {
+                expoUrl = "exp://" + host + ":8081/--/booking/deposit/" + bookingId + "?status=failed";
+                nativeUrl = "app://booking/deposit/" + bookingId + "?status=failed";
+            }
+        } else {
+            expoUrl = "exp://" + host + ":8081/--/bookings";
+            nativeUrl = "app://bookings";
+        }
 
         String html = buildReturnHtmlPage(isSuccess, gateway, paymentCode, bookingCode, amountFormatted, expoUrl, nativeUrl, bookingId);
         HttpHeaders responseHeaders = new HttpHeaders();
