@@ -17,6 +17,7 @@ import com.makeup.platform.dto.response.agency.StaffAvailabilityMatrixRes;
 import com.makeup.platform.service.agency.AgencyDispatchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,7 +27,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -100,7 +103,27 @@ public class AgencyDispatchController extends BaseController {
         return ok(null, "dispatch.proceed_solo_success");
     }
 
-    @PostMapping("/bookings/{bookingId}/report-emergency-busy")
+    @PostMapping(value = "/bookings/{bookingId}/report-emergency-busy", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('AGENCY_STAFF', 'FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<Void>> reportEmergencyBusyMultipart(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookingId,
+            @RequestParam("emergencyReason") String emergencyReason,
+            @RequestParam(value = "proofImage", required = false) MultipartFile proofImage,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "proofDocumentUrl", required = false) String proofDocumentUrl
+    ) {
+        MultipartFile effectiveFile = proofImage != null ? proofImage : file;
+        ReportEmergencyBusyReq req = ReportEmergencyBusyReq.builder()
+                .emergencyReason(emergencyReason)
+                .file(effectiveFile)
+                .proofDocumentUrl(proofDocumentUrl)
+                .build();
+        agencyDispatchService.reportEmergencyBusy(userId, bookingId, req);
+        return ok(null, "dispatch.emergency_report_success");
+    }
+
+    @PostMapping(value = "/bookings/{bookingId}/report-emergency-busy", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyRole('AGENCY_STAFF', 'FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<Void>> reportEmergencyBusy(
             @AuthenticationPrincipal Long userId,
@@ -141,6 +164,17 @@ public class AgencyDispatchController extends BaseController {
     ) {
         agencyDispatchService.confirmAssignmentByBooking(userId, bookingId);
         return ok(null, "dispatch.assignment_confirm_success");
+    }
+
+    @PostMapping("/bookings/{bookingId}/decline-assignment")
+    @PreAuthorize("hasRole('AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<Void>> declineAssignmentByBooking(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookingId,
+            @RequestParam(value = "reason", required = false) String reason
+    ) {
+        agencyDispatchService.declineAssignmentByBooking(userId, bookingId, reason);
+        return ok(null, "dispatch.assignment_decline_success");
     }
 
     @PutMapping("/bookings/{bookingId}/staff-commissions")

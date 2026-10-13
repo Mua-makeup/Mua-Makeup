@@ -472,6 +472,15 @@ export default function CustomerBookingDetailScreen() {
     Boolean(bookingDetail.agencyId) ||
     Boolean(bookingDetail.agencyName);
 
+  // Lọc chỉ những chuyên viên ĐÃ XÁC NHẬN TIẾP NHẬN CA (isConfirmedByStaff === true hoặc confirmedAt != null hoặc status === 'CONFIRMED')
+  // Tránh hiển thị sớm khi thợ chưa bấm tiếp nhận, đề phòng thợ từ chối/bận và studio gán thợ khác
+  const confirmedStaffList = (bookingDetail.assignedStaff || []).filter(
+    (s) =>
+      (s.isConfirmedByStaff === true || Boolean(s.confirmedAt) || s.status === 'CONFIRMED') &&
+      s.status !== 'DECLINED' &&
+      s.status !== 'REPLACED'
+  );
+
   // Xác định bước tiến trình (Tách riêng cho Đặt Trước vs Đặt Gấp)
   const getStepIndex = (status: BookingStatusType) => {
     if (isScheduled) {
@@ -1089,22 +1098,27 @@ export default function CustomerBookingDetailScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardTitle}>Đội Ngũ Chuyên Viên Phục Vụ</Text>
                   <Text style={styles.teamSubtitle}>
-                    {bookingDetail.assignedStaff && bookingDetail.assignedStaff.length > 0
-                      ? `${bookingDetail.assignedStaff.length} chuyên viên được Studio điều phối phụ trách`
-                      : 'Được Studio tuyển chọn và đào tạo kỹ lưỡng'}
+                    {confirmedStaffList.length > 0
+                      ? `${confirmedStaffList.length} chuyên viên đã tiếp nhận phục vụ ca làm`
+                      : 'Studio đang điều phối và chờ chuyên viên tiếp nhận ca'}
                   </Text>
                 </View>
-                {bookingDetail.assignedStaff && bookingDetail.assignedStaff.length > 0 ? (
+                {confirmedStaffList.length > 0 ? (
                   <View style={styles.teamCountBadge}>
                     <Ionicons name="people" size={13} color="#2563EB" />
-                    <Text style={styles.teamCountText}>{bookingDetail.assignedStaff.length} Thợ</Text>
+                    <Text style={styles.teamCountText}>{confirmedStaffList.length} Thợ Đã Nhận</Text>
                   </View>
-                ) : null}
+                ) : (
+                  <View style={[styles.teamCountBadge, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+                    <Ionicons name="hourglass-outline" size={12} color="#D97706" />
+                    <Text style={[styles.teamCountText, { color: '#B45309' }]}>Chờ tiếp nhận</Text>
+                  </View>
+                )}
               </View>
 
-              {bookingDetail.assignedStaff && bookingDetail.assignedStaff.length > 0 ? (
+              {confirmedStaffList.length > 0 ? (
                 <View style={styles.staffListContainer}>
-                  {[...bookingDetail.assignedStaff]
+                  {[...confirmedStaffList]
                     .sort((a, b) => (a.role === 'PRIMARY_MUA' ? -1 : 1))
                     .map((staff, sIdx) => {
                       const isPrimary = staff.role === 'PRIMARY_MUA';
@@ -1129,12 +1143,10 @@ export default function CustomerBookingDetailScreen() {
                                 {isPrimary ? 'THỢ CHÍNH' : 'THỢ PHỤ'}
                               </Text>
                             </View>
-                            {staff.status === 'ACTIVE' && (
-                              <View style={styles.activeStaffDotRow}>
-                                <View style={styles.activeStaffDot} />
-                                <Text style={styles.activeStaffText}>Đang nhận ca</Text>
-                              </View>
-                            )}
+                            <View style={styles.activeStaffDotRow}>
+                              <View style={styles.activeStaffDot} />
+                              <Text style={styles.activeStaffText}>Đã tiếp nhận ca</Text>
+                            </View>
                           </View>
 
                           <View style={styles.staffBodyRow}>
@@ -1164,45 +1176,19 @@ export default function CustomerBookingDetailScreen() {
                         </View>
                       );
                     })}
-                </View>
-              ) : hasAssignedMua ? (
-                /* Fallback nếu chưa có assignedStaff nhưng có muaName */
-                <View style={styles.staffItemCard}>
-                  <View style={styles.staffHeaderRow}>
-                    <View style={[styles.staffRolePill, styles.staffRolePrimaryPill]}>
-                      <Ionicons name="star" size={11} color="#92400E" />
-                      <Text style={[styles.staffRolePillText, styles.staffRolePrimaryPillText]}>
-                        CHUYÊN VIÊN STUDIO
+
+                  {/* Thông báo nếu còn thợ khác trong ê-kíp đang chờ xác nhận */}
+                  {(bookingDetail.assignedStaff?.length || 0) > confirmedStaffList.length && (
+                    <View style={{ marginTop: 6, padding: 10, backgroundColor: '#FFFBEB', borderRadius: 10, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="information-circle" size={16} color="#D97706" />
+                      <Text style={{ fontSize: 12, color: '#92400E', flex: 1 }}>
+                        Studio đang điều phối thêm chuyên viên phụ tá cho ca làm của bạn.
                       </Text>
                     </View>
-                  </View>
-                  <View style={styles.staffBodyRow}>
-                    <UserAvatar
-                      uri={bookingDetail.muaAvatar}
-                      name={bookingDetail.muaName}
-                      size={50}
-                      style={{ marginRight: 12 }}
-                    />
-                    <View style={{ flex: 1, justifyContent: 'center' }}>
-                      <Text style={styles.staffNameText} numberOfLines={1}>
-                        {bookingDetail.muaName || 'Chuyên viên đối tác'}
-                      </Text>
-                      <Text style={styles.staffPhoneText}>
-                        SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.callStaffMiniBtn}
-                      onPress={handleCallMUA}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="call" size={13} color="#FFFFFF" />
-                      <Text style={styles.callStaffMiniBtnText}>Gọi Thợ</Text>
-                    </TouchableOpacity>
-                  </View>
+                  )}
                 </View>
               ) : (
-                /* Đang điều phối thợ */
+                /* Chưa có chuyên viên nào xác nhận tiếp nhận: Hiển thị trạng thái đang chờ điều phối */
                 <View style={styles.pendingDispatchBox}>
                   <View style={styles.pendingDispatchIconWrap}>
                     <Ionicons name="hourglass-outline" size={24} color="#D97706" />
@@ -1210,7 +1196,7 @@ export default function CustomerBookingDetailScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pendingDispatchTitle}>Studio Đang Điều Phối Thợ</Text>
                     <Text style={styles.pendingDispatchDesc}>
-                      Studio đang lựa chọn và phân công đội ngũ chuyên viên trang điểm & làm tóc phù hợp nhất cho lịch hẹn của bạn. Thông tin chuyên viên sẽ hiển thị tại đây ngay khi hoàn tất!
+                      Studio đã lên lịch và đang gửi thông báo nhận ca tới chuyên viên. Thông tin chuyên viên sẽ hiển thị tại đây ngay sau khi thợ xác nhận tiếp nhận ca làm!
                     </Text>
                   </View>
                 </View>
@@ -1220,7 +1206,7 @@ export default function CustomerBookingDetailScreen() {
         ) : (
           /* GIAO DIỆN ĐẶT THỢ TỰ DO (FREELANCER MUA) */
           <>
-            {!hasAssignedMua ? (
+            {isCancelled && !hasAssignedMua ? (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
                 <View style={styles.noMuaNoticeBox}>
@@ -1245,6 +1231,21 @@ export default function CustomerBookingDetailScreen() {
                     </View>
                     <Text style={styles.noMuaDesc}>
                       Đơn hàng bị hủy do không tìm thấy chuyên viên trang điểm khả dụng trong khu vực để nhận ca.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : !hasAssignedMua || bookingDetail.status === 'REQUESTED' || bookingDetail.status === 'SEARCHING' || bookingDetail.status === 'AGENCY_ASSIGNED' ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+                <View style={styles.pendingDispatchBox}>
+                  <View style={styles.pendingDispatchIconWrap}>
+                    <Ionicons name="hourglass-outline" size={24} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingDispatchTitle}>Đang Chờ Chuyên Viên Tiếp Nhận</Text>
+                    <Text style={styles.pendingDispatchDesc}>
+                      Yêu cầu đặt lịch của bạn đang được gửi tới chuyên viên. Thông tin liên hệ chuyên viên sẽ hiển thị tại đây ngay khi thợ xác nhận tiếp nhận đơn!
                     </Text>
                   </View>
                 </View>

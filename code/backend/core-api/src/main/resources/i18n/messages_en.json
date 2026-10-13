@@ -174,6 +174,8 @@
     "deposit_status_retrieved": "Deposit status retrieved successfully.",
     "deposit_deprecated": "Direct deposit confirmation endpoint has been deprecated. Please use deposit-intents API.",
     "deposit_not_paid": "Cannot start trip: Customer deposit has not been paid.",
+    "assistant_not_confirmed": "Assistant artist has not confirmed the booking yet, cannot start trip.",
+    "assistant_cannot_transition_state": "Assistant artist is only allowed to accept assignments and report busy. Job execution is managed by the Primary artist.",
     "confirm_scheduled_success": "Scheduled booking confirmed successfully!",
     "reject_scheduled_success": "Scheduled booking rejected successfully.",
     "cancel_requested_success": "Booking cancelled successfully. Deposit refunded to your wallet.",
@@ -256,6 +258,8 @@
   "ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY": "Artist has confirmed and is already on the way or working, you cannot cancel now.",
   "ERR_CANNOT_CANCEL_AFTER_DEPOSIT": "Instant booking deposit has already been paid, you cannot cancel at this stage.",
   "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Reporting emergency unavailability within 2 hours requires an incident proof document.",
+  "ERR_ASSISTANT_NOT_CONFIRMED": "Assistant artist has not confirmed the booking yet, cannot start trip.",
+  "ERR_ASSISTANT_CANNOT_TRANSITION_STATE": "Assistant artist is only allowed to accept assignments and report busy. Not authorized to transition job status or complete booking.",
   "ERR_BOOKING_ALREADY_TAKEN": "Booking already accepted by another artist.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Distributed lock acquisition timeout.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Optimistic lock version conflict.",
@@ -488,7 +492,8 @@
     "proceed_solo_success": "Confirmed solo fulfillment for the booking successfully.",
     "cannot_proceed_solo_no_active_staff": "This booking has no active staff available to fulfill solo. Please reassign a staff member or reject the emergency request.",
     "emergency_proof_required_critical": "Reporting emergency unavailability within 2 hours requires an incident proof document.",
-    "assignment_confirm_success": "Dispatch assignment confirmed successfully!"
+    "assignment_confirm_success": "Dispatch assignment confirmed successfully!",
+    "assignment_decline_success": "Declined assignment and returned to Studio dispatch pool."
   },
   "emergency": {
     "reason": {
@@ -537,7 +542,15 @@
     "staff_app_approved_title": "Welcome to {0}!",
     "staff_app_approved_content": "Congratulations, your application to join Studio {0} has been approved with a commission rate of {1}.",
     "staff_app_rejected_title": "Staff Application Result for {0}",
-    "staff_app_rejected_content": "Studio {0} has rejected your application. Note: {2}"
+    "staff_app_rejected_content": "Studio {0} has rejected your application. Note: {2}",
+    "emergency_review_approved_title": "Studio Approved Emergency Report #{0}",
+    "emergency_review_approved_content": "Studio {0} has approved your emergency report for booking #{1}. You are excused from this assignment. Note: {2}",
+    "emergency_review_rejected_title": "Studio Rejected Emergency Report #{0}",
+    "emergency_review_rejected_content": "Studio {0} has rejected your emergency report for booking #{1}. You have been restored to active shift. Note: {2}",
+    "solo_promotion_offer_title": "Proposal to Serve as Lead Artist for Booking #{0}",
+    "solo_promotion_offer_content": "Studio {0} has proposed you to serve as Lead Artist for booking #{1} with updated commission rate of {2}. Please confirm whether you accept or decline!",
+    "staff_dispatched_title": "New Booking Shift Assignment #{0}",
+    "staff_dispatched_content": "{0} has dispatched you to booking #{1} as {2} (Commission rate: {3}). Please check and confirm your shift!"
   },
   "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Requested payment gateway was not found.",
   "ERR_PAYMENT_GATEWAY_DISABLED": "This payment gateway is currently disabled.",
@@ -593,7 +606,11 @@
     "assignment_confirm_success": "Confirmed assignment successfully.",
     "update_commissions_success": "Updated staff commission split successfully.",
     "no_active_staff_to_update_commission": "No active staff found in this booking to update commissions.",
-    "total_commission_exceeds_max": "Total staff commissions cannot exceed 100% of the booking value."
+    "total_commission_exceeds_max": "Total staff commissions cannot exceed 100% of the booking value.",
+    "staff_unqualified": "Selected staff member is not qualified for this booking.",
+    "primary_required": "Please select a primary artist for this booking.",
+    "max_assistants_exceeded": "Maximum number of assistants exceeded (max 2).",
+    "staff_reported_busy": "Staff has already reported busy for this booking."
   },
   "ERR_SLOT_ALREADY_BOOKED": "This appointment slot was just booked and paid by another customer. Please choose another time slot!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired.",

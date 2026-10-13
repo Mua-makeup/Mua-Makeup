@@ -254,11 +254,9 @@ public class DomainNotificationEventListener {
             }
 
             UserEntity staffUser = assignment.getStaff().getMua().getUser();
-            Locale locale = resolveLocale(staffUser);
+            Locale locale = Locale.forLanguageTag("vi");
             boolean isPrimary = assignment.getAssignmentRole() == AssignmentRole.PRIMARY_MUA;
-            String roleName = isPrimary
-                    ? (locale.getLanguage().equals("en") ? "Primary Artist" : "Thợ chính")
-                    : (locale.getLanguage().equals("en") ? "Assistant" : "Thợ phụ");
+            String roleName = isPrimary ? "Thợ chính" : "Thợ phụ (Trợ lý)";
 
             // 1. In-App Notification (Database + STOMP WebSocket)
             String title = messageSource.getLocalizedMessage(
@@ -330,8 +328,8 @@ public class DomainNotificationEventListener {
     }
 
     private Locale resolveLocale(UserEntity user) {
-        if (user != null && StringUtils.hasText(user.getLanguage())) {
-            return Locale.forLanguageTag(user.getLanguage());
+        if (user != null && "en".equalsIgnoreCase(user.getLanguage())) {
+            return Locale.ENGLISH;
         }
         return Locale.forLanguageTag("vi");
     }

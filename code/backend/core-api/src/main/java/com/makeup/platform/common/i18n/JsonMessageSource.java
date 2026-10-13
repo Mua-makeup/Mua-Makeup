@@ -26,13 +26,13 @@ public class JsonMessageSource extends AbstractMessageSource {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, Map<String, String>> localizedMessages = new ConcurrentHashMap<>();
 
-    private static final String DEFAULT_LANG = "en";
-    private static final String VI_LANG = "vi";
+    private static final String DEFAULT_LANG = "vi";
+    private static final String EN_LANG = "en";
 
     @PostConstruct
     public void init() {
-        loadMessages(DEFAULT_LANG, "i18n/messages_en.json");
-        loadMessages(VI_LANG, "i18n/messages_vi.json");
+        loadMessages(DEFAULT_LANG, "i18n/messages_vi.json");
+        loadMessages(EN_LANG, "i18n/messages_en.json");
     }
 
     private void loadMessages(String lang, String path) {
@@ -73,18 +73,18 @@ public class JsonMessageSource extends AbstractMessageSource {
         if (msg == null) {
             return null;
         }
-        return new MessageFormat(msg, locale != null ? locale : Locale.ENGLISH);
+        return new MessageFormat(msg, locale != null ? locale : Locale.forLanguageTag("vi"));
     }
 
     public String getMessageString(String code, Locale locale) {
-        String lang = (locale != null && locale.getLanguage().equalsIgnoreCase(VI_LANG)) ? VI_LANG : DEFAULT_LANG;
+        String lang = (locale != null && locale.getLanguage().equalsIgnoreCase(EN_LANG)) ? EN_LANG : DEFAULT_LANG;
         Map<String, String> messages = localizedMessages.get(lang);
 
         if (messages != null && messages.containsKey(code)) {
             return messages.get(code);
         }
 
-        // Fallback to English
+        // Fallback to Vietnamese
         Map<String, String> fallbackMessages = localizedMessages.get(DEFAULT_LANG);
         if (fallbackMessages != null && fallbackMessages.containsKey(code)) {
             return fallbackMessages.get(code);

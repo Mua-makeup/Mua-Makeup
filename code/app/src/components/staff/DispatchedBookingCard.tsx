@@ -16,21 +16,67 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
   const [isConfirming, setIsConfirming] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
-  const isAssignedPending = booking.status === 'AGENCY_ASSIGNED';
-  const isInProgressOrActive = ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(booking.status);
+  const isAssignedPending = booking.status === 'AGENCY_ASSIGNED' || booking.isConfirmedByStaff === false;
+  const isConfirmed = booking.isConfirmedByStaff === true || (booking.status !== 'AGENCY_ASSIGNED' && booking.isConfirmedByStaff === undefined);
+  const isInProgressOrActive = isConfirmed && ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(booking.status);
 
-  const handleConfirmAssignment = async () => {
-    try {
-      setIsConfirming(true);
-      await agencyStaffService.confirmAssignmentByBooking(booking.id);
-      Alert.alert('Thành công', 'Đã xác nhận tiếp nhận ca điều phối của Studio.');
-      onRefresh();
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận ca làm.';
-      Alert.alert('Lỗi xác nhận', msg);
-    } finally {
-      setIsConfirming(false);
-    }
+  const [isDeclining, setIsDeclining] = useState(false);
+
+  const handleDeclineAssignment = () => {
+    Alert.alert(
+      'Từ Chối Ca Điều Phối',
+      'Bạn có chắc chắn muốn từ chối tiếp nhận ca làm này? Hệ thống sẽ chuyển lại ca về Agency để điều phối thợ khác.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xác Nhận Từ Chối',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsDeclining(true);
+              await agencyStaffService.declineAssignmentByBooking(booking.id, 'Thợ từ chối nhận phân công');
+              Alert.alert('Đã Từ Chối', 'Đơn đã được chuyển lại về bộ phận điều phối Studio.');
+              onRefresh();
+            } catch (err: any) {
+              const msg = err?.response?.data?.message || err?.message || 'Không thể từ chối ca làm.';
+              Alert.alert('Lỗi', msg);
+            } finally {
+              setIsDeclining(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleConfirmAssignment = () => {
+    const roleText = booking.assignmentRole === 'PRIMARY_MUA' ? 'Thợ chính' : (booking.assignmentRole === 'ASSISTANT_MUA' ? 'Thợ phụ' : 'Chuyên viên');
+    const commissionText = booking.commissionRate !== undefined && booking.commissionRate !== null ? ` với mức hoa hồng ${booking.commissionRate}%` : '';
+
+    Alert.alert(
+      'Xác Nhận Tiếp Nhận Ca',
+      `Bạn có chắc chắn muốn tiếp nhận ca làm #${booking.bookingCode} với vai trò ${roleText}${commissionText} không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Tiếp Nhận Ngay',
+          style: 'default',
+          onPress: async () => {
+            try {
+              setIsConfirming(true);
+              await agencyStaffService.confirmAssignment(booking.id, 'booking');
+              Alert.alert('Thành công', 'Đã xác nhận tiếp nhận ca điều phối của Studio.');
+              onRefresh();
+            } catch (err: any) {
+              const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận ca làm.';
+              Alert.alert('Lỗi xác nhận', msg);
+            } finally {
+              setIsConfirming(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCallCustomer = () => {
@@ -52,13 +98,16 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
   };
 
   const handleEnterJob = () => {
-    router.push({
+    router.replace({
       pathname: '/job-execution/[id]',
       params: { id: booking.id },
     });
   };
 
   const getStatusLabel = () => {
+    if (booking.isConfirmedByStaff === false) {
+      return { label: 'Chờ Tiếp Nhận', color: '#B45309', bg: '#FEF3C7' };
+    }
     switch (booking.status) {
       case 'AGENCY_ASSIGNED':
         return { label: 'Studio Chỉ Định', color: '#B45309', bg: '#FEF3C7' };
@@ -73,8 +122,17 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
       case 'COMPLETED':
       case 'PAID_OUT':
         return { label: 'Hoàn Thành', color: '#047857', bg: '#D1FAE5' };
+      case 'DISPUTED':
+        return { label: 'Đang Khiếu Nại', color: '#D97706', bg: '#FEF3C7' };
+      case 'DISPUTE_REFUNDED':
+        return { label: 'Khiếu Nại (Đã Hoàn Cọc)', color: '#64748B', bg: '#F1F5F9' };
+      case 'DISPUTE_COMPENSATED':
+        return { label: 'Khiếu Nại (Đã Bồi Thường)', color: '#047857', bg: '#D1FAE5' };
+      case 'CANCELLED':
+      case 'CANCELLED_EXPIRED':
+        return { label: 'Đã Hủy', color: '#DC2626', bg: '#FEE2E2' };
       default:
-        return { label: booking.status, color: '#475569', bg: '#F1F5F9' };
+        return { label: (booking.status || 'Chờ Xử Lý').replace(/_/g, ' '), color: '#475569', bg: '#F1F5F9' };
     }
   };
 
@@ -84,11 +142,40 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
     <View style={styles.card}>
       {/* Top Header: Mã đơn + Trạng thái */}
       <View style={styles.headerRow}>
-        <Text style={styles.bookingCode}>#{booking.bookingCode}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <Text style={styles.bookingCode}>#{booking.bookingCode}</Text>
+          {booking.assignmentRole === 'ASSISTANT_MUA' && (
+            <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
+              <Text style={[styles.statusText, { color: '#2275ceff' }]}>Trợ Lý</Text>
+            </View>
+          )}
+          {booking.assignmentRole === 'PRIMARY_MUA' && (
+            <View style={[styles.statusBadge, { backgroundColor: '#EFF6FF' }]}>
+              <Text style={[styles.statusText, { color: '#1D4ED8' }]}>Thợ Chính</Text>
+            </View>
+          )}
+          {booking.commissionRate !== undefined && booking.commissionRate !== null && (
+            <View style={[styles.statusBadge, { backgroundColor: '#ECFDF5' }]}>
+              <Text style={[styles.statusText, { color: '#047857' }]}>
+                Hoa hồng: {booking.commissionRate}%
+              </Text>
+            </View>
+          )}
+        </View>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
           <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
         </View>
       </View>
+
+      {/* Thông báo phân công solo / thợ chính khi chưa xác nhận */}
+      {booking.isConfirmedByStaff === false && booking.assignmentRole === 'PRIMARY_MUA' && (
+        <View style={styles.promotionBanner}>
+          <Ionicons name="information-circle" size={16} color="#B45309" />
+          <Text style={styles.promotionBannerText}>
+            Bạn được chỉ định làm Thợ chính cho đơn này{booking.commissionRate ? ` (Hưởng ${booking.commissionRate}% hoa hồng)` : ''}. Vui lòng xác nhận tiếp nhận hoặc từ chối.
+          </Text>
+        </View>
+      )}
 
       {/* Tên dịch vụ & Khách hàng */}
       <Text style={styles.packageName}>{booking.packageName || 'Dịch Vụ Trang Điểm'}</Text>
@@ -132,22 +219,34 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
       {isAssignedPending ? (
         <View style={styles.actionRow}>
           <TouchableOpacity
+            style={[styles.btn, styles.btnDecline]}
+            onPress={handleDeclineAssignment}
+            disabled={isConfirming || isDeclining}
+          >
+            {isDeclining ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <Text style={styles.btnDeclineText}>Từ chối</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.btn, styles.btnEmergency]}
             onPress={() => setShowEmergencyModal(true)}
-            disabled={isConfirming}
+            disabled={isConfirming || isDeclining}
           >
-            <Text style={styles.btnEmergencyText}>Báo bận khẩn</Text>
+            <Text style={styles.btnEmergencyText}>Báo bận</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.btn, styles.btnConfirm]}
             onPress={handleConfirmAssignment}
-            disabled={isConfirming}
+            disabled={isConfirming || isDeclining}
           >
             {isConfirming ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.btnConfirmText}>Tiếp nhận ca</Text>
+              <Text style={styles.btnConfirmText}>Tiếp nhận</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -258,6 +357,36 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  promotionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  promotionBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  btnDecline: {
+    flex: 1,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  btnDeclineText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#DC2626',
   },
   btnEmergency: {
     flex: 1,

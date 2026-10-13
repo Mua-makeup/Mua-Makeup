@@ -29,6 +29,55 @@ import { UserAvatar } from '@/components/common/UserAvatar';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { websocketService } from '@/services/websocket.service';
 
+function formatScheduleOrCompletionTime(
+  startTime?: string,
+  durationMinutes?: number,
+  status?: string,
+  completedAt?: string
+) {
+  const isCompleted = status === 'COMPLETED' || status === 'PAID_OUT';
+
+  if (isCompleted && completedAt) {
+    try {
+      const compDate = new Date(completedAt);
+      if (!isNaN(compDate.getTime())) {
+        const compHours = String(compDate.getHours()).padStart(2, '0');
+        const compMinutes = String(compDate.getMinutes()).padStart(2, '0');
+        const startFormatted = startTime ? formatTimeVN(startTime) : '--:--';
+        return {
+          timeRange: `${startFormatted} - ${compHours}:${compMinutes}`,
+          subText: `Hoàn thành lúc ${compHours}:${compMinutes}`,
+          isCompleted: true,
+        };
+      }
+    } catch {}
+  }
+
+  const startFormatted = startTime ? formatTimeVN(startTime) : '--:--';
+  let endFormatted = '--:--';
+  if (startTime) {
+    try {
+      const parts = startTime.split(':');
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && !isNaN(m)) {
+          const total = h * 60 + m + (durationMinutes || 60);
+          const endH = Math.floor(total / 60) % 24;
+          const endM = total % 60;
+          endFormatted = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+        }
+      }
+    } catch {}
+  }
+
+  return {
+    timeRange: `${startFormatted} - ${endFormatted}`,
+    subText: `Ước tính (${durationMinutes || 60}p)`,
+    isCompleted: false,
+  };
+}
+
 export default function BookingHistoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
@@ -276,9 +325,13 @@ export default function BookingHistoryDetailScreen() {
     bookingDetail.bookingPartner === 'AGENCY_DISPATCH' ||
     Boolean(bookingDetail.agencyId || bookingDetail.agencyName);
 
-  const activeStaffList = (bookingDetail.assignedStaff || []).filter(
-    (s) => s.status === 'ACTIVE'
-  );
+  const activeStaffList = (bookingDetail.assignedStaff || []).filter((s) => {
+    if (s.status === 'DECLINED' || s.status === 'REPLACED') return false;
+    if (!isWorkstationRole) {
+      return Boolean(s.isConfirmedByStaff === true || s.confirmedAt || s.status === 'CONFIRMED');
+    }
+    return s.status === 'ACTIVE' || s.status === 'CONFIRMED';
+  });
 
   // Phân loại ngữ cảnh hủy đơn và hoàn cọc
   const cancelReasonLower = (bookingDetail.cancellationReason || '').toLowerCase();
@@ -572,7 +625,9 @@ export default function BookingHistoryDetailScreen() {
 
   // Phí sàn 20% và thu nhập thợ 80% từ tổng giá trị đơn hàng
   const platformFee = bookingDetail.platformFee ?? Math.round(totalAmount * 0.2);
-  const earningsAmount = bookingDetail.earningsAmount ?? (totalAmount - platformFee);
+  const baseEarnings = totalAmount - platformFee;
+  const overtimeBonus = Number(bookingDetail.overtimePay || 0);
+  const earningsAmount = bookingDetail.earningsAmount ?? (baseEarnings + overtimeBonus);
   const isScheduled = bookingDetail.bookingType === 'SCHEDULED' || bookingDetail.bookingCode?.startsWith('BK-SCHED');
 
   return (
@@ -621,15 +676,27 @@ export default function BookingHistoryDetailScreen() {
             </View>
 
             <View style={styles.scheduledHeroBody}>
-              <View style={styles.scheduledHeroTimeCol}>
-                <Text style={styles.scheduledHeroTimeLabel}>Thời Gian Hẹn</Text>
-                <Text style={styles.scheduledHeroTimeValue}>
-                  {bookingDetail.startTime ? formatTimeVN(bookingDetail.startTime) : '--:--'}
-                </Text>
-                <Text style={styles.scheduledHeroDateValue}>
-                  {bookingDetail.bookingDate ? formatDateVN(bookingDetail.bookingDate) : '--/--/----'}
-                </Text>
-              </View>
+              {(() => {
+                const timeInfo = formatScheduleOrCompletionTime(
+                  bookingDetail.startTime,
+                  bookingDetail.estimatedDurationMinutes || 60,
+                  bookingDetail.status,
+                  bookingDetail.completedAt
+                );
+                return (
+                  <View style={styles.scheduledHeroTimeCol}>
+                    <Text style={styles.scheduledHeroTimeLabel}>
+                      {timeInfo.isCompleted ? 'Thời Gian Hoàn Thành' : 'Thời Gian Thực Hiện'}
+                    </Text>
+                    <Text style={styles.scheduledHeroTimeValue} numberOfLines={1} adjustsFontSizeToFit>
+                      {timeInfo.timeRange}
+                    </Text>
+                    <Text style={styles.scheduledHeroDateValue} numberOfLines={1} adjustsFontSizeToFit>
+                      {bookingDetail.bookingDate ? formatDateVN(bookingDetail.bookingDate) : '--/--/----'} • {timeInfo.subText}
+                    </Text>
+                  </View>
+                );
+              })()}
 
               <View style={styles.scheduledHeroDivider} />
 
@@ -1524,9 +1591,9 @@ export default function BookingHistoryDetailScreen() {
               ) : (
                 <View style={{ paddingVertical: 8 }}>
                   <Text style={{ fontSize: 12, color: '#64748B', fontStyle: 'italic' }}>
-                    {bookingDetail.muaName
+                    {bookingDetail.muaName && (bookingDetail.status !== 'AGENCY_ASSIGNED' && bookingDetail.status !== 'REQUESTED')
                       ? `Chuyên viên đảm nhiệm: ${bookingDetail.muaName}`
-                      : 'Studio đang điều phối nhân sự cho ca hẹn.'}
+                      : 'Studio đang điều phối và chờ chuyên viên tiếp nhận ca hẹn.'}
                   </Text>
                 </View>
               )}
@@ -1633,8 +1700,20 @@ export default function BookingHistoryDetailScreen() {
             <View style={styles.infoCol}>
               <Ionicons name="time-outline" size={16} color="#64748B" />
               <View style={{ flex: 1 }}>
-                <Text style={styles.infoColLabel}>Giờ Bắt Đầu</Text>
-                <Text style={styles.infoColValue}>{formatTimeVN(bookingDetail.startTime)}</Text>
+                <Text style={styles.infoColLabel}>
+                  {isCompleted || isPaidOut ? 'Thời Gian Hoàn Tất' : 'Thời Gian Thực Hiện'}
+                </Text>
+                <Text style={styles.infoColValue}>
+                  {(() => {
+                    const timeInfo = formatScheduleOrCompletionTime(
+                      bookingDetail.startTime,
+                      bookingDetail.estimatedDurationMinutes || 60,
+                      bookingDetail.status,
+                      bookingDetail.completedAt
+                    );
+                    return timeInfo.timeRange;
+                  })()}
+                </Text>
               </View>
             </View>
           </View>
@@ -2044,8 +2123,21 @@ export default function BookingHistoryDetailScreen() {
                     <Text style={styles.billLabel}>Khấu trừ phí sàn (20%):</Text>
                     <Text style={[styles.billValue, { color: '#EF4444' }]}>-{formatPrice(platformFee)}</Text>
                   </View>
+                  {(bookingDetail.overtimePay && bookingDetail.overtimePay > 0) ? (
+                    <View style={[styles.billRow, { backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, marginVertical: 3 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name="time" size={14} color="#15803D" style={{ marginRight: 4 }} />
+                        <Text style={[styles.billLabel, { color: '#15803D', fontWeight: '700' }]}>
+                          Phụ cấp làm thêm giờ {bookingDetail.overtimeMinutes ? `(+${bookingDetail.overtimeMinutes}p)` : ''}:
+                        </Text>
+                      </View>
+                      <Text style={[styles.billValue, { color: '#15803D', fontWeight: '800' }]}>
+                        +{formatPrice(bookingDetail.overtimePay)}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.billRow}>
-                    <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận (80%):</Text>
+                    <Text style={styles.muaNetEarningsLabel}>Thu Nhập Thực Nhận:</Text>
                     <Text style={styles.muaNetEarningsValue}>{formatPrice(earningsAmount)}</Text>
                   </View>
                   <View style={styles.muaWalletStatusBox}>
@@ -3072,34 +3164,38 @@ const styles = StyleSheet.create({
     borderColor: '#E0F2FE',
   },
   scheduledHeroTimeCol: {
-    flex: 1,
+    flex: 1.35,
+    minWidth: 0,
   },
   scheduledHeroTimeLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#0284C7',
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   scheduledHeroTimeValue: {
-    fontSize: 22,
+    fontSize: 16.5,
     fontWeight: '900',
     color: '#0C4A6E',
     marginTop: 2,
+    letterSpacing: -0.2,
   },
   scheduledHeroDateValue: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#0369A1',
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   scheduledHeroDivider: {
     width: 1,
     height: 48,
     backgroundColor: '#E2E8F0',
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   scheduledHeroServiceCol: {
-    flex: 1.2,
+    flex: 1,
+    minWidth: 0,
   },
   scheduledHeroServiceLabel: {
     fontSize: 11,

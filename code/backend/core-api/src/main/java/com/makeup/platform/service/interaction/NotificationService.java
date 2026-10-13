@@ -17,7 +17,9 @@ import java.time.LocalTime;
 
 public interface NotificationService {
 
-    Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Pageable pageable);
+    default Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Pageable pageable) {
+        return getNotificationsForUser(userId, agencyId, null, null, pageable);
+    }
 
     Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Boolean isRead, String type, Pageable pageable);
 
@@ -74,5 +76,29 @@ public interface NotificationService {
             LocalTime startTime,
             LocalTime endTime,
             String reason
+    );
+
+    void createEmergencyReviewResultNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            boolean isApproved,
+            String adminReviewNote
+    );
+
+    void createSoloPromotionOfferNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            BigDecimal newCommissionRate,
+            String resolutionNote
+    );
+
+    void createStaffDispatchedNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            String roleName,
+            BigDecimal commissionRate
     );
 }

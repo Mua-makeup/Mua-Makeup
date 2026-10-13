@@ -34,6 +34,11 @@ public class FreelancerBookingItemRes {
     private BigDecimal earningsAmount;
     private String note;
     private String completionPhotoUrl;
+    private Boolean isConfirmedByStaff;
+    private String assignmentRole;
+    private String assignmentStatus;
+    private BigDecimal commissionRate;
+    private String commissionNote;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

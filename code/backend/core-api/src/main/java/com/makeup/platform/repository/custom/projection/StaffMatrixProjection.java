@@ -20,6 +20,10 @@ public interface StaffMatrixProjection {
 
     Boolean getHasCalendarFree();
 
+    Boolean getHasOverlappingShift();
+
+    Integer getShiftOvertimeMinutes();
+
     Boolean getHasReportedBusy();
 
     String getCancellationReason();
