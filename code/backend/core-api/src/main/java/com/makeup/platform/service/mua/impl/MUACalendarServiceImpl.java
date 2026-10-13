@@ -37,8 +37,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -85,6 +87,11 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         boolean isStudioStaff = activeStaffOpt.isPresent();
         Long staffId = isStudioStaff ? activeStaffOpt.get().getId() : null;
 
+        // Tải trước toàn bộ ca trực của thợ 1 lần duy nhất để tránh N+1 query trong vòng lặp ngày
+        List<AgencyStaffShiftEntity> allStaffShifts = isStudioStaff
+                ? agencyStaffShiftRepository.findAllActiveByStaffIdWithStaff(staffId)
+                : Collections.emptyList();
+
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
         LocalTime minBookingTime = now.plusHours(1);
@@ -120,7 +127,10 @@ public class MUACalendarServiceImpl implements MUACalendarService {
             List<AgencyStaffShiftEntity> staffShifts = Collections.emptyList();
             if (isStudioStaff) {
                 int dayOfWeek = (dow == 7) ? 1 : dow + 1;
-                staffShifts = agencyStaffShiftRepository.findActiveShiftsForStaffOnDate(staffId, date, dayOfWeek);
+                staffShifts = allStaffShifts.stream()
+                        .filter(s -> (s.getWorkDate() != null && s.getWorkDate().isEqual(date))
+                                || (s.getWorkDate() == null && Boolean.TRUE.equals(s.getIsRecurring()) && Objects.equals(s.getDayOfWeek(), dayOfWeek)))
+                        .toList();
                 if (staffShifts.isEmpty()) {
                     result.add(CalendarDayOverviewRes.builder()
                             .date(date)
@@ -222,6 +232,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         String dayOfWeekStr = date.getDayOfWeek().name();
         Optional<SurchargeEntity> earlySurchargeOpt = surchargeRepository.findByMuaIdAndSurchargeTypeAndIsActiveTrue(muaId, SurchargeType.EARLY_MORNING);
         BigDecimal earlySurchargeAmount = earlySurchargeOpt.map(SurchargeEntity::getAmount).orElse(BigDecimal.ZERO);
+        List<SurgePricingRuleEntity> allActiveSurgeRules = surgePricingRuleRepository.findByIsActiveTrue();
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
@@ -319,8 +330,15 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                 }
             }
 
-            // 3. Tra cứu quy tắc phụ trội cao điểm (Surge) & Phụ phí sớm
-            List<SurgePricingRuleEntity> matchingSurgeRules = surgePricingRuleRepository.findMatchingRules(currentStart, dayOfWeekStr, "ALL");
+            // 3. Tra cứu quy tắc phụ trội cao điểm (Surge) & Phụ phí sớm trong bộ nhớ RAM
+            LocalTime loopStart = currentStart;
+            List<SurgePricingRuleEntity> matchingSurgeRules = allActiveSurgeRules.stream()
+                    .filter(r -> "ALL".equals(r.getZoneCode()))
+                    .filter(r -> r.getStartTime() == null || r.getEndTime() == null
+                            || (!loopStart.isBefore(r.getStartTime()) && !loopStart.isAfter(r.getEndTime())))
+                    .filter(r -> r.getApplicableDaysOfWeek() == null || r.getApplicableDaysOfWeek().contains(dayOfWeekStr))
+                    .sorted(Comparator.comparing(SurgePricingRuleEntity::getSurgeMultiplier).reversed())
+                    .toList();
             boolean hasSurge = !matchingSurgeRules.isEmpty();
             String surgeRuleName = hasSurge ? matchingSurgeRules.get(0).getRuleName() : null;
             BigDecimal surgeMultiplier = hasSurge ? matchingSurgeRules.get(0).getSurgeMultiplier() : BigDecimal.ONE;
