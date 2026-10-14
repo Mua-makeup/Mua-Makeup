@@ -26,9 +26,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -127,15 +129,17 @@ public class ReviewServiceImpl implements ReviewService {
 
         ReviewEntity saved = reviewRepository.save(review);
 
-        // 4. Bắn Spring EventBus để cập nhật bất đồng bộ Bayesian Rating, Rolling Rating và Gamification
+        // 4. Bắn Spring EventBus để cập nhật bất đồng bộ Bayesian Rating, Rolling Rating, Gamification và Tích lũy kép Agency
         if (reviewStatus == ReviewStatus.APPROVED) {
+            Long agencyId = booking.getAgency() != null ? booking.getAgency().getId() : null;
             eventPublisher.publishEvent(new ReviewSubmittedEvent(
                     this,
                     saved.getId(),
                     booking.getId(),
                     muaId,
                     customerUserId,
-                    req.getRating()
+                    req.getRating(),
+                    agencyId
             ));
         }
 
@@ -152,11 +156,11 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ReviewDetailRes> getReviewsForMua(Long muaId, int page, int size) {
+    public Page<ReviewDetailRes> getReviewsForMua(Long muaId, Integer rating, Boolean hasImages, int page, int size) {
         int pageNumber = Math.max(0, page);
         int pageSize = (size > 0 && size <= 50) ? size : 10;
-        PageRequest pageRequest = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return reviewRepository.findByMuaIdAndStatusAndIsDeletedFalse(muaId, ReviewStatus.APPROVED, pageRequest)
+        PageRequest pageRequest = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "created_at"));
+        return reviewRepository.findByMuaIdWithFilters(muaId, rating, hasImages, pageRequest)
                 .map(reviewMapper::toDetailRes);
     }
 
@@ -167,9 +171,32 @@ public class ReviewServiceImpl implements ReviewService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                         "mua.not_found", HttpStatus.NOT_FOUND));
 
+        BigDecimal effectiveRating = (mua.getTotalReviews() != null && mua.getTotalReviews() > 0) ? mua.getRatingAvg() : null;
+
+        // Thống kê phân bố đánh giá cho các chip lọc Shopee
+        long countWithImages = reviewRepository.countReviewsWithImagesByMuaId(muaId);
+        List<Object[]> ratingCounts = reviewRepository.countRatingsGroupedByMuaId(muaId);
+
+        long c5 = 0, c4 = 0, c3 = 0, c2 = 0, c1 = 0;
+        if (ratingCounts != null) {
+            for (Object[] row : ratingCounts) {
+                if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                    int r = ((Number) row[0]).intValue();
+                    long count = ((Number) row[1]).longValue();
+                    switch (r) {
+                        case 5 -> c5 = count;
+                        case 4 -> c4 = count;
+                        case 3 -> c3 = count;
+                        case 2 -> c2 = count;
+                        case 1 -> c1 = count;
+                    }
+                }
+            }
+        }
+
         return MuaRatingSummaryRes.builder()
                 .muaId(mua.getId())
-                .ratingAvg(mua.getRatingAvg())
+                .ratingAvg(effectiveRating)
                 .bayesianRating(mua.getBayesianRating())
                 .rollingRating(mua.getRollingRating())
                 .totalReviews(mua.getTotalReviews())
@@ -178,6 +205,22 @@ public class ReviewServiceImpl implements ReviewService {
                 .rankScore(mua.getRankScore())
                 .badgeTier(mua.getBadgeTier())
                 .isEmergencyLocked(mua.getIsEmergencyLocked())
+                .countWithImages(countWithImages)
+                .count5Star(c5)
+                .count4Star(c4)
+                .count3Star(c3)
+                .count2Star(c2)
+                .count1Star(c1)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ReviewDetailRes> getReviewsForAgency(Long agencyId, int page, int size) {
+        int pageNumber = Math.max(0, page);
+        int pageSize = (size > 0 && size <= 50) ? size : 10;
+        PageRequest pageRequest = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return reviewRepository.findByAgencyIdAndStatusAndIsDeletedFalse(agencyId, ReviewStatus.APPROVED, pageRequest)
+                .map(reviewMapper::toDetailRes);
     }
 }

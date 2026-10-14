@@ -283,4 +283,19 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             @Param("today") LocalDate today,
             @Param("currentTime") LocalTime currentTime);
     boolean existsByIdAndCustomerId(Long id, Long customerId);
+
+    @Query("""
+            SELECT b.id FROM BookingEntity b
+            WHERE b.status IN (:completedStatuses)
+              AND b.updatedAt <= :cutoffTime
+              AND NOT EXISTS (
+                  SELECT 1 FROM com.makeup.platform.entity.interaction.ReviewEntity r
+                  WHERE r.booking.id = b.id
+              )
+            ORDER BY b.updatedAt ASC
+            """)
+    List<Long> findEligibleBookingIdsForAutoReview(
+            @Param("completedStatuses") Collection<BookingStatus> completedStatuses,
+            @Param("cutoffTime") LocalDateTime cutoffTime,
+            Pageable pageable);
 }

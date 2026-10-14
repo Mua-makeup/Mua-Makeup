@@ -1,9 +1,11 @@
 package com.makeup.platform.listener.interaction;
 
 import com.makeup.platform.common.event.interaction.ReviewSubmittedEvent;
+import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.mua.BadgeTier;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.interaction.ReviewStatus;
+import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.interaction.ReviewRepository;
 import com.makeup.platform.service.interaction.NotificationService;
@@ -27,6 +29,7 @@ public class ReviewEventListener {
 
     private final ReviewRepository reviewRepository;
     private final MuaProfileRepository muaProfileRepository;
+    private final AgencyProfileRepository agencyProfileRepository;
     private final NotificationService notificationService;
 
     private static final double MIN_CONFIDENCE_REVIEWS = 10.0; // m = 10 đánh giá
@@ -124,5 +127,37 @@ public class ReviewEventListener {
         muaProfileRepository.save(mua);
         log.info("[ReviewEvent] Updated MUA id={} stats: ratingAvg={}, bayesianRating={}, totalReviews={}, badge={}, commission={}",
                 muaId, bdRolling, bdBayesian, totalReviews, mua.getBadgeTier(), mua.getCommissionRate());
+
+        // 7. Cơ chế Tích Lũy Kép cho Studio / Agency (Dual-Aggregation Rating)
+        Long agencyId = event.getAgencyId();
+        if (agencyId != null) {
+            AgencyProfileEntity agency = agencyProfileRepository.findById(agencyId).orElse(null);
+            if (agency != null) {
+                Double agencyAvg = reviewRepository.getAgencyAverageRating(agencyId);
+                double rawAgencyRating = (agencyAvg != null && agencyAvg > 0) ? agencyAvg : 5.0;
+                BigDecimal bdAgencyRating = BigDecimal.valueOf(rawAgencyRating).setScale(2, RoundingMode.HALF_UP);
+                agency.setRatingAvg(bdAgencyRating);
+                agencyProfileRepository.save(agency);
+                log.info("[ReviewEvent] Dual-Aggregation: Updated Agency id={} ratingAvg={}", agencyId, bdAgencyRating);
+
+                // Gửi thông báo In-app cho Studio về đánh giá mới
+                if (agency.getOwner() != null) {
+                    notificationService.createInAppNotification(
+                            agency.getOwner().getId(),
+                            agencyId,
+                            event.getBookingId(),
+                            "NEW_REVIEW_RECEIVED",
+                            "Đánh Giá Mới Cho Ca Làm Studio",
+                            "Khách hàng vừa đánh giá " + event.getRating() + "★ cho ca làm của Studio. Điểm uy tín trung bình hiện tại của Studio là " + bdAgencyRating + "★.",
+                            Map.of(
+                                    "rating", event.getRating().toString(),
+                                    "agencyRating", bdAgencyRating.toString(),
+                                    "bookingId", event.getBookingId() != null ? event.getBookingId().toString() : "",
+                                    "muaId", muaId.toString()
+                            )
+                    );
+                }
+            }
+        }
     }
 }

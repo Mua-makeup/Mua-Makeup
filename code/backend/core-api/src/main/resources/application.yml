@@ -60,6 +60,10 @@ cloudinary:
 app:
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
+  scheduling:
+    auto-review-enabled: ${AUTO_REVIEW_ENABLED:true}
+    auto-review-cron: ${AUTO_REVIEW_CRON:0 */1 * * * *}
+    auto-review-minutes: ${AUTO_REVIEW_MINUTES:2}
   maps:
     goong:
       api-key: ${GOONG_MAPS_API_KEY:NDdGHjR87yAkm1ana5TUw0bH2FtJ4dC61cueMuPc}

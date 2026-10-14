@@ -11,7 +11,9 @@ public interface ReviewService {
 
     ReviewDetailRes getReviewByBookingId(Long bookingId);
 
-    Page<ReviewDetailRes> getReviewsForMua(Long muaId, int page, int size);
+    Page<ReviewDetailRes> getReviewsForMua(Long muaId, Integer rating, Boolean hasImages, int page, int size);
 
     MuaRatingSummaryRes getMuaRatingSummary(Long muaId);
+
+    Page<ReviewDetailRes> getReviewsForAgency(Long agencyId, int page, int size);
 }

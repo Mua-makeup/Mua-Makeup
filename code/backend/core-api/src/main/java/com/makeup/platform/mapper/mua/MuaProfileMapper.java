@@ -72,6 +72,8 @@ public class MuaProfileMapper {
         String fullName = mua.getUser() != null ? mua.getUser().getFullName() : null;
         String avatarUrl = mua.getUser() != null ? mua.getUser().getAvatarUrl() : null;
 
+        BigDecimal effectiveRating = (mua.getTotalReviews() != null && mua.getTotalReviews() > 0) ? mua.getRatingAvg() : null;
+
         return MuaProfileRes.builder()
                 .muaId(mua.getId())
                 .muaCode(mua.getMuaCode())
@@ -80,7 +82,7 @@ public class MuaProfileMapper {
                 .bio(mua.getBio())
                 .experienceYears(mua.getExperienceYears())
                 .maxServiceRadiusKm(mua.getMaxServiceRadiusKm())
-                .ratingAverage(mua.getRatingAvg())
+                .ratingAverage(effectiveRating)
                 .totalReviews(mua.getTotalReviews())
                 .totalCompletedJobs(Math.toIntExact(bookingRepository.countByMuaIdAndStatusIn(mua.getId(), List.of(
                         BookingStatus.COMPLETED,

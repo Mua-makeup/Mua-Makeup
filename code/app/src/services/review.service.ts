@@ -28,7 +28,7 @@ export interface ReviewItem {
 
 export interface MuaRatingSummary {
   muaId: number;
-  ratingAvg: number;
+  ratingAvg: number | null;
   bayesianRating: number;
   rollingRating: number;
   totalReviews: number;
@@ -37,6 +37,19 @@ export interface MuaRatingSummary {
   rankScore: number;
   badgeTier: 'STANDARD' | 'SILVER' | 'GOLD_TOP_PRO';
   isEmergencyLocked: boolean;
+  countWithImages?: number;
+  count5Star?: number;
+  count4Star?: number;
+  count3Star?: number;
+  count2Star?: number;
+  count1Star?: number;
+}
+
+export interface ReviewFilterParams {
+  rating?: number;
+  hasImages?: boolean;
+  page?: number;
+  size?: number;
 }
 
 export interface PaginatedReviews {
@@ -70,16 +83,28 @@ export const reviewService = {
   },
 
   /**
-   * Lấy danh sách đánh giá của thợ (công khai)
+   * Lấy danh sách đánh giá của thợ (công khai, hỗ trợ lọc theo sao và hình ảnh)
    */
   async getReviewsForMua(
     muaId: number,
-    page = 0,
-    size = 10
+    paramsOrPage?: number | ReviewFilterParams,
+    maybeSize?: number
   ): Promise<PaginatedReviews> {
+    let params: Record<string, any> = { page: 0, size: 10 };
+
+    if (typeof paramsOrPage === 'number') {
+      params.page = paramsOrPage;
+      params.size = maybeSize ?? 10;
+    } else if (paramsOrPage && typeof paramsOrPage === 'object') {
+      params.page = paramsOrPage.page ?? 0;
+      params.size = paramsOrPage.size ?? 10;
+      if (paramsOrPage.rating != null) params.rating = paramsOrPage.rating;
+      if (paramsOrPage.hasImages != null) params.hasImages = paramsOrPage.hasImages;
+    }
+
     const res = await apiClient.get<ApiResponse<PaginatedReviews>>(
       `/public/reviews/mua/${muaId}`,
-      { params: { page, size } }
+      { params }
     );
     return res.data.data;
   },

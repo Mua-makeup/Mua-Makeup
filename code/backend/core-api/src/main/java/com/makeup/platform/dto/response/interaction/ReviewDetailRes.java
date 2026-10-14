@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -27,5 +27,5 @@ public class ReviewDetailRes {
     private String comment;
     private List<String> imageUrls;
     private String status;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 }

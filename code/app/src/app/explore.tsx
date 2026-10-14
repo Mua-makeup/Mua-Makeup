@@ -465,7 +465,7 @@ export default function ExploreScreen() {
               <View style={styles.ratingBox}>
                 <Ionicons name="star" size={13} color="#F59E0B" />
                 <Text style={styles.ratingText}>
-                  {item.ratingAvg != null ? Number(item.ratingAvg).toFixed(1) : '5.0'}
+                  {item.ratingAvg != null && Number(item.ratingAvg) > 0 ? Number(item.ratingAvg).toFixed(1) : 'Mới'}
                 </Text>
               </View>
 

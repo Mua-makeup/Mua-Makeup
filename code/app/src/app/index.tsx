@@ -902,7 +902,7 @@ export default function HomeScreen() {
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                             <Ionicons name="star" size={11} color="#F59E0B" />
                             <Text style={styles.featuredStudioRating}>
-                              {st.ratingAvg != null ? Number(st.ratingAvg).toFixed(1) : '5.0'}
+                              {st.ratingAvg != null && Number(st.ratingAvg) > 0 ? Number(st.ratingAvg).toFixed(1) : 'Mới'}
                             </Text>
                           </View>
                         </View>

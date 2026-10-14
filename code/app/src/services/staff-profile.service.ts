@@ -40,8 +40,10 @@ export interface AgencyStaffProfile {
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'LEFT';
   isActive: boolean;
   agreedCommissionRate?: number;
-  note?: string;
   joinedAt?: string;
+  ratingAvg?: number | null;
+  totalReviews?: number;
+  totalCompletedJobs?: number;
   assignedStyles?: AssignedStyle[];
   certificates?: StaffCertificate[];
 }

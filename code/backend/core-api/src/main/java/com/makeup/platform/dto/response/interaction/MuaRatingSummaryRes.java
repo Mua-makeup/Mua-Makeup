@@ -25,4 +25,12 @@ public class MuaRatingSummaryRes {
     private BigDecimal rankScore;
     private BadgeTier badgeTier;
     private Boolean isEmergencyLocked;
+
+    // Phân bố số lượng đánh giá cho các bộ lọc Shopee
+    private Long countWithImages;
+    private Long count5Star;
+    private Long count4Star;
+    private Long count3Star;
+    private Long count2Star;
+    private Long count1Star;
 }

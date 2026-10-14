@@ -24,10 +24,12 @@ public class MuaReviewQueryController extends BaseController {
     @GetMapping("/mua/{muaId}")
     public ResponseEntity<ApiResponse<Page<ReviewDetailRes>>> getReviewsForMua(
             @PathVariable Long muaId,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) Boolean hasImages,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        Page<ReviewDetailRes> res = reviewService.getReviewsForMua(muaId, page, size);
+        Page<ReviewDetailRes> res = reviewService.getReviewsForMua(muaId, rating, hasImages, page, size);
         return ok(res, "review.list_success");
     }
 
@@ -37,5 +39,15 @@ public class MuaReviewQueryController extends BaseController {
     ) {
         MuaRatingSummaryRes res = reviewService.getMuaRatingSummary(muaId);
         return ok(res, "review.summary_success");
+    }
+
+    @GetMapping("/agency/{agencyId}")
+    public ResponseEntity<ApiResponse<Page<ReviewDetailRes>>> getReviewsForAgency(
+            @PathVariable Long agencyId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<ReviewDetailRes> res = reviewService.getReviewsForAgency(agencyId, page, size);
+        return ok(res, "review.list_success");
     }
 }

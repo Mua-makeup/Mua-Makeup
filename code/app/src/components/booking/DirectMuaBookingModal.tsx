@@ -34,6 +34,7 @@ import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
 import { showGlobalPopup } from '@/store/popup.store';
 import { useAuthStore } from '@/store/auth.store';
+import { MuaReviewsModal } from '@/components/mua/MuaReviewsModal';
 
 interface Props {
   visible: boolean;
@@ -82,6 +83,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const [availableStyles, setAvailableStyles] = useState<MakeupStyle[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<MakeupStyle | null>(null);
   const [showStyleModal, setShowStyleModal] = useState(false);
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
   const [isLoadingPackages, setIsLoadingPackages] = useState(false);
 
   const [address, setAddress] = useState('');
@@ -661,8 +663,18 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                       <Ionicons name="checkmark-circle" size={14} color={BrandColors.primary} />
                     </View>
                     <View style={styles.muaMetaRow}>
-                      <Ionicons name="star" size={12} color="#F59E0B" />
-                      <Text style={styles.muaRating}>{targetMua.ratingAvg || '5.0'}</Text>
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}
+                        onPress={() => setIsReviewModalVisible(true)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="star" size={11} color="#F59E0B" />
+                        <Text style={[styles.muaRating, { marginLeft: 3, fontWeight: '700' }]}>
+                          {targetMua.ratingAvg != null && Number(targetMua.ratingAvg) > 0
+                            ? Number(targetMua.ratingAvg).toFixed(1)
+                            : 'Mới'}
+                        </Text>
+                      </TouchableOpacity>
                       <Text style={styles.muaDot}>•</Text>
                       <Ionicons name="navigate-outline" size={11} color="#059669" />
                       <Text style={styles.muaDistance}>{formatDistance(effectiveDist)}</Text>
@@ -1064,6 +1076,16 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
               </View>
             </View>
           )}
+
+          {targetMua && (targetMua.providerId || (targetMua as any).id || (targetMua as any).muaId) ? (
+            <MuaReviewsModal
+              visible={isReviewModalVisible}
+              onClose={() => setIsReviewModalVisible(false)}
+              muaId={targetMua.providerId || (targetMua as any).id || (targetMua as any).muaId}
+              muaName={targetMua.fullName}
+              isOwnerView={false}
+            />
+          ) : null}
         </DismissibleModal>
   );
 };

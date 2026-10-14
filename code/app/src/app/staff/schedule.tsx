@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,8 +29,20 @@ const DAY_NAMES: Record<number, string> = {
   7: 'Thứ Bảy',
 };
 
+const WEEKDAYS = [
+  { dayOfWeek: 2, label: 'Th 2', fullName: 'Thứ Hai' },
+  { dayOfWeek: 3, label: 'Th 3', fullName: 'Thứ Ba' },
+  { dayOfWeek: 4, label: 'Th 4', fullName: 'Thứ Tư' },
+  { dayOfWeek: 5, label: 'Th 5', fullName: 'Thứ Năm' },
+  { dayOfWeek: 6, label: 'Th 6', fullName: 'Thứ Sáu' },
+  { dayOfWeek: 7, label: 'Th 7', fullName: 'Thứ Bảy' },
+  { dayOfWeek: 1, label: 'CN', fullName: 'Chủ Nhật' },
+];
+
 export default function StaffScheduleScreen() {
   const [activeTab, setActiveTab] = useState<'SHIFTS' | 'BUSY'>('SHIFTS');
+  const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
+  const [selectedShift, setSelectedShift] = useState<StaffShiftItem | null>(null);
   const [shifts, setShifts] = useState<StaffShiftItem[]>([]);
   const [isLoadingShifts, setIsLoadingShifts] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -138,12 +150,56 @@ export default function StaffScheduleScreen() {
     );
   };
 
+  // Trích xuất các khung giờ độc nhất từ danh sách ca trực
+  const timeSlots = useMemo(() => {
+    const slotsMap = new Map<string, { startTime: string; endTime: string; label: string }>();
+    shifts.forEach((s) => {
+      if (s.isActive) {
+        const start = s.startTime.slice(0, 5);
+        const end = s.endTime.slice(0, 5);
+        const key = `${start}-${end}`;
+        if (!slotsMap.has(key)) {
+          slotsMap.set(key, {
+            startTime: start,
+            endTime: end,
+            label: `${start} - ${end}`,
+          });
+        }
+      }
+    });
+
+    const list = Array.from(slotsMap.values());
+    list.sort((a, b) => a.startTime.localeCompare(b.startTime));
+    return list;
+  }, [shifts]);
+
+  // Tìm ca trực theo khung giờ và thứ trong tuần
+  const getShiftAt = (slot: { startTime: string; endTime: string }, dayOfWeek: number) => {
+    return shifts.find(
+      (s) =>
+        s.isActive &&
+        s.dayOfWeek === dayOfWeek &&
+        s.startTime.startsWith(slot.startTime) &&
+        s.endTime.startsWith(slot.endTime)
+    );
+  };
+
+  // Tự động chọn ca trực đầu tiên khi load xong shifts
+  useEffect(() => {
+    if (shifts.length > 0 && !selectedShift) {
+      const firstActive = shifts.find((s) => s.isActive);
+      if (firstActive) setSelectedShift(firstActive);
+    }
+  }, [shifts, selectedShift]);
+
   // Nhóm ca làm theo ngày trong tuần (2 đến 7, sau đó là 1 CN)
   const groupedShifts = [2, 3, 4, 5, 6, 7, 1].map((day) => ({
     dayOfWeek: day,
     dayName: DAY_NAMES[day],
     items: shifts.filter((s) => s.dayOfWeek === day && s.isActive),
   }));
+
+  const totalActiveShifts = shifts.filter((s) => s.isActive).length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -175,7 +231,7 @@ export default function StaffScheduleScreen() {
           activeOpacity={0.8}
         >
           <Ionicons
-            name="business"
+            name="calendar"
             size={16}
             color={activeTab === 'SHIFTS' ? '#FFFFFF' : '#64748B'}
             style={{ marginRight: 6 }}
@@ -204,36 +260,189 @@ export default function StaffScheduleScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#E11D48']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#991B1B']} />}
       >
         {activeTab === 'SHIFTS' ? (
           /* ========================================================================= */
-          /* TAB 1: CA TRỰC STUDIO CỦA NHÂN VIÊN                                        */
+          /* TAB 1: CA TRỰC STUDIO CỦA NHÂN VIÊN (DẠNG MA TRẬN THỜI KHÓA BIỂU TUẦN)   */
           /* ========================================================================= */
           <>
-            <View style={styles.introCard}>
-              <View style={styles.introHeaderRow}>
-                <View style={styles.introIconBox}>
-                  <Ionicons name="calendar" size={17} color="#E11D48" />
-                </View>
-                <Text style={styles.introTitle}>Thời Khóa Biểu Tuần</Text>
+            {/* Header Lịch làm việc + Toggle Buttons (chuẩn theo mockup) */}
+            <View style={styles.timetableHeaderRow}>
+              <Text style={styles.timetableMainTitle}>Lịch làm việc</Text>
+              <View style={styles.toggleButtonGroup}>
+                <TouchableOpacity
+                  style={[
+                    styles.toggleRoundBtn,
+                    viewMode === 'GRID' ? styles.toggleRoundBtnActive : styles.toggleRoundBtnInactive,
+                  ]}
+                  onPress={() => setViewMode('GRID')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="grid"
+                    size={17}
+                    color={viewMode === 'GRID' ? '#FFFFFF' : '#991B1B'}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.toggleRoundBtn,
+                    viewMode === 'LIST' ? styles.toggleRoundBtnActive : styles.toggleRoundBtnInactive,
+                  ]}
+                  onPress={() => setViewMode('LIST')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="list"
+                    size={18}
+                    color={viewMode === 'LIST' ? '#FFFFFF' : '#991B1B'}
+                  />
+                </TouchableOpacity>
               </View>
-              <Text style={styles.introSubtitle}>
-                Các ca làm việc cố định do Studio xếp. Khách hàng đặt hẹn sẽ được ưu tiên điều phối cho bạn trong các ca này.
-              </Text>
             </View>
 
             {isLoadingShifts ? (
-              <ActivityIndicator size="small" color="#E11D48" style={{ marginTop: 30 }} />
+              <ActivityIndicator size="small" color="#991B1B" style={{ marginTop: 40 }} />
             ) : shifts.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Ionicons name="calendar-outline" size={32} color="#FDA4AF" style={{ marginBottom: 8 }} />
+                <Ionicons name="calendar-outline" size={36} color="#FDA4AF" style={{ marginBottom: 10 }} />
                 <Text style={styles.emptyTitle}>Chưa có ca làm việc</Text>
                 <Text style={styles.emptyText}>
                   Studio chưa xếp ca trực cố định cho bạn trong tuần này.
                 </Text>
               </View>
+            ) : viewMode === 'GRID' ? (
+              /* ======================= CHẾ ĐỘ XEM MA TRẬN LƯỚI TUẦN ======================= */
+              <>
+                <View style={styles.matrixContainerCard}>
+                  {/* Bảng Thời Khóa Biểu Cuộn Ngang / Đảm bảo hiển thị hoàn hảo */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.matrixTable}>
+                      {/* Dòng Tiêu Đề Header (Cột Khung Giờ + 7 Thứ) */}
+                      <View style={styles.matrixHeaderRow}>
+                        <View style={styles.matrixTimeHeaderCol} />
+                        {WEEKDAYS.map((w) => (
+                          <View key={w.dayOfWeek} style={styles.matrixDayHeaderCol}>
+                            {w.label === 'CN' ? (
+                              <Text style={styles.matrixDayHeaderText}>CN</Text>
+                            ) : (
+                              <View style={styles.matrixDayTextGroup}>
+                                <Text style={styles.matrixDaySubText}>Th</Text>
+                                <Text style={styles.matrixDayNumText}>{w.label.replace('Th ', '')}</Text>
+                              </View>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Các dòng khung giờ (Time Slots) */}
+                      {timeSlots.map((slot, index) => (
+                        <View
+                          key={slot.label}
+                          style={[
+                            styles.matrixDataRow,
+                            index === timeSlots.length - 1 && styles.matrixLastRow,
+                          ]}
+                        >
+                          {/* Cột 1: Khung Giờ Pill */}
+                          <View style={styles.matrixTimeCol}>
+                            <View style={styles.timePillBadge}>
+                              <Text style={styles.timePillText}>{slot.startTime}</Text>
+                              <Text style={styles.timePillDash}>-</Text>
+                              <Text style={styles.timePillText}>{slot.endTime}</Text>
+                            </View>
+                          </View>
+
+                          {/* 7 Cột Ngày Trong Tuần */}
+                          {WEEKDAYS.map((w) => {
+                            const shift = getShiftAt(slot, w.dayOfWeek);
+                            const isSelected = selectedShift && shift && selectedShift.id === shift.id;
+
+                            return (
+                              <TouchableOpacity
+                                key={`${slot.label}-${w.dayOfWeek}`}
+                                style={[
+                                  styles.matrixCell,
+                                  isSelected && styles.matrixCellSelected,
+                                ]}
+                                disabled={!shift}
+                                onPress={() => shift && setSelectedShift(shift)}
+                                activeOpacity={0.7}
+                              >
+                                {shift ? (
+                                  <View
+                                    style={[
+                                      styles.shiftDotCircle,
+                                      isSelected && styles.shiftDotCircleActive,
+                                    ]}
+                                  />
+                                ) : null}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                {/* Thẻ chi tiết ca làm việc khi người dùng bấm vào chấm đỏ */}
+                {selectedShift ? (
+                  <View style={styles.shiftDetailCard}>
+                    <View style={styles.shiftDetailHeader}>
+                      <View style={styles.shiftDetailTitleRow}>
+                        <View style={styles.shiftDetailDot} />
+                        <Text style={styles.shiftDetailTitle}>
+                          {selectedShift.shiftName || 'Ca Trực Studio'}
+                        </Text>
+                      </View>
+                      <View style={styles.shiftDetailBadge}>
+                        <Text style={styles.shiftDetailBadgeText}>
+                          {selectedShift.isRecurring ? 'Hàng tuần' : 'Ca linh hoạt'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.shiftDetailBody}>
+                      <View style={styles.shiftDetailInfoRow}>
+                        <Ionicons name="calendar-outline" size={15} color="#991B1B" />
+                        <Text style={styles.shiftDetailInfoText}>
+                          {DAY_NAMES[selectedShift.dayOfWeek]}
+                        </Text>
+                      </View>
+                      <View style={styles.shiftDetailInfoRow}>
+                        <Ionicons name="time-outline" size={15} color="#991B1B" />
+                        <Text style={styles.shiftDetailInfoText}>
+                          {selectedShift.startTime.slice(0, 5)} - {selectedShift.endTime.slice(0, 5)}
+                        </Text>
+                      </View>
+                      {agencyName ? (
+                        <View style={styles.shiftDetailInfoRow}>
+                          <Ionicons name="business-outline" size={15} color="#64748B" />
+                          <Text style={styles.shiftDetailAgencyText}>{agencyName}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Tóm tắt ca trực trong tuần */}
+                <View style={styles.summaryBar}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryNumber}>{totalActiveShifts}</Text>
+                    <Text style={styles.summaryLabel}>Ca trực / tuần</Text>
+                  </View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryNumber}>{timeSlots.length}</Text>
+                    <Text style={styles.summaryLabel}>Khung giờ làm việc</Text>
+                  </View>
+                </View>
+              </>
             ) : (
+              /* ======================= CHẾ ĐỘ XEM DANH SÁCH CHI TIẾT ======================= */
               groupedShifts.map((group) => (
                 <View key={group.dayOfWeek} style={styles.dayGroup}>
                   <View style={styles.dayHeader}>
@@ -260,7 +469,7 @@ export default function StaffScheduleScreen() {
                           </View>
                         </View>
                         <View style={styles.shiftTimeRow}>
-                          <Ionicons name="time" size={15} color="#E11D48" />
+                          <Ionicons name="time" size={15} color="#991B1B" />
                           <Text style={styles.shiftTime}>
                             {shift.startTime.slice(0, 5)} - {shift.endTime.slice(0, 5)}
                           </Text>
@@ -550,6 +759,268 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     textAlign: 'center',
+  },
+  // Styles cho Lịch làm việc - Weekly Timetable Matrix Grid
+  timetableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  timetableMainTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  toggleButtonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  toggleRoundBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleRoundBtnActive: {
+    backgroundColor: '#991B1B',
+    shadowColor: '#991B1B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  toggleRoundBtnInactive: {
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  matrixContainerCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  matrixTable: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  matrixHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#CBD5E1',
+  },
+  matrixTimeHeaderCol: {
+    width: 74,
+    borderRightWidth: 1,
+    borderRightColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  matrixDayHeaderCol: {
+    width: 39,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  matrixDayTextGroup: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  matrixDaySubText: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
+    lineHeight: 13,
+  },
+  matrixDayNumText: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '700',
+    lineHeight: 14,
+  },
+  matrixDayHeaderText: {
+    fontSize: 12,
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  matrixDataRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#CBD5E1',
+  },
+  matrixLastRow: {
+    borderBottomWidth: 0,
+  },
+  matrixTimeCol: {
+    width: 74,
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRightWidth: 1,
+    borderRightColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  timePillBadge: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  timePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  timePillDash: {
+    fontSize: 9,
+    color: '#64748B',
+    lineHeight: 10,
+  },
+  matrixCell: {
+    width: 39,
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  matrixCellSelected: {
+    backgroundColor: '#FFF1F2',
+  },
+  shiftDotCircle: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#991B1B',
+  },
+  shiftDotCircleActive: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#991B1B',
+    borderWidth: 2,
+    borderColor: '#FECDD3',
+  },
+  shiftDetailCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    borderLeftWidth: 4,
+    borderLeftColor: '#991B1B',
+    shadowColor: '#991B1B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  shiftDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  shiftDetailTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  shiftDetailDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#991B1B',
+  },
+  shiftDetailTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  shiftDetailBadge: {
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  shiftDetailBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#991B1B',
+  },
+  shiftDetailBody: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    paddingTop: 4,
+  },
+  shiftDetailInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  shiftDetailInfoText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  shiftDetailAgencyText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  summaryBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#991B1B',
+  },
+  summaryLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  summaryDivider: {
+    width: 1,
+    height: 26,
+    backgroundColor: '#E2E8F0',
   },
   dayGroup: {
     marginBottom: 14,

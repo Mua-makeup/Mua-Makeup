@@ -19,6 +19,7 @@ import { PackageSelectorList } from '@/components/customer/PackageSelectorList';
 import { PackageIncludedSteps } from '@/components/customer/PackageIncludedSteps';
 import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
+import { MuaReviewPreviewSection } from '@/components/customer/MuaReviewPreviewSection';
 import { PortfolioShowcase } from '@/services/mua-profile.service';
 
 export default function MuaDetailScreen() {
@@ -198,6 +199,14 @@ export default function MuaDetailScreen() {
           showcases={showcases}
           isLoading={isLoadingShowcases}
           onPressPhoto={handleOpenPhoto}
+        />
+
+        {/* ĐÁNH GIÁ CỦA KHÁCH HÀNG (PREVIEW 1-2 BÀI NHẸ NHÀNG + NÚT XEM TẤT CẢ) */}
+        <MuaReviewPreviewSection
+          muaId={Number(id)}
+          muaName={muaProfile?.fullName}
+          ratingAverage={muaProfile?.ratingAverage}
+          totalReviews={muaProfile?.totalReviews}
         />
       </ScrollView>
 
