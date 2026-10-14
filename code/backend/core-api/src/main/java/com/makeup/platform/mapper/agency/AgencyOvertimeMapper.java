@@ -22,6 +22,7 @@ public class AgencyOvertimeMapper {
                 .minOvertimeMinutes(entity.getMinOvertimeMinutes())
                 .maxOvertimeMinutes(entity.getMaxOvertimeMinutes())
                 .penaltyType(entity.getPenaltyType())
+                .policyType(entity.getPolicyType())
                 .penaltyValue(entity.getPenaltyValue())
                 .isActive(entity.getIsActive())
                 .createdAt(entity.getCreatedAt())

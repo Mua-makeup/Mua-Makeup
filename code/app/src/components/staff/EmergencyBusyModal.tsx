@@ -84,7 +84,8 @@ export const EmergencyBusyModal: React.FC<Props> = ({
       setIsSubmitting(true);
       await agencyStaffService.reportEmergencyBusy(bookingId, {
         emergencyReason: reason.trim(),
-        proofDocumentUrl: proofUri || undefined,
+        proofImageUri: proofUri || undefined,
+        proofDocumentUrl: proofUri?.startsWith('http') ? proofUri : undefined,
       });
 
       Alert.alert('Đã gửi báo cáo', 'Studio đã nhận được báo cáo bận khẩn cấp và sẽ xử lý điều phối lại thợ.');

@@ -36,9 +36,16 @@ public class StaffMatrixItemRes {
     private String cancellationReason;
 
     // Current assignment if already assigned
-    private String currentRole; // PRIMARY_MUA, ASSISTANT_MUA, or null
+    private String currentRole;
     private BigDecimal commissionRate;
     private BigDecimal commissionAmount;
     private String commissionNote;
     private Double distanceMeters;
+
+    // Overtime compensation attributes
+    @JsonProperty("isOvertime")
+    private boolean isOvertime;
+    private Integer overtimeMinutes;
+    private BigDecimal overtimePay;
+    private String overtimeRuleName;
 }

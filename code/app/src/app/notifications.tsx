@@ -183,7 +183,13 @@ export default function NotificationsScreen() {
   const formatLocalizedTitle = (rawTitle?: string) => {
     if (!rawTitle) return 'Thông báo mới';
     const lower = rawTitle.toLowerCase();
-    if (lower.includes('booking has been cancelled') || lower.includes('booking cancelled')) {
+    if (lower.includes('new booking assigned') || lower.includes('staff_dispatch_assigned') || lower.includes('phân công ca làm')) {
+      return 'Studio đã phân công ca làm mới!';
+    }
+    if (lower.includes('new assignment received')) {
+      return 'Nhận phân công ca làm mới!';
+    }
+    if (lower.includes('booking has been cancelled') || lower.includes('booking cancelled') || lower.includes('lịch hẹn đã bị hủy') || lower.includes('was cancelled')) {
       return 'Lịch hẹn đã bị hủy';
     }
     if (lower.includes('booking accepted') || lower.includes('booking has been accepted')) {
@@ -198,6 +204,9 @@ export default function NotificationsScreen() {
     if (lower.includes('refund')) {
       return 'Đã hoàn tiền cọc';
     }
+    if (lower.includes('emergency') || lower.includes('báo bận')) {
+      return 'Báo bận đột xuất';
+    }
     return rawTitle;
   };
 
@@ -207,8 +216,34 @@ export default function NotificationsScreen() {
       const name = (item.metadata?.certName as string) || (item.metadata?.title as string) || '';
       text = text.replace(/\{0\}/g, name ? `"${name}"` : '');
     }
+
+    // Dịch mẫu phân công thợ phụ từ Studio
+    text = text.replace(
+      /Studio\s+(.+?)\s+assigned you as\s+Assistant\s+for booking\s+#([^\s]+)\s+on\s+([^\s]+)\s+at\s+([^\s\.]+)\.?\s*(?:Please confirm your assignment!?|Please confirm your assig[\s\.]*)?/gi,
+      'Studio $1 đã phân công bạn làm Thợ phụ cho ca hẹn #$2 vào ngày $3 lúc $4. Vui lòng vào xác nhận nhận việc!'
+    );
+
+    // Dịch mẫu phân công thợ chính từ Studio
+    text = text.replace(
+      /Studio\s+(.+?)\s+assigned you as\s+Primary Artist\s+for booking\s+#([^\s]+)\s+on\s+([^\s]+)\s+at\s+([^\s\.]+)\.?\s*(?:Please confirm your assignment!?|Please confirm your assig[\s\.]*)?/gi,
+      'Studio $1 đã phân công bạn làm Thợ chính cho ca hẹn #$2 vào ngày $3 lúc $4. Vui lòng vào xác nhận nhận việc!'
+    );
+
+    // Dịch mẫu hủy ca hẹn
+    text = text.replace(
+      /Booking\s+#([^\s]+)\s+was cancelled\.\s*Reason:\s*(.+)/gi,
+      'Lịch hẹn #$1 đã bị hủy. Lý do: $2'
+    );
+
+    // Các cụm từ tiếng Anh còn sót
     text = text.replace(/was cancelled\./gi, 'đã bị hủy.');
     text = text.replace(/Reason:/gi, 'Lý do:');
+    text = text.replace(/Please confirm your assignment!?/gi, 'Vui lòng vào xác nhận nhận việc!');
+    text = text.replace(/Please confirm your assig[\s\.]*/gi, 'Vui lòng vào xác nhận nhận việc!');
+    text = text.replace(/assigned you as Assistant/gi, 'phân công bạn làm Thợ phụ');
+    text = text.replace(/assigned you as Primary Artist/gi, 'phân công bạn làm Thợ chính');
+    text = text.replace(/for booking/gi, 'cho ca hẹn');
+
     return text;
   };
 

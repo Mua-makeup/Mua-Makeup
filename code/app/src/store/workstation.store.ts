@@ -304,6 +304,12 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           get().checkPendingScheduledOffers(false);
         });
 
+        // Đăng ký nhận tin điều phối từ Studio (Agency Dispatch)
+        websocketService.subscribe(`/topic/mua-dispatch/${effectiveMuaId}`, (dispatchPayload) => {
+          console.log('[WorkstationStore] Nhận thông báo Studio phân công ca làm mới qua STOMP:', dispatchPayload);
+          get().fetchWorkstationData();
+        });
+
         websocketService.subscribe(`/topic/mua-scheduled-revoked/${effectiveMuaId}`, (revokePayload) => {
           console.log('[WorkstationStore] Ca hẹn trước đã bị hủy hoặc thu hồi:', revokePayload);
           const currentScheduled = get().activeScheduledOffer;
@@ -423,6 +429,11 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           }
           console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
           get().triggerInstantOffer(offerPayload);
+        });
+
+        websocketService.subscribe(`/topic/mua-dispatch/${effectiveMuaId}`, (dispatchPayload) => {
+          console.log('[WorkstationStore] Nhận thông báo Studio phân công ca làm mới qua STOMP:', dispatchPayload);
+          get().fetchWorkstationData();
         });
 
           websocketService.subscribe(`/topic/mua-offer-revoked/${effectiveMuaId}`, (revokePayload) => {

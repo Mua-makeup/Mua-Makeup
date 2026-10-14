@@ -888,4 +888,236 @@ public class NotificationServiceImpl implements NotificationService {
 
         return saved;
     }
+
+    @Override
+    @Transactional
+    public void createEmergencyReviewResultNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            boolean isApproved,
+            String adminReviewNote
+    ) {
+        if (staff == null || staff.getMua() == null || staff.getMua().getUser() == null || booking == null) {
+            return;
+        }
+
+        UserEntity staffUser = staff.getMua().getUser();
+        Locale locale = StringUtils.hasText(staffUser.getLanguage())
+                ? Locale.forLanguageTag(staffUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = (agency != null && agency.getAgencyName() != null) ? agency.getAgencyName() : "Studio";
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+
+        String titleKey = isApproved ? "notification.emergency_review_approved_title" : "notification.emergency_review_rejected_title";
+        String contentKey = isApproved ? "notification.emergency_review_approved_content" : "notification.emergency_review_rejected_content";
+
+        String defaultTitle = isApproved
+                ? "Studio Đã Duyệt Báo Bận #" + bookingCode
+                : "Studio Từ Chối Đơn Báo Bận #" + bookingCode;
+
+        String noteStr = StringUtils.hasText(adminReviewNote) ? adminReviewNote : (isApproved ? "Chấp thuận" : "Vui lòng hoàn thành ca trực");
+        String defaultContent = isApproved
+                ? "Studio " + agencyName + " đã chấp thuận đơn báo bận của bạn cho đơn #" + bookingCode + ". Bạn được miễn nhiệm ca làm này. Ghi chú: " + noteStr
+                : "Studio " + agencyName + " đã từ chối đơn báo bận cho đơn #" + bookingCode + ". Bạn được khôi phục về ca làm việc. Ghi chú: " + noteStr;
+
+        String title = messageSource.getLocalizedMessage(titleKey, new Object[]{bookingCode}, defaultTitle, locale);
+        String content = messageSource.getLocalizedMessage(
+                contentKey,
+                new Object[]{agencyName, bookingCode, noteStr},
+                defaultContent,
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", bookingCode);
+        metadata.put("agencyId", agency != null ? agency.getId() : null);
+        metadata.put("agencyName", agencyName);
+        metadata.put("staffId", staff.getId());
+        metadata.put("isApproved", isApproved);
+        metadata.put("adminReviewNote", adminReviewNote);
+        metadata.put("reviewedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(staffUser)
+                .booking(booking)
+                .agency(agency)
+                .type(isApproved ? "EMERGENCY_REPORT_APPROVED" : "EMERGENCY_REPORT_REJECTED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created emergency review result notification ID={} for staffUserId={}, isApproved={}",
+                saved.getId(), staffUser.getId(), isApproved);
+
+        // 1. Gửi WebSocket STOMP P2P đích danh cho Thợ (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Remote Push Notification
+        if (StringUtils.hasText(staffUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    staffUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createSoloPromotionOfferNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            BigDecimal newCommissionRate,
+            String resolutionNote
+    ) {
+        if (staff == null || staff.getMua() == null || staff.getMua().getUser() == null || booking == null) {
+            return;
+        }
+
+        UserEntity staffUser = staff.getMua().getUser();
+        Locale locale = StringUtils.hasText(staffUser.getLanguage())
+                ? Locale.forLanguageTag(staffUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = (agency != null && agency.getAgencyName() != null) ? agency.getAgencyName() : "Studio";
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+        String rateStr = newCommissionRate != null ? newCommissionRate.stripTrailingZeros().toPlainString() + "%" : "Toàn bộ";
+
+        String title = messageSource.getLocalizedMessage(
+                "notification.solo_promotion_offer_title",
+                new Object[]{bookingCode},
+                "Đề Xuất Đảm Nhiệm Thợ Chính Đơn #" + bookingCode,
+                locale
+        );
+        String content = messageSource.getLocalizedMessage(
+                "notification.solo_promotion_offer_content",
+                new Object[]{agencyName, bookingCode, rateStr},
+                "Studio " + agencyName + " đề xuất bạn đảm nhiệm vai trò Thợ chính cho đơn #" + bookingCode + " với tỷ lệ hoa hồng mới " + rateStr + ". Vui lòng xác nhận bạn có đồng ý làm hay không!",
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", bookingCode);
+        metadata.put("agencyId", agency != null ? agency.getId() : null);
+        metadata.put("agencyName", agencyName);
+        metadata.put("staffId", staff.getId());
+        metadata.put("newCommissionRate", newCommissionRate);
+        metadata.put("resolutionNote", resolutionNote);
+        metadata.put("proposedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(staffUser)
+                .booking(booking)
+                .agency(agency)
+                .type("SOLO_PROMOTION_OFFERED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created solo promotion offer notification ID={} for staffUserId={}, rate={}",
+                saved.getId(), staffUser.getId(), newCommissionRate);
+
+        // 1. Gửi WebSocket STOMP P2P đích danh cho Thợ (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Remote Push Notification
+        if (StringUtils.hasText(staffUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    staffUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createStaffDispatchedNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            String roleName,
+            BigDecimal commissionRate
+    ) {
+        if (staff == null || staff.getMua() == null || staff.getMua().getUser() == null || booking == null) {
+            return;
+        }
+
+        UserEntity staffUser = staff.getMua().getUser();
+        Locale locale = "en".equalsIgnoreCase(staffUser.getLanguage())
+                ? Locale.ENGLISH
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = (agency != null && agency.getAgencyName() != null) ? agency.getAgencyName() : "Studio";
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+        String rateStr = commissionRate != null ? commissionRate.stripTrailingZeros().toPlainString() + "%" : "tiêu chuẩn";
+        String friendlyRole = "PRIMARY_MUA".equalsIgnoreCase(roleName) ? "Thợ chính" : "Thợ phụ (Trợ lý)";
+
+        String title = messageSource.getLocalizedMessage(
+                "notification.staff_dispatched_title",
+                new Object[]{bookingCode},
+                "Phân Công Ca Làm Mới #" + bookingCode,
+                locale
+        );
+        String content = messageSource.getLocalizedMessage(
+                "notification.staff_dispatched_content",
+                new Object[]{agencyName, bookingCode, friendlyRole, rateStr},
+                agencyName + " đã phân công bạn vào ca làm #" + bookingCode + " với vai trò " + friendlyRole + " (Hoa hồng " + rateStr + "). Vui lòng vào xác nhận nhận việc!",
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", bookingCode);
+        metadata.put("agencyId", agency != null ? agency.getId() : null);
+        metadata.put("agencyName", agencyName);
+        metadata.put("staffId", staff.getId());
+        metadata.put("role", roleName);
+        metadata.put("commissionRate", commissionRate);
+        metadata.put("assignedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(staffUser)
+                .booking(booking)
+                .agency(agency)
+                .type("AGENCY_ASSIGNED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created staff dispatched notification ID={} for staffUserId={}, role={}",
+                saved.getId(), staffUser.getId(), roleName);
+
+        // 1. Gửi WebSocket STOMP P2P đích danh cho Thợ (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Remote Push Notification
+        if (StringUtils.hasText(staffUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    staffUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
 }

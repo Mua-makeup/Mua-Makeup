@@ -15,6 +15,7 @@ interface Props {
   onTrackPress?: (booking: CustomerBookingItem) => void;
   onReviewPress?: (booking: CustomerBookingItem) => void;
   onRebookPress?: (booking: CustomerBookingItem) => void;
+  onDisputePress?: (booking: CustomerBookingItem) => void;
 }
 
 export const BookingHistoryCard: React.FC<Props> = ({
@@ -23,6 +24,7 @@ export const BookingHistoryCard: React.FC<Props> = ({
   onTrackPress,
   onReviewPress,
   onRebookPress,
+  onDisputePress,
 }) => {
   const isStudioBooking =
     booking.bookingPartner === 'AGENCY_DISPATCH' ||
@@ -291,6 +293,14 @@ export const BookingHistoryCard: React.FC<Props> = ({
 
         {booking.status === 'COMPLETED' && (
           <>
+            <TouchableOpacity
+              style={styles.disputeActionBtn}
+              onPress={() => onDisputePress && onDisputePress(booking)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="alert-circle-outline" size={14} color="#EA580C" />
+              <Text style={styles.disputeActionText}>Khiếu Nại</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.reviewActionBtn}
               onPress={() => onReviewPress && onReviewPress(booking)}
@@ -592,6 +602,22 @@ const styles = StyleSheet.create({
   trackActionText: {
     fontSize: 12,
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  disputeActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  disputeActionText: {
+    fontSize: 12,
+    color: '#EA580C',
     fontWeight: '700',
   },
   reviewActionBtn: {

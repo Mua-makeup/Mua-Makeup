@@ -1,9 +1,11 @@
 import { apiClient } from './api';
 import { ApiResponse } from './auth.service';
+import { createImageFormData } from '@/utils/form-data';
 
 export interface ReportEmergencyBusyReq {
   emergencyReason: string;
   proofDocumentUrl?: string;
+  proofImageUri?: string;
 }
 
 export type OvertimeReasonType = 'PRESET_RULE' | 'OTHER_CUSTOM_REASON';
@@ -60,24 +62,48 @@ export interface StaffShiftItem {
 
 export const agencyStaffService = {
   /**
-   * Thợ xác nhận tiếp nhận ca điều phối theo mã đơn đặt lịch
+   * Thợ xác nhận tiếp nhận ca điều phối (hỗ trợ theo bookingId hoặc assignmentId)
    */
+  async confirmAssignment(id: number, by: 'booking' | 'assignment' = 'booking'): Promise<void> {
+    const endpoint = by === 'assignment'
+      ? `/agency/dispatch/assignments/${id}/confirm`
+      : `/agency/dispatch/bookings/${id}/confirm-assignment`;
+    await apiClient.post(endpoint);
+  },
+
+  /** Alias xác nhận theo mã đơn đặt lịch */
   async confirmAssignmentByBooking(bookingId: number): Promise<void> {
-    await apiClient.post(`/agency/dispatch/bookings/${bookingId}/confirm-assignment`);
+    return this.confirmAssignment(bookingId, 'booking');
   },
 
   /**
-   * Thợ xác nhận tiếp nhận ca điều phối được Studio chỉ định theo ID phân công
+   * Thợ từ chối tiếp nhận ca điều phối hoặc từ chối đôn lên làm thợ chính
    */
-  async confirmAssignment(assignmentId: number): Promise<void> {
-    await apiClient.post(`/agency/dispatch/assignments/${assignmentId}/confirm`);
+  async declineAssignmentByBooking(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/agency/dispatch/bookings/${bookingId}/decline-assignment`, null, {
+      params: reason ? { reason } : undefined,
+    });
   },
 
   /**
-   * Thợ báo bận khẩn cấp (tai nạn, ốm đau) kèm lý do và ảnh minh chứng
+   * Thợ báo bận khẩn cấp (tai nạn, ốm đau) kèm lý do và ảnh minh chứng qua FormData
    */
-  async reportEmergencyBusy(bookingId: number, req: ReportEmergencyBusyReq): Promise<void> {
-    await apiClient.post(`/agency/dispatch/bookings/${bookingId}/report-emergency-busy`, req);
+  async reportEmergencyBusy(bookingId: number, req: ReportEmergencyBusyReq | FormData): Promise<void> {
+    if (req instanceof FormData || (req && typeof (req as any).append === 'function')) {
+      await apiClient.post(`/agency/dispatch/bookings/${bookingId}/report-emergency-busy`, req);
+      return;
+    }
+
+    const formData = req.proofImageUri
+      ? await createImageFormData(req.proofImageUri, 'file', `emergency_${Date.now()}.jpg`)
+      : new FormData();
+
+    formData.append('emergencyReason', req.emergencyReason);
+    if (req.proofDocumentUrl) {
+      formData.append('proofDocumentUrl', req.proofDocumentUrl);
+    }
+
+    await apiClient.post(`/agency/dispatch/bookings/${bookingId}/report-emergency-busy`, formData);
   },
 
   /**

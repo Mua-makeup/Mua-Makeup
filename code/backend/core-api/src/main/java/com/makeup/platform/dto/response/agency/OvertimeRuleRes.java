@@ -1,6 +1,7 @@
 package com.makeup.platform.dto.response.agency;
 
 import com.makeup.platform.entity.agency.OvertimePenaltyType;
+import com.makeup.platform.entity.agency.OvertimePolicyType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +22,7 @@ public class OvertimeRuleRes {
     private Integer minOvertimeMinutes;
     private Integer maxOvertimeMinutes;
     private OvertimePenaltyType penaltyType;
+    private OvertimePolicyType policyType;
     private BigDecimal penaltyValue;
     private Boolean isActive;
     private LocalDateTime createdAt;

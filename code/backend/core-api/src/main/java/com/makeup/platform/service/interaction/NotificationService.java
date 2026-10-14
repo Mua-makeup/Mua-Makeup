@@ -18,7 +18,9 @@ import java.util.Map;
 
 public interface NotificationService {
 
-    Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Pageable pageable);
+    default Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Pageable pageable) {
+        return getNotificationsForUser(userId, agencyId, null, null, pageable);
+    }
 
     Page<NotificationRes> getNotificationsForUser(Long userId, Long agencyId, Boolean isRead, String type, Pageable pageable);
 
@@ -85,5 +87,29 @@ public interface NotificationService {
             String title,
             String content,
             Map<String, Object> metadata
+    );
+
+    void createEmergencyReviewResultNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            boolean isApproved,
+            String adminReviewNote
+    );
+
+    void createSoloPromotionOfferNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            BigDecimal newCommissionRate,
+            String resolutionNote
+    );
+
+    void createStaffDispatchedNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            String roleName,
+            BigDecimal commissionRate
     );
 }

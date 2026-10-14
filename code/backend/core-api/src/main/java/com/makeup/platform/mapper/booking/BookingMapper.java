@@ -238,6 +238,10 @@ public class BookingMapper {
     }
 
     public FreelancerBookingItemRes toFreelancerBookingRes(BookingEntity entity) {
+        return toFreelancerBookingRes(entity, null);
+    }
+
+    public FreelancerBookingItemRes toFreelancerBookingRes(BookingEntity entity, Long muaId) {
         if (entity == null) {
             return null;
         }
@@ -263,6 +267,36 @@ public class BookingMapper {
             earnings = entity.getServiceSubtotal().subtract(platformFee);
         }
 
+        Boolean isConfirmedByStaff = true;
+        String assignmentRole = null;
+        String assignmentStatus = null;
+
+        if (muaId != null && entity.getStaffAssignments() != null) {
+            var assignmentOpt = entity.getStaffAssignments().stream()
+                    .filter(sa -> sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getId().equals(muaId))
+                    .findFirst();
+
+            if (assignmentOpt.isPresent()) {
+                var assignment = assignmentOpt.get();
+                isConfirmedByStaff = Boolean.TRUE.equals(assignment.getIsConfirmedByStaff());
+                assignmentRole = assignment.getAssignmentRole() != null ? assignment.getAssignmentRole().name() : null;
+                assignmentStatus = assignment.getStatus() != null ? assignment.getStatus().name() : null;
+                if (assignment.getCommissionRate() != null) {
+                    earnings = assignment.getCommissionAmount() != null && assignment.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0
+                            ? assignment.getCommissionAmount()
+                            : (entity.getTotalAmount() != null
+                            ? entity.getTotalAmount().multiply(assignment.getCommissionRate()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
+                            : earnings);
+                }
+            } else if (entity.getMua() != null && entity.getMua().getId().equals(muaId)) {
+                assignmentRole = "PRIMARY_MUA";
+                isConfirmedByStaff = entity.getStatus() != BookingStatus.AGENCY_ASSIGNED;
+                assignmentStatus = "ACTIVE";
+            }
+        } else if (entity.getStatus() == BookingStatus.AGENCY_ASSIGNED) {
+            isConfirmedByStaff = false;
+        }
+
         return FreelancerBookingItemRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -283,6 +317,9 @@ public class BookingMapper {
                 .earningsAmount(earnings)
                 .note(entity.getEmergencyReason())
                 .completionPhotoUrl(entity.getCompletionPhotoUrl())
+                .isConfirmedByStaff(isConfirmedByStaff)
+                .assignmentRole(assignmentRole)
+                .assignmentStatus(assignmentStatus)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

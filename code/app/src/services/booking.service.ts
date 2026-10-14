@@ -1,7 +1,7 @@
-import { Platform } from 'react-native';
 import { apiClient } from './api';
 import { CreateBookingFormValues } from '@/schemas/booking-create.schema';
 import { CreateInstantBookingPayload } from '@/schemas/instant-booking.schema';
+import { createImageFormData } from '@/utils/form-data';
 
 export type BookingStatusType =
   | 'PENDING_DEPOSIT'
@@ -193,6 +193,11 @@ export interface BookingStatusDetailRes {
   agencyAddress?: string;
   assignedStaff?: StaffAssignmentItem[];
   updatedAt: string;
+  completedAt?: string;
+  overtimeMinutes?: number;
+  overtimePay?: number;
+  overtimeRuleName?: string;
+  overtimePolicyType?: string;
 }
 
 export interface StaffAssignmentItem {
@@ -205,6 +210,7 @@ export interface StaffAssignmentItem {
   status: 'ACTIVE' | 'EMERGENCY_CANCELLED' | 'REPLACED' | string;
   assignedAt?: string;
   confirmedAt?: string;
+  isConfirmedByStaff?: boolean;
   commissionRate?: number;
   commissionAmount?: number;
   commissionNote?: string;
@@ -419,15 +425,18 @@ export const bookingService = {
    */
   async transitionBookingState(
     bookingId: number,
-    targetStatus: BookingStatusType,
+    targetOrPayload: BookingStatusType | {
+      targetStatus: BookingStatusType;
+      reason?: string;
+      emergencyProofUrl?: string;
+    },
     reason?: string,
     emergencyProofUrl?: string
   ): Promise<any> {
-    const response = await apiClient.post(`/bookings/${bookingId}/transition`, {
-      targetStatus,
-      reason,
-      emergencyProofUrl,
-    });
+    const payload = typeof targetOrPayload === 'string'
+      ? { targetStatus: targetOrPayload, reason, emergencyProofUrl }
+      : targetOrPayload;
+    const response = await apiClient.post(`/bookings/${bookingId}/transition`, payload);
     return response.data?.data;
   },
 
@@ -438,23 +447,7 @@ export const bookingService = {
     bookingId: number,
     imageUri: string
   ): Promise<{ completionPhotoUrl?: string; photoUrl?: string; thumbnailUrl?: string }> {
-    const formData = new FormData();
-    const filename = imageUri.split('/').pop() || `dispute_proof_${Date.now()}.jpg`;
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    if (Platform.OS === 'web') {
-      const fetchRes = await fetch(imageUri);
-      const blob = await fetchRes.blob();
-      formData.append('file', blob, filename);
-    } else {
-      formData.append('file', {
-        uri: imageUri,
-        name: filename,
-        type,
-      } as any);
-    }
-
+    const formData = await createImageFormData(imageUri, 'file', `dispute_proof_${Date.now()}.jpg`);
     const response = await apiClient.post(`/bookings/${bookingId}/dispute-proof`, formData);
     const data = response.data?.data;
     const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;

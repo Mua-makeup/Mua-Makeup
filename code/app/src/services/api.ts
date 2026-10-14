@@ -87,7 +87,12 @@ apiClient.interceptors.request.use(
       typeof config.data?.append === 'function'
     );
     if (isFormData && config.headers) {
-      delete config.headers['Content-Type'];
+      if (typeof (config.headers as any).delete === 'function') {
+        (config.headers as any).delete('Content-Type');
+        (config.headers as any).delete('content-type');
+      }
+      delete (config.headers as any)['Content-Type'];
+      delete (config.headers as any)['content-type'];
     }
 
     return config;

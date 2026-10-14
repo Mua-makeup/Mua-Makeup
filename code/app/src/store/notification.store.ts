@@ -272,6 +272,23 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           console.warn('[NotificationStore] Không thể phát System Notification:', notifyErr);
         }
       }
+
+      // 5. Tự động refresh Bàn làm việc (Workstation) nếu là thông báo liên quan đến đơn hàng / điều phối
+      if (
+        incomingItem.bookingId ||
+        incomingItem.type === 'AGENCY_ASSIGNED' ||
+        incomingItem.type === 'DISPATCH_STATUS_UPDATED' ||
+        incomingItem.type === 'SOLO_PROMOTION_OFFERED' ||
+        incomingItem.type === 'EMERGENCY_REVIEW_APPROVED' ||
+        incomingItem.type === 'EMERGENCY_REVIEW_REJECTED'
+      ) {
+        try {
+          const { useWorkstationStore } = require('@/store/workstation.store');
+          useWorkstationStore.getState().fetchWorkstationData();
+        } catch (wsErr) {
+          console.warn('[NotificationStore] Không thể refresh Workstation:', wsErr);
+        }
+      }
     };
 
     // 1. Kênh STOMP chuẩn User-Destination

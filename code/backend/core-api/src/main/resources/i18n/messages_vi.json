@@ -174,6 +174,8 @@
     "deposit_status_retrieved": "Lấy trạng thái cọc thành công.",
     "deposit_deprecated": "Endpoint xác nhận cọc trực tiếp đã bị vô hiệu hóa. Vui lòng tạo yêu cầu thanh toán qua deposit-intents.",
     "deposit_not_paid": "Không thể bắt đầu di chuyển: Khách hàng chưa hoàn tất thanh toán cọc.",
+    "assistant_not_confirmed": "Thợ phụ chưa bấm xác nhận đơn, chưa thể bắt đầu di chuyển.",
+    "assistant_cannot_transition_state": "Thợ phụ chỉ được phép tiếp nhận đơn và báo bận. Tiến độ ca làm do Thợ chính cập nhật.",
     "confirm_scheduled_success": "Chuyên viên xác nhận nhận ca hẹn trước thành công!",
     "reject_scheduled_success": "Từ chối tiếp nhận ca hẹn trước thành công.",
     "cancel_requested_success": "Hủy ca hẹn thành công. Tiền cọc đã được hoàn về Ví của bạn.",
@@ -256,6 +258,8 @@
   "ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY": "Thợ make-up đã xác nhận và bắt đầu di chuyển, quý khách không thể hủy ca lúc này.",
   "ERR_CANNOT_CANCEL_AFTER_DEPOSIT": "Đơn khẩn cấp đã thanh toán cọc thành công, quý khách không thể tự hủy lúc này.",
   "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
+  "ERR_ASSISTANT_NOT_CONFIRMED": "Thợ phụ chưa bấm xác nhận đơn, chưa thể bắt đầu di chuyển.",
+  "ERR_ASSISTANT_CANNOT_TRANSITION_STATE": "Thợ phụ chỉ được phép tiếp nhận đơn và báo bận. Không có quyền cập nhật tiến độ ca làm hoặc hoàn thành đơn.",
   "ERR_BOOKING_ALREADY_TAKEN": "Đơn hàng đã được thợ khác tiếp nhận trước.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Hết thời gian chờ giành khóa phân tán đơn hàng.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Xung đột cập nhật phiên bản đơn hàng.",
@@ -488,7 +492,8 @@
     "proceed_solo_success": "Xác nhận để thợ đảm nhiệm toàn bộ đơn hàng thành công.",
     "cannot_proceed_solo_no_active_staff": "Đơn hàng hiện không còn thợ nào đang hoạt động để làm một mình. Vui lòng chọn thợ thay thế hoặc từ chối báo bận.",
     "emergency_proof_required_critical": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
-    "assignment_confirm_success": "Xác nhận nhận ca điều phối thành công!"
+    "assignment_confirm_success": "Xác nhận nhận ca điều phối thành công!",
+    "assignment_decline_success": "Đã từ chối nhận ca và hoàn trả về Studio để tìm thợ khác."
   },
   "emergency": {
     "reason": {
@@ -537,7 +542,15 @@
     "staff_app_approved_title": "Chào Mừng Gia Nhập {0}!",
     "staff_app_approved_content": "Chúc mừng bạn đã được Studio {0} phê duyệt gia nhập với tỷ lệ hoa hồng {1}.",
     "staff_app_rejected_title": "Kết Quả Đơn Xin Gia Nhập {0}",
-    "staff_app_rejected_content": "Studio {0} đã từ chối đơn gia nhập của bạn. Ghi chú: {2}"
+    "staff_app_rejected_content": "Studio {0} đã từ chối đơn gia nhập của bạn. Ghi chú: {2}",
+    "emergency_review_approved_title": "Studio Đã Duyệt Báo Bận #{0}",
+    "emergency_review_approved_content": "Studio {0} đã chấp thuận đơn báo bận của bạn cho đơn #{1}. Bạn được miễn nhiệm ca làm này. Ghi chú: {2}",
+    "emergency_review_rejected_title": "Studio Từ Chối Đơn Báo Bận #{0}",
+    "emergency_review_rejected_content": "Studio {0} đã từ chối đơn báo bận cho đơn #{1}. Bạn được khôi phục về ca làm việc. Ghi chú: {2}",
+    "solo_promotion_offer_title": "Đề Xuất Đảm Nhiệm Thợ Chính Đơn #{0}",
+    "solo_promotion_offer_content": "Studio {0} đề xuất bạn đảm nhiệm vai trò Thợ chính cho đơn #{1} với tỷ lệ hoa hồng mới {2}. Vui lòng xác nhận bạn có đồng ý làm hay không!",
+    "staff_dispatched_title": "Phân Công Ca Làm Mới #{0}",
+    "staff_dispatched_content": "{0} đã phân công bạn vào ca làm #{1} với vai trò {2} (Hoa hồng {3}). Vui lòng kiểm tra và xác nhận nhận việc!"
   },
   "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Không tìm thấy cổng thanh toán yêu cầu.",
   "ERR_PAYMENT_GATEWAY_DISABLED": "Cổng thanh toán này hiện đang tạm ngưng hoạt động.",
@@ -599,7 +612,11 @@
     "assignment_confirm_success": "Xác nhận nhận ca thành công.",
     "update_commissions_success": "Cập nhật phân chia hoa hồng cho các thợ thành công.",
     "no_active_staff_to_update_commission": "Không tìm thấy thợ nào đang hoạt động trong ca này để cập nhật hoa hồng.",
-    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng."
+    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng.",
+    "staff_unqualified": "Thợ được chọn không đủ điều kiện thực hiện ca này.",
+    "primary_required": "Vui lòng chọn thợ chính cho đơn hàng.",
+    "max_assistants_exceeded": "Số lượng thợ phụ vượt quá giới hạn tối đa (2 thợ phụ).",
+    "staff_reported_busy": "Thợ đã báo bận ca này, không thể phân công lại."
   },
   "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn.",

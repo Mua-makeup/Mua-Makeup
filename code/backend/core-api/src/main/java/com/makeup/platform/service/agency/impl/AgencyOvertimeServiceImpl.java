@@ -12,6 +12,7 @@ import com.makeup.platform.entity.agency.AgencyOvertimeRuleEntity;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.agency.OvertimePolicyType;
 import com.makeup.platform.entity.agency.OvertimeReasonType;
 import com.makeup.platform.entity.agency.OvertimeReportStatus;
 import com.makeup.platform.mapper.agency.AgencyOvertimeMapper;
@@ -60,6 +61,9 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
             entity.setMinOvertimeMinutes(req.getMinOvertimeMinutes());
             entity.setMaxOvertimeMinutes(req.getMaxOvertimeMinutes());
             entity.setPenaltyType(req.getPenaltyType());
+            if (req.getPolicyType() != null) {
+                entity.setPolicyType(req.getPolicyType());
+            }
             entity.setPenaltyValue(req.getPenaltyValue());
             if (req.getIsActive() != null) {
                 entity.setIsActive(req.getIsActive());
@@ -71,6 +75,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                     .minOvertimeMinutes(req.getMinOvertimeMinutes())
                     .maxOvertimeMinutes(req.getMaxOvertimeMinutes())
                     .penaltyType(req.getPenaltyType())
+                    .policyType(req.getPolicyType() != null ? req.getPolicyType() : OvertimePolicyType.ALLOWANCE)
                     .penaltyValue(req.getPenaltyValue() != null ? req.getPenaltyValue() : BigDecimal.ZERO)
                     .isActive(req.getIsActive() != null ? req.getIsActive() : true)
                     .build();

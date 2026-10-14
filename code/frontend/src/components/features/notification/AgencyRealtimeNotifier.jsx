@@ -226,6 +226,13 @@ export const AgencyRealtimeNotifier = () => {
             if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             setActiveToast(toastData);
             toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 8000);
+          } else if (payload.type === 'DISPATCH_STATUS_UPDATED') {
+            window.dispatchEvent(
+              new CustomEvent('agency:dispatch-alert', { detail: payload })
+            );
+            window.dispatchEvent(
+              new CustomEvent('agency:new-booking', { detail: payload })
+            );
           }
         } catch (e) {
           console.warn('[AgencyRealtimeNotifier] Error parsing message:', e);

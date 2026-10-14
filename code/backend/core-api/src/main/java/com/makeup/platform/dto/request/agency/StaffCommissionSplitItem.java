@@ -27,4 +27,10 @@ public class StaffCommissionSplitItem {
     private BigDecimal commissionAmount;
 
     private String commissionNote;
+
+    public void setNote(String note) {
+        if (this.commissionNote == null || this.commissionNote.isBlank()) {
+            this.commissionNote = note;
+        }
+    }
 }
