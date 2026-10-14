@@ -37,5 +37,10 @@ public class MuaProfileRes {
     private BigDecimal startingPrice;
     private Boolean isOnline;
     private String availabilityStatus;
+    private BigDecimal bayesianRating;
+    private BigDecimal rollingRating;
+    private String badgeTier;
+    private BigDecimal rankScore;
+    private Boolean isEmergencyLocked;
     private LocalDateTime updatedAt;
 }

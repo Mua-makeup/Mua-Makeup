@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Map;
 
 public interface NotificationService {
 
@@ -74,5 +75,15 @@ public interface NotificationService {
             LocalTime startTime,
             LocalTime endTime,
             String reason
+    );
+
+    NotificationEntity createInAppNotification(
+            Long userId,
+            Long agencyId,
+            Long bookingId,
+            String type,
+            String title,
+            String content,
+            Map<String, Object> metadata
     );
 }

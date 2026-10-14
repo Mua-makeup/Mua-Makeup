@@ -95,6 +95,11 @@ public class MuaProfileMapper {
                 .startingPrice(startingPrice)
                 .isOnline(mua.getIsOnline())
                 .availabilityStatus(mua.getAvailabilityStatus() != null ? mua.getAvailabilityStatus().name() : null)
+                .bayesianRating(mua.getBayesianRating())
+                .rollingRating(mua.getRollingRating())
+                .badgeTier(mua.getBadgeTier() != null ? mua.getBadgeTier().name() : null)
+                .rankScore(mua.getRankScore())
+                .isEmergencyLocked(mua.getIsEmergencyLocked())
                 .updatedAt(mua.getUpdatedAt())
                 .build();
     }

@@ -28,6 +28,7 @@ import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { websocketService } from '@/services/websocket.service';
+import { ReviewModal } from '@/components/customer/ReviewModal';
 
 export default function BookingHistoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -52,6 +53,7 @@ export default function BookingHistoryDetailScreen() {
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [isDisputeDossierOpen, setIsDisputeDossierOpen] = useState(false);
   const [isDisputeDossierAutoOpen, setIsDisputeDossierAutoOpen] = useState(false);
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
 
   // Trạng thái thanh toán 70% còn lại cho Khách
   const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
@@ -2082,9 +2084,7 @@ export default function BookingHistoryDetailScreen() {
               {isNormalPaidOut && (
                 <TouchableOpacity
                   style={styles.reviewBtn}
-                  onPress={() => {
-                    Alert.alert('Đánh Giá Dịch Vụ ⭐', 'Cảm ơn bạn đã sử dụng nền tảng! Tính năng đánh giá sao đang được kích hoạt.');
-                  }}
+                  onPress={() => setIsReviewModalVisible(true)}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="star-outline" size={17} color={BrandColors.primary} />
@@ -2169,6 +2169,17 @@ export default function BookingHistoryDetailScreen() {
         autoOpenForm={isDisputeDossierAutoOpen}
         onDisputeSuccess={() => loadData(true)}
       />
+
+      {/* MODAL ĐÁNH GIÁ DỊCH VỤ SAU KHI HOÀN TẤT */}
+      {bookingDetail && (
+        <ReviewModal
+          visible={isReviewModalVisible}
+          bookingId={bookingId}
+          muaName={bookingDetail.muaName || 'Chuyên viên trang điểm'}
+          onClose={() => setIsReviewModalVisible(false)}
+          onSuccess={() => loadData(true)}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -611,5 +611,20 @@
     "not_found": "Không tìm thấy biên nhận tiền mặt của đơn hàng.",
     "worker_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt.",
     "freelancer_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt."
+  },
+  "review": {
+    "booking_id_required": "Mã đơn hàng không được để trống.",
+    "rating_required": "Vui lòng chọn số sao đánh giá (1 - 5 sao).",
+    "rating_min": "Đánh giá tối thiểu là 1 sao.",
+    "rating_max": "Đánh giá tối đa là 5 sao.",
+    "comment_too_long": "Nhận xét không được vượt quá 2000 ký tự.",
+    "unauthorized": "Bạn không có quyền đánh giá đơn hàng này.",
+    "booking_not_completed": "Chỉ có thể đánh giá sau khi đơn hàng đã hoàn thành dịch vụ.",
+    "already_reviewed": "Đơn hàng này đã được đánh giá trước đó.",
+    "mua_not_found": "Không tìm thấy thông tin chuyên viên trang điểm của đơn hàng.",
+    "submit_success": "Gửi đánh giá thành công! Cảm ơn phản hồi của bạn.",
+    "get_success": "Lấy thông tin đánh giá thành công.",
+    "list_success": "Lấy danh sách đánh giá thành công.",
+    "summary_success": "Lấy tóm tắt điểm số và danh hiệu thành công."
   }
 }
