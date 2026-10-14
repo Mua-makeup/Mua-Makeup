@@ -76,7 +76,7 @@ export const overtimeRuleSchema = z.object({
     .min(0, 'Giới hạn tối đa phải từ 0 trở lên')
     .optional()
     .nullable(),
-  penaltyType: z.enum(['FIXED_AMOUNT', 'PERCENT_COMMISSION', 'WARNING_ONLY'], {
+  penaltyType: z.enum(['FIXED_AMOUNT', 'PERCENT_COMMISSION', 'WARNING_ONLY', 'PER_MINUTE'], {
     required_error: 'Loại chế tài phạt không được để trống',
   }),
   policyType: z.enum(['ALLOWANCE', 'PENALTY', 'WARNING']).default('ALLOWANCE').optional(),

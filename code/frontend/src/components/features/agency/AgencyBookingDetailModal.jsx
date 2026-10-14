@@ -448,7 +448,16 @@ export const AgencyBookingDetailModal = ({
 
                 // 2. Identify assistant MUAs
                 const assistantList = staffList.filter(
-                  (s) => s.role === 'ASSISTANT_MUA' && s.status !== 'REPLACED'
+                  (s) => s.role === 'ASSISTANT_MUA' && s.status !== 'REPLACED' && s.status !== 'EMERGENCY_CANCELLED'
+                );
+
+                // 3. Identify staff who reported emergency busy
+                const allAssigned = currentBooking?.assignedStaff || booking?.assignedStaff || [];
+                const emergencyStaffList = allAssigned.filter(
+                  (s) =>
+                    (s.status === 'EMERGENCY_CANCELLED' || (s.status === 'REPLACED' && Boolean(s.cancellationReason)) || Boolean(s.cancellationReason)) &&
+                    s.staffId !== primaryStaff?.staffId &&
+                    !assistantList.some((a) => a.staffId === s.staffId)
                 );
 
                 const getStaffStatusBadge = (staff, isPrimary) => {
@@ -478,8 +487,9 @@ export const AgencyBookingDetailModal = ({
 
                 const hasPrimary = primaryStaff || fallbackPrimaryName;
                 const hasAssistants = assistantList.length > 0;
+                const hasEmergency = emergencyStaffList.length > 0;
 
-                if (!hasPrimary && !hasAssistants) {
+                if (!hasPrimary && !hasAssistants && !hasEmergency) {
                   return (
                     <div className="flex items-center gap-2 text-slate-400 italic text-xs pt-1">
                       <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -553,6 +563,32 @@ export const AgencyBookingDetailModal = ({
                               {t('dispatch_badge_assistant')}
                             </Badge>
                             {getStaffStatusBadge(assistant, false)}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Emergency Busy MUA(s) */}
+                      {emergencyStaffList.map((emergencyStaff) => (
+                        <div
+                          key={`busy-${emergencyStaff.id || emergencyStaff.staffId}`}
+                          className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40"
+                        >
+                          <div className="flex items-center gap-1.5 text-slate-900 dark:text-white">
+                            <User className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">{emergencyStaff.staffName}</span>
+                            {emergencyStaff.staffPhone && (
+                              <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                                ({emergencyStaff.staffPhone})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="rose" size="sm">
+                              {emergencyStaff.role === 'PRIMARY_MUA' ? t('dispatch_badge_primary') : t('dispatch_badge_assistant')}
+                            </Badge>
+                            <span className="inline-flex items-center text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/60">
+                              {t('dispatch_staff_status_emergency')}
+                            </span>
                           </div>
                         </div>
                       ))}

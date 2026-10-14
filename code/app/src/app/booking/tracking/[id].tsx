@@ -405,6 +405,15 @@ export default function BookingLiveTrackingScreen() {
                 title: '🎉 Buổi Make-up Đã Hoàn Tất!',
                 message: 'Chuyên viên đã hoàn tất make-up. Vui lòng thanh toán phần còn lại (70%) để hoàn tất hợp đồng dịch vụ!',
               });
+            } else if (statusMsg?.type === 'WORKER_CASH_DECLINED') {
+              setIsCashPaidConfirmed(false);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              setStatusPopup({
+                visible: true,
+                type: 'DISPUTED',
+                title: '⚠️ Chưa Nhận Được Tiền Mặt',
+                message: statusMsg?.reason || 'Chuyên viên make-up báo chưa nhận được tiền mặt từ bạn. Vui lòng kiểm tra lại và trao tiền mặt trực tiếp cho chuyên viên hoặc đổi phương thức thanh toán.',
+              });
             } else if (nextStatus === 'PAID_OUT' || statusMsg?.type === 'PAYMENT_COMPLETED') {
               setStatus('PAID_OUT');
               setIsCashPaidConfirmed(false);

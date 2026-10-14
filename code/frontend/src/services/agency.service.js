@@ -111,5 +111,10 @@ export const agencyService = {
   confirmAssignment: (assignmentId) => apiClient.post(`/agency/dispatch/assignments/${assignmentId}/confirm`),
   updateStaffCommissions: (bookingId, data) =>
     apiClient.put(`/agency/dispatch/bookings/${bookingId}/staff-commissions`, data),
+
+  // Khiếu nại & Sự cố Studio
+  getDisputes: (params) => apiClient.get('/agency/disputes', { params }),
+  getDisputeDetail: (bookingId) => apiClient.get(`/agency/disputes/${bookingId}`),
+  resolveDispute: (bookingId, data) => apiClient.post(`/agency/disputes/${bookingId}/resolve`, data),
 };
 

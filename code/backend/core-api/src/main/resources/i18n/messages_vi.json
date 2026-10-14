@@ -627,6 +627,18 @@
     "status_ok": "Lấy trạng thái biên nhận tiền mặt thành công.",
     "not_found": "Không tìm thấy biên nhận tiền mặt của đơn hàng.",
     "worker_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt.",
-    "freelancer_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt."
+    "freelancer_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt.",
+    "only_primary_worker_allowed": "Chỉ có thợ chính mới có quyền xác nhận hoặc từ chối thu tiền mặt.",
+    "worker_declined": "Đã thông báo tới khách hàng là bạn chưa nhận được tiền mặt."
+  },
+  "agency": {
+    "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
+    "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
+    "dispute_resolved_success": "Giải quyết khiếu nại thành công."
+  },
+  "dispute": {
+    "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",
+    "resolution_accepted": "Đã chấp nhận kết quả giải quyết khiếu nại.",
+    "not_in_disputed_state": "Đơn hàng không ở trạng thái khiếu nại."
   }
 }

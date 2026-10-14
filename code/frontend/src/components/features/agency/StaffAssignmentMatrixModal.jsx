@@ -223,11 +223,10 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
 
           let amount = totalBookingAmount > 0 ? Math.round((totalBookingAmount * rate) / 100) : 0;
 
-          // Nếu thợ làm thêm giờ (overtime): tự động cộng phụ cấp ngoài giờ
-          if (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) {
-            const otPay = Number(staffObj.overtimePay);
-            amount += otPay;
-            note = (note ? note + ' | ' : '') + `Tăng ca ${staffObj.overtimeMinutes}p: +${formatCurrency(otPay)}`;
+          // Nếu thợ làm thêm giờ (overtime): ghi nhận phụ cấp ngoài giờ riêng biệt không gộp vào tiền đơn
+          const otPay = (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) ? Number(staffObj.overtimePay) : 0;
+          if (otPay > 0) {
+            note = (note ? note + ' | ' : '') + `Tăng ca ${staffObj.overtimeMinutes}p: +${formatCurrency(otPay)} (phụ cấp Studio)`;
           }
 
           next[primaryStaffId] = {
@@ -235,6 +234,8 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             staffRole: 'PRIMARY_MUA',
             commissionRate: rate,
             commissionAmount: amount,
+            overtimePay: otPay,
+            overtimeMinutes: staffObj?.overtimeMinutes || 0,
             note: note,
             error: '',
           };
@@ -249,11 +250,10 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             let soloAmount = totalBookingAmount > 0 ? Math.round((totalBookingAmount * soloRate) / 100) : 0;
             const busyNames = emergencyStaffList.map((s) => s.staffName).filter(Boolean).join(', ');
             let note = `Làm Solo: Nhận gộp +${transferredEmergencyRate}% hoa hồng từ thợ báo bận (${busyNames})`;
+            const otPay = (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) ? Number(staffObj.overtimePay) : 0;
 
-            if (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) {
-              const otPay = Number(staffObj.overtimePay);
-              soloAmount += otPay;
-              note += ` | Tăng ca ${staffObj.overtimeMinutes}p: +${formatCurrency(otPay)}`;
+            if (otPay > 0) {
+              note += ` | Tăng ca ${staffObj.overtimeMinutes}p: +${formatCurrency(otPay)} (phụ cấp Studio)`;
             }
 
             next[primaryStaffId] = {
@@ -261,6 +261,8 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
               staffRole: 'PRIMARY_MUA',
               commissionRate: soloRate,
               commissionAmount: soloAmount,
+              overtimePay: otPay,
+              overtimeMinutes: staffObj?.overtimeMinutes || 0,
               note: note,
             };
           } else {
@@ -283,11 +285,10 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             ? existing.amount
             : (totalBookingAmount > 0 ? Math.round((totalBookingAmount * rate) / 100) : 0);
           let note = existing ? existing.note : '';
+          const otPay = (astStaffObj?.isOvertime && Number(astStaffObj?.overtimePay) > 0) ? Number(astStaffObj.overtimePay) : 0;
 
-          if (astStaffObj?.isOvertime && Number(astStaffObj?.overtimePay) > 0) {
-            const otPay = Number(astStaffObj.overtimePay);
-            amount += otPay;
-            note = (note ? note + ' | ' : '') + `Tăng ca ${astStaffObj.overtimeMinutes}p: +${formatCurrency(otPay)}`;
+          if (otPay > 0 && !existing) {
+            note = (note ? note + ' | ' : '') + `Tăng ca ${astStaffObj.overtimeMinutes}p: +${formatCurrency(otPay)} (phụ cấp Studio)`;
           }
 
           next[astId] = {
@@ -295,6 +296,8 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             staffRole: 'ASSISTANT_MUA',
             commissionRate: rate,
             commissionAmount: amount,
+            overtimePay: otPay,
+            overtimeMinutes: astStaffObj?.overtimeMinutes || 0,
             note: note,
             error: '',
           };
@@ -361,7 +364,11 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
       });
 
       const maxAllowedRate = Math.max(0, 100 - otherRates);
-      const calculatedAmount = totalBookingAmount > 0 ? Math.round((totalBookingAmount * newRate) / 100) : 0;
+      const staffObj = matrixData?.staffList?.find((s) => s.staffId === staffId);
+      const otPay = (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) ? Number(staffObj.overtimePay) : 0;
+      const baseCommission = totalBookingAmount > 0 ? Math.round((totalBookingAmount * newRate) / 100) : 0;
+      // Hoa hồng tính theo đơn hàng độc lập, KHÔNG gộp phụ cấp ngoài giờ vào tiền đơn
+      const calculatedAmount = baseCommission;
       const maxAllowedAmount = totalBookingAmount > 0 ? Math.round((totalBookingAmount * maxAllowedRate) / 100) : 0;
 
       let error = '';
@@ -376,6 +383,8 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
         ...currentItem,
         commissionRate: newRate,
         commissionAmount: calculatedAmount,
+        overtimePay: otPay,
+        overtimeMinutes: staffObj?.overtimeMinutes || 0,
         error,
       };
 
@@ -1229,21 +1238,28 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                             {st.isOvertime && (
                               <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/60 shadow-2xs">
                                 <Clock className="w-3 h-3 text-amber-500" />
-                                Tăng ca +{st.overtimeMinutes}p: +{formatCurrency(st.overtimePay || 0)} (theo quy chế Studio)
+                                Tăng ca +{st.overtimeMinutes}p: +{formatCurrency(st.overtimePay || 0)} (phụ cấp tính riêng)
                               </span>
                             )}
                           </div>
 
-                          {hasError ? (
-                            <span className="inline-flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400">
-                              <AlertCircle className="w-3 h-3" />
-                              {split.error}
-                            </span>
-                          ) : (
-                            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                              {split.commissionRate > 0 ? `Đã gán ${split.commissionRate}% hoa hồng` : 'Chưa gán hoa hồng'}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {st.isOvertime && Number(st.overtimePay) > 0 && (
+                              <span className="font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                                Tổng nhận: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency((Number(split.commissionAmount) || 0) + Number(st.overtimePay))}</strong>
+                              </span>
+                            )}
+                            {hasError ? (
+                              <span className="inline-flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400">
+                                <AlertCircle className="w-3 h-3" />
+                                {split.error}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                {split.commissionRate > 0 ? `Đã gán ${split.commissionRate}% hoa hồng` : 'Chưa gán hoa hồng'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1329,6 +1345,11 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                       </span>
                       <span className="font-semibold text-amber-600 dark:text-amber-400">
                         {split?.commissionRate || 0}% (~{formatCurrency(split?.commissionAmount || 0)})
+                        {st.isOvertime && Number(st.overtimePay) > 0 && (
+                          <span className="text-amber-700 dark:text-amber-300 ml-1.5 font-normal">
+                            + {formatCurrency(st.overtimePay)} (tăng ca {st.overtimeMinutes}p)
+                          </span>
+                        )}
                       </span>
                     </div>
                   );

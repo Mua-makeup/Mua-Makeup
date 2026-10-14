@@ -15,8 +15,12 @@ import com.makeup.platform.entity.wallet.BookingSettlementEntity;
 import com.makeup.platform.entity.wallet.LedgerEntryEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.entity.wallet.WalletHoldEntity;
+import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.agency.OvertimeReportStatus;
+import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
+import com.makeup.platform.repository.mua.MUACalendarRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
 import com.makeup.platform.repository.wallet.BookingSettlementRepository;
@@ -53,6 +57,8 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     private final WalletHoldRepository walletHoldRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
+    private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
+    private final MUACalendarRepository muaCalendarRepository;
 
     @Override
     @Transactional
@@ -65,6 +71,9 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                 booking.setStatus(BookingStatus.PAID_OUT);
                 bookingRepository.save(booking);
             }
+            try {
+                muaCalendarRepository.deleteByBookingId(bookingId);
+            } catch (Exception ignored) {}
             return;
         }
 
@@ -257,7 +266,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
 
                     String ledgerKey = "settle:credit:agency:" + bookingId + ":" + ownerId;
                     if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
-                        BigDecimal balanceBefore = ownerWallet.getAvailableBalance();
+                        BigDecimal balanceBefore = ownerWallet.getAvailableBalance() != null ? ownerWallet.getAvailableBalance() : BigDecimal.ZERO;
                         ownerWallet.setAvailableBalance(balanceBefore.add(agencyRemaining));
                         walletRepository.save(ownerWallet);
 
@@ -269,7 +278,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                                 .entryType("CREDIT")
                                 .amount(agencyRemaining)
                                 .balanceAfter(ownerWallet.getAvailableBalance())
-                                .description("Quyết toán booking #" + booking.getBookingCode() + " cho Agency " + agencyName + " (cọc còn lại sau hoa hồng thợ)")
+                                .description("Quyết toán booking #" + booking.getBookingCode() + " cho Agency " + agencyName + " (doanh thu cọc còn lại sau hoa hồng thợ)")
                                 .idempotencyKey(ledgerKey)
                                 .build();
                         ledgerEntryRepository.save(credit);
@@ -279,6 +288,9 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                     }
                 }
             }
+
+            // Tự động quyết toán phụ cấp tăng ca độc lập: trừ ví Studio và cộng ví Thợ
+            processOvertimeAllowances(booking);
         } else if (N.compareTo(BigDecimal.ZERO) > 0) {
             UserEntity beneficiaryUser = null;
             String beneficiaryDesc = null;
@@ -342,6 +354,13 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
 
         booking.setStatus(BookingStatus.PAID_OUT);
         bookingRepository.save(booking);
+
+        try {
+            muaCalendarRepository.deleteByBookingId(bookingId);
+            log.info("[Settlement] Released calendar slots for settled bookingId={}", bookingId);
+        } catch (Exception ex) {
+            log.warn("[Settlement] Failed to delete calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
+        }
 
         log.info("[Settlement] Booking {} settled. T={} D={} C={} F={} E={} N={} Status={}",
                 bookingId, T, D, C, F, E, N, settlementStatus);
@@ -513,6 +532,9 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                     }
                 }
             }
+
+            // Tự động quyết toán phụ cấp tăng ca độc lập: trừ ví Studio và cộng ví Thợ
+            processOvertimeAllowances(booking);
         } else if (E.compareTo(BigDecimal.ZERO) > 0) {
             UserEntity beneficiaryUser = null;
             String beneficiaryDesc = null;
@@ -576,6 +598,13 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         booking.setStatus(BookingStatus.PAID_OUT);
         bookingRepository.save(booking);
 
+        try {
+            muaCalendarRepository.deleteByBookingId(bookingId);
+            log.info("[SettlementOnline] Released calendar slots for settled bookingId={}", bookingId);
+        } catch (Exception ex) {
+            log.warn("[SettlementOnline] Failed to delete calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
+        }
+
         log.info("[SettlementOnline] Booking {} settled online. T={} D={} F={} E={}", bookingId, T, D, F, E);
     }
 
@@ -584,5 +613,119 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     public void retryPendingSettlements() {
         // Placeholder: xử lý các settlement ở trạng thái PENDING > 5 phút
         log.debug("[Settlement] Retry pending settlements check.");
+    }
+
+    @Override
+    @Transactional
+    public void processOvertimeAllowancesForBooking(Long bookingId) {
+        if (bookingId == null) return;
+        bookingRepository.findById(bookingId).ifPresent(this::processOvertimeAllowances);
+    }
+
+    private void processOvertimeAllowances(BookingEntity booking) {
+        if (booking == null || booking.getAgency() == null || booking.getAgency().getOwner() == null) {
+            return;
+        }
+        UserEntity agencyOwner = booking.getAgency().getOwner();
+        Long ownerId = agencyOwner.getId();
+
+        try {
+            List<AgencyStaffOvertimeReportEntity> otReports = agencyStaffOvertimeReportRepository.findByBookingId(booking.getId());
+            if (otReports == null || otReports.isEmpty()) {
+                return;
+            }
+
+            for (AgencyStaffOvertimeReportEntity ot : otReports) {
+                if (ot.getStatus() == OvertimeReportStatus.APPROVED_WAIVED && ot.getPenaltyAmountApplied() != null
+                        && ot.getPenaltyAmountApplied().compareTo(BigDecimal.ZERO) > 0) {
+
+                    BigDecimal allowanceAmount = ot.getPenaltyAmountApplied();
+                    Long staffUserId = (ot.getStaff() != null && ot.getStaff().getMua() != null && ot.getStaff().getMua().getUser() != null)
+                            ? ot.getStaff().getMua().getUser().getId() : (ot.getStaff() != null ? ot.getStaff().getId() : ot.getId());
+                    String debitKey = "ot:debit:booking:" + booking.getId() + ":staff:" + staffUserId;
+                    String creditKey = "ot:credit:booking:" + booking.getId() + ":staff:" + staffUserId;
+
+                    String staffName = (ot.getStaff() != null && ot.getStaff().getMua() != null && ot.getStaff().getMua().getUser() != null)
+                            ? ot.getStaff().getMua().getUser().getFullName() : "nhân sự";
+
+                    // 1. Trừ tiền từ Ví Studio (Agency Owner Wallet - DEBIT)
+                    if (!ledgerEntryRepository.existsByIdempotencyKey(debitKey)) {
+                        WalletEntity ownerWallet = walletRepository.findByUserIdWithLock(ownerId)
+                                .orElseGet(() -> {
+                                    WalletEntity newWallet = WalletEntity.builder()
+                                            .user(agencyOwner)
+                                            .availableBalance(BigDecimal.ZERO)
+                                            .frozenBalance(BigDecimal.ZERO)
+                                            .currency("VND")
+                                            .build();
+                                    return walletRepository.save(newWallet);
+                                });
+
+                        BigDecimal ownerBalanceBefore = ownerWallet.getAvailableBalance() != null ? ownerWallet.getAvailableBalance() : BigDecimal.ZERO;
+                        BigDecimal deductAmount = ownerBalanceBefore.min(allowanceAmount);
+                        if (deductAmount.compareTo(BigDecimal.ZERO) > 0) {
+                            ownerWallet.setAvailableBalance(ownerBalanceBefore.subtract(deductAmount));
+                            walletRepository.save(ownerWallet);
+
+                            LedgerEntryEntity debitEntry = LedgerEntryEntity.builder()
+                                    .referenceType("OVERTIME_PAYMENT")
+                                    .referenceId(ot.getId())
+                                    .wallet(ownerWallet)
+                                    .entryType("DEBIT")
+                                    .amount(deductAmount)
+                                    .balanceAfter(ownerWallet.getAvailableBalance())
+                                    .description(String.format("Chi trả phụ cấp làm thêm giờ đơn #%s cho thợ %s (-%s đ)",
+                                            booking.getBookingCode(), staffName, String.format("%,d", deductAmount.longValue())))
+                                    .idempotencyKey(debitKey)
+                                    .build();
+                            ledgerEntryRepository.save(debitEntry);
+                            log.info("[Settlement] Debited overtime allowance {} VND from agency owner userId={} for reportId={}",
+                                    deductAmount, ownerId, ot.getId());
+                        } else {
+                            log.warn("[Settlement] Agency owner userId={} has insufficient balance ({}) for overtime allowance {}, skipping debit to satisfy non-negative check",
+                                    ownerId, ownerBalanceBefore, allowanceAmount);
+                        }
+                    }
+
+                    // 2. Cộng tiền vào Ví Thợ (Staff Wallet - CREDIT)
+                    if (ot.getStaff() != null && ot.getStaff().getMua() != null && ot.getStaff().getMua().getUser() != null) {
+                        UserEntity staffUser = ot.getStaff().getMua().getUser();
+                        if (!ledgerEntryRepository.existsByIdempotencyKey(creditKey)) {
+                            WalletEntity staffWallet = walletRepository.findByUserIdWithLock(staffUser.getId())
+                                    .orElseGet(() -> {
+                                        WalletEntity newWallet = WalletEntity.builder()
+                                                .user(staffUser)
+                                                .availableBalance(BigDecimal.ZERO)
+                                                .frozenBalance(BigDecimal.ZERO)
+                                                .currency("VND")
+                                                .build();
+                                        return walletRepository.save(newWallet);
+                                    });
+
+                            BigDecimal staffBalanceBefore = staffWallet.getAvailableBalance() != null ? staffWallet.getAvailableBalance() : BigDecimal.ZERO;
+                            staffWallet.setAvailableBalance(staffBalanceBefore.add(allowanceAmount));
+                            walletRepository.save(staffWallet);
+
+                            LedgerEntryEntity creditEntry = LedgerEntryEntity.builder()
+                                    .referenceType("OVERTIME_ALLOWANCE")
+                                    .referenceId(ot.getId())
+                                    .wallet(staffWallet)
+                                    .entryType("CREDIT")
+                                    .amount(allowanceAmount)
+                                    .balanceAfter(staffWallet.getAvailableBalance())
+                                    .description(String.format("Nhận phụ cấp làm thêm giờ đơn #%s (+%d phút) từ Studio (+%s đ)",
+                                            booking.getBookingCode(), ot.getOvertimeMinutes(), String.format("%,d", allowanceAmount.longValue())))
+                                    .idempotencyKey(creditKey)
+                                    .build();
+                            ledgerEntryRepository.save(creditEntry);
+                            log.info("[Settlement] Credited overtime allowance {} VND to staff userId={} for reportId={}",
+                                    allowanceAmount, staffUser.getId(), ot.getId());
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.error("[Settlement] Error processing overtime allowances for booking {}: {}", booking.getId(), ex.getMessage(), ex);
+        }
     }
 }

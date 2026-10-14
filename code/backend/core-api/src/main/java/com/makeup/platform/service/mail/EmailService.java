@@ -155,5 +155,16 @@ public interface EmailService {
             LocalTime endTime,
             String reason
     );
+
+    void sendAgencyOvertimeReportNotification(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            Long bookingId,
+            Integer overtimeMinutes,
+            String reason
+    );
 }
 

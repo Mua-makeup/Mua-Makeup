@@ -39,6 +39,7 @@ import { useUndoStore } from '@/store/undo.store';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { getTodayVN, formatDateVN, formatTimeVN } from '@/utils/date';
+import { soundManager } from '@/utils/sound';
 
 function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth radius in meters
@@ -227,9 +228,15 @@ export default function JobExecutionScreen() {
   const isAgencyBooking =
     booking?.bookingPartner === 'AGENCY' ||
     Boolean(booking?.agencyId || (booking as any)?.agency || (booking?.assignedStaff && booking.assignedStaff.length > 0) || myAssignment);
-  const isPendingMyConfirmation = myAssignment
+
+  const isMyAssignmentBusy =
+    myAssignment?.status === 'EMERGENCY_CANCELLED' ||
+    myAssignment?.status === 'REPORTED_BUSY_PENDING_APPROVAL' ||
+    (isAgencyBooking && Boolean(booking?.emergencyReason) && myAssignment?.status !== 'ACTIVE');
+
+  const isPendingMyConfirmation = !isMyAssignmentBusy && (myAssignment
     ? Boolean(myAssignment.isConfirmedByStaff === false || !myAssignment.confirmedAt)
-    : (currentStatus === 'AGENCY_ASSIGNED');
+    : (currentStatus === 'AGENCY_ASSIGNED'));
 
   const handleConfirmMyAssignment = () => {
     const roleText = isPrimaryRole ? 'Thợ chính' : (isAssistantRole ? 'Thợ phụ' : 'Chuyên viên');
@@ -348,6 +355,14 @@ export default function JobExecutionScreen() {
 
   const isScheduled = booking?.bookingType === 'SCHEDULED' || booking?.bookingCode?.includes('SCHED');
   const isInstant = booking?.bookingType === 'REALTIME_INSTANT' || booking?.bookingType === 'INSTANT' || booking?.bookingCode?.includes('INSTANT');
+
+  // Ngắt toàn bộ rung báo động dồn dập ngay khi vào màn hình ca làm việc
+  useEffect(() => {
+    soundManager.stopJobAlertSound();
+    return () => {
+      soundManager.stopJobAlertSound();
+    };
+  }, []);
 
   // Lấy vị trí đã biết gần nhất ngay khi mount để map hiển thị trong <10ms
   useEffect(() => {
@@ -509,10 +524,18 @@ export default function JobExecutionScreen() {
         loadBookingDetail();
       }
       if (msg?.type === 'CUSTOMER_CASH_PAID') {
-        const amt = msg?.cashAmount || (booking?.totalAmount ? Math.round(booking.totalAmount * 0.7) : 0);
-        setCashAmountExpected(amt);
-        setIsCashPromptModalVisible(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        // Chỉ thợ chính (Lead MUA) mới nhận và hiển thị modal xác nhận thu tiền mặt
+        const isAssistant = myAssignment?.role === 'ASSISTANT_MUA';
+        if (!isAssistant) {
+          const amt = msg?.cashAmount || (booking?.totalAmount ? Math.round(booking.totalAmount * 0.7) : 0);
+          setCashAmountExpected(amt);
+          setIsCashPromptModalVisible(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+      }
+
+      if (msg?.type === 'WORKER_CASH_DECLINED') {
+        setIsCashPromptModalVisible(false);
       }
 
       if (msg?.type === 'PAYMENT_COMPLETED' || msg?.status === 'PAID_OUT') {
@@ -714,9 +737,11 @@ export default function JobExecutionScreen() {
     };
   }, [currentStatus]);
 
-  const loadBookingDetail = async () => {
+  const loadBookingDetail = async (isSilent: boolean = false) => {
     try {
-      setIsLoading(true);
+      if (!isSilent) {
+        setIsLoading((prev) => (booking ? false : true));
+      }
       const detail = await bookingService.getBookingStatus(bookingId);
       if (detail) {
         if (detail.status === 'PAID_OUT') {
@@ -1129,7 +1154,7 @@ export default function JobExecutionScreen() {
     try {
       setIsConfirmingCash(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const res = await depositService.confirmWorkerCashReceipt(bookingId, 'v1');
+      await depositService.confirmWorkerCashReceipt(bookingId, 'v1');
       setCashReceiptConfirmed(true);
       setIsCashPromptModalVisible(false);
       setIsBothCashConfirmed(true);
@@ -1137,22 +1162,30 @@ export default function JobExecutionScreen() {
       setBooking((prev: any) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      const isAgency = booking?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
-      Alert.alert(
-        'Quyết Toán Thành Công! 🎉',
-        isAgency
-          ? 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow đã được quyết toán vào Ví Studio.'
-          : 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow (sau khi trừ phí sàn) đã được quyết toán vào Ví của bạn.',
-        isAgency
-          ? [{ text: 'Đóng' }]
-          : [
-              { text: 'Xem Ví Thợ', onPress: () => router.replace('/profile/freelancer-wallet') },
-              { text: 'Đóng' }
-            ]
-      );
+      // Chờ modal đóng hoàn toàn trên iOS trước khi hiển thị Alert quyết toán thành công
+      setTimeout(() => {
+        const isAgency = booking?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
+        Alert.alert(
+          'Quyết Toán Thành Công! 🎉',
+          isAgency
+            ? 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow đã được quyết toán vào Ví Studio.'
+            : 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow (sau khi trừ phí sàn) đã được quyết toán vào Ví của bạn.',
+          isAgency
+            ? [{ text: 'Đóng' }]
+            : [
+                { text: 'Xem Ví Thợ', onPress: () => router.replace('/profile/freelancer-wallet') },
+                { text: 'Đóng' }
+              ]
+        );
+      }, 350);
       loadBookingDetail();
     } catch (err: any) {
-      Alert.alert('Lỗi Xác Nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận tiền mặt.');
+      console.error('[CashReceipt] Confirm worker cash failed:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận tiền mặt.';
+      setIsCashPromptModalVisible(false);
+      setTimeout(() => {
+        Alert.alert('Lỗi Xác Nhận', msg);
+      }, 350);
     } finally {
       setIsConfirmingCash(false);
     }
@@ -1177,6 +1210,27 @@ export default function JobExecutionScreen() {
   };
 
   const handleConfirmCashReceipt = handlePromptConfirmCashReceipt;
+
+  const handleDeclineCashReceipt = async () => {
+    try {
+      setIsConfirmingCash(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await depositService.declineWorkerCashReceipt(bookingId, 'Chuyên viên báo chưa nhận được tiền mặt');
+      setIsCashPromptModalVisible(false);
+      setTimeout(() => {
+        Alert.alert(
+          'Đã Báo Chưa Nhận Tiền',
+          'Hệ thống đã thông báo tới khách hàng là bạn chưa nhận được tiền mặt. Khách hàng sẽ kiểm tra lại hoặc đổi phương thức thanh toán.'
+        );
+      }, 350);
+      loadBookingDetail(true);
+    } catch (err: any) {
+      console.error('[CashReceipt] Decline cash failed:', err);
+      setIsCashPromptModalVisible(false);
+    } finally {
+      setIsConfirmingCash(false);
+    }
+  };
 
   // Xử lý khi khách hàng yêu cầu hủy chuyến: Thợ Đồng ý và nhận 100% bồi thường cọc
   const handleAcceptCustomerCancel = async () => {
@@ -1287,8 +1341,15 @@ export default function JobExecutionScreen() {
         </TouchableOpacity>
       )}
 
-      {/* BANNER CẢNH BÁO PHÂN CÔNG THỢ CHÍNH / THỢ PHỤ */}
-      {isPendingMyConfirmation ? (
+      {/* BANNER CẢNH BÁO PHÂN CÔNG THỢ CHÍNH / THỢ PHỤ / BÁO BẬN */}
+      {isMyAssignmentBusy ? (
+        <View style={[styles.stickyCancelNoticeBar, { backgroundColor: '#D97706' }]}>
+          <Ionicons name="hourglass" size={18} color="#FFFFFF" />
+          <Text style={styles.stickyCancelNoticeText} numberOfLines={2}>
+            Bạn đã báo bận cho ca làm này. Studio đang xử lý duyệt và điều phối.
+          </Text>
+        </View>
+      ) : isPendingMyConfirmation ? (
         <View style={[styles.stickyCancelNoticeBar, { backgroundColor: '#B45309' }]}>
           <Ionicons name="information-circle" size={18} color="#FFFFFF" />
           <Text style={styles.stickyCancelNoticeText} numberOfLines={2}>
@@ -1792,106 +1853,200 @@ export default function JobExecutionScreen() {
                 </View>
 
                 {/* Danh sách Đội Ngũ Thực Hiện */}
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 }}>
-                  Đội Ngũ Thực Hiện ({booking?.assignedStaff?.length || 0} chuyên viên):
-                </Text>
+                {(() => {
+                  const isStaffBusy = (s: any) =>
+                    s.status === 'EMERGENCY_CANCELLED' ||
+                    s.status === 'REPORTED_BUSY_PENDING_APPROVAL' ||
+                    (s.status === 'REPLACED' && Boolean(s.cancellationReason)) ||
+                    (Boolean(s.cancellationReason) && !s.isConfirmedByStaff);
 
-                <View style={{ gap: 8 }}>
-                  {(booking?.assignedStaff || []).map((staff: any, idx: number) => {
-                    const isSelf = Boolean(
-                      (userInfo?.id && (staff.userId === userInfo.id || staff.staffId === userInfo.id)) ||
-                      (userInfo?.muaId && (staff.muaId === userInfo.muaId || staff.staffId === userInfo.muaId)) ||
-                      (profile?.muaId && (staff.muaId === profile.muaId || staff.staffId === profile.muaId)) ||
-                      (userInfo?.phoneNumber && staff.staffPhone && staff.staffPhone.replace(/\D/g, '') === userInfo.phoneNumber.replace(/\D/g, ''))
-                    );
-                    const isPrimary = staff.role === 'PRIMARY_MUA';
-                    const isConfirmed = Boolean(staff.isConfirmedByStaff || staff.confirmedAt);
+                  // Chỉ hiển thị các thợ thật sự đang được gán (ACTIVE/CONFIRMED) hoặc thợ đã từng gán mà báo bận
+                  // Bỏ qua thợ bị thay thế thuần túy không có báo bận
+                  const relevantStaff = (booking?.assignedStaff || []).filter((s: any) => {
+                    if (s.status === 'ACTIVE' || s.status === 'CONFIRMED') return true;
+                    if (isStaffBusy(s)) return true;
+                    if (s.status === 'DECLINED') return true;
+                    return false;
+                  });
 
-                    return (
-                      <View
-                        key={idx}
-                        style={{
-                          backgroundColor: isSelf ? '#F0FDF4' : '#FFFFFF',
-                          borderRadius: 10,
-                          padding: 10,
-                          borderWidth: 1,
-                          borderColor: isSelf ? '#86EFAC' : '#E2E8F0',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}
-                      >
-                        <View style={{ flex: 1, marginRight: 8 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                              {staff.staffName || 'Chuyên viên'}
-                            </Text>
-                            {isSelf && (
-                              <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                                <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>Bạn</Text>
-                              </View>
-                            )}
-                          </View>
-                          <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                            {staff.staffPhone || '---'}
-                          </Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  // Ưu tiên hiển thị: Thợ đang hoạt động lên trước (Thợ chính trước, thợ phụ sau), thợ báo bận xếp phía sau
+                  const sortedStaff = [...relevantStaff].sort((a: any, b: any) => {
+                    const aBusy = isStaffBusy(a) || a.status === 'DECLINED';
+                    const bBusy = isStaffBusy(b) || b.status === 'DECLINED';
+                    if (aBusy !== bBusy) return aBusy ? 1 : -1;
+                    if (a.role === 'PRIMARY_MUA' && b.role !== 'PRIMARY_MUA') return -1;
+                    if (b.role === 'PRIMARY_MUA' && a.role !== 'PRIMARY_MUA') return 1;
+                    return 0;
+                  });
+
+                  const activeStaffCount = sortedStaff.filter((s: any) => !isStaffBusy(s) && s.status !== 'DECLINED').length;
+                  const busyStaffCount = sortedStaff.filter((s: any) => isStaffBusy(s)).length;
+
+                  return (
+                    <>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 }}>
+                        Đội Ngũ Thực Hiện ({activeStaffCount} chuyên viên{busyStaffCount > 0 ? ` - ${busyStaffCount} báo bận` : ''}):
+                      </Text>
+
+                      <View style={{ gap: 8 }}>
+                        {sortedStaff.map((staff: any, idx: number) => {
+                          const isSelf = Boolean(
+                            (userInfo?.id && (staff.userId === userInfo.id || staff.staffId === userInfo.id)) ||
+                            (userInfo?.muaId && (staff.muaId === userInfo.muaId || staff.staffId === userInfo.muaId)) ||
+                            (profile?.muaId && (staff.muaId === profile.muaId || staff.staffId === profile.muaId)) ||
+                            (userInfo?.phoneNumber && staff.staffPhone && staff.staffPhone.replace(/\D/g, '') === userInfo.phoneNumber.replace(/\D/g, ''))
+                          );
+                          const isPrimary = staff.role === 'PRIMARY_MUA';
+                          const isBusy = isStaffBusy(staff);
+                          const isDeclined = staff.status === 'DECLINED';
+                          const isConfirmed = !isBusy && !isDeclined && Boolean(staff.isConfirmedByStaff || staff.confirmedAt || staff.status === 'CONFIRMED');
+
+                          return (
                             <View
+                              key={staff.id || idx}
                               style={{
-                                backgroundColor: isPrimary ? '#FEF3C7' : '#EFF6FF',
-                                paddingHorizontal: 6,
-                                paddingVertical: 2,
-                                borderRadius: 4,
+                                backgroundColor: isSelf ? '#F0FDF4' : (isBusy ? '#FFF7ED' : '#FFFFFF'),
+                                borderRadius: 10,
+                                padding: 10,
+                                borderWidth: 1,
+                                borderColor: isSelf ? '#86EFAC' : (isBusy ? '#FED7AA' : '#E2E8F0'),
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                opacity: isBusy ? 0.92 : 1,
                               }}
                             >
-                              <Text
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: '700',
-                                  color: isPrimary ? '#B45309' : '#2563EB',
-                                }}
-                              >
-                                {isPrimary ? 'Thợ Chính' : 'Thợ Phụ'}
-                                {staff.commissionRate !== undefined && staff.commissionRate !== null ? ` (${staff.commissionRate}%)` : ''}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
+                              <View style={{ flex: 1, marginRight: 8 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <Text style={{ fontSize: 14, fontWeight: '700', color: isBusy ? '#475569' : '#0F172A' }}>
+                                    {staff.staffName || 'Chuyên viên'}
+                                  </Text>
+                                  {isSelf && (
+                                    <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>Bạn</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                                  {staff.staffPhone || '---'}
+                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                  <View
+                                    style={{
+                                      backgroundColor: isBusy ? '#FEE2E2' : (isPrimary ? '#FEF3C7' : '#EFF6FF'),
+                                      paddingHorizontal: 6,
+                                      paddingVertical: 2,
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: '700',
+                                        color: isBusy ? '#B91C1C' : (isPrimary ? '#B45309' : '#2563EB'),
+                                      }}
+                                    >
+                                      {isPrimary ? (isBusy ? 'Thợ Chính (Đã báo bận)' : 'Thợ Chính') : (isBusy ? 'Thợ Phụ (Đã báo bận)' : 'Thợ Phụ')}
+                                      {staff.commissionRate !== undefined && staff.commissionRate !== null ? ` (${staff.commissionRate}%)` : ''}
+                                    </Text>
+                                  </View>
+                                </View>
+                                {isBusy && Boolean(staff.cancellationReason) && (
+                                  <Text style={{ fontSize: 11, color: '#B45309', marginTop: 3, fontStyle: 'italic' }}>
+                                    Lý do: {staff.cancellationReason}
+                                  </Text>
+                                )}
+                              </View>
 
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <View
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 4,
-                              backgroundColor: isConfirmed ? '#ECFDF5' : '#FFFBEB',
-                              borderColor: isConfirmed ? '#A7F3D0' : '#FDE68A',
-                              borderWidth: 1,
-                              paddingHorizontal: 8,
-                              paddingVertical: 4,
-                              borderRadius: 6,
-                            }}
-                          >
-                            <Ionicons
-                              name={isConfirmed ? 'checkmark-circle' : 'time-outline'}
-                              size={12}
-                              color={isConfirmed ? '#059669' : '#D97706'}
-                            />
-                            <Text
-                              style={{
-                                fontSize: 11,
-                                fontWeight: '700',
-                                color: isConfirmed ? '#059669' : '#D97706',
-                              }}
-                            >
-                              {isConfirmed ? 'Đã xác nhận' : 'Chờ xác nhận'}
-                            </Text>
-                          </View>
-                        </View>
+                              <View style={{ alignItems: 'flex-end' }}>
+                                {isBusy ? (
+                                  <View
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      backgroundColor: '#FEF2F2',
+                                      borderColor: '#FECACA',
+                                      borderWidth: 1,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 4,
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <Ionicons name="alert-circle" size={12} color="#DC2626" />
+                                    <Text
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: '700',
+                                        color: '#DC2626',
+                                      }}
+                                    >
+                                      Báo bận
+                                    </Text>
+                                  </View>
+                                ) : isDeclined ? (
+                                  <View
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      backgroundColor: '#F1F5F9',
+                                      borderColor: '#CBD5E1',
+                                      borderWidth: 1,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 4,
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <Ionicons name="close-circle-outline" size={12} color="#64748B" />
+                                    <Text
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: '700',
+                                        color: '#64748B',
+                                      }}
+                                    >
+                                      Đã từ chối
+                                    </Text>
+                                  </View>
+                                ) : (
+                                  <View
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      backgroundColor: isConfirmed ? '#ECFDF5' : '#FFFBEB',
+                                      borderColor: isConfirmed ? '#A7F3D0' : '#FDE68A',
+                                      borderWidth: 1,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 4,
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <Ionicons
+                                      name={isConfirmed ? 'checkmark-circle' : 'time-outline'}
+                                      size={12}
+                                      color={isConfirmed ? '#059669' : '#D97706'}
+                                    />
+                                    <Text
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: '700',
+                                        color: isConfirmed ? '#059669' : '#D97706',
+                                      }}
+                                    >
+                                      {isConfirmed ? 'Đã xác nhận' : 'Chờ xác nhận'}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
                       </View>
-                    );
-                  })}
-                </View>
+                    </>
+                  );
+                })()}
               </View>
             )}
 
@@ -2020,7 +2175,14 @@ export default function JobExecutionScreen() {
 
       {/* Floating Bottom Action Bar based on current Status */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {currentStatus === 'REQUESTED' ? (
+        {isMyAssignmentBusy ? (
+          <View style={{ flex: 1, backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="hourglass-outline" size={18} color="#B45309" />
+            <Text style={{ flex: 1, fontSize: 13, color: '#B45309', fontWeight: '500' }}>
+              Bạn đã gửi báo bận cho ca làm này. Vui lòng chờ Studio xử lý duyệt.
+            </Text>
+          </View>
+        ) : currentStatus === 'REQUESTED' ? (
           /* ========================================================================= */
           /* NÚT HÀNH ĐỘNG KHI ĐƠN HẸN ĐANG CHỜ THỢ XÁC NHẬN (REQUESTED)                */
           /* ========================================================================= */
@@ -2545,7 +2707,9 @@ export default function JobExecutionScreen() {
         onClose={() => setIsCameraVisible(false)}
         onSuccess={(photoUrl) => {
           setIsCameraVisible(false);
-          handleTransitionState('COMPLETED', photoUrl);
+          setTimeout(() => {
+            handleTransitionState('COMPLETED', photoUrl);
+          }, 350);
         }}
       />
 
@@ -2615,8 +2779,8 @@ export default function JobExecutionScreen() {
                   />
                 </View>
                 <Text style={styles.disputeModalTitle} numberOfLines={1}>
-                  {cancelModalType === 'AGENCY_EMERGENCY_BUSY'
-                    ? 'Báo Bận Lên Studio'
+                  {isAgencyBooking
+                    ? 'Báo Cáo Sự Cố Lên Studio'
                     : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
                     ? 'Báo Khách Vắng Mặt (Admin)'
                     : 'Xác Nhận Hủy Cả Đơn'}
@@ -2636,16 +2800,16 @@ export default function JobExecutionScreen() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingTop: 4, paddingBottom: 16 }}
             >
-              {/* Segment Tabs chuyển đổi giữa Báo bận Studio (nếu là Agency), Báo khách vắng mặt và Thợ tự hủy */}
-              <View style={styles.disputeTypeTabs}>
-                {isAgencyBooking && (
+              {/* Chỉ hiển thị tabs lựa chọn với đơn thợ tự do (Freelancer), đơn Studio do Agency quản lý hoàn toàn */}
+              {!isAgencyBooking && (
+                <View style={styles.disputeTypeTabs}>
                   <TouchableOpacity
                     style={[
                       styles.disputeTypeTab,
-                      cancelModalType === 'AGENCY_EMERGENCY_BUSY' && styles.disputeTypeTabActive,
+                      cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabActive,
                     ]}
                     onPress={() => {
-                      setCancelModalType('AGENCY_EMERGENCY_BUSY');
+                      setCancelModalType('CUSTOMER_ABSENT_DISPUTE');
                       setCancelReason('');
                     }}
                     activeOpacity={0.8}
@@ -2653,86 +2817,55 @@ export default function JobExecutionScreen() {
                     <Text
                       style={[
                         styles.disputeTypeTabTitle,
-                        cancelModalType === 'AGENCY_EMERGENCY_BUSY' && [styles.disputeTypeTabTitleActive, { color: '#2563EB' }],
+                        cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabTitleActive,
                       ]}
                       numberOfLines={1}
                     >
-                      Báo Studio
+                      Khách Vắng Mặt
                     </Text>
                     <Text
                       style={[
                         styles.disputeTypeTabSub,
-                        cancelModalType === 'AGENCY_EMERGENCY_BUSY' && { color: '#3B82F6', fontWeight: '700' },
+                        cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabSubActive,
                       ]}
                       numberOfLines={1}
                     >
-                      Agency đổi thợ
+                      Báo lên Admin
                     </Text>
                   </TouchableOpacity>
-                )}
 
-                <TouchableOpacity
-                  style={[
-                    styles.disputeTypeTab,
-                    cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabActive,
-                  ]}
-                  onPress={() => {
-                    setCancelModalType('CUSTOMER_ABSENT_DISPUTE');
-                    setCancelReason('');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text
+                  <TouchableOpacity
                     style={[
-                      styles.disputeTypeTabTitle,
-                      cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabTitleActive,
+                      styles.disputeTypeTab,
+                      cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabActive,
                     ]}
-                    numberOfLines={1}
+                    onPress={() => {
+                      setCancelModalType('MUA_CANCEL');
+                      setCancelReason('');
+                    }}
+                    activeOpacity={0.8}
                   >
-                    Khách Vắng Mặt
-                  </Text>
-                  <Text
-                    style={[
-                      styles.disputeTypeTabSub,
-                      cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabSubActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    Báo lên Admin
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.disputeTypeTab,
-                    cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabActive,
-                  ]}
-                  onPress={() => {
-                    setCancelModalType('MUA_CANCEL');
-                    setCancelReason('');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.disputeTypeTabTitle,
-                      cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabTitleActive,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {isAgencyBooking ? 'Hủy Cả Đơn' : 'Thợ Tự Hủy Ca'}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.disputeTypeTabSub,
-                      cancelModalType === 'MUA_CANCEL' && { color: '#EF4444', fontWeight: '700' },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    Hoàn cọc khách
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                    <Text
+                      style={[
+                        styles.disputeTypeTabTitle,
+                        cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabTitleActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Thợ Tự Hủy Ca
+                    </Text>
+                    <Text
+                      style={[
+                        styles.disputeTypeTabSub,
+                        cancelModalType === 'MUA_CANCEL' && { color: '#EF4444', fontWeight: '700' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Hoàn cọc khách
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {cancelModalType === 'AGENCY_EMERGENCY_BUSY' ? (
                 <>
@@ -3067,9 +3200,9 @@ export default function JobExecutionScreen() {
 
 
 
-      {/* Modal Duy Nhất Xác Nhận Khách Đã Trả Tiền Mặt */}
+      {/* Modal Duy Nhất Xác Nhận Khách Đã Trả Tiền Mặt (Chỉ hiển thị cho Thợ chính) */}
       <Modal
-        visible={isCashPromptModalVisible}
+        visible={Boolean(isCashPromptModalVisible && isPrimaryRole && !isAssistantRole)}
         transparent
         animationType="fade"
         statusBarTranslucent
@@ -3115,7 +3248,7 @@ export default function JobExecutionScreen() {
             <View style={styles.cashPromptBtnRow}>
               <TouchableOpacity
                 style={styles.cashPromptRejectBtn}
-                onPress={() => setIsCashPromptModalVisible(false)}
+                onPress={handleDeclineCashReceipt}
                 disabled={isConfirmingCash}
                 activeOpacity={0.8}
               >
@@ -3124,7 +3257,7 @@ export default function JobExecutionScreen() {
 
               <TouchableOpacity
                 style={styles.cashPromptConfirmBtn}
-                onPress={handleConfirmCashReceipt}
+                onPress={performConfirmCashReceipt}
                 disabled={isConfirmingCash}
                 activeOpacity={0.8}
               >

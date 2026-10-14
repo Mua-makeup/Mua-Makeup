@@ -16,9 +16,30 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
   const [isConfirming, setIsConfirming] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
-  const isAssignedPending = booking.status === 'AGENCY_ASSIGNED' || booking.isConfirmedByStaff === false;
-  const isConfirmed = booking.isConfirmedByStaff === true || (booking.status !== 'AGENCY_ASSIGNED' && booking.isConfirmedByStaff === undefined);
-  const isInProgressOrActive = isConfirmed && ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(booking.status);
+  const isCancelled = booking.status === 'CANCELLED' || booking.status === 'CANCELLED_EXPIRED';
+
+  const isReportedBusy =
+    booking.assignmentStatus === 'REPORTED_BUSY_PENDING_APPROVAL' ||
+    booking.assignmentStatus === 'EMERGENCY_CANCELLED';
+
+  const isSoloPending = !isCancelled && !isReportedBusy && booking.soloPendingConfirmation === true;
+
+  const isAssignedPending =
+    !isCancelled &&
+    !isReportedBusy &&
+    !isSoloPending &&
+    (booking.status === 'AGENCY_ASSIGNED' || booking.isConfirmedByStaff === false);
+
+  const isConfirmed =
+    !isCancelled &&
+    !isReportedBusy &&
+    !isSoloPending &&
+    (booking.isConfirmedByStaff === true ||
+      (booking.status !== 'AGENCY_ASSIGNED' && booking.isConfirmedByStaff === undefined));
+
+  const isInProgressOrActive =
+    !isCancelled &&
+    isConfirmed && ['ACCEPTED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(booking.status);
 
   const [isDeclining, setIsDeclining] = useState(false);
 
@@ -105,6 +126,12 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
   };
 
   const getStatusLabel = () => {
+    if (isReportedBusy) {
+      return { label: 'Đã Báo Bận (Chờ Duyệt)', color: '#D97706', bg: '#FEF3C7' };
+    }
+    if (isSoloPending) {
+      return { label: 'Đề Xuất Làm Solo', color: '#6D28D9', bg: '#EDE9FE' };
+    }
     if (booking.isConfirmedByStaff === false) {
       return { label: 'Chờ Tiếp Nhận', color: '#B45309', bg: '#FEF3C7' };
     }
@@ -140,35 +167,94 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
 
   return (
     <View style={styles.card}>
-      {/* Top Header: Mã đơn + Trạng thái */}
+      {/* Top Header: Mã đơn + Trạng thái & Nút Chi Tiết */}
       <View style={styles.headerRow}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <Text style={styles.bookingCode}>#{booking.bookingCode}</Text>
-          {booking.assignmentRole === 'ASSISTANT_MUA' && (
-            <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
-              <Text style={[styles.statusText, { color: '#2275ceff' }]}>Trợ Lý</Text>
-            </View>
-          )}
-          {booking.assignmentRole === 'PRIMARY_MUA' && (
-            <View style={[styles.statusBadge, { backgroundColor: '#EFF6FF' }]}>
-              <Text style={[styles.statusText, { color: '#1D4ED8' }]}>Thợ Chính</Text>
-            </View>
-          )}
-          {booking.commissionRate !== undefined && booking.commissionRate !== null && (
-            <View style={[styles.statusBadge, { backgroundColor: '#ECFDF5' }]}>
-              <Text style={[styles.statusText, { color: '#047857' }]}>
-                Hoa hồng: {booking.commissionRate}%
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-          <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
+        <Text style={styles.bookingCode} numberOfLines={1}>
+          #{booking.bookingCode}
+        </Text>
+        <View style={styles.headerRight}>
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
+            <Text style={[styles.statusText, { color: statusInfo.color }]} numberOfLines={1}>
+              {statusInfo.label}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.detailMiniBtn}
+            onPress={() => router.push(`/booking/detail/${booking.id}` as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.detailMiniBtnText}>Chi tiết</Text>
+            <Ionicons name="chevron-forward" size={11} color="#475569" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Thông báo phân công solo / thợ chính khi chưa xác nhận */}
-      {booking.isConfirmedByStaff === false && booking.assignmentRole === 'PRIMARY_MUA' && (
+      {/* Tags vai trò và hoa hồng */}
+      <View style={styles.tagsRow}>
+        {booking.assignmentRole === 'ASSISTANT_MUA' && (
+          <View style={[styles.statusBadge, { backgroundColor: '#F3E8FF' }]}>
+            <Text style={[styles.statusText, { color: '#2831d9ff' }]}>Trợ Lý</Text>
+          </View>
+        )}
+        {booking.assignmentRole === 'PRIMARY_MUA' && (
+          <View style={[styles.statusBadge, { backgroundColor: '#EFF6FF' }]}>
+            <Text style={[styles.statusText, { color: '#1D4ED8' }]}>Thợ Chính</Text>
+          </View>
+        )}
+        {booking.commissionRate !== undefined && booking.commissionRate !== null && (
+          <View style={[styles.statusBadge, { backgroundColor: '#ECFDF5' }]}>
+            <Text style={[styles.statusText, { color: '#047857' }]}>
+              Hoa hồng: {booking.commissionRate}%
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Thông báo nếu thợ đã báo bận đang chờ duyệt */}
+      {isReportedBusy && (
+        <View style={styles.busyNoticeBox}>
+          <Ionicons name="hourglass-outline" size={15} color="#B45309" />
+          <Text style={styles.busyNoticeText}>
+            Bạn đã gửi báo bận cho ca làm này. Studio đang xử lý duyệt.
+          </Text>
+        </View>
+      )}
+
+      {/* Thẻ xác nhận làm Solo */}
+      {isSoloPending && (
+        <View style={styles.soloBanner}>
+          <View style={styles.soloBannerHeader}>
+            <Ionicons name="sparkles-outline" size={15} color="#6D28D9" />
+            <Text style={styles.soloBannerTitle}>Đề Xuất Làm Solo</Text>
+          </View>
+          <Text style={styles.soloBannerText}>
+            Studio đề xuất bạn phục vụ ca này một mình và nhận {booking.soloCommissionRate || booking.commissionRate || 100}% hoa hồng gộp.
+          </Text>
+          <View style={styles.soloActionRow}>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnDecline, { flex: 1 }]}
+              onPress={handleDeclineAssignment}
+              disabled={isConfirming || isDeclining}
+            >
+              <Text style={styles.btnDeclineText}>Từ Chối</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnConfirm, { flex: 1.4 }]}
+              onPress={handleConfirmAssignment}
+              disabled={isConfirming || isDeclining}
+            >
+              {isConfirming ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.btnConfirmText}>Đồng Ý Solo</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Thông báo phân công thợ chính thông thường khi chưa xác nhận */}
+      {!isSoloPending && !isReportedBusy && !isCancelled && booking.isConfirmedByStaff === false && booking.assignmentRole === 'PRIMARY_MUA' && (
         <View style={styles.promotionBanner}>
           <Ionicons name="information-circle" size={16} color="#B45309" />
           <Text style={styles.promotionBannerText}>
@@ -177,26 +263,31 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
         </View>
       )}
 
-      {/* Tên dịch vụ & Khách hàng */}
-      <Text style={styles.packageName}>{booking.packageName || 'Dịch Vụ Trang Điểm'}</Text>
-      <Text style={styles.customerName}>Khách hàng: {booking.customerName || 'Khách vãng lai'}</Text>
+      {/* Tên dịch vụ & Khách hàng & Lịch hẹn (Bấm vào xem chi tiết) */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => router.push(`/booking/detail/${booking.id}` as any)}
+      >
+        <Text style={styles.packageName}>{booking.packageName || 'Dịch Vụ Trang Điểm'}</Text>
+        <Text style={styles.customerName}>Khách hàng: {booking.customerName || 'Khách vãng lai'}</Text>
 
-      {/* Lịch hẹn & Địa chỉ */}
-      <View style={styles.metaSection}>
-        <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>Thời gian:</Text>
-          <Text style={styles.metaValue}>
-            {formatBookingSchedule(booking.bookingDate, booking.startTime)}
-          </Text>
-        </View>
+        {/* Lịch hẹn & Địa chỉ */}
+        <View style={styles.metaSection}>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>Thời gian:</Text>
+            <Text style={styles.metaValue}>
+              {formatBookingSchedule(booking.bookingDate, booking.startTime)}
+            </Text>
+          </View>
 
-        <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>Địa điểm:</Text>
-          <Text style={styles.metaValue} numberOfLines={2}>
-            {booking.destinationAddress || 'Tại cơ sở Studio'}
-          </Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>Địa điểm:</Text>
+            <Text style={styles.metaValue} numberOfLines={2}>
+              {booking.destinationAddress || 'Tại cơ sở Studio'}
+            </Text>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Thao tác liên hệ phụ (gọi, xem map) - Nét mảnh, không nền icon */}
       <View style={styles.contactBar}>
@@ -284,11 +375,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 10,
   },
   bookingCode: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#64748B',
   },
   statusBadge: {
@@ -416,5 +519,69 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  busyNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  busyNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#B45309',
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  soloBanner: {
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  soloBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  soloBannerTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6D28D9',
+  },
+  soloBannerText: {
+    fontSize: 12,
+    color: '#581C87',
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  soloActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  detailMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailMiniBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
   },
 });

@@ -8,10 +8,11 @@ import * as Haptics from 'expo-haptics';
 class SoundManager {
   private isAlertPlaying: boolean = false;
   private hapticInterval: any = null;
+  private alertTimeout: any = null;
 
   /**
    * Kích hoạt rung dồn dập báo hiệu khi có cuốc khẩn cấp 45s nổ về:
-   * Rung lặp lại định kỳ mỗi 1.2s cho đến khi thợ bấm Nhận hoặc Bỏ qua.
+   * Rung lặp lại định kỳ mỗi 1.2s cho đến khi thợ bấm Nhận hoặc Bỏ qua (tự ngắt sau 45s).
    */
   async playJobAlertSound(): Promise<void> {
     if (this.isAlertPlaying) return;
@@ -20,6 +21,12 @@ class SoundManager {
     try {
       // Rung phát đầu tiên ngay lập tức
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+      // Tự động ngắt rung sau 45s nếu không có tương tác
+      if (this.alertTimeout) clearTimeout(this.alertTimeout);
+      this.alertTimeout = setTimeout(() => {
+        this.stopJobAlertSound();
+      }, 45000);
 
       // Thiết lập nhịp rung định kỳ lặp lại
       if (this.hapticInterval) clearInterval(this.hapticInterval);
@@ -40,6 +47,10 @@ class SoundManager {
    */
   async stopJobAlertSound(): Promise<void> {
     this.isAlertPlaying = false;
+    if (this.alertTimeout) {
+      clearTimeout(this.alertTimeout);
+      this.alertTimeout = null;
+    }
     if (this.hapticInterval) {
       clearInterval(this.hapticInterval);
       this.hapticInterval = null;

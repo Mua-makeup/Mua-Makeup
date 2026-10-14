@@ -8,6 +8,7 @@ import com.makeup.platform.dto.response.admin.AdminDisputeRes;
 import com.makeup.platform.dto.response.admin.AdminDisputeStatsRes;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.telemetry.AvailabilityStatus;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
@@ -71,6 +72,13 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     public PageResponse<AdminDisputeRes> getAllDisputes(String status, String keyword, Pageable pageable) {
         Specification<BookingEntity> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            // Admin nền tảng xử lý khiếu nại của đơn Thợ Tự Do (FREELANCER_DIRECT) HOẶC đơn Studio đã leo thang lên Admin
+            predicates.add(cb.or(
+                    cb.equal(root.get("bookingPartner"), BookingPartner.FREELANCER_DIRECT),
+                    cb.like(root.get("cancellationReason"), "%[LEO_THANG_ADMIN]%"),
+                    cb.like(root.get("emergencyReason"), "%[LEO_THANG_ADMIN]%")
+            ));
 
             // Filter by dispute context
             if (!StringUtils.hasText(status) || "ALL".equalsIgnoreCase(status)) {
@@ -144,17 +152,24 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         BigDecimal totalDisputedDeposit = BigDecimal.ZERO;
 
         List<BookingEntity> disputes = bookingRepository.findAll((root, query, cb) ->
-                cb.or(
-                        cb.equal(root.get("status"), BookingStatus.DISPUTED),
-                        cb.equal(root.get("status"), BookingStatus.DISPUTE_REFUNDED),
-                        cb.equal(root.get("status"), BookingStatus.DISPUTE_COMPENSATED),
-                        cb.and(
-                                cb.equal(root.get("status"), BookingStatus.CANCELLED),
-                                cb.isNotNull(root.get("emergencyReason"))
+                cb.and(
+                        cb.or(
+                                cb.equal(root.get("bookingPartner"), BookingPartner.FREELANCER_DIRECT),
+                                cb.like(root.get("cancellationReason"), "%[LEO_THANG_ADMIN]%"),
+                                cb.like(root.get("emergencyReason"), "%[LEO_THANG_ADMIN]%")
                         ),
-                        cb.and(
-                                cb.equal(root.get("status"), BookingStatus.PAID_OUT),
-                                cb.isNotNull(root.get("emergencyReason"))
+                        cb.or(
+                                cb.equal(root.get("status"), BookingStatus.DISPUTED),
+                                cb.equal(root.get("status"), BookingStatus.DISPUTE_REFUNDED),
+                                cb.equal(root.get("status"), BookingStatus.DISPUTE_COMPENSATED),
+                                cb.and(
+                                        cb.equal(root.get("status"), BookingStatus.CANCELLED),
+                                        cb.isNotNull(root.get("emergencyReason"))
+                                ),
+                                cb.and(
+                                        cb.equal(root.get("status"), BookingStatus.PAID_OUT),
+                                        cb.isNotNull(root.get("emergencyReason"))
+                                )
                         )
                 )
         );
@@ -301,20 +316,24 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                     bookingDepositRepository.save(deposit);
                 }
 
-                if (depositAmount.compareTo(BigDecimal.ZERO) > 0 && booking.getMua() != null && booking.getMua().getUser() != null) {
-                    Long muaUserId = booking.getMua().getUser().getId();
-                    WalletEntity muaWallet = walletRepository.findByUserIdWithLock(muaUserId)
+                UserEntity payeeUser = (booking.getAgency() != null && booking.getAgency().getOwner() != null)
+                        ? booking.getAgency().getOwner()
+                        : (booking.getMua() != null && booking.getMua().getUser() != null ? booking.getMua().getUser() : null);
+
+                if (depositAmount.compareTo(BigDecimal.ZERO) > 0 && payeeUser != null) {
+                    Long payeeUserId = payeeUser.getId();
+                    WalletEntity payeeWallet = walletRepository.findByUserIdWithLock(payeeUserId)
                             .orElseGet(() -> walletRepository.save(WalletEntity.builder()
-                                    .user(booking.getMua().getUser())
+                                    .user(payeeUser)
                                     .availableBalance(BigDecimal.ZERO)
                                     .frozenBalance(BigDecimal.ZERO)
                                     .currency("VND")
                                     .build()));
 
-                    BigDecimal currentBalance = muaWallet.getAvailableBalance() != null ? muaWallet.getAvailableBalance() : BigDecimal.ZERO;
+                    BigDecimal currentBalance = payeeWallet.getAvailableBalance() != null ? payeeWallet.getAvailableBalance() : BigDecimal.ZERO;
                     BigDecimal newBalance = currentBalance.add(depositAmount);
-                    muaWallet.setAvailableBalance(newBalance);
-                    walletRepository.save(muaWallet);
+                    payeeWallet.setAvailableBalance(newBalance);
+                    walletRepository.save(payeeWallet);
 
                     // Giải phóng frozen balance của khách hàng
                     final BigDecimal finalDepositAmount = depositAmount;
@@ -341,7 +360,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                         LedgerEntryEntity ledgerEntry = LedgerEntryEntity.builder()
                                 .referenceType("BOOKING_COMPENSATION")
                                 .referenceId(bookingId)
-                                .wallet(muaWallet)
+                                .wallet(payeeWallet)
                                 .entryType("CREDIT")
                                 .amount(depositAmount)
                                 .balanceAfter(newBalance)

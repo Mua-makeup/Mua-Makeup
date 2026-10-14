@@ -12,15 +12,25 @@ import com.makeup.platform.entity.agency.AgencyOvertimeRuleEntity;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.agency.OvertimePenaltyType;
 import com.makeup.platform.entity.agency.OvertimePolicyType;
 import com.makeup.platform.entity.agency.OvertimeReasonType;
 import com.makeup.platform.entity.agency.OvertimeReportStatus;
+import com.makeup.platform.entity.agency.OvertimeReviewAction;
+import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.wallet.LedgerEntryEntity;
+import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.mapper.agency.AgencyOvertimeMapper;
 import com.makeup.platform.repository.AgencyOvertimeRuleRepository;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.wallet.LedgerEntryRepository;
+import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.agency.AgencyOvertimeService;
+import com.makeup.platform.service.interaction.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,6 +40,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,6 +55,10 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
     private final AgencyOvertimeRuleRepository agencyOvertimeRuleRepository;
     private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
     private final AgencyOvertimeMapper agencyOvertimeMapper;
+    private final NotificationService notificationService;
+    private final WalletRepository walletRepository;
+    private final LedgerEntryRepository ledgerEntryRepository;
+    private final BookingRepository bookingRepository;
 
     @Override
     @Transactional
@@ -184,6 +199,12 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
         log.info("Thợ staffId={} nộp giải trình quá giờ reportId={} cho ca bookingId={}",
                 staff.getId(), saved.getId(), req.getBookingId());
 
+        try {
+            notificationService.createOvertimeReportSubmittedNotification(agency, staff, saved);
+        } catch (Exception ex) {
+            log.warn("Failed to create overtime report notification: {}", ex.getMessage());
+        }
+
         return agencyOvertimeMapper.toReportRes(saved);
     }
 
@@ -206,28 +227,72 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
             );
         }
 
+        BigDecimal allowanceAmount = BigDecimal.ZERO;
+        boolean shouldCreditAllowance = false;
+
         switch (req.getAction()) {
+            case APPROVE_ALLOWANCE:
+                report.setStatus(OvertimeReportStatus.APPROVED_WAIVED);
+                shouldCreditAllowance = true;
+                if (req.getCustomPenaltyAmount() != null && req.getCustomPenaltyAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    allowanceAmount = req.getCustomPenaltyAmount();
+                } else if (report.getRule() != null) {
+                    AgencyOvertimeRuleEntity rule = report.getRule();
+                    if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
+                        allowanceAmount = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
+                    } else if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
+                        BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
+                        BigDecimal baseAmount = (booking != null && booking.getTotalAmount() != null) ? booking.getTotalAmount() : BigDecimal.ZERO;
+                        BigDecimal pct = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
+                        allowanceAmount = baseAmount.multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                    } else if (rule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
+                        BigDecimal ratePerMinute = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
+                        int mins = report.getOvertimeMinutes() != null ? report.getOvertimeMinutes() : 0;
+                        allowanceAmount = ratePerMinute.multiply(BigDecimal.valueOf(mins)).setScale(0, RoundingMode.HALF_UP);
+                    }
+                }
+                report.setPenaltyAmountApplied(allowanceAmount);
+                break;
+
+            case WAIVE_PENALTY:
+                report.setStatus(OvertimeReportStatus.APPROVED_WAIVED);
+                if (report.getRule() != null && report.getRule().getPolicyType() == OvertimePolicyType.ALLOWANCE) {
+                    shouldCreditAllowance = true;
+                    AgencyOvertimeRuleEntity rule = report.getRule();
+                    if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
+                        allowanceAmount = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
+                    } else if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
+                        BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
+                        BigDecimal baseAmount = (booking != null && booking.getTotalAmount() != null) ? booking.getTotalAmount() : BigDecimal.ZERO;
+                        BigDecimal pct = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
+                        allowanceAmount = baseAmount.multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                    }
+                    report.setPenaltyAmountApplied(allowanceAmount);
+                } else {
+                    report.setPenaltyAmountApplied(BigDecimal.ZERO);
+                }
+                break;
+
             case DEDUCT_BY_RULE:
                 report.setStatus(OvertimeReportStatus.PENALIZED);
                 if (report.getRule() != null) {
                     report.setPenaltyAmountApplied(report.getRule().getPenaltyValue());
                 }
                 break;
-            case WAIVE_PENALTY:
-                report.setStatus(OvertimeReportStatus.APPROVED_WAIVED);
-                report.setPenaltyAmountApplied(BigDecimal.ZERO);
-                break;
+
             case CUSTOM_PENALTY:
                 report.setStatus(OvertimeReportStatus.PENALIZED);
                 BigDecimal penalty = req.getCustomPenaltyAmount() != null ? req.getCustomPenaltyAmount() : BigDecimal.ZERO;
                 report.setPenaltyAmountApplied(penalty);
                 break;
+
             case CHARGE_CUSTOMER:
                 report.setStatus(OvertimeReportStatus.CHARGED_CUSTOMER);
                 BigDecimal surcharge = req.getCustomerSurchargeAmount() != null ? req.getCustomerSurchargeAmount() : BigDecimal.ZERO;
                 report.setCustomerSurchargeAmount(surcharge);
                 report.setChargeReason(req.getChargeReason());
                 break;
+
             default:
                 throw new CustomBusinessException(
                         ErrorCodes.ERR_INVALID_OVERTIME_ACTION,
@@ -241,7 +306,111 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
         report.setReviewedAt(LocalDateTime.now());
 
         AgencyStaffOvertimeReportEntity saved = agencyStaffOvertimeReportRepository.save(report);
-        log.info("Admin userId={} phán quyết reportId={} với action={}", userId, reportId, req.getAction());
+
+        // THỰC HIỆN CỘNG TIỀN VÀO VÍ THỢ & TRÍCH TỪ VÍ STUDIO THEO DOUBLE-ENTRY LEDGER
+        if (shouldCreditAllowance && allowanceAmount.compareTo(BigDecimal.ZERO) > 0) {
+            BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
+            String bookingCode = (booking != null && booking.getBookingCode() != null) ? booking.getBookingCode() : String.valueOf(report.getBookingId());
+
+            // 1. Trích từ ví Studio (Agency Owner Wallet - DEBIT)
+            UserEntity ownerUser = agency.getOwner();
+            if (ownerUser != null) {
+                WalletEntity ownerWallet = walletRepository.findByUserIdWithLock(ownerUser.getId())
+                        .orElseGet(() -> {
+                            WalletEntity newWallet = WalletEntity.builder()
+                                    .user(ownerUser)
+                                    .availableBalance(BigDecimal.ZERO)
+                                    .frozenBalance(BigDecimal.ZERO)
+                                    .currency("VND")
+                                    .build();
+                            return walletRepository.save(newWallet);
+                        });
+
+                
+                if (ownerWallet.getAvailableBalance() != null && ownerWallet.getAvailableBalance().compareTo(allowanceAmount) >= 0) {
+                    Long staffUserIdKey = (saved.getStaff() != null && saved.getStaff().getMua() != null && saved.getStaff().getMua().getUser() != null)
+                            ? saved.getStaff().getMua().getUser().getId() : (saved.getStaff() != null ? saved.getStaff().getId() : saved.getId());
+                    String debitKey = "ot:debit:booking:" + report.getBookingId() + ":staff:" + staffUserIdKey;
+                    if (!ledgerEntryRepository.existsByIdempotencyKey(debitKey)) {
+                        ownerWallet.setAvailableBalance(ownerWallet.getAvailableBalance().subtract(allowanceAmount));
+                        walletRepository.save(ownerWallet);
+
+                        String staffName = (saved.getStaff() != null && saved.getStaff().getMua() != null && saved.getStaff().getMua().getUser() != null)
+                                ? saved.getStaff().getMua().getUser().getFullName() : "nhân viên";
+
+                        LedgerEntryEntity debitEntry = LedgerEntryEntity.builder()
+                                .referenceType("OVERTIME_PAYMENT")
+                                .referenceId(saved.getId())
+                                .wallet(ownerWallet)
+                                .entryType("DEBIT")
+                                .amount(allowanceAmount)
+                                .balanceAfter(ownerWallet.getAvailableBalance())
+                                .description(String.format("Chi trả phụ cấp làm thêm giờ đơn #%s cho thợ %s (-%s đ)",
+                                        bookingCode, staffName, String.format("%,d", allowanceAmount.longValue())))
+                                .idempotencyKey(debitKey)
+                                .build();
+                        ledgerEntryRepository.save(debitEntry);
+                        log.info("[OvertimeReview] Debited {} VND from agency owner userId={} for overtime reportId={}",
+                                allowanceAmount, ownerUser.getId(), saved.getId());
+                    }
+                } else {
+                    log.info("[OvertimeReview] Ví Studio userId={} không đủ số dư ({} < {}), tiền tăng ca sẽ được trích từ doanh thu cọc đơn #{} khi quyết toán",
+                            ownerUser.getId(), ownerWallet.getAvailableBalance(), allowanceAmount, bookingCode);
+                }
+            }
+
+            // 2. Ghi có vào ví Thợ (Staff Wallet - CREDIT)
+            if (saved.getStaff() != null && saved.getStaff().getMua() != null && saved.getStaff().getMua().getUser() != null) {
+                UserEntity staffUser = saved.getStaff().getMua().getUser();
+                WalletEntity staffWallet = walletRepository.findByUserIdWithLock(staffUser.getId())
+                        .orElseGet(() -> {
+                            WalletEntity newWallet = WalletEntity.builder()
+                                    .user(staffUser)
+                                    .availableBalance(BigDecimal.ZERO)
+                                    .frozenBalance(BigDecimal.ZERO)
+                                    .currency("VND")
+                                    .build();
+                            return walletRepository.save(newWallet);
+                        });
+
+                String creditKey = "ot:credit:booking:" + report.getBookingId() + ":staff:" + staffUser.getId();
+                if (!ledgerEntryRepository.existsByIdempotencyKey(creditKey)) {
+                    staffWallet.setAvailableBalance(staffWallet.getAvailableBalance().add(allowanceAmount));
+                    walletRepository.save(staffWallet);
+
+                    LedgerEntryEntity creditEntry = LedgerEntryEntity.builder()
+                            .referenceType("OVERTIME_ALLOWANCE")
+                            .referenceId(saved.getId())
+                            .wallet(staffWallet)
+                            .entryType("CREDIT")
+                            .amount(allowanceAmount)
+                            .balanceAfter(staffWallet.getAvailableBalance())
+                            .description(String.format("Nhận trợ cấp làm thêm giờ đơn #%s (+%d phút) do Studio duyệt",
+                                    bookingCode, saved.getOvertimeMinutes()))
+                            .idempotencyKey(creditKey)
+                            .build();
+                    ledgerEntryRepository.save(creditEntry);
+                    log.info("[OvertimeReview] Credited {} VND to staff userId={} for overtime reportId={}",
+                            allowanceAmount, staffUser.getId(), saved.getId());
+                }
+
+                // 3. Gửi thông báo realtime (In-App + WebSocket STOMP + Push) đến Thợ
+                try {
+                    notificationService.createOvertimeApprovedNotification(
+                            staffUser,
+                            agency,
+                            bookingCode,
+                            saved.getOvertimeMinutes(),
+                            allowanceAmount
+                    );
+                } catch (Exception notifEx) {
+                    log.warn("[OvertimeReview] Failed to notify staff of overtime approval: {}", notifEx.getMessage());
+                }
+            }
+        }
+
+        log.info("Admin userId={} phán quyết reportId={} với action={}, allowanceAmount={}",
+                userId, reportId, req.getAction(), allowanceAmount);
 
         return agencyOvertimeMapper.toReportRes(saved);
     }

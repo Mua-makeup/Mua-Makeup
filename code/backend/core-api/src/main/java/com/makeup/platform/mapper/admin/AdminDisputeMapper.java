@@ -82,6 +82,8 @@ public class AdminDisputeMapper {
                 .emergencyReportedAt(booking.getEmergencyReportedAt())
                 .cancellationReason(booking.getCancellationReason())
                 .disputeOrigin(disputeOrigin)
+                .isEscalatedFromStudio((booking.getCancellationReason() != null && booking.getCancellationReason().contains("[LEO_THANG_ADMIN]"))
+                        || (booking.getEmergencyReason() != null && booking.getEmergencyReason().contains("[LEO_THANG_ADMIN]")))
                 .serviceSubtotal(booking.getServiceSubtotal())
                 .surchargeFee(booking.getSurchargeFee())
                 .distanceFee(booking.getDistanceFee())

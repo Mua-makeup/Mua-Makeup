@@ -3085,4 +3085,156 @@ public class EmailServiceImpl implements EmailService {
                 frontendUrl
         );
     }
+
+    @Override
+    @Async
+    public void sendAgencyOvertimeReportNotification(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            Long bookingId,
+            Integer overtimeMinutes,
+            String reason
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send overtime report email: agency owner email missing");
+            return;
+        }
+
+        String subject = "[MUA Platform] Giải Trình Quá Giờ Mới Từ Thợ " + staffName + " - Đơn #" + bookingId;
+        String htmlContent = buildOvertimeReportNotificationHtml(
+                agencyOwnerName,
+                agencyName,
+                staffName,
+                staffPhone,
+                bookingId,
+                overtimeMinutes,
+                reason
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildOvertimeReportNotificationHtml(
+            String ownerName,
+            String agency,
+            String staff,
+            String phone,
+            Long bookingId,
+            Integer overtimeMinutes,
+            String reason
+    ) {
+        String owner = (ownerName != null && !ownerName.isBlank()) ? ownerName : "Quản Lý Studio";
+        String studioName = (agency != null && !agency.isBlank()) ? agency : "Studio";
+        String staffPhone = (phone != null && !phone.isBlank()) ? phone : "Chưa cập nhật";
+        int minutes = overtimeMinutes != null ? overtimeMinutes : 0;
+        String explanation = (reason != null && !reason.isBlank()) ? reason : "Không có lý do chi tiết";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <title>Báo Cáo Tăng Ca Mới Từ Thợ</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e293b 100%%); padding: 32px 30px; text-align: center;">
+                          <h1 style="color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: 0.5px;">%s</h1>
+                          <p style="color: #94a3b8; font-size: 13px; margin: 6px 0 0 0;">HỆ THỐNG QUẢN LÝ TĂNG CA STUDIO</p>
+                        </td>
+                      </tr>
+
+                      <!-- Warning Alert Bar -->
+                      <tr>
+                        <td style="background-color: #fef3c7; border-bottom: 2px solid #f59e0b; padding: 14px 30px; text-align: center;">
+                          <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 700;">
+                            BÁO CÁO GIẢI TRÌNH LÀM QUÁ GIỜ MỚI
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Content Body -->
+                      <tr>
+                        <td style="padding: 30px;">
+                          <p style="font-size: 15px; color: #334155; line-height: 1.6; margin: 0 0 16px 0;">
+                            Kính gửi <strong>%s</strong> (Quản lý <strong>%s</strong>),
+                          </p>
+                          <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 20px 0;">
+                            Chuyên viên trang điểm <strong>%s</strong> vừa nộp báo cáo giải trình làm thêm giờ cho ca phục vụ đơn <strong>#%s</strong>. Vui lòng kiểm tra và xét duyệt thù lao / chế tài theo quy chế Studio của bạn.
+                          </p>
+
+                          <!-- Detail Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px;">
+                            <tr>
+                              <td style="padding: 18px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td width="38%%" style="padding: 6px 0; font-size: 13px; color: #64748b;">Chuyên viên:</td>
+                                    <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #0f172a;">%s (SĐT: %s)</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">Mã lịch hẹn:</td>
+                                    <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #2563eb;">#%s</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">Thời gian vượt:</td>
+                                    <td style="padding: 6px 0; font-size: 14px; font-weight: 800; color: #dc2626;">+%d phút</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b; vertical-align: top;">Lý do giải trình:</td>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #334155; font-style: italic; line-height: 1.5;">"%s"</td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- Action Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 10px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s/agency/staff-management?tab=overtime" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 32px; border-radius: 10px;">
+                                  Xem & Xét Duyệt Báo Cáo Trên Web
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ Studio 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                studioName,
+                owner,
+                studioName,
+                staff,
+                bookingId,
+                staff,
+                staffPhone,
+                bookingId,
+                minutes,
+                explanation,
+                frontendUrl
+        );
+    }
 }

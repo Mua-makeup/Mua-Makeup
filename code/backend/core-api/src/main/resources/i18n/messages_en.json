@@ -621,6 +621,18 @@
     "status_ok": "Retrieved cash receipt status successfully.",
     "not_found": "Cash receipt record not found for this booking.",
     "worker_not_assigned": "You are not assigned to this booking to confirm cash receipt.",
-    "freelancer_not_assigned": "You are not assigned to this booking to confirm cash receipt."
+    "freelancer_not_assigned": "You are not assigned to this booking to confirm cash receipt.",
+    "only_primary_worker_allowed": "Only the primary artist can confirm or decline cash receipt.",
+    "worker_declined": "Customer has been notified that cash has not been received."
+  },
+  "agency": {
+    "disputes_fetch_success": "Studio disputes fetched successfully.",
+    "dispute_detail_fetch_success": "Studio dispute detail fetched successfully.",
+    "dispute_resolved_success": "Dispute resolved successfully."
+  },
+  "dispute": {
+    "escalate_success": "Dispute escalated to Platform Admin successfully.",
+    "resolution_accepted": "Dispute resolution accepted successfully.",
+    "not_in_disputed_state": "Booking is not in disputed state."
   }
 }

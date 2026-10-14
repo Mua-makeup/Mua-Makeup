@@ -1,5 +1,7 @@
 package com.makeup.platform.dto.response.agency;
 
+import com.makeup.platform.entity.agency.OvertimePenaltyType;
+import com.makeup.platform.entity.agency.OvertimePolicyType;
 import com.makeup.platform.entity.agency.OvertimeReasonType;
 import com.makeup.platform.entity.agency.OvertimeReportStatus;
 import lombok.AllArgsConstructor;
@@ -26,6 +28,9 @@ public class OvertimeReportRes {
     private OvertimeReasonType reasonType;
     private Long ruleId;
     private String ruleName;
+    private OvertimePolicyType policyType;
+    private OvertimePenaltyType penaltyType;
+    private BigDecimal penaltyValue;
     private String explanationText;
     private String proofImageUrl;
     private OvertimeReportStatus status;

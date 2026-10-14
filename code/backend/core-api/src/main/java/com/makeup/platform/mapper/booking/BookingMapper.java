@@ -270,6 +270,10 @@ public class BookingMapper {
         Boolean isConfirmedByStaff = true;
         String assignmentRole = null;
         String assignmentStatus = null;
+        BigDecimal commissionRate = null;
+        String commissionNote = null;
+        Boolean soloPendingConfirmation = false;
+        BigDecimal soloCommissionRate = null;
 
         if (muaId != null && entity.getStaffAssignments() != null) {
             var assignmentOpt = entity.getStaffAssignments().stream()
@@ -281,6 +285,21 @@ public class BookingMapper {
                 isConfirmedByStaff = Boolean.TRUE.equals(assignment.getIsConfirmedByStaff());
                 assignmentRole = assignment.getAssignmentRole() != null ? assignment.getAssignmentRole().name() : null;
                 assignmentStatus = assignment.getStatus() != null ? assignment.getStatus().name() : null;
+                commissionRate = assignment.getCommissionRate();
+                commissionNote = assignment.getCommissionNote();
+
+                // Nếu thợ đã gửi báo bận đột xuất nhưng chưa được đổi thợ
+                if (assignment.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED) {
+                    assignmentStatus = "REPORTED_BUSY_PENDING_APPROVAL";
+                }
+
+                // Kiểm tra xem thợ có đang chờ xác nhận làm Solo không
+                boolean isSoloNote = commissionNote != null && (commissionNote.contains("Solo") || commissionNote.contains("solo") || commissionNote.contains("gộp"));
+                if (Boolean.FALSE.equals(assignment.getIsConfirmedByStaff()) && isSoloNote) {
+                    soloPendingConfirmation = true;
+                    soloCommissionRate = assignment.getCommissionRate();
+                }
+
                 if (assignment.getCommissionRate() != null) {
                     earnings = assignment.getCommissionAmount() != null && assignment.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0
                             ? assignment.getCommissionAmount()
@@ -320,6 +339,10 @@ public class BookingMapper {
                 .isConfirmedByStaff(isConfirmedByStaff)
                 .assignmentRole(assignmentRole)
                 .assignmentStatus(assignmentStatus)
+                .commissionRate(commissionRate)
+                .commissionNote(commissionNote)
+                .soloPendingConfirmation(soloPendingConfirmation)
+                .soloCommissionRate(soloCommissionRate)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

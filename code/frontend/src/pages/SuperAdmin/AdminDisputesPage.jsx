@@ -423,6 +423,11 @@ export const AdminDisputesPage = () => {
               Studio: {row.agencyName}
             </span>
           )}
+          {row.isEscalatedFromStudio && (
+            <span className="inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+              Studio Leo Thang
+            </span>
+          )}
         </div>
       ),
     },
@@ -850,7 +855,17 @@ export const AdminDisputesPage = () => {
               </div>
 
               {/* Conflict Origin Banner */}
-              {disputeInfo.disputeOrigin === 'DUAL' ? (
+              {selectedDispute.isEscalatedFromStudio ? (
+                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-xs">
+                  <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
+                  <div>
+                    <span className="font-bold block">Đơn Khiếu Nại Leo Thang Từ Studio ({selectedDispute.agencyName || 'Đại lý'})</span>
+                    <span className="text-[11px] text-rose-700 dark:text-rose-300">
+                      Studio đã từ chối hoàn cọc nhưng khách hàng không đồng thuận và chuyển lên Admin Sàn làm trọng tài phân xử tối hậu.
+                    </span>
+                  </div>
+                </div>
+              ) : disputeInfo.disputeOrigin === 'DUAL' ? (
                 <div className="flex items-center gap-2.5 p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs">
                   <Scale className="w-5 h-5 text-purple-600 shrink-0" />
                   <div>
@@ -1143,7 +1158,7 @@ export const AdminDisputesPage = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                        Bác bỏ khiếu nại. Chuyển <strong>{formatCurrency(selectedDispute.depositAmount)}</strong> vào ví Thợ bù chi phí đi lại.
+                        Bác bỏ khiếu nại. Chuyển <strong>{formatCurrency(selectedDispute.depositAmount)}</strong> vào ví {selectedDispute.agencyName ? `Studio (${selectedDispute.agencyName})` : 'Thợ'} bù chi phí dịch vụ.
                       </p>
                     </button>
                   </div>

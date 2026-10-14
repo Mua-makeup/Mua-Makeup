@@ -28,6 +28,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSoloConfirmModal, setShowSoloConfirmModal] = useState(false);
+  const [showCancelRefundModal, setShowCancelRefundModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const cleanEmergencyReason = (reason) => {
@@ -49,6 +50,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       setIsSubmitting(false);
       setShowConfirmModal(false);
       setShowSoloConfirmModal(false);
+      setShowCancelRefundModal(false);
     }
   }, [isOpen, bookingId, t]);
 
@@ -130,6 +132,29 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       onClose();
     } catch (err) {
       setShowSoloConfirmModal(false);
+      const parsed = parseApiError(err);
+      setErrorMsg(parsed.message || t('error_general'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleExecuteCancelAndRefund = async () => {
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      const finalReason = reassignReason.trim() || 'Studio không có thợ thay thế do thợ báo bận đột xuất';
+      await agencyService.rejectDispatchBooking(bookingId, {
+        rejectionReason: 'Không có thợ thay thế phù hợp',
+        rejectionNote: finalReason,
+      });
+      setShowCancelRefundModal(false);
+      if (onSuccess) {
+        onSuccess();
+      }
+      onClose();
+    } catch (err) {
+      setShowCancelRefundModal(false);
       const parsed = parseApiError(err);
       setErrorMsg(parsed.message || t('error_general'));
     } finally {
@@ -487,9 +512,24 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
-                {t('cancel')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
+                  {t('cancel')}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowCancelRefundModal(true)}
+                  disabled={isSubmitting || loading}
+                  isLoading={isSubmitting}
+                  className="border-rose-300 text-rose-600 dark:border-rose-800 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 font-bold cursor-pointer shadow-xs"
+                >
+                  <UserX className="w-4 h-4 mr-1.5 text-rose-600 dark:text-rose-400" />
+                  <span>{t('btn_cancel_and_refund')}</span>
+                </Button>
+              </div>
 
               <div className="flex items-center gap-2">
                 {activeStaff && (
@@ -613,6 +653,44 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       cancelText={t('cancel')}
       variant="success"
       confirmClassName="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+      isLoading={isSubmitting}
+      zIndex="z-[10000]"
+    />
+
+    {/* Pop-up Confirmation Dialog for Cancel and Refund */}
+    <ConfirmDialog
+      isOpen={showCancelRefundModal}
+      onClose={() => setShowCancelRefundModal(false)}
+      onConfirm={handleExecuteCancelAndRefund}
+      title={t('confirm_cancel_and_refund_title') || 'Xác Nhận Hủy Đơn & Hoàn Cọc Cho Khách'}
+      message={
+        <div className="space-y-3">
+          <p className="text-slate-700 dark:text-slate-200 leading-relaxed text-xs">
+            {t('confirm_cancel_and_refund_msg')?.replace('{bookingCode}', booking?.bookingCode || '') ||
+              `Do không thể bố trí thợ thay thế, bạn có chắc chắn muốn hủy đơn hàng #${booking?.bookingCode} và hoàn trả ngay 100% tiền cọc về ví khách hàng không?`}
+          </p>
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 space-y-1.5 text-xs">
+            <div className="flex justify-between items-center text-rose-900 dark:text-rose-200 font-semibold">
+              <span>Đơn hàng:</span>
+              <span className="font-mono font-bold">#{booking?.bookingCode}</span>
+            </div>
+            <div className="flex justify-between items-center text-rose-900 dark:text-rose-200">
+              <span>Tiền cọc hoàn trả khách:</span>
+              <span className="font-mono font-bold text-rose-600 dark:text-rose-400">100% (Toàn bộ)</span>
+            </div>
+            {reassignReason && (
+              <div className="flex justify-between items-start gap-2 pt-1 border-t border-rose-200 dark:border-rose-800 text-slate-600 dark:text-slate-400">
+                <span className="shrink-0">Ghi chú hủy:</span>
+                <span className="text-right font-medium">{reassignReason}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      }
+      confirmText={t('btn_cancel_and_refund') || 'Hủy Đơn & Hoàn Cọc'}
+      cancelText={t('cancel')}
+      variant="danger"
+      isDangerous={true}
       isLoading={isSubmitting}
       zIndex="z-[10000]"
     />

@@ -21,7 +21,7 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
         LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
         WHERE c.mua_id = :muaId
           AND c.is_locked = TRUE
-          AND (c.booking_id IS NULL OR (b.status != 'CANCELLED' AND b.status != 'CANCELLED_EXPIRED' AND b.status != 'PENDING_DEPOSIT'))
+          AND (c.booking_id IS NULL OR (b.status != 'CANCELLED' AND b.status != 'CANCELLED_EXPIRED' AND b.status != 'PENDING_DEPOSIT' AND b.status != 'COMPLETED' AND b.status != 'PAID_OUT' AND b.status != 'DISPUTE_REFUNDED'))
           AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:windowStart AS TIMESTAMPTZ), CAST(:windowEnd AS TIMESTAMPTZ), '[)')
     """, nativeQuery = true)
     boolean existsOverlappingSlot(
@@ -36,7 +36,7 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
         WHERE c.mua_id = :muaId
           AND c.is_locked = TRUE
           AND (c.booking_id IS NULL OR (:excludeBookingId IS NULL OR c.booking_id != :excludeBookingId))
-          AND (c.booking_id IS NULL OR (b.status != 'CANCELLED' AND b.status != 'CANCELLED_EXPIRED' AND b.status != 'PENDING_DEPOSIT'))
+          AND (c.booking_id IS NULL OR (b.status != 'CANCELLED' AND b.status != 'CANCELLED_EXPIRED' AND b.status != 'PENDING_DEPOSIT' AND b.status != 'COMPLETED' AND b.status != 'PAID_OUT' AND b.status != 'DISPUTE_REFUNDED'))
           AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:windowStart AS TIMESTAMPTZ), CAST(:windowEnd AS TIMESTAMPTZ), '[)')
     """, nativeQuery = true)
     boolean existsOverlappingSlotExcludingBooking(
@@ -54,7 +54,10 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
           AND (b IS NULL OR b.status NOT IN (
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
-               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaId(@Param("muaId") Long muaId);
@@ -68,7 +71,10 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
           AND (b IS NULL OR b.status NOT IN (
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
-               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdAndDate(@Param("muaId") Long muaId, @Param("date") LocalDate date);
@@ -82,7 +88,10 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
           AND (b IS NULL OR b.status NOT IN (
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
-               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdAndDateBetween(
@@ -100,7 +109,10 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
           AND (b IS NULL OR b.status NOT IN (
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
-               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdsAndDateBetween(
@@ -118,7 +130,10 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
           AND (b IS NULL OR b.status NOT IN (
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
                com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
-               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT))
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
         ORDER BY c.startAt ASC
     """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdsAndDate(

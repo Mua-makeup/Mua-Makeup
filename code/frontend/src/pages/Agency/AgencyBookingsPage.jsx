@@ -148,8 +148,16 @@ export const AgencyBookingsPage = () => {
   }, [selectedStatus, searchQuery, pageInfo.size]);
 
   const isBookingTerminated = (b) => {
-    const st = b.bookingStatus || b.status;
-    return st === 'CANCELLED' || st === 'CANCELLED_EXPIRED' || st === 'COMPLETED' || st === 'REFUNDED';
+    const st = b?.bookingStatus || b?.status;
+    return (
+      st === 'CANCELLED' ||
+      st === 'CANCELLED_EXPIRED' ||
+      st === 'COMPLETED' ||
+      st === 'PAID_OUT' ||
+      st === 'REFUNDED' ||
+      st === 'DISPUTE_REFUNDED' ||
+      st === 'DISPUTE_COMPENSATED'
+    );
   };
 
   const hasEmergency = overviewStats.emergencyCount > 0 || selectedStatus === 'EMERGENCY_REASSIGNMENT';
@@ -355,7 +363,7 @@ export const AgencyBookingsPage = () => {
       align: 'right',
       render: (row) => {
         const st = row.bookingStatus || row.status;
-        const canCancel = st === 'PENDING_AGENCY_DISPATCH' || st === 'AGENCY_ASSIGNED';
+        const canCancel = !isBookingTerminated(row);
         const isEmergency = row.needsEmergencyReassignment && !isBookingTerminated(row);
 
         return (

@@ -110,7 +110,7 @@ export const agencyStaffService = {
    * Nộp báo cáo giải trình ca làm bị kéo dài quá thời lượng dự kiến
    */
   async submitOvertimeReport(req: SubmitOvertimeReportReq): Promise<OvertimeReportItem> {
-    const res = await apiClient.post<ApiResponse<OvertimeReportItem>>('/agencies/overtime-reports', req);
+    const res = await apiClient.post<ApiResponse<OvertimeReportItem>>('/agency/overtime-reports', req);
     return res.data.data;
   },
 
@@ -119,7 +119,7 @@ export const agencyStaffService = {
    */
   async getAgencyOvertimeRules(): Promise<OvertimeRuleItem[]> {
     try {
-      const res = await apiClient.get<ApiResponse<OvertimeRuleItem[]>>('/agencies/overtime-rules');
+      const res = await apiClient.get<ApiResponse<OvertimeRuleItem[]>>('/agency/overtime-rules');
       return res.data?.data || [];
     } catch {
       return [];
@@ -132,7 +132,7 @@ export const agencyStaffService = {
   async getMyOvertimeReports(): Promise<OvertimeReportItem[]> {
     try {
       const res = await apiClient.get<ApiResponse<{ content?: OvertimeReportItem[] } | OvertimeReportItem[]>>(
-        '/agencies/overtime-reports'
+        '/agency/overtime-reports'
       );
       const data = res.data?.data;
       if (Array.isArray(data)) return data;

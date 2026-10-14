@@ -57,6 +57,16 @@ export const TRANSLATIONS = {
     nav_admin_surge_pricing: 'Định Giá Động & Surge',
     nav_admin_disputes: 'Báo Cáo Khiếu Nại',
 
+    // Agency Admin Menus
+    nav_agency_dashboard: 'Tổng Quan Studio',
+    nav_agency_bookings: 'Đơn Hàng & Điều Phối',
+    nav_agency_settings: 'Cài Đặt Studio',
+    nav_agency_packages: 'Gói Dịch Vụ',
+    nav_agency_surcharges: 'Phụ Phí & Ca Đêm',
+    nav_agency_staff: 'Nhân Viên & Thợ',
+    nav_agency_shifts: 'Lịch Làm & Ca Trực',
+    nav_agency_disputes: 'Khiếu Nại & Sự Cố',
+
     // Admin Disputes Management
     disputes_title: 'Quản Lý Báo Cáo Khiếu Nại & Sự Cố',
     disputes_subtitle: 'Tiếp nhận khiếu nại từ khách hàng & thợ trang điểm, xử lý phân xử hoàn cọc hoặc quyết toán',
@@ -619,8 +629,10 @@ export const TRANSLATIONS = {
     overtime_penalty_type: 'Hình Thức Áp Dụng',
     overtime_penalty_type_fixed: 'Số tiền cố định (VNĐ)',
     overtime_penalty_type_percent: 'Theo % hoa hồng đơn (%)',
+    overtime_penalty_type_per_minute: 'Theo phút tăng ca (VNĐ/phút)',
     overtime_penalty_type_warning: 'Chỉ ghi nhận / Nhắc nhở',
     overtime_penalty_value: 'Mức Giá Trị Áp Dụng',
+    overtime_penalty_value_helper_per_minute: 'Số tiền tính cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)',
     overtime_penalty_value_helper_fixed: 'Số tiền phụ cấp hoặc khấu trừ (VNĐ)',
     overtime_penalty_value_helper_percent: 'Tỷ lệ % hoa hồng được cộng thêm hoặc bị trừ (0 - 100%)',
     overtime_is_active: 'Kích hoạt áp dụng quy tắc này',
@@ -1760,6 +1772,10 @@ export const TRANSLATIONS = {
     staff_metric_completed_jobs: 'Ca hoàn thành',
     agency_staff_cert_review_verified: 'Đã phê duyệt chứng chỉ cho nhân viên.',
     agency_staff_cert_review_rejected: 'Đã từ chối chứng chỉ của nhân viên.',
+    btn_cancel_and_refund: 'Hủy Đơn & Hoàn Cọc',
+    confirm_cancel_and_refund_title: 'Xác Nhận Hủy Đơn & Hoàn Cọc Cho Khách',
+    confirm_cancel_and_refund_msg: 'Do không thể bố trí thợ thay thế hoặc xảy ra sự cố đột xuất, bạn có chắc chắn muốn hủy đơn hàng #{bookingCode} và hoàn trả ngay 100% tiền cọc về ví khách hàng không?',
+    cancel_booking_success: 'Đã hủy đơn hàng và hoàn tiền cọc thành công cho khách hàng!',
   },
   en: {
 
@@ -1819,6 +1835,16 @@ export const TRANSLATIONS = {
     nav_admin_taxonomy: 'Master Taxonomy & Styles',
     nav_admin_surge_pricing: 'Dynamic & Surge Pricing',
     nav_admin_disputes: 'Dispute Reports',
+
+    // Agency Admin Menus
+    nav_agency_dashboard: 'Studio Dashboard',
+    nav_agency_bookings: 'Bookings & Dispatch',
+    nav_agency_settings: 'Studio Settings',
+    nav_agency_packages: 'Service Packages',
+    nav_agency_surcharges: 'Surcharges & Night Shifts',
+    nav_agency_staff: 'Staff & Artists',
+    nav_agency_shifts: 'Shifts & Rosters',
+    nav_agency_disputes: 'Disputes & Incidents',
 
     // Admin Disputes Management
     disputes_title: 'Dispute & Incident Management',
@@ -2382,8 +2408,10 @@ export const TRANSLATIONS = {
     overtime_penalty_type: 'Application Format',
     overtime_penalty_type_fixed: 'Fixed Amount (VND)',
     overtime_penalty_type_percent: 'Commission Rate (%)',
+    overtime_penalty_type_per_minute: 'Per Overtime Minute (VND/min)',
     overtime_penalty_type_warning: 'Warning Only / Recorded',
     overtime_penalty_value: 'Applied Amount / Rate',
+    overtime_penalty_value_helper_per_minute: 'Amount calculated for each overtime minute (e.g. 1,000 VND/min)',
     overtime_penalty_value_helper_fixed: 'Compensation or fine amount (VND)',
     overtime_penalty_value_helper_percent: 'Percentage added to or deducted from artist commission (0 - 100%)',
     overtime_is_active: 'Activate this overtime rule',
@@ -3514,6 +3542,10 @@ export const TRANSLATIONS = {
     staff_metric_completed_jobs: 'Completed jobs',
     agency_staff_cert_review_verified: 'Staff certificate approved successfully.',
     agency_staff_cert_review_rejected: 'Staff certificate rejected.',
+    btn_cancel_and_refund: 'Cancel & Refund Deposit',
+    confirm_cancel_and_refund_title: 'Confirm Cancel Booking & Deposit Refund',
+    confirm_cancel_and_refund_msg: 'Due to unavailable replacement staff or an unexpected issue, are you sure you want to cancel booking #{bookingCode} and immediately refund 100% deposit to the customer wallet?',
+    cancel_booking_success: 'Booking cancelled and deposit refunded to customer successfully!',
   },
 };
 

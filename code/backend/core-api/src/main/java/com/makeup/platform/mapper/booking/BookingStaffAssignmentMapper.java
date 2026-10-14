@@ -61,7 +61,7 @@ public class BookingStaffAssignmentMapper {
                 .commissionAmount(entity.getCommissionAmount())
                 .commissionNote(entity.getCommissionNote())
                 .payoutStatus(entity.getPayoutStatus())
-                .payoutAt(entity.getPayoutAt() != null ? entity.getPayoutAt().toLocalDateTime() : null)
+                .payoutAt(entity.getPayoutAt())
                 .build();
     }
 

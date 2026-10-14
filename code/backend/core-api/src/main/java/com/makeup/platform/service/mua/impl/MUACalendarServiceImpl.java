@@ -9,6 +9,7 @@ import com.makeup.platform.dto.response.mua.MUACalendarSlotRes;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffShiftEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.catalog.SurchargeEntity;
 import com.makeup.platform.entity.catalog.SurchargeType;
 import com.makeup.platform.entity.mua.CalendarSlotType;
@@ -616,9 +617,31 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         muaCalendarRepository.deleteByBookingIdAndMuaId(bookingId, muaId);
         muaCalendarRepository.flush();
 
-        com.makeup.platform.entity.mua.CalendarSlotType slotType = (reason != null && reason.contains("ASSIGNED_"))
-                ? com.makeup.platform.entity.mua.CalendarSlotType.AGENCY_ASSIGNED
-                : com.makeup.platform.entity.mua.CalendarSlotType.BOOKING;
+        List<MUACalendarEntity> overlappingSlots = muaCalendarRepository.findOverlappingSlots(muaId, startAt, endAt);
+        if (overlappingSlots != null && !overlappingSlots.isEmpty()) {
+            for (MUACalendarEntity exSlot : overlappingSlots) {
+                boolean isBookingSlot = exSlot.getBooking() != null && exSlot.getBooking().getId().equals(bookingId);
+                boolean isEmergencySlot = exSlot.getReason() != null && exSlot.getReason().contains("EMERGENCY");
+                boolean isInactiveBooking = exSlot.getBooking() != null && (
+                        exSlot.getBooking().getStatus() == BookingStatus.COMPLETED
+                        || exSlot.getBooking().getStatus() == BookingStatus.PAID_OUT
+                        || exSlot.getBooking().getStatus() == BookingStatus.CANCELLED
+                        || exSlot.getBooking().getStatus() == BookingStatus.CANCELLED_EXPIRED
+                        || exSlot.getBooking().getStatus() == BookingStatus.PENDING_DEPOSIT
+                        || exSlot.getBooking().getStatus() == BookingStatus.DISPUTE_REFUNDED
+                );
+                boolean isUnlocked = Boolean.FALSE.equals(exSlot.getIsLocked());
+
+                if (isBookingSlot || isEmergencySlot || isInactiveBooking || isUnlocked || exSlot.getBooking() == null) {
+                    muaCalendarRepository.delete(exSlot);
+                }
+            }
+            muaCalendarRepository.flush();
+        }
+
+        CalendarSlotType slotType = (reason != null && reason.contains("ASSIGNED_"))
+                ? CalendarSlotType.AGENCY_ASSIGNED
+                : CalendarSlotType.BOOKING;
 
         MUACalendarEntity calendarSlot = MUACalendarEntity.builder()
                 .mua(muaProfile)
@@ -659,7 +682,8 @@ public class MUACalendarServiceImpl implements MUACalendarService {
 
         if (!slots.isEmpty()) {
             for (MUACalendarEntity slot : slots) {
-                slot.setBooking(null);
+                // Keep the booking reference so deleteByBookingIdAndMuaId can identify it,
+                // but mark it as PERSONAL_BLOCKED with emergency reason so it blocks other assignments
                 slot.setSlotType(CalendarSlotType.PERSONAL_BLOCKED);
                 slot.setIsLocked(true);
                 slot.setReason(reasonText);
@@ -681,7 +705,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                     List<MUACalendarEntity> overlapping = muaCalendarRepository.findOverlappingSlots(muaId, startTs, endTs);
                     if (!overlapping.isEmpty()) {
                         for (MUACalendarEntity exSlot : overlapping) {
-                            exSlot.setBooking(null);
+                            exSlot.setBooking(b);
                             exSlot.setSlotType(CalendarSlotType.PERSONAL_BLOCKED);
                             exSlot.setIsLocked(true);
                             exSlot.setReason(reasonText);
@@ -691,7 +715,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                     } else {
                         MUACalendarEntity slot = MUACalendarEntity.builder()
                                 .mua(mua)
-                                .booking(null)
+                                .booking(b)
                                 .slotType(CalendarSlotType.PERSONAL_BLOCKED)
                                 .bookingDate(bookingDate)
                                 .startAt(startTs)
