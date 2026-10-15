@@ -12,6 +12,10 @@
 6. [Hệ Thống Tọa Độ GPS & Telemetry (Geospatial & Tracking)](#6-hệ-thống-tọa-độ-gps--telemetry-geospatial--tracking)
 7. [Thuật Toán Trí Tuệ Nhân Tạo RAG (AI Hybrid Knowledge Search)](#7-thuật-toán-trí-tuệ-nhân-tạo-rag-ai-hybrid-knowledge-search)
 8. [Thuật Toán Đánh Giá Điểm Bayes & Cửa Sổ Trượt (Bayesian & Rolling Rating)](#8-thuật-toán-đánh-giá-điểm-bayes--cửa-sổ-trượt-bayesian--rolling-rating)
+   * [8.1. Rolling Window 100 Đơn Gần Nhất](#81-thuật-toán-điểm-trượt-100-đơn-gần-nhất-rolling-window-rating)
+   * [8.2. Điểm Trung Bình Chuẩn Bayes MUA](#82-thuật-toán-điểm-trung-bình-chuẩn-bayes-bayesian-average-rating)
+   * [8.3. Đánh Giá Tích Lũy Kép Studio ($WR_{\text{Studio}}$)](#83-cơ-chế-đánh-giá-tích-lũy-kép-cho-studio-agency-dual-aggregation--bayesian-rating)
+   * [8.4. Phân Tầng Trách Nhiệm Ca Tiệc Cưới Nhiều Thợ](#84-cơ-chế-phân-tầng-trách-nhiệm-ca-tiệc-cưới-nhiều-thợ-primary-vs-assistant-mua)
 9. [Thuật Toán Xếp Hạng Tìm Kiếm Đa Chiều (Search Ranking Score)](#9-thuật-toán-xếp-hạng-tìm-kiếm-đa-chiều-search-ranking-score)
 10. [Thuật Toán Điều Phối Đơn Hàng Khẩn Cấp (Tiered Instant Dispatch Engine)](#10-thuật-toán-điều-phối-đơn-hàng-khẩn-cấp-tiered-instant-dispatch-engine)
 11. [Thuật Toán Chống Gian Lận Đánh Giá (Review Fraud & Collusion Detection)](#11-thuật-toán-chống-gian-lận-đánh-giá-review-fraud--collusion-detection)
@@ -175,6 +179,32 @@ Trong đó:
 * $v$: Tổng số lượt đánh giá hợp lệ thợ đã nhận (`total_reviews`).
 * $m = 10$: Ngưỡng số lượng đánh giá tối thiểu để đạt độ tin cậy thống kê.
 * $C = 4.60$: Điểm đánh giá bình quân của toàn bộ thợ trên sàn Mua-Makeup.
+
+### 8.3. Cơ Chế Đánh Giá Tích Lũy Kép Cho Studio (Agency Dual-Aggregation & Bayesian Rating)
+Áp dụng cho các Viện cưới / Studio (`AgencyProfileEntity`) khi nhận đánh giá từ các ca làm của nhân viên:
+
+$$\text{Agency Rating } (WR_{\text{Studio}}) = \frac{v_{\text{Studio}}}{v_{\text{Studio}} + m_{\text{Studio}}} \times R_{\text{Studio\_avg}} + \frac{m_{\text{Studio}}}{v_{\text{Studio}} + m_{\text{Studio}}} \times C_{\text{Studio}}$$
+
+Trong đó:
+* $R_{\text{Studio\_avg}} = \frac{1}{v_{\text{Studio}}} \sum_{i=1}^{v_{\text{Studio}}} \text{Rating}_i$: Điểm trung bình cộng thực tế của tất cả các review thuộc các đơn hàng của Studio.
+* $v_{\text{Studio}}$: Tổng số lượt đánh giá hợp lệ của Studio (`total_reviews`).
+* $m_{\text{Studio}} = 15$: Ngưỡng tin cậy của Studio (quy mô Studio lớn hơn thợ cá nhân nên cần mẫu $m = 15$).
+* $C_{\text{Studio}} = 4.65$: Điểm đánh giá bình quân toàn bộ Studio trên sàn Mua-Makeup.
+
+#### Quy tắc Hiển thị UI & Xếp Hạng:
+1. **Khách hàng nhìn thấy**: Hiển thị song song điểm thực và số lượt đánh giá: `⭐ 4.85 (120 đánh giá)`.
+2. **Khi $v_{\text{Studio}} = 0$**: `rating_avg = null`, giao diện hiển thị `--` hoặc badge `Studio mới`, tuyệt đối không gán 5.0★ ảo.
+3. **Thứ tự xếp hạng tìm kiếm Explore**: Sử dụng điểm chuẩn Bayes $WR_{\text{Studio}}$ làm tiêu chí sắp xếp, ngăn chặn triệt để hành vi tạo 1 review 5★ mồi để nhảy lên Top 1.
+4. **Bảo toàn Tài sản Thương hiệu**: Đơn hàng và Review gắn vĩnh viễn với `agency_id`. Khi nhân viên nghỉ việc hoặc chuyển Studio, điểm lịch sử của Studio không bị mất.
+
+### 8.4. Cơ Chế Phân Tầng Trách Nhiệm Ca Tiệc Cưới Nhiều Thợ (Primary vs Assistant MUA)
+Trong các gói tiệc cưới lớn của Studio có phân công Thợ chính (`PRIMARY_MUA`) và Trợ lý (`ASSISTANT_MUA`), khách hàng chỉ đánh giá 1 lần (1 form 1 chạm). Hệ thống phân bổ điểm theo ma trận:
+
+| Đối Tượng | Vai Trò | Quy Tắc Phân Bổ Điểm & Số Ca |
+| :--- | :--- | :--- |
+| **Studio (`AgencyProfileEntity`)** | Đơn vị chủ quản nhận thanh toán | Nhận **100% điểm review** vào tổng điểm Studio. |
+| **Thợ chính (`PRIMARY_MUA`)** | Trưởng ca chịu trách nhiệm chuyên môn tối cao | Nhận **100% điểm review** vào hồ sơ cá nhân (`MuaProfileEntity`), gắn nhãn ca làm *"Thợ chính"*. |
+| **Trợ lý (`ASSISTANT_MUA`)** | Làm tóc, phụ trang điểm phụ kiện | 1. Luôn được cộng **$+1$ ca hoàn thành** (`total_completed_jobs += 1`).<br>2. **Cơ chế bảo vệ thợ trẻ học việc**: Chỉ ghi nhận điểm vào hồ sơ nếu ca đạt **$\ge 4★$**. Ca bị phàn nàn ($\le 3★$) không phạt điểm tay nghề cá nhân của trợ lý (lưu log hiệu suất nội bộ Studio). |
 
 ---
 

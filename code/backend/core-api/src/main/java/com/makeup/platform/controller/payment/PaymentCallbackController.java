@@ -127,7 +127,7 @@ public class PaymentCallbackController {
         }
 
         String hostHeader = request.getHeader("Host");
-        String host = "192.168.1.109";
+        String host = "192.168.1.235";
         if (hostHeader != null && !hostHeader.isBlank()) {
             String clientHost = hostHeader.split(":")[0];
             if (!"127.0.0.1".equals(clientHost) && !"localhost".equalsIgnoreCase(clientHost)) {

@@ -639,6 +639,10 @@
     "summary_success": "Retrieved rating summary and badges successfully.",
     "auto_review_comment": "Booking completed standard (System automatically recorded 5★ after 72 hours).",
     "auto_review_notif_title": "Booking automatically recorded 5★",
-    "auto_review_notif_content": "No disputes filed after 72 hours of completion. The system has automatically recorded a 5★ review for booking #{0}."
+    "auto_review_notif_content": "No disputes filed after 72 hours of completion. The system has automatically recorded a 5★ review for booking #{0}.",
+    "booking_not_paid_out": "You can only submit a review after the booking has been completed and fully settled.",
+    "not_found": "Review details not found.",
+    "update_success": "Review updated successfully! Thank you for your feedback.",
+    "upload_images_success": "Review images uploaded successfully."
   }
 }

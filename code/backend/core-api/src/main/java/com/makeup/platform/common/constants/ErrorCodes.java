@@ -179,6 +179,9 @@ public final class ErrorCodes {
 
     // Phân hệ Trợ lý AI CSKH (AI Support & RAG)
     public static final String ERR_SUPPORT_SESSION_NOT_FOUND = "ERR_SUPPORT_SESSION_NOT_FOUND";
+
+    // Phân hệ Đánh giá & Phản hồi (Reviews)
+    public static final String ERR_REVIEW_NOT_FOUND = "ERR_REVIEW_NOT_FOUND";
 }
 
 

@@ -29,6 +29,64 @@ export const ServiceSampleGallery: React.FC<Props> = ({
   isLoading,
   onPressPhoto,
 }) => {
+  // Tổng hợp toàn bộ ảnh thực tế (Ảnh chính diện + Toàn bộ các góc chụp bổ sung)
+  const allPhotos = React.useMemo(() => {
+    const list: {
+      id: string;
+      photoUrl: string;
+      title?: string;
+      styleName?: string;
+      originalShowcase: PortfolioShowcase;
+      originalIndex: number;
+    }[] = [];
+
+    showcases.forEach((sc, scIdx) => {
+      const mainUrl = sc.imageUrl || sc.thumbnailUrl;
+      if (mainUrl) {
+        list.push({
+          id: `sc-${sc.id}-main`,
+          photoUrl: mainUrl,
+          title: sc.title,
+          styleName: sc.styleName,
+          originalShowcase: sc,
+          originalIndex: scIdx,
+        });
+      }
+      if (sc.additionalImages && sc.additionalImages.length > 0) {
+        sc.additionalImages.forEach((addUrl, addIdx) => {
+          if (addUrl) {
+            list.push({
+              id: `sc-${sc.id}-add-${addIdx}`,
+              photoUrl: addUrl,
+              title: sc.title ? `${sc.title} (Góc ${addIdx + 2})` : undefined,
+              styleName: sc.styleName,
+              originalShowcase: sc,
+              originalIndex: scIdx,
+            });
+          }
+        });
+      }
+    });
+
+    // Nếu album chưa có ảnh riêng nhưng gói dịch vụ có ảnh đại diện -> nạp ảnh đại diện gói
+    if (list.length === 0 && selectedPackage?.coverImageUrl) {
+      list.push({
+        id: `pkg-${selectedPackage.id}-cover`,
+        photoUrl: selectedPackage.coverImageUrl,
+        title: selectedPackage.packageName,
+        styleName: selectedPackage.styles?.[0]?.styleName,
+        originalShowcase: {
+          id: 0,
+          title: selectedPackage.packageName,
+          imageUrl: selectedPackage.coverImageUrl,
+        },
+        originalIndex: 0,
+      });
+    }
+
+    return list;
+  }, [showcases, selectedPackage]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -49,7 +107,7 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           <ActivityIndicator size="small" color={BrandColors.primary} />
           <Text style={styles.loadingText}>Đang tải bộ sưu tập ảnh của gói...</Text>
         </View>
-      ) : showcases.length === 0 ? (
+      ) : allPhotos.length === 0 ? (
         /* TRẠNG THÁI CHƯA CÓ ẢNH RIÊNG CHO GÓI */
         <View style={styles.emptyBox}>
           <Ionicons name="camera-outline" size={36} color="#CBD5E1" />
@@ -59,19 +117,18 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           </Text>
         </View>
       ) : (
-        /* LƯỚI ẢNH MẪU 2 CỘT */
+        /* LƯỚI ẢNH MẪU 2 CỘT CHUẨN ĐẸP */
         <View style={styles.grid}>
-          {showcases.map((item, index) => {
+          {allPhotos.map((item, index) => {
             const photoUrl =
-              item.imageUrl ||
-              item.thumbnailUrl ||
+              item.photoUrl ||
               'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=500&auto=format&fit=crop&q=80';
 
             return (
               <TouchableOpacity
-                key={`showcase-${item.id}-${index}`}
+                key={item.id}
                 style={styles.card}
-                onPress={() => onPressPhoto(item, index)}
+                onPress={() => onPressPhoto(item.originalShowcase, item.originalIndex)}
                 activeOpacity={0.85}
               >
                 <Image
@@ -177,7 +234,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 190,
+    aspectRatio: 1,
   },
   zoomHintOverlay: {
     position: 'absolute',

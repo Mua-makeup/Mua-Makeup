@@ -1,6 +1,7 @@
 package com.makeup.platform.mapper.interaction;
 
 import com.makeup.platform.dto.response.interaction.ReviewDetailRes;
+import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.interaction.ReviewEntity;
 import org.springframework.stereotype.Component;
 
@@ -28,14 +29,36 @@ public class ReviewMapper {
         }
 
         String bookingCode = null;
+        String packageName = null;
+        String categoryName = null;
+        String styleName = null;
+
         if (review.getBooking() != null) {
-            bookingCode = review.getBooking().getBookingCode();
+            BookingEntity booking = review.getBooking();
+            bookingCode = booking.getBookingCode();
+
+            if (booking.getServicePackage() != null) {
+                packageName = booking.getServicePackage().getPackageName();
+                if (booking.getServicePackage().getMasterCategory() != null) {
+                    categoryName = booking.getServicePackage().getMasterCategory().getCategoryName();
+                }
+            }
+
+            if (booking.getStyle() != null) {
+                styleName = booking.getStyle().getStyleName();
+                if (packageName == null) {
+                    packageName = styleName;
+                }
+            }
         }
 
         return ReviewDetailRes.builder()
                 .id(review.getId())
                 .bookingId(review.getBooking() != null ? review.getBooking().getId() : null)
                 .bookingCode(bookingCode)
+                .packageName(packageName)
+                .categoryName(categoryName)
+                .styleName(styleName)
                 .customerId(review.getCustomer() != null ? review.getCustomer().getId() : null)
                 .customerName(customerName)
                 .customerAvatar(customerAvatar)

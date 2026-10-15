@@ -10,10 +10,19 @@ export interface CreateReviewPayload {
   bankHash?: string;
 }
 
+export interface UpdateReviewPayload {
+  rating: number; // 1 - 5
+  comment?: string;
+  imageUrls?: string[];
+}
+
 export interface ReviewItem {
   id: number;
   bookingId: number;
   bookingCode?: string;
+  packageName?: string;
+  categoryName?: string;
+  styleName?: string;
   customerId: number;
   customerName?: string;
   customerAvatar?: string;
@@ -24,6 +33,12 @@ export interface ReviewItem {
   imageUrls?: string[];
   status: string;
   createdAt: string;
+}
+
+export interface CategoryReviewCount {
+  categoryId: number;
+  categoryName: string;
+  count: number;
 }
 
 export interface MuaRatingSummary {
@@ -43,11 +58,13 @@ export interface MuaRatingSummary {
   count3Star?: number;
   count2Star?: number;
   count1Star?: number;
+  categoryBreakdown?: CategoryReviewCount[];
 }
 
 export interface ReviewFilterParams {
   rating?: number;
   hasImages?: boolean;
+  categoryId?: number;
   page?: number;
   size?: number;
 }
@@ -73,13 +90,62 @@ export const reviewService = {
   },
 
   /**
+   * Khách hàng cập nhật đánh giá đã gửi
+   */
+  async updateReview(reviewId: number, payload: UpdateReviewPayload): Promise<ReviewItem> {
+    const res = await apiClient.put<ApiResponse<ReviewItem>>(
+      `/customer/reviews/${reviewId}`,
+      payload
+    );
+    return res.data.data;
+  },
+
+  /**
+   * Tải ảnh đánh giá lên Cloudinary qua Backend
+   */
+  async uploadReviewImages(localUris: string[]): Promise<string[]> {
+    if (!localUris || localUris.length === 0) return [];
+
+    const formData = new FormData();
+    for (let i = 0; i < localUris.length; i++) {
+      const uri = localUris[i];
+      const filename = uri.split('/').pop() || `review_photo_${Date.now()}_${i}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const ext = match ? match[1].toLowerCase() : 'jpg';
+      const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+
+      // @ts-ignore
+      formData.append('files', {
+        uri,
+        name: filename,
+        type: mimeType,
+      });
+    }
+
+    const res = await apiClient.post<ApiResponse<string[]>>(
+      '/customer/reviews/upload-images',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return res.data?.data || [];
+  },
+
+  /**
    * Tra cứu đánh giá đã có của đơn hàng
    */
   async getReviewByBookingId(bookingId: number): Promise<ReviewItem | null> {
-    const res = await apiClient.get<ApiResponse<ReviewItem>>(
-      `/customer/reviews/booking/${bookingId}`
-    );
-    return res.data.data || null;
+    try {
+      const res = await apiClient.get<ApiResponse<ReviewItem>>(
+        `/customer/reviews/booking/${bookingId}`
+      );
+      return res.data.data || null;
+    } catch {
+      return null;
+    }
   },
 
   /**
@@ -100,6 +166,7 @@ export const reviewService = {
       params.size = paramsOrPage.size ?? 10;
       if (paramsOrPage.rating != null) params.rating = paramsOrPage.rating;
       if (paramsOrPage.hasImages != null) params.hasImages = paramsOrPage.hasImages;
+      if (paramsOrPage.categoryId != null) params.categoryId = paramsOrPage.categoryId;
     }
 
     const res = await apiClient.get<ApiResponse<PaginatedReviews>>(

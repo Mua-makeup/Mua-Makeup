@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -33,4 +34,7 @@ public class MuaRatingSummaryRes {
     private Long count3Star;
     private Long count2Star;
     private Long count1Star;
+
+    // Phân loại danh mục dịch vụ theo chuẩn Shopee
+    private List<CategoryReviewCountRes> categoryBreakdown;
 }

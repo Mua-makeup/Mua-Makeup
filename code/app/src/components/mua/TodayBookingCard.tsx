@@ -198,9 +198,20 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
 
         {/* Package & Customer info */}
         <View style={styles.mainInfo}>
-          <Text style={styles.packageName} numberOfLines={2}>
+          <Text style={styles.packageName} numberOfLines={1}>
             {booking.packageName}
           </Text>
+
+          {(booking.packageName || (booking as any).styleName) ? (
+            <View style={styles.variationRow}>
+              <Text style={styles.variationLabel}>Phân loại: </Text>
+              <Text style={styles.variationValue} numberOfLines={1}>
+                {[booking.packageName, (booking as any).styleName ? `Tone ${(booking as any).styleName}` : null]
+                  .filter(Boolean)
+                  .join(' • ')}
+              </Text>
+            </View>
+          ) : null}
 
           <View style={styles.customerRow}>
             <View style={styles.customerBlock}>
@@ -377,7 +388,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+    marginBottom: 4,
+  },
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  variationLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  variationValue: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
   },
   customerRow: {
     flexDirection: 'row',

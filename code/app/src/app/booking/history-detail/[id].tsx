@@ -12,6 +12,7 @@ import {
   RefreshControl,
   Pressable,
   Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -29,6 +30,43 @@ import { UserAvatar } from '@/components/common/UserAvatar';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { websocketService } from '@/services/websocket.service';
 import { ReviewModal } from '@/components/customer/ReviewModal';
+import { reviewService, ReviewItem } from '@/services/review.service';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const HISTORY_REVIEW_PHOTO_SIZE = Math.floor((SCREEN_WIDTH - 64 - 8) / 2);
+
+const renderStars = (rating: number = 5, size: number = 13) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+    {[1, 2, 3, 4, 5].map((s) => (
+      <Ionicons
+        key={s}
+        name="star"
+        size={size}
+        color={s <= rating ? '#F59E0B' : '#E2E8F0'}
+      />
+    ))}
+  </View>
+);
+
+const maskCustomerName = (name?: string) => {
+  if (!name || name.trim().length === 0) return 'Khách hàng';
+  const trimmed = name.trim();
+  if (trimmed.length <= 2) return `${trimmed.charAt(0)}*`;
+  return `${trimmed.charAt(0)}***${trimmed.charAt(trimmed.length - 1)}`;
+};
+
+const formatReviewDate = (dateStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateStr;
+  }
+};
 
 function formatScheduleOrCompletionTime(
   startTime?: string,
@@ -107,6 +145,7 @@ export default function BookingHistoryDetailScreen() {
   const [isDisputeDossierOpen, setIsDisputeDossierOpen] = useState(false);
   const [isDisputeDossierAutoOpen, setIsDisputeDossierAutoOpen] = useState(false);
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
+  const [existingReview, setExistingReview] = useState<ReviewItem | null>(null);
 
   // Trạng thái thanh toán 70% còn lại cho Khách
   const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
@@ -125,6 +164,14 @@ export default function BookingHistoryDetailScreen() {
     try {
       const data = await bookingService.getBookingStatus(bookingId);
       setBookingDetail(data);
+
+      // Tra cứu đánh giá của đơn hàng (cho cả Khách và Thợ cùng xem)
+      try {
+        const rev = await reviewService.getReviewByBookingId(bookingId);
+        setExistingReview(rev);
+      } catch {
+        setExistingReview(null);
+      }
     } catch (err: any) {
       Alert.alert('Lỗi Tải Dữ Liệu', err?.response?.data?.message || err.message || 'Không thể tải chi tiết đơn hàng.');
     } finally {
@@ -154,7 +201,7 @@ export default function BookingHistoryDetailScreen() {
       if (openDispute === 'true' && (bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT' || bookingDetail.status === 'DISPUTED')) {
         setIsDisputeDossierAutoOpen(true);
         setIsDisputeDossierOpen(true);
-      } else if (openReview === 'true' && (bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT')) {
+      } else if (openReview === 'true' && bookingDetail.status === 'PAID_OUT') {
         setIsReviewModalVisible(true);
       }
     }
@@ -723,6 +770,16 @@ export default function BookingHistoryDetailScreen() {
                 <Text style={styles.scheduledHeroServiceValue} numberOfLines={2}>
                   {bookingDetail.packageName || 'Dịch vụ trang điểm'}
                 </Text>
+                {(bookingDetail.packageName || bookingDetail.styleName) ? (
+                  <View style={styles.variationRow}>
+                    <Text style={styles.variationLabel}>Phân loại: </Text>
+                    <Text style={styles.variationValue} numberOfLines={1}>
+                      {[bookingDetail.packageName, bookingDetail.styleName ? `Tone ${bookingDetail.styleName}` : null]
+                        .filter(Boolean)
+                        .join(' • ')}
+                    </Text>
+                  </View>
+                ) : null}
                 {bookingDetail.estimatedDurationMinutes ? (
                   <View style={styles.scheduledDurationPill}>
                     <Ionicons name="time-outline" size={11} color="#64748B" />
@@ -2176,6 +2233,112 @@ export default function BookingHistoryDetailScreen() {
           )}
         </View>
 
+        {/* KHỐI ĐÁNH GIÁ DỊCH VỤ CỦA ĐƠN HÀNG (HIỂN THỊ CHO CẢ THỢ VÀ KHÁCH) */}
+        {(isPaidOut || existingReview) && (
+          <View style={styles.card}>
+            <View style={styles.reviewCardHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="star" size={18} color="#F59E0B" />
+                <Text style={styles.cardSectionTitle}>Đánh Giá Của Khách Hàng</Text>
+              </View>
+              {existingReview && !isWorkstationRole && (
+                <TouchableOpacity
+                  style={styles.editReviewSmallBtn}
+                  onPress={() => setIsReviewModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="create-outline" size={13} color={BrandColors.primary} />
+                  <Text style={styles.editReviewSmallBtnText}>Chỉnh Sửa</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {existingReview ? (
+              <View style={styles.reviewBody}>
+                {/* 1. Header Đánh giá chuẩn Profile: Avatar + Tên khách + Dãy 5 sao + Ngày tạo */}
+                <View style={styles.reviewerRow}>
+                  <View style={styles.reviewerCustomerRow}>
+                    {existingReview.customerAvatar ? (
+                      <Image source={{ uri: existingReview.customerAvatar }} style={styles.reviewAvatar} />
+                    ) : (
+                      <View style={styles.reviewAvatarPlaceholder}>
+                        <Text style={styles.reviewAvatarInitial}>
+                          {(existingReview.customerName || bookingDetail?.customerName || 'K').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ marginLeft: 8 }}>
+                      <Text style={styles.reviewerName}>
+                        {maskCustomerName(existingReview.customerName || bookingDetail?.customerName)}
+                      </Text>
+                      <View style={{ marginTop: 2 }}>
+                        {renderStars(existingReview.rating, 12)}
+                      </View>
+                    </View>
+                  </View>
+
+                  <Text style={styles.reviewDateText}>
+                    {formatReviewDate(existingReview.createdAt)}
+                  </Text>
+                </View>
+
+                {/* 2. Badge Dịch vụ (Chỉ hiện tên dịch vụ theo yêu cầu) */}
+                <View style={styles.reviewVariationRow}>
+                  <Text style={styles.reviewVariationLabel}>Dịch vụ: </Text>
+                  <Text style={styles.reviewVariationValue} numberOfLines={1}>
+                    {existingReview.packageName || bookingDetail?.packageName || existingReview.categoryName || 'Dịch vụ trang điểm'}
+                  </Text>
+                </View>
+
+                {/* 3. Nội dung nhận xét */}
+                {existingReview.comment ? (
+                  <Text style={styles.reviewCommentContent}>{existingReview.comment}</Text>
+                ) : (
+                  <Text style={styles.reviewCommentEmpty}>Khách hàng không để lại nhận xét bằng chữ.</Text>
+                )}
+
+                {/* 4. Hình ảnh đính kèm: Chuẩn 2 ảnh to trên 1 hàng như Profile & Shopee */}
+                {existingReview.imageUrls && existingReview.imageUrls.length > 0 ? (
+                  <View style={styles.reviewPhotosGrid}>
+                    {existingReview.imageUrls.map((imgUrl, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        style={styles.reviewPhotoLargeCard}
+                        onPress={() => {
+                          setPreviewPhotoUrl(imgUrl);
+                          setIsPhotoModalVisible(true);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <Image source={{ uri: imgUrl }} style={styles.reviewPhotoImage} contentFit="cover" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.emptyReviewBox}>
+                <Ionicons name="chatbubble-ellipses-outline" size={24} color="#94A3B8" />
+                <Text style={styles.emptyReviewText}>
+                  {isWorkstationRole
+                    ? 'Khách hàng chưa để lại đánh giá cho ca làm việc này.'
+                    : 'Bạn chưa để lại đánh giá cho chuyên viên. Hãy chia sẻ cảm nhận để giúp thợ hoàn thiện hơn!'}
+                </Text>
+                {!isWorkstationRole && isNormalPaidOut && (
+                  <TouchableOpacity
+                    style={styles.leaveReviewBtn}
+                    onPress={() => setIsReviewModalVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="star" size={14} color="#FFFFFF" />
+                    <Text style={styles.leaveReviewBtnText}>Đánh Giá Dịch Vụ Ngay</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* FOOTER ACTIONS */}
         <View style={styles.footerButtonsGroup}>
           {!isWorkstationRole ? (
@@ -2195,8 +2358,10 @@ export default function BookingHistoryDetailScreen() {
                   onPress={() => setIsReviewModalVisible(true)}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="star-outline" size={17} color={BrandColors.primary} />
-                  <Text style={styles.reviewBtnText}>Đánh Giá Dịch Vụ</Text>
+                  <Ionicons name={existingReview ? "create-outline" : "star-outline"} size={17} color={BrandColors.primary} />
+                  <Text style={styles.reviewBtnText}>
+                    {existingReview ? 'Chỉnh Sửa Đánh Giá' : 'Đánh Giá Dịch Vụ'}
+                  </Text>
                 </TouchableOpacity>
               )}
 
@@ -2298,6 +2463,7 @@ export default function BookingHistoryDetailScreen() {
           visible={isReviewModalVisible}
           bookingId={bookingId}
           muaName={bookingDetail.muaName || 'Chuyên viên trang điểm'}
+          initialData={existingReview}
           onClose={() => setIsReviewModalVisible(false)}
           onSuccess={() => loadData(true)}
         />
@@ -3071,6 +3237,30 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#059669',
   },
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+    marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  variationLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  variationValue: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
+  },
   muaWalletStatusBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3276,5 +3466,146 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+  },
+  reviewCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  editReviewSmallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  editReviewSmallBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  reviewBody: {
+    marginTop: 4,
+  },
+  reviewerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  reviewerCustomerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+  },
+  reviewAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFE4E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewAvatarInitial: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#E11D48',
+  },
+  reviewerName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  reviewDateText: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+  },
+  reviewVariationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  reviewVariationLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  reviewVariationValue: {
+    flex: 1,
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  reviewCommentContent: {
+    fontSize: 13,
+    color: '#0F172A',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  reviewCommentEmpty: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#94A3B8',
+    marginTop: 4,
+  },
+  reviewPhotosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  reviewPhotoLargeCard: {
+    width: HISTORY_REVIEW_PHOTO_SIZE,
+    height: HISTORY_REVIEW_PHOTO_SIZE,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F1F5F9',
+  },
+  reviewPhotoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  emptyReviewBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  emptyReviewText: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  leaveReviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: BrandColors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginTop: 6,
+  },
+  leaveReviewBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

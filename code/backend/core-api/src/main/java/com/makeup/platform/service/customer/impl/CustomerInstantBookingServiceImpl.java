@@ -1285,12 +1285,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                         req.getMasterCategoryId(), req.getStyleId(), candidateMuaIds.size());
             }
 
-            // Sắp xếp phân tầng ưu tiên (Tiered Priority): Thợ có điểm Bayesian Rating cao hơn đứng trước
+            // Sắp xếp phân tầng ưu tiên (Tiered Priority): Thợ có điểm Rank Score (kết hợp cả ca hoàn thành và rating) cao hơn đứng trước
             if (candidateMuaIds.size() > 1) {
                 final Map<Long, MuaProfileEntity> finalProfiles = profiles;
                 candidateMuaIds.sort((id1, id2) -> {
                     MuaProfileEntity m1 = finalProfiles.get(id1);
                     MuaProfileEntity m2 = finalProfiles.get(id2);
+
+                    BigDecimal s1 = (m1 != null && m1.getRankScore() != null) ? m1.getRankScore() : BigDecimal.valueOf(50.0);
+                    BigDecimal s2 = (m2 != null && m2.getRankScore() != null) ? m2.getRankScore() : BigDecimal.valueOf(50.0);
+                    int cmp = s2.compareTo(s1);
+                    if (cmp != 0) return cmp;
+
                     BigDecimal r1 = (m1 != null && m1.getBayesianRating() != null) ? m1.getBayesianRating() : BigDecimal.valueOf(4.60);
                     BigDecimal r2 = (m2 != null && m2.getBayesianRating() != null) ? m2.getBayesianRating() : BigDecimal.valueOf(4.60);
                     return r2.compareTo(r1);

@@ -645,6 +645,10 @@
     "summary_success": "Lấy tóm tắt điểm số và danh hiệu thành công.",
     "auto_review_comment": "Đơn hàng hoàn tất đạt chuẩn (Hệ thống tự động ghi nhận 5★ sau 72 giờ).",
     "auto_review_notif_title": "Đơn hàng được ghi nhận 5★ tự động",
-    "auto_review_notif_content": "Khách hàng không khiếu nại sau 72 giờ hoàn tất. Hệ thống đã tự động ghi nhận đánh giá 5★ cho ca làm #{0}."
+    "auto_review_notif_content": "Khách hàng không khiếu nại sau 72 giờ hoàn tất. Hệ thống đã tự động ghi nhận đánh giá 5★ cho ca làm #{0}.",
+    "booking_not_paid_out": "Chỉ có thể đánh giá sau khi đơn hàng đã hoàn tất và thanh toán toàn bộ chi phí.",
+    "not_found": "Không tìm thấy thông tin đánh giá.",
+    "update_success": "Cập nhật đánh giá thành công! Cảm ơn bạn.",
+    "upload_images_success": "Tải ảnh đánh giá lên thành công."
   }
 }
