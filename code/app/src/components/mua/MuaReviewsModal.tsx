@@ -180,7 +180,7 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
                   {hasReviews && ratingScore ? (
                     <>
                       <Text style={styles.scoreNumber}>{ratingScore}</Text>
-                      <View style={styles.starsRow}>{renderStars(Math.round(summary.ratingAvg))}</View>
+                      <View style={styles.starsRow}>{renderStars(Math.round(summary.ratingAvg || 0))}</View>
                       <Text style={styles.reviewCountText}>
                         {summary.totalReviews} lượt đánh giá
                       </Text>

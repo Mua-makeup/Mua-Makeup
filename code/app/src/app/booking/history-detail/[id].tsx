@@ -2427,12 +2427,18 @@ export default function BookingHistoryDetailScreen() {
                     s => s.staffId === userInfo?.id || s.staffPhone === userInfo?.phoneNumber || s.staffName === userInfo?.fullName
                   );
                   const isPrimary = myStaff?.role === 'PRIMARY_MUA' || (!myStaff && (bookingDetail.muaId === userInfo?.id || bookingDetail.muaName === userInfo?.fullName));
+                  const myCommRate = myStaff?.commissionRate != null ? myStaff.commissionRate : (isPrimary ? 70 : 30);
+                  const myCommAmt = myStaff?.commissionAmount != null
+                    ? myStaff.commissionAmount
+                    : Math.round(totalAmount * (myCommRate > 1 ? myCommRate / 100 : myCommRate));
                   const rawOt = Number(bookingDetail.overtimePay || 0);
-                  const myOt = rawOt > 0
-                    ? (isPrimary
-                        ? rawOt
-                        : Math.round(rawOt * ((myCommRate || 20) / 100)))
-                    : 0;
+                  const myOt = myStaff?.overtimePay != null && Number(myStaff.overtimePay) > 0
+                    ? Number(myStaff.overtimePay)
+                    : (rawOt > 0
+                        ? (isPrimary
+                            ? rawOt
+                            : Math.round(rawOt * ((myCommRate || 20) / 100)))
+                        : 0);
                   const totalStaffIncome = myCommAmt + myOt;
 
                   return (

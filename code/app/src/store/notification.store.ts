@@ -280,7 +280,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         incomingItem.type === 'DISPATCH_STATUS_UPDATED' ||
         incomingItem.type === 'SOLO_PROMOTION_OFFERED' ||
         incomingItem.type === 'EMERGENCY_REVIEW_APPROVED' ||
-        incomingItem.type === 'EMERGENCY_REVIEW_REJECTED'
+        incomingItem.type === 'EMERGENCY_REVIEW_REJECTED' ||
+        incomingItem.type === 'STAFF_LEAVE_APPROVED' ||
+        incomingItem.type === 'STAFF_LEAVE_REJECTED' ||
+        incomingItem.type === 'STAFF_LEAVE_REVIEWED'
       ) {
         try {
           const { useWorkstationStore } = require('@/store/workstation.store');

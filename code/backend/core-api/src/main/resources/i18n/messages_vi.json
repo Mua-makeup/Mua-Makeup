@@ -112,7 +112,8 @@
     "invalid_decision": "Quyết định không hợp lệ. Chỉ chấp nhận APPROVE hoặc REJECT.",
     "staff_not_active": "Nhân viên chưa kích hoạt hoặc không thể xếp ca.",
     "shift_time_invalid": "Thời gian kết thúc ca làm phải sau thời gian bắt đầu.",
-    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
+    "shift_time_must_be_fixed_preset": "Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00 - 12:00), Ca chiều (13:00 - 17:00), Ca tối (18:00 - 21:30) hoặc Cả ngày (08:00 - 17:00).",
+    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ vào {0}.",
     "staff_busy_slot_conflict": "Thợ {0} đã đăng ký lịch bận cá nhân từ {1} đến {2} (Lý do: {3}). Không thể xếp ca vào khung giờ này!",
     "shift_created_success": "Tạo ca làm việc thành công!",
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
@@ -123,6 +124,22 @@
     "cert_review_success": "Xử lý phê duyệt chứng chỉ nhân viên thành công.",
     "cert_delete_success": "Xóa chứng chỉ thành công.",
     "cannot_delete_verified_platform_cert": "Không thể xóa chứng chỉ đã được Ban Quản Trị Sàn phê duyệt.",
+    "leave_requests_fetched": "Lấy danh sách đơn xin nghỉ thành công.",
+    "leave_pending_count_fetched": "Lấy số lượng đơn chờ duyệt thành công.",
+    "leave_request_approved_success": "Phê duyệt đơn xin nghỉ ca thành công! Ca làm việc tương ứng đã được xóa khỏi lịch.",
+    "leave_request_rejected_success": "Đã từ chối đơn xin nghỉ ca. Ca làm việc vẫn được giữ nguyên.",
+    "leave_request_submitted_success": "Gửi đơn xin nghỉ ca thành công! Đang chờ Studio phê duyệt.",
+    "my_leave_requests_fetched": "Lấy danh sách đơn xin nghỉ của bạn thành công.",
+    "leave_request_cancelled_success": "Hủy đơn xin nghỉ ca thành công.",
+    "leave_request_already_pending": "Bạn đã có một đơn xin nghỉ đang chờ duyệt vào khung giờ này.",
+    "leave_request_not_found": "Không tìm thấy đơn xin nghỉ ca.",
+    "leave_request_not_owner": "Bạn không có quyền thao tác trên đơn xin nghỉ này.",
+    "leave_request_cannot_cancel_reviewed": "Chỉ có thể hủy đơn xin nghỉ khi đang ở trạng thái Chờ duyệt.",
+    "leave_request_not_in_agency": "Đơn xin nghỉ này không thuộc Studio của bạn.",
+    "leave_request_already_reviewed": "Đơn xin nghỉ này đã được xử lý trước đó.",
+    "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
+    "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
+    "dispute_resolved_success": "Giải quyết khiếu nại thành công.",
     "review": {
       "decision_required": "Quyết định phê duyệt là bắt buộc.",
       "decision_invalid": "Quyết định phê duyệt không hợp lệ. Chỉ chấp nhận VERIFIED hoặc REJECTED."
@@ -448,6 +465,7 @@
   },
   "calendar": {
     "slot_blocked_success": "Khóa khung giờ bận cá nhân thành công!",
+    "busy_time_must_be_fixed_preset": "Chỉ được đăng ký lịch bận trong 4 ca cố định: Ca sáng (08:00 - 12:00), Ca chiều (13:00 - 17:00), Ca tối (18:00 - 21:30) hoặc Cả ngày (08:00 - 17:00).",
     "slot_unblocked_success": "Mở lại khung giờ làm việc thành công!",
     "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
     "days_fetch_success": "Lấy tổng quan lịch 30 ngày thành công.",
@@ -631,11 +649,9 @@
     "only_primary_worker_allowed": "Chỉ có thợ chính mới có quyền xác nhận hoặc từ chối thu tiền mặt.",
     "worker_declined": "Đã thông báo tới khách hàng là bạn chưa nhận được tiền mặt."
   },
-  "agency": {
-    "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
-    "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
-    "dispute_resolved_success": "Giải quyết khiếu nại thành công."
-  },
+  "ERR_LEAVE_REQUEST_NOT_FOUND": "Không tìm thấy đơn xin nghỉ ca trên hệ thống.",
+  "ERR_DUPLICATE_LEAVE_REQUEST": "Đơn xin nghỉ ca cho khung giờ này đã tồn tại và đang chờ duyệt.",
+  "ERR_INVALID_LEAVE_ACTION": "Thao tác trên đơn xin nghỉ không hợp lệ.",
   "dispute": {
     "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",
     "resolution_accepted": "Đã chấp nhận kết quả giải quyết khiếu nại.",

@@ -79,7 +79,7 @@ export default function BookingLiveTrackingScreen() {
   // Status Transition Pop-up Modal State
   const [statusPopup, setStatusPopup] = useState<{
     visible: boolean;
-    type: 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED';
+    type: 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'DISPUTED';
     title: string;
     message: string;
   } | null>(null);

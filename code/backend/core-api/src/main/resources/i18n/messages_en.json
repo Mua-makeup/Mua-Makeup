@@ -112,7 +112,8 @@
     "invalid_decision": "Invalid decision. Only APPROVE or REJECT is accepted.",
     "staff_not_active": "Staff member is not active or eligible for scheduling.",
     "shift_time_invalid": "Shift end time must be after start time.",
-    "shift_time_overlapped": "Shift time overlaps with another shift of this staff member today.",
+    "shift_time_must_be_fixed_preset": "Shifts must be in one of the 4 fixed slots: Morning (08:00 - 12:00), Afternoon (13:00 - 17:00), Evening (18:00 - 21:30), or Full day (08:00 - 17:00).",
+    "shift_time_overlapped": "Shift time overlaps with another shift of this staff member on {0}.",
     "staff_busy_slot_conflict": "Artist {0} has registered a personal busy slot from {1} to {2} (Reason: {3}). Cannot schedule shift during this time!",
     "shift_created_success": "Shift created successfully!",
     "shift_updated_success": "Shift updated successfully!",
@@ -123,6 +124,22 @@
     "cert_review_success": "Staff certificate reviewed successfully.",
     "cert_delete_success": "Certificate deleted successfully.",
     "cannot_delete_verified_platform_cert": "Cannot delete certificate that was verified by Platform Super Admin.",
+    "leave_requests_fetched": "Leave requests fetched successfully.",
+    "leave_pending_count_fetched": "Pending leave requests count fetched successfully.",
+    "leave_request_approved_success": "Leave request approved successfully! Corresponding shift has been removed from the schedule.",
+    "leave_request_rejected_success": "Leave request rejected. The shift remains active on the schedule.",
+    "leave_request_submitted_success": "Leave request submitted successfully! Waiting for Studio approval.",
+    "my_leave_requests_fetched": "Your leave requests fetched successfully.",
+    "leave_request_cancelled_success": "Leave request cancelled successfully.",
+    "leave_request_already_pending": "You already have a pending leave request for this time slot.",
+    "leave_request_not_found": "Leave request not found.",
+    "leave_request_not_owner": "You do not have permission to modify this leave request.",
+    "leave_request_cannot_cancel_reviewed": "Only pending leave requests can be cancelled.",
+    "leave_request_not_in_agency": "This leave request does not belong to your Studio.",
+    "leave_request_already_reviewed": "This leave request has already been reviewed.",
+    "disputes_fetch_success": "Studio disputes fetched successfully.",
+    "dispute_detail_fetch_success": "Studio dispute detail fetched successfully.",
+    "dispute_resolved_success": "Dispute resolved successfully.",
     "review": {
       "decision_required": "Decision is required.",
       "decision_invalid": "Invalid decision. Only VERIFIED or REJECTED is accepted."
@@ -448,6 +465,7 @@
   },
   "calendar": {
     "slot_blocked_success": "Personal busy slot blocked successfully!",
+    "busy_time_must_be_fixed_preset": "Busy slots must be in one of the 4 fixed slots: Morning (08:00 - 12:00), Afternoon (13:00 - 17:00), Evening (18:00 - 21:30), or Full day (08:00 - 17:00).",
     "slot_unblocked_success": "Personal busy slot unblocked successfully!",
     "slots_fetch_success": "Available time slots retrieved successfully.",
     "days_fetch_success": "Calendar 30-day overview retrieved successfully.",
@@ -625,11 +643,10 @@
     "only_primary_worker_allowed": "Only the primary artist can confirm or decline cash receipt.",
     "worker_declined": "Customer has been notified that cash has not been received."
   },
-  "agency": {
-    "disputes_fetch_success": "Studio disputes fetched successfully.",
-    "dispute_detail_fetch_success": "Studio dispute detail fetched successfully.",
-    "dispute_resolved_success": "Dispute resolved successfully."
-  },
+
+  "ERR_LEAVE_REQUEST_NOT_FOUND": "Staff leave request was not found.",
+  "ERR_DUPLICATE_LEAVE_REQUEST": "A pending leave request already exists for this slot.",
+  "ERR_INVALID_LEAVE_ACTION": "Invalid action on staff leave request.",
   "dispute": {
     "escalate_success": "Dispute escalated to Platform Admin successfully.",
     "resolution_accepted": "Dispute resolution accepted successfully.",

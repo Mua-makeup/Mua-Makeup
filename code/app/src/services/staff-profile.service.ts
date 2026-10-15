@@ -46,6 +46,7 @@ export interface AgencyStaffProfile {
   totalCompletedJobs?: number;
   assignedStyles?: AssignedStyle[];
   certificates?: StaffCertificate[];
+  note?: string;
 }
 
 export const staffProfileService = {

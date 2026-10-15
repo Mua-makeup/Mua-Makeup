@@ -16,6 +16,8 @@ import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.AgencyStaffShiftRepository;
 import com.makeup.platform.repository.mua.MUACalendarRepository;
 import com.makeup.platform.service.agency.AgencyShiftService;
+import com.makeup.platform.entity.agency.AgencyStaffLeaveRequestEntity;
+import com.makeup.platform.repository.AgencyStaffLeaveRequestRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -41,8 +44,31 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     private final AgencyStaffRepository agencyStaffRepository;
     private final AgencyStaffShiftRepository agencyStaffShiftRepository;
     private final MUACalendarRepository muaCalendarRepository;
+    private final AgencyStaffLeaveRequestRepository leaveRequestRepository;
 
     private static final List<Integer> ORDERED_DAYS_OF_WEEK = List.of(2, 3, 4, 5, 6, 7, 1);
+
+    private static final List<LocalTime[]> VALID_SHIFT_WINDOWS = List.of(
+            new LocalTime[]{LocalTime.of(8, 0), LocalTime.of(12, 0)},
+            new LocalTime[]{LocalTime.of(13, 0), LocalTime.of(17, 0)},
+            new LocalTime[]{LocalTime.of(18, 0), LocalTime.of(21, 30)},
+            new LocalTime[]{LocalTime.of(8, 0), LocalTime.of(17, 0)}
+    );
+
+    private void validateShiftTimePreset(LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            return;
+        }
+        boolean isValidSlot = VALID_SHIFT_WINDOWS.stream()
+                .anyMatch(w -> w[0].equals(startTime) && w[1].equals(endTime));
+        if (!isValidSlot) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_INVALID_SHIFT_TIME,
+                    "agency.shift_time_must_be_fixed_preset",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+    }
 
     @Override
     @Transactional
@@ -54,6 +80,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
                     HttpStatus.BAD_REQUEST
             );
         }
+        validateShiftTimePreset(req.getStartTime(), req.getEndTime());
 
         AgencyProfileEntity agency = getAgencyForManager(userId);
 
@@ -183,14 +210,20 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ShiftDetailRes> getStaffShifts(Long userId, Long staffId) {
+    public List<ShiftDetailRes> getStaffShifts(Long userId, Long staffId, LocalDate startDate, LocalDate endDate) {
         AgencyStaffEntity staff = agencyStaffRepository.findById(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_STAFF_NOT_FOUND,
                         "ERR_STAFF_NOT_FOUND"
                 ));
 
-        List<AgencyStaffShiftEntity> shifts = agencyStaffShiftRepository.findAllActiveByStaffIdWithStaff(staffId);
+        List<AgencyStaffShiftEntity> shifts;
+        if (startDate != null && endDate != null) {
+            shifts = agencyStaffShiftRepository.findAllActiveByStaffIdAndWeekRange(staffId, startDate, endDate);
+        } else {
+            shifts = agencyStaffShiftRepository.findAllActiveByStaffIdWithStaff(staffId);
+        }
+
         return shifts.stream()
                 .map(this::mapToDetailRes)
                 .collect(Collectors.toList());
@@ -199,6 +232,15 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     @Override
     @Transactional
     public ShiftDetailRes updateShift(Long userId, Long shiftId, ConfigureShiftReq req) {
+        if (!req.getEndTime().isAfter(req.getStartTime())) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_INVALID_SHIFT_TIME,
+                    "agency.shift_time_invalid",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        validateShiftTimePreset(req.getStartTime(), req.getEndTime());
+
         AgencyProfileEntity agency = getAgencyForManager(userId);
 
         AgencyStaffShiftEntity shift = getShiftForAgency(shiftId, agency);
@@ -280,9 +322,17 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
 
     private void validateNoOverlappingShifts(List<AgencyStaffShiftEntity> overlapping) {
         if (!overlapping.isEmpty()) {
+            AgencyStaffShiftEntity first = overlapping.get(0);
+            String dayInfo = "";
+            if (first.getWorkDate() != null) {
+                dayInfo = ShiftDetailRes.getVietnameseDayName(first.getDayOfWeek()) + " (" + first.getWorkDate().format(DateTimeFormatter.ofPattern("dd/MM")) + ")";
+            } else if (first.getDayOfWeek() != null) {
+                dayInfo = ShiftDetailRes.getVietnameseDayName(first.getDayOfWeek());
+            }
             throw new CustomBusinessException(
                     ErrorCodes.ERR_SHIFT_OVERLAPPING,
                     "agency.shift_time_overlapped",
+                    dayInfo,
                     HttpStatus.CONFLICT
             );
         }
@@ -344,7 +394,37 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
     private void validateNoStaffBusySlotConflict(AgencyStaffEntity staff, LocalDate workDate, LocalTime startTime, LocalTime endTime) {
-        if (workDate == null || staff == null || staff.getMua() == null) {
+        if (workDate == null || staff == null) {
+            return;
+        }
+
+        String staffName = (staff.getMua() != null && staff.getMua().getUser() != null && staff.getMua().getUser().getFullName() != null)
+                ? staff.getMua().getUser().getFullName()
+                : "nhân viên";
+
+        // 1. Kiểm tra đơn xin nghỉ ca đã được duyệt (APPROVED)
+        List<AgencyStaffLeaveRequestEntity> approvedLeaves = leaveRequestRepository.findOverlappingApprovedRequests(
+                staff.getId(),
+                workDate,
+                startTime,
+                endTime
+        );
+        if (!approvedLeaves.isEmpty()) {
+            AgencyStaffLeaveRequestEntity leave = approvedLeaves.get(0);
+            String startStr = leave.getStartTime().toString().substring(0, 5);
+            String endStr = leave.getEndTime().toString().substring(0, 5);
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_STAFF_BUSY_SLOT,
+                    "agency.staff_busy_slot_conflict",
+                    staffName,
+                    startStr,
+                    endStr,
+                    "Đã duyệt nghỉ ca: " + (leave.getReason() != null ? leave.getReason() : "Bận việc cá nhân")
+            );
+        }
+
+        // 2. Kiểm tra slot lịch bận cá nhân trong MUA Calendar
+        if (staff.getMua() == null) {
             return;
         }
 
@@ -373,9 +453,6 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
                 LocalTime busyEndLocal = busyEndAt.withOffsetSameInstant(VIETNAM_OFFSET).toLocalTime();
                 String startStr = busyStartLocal.toString().substring(0, 5);
                 String endStr = busyEndLocal.toString().substring(0, 5);
-                String staffName = (staff.getMua() != null && staff.getMua().getUser() != null && staff.getMua().getUser().getFullName() != null)
-                        ? staff.getMua().getUser().getFullName()
-                        : "nhân viên";
                 throw new CustomBusinessException(
                         ErrorCodes.ERR_STAFF_BUSY_SLOT,
                         "agency.staff_busy_slot_conflict",

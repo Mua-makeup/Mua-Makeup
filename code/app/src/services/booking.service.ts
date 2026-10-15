@@ -219,6 +219,8 @@ export interface StaffAssignmentItem {
   commissionRate?: number;
   commissionAmount?: number;
   commissionNote?: string;
+  overtimePay?: number;
+  overtimeMinutes?: number;
 }
 
 export interface CandidatePackageRes {

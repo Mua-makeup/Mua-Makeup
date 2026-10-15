@@ -146,6 +146,7 @@ export default function RootLayout() {
           <Stack.Screen name="bookings" options={{ animation: 'none' }} />
           <Stack.Screen name="activity" options={{ animation: 'none' }} />
           <Stack.Screen name="mua/packages/index" options={{ animation: 'none' }} />
+          <Stack.Screen name="staff/schedule" options={{ animation: 'none' }} />
           <Stack.Screen name="mua-detail/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/customer-wallet" options={{ presentation: 'card' }} />

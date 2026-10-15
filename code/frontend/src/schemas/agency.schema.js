@@ -97,6 +97,13 @@ export const staffInvitationSchema = z.object({
   note: z.string().optional(),
 });
 
+export const VALID_SHIFT_PRESETS = [
+  { startTime: '08:00', endTime: '12:00' },
+  { startTime: '13:00', endTime: '17:00' },
+  { startTime: '18:00', endTime: '21:30' },
+  { startTime: '08:00', endTime: '17:00' },
+];
+
 export const shiftSchema = z
   .object({
     staffId: z.number({ invalid_type_error: 'Vui lòng chọn thợ' }).int().positive(),
@@ -118,6 +125,17 @@ export const shiftSchema = z
     },
     {
       message: 'Giờ kết thúc phải sau giờ bắt đầu',
+      path: ['endTime'],
+    }
+  )
+  .refine(
+    (data) => {
+      const s = data.startTime.substring(0, 5);
+      const e = data.endTime.substring(0, 5);
+      return VALID_SHIFT_PRESETS.some((p) => p.startTime === s && p.endTime === e);
+    },
+    {
+      message: 'Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00-12:00), Ca chiều (13:00-17:00), Ca tối (18:00-21:30) hoặc Cả ngày (08:00-17:00)',
       path: ['endTime'],
     }
   );

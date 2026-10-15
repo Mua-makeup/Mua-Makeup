@@ -88,6 +88,14 @@ export const agencyService = {
   getWeeklyShiftMatrix: (params) => apiClient.get('/agencies/shifts/matrix', { params }),
   deleteShift: (shiftId) => apiClient.delete(`/agencies/shifts/${shiftId}`),
 
+  // Đơn Xin Nghỉ Ca / Lịch Bận Của Thợ Studio
+  getAgencyLeaveRequests: (params) => apiClient.get('/agencies/leave-requests', { params }),
+  getPendingLeaveRequestsCount: () => apiClient.get('/agencies/leave-requests/pending-count'),
+  reviewLeaveRequest: (requestId, data) => apiClient.put(`/agencies/leave-requests/${requestId}/review`, data),
+  submitLeaveRequest: (data) => apiClient.post('/agencies/staff/leave-requests', data),
+  getMyLeaveRequests: () => apiClient.get('/agencies/staff/leave-requests'),
+  cancelMyLeaveRequest: (requestId) => apiClient.delete(`/agencies/staff/leave-requests/${requestId}`),
+
   // Studio Bookings Management
   getBookings: (params) => apiClient.get('/agency/bookings', { params }),
   getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),

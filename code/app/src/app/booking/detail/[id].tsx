@@ -548,7 +548,7 @@ export default function CustomerBookingDetailScreen() {
     Boolean(bookingDetail.agencyName);
 
   const allAssignedStaff = (bookingDetail.assignedStaff || []).filter(
-    (s) => s.status !== 'REPLACED' || Boolean(s.cancellationReason) || s.status === 'EMERGENCY_CANCELLED'
+    (s) => s.status !== 'REPLACED' || Boolean(s.cancellationReason) || (s.status as string) === 'EMERGENCY_CANCELLED'
   );
 
   const confirmedStaffList = allAssignedStaff.filter(
