@@ -28,6 +28,7 @@ import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { websocketService } from '@/services/websocket.service';
+import { ReviewModal } from '@/components/customer/ReviewModal';
 
 function formatScheduleOrCompletionTime(
   startTime?: string,
@@ -79,7 +80,11 @@ function formatScheduleOrCompletionTime(
 }
 
 export default function BookingHistoryDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, openDispute, openReview } = useLocalSearchParams<{
+    id: string;
+    openDispute?: string;
+    openReview?: string;
+  }>();
   const bookingId = Number(id);
 
   const { userInfo, isAuthenticated } = useAuthStore();
@@ -101,6 +106,7 @@ export default function BookingHistoryDetailScreen() {
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
   const [isDisputeDossierOpen, setIsDisputeDossierOpen] = useState(false);
   const [isDisputeDossierAutoOpen, setIsDisputeDossierAutoOpen] = useState(false);
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
 
   // Trạng thái thanh toán 70% còn lại cho Khách
   const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
@@ -141,6 +147,18 @@ export default function BookingHistoryDetailScreen() {
       websocketService.unsubscribe(topic);
     };
   }, [bookingId]);
+
+  // Tự động mở Modal Khiếu nại hoặc Đánh giá nếu có điều hướng từ danh sách đơn
+  useEffect(() => {
+    if (bookingDetail) {
+      if (openDispute === 'true' && (bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT' || bookingDetail.status === 'DISPUTED')) {
+        setIsDisputeDossierAutoOpen(true);
+        setIsDisputeDossierOpen(true);
+      } else if (openReview === 'true' && (bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT')) {
+        setIsReviewModalVisible(true);
+      }
+    }
+  }, [bookingDetail?.status, openDispute, openReview]);
 
   const formatPrice = (price?: number | null) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
@@ -2515,12 +2533,25 @@ export default function BookingHistoryDetailScreen() {
               {isNormalPaidOut && (
                 <TouchableOpacity
                   style={styles.reviewBtn}
+                  onPress={() => setIsReviewModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="star-outline" size={17} color={BrandColors.primary} />
+                  <Text style={styles.reviewBtnText}>Đánh Giá Dịch Vụ</Text>
+                </TouchableOpacity>
+              )}
+
+              {(bookingDetail?.status === 'COMPLETED' || bookingDetail?.status === 'PAID_OUT') && (
+                <TouchableOpacity
+                  style={styles.disputeBtn}
                   onPress={() => {
-                    Alert.alert('Đánh Giá Dịch Vụ', 'Cảm ơn bạn đã sử dụng nền tảng! Tính năng đánh giá đang được kích hoạt.');
+                    setIsDisputeDossierAutoOpen(true);
+                    setIsDisputeDossierOpen(true);
                   }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.reviewBtnText}>Đánh Giá Dịch Vụ</Text>
+                  <Ionicons name="alert-circle-outline" size={17} color="#EA580C" />
+                  <Text style={styles.disputeBtnText}>Khiếu Nại / Báo Cáo Sự Cố Ca Này</Text>
                 </TouchableOpacity>
               )}
             </>
@@ -2601,6 +2632,17 @@ export default function BookingHistoryDetailScreen() {
         autoOpenForm={isDisputeDossierAutoOpen}
         onDisputeSuccess={() => loadData(true)}
       />
+
+      {/* MODAL ĐÁNH GIÁ DỊCH VỤ SAU KHI HOÀN TẤT */}
+      {bookingDetail && (
+        <ReviewModal
+          visible={isReviewModalVisible}
+          bookingId={bookingId}
+          muaName={bookingDetail.muaName || 'Chuyên viên trang điểm'}
+          onClose={() => setIsReviewModalVisible(false)}
+          onSuccess={() => loadData(true)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -3418,6 +3460,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: BrandColors.primary,
+  },
+  disputeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  disputeBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#EA580C',
   },
   photoModalFullscreen: {
     flex: 1,

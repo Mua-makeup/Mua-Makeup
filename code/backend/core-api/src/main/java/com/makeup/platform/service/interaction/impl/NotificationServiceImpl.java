@@ -807,6 +807,91 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
+    public NotificationEntity createInAppNotification(
+            Long userId,
+            Long agencyId,
+            Long bookingId,
+            String type,
+            String title,
+            String content,
+            Map<String, Object> metadata
+    ) {
+        UserEntity user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId).orElse(null);
+        }
+
+        AgencyProfileEntity agency = null;
+        if (agencyId != null) {
+            agency = agencyProfileRepository.findById(agencyId).orElse(null);
+        }
+
+        BookingEntity booking = null;
+        if (bookingId != null) {
+            booking = bookingRepository.findById(bookingId).orElse(null);
+        }
+
+        if (user == null && agency != null) {
+            user = agency.getOwner();
+        }
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(user)
+                .agency(agency)
+                .booking(booking)
+                .type(type != null ? type : "GENERAL")
+                .title(title)
+                .content(content)
+                .metadata(metadata != null ? new HashMap<>(metadata) : new HashMap<>())
+                .isRead(false)
+                .isDeleted(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created generic in-app notification ID={}, type={} for userId={}, agencyId={}",
+                saved.getId(), type, userId, agencyId);
+
+        // 1. Gửi WebSocket realtime P2P đích danh và Push Notification tới User
+        if (user != null) {
+            long unreadCount = notificationRepository.countByUserIdAndIsReadFalseAndIsDeletedFalse(user.getId());
+            userWebSocketNotificationService.sendNotificationToUser(user.getId(), saved, unreadCount);
+
+            if (StringUtils.hasText(user.getPushToken())) {
+                try {
+                    expoPushNotificationService.sendPushNotification(
+                            user.getPushToken(),
+                            title,
+                            content,
+                            saved.getMetadata()
+                    );
+                } catch (Exception e) {
+                    log.error("[PushNotification] Failed to send push notification to userId={}: {}", user.getId(), e.getMessage());
+                }
+            }
+        }
+
+        // 2. Broadcast realtime qua STOMP WebSocket cho Agency (nếu có)
+        if (agency != null) {
+            try {
+                Map<String, Object> payload = new HashMap<>(saved.getMetadata() != null ? saved.getMetadata() : Map.of());
+                payload.put("id", saved.getId());
+                payload.put("type", saved.getType());
+                payload.put("title", saved.getTitle());
+                payload.put("content", saved.getContent());
+                payload.put("agencyId", agency.getId());
+                payload.put("timestamp", System.currentTimeMillis());
+
+                messagingTemplate.convertAndSend("/topic/agency-notifications/" + agency.getId(), payload);
+            } catch (Exception e) {
+                log.warn("[WebSocket] Lỗi broadcast WebSocket cho agency id={}: {}", agency.getId(), e.getMessage());
+            }
+        }
+
+        return saved;
+    }
+
+    @Override
+    @Transactional
     public void createEmergencyReviewResultNotification(
             AgencyProfileEntity agency,
             AgencyStaffEntity staff,

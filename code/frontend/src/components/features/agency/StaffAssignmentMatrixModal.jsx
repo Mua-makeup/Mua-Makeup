@@ -52,6 +52,20 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
     return reason.replace(/^\[[^\]]*\]\s*/, '');
   };
 
+  // Tính phụ cấp tăng ca theo vai trò: Thợ chính hưởng 100% định mức, Thợ phụ hưởng theo % hoa hồng thỏa thuận (chuẩn Backend)
+  const calculateEffectiveOvertimePay = (staff, split) => {
+    if (!staff?.isOvertime || !staff?.overtimePay || Number(staff.overtimePay) <= 0) {
+      return 0;
+    }
+    const basePay = Number(staff.overtimePay);
+    const isPrimary = staff?.role === 'PRIMARY_MUA' || (split && split.staffRole === 'PRIMARY_MUA');
+    if (isPrimary) {
+      return basePay;
+    }
+    const rate = Number(split?.commissionRate) || 0;
+    return Math.round((basePay * rate) / 100);
+  };
+
   const bookingId = booking?.bookingId || booking?.id;
   const totalBookingAmount = Number(matrixData?.totalAmount || booking?.totalAmount || booking?.totalPrice || 0);
 
@@ -285,10 +299,12 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             ? existing.amount
             : (totalBookingAmount > 0 ? Math.round((totalBookingAmount * rate) / 100) : 0);
           let note = existing ? existing.note : '';
-          const otPay = (astStaffObj?.isOvertime && Number(astStaffObj?.overtimePay) > 0) ? Number(astStaffObj.overtimePay) : 0;
+          const baseOtPay = (astStaffObj?.isOvertime && Number(astStaffObj?.overtimePay) > 0) ? Number(astStaffObj.overtimePay) : 0;
+          // Thợ phụ hưởng phụ cấp tăng ca theo tỷ lệ hoa hồng thỏa thuận của mình (khớp quy chuẩn Backend)
+          const astOtPay = Math.round((baseOtPay * rate) / 100);
 
-          if (otPay > 0 && !existing) {
-            note = (note ? note + ' | ' : '') + `Tăng ca ${astStaffObj.overtimeMinutes}p: +${formatCurrency(otPay)} (phụ cấp Studio)`;
+          if (astOtPay > 0 && !existing) {
+            note = (note ? note + ' | ' : '') + `Tăng ca ${astStaffObj.overtimeMinutes}p: +${formatCurrency(astOtPay)} (phụ cấp theo ${rate}% hoa hồng thợ phụ)`;
           }
 
           next[astId] = {
@@ -296,7 +312,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
             staffRole: 'ASSISTANT_MUA',
             commissionRate: rate,
             commissionAmount: amount,
-            overtimePay: otPay,
+            overtimePay: astOtPay,
             overtimeMinutes: astStaffObj?.overtimeMinutes || 0,
             note: note,
             error: '',
@@ -365,7 +381,9 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
 
       const maxAllowedRate = Math.max(0, 100 - otherRates);
       const staffObj = matrixData?.staffList?.find((s) => s.staffId === staffId);
-      const otPay = (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) ? Number(staffObj.overtimePay) : 0;
+      const isPrimary = currentItem.staffRole === 'PRIMARY_MUA';
+      const baseOtPay = (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) ? Number(staffObj.overtimePay) : 0;
+      const otPay = isPrimary ? baseOtPay : Math.round((baseOtPay * newRate) / 100);
       const baseCommission = totalBookingAmount > 0 ? Math.round((totalBookingAmount * newRate) / 100) : 0;
       // Hoa hồng tính theo đơn hàng độc lập, KHÔNG gộp phụ cấp ngoài giờ vào tiền đơn
       const calculatedAmount = baseCommission;
@@ -379,12 +397,18 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
           .replace('{amount}', formatCurrency(maxAllowedAmount));
       }
 
+      let note = currentItem.note;
+      if (!isPrimary && baseOtPay > 0 && (!note || note.startsWith('Tăng ca '))) {
+        note = `Tăng ca ${staffObj?.overtimeMinutes || 0}p: +${formatCurrency(otPay)} (phụ cấp theo ${newRate}% hoa hồng thợ phụ)`;
+      }
+
       next[staffId] = {
         ...currentItem,
         commissionRate: newRate,
         commissionAmount: calculatedAmount,
         overtimePay: otPay,
         overtimeMinutes: staffObj?.overtimeMinutes || 0,
+        note,
         error,
       };
 
@@ -411,6 +435,10 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
       const maxAllowedRate = Math.max(0, 100 - otherRates);
       const maxAllowedAmount = totalBookingAmount > 0 ? Math.round((totalBookingAmount * maxAllowedRate) / 100) : 0;
       const calculatedRate = totalBookingAmount > 0 ? Number(((newAmount / totalBookingAmount) * 100).toFixed(2)) : 0;
+      const staffObj = matrixData?.staffList?.find((s) => s.staffId === staffId);
+      const isPrimary = currentItem.staffRole === 'PRIMARY_MUA';
+      const baseOtPay = (staffObj?.isOvertime && Number(staffObj?.overtimePay) > 0) ? Number(staffObj.overtimePay) : 0;
+      const otPay = isPrimary ? baseOtPay : Math.round((baseOtPay * calculatedRate) / 100);
 
       let error = '';
       if (newAmount > maxAllowedAmount || calculatedRate > maxAllowedRate) {
@@ -420,10 +448,18 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
           .replace('{amount}', formatCurrency(maxAllowedAmount));
       }
 
+      let note = currentItem.note;
+      if (!isPrimary && baseOtPay > 0 && (!note || note.startsWith('Tăng ca '))) {
+        note = `Tăng ca ${staffObj?.overtimeMinutes || 0}p: +${formatCurrency(otPay)} (phụ cấp theo ${calculatedRate}% hoa hồng thợ phụ)`;
+      }
+
       next[staffId] = {
         ...currentItem,
         commissionRate: calculatedRate,
         commissionAmount: newAmount,
+        overtimePay: otPay,
+        overtimeMinutes: staffObj?.overtimeMinutes || 0,
+        note,
         error,
       };
 
@@ -971,7 +1007,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                             ) : isQualified ? (
                               staff.isOvertime ? (
                                 <span
-                                  title={`Tăng ca ${staff.overtimeMinutes} phút (Phụ cấp: +${formatCurrency(staff.overtimePay || 0)})`}
+                                  title={`Tăng ca ${staff.overtimeMinutes} phút (Định mức phụ cấp: +${formatCurrency(staff.overtimePay || 0)})`}
                                   className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 shadow-2xs"
                                 >
                                   Tăng ca (+{staff.overtimeMinutes}p)
@@ -1238,15 +1274,15 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                             {st.isOvertime && (
                               <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/60 shadow-2xs">
                                 <Clock className="w-3 h-3 text-amber-500" />
-                                Tăng ca +{st.overtimeMinutes}p: +{formatCurrency(st.overtimePay || 0)} (phụ cấp tính riêng)
+                                Tăng ca +{st.overtimeMinutes}p: +{formatCurrency(calculateEffectiveOvertimePay(st, split))} ({isPrimary ? 'phụ cấp tính riêng' : `phụ cấp theo ${split.commissionRate || 0}% hoa hồng`})
                               </span>
                             )}
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {st.isOvertime && Number(st.overtimePay) > 0 && (
+                            {st.isOvertime && calculateEffectiveOvertimePay(st, split) > 0 && (
                               <span className="font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                                Tổng nhận: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency((Number(split.commissionAmount) || 0) + Number(st.overtimePay))}</strong>
+                                Tổng nhận: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency((Number(split.commissionAmount) || 0) + calculateEffectiveOvertimePay(st, split))}</strong>
                               </span>
                             )}
                             {hasError ? (
@@ -1345,9 +1381,9 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                       </span>
                       <span className="font-semibold text-amber-600 dark:text-amber-400">
                         {split?.commissionRate || 0}% (~{formatCurrency(split?.commissionAmount || 0)})
-                        {st.isOvertime && Number(st.overtimePay) > 0 && (
+                        {st.isOvertime && calculateEffectiveOvertimePay(st, split) > 0 && (
                           <span className="text-amber-700 dark:text-amber-300 ml-1.5 font-normal">
-                            + {formatCurrency(st.overtimePay)} (tăng ca {st.overtimeMinutes}p)
+                            + {formatCurrency(calculateEffectiveOvertimePay(st, split))} (tăng ca {st.overtimeMinutes}p{st.role !== 'PRIMARY_MUA' ? ` - ${split?.commissionRate || 0}%` : ''})
                           </span>
                         )}
                       </span>

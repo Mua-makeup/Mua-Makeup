@@ -640,5 +640,23 @@
     "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",
     "resolution_accepted": "Đã chấp nhận kết quả giải quyết khiếu nại.",
     "not_in_disputed_state": "Đơn hàng không ở trạng thái khiếu nại."
+  },
+  "review": {
+    "booking_id_required": "Mã đơn hàng không được để trống.",
+    "rating_required": "Vui lòng chọn số sao đánh giá (1 - 5 sao).",
+    "rating_min": "Đánh giá tối thiểu là 1 sao.",
+    "rating_max": "Đánh giá tối đa là 5 sao.",
+    "comment_too_long": "Nhận xét không được vượt quá 2000 ký tự.",
+    "unauthorized": "Bạn không có quyền đánh giá đơn hàng này.",
+    "booking_not_completed": "Chỉ có thể đánh giá sau khi đơn hàng đã hoàn thành dịch vụ.",
+    "already_reviewed": "Đơn hàng này đã được đánh giá trước đó.",
+    "mua_not_found": "Không tìm thấy thông tin chuyên viên trang điểm của đơn hàng.",
+    "submit_success": "Gửi đánh giá thành công! Cảm ơn phản hồi của bạn.",
+    "get_success": "Lấy thông tin đánh giá thành công.",
+    "list_success": "Lấy danh sách đánh giá thành công.",
+    "summary_success": "Lấy tóm tắt điểm số và danh hiệu thành công.",
+    "auto_review_comment": "Đơn hàng hoàn tất đạt chuẩn (Hệ thống tự động ghi nhận 5★ sau 72 giờ).",
+    "auto_review_notif_title": "Đơn hàng được ghi nhận 5★ tự động",
+    "auto_review_notif_content": "Khách hàng không khiếu nại sau 72 giờ hoàn tất. Hệ thống đã tự động ghi nhận đánh giá 5★ cho ca làm #{0}."
   }
 }

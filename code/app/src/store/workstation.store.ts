@@ -65,7 +65,7 @@ export interface DepositConfirmedNotice {
 
 export interface WorkstationStats {
   completedToday: number;
-  ratingAverage: number;
+  ratingAverage: number | null;
   totalReviews: number;
   dailyEarnings: number;
 }
@@ -147,7 +147,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   selectedFilter: 'ALL',
   stats: {
     completedToday: 0,
-    ratingAverage: 5.0,
+    ratingAverage: null,
     totalReviews: 0,
     dailyEarnings: 0,
   },
@@ -183,8 +183,8 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
                 phoneNumber: staffRes.phoneNumber,
                 avatarUrl: staffRes.avatarUrl,
                 agencyName: staffRes.agencyName,
-                ratingAverage: 5.0,
-                totalReviews: 0,
+                ratingAverage: (staffRes.totalReviews && staffRes.totalReviews > 0) ? staffRes.ratingAvg : null,
+                totalReviews: staffRes.totalReviews || 0,
                 experienceYears: 0,
                 styles: staffRes.assignedStyles?.map((s) => s.styleName) || [],
                 certificates: staffRes.certificates || [],
@@ -227,7 +227,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         todayBookings: displayBookings,
         stats: {
           completedToday: completed.length,
-          ratingAverage: profile?.ratingAverage || 5.0,
+          ratingAverage: (profile?.totalReviews && profile.totalReviews > 0) ? (profile.ratingAverage ?? null) : null,
           totalReviews: profile?.totalReviews || 0,
           dailyEarnings: earnings,
         },

@@ -26,6 +26,7 @@ import { SearchSuggestionsOverlay } from '@/components/customer/SearchSuggestion
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { ExploreFilterModal } from '@/components/customer/ExploreFilterModal';
 import { StudioServicesModal } from '@/components/customer/StudioServicesModal';
+import { calculateMuaRankScore } from '@/utils/ranking';
 
 const getDistanceKm = (
   lat1?: number | null,
@@ -231,6 +232,10 @@ export default function ExploreScreen() {
       }
 
       return true;
+    }).sort((a, b) => {
+      const scoreA = calculateMuaRankScore(a, latitude, longitude);
+      const scoreB = calculateMuaRankScore(b, latitude, longitude);
+      return scoreB - scoreA;
     });
   }, [muaList, selectedStyleId, selectedRadiusKm, latitude, longitude, minPrice, maxPrice, minRating, keyword]);
 
@@ -305,6 +310,12 @@ export default function ExploreScreen() {
               {hasVerifiedCert && (
                 <Ionicons name="checkmark-circle" size={16} color={BrandColors.primary} />
               )}
+              {mua.badgeTier === 'GOLD_TOP_PRO' && (
+                <View style={styles.topProBadge}>
+                  <Ionicons name="ribbon" size={11} color="#B45309" />
+                  <Text style={styles.topProText}>TOP PRO</Text>
+                </View>
+              )}
             </View>
 
             <Text style={styles.muaCategory} numberOfLines={1}>
@@ -315,10 +326,16 @@ export default function ExploreScreen() {
               <View style={styles.ratingBox}>
                 <Ionicons name="star" size={13} color="#F59E0B" />
                 <Text style={styles.ratingText}>
-                  {mua.ratingAverage != null ? Number(mua.ratingAverage).toFixed(1) : '5.0'}
+                  {mua.bayesianRating != null
+                    ? Number(mua.bayesianRating).toFixed(1)
+                    : mua.ratingAverage != null
+                    ? Number(mua.ratingAverage).toFixed(1)
+                    : '5.0'}
                 </Text>
                 <Text style={styles.reviewsCount}>
-                  ({mua.totalCompletedJobs != null && mua.totalCompletedJobs > 0
+                  ({mua.totalReviews != null && mua.totalReviews > 0
+                    ? `${mua.totalReviews} đánh giá`
+                    : mua.totalCompletedJobs != null && mua.totalCompletedJobs > 0
                     ? `${mua.totalCompletedJobs} ca`
                     : 'Mới'})
                 </Text>
@@ -448,7 +465,7 @@ export default function ExploreScreen() {
               <View style={styles.ratingBox}>
                 <Ionicons name="star" size={13} color="#F59E0B" />
                 <Text style={styles.ratingText}>
-                  {item.ratingAvg != null ? Number(item.ratingAvg).toFixed(1) : '5.0'}
+                  {item.ratingAvg != null && Number(item.ratingAvg) > 0 ? Number(item.ratingAvg).toFixed(1) : 'Mới'}
                 </Text>
               </View>
 
@@ -1325,5 +1342,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  topProBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  topProText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.3,
   },
 });

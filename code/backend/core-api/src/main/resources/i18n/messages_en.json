@@ -634,5 +634,23 @@
     "escalate_success": "Dispute escalated to Platform Admin successfully.",
     "resolution_accepted": "Dispute resolution accepted successfully.",
     "not_in_disputed_state": "Booking is not in disputed state."
+  },
+  "review": {
+    "booking_id_required": "Booking ID is required.",
+    "rating_required": "Please provide a rating between 1 and 5 stars.",
+    "rating_min": "Rating must be at least 1 star.",
+    "rating_max": "Rating must not exceed 5 stars.",
+    "comment_too_long": "Review comment cannot exceed 2000 characters.",
+    "unauthorized": "You are not authorized to review this booking.",
+    "booking_not_completed": "You can only review a booking once it is completed.",
+    "already_reviewed": "This booking has already been reviewed.",
+    "mua_not_found": "Makeup artist details not found for this booking.",
+    "submit_success": "Review submitted successfully! Thank you for your feedback.",
+    "get_success": "Retrieved review details successfully.",
+    "list_success": "Retrieved reviews successfully.",
+    "summary_success": "Retrieved rating summary and badges successfully.",
+    "auto_review_comment": "Booking completed standard (System automatically recorded 5★ after 72 hours).",
+    "auto_review_notif_title": "Booking automatically recorded 5★",
+    "auto_review_notif_content": "No disputes filed after 72 hours of completion. The system has automatically recorded a 5★ review for booking #{0}."
   }
 }

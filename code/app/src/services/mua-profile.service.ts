@@ -44,6 +44,11 @@ export interface MuaPublicProfile {
   isSurgeEnabled?: boolean;
   startingPrice?: number;
   isOnline?: boolean;
+  bayesianRating?: number;
+  rollingRating?: number;
+  badgeTier?: string;
+  rankScore?: number;
+  isEmergencyLocked?: boolean;
   certificates?: MuaCertificate[];
   styles?: MuaStyle[];
   updatedAt?: string;

@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useAuthStore } from '@/store/auth.store';
+import { MuaReviewsModal } from '@/components/mua/MuaReviewsModal';
 
 export const WorkstationStatCards: React.FC = () => {
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
   const stats = useWorkstationStore((s) => s.stats);
+  const profile = useWorkstationStore((s) => s.profile);
   const isAgencyStaff = useAuthStore((s) => s.userInfo?.roles?.includes('ROLE_AGENCY_STAFF'));
   const isMUA = useAuthStore((s) => s.userInfo?.roles?.includes('ROLE_FREELANCE_MUA'));
   const isArtist = isMUA || isAgencyStaff;
+
+  const effectiveMuaId = profile?.muaId || (profile as any)?.id;
 
   const formatVnd = (amount: number) => {
     return (amount || 0).toLocaleString('vi-VN') + ' đ';
@@ -18,6 +23,16 @@ export const WorkstationStatCards: React.FC = () => {
   const handleOpenWallet = () => {
     router.push(isArtist ? '/profile/freelancer-wallet' : '/profile/customer-wallet');
   };
+
+  const handleOpenReviews = () => {
+    if (!effectiveMuaId) {
+      Alert.alert('Thông báo', 'Đang tải thông tin chuyên viên, vui lòng thử lại sau.');
+      return;
+    }
+    setIsReviewModalVisible(true);
+  };
+
+  const hasReviews = stats.totalReviews > 0 && stats.ratingAverage != null;
 
   return (
     <View style={styles.container}>
@@ -68,27 +83,58 @@ export const WorkstationStatCards: React.FC = () => {
           <Text style={styles.subLabel}>Ca đã hoàn tất</Text>
         </View>
 
-        {/* Thẻ 2: Điểm đánh giá sao */}
-        <View style={styles.subCard}>
+        {/* Thẻ 2: Điểm đánh giá sao (Bấm được để xem danh sách feedback) */}
+        <TouchableOpacity
+          style={styles.subCard}
+          activeOpacity={0.75}
+          onPress={handleOpenReviews}
+          accessibilityRole="button"
+          accessibilityLabel="Xem chi tiết đánh giá từ khách hàng"
+        >
           <View style={styles.subCardTop}>
             <View style={[styles.subIconBox, { backgroundColor: '#FEF3C7' }]}>
               <Ionicons name="star" size={15} color="#D97706" />
             </View>
             <View style={styles.pillAmber}>
-              <Text style={styles.pillAmberText}>Uy tín</Text>
+              <Text style={styles.pillAmberText}>Uy tín &bull; Xem &gt;</Text>
             </View>
           </View>
 
           <View style={styles.subNumberRow}>
-            <Text style={styles.subNumber}>
-              {(stats.ratingAverage || 5.0).toFixed(1)}
-            </Text>
-            <Text style={styles.starIcon}>⭐</Text>
-            <Text style={styles.reviewCount}>({stats.totalReviews || 0})</Text>
+            {hasReviews ? (
+              <>
+                <Text style={styles.subNumber}>
+                  {stats.ratingAverage!.toFixed(1)}
+                </Text>
+                <Text style={styles.starIcon}>⭐</Text>
+                <Text style={styles.reviewCount}>({stats.totalReviews})</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.newBadgeInline}>
+                  <Text style={styles.newBadgeInlineText}>MỚI</Text>
+                </View>
+                <Text style={styles.starIcon}>⭐</Text>
+                <Text style={styles.reviewCount}>(0)</Text>
+              </>
+            )}
           </View>
-          <Text style={styles.subLabel}>Điểm đánh giá sao</Text>
-        </View>
+          <Text style={styles.subLabel}>
+            {hasReviews ? 'Điểm đánh giá sao' : 'Chưa có đánh giá'}
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Modal xem đánh giá của thợ */}
+      {effectiveMuaId ? (
+        <MuaReviewsModal
+          visible={isReviewModalVisible}
+          onClose={() => setIsReviewModalVisible(false)}
+          muaId={effectiveMuaId}
+          muaName={profile?.fullName}
+          isOwnerView={true}
+        />
+      ) : null}
     </View>
   );
 };
@@ -244,5 +290,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
     marginTop: 3,
+  },
+  newBadgeInline: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  newBadgeInlineText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#D97706',
   },
 });

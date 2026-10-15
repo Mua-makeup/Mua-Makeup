@@ -173,6 +173,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         // 2. Query potential online MUAs in Redis GEO sorted by distance ASC
         List<Long> candidateMuaIds = findAvailableCandidates(req);
 
+        // Giữ nguyên logic test: Giới hạn tối đa 2 thợ ứng viên trong hàng đợi điều phối khẩn cấp
+        if (candidateMuaIds.size() > 2) {
+            candidateMuaIds = new ArrayList<>(candidateMuaIds.subList(0, 2));
+        }
+
         // BẮT BUỘC: Nếu không có thợ nào online trong bán kính quét -> Báo lỗi ngay cho khách hàng, không tạo đơn rác
         if (candidateMuaIds.isEmpty()) {
             log.warn("[InstantBooking] No online available MUA found within {}km for customer id={}", effectiveRadiusKm, customerId);
@@ -1258,9 +1263,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 double muaMaxRadius = mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0;
                 boolean withinMuaRadius = (distToCustomer != null && distToCustomer <= muaMaxRadius);
 
+                boolean locked = Boolean.TRUE.equals(mua.getIsEmergencyLocked());
+
                 if (freelance && verified && Boolean.TRUE.equals(mua.getIsOnline())
-                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && withinMuaRadius) {
+                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && !locked && withinMuaRadius) {
                     candidateMuaIds.add(id);
+                } else if (locked) {
+                    log.info("[CandidateFilter] Excluded MUA id={} due to emergency lock (rating below threshold)", id);
                 } else if (!withinMuaRadius) {
                     log.info("[CandidateFilter] Excluded MUA id={} because distance ({}km) exceeds MUA's maxServiceRadiusKm ({:.0f}km)",
                             id, distToCustomer != null ? String.format("%.2f", distToCustomer) : "unknown", muaMaxRadius);
@@ -1274,6 +1283,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 candidateMuaIds.retainAll(qualifiedMuaIds);
                 log.info("[CandidateFilter] Filtered by masterCategoryId={}, styleId={}: {} qualified MUAs",
                         req.getMasterCategoryId(), req.getStyleId(), candidateMuaIds.size());
+            }
+
+            // Sắp xếp phân tầng ưu tiên (Tiered Priority): Thợ có điểm Bayesian Rating cao hơn đứng trước
+            if (candidateMuaIds.size() > 1) {
+                final Map<Long, MuaProfileEntity> finalProfiles = profiles;
+                candidateMuaIds.sort((id1, id2) -> {
+                    MuaProfileEntity m1 = finalProfiles.get(id1);
+                    MuaProfileEntity m2 = finalProfiles.get(id2);
+                    BigDecimal r1 = (m1 != null && m1.getBayesianRating() != null) ? m1.getBayesianRating() : BigDecimal.valueOf(4.60);
+                    BigDecimal r2 = (m2 != null && m2.getBayesianRating() != null) ? m2.getBayesianRating() : BigDecimal.valueOf(4.60);
+                    return r2.compareTo(r1);
+                });
             }
 
         } catch (RuntimeException ex) {

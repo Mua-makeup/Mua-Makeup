@@ -44,8 +44,11 @@ interface DisputeDossierModalProps {
 }
 
 const CUSTOMER_QUICK_REASONS = [
+  'Make-up không đúng thỏa thuận / chất lượng kém',
+  'Thợ làm hỏng / bẩn trang phục, đồ dùng cá nhân',
+  'Thợ thu phụ phí bất hợp lý ngoài hợp đồng',
+  'Thợ có thái độ thô lỗ / không chuyên nghiệp',
   'Tôi đã có mặt đúng giờ và chờ tại điểm hẹn',
-  'Điện thoại tôi hoạt động bình thường, không nhận được cuộc gọi từ thợ',
   'Chuyên viên make-up không đến điểm hẹn',
   'Chuyên viên đến trễ quá thời gian thỏa thuận',
   'Lý do khác...',
