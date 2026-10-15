@@ -67,9 +67,14 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
             END AS hasStyle,
             NOT EXISTS (
                 SELECT 1 FROM mua_schema.mua_calendars c
+                LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                 WHERE c.mua_id = s.mua_id 
                   AND c.is_locked = true
                   AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
+                  AND (b IS NULL OR b.status NOT IN (
+                      'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
+                      'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
+                  ))
                   AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
             ) AS hasCalendarFree,
             EXISTS (
@@ -132,9 +137,14 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                 )
                 AND NOT EXISTS (
                     SELECT 1 FROM mua_schema.mua_calendars c
+                    LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                     WHERE c.mua_id = s.mua_id 
                       AND c.is_locked = true
                       AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
+                      AND (b IS NULL OR b.status NOT IN (
+                          'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
+                          'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
+                      ))
                       AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
                 )
                 AND NOT EXISTS (
@@ -172,9 +182,14 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                 )
                 AND NOT EXISTS (
                     SELECT 1 FROM mua_schema.mua_calendars c
+                    LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                     WHERE c.mua_id = s.mua_id 
                       AND c.is_locked = true
                       AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
+                      AND (b IS NULL OR b.status NOT IN (
+                          'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
+                          'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
+                      ))
                       AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
                 )
                 AND NOT EXISTS (

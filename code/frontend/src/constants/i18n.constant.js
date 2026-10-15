@@ -57,6 +57,16 @@ export const TRANSLATIONS = {
     nav_admin_surge_pricing: 'Định Giá Động & Surge',
     nav_admin_disputes: 'Báo Cáo Khiếu Nại',
 
+    // Agency Admin Menus
+    nav_agency_dashboard: 'Tổng Quan Studio',
+    nav_agency_bookings: 'Đơn Hàng & Điều Phối',
+    nav_agency_settings: 'Cài Đặt Studio',
+    nav_agency_packages: 'Gói Dịch Vụ',
+    nav_agency_surcharges: 'Phụ Phí & Ca Đêm',
+    nav_agency_staff: 'Nhân Viên & Thợ',
+    nav_agency_shifts: 'Lịch Làm & Ca Trực',
+    nav_agency_disputes: 'Khiếu Nại & Sự Cố',
+
     // Admin Disputes Management
     disputes_title: 'Quản Lý Báo Cáo Khiếu Nại & Sự Cố',
     disputes_subtitle: 'Tiếp nhận khiếu nại từ khách hàng & thợ trang điểm, xử lý phân xử hoàn cọc hoặc quyết toán',
@@ -533,6 +543,10 @@ export const TRANSLATIONS = {
     // Agency Shift Scheduling
     shifts_title: 'Thời Khóa Biểu & Xếp Ca Tuần',
     shifts_sub: 'Phân bổ ca trực cho thợ Studio theo từng buổi sáng, chiều, tối nhằm tối ưu nguồn lực và chống trùng lịch',
+    leave_requests_tab: 'Đơn Xin Nghỉ Ca',
+    leave_request_approved_success: 'Phê duyệt đơn xin nghỉ ca thành công! Ca làm việc tương ứng đã được xóa khỏi lịch.',
+    leave_request_rejected_success: 'Đã từ chối đơn xin nghỉ ca. Ca làm việc vẫn được giữ nguyên.',
+    leave_request_submitted_success: 'Gửi đơn xin nghỉ ca thành công! Đang chờ Studio phê duyệt.',
     kpi_total_shifts: 'Tổng Ca Tuần',
     kpi_morning: 'Ca Sáng',
     kpi_afternoon: 'Ca Chiều',
@@ -568,6 +582,7 @@ export const TRANSLATIONS = {
     field_start_time: 'Giờ Bắt Đầu',
     field_end_time: 'Giờ Kết Thúc',
     conflict_warning_title: 'Cảnh Báo Xung Đột Ca Trực:',
+    'agency.staff_busy_slot_conflict': 'Thợ đã khóa lịch bận cá nhân hoặc có đơn xin nghỉ ca được duyệt trong khung giờ này. Không thể xếp ca!',
     duration_label: 'Thời Lượng Ca:',
     hours_label: 'tiếng',
     preset_morning: 'Sáng (08:00 - 12:00)',
@@ -619,8 +634,10 @@ export const TRANSLATIONS = {
     overtime_penalty_type: 'Hình Thức Áp Dụng',
     overtime_penalty_type_fixed: 'Số tiền cố định (VNĐ)',
     overtime_penalty_type_percent: 'Theo % hoa hồng đơn (%)',
+    overtime_penalty_type_per_minute: 'Theo phút tăng ca (VNĐ/phút)',
     overtime_penalty_type_warning: 'Chỉ ghi nhận / Nhắc nhở',
     overtime_penalty_value: 'Mức Giá Trị Áp Dụng',
+    overtime_penalty_value_helper_per_minute: 'Số tiền tính cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)',
     overtime_penalty_value_helper_fixed: 'Số tiền phụ cấp hoặc khấu trừ (VNĐ)',
     overtime_penalty_value_helper_percent: 'Tỷ lệ % hoa hồng được cộng thêm hoặc bị trừ (0 - 100%)',
     overtime_is_active: 'Kích hoạt áp dụng quy tắc này',
@@ -1760,6 +1777,10 @@ export const TRANSLATIONS = {
     staff_metric_completed_jobs: 'Ca hoàn thành',
     agency_staff_cert_review_verified: 'Đã phê duyệt chứng chỉ cho nhân viên.',
     agency_staff_cert_review_rejected: 'Đã từ chối chứng chỉ của nhân viên.',
+    btn_cancel_and_refund: 'Hủy Đơn & Hoàn Cọc',
+    confirm_cancel_and_refund_title: 'Xác Nhận Hủy Đơn & Hoàn Cọc Cho Khách',
+    confirm_cancel_and_refund_msg: 'Do không thể bố trí thợ thay thế hoặc xảy ra sự cố đột xuất, bạn có chắc chắn muốn hủy đơn hàng #{bookingCode} và hoàn trả ngay 100% tiền cọc về ví khách hàng không?',
+    cancel_booking_success: 'Đã hủy đơn hàng và hoàn tiền cọc thành công cho khách hàng!',
   },
   en: {
 
@@ -1819,6 +1840,16 @@ export const TRANSLATIONS = {
     nav_admin_taxonomy: 'Master Taxonomy & Styles',
     nav_admin_surge_pricing: 'Dynamic & Surge Pricing',
     nav_admin_disputes: 'Dispute Reports',
+
+    // Agency Admin Menus
+    nav_agency_dashboard: 'Studio Dashboard',
+    nav_agency_bookings: 'Bookings & Dispatch',
+    nav_agency_settings: 'Studio Settings',
+    nav_agency_packages: 'Service Packages',
+    nav_agency_surcharges: 'Surcharges & Night Shifts',
+    nav_agency_staff: 'Staff & Artists',
+    nav_agency_shifts: 'Shifts & Rosters',
+    nav_agency_disputes: 'Disputes & Incidents',
 
     // Admin Disputes Management
     disputes_title: 'Dispute & Incident Management',
@@ -2296,6 +2327,10 @@ export const TRANSLATIONS = {
     // Agency Shift Scheduling
     shifts_title: 'Weekly Shift Schedule & Matrix',
     shifts_sub: 'Allocate daily shifts across morning, afternoon, and evening to optimize workforce coverage and avoid time conflicts',
+    leave_requests_tab: 'Staff Leave Requests',
+    leave_request_approved_success: 'Leave request approved successfully! Corresponding shift has been removed from the schedule.',
+    leave_request_rejected_success: 'Leave request rejected. The shift remains active on the schedule.',
+    leave_request_submitted_success: 'Leave request submitted successfully! Waiting for Studio approval.',
     kpi_total_shifts: 'Total Weekly Shifts',
     kpi_morning: 'Morning Shifts',
     kpi_afternoon: 'Afternoon Shifts',
@@ -2331,6 +2366,7 @@ export const TRANSLATIONS = {
     field_start_time: 'Start Time',
     field_end_time: 'End Time',
     conflict_warning_title: 'Shift Conflict Detected:',
+    'agency.staff_busy_slot_conflict': 'The artist has blocked this time slot or has an approved leave request. Cannot schedule shift!',
     duration_label: 'Shift Duration:',
     hours_label: 'hours',
     preset_morning: 'Morning (08:00 - 12:00)',
@@ -2382,8 +2418,10 @@ export const TRANSLATIONS = {
     overtime_penalty_type: 'Application Format',
     overtime_penalty_type_fixed: 'Fixed Amount (VND)',
     overtime_penalty_type_percent: 'Commission Rate (%)',
+    overtime_penalty_type_per_minute: 'Per Overtime Minute (VND/min)',
     overtime_penalty_type_warning: 'Warning Only / Recorded',
     overtime_penalty_value: 'Applied Amount / Rate',
+    overtime_penalty_value_helper_per_minute: 'Amount calculated for each overtime minute (e.g. 1,000 VND/min)',
     overtime_penalty_value_helper_fixed: 'Compensation or fine amount (VND)',
     overtime_penalty_value_helper_percent: 'Percentage added to or deducted from artist commission (0 - 100%)',
     overtime_is_active: 'Activate this overtime rule',
@@ -3514,6 +3552,10 @@ export const TRANSLATIONS = {
     staff_metric_completed_jobs: 'Completed jobs',
     agency_staff_cert_review_verified: 'Staff certificate approved successfully.',
     agency_staff_cert_review_rejected: 'Staff certificate rejected.',
+    btn_cancel_and_refund: 'Cancel & Refund Deposit',
+    confirm_cancel_and_refund_title: 'Confirm Cancel Booking & Deposit Refund',
+    confirm_cancel_and_refund_msg: 'Due to unavailable replacement staff or an unexpected issue, are you sure you want to cancel booking #{bookingCode} and immediately refund 100% deposit to the customer wallet?',
+    cancel_booking_success: 'Booking cancelled and deposit refunded to customer successfully!',
   },
 };
 

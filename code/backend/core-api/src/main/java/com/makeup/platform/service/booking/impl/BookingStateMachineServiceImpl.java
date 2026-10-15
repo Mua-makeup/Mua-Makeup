@@ -390,8 +390,9 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 });
 
             }
-            // 5b. Release calendar slot upon cancellation
-            if (targetStatus == BookingStatus.CANCELLED || targetStatus == BookingStatus.DISPUTED) {
+            // 5b. Release calendar slot upon completion, cancellation, or dispute
+            if (targetStatus == BookingStatus.CANCELLED || targetStatus == BookingStatus.DISPUTED
+                    || targetStatus == BookingStatus.COMPLETED || targetStatus == BookingStatus.PAID_OUT) {
                 try {
                     muaCalendarService.releaseSlotByBookingId(savedBooking.getId());
                     log.info("[StateMachine] Released calendar slots for bookingId={} upon reaching status {}",
@@ -481,8 +482,10 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     || to == BookingStatus.CANCELLED
                     || to == BookingStatus.DISPUTED;
             case ARRIVED -> to == BookingStatus.IN_PROGRESS
+                    || to == BookingStatus.CANCELLED
                     || to == BookingStatus.DISPUTED;
             case IN_PROGRESS -> to == BookingStatus.COMPLETED
+                    || to == BookingStatus.CANCELLED
                     || to == BookingStatus.DISPUTED;
             case COMPLETED -> to == BookingStatus.PAID_OUT
                     || to == BookingStatus.DISPUTED;
@@ -502,8 +505,15 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         }
 
         boolean isCustomer = booking.getCustomer() != null && booking.getCustomer().getId().equals(userId);
-        boolean isAssignedMua = booking.getMua() != null && booking.getMua().getUser() != null
-                && booking.getMua().getUser().getId().equals(userId);
+        boolean isAssignedStaffOnBooking = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE)
+                .stream()
+                .anyMatch(a -> a.getAssignmentRole() != AssignmentRole.ASSISTANT_MUA
+                        && a.getStaff() != null && a.getStaff().getMua() != null
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(userId));
+        boolean isAssignedMua = (booking.getMua() != null && booking.getMua().getUser() != null
+                && booking.getMua().getUser().getId().equals(userId)) || isAssignedStaffOnBooking;
         boolean isAgencyOwner = booking.getAgency() != null && booking.getAgency().getOwner() != null
                 && booking.getAgency().getOwner().getId().equals(userId);
 
@@ -587,7 +597,10 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                     }
                 } else if (booking.getStatus() == BookingStatus.ACCEPTED
-                        || booking.getStatus() == BookingStatus.ON_THE_WAY) {
+                        || booking.getStatus() == BookingStatus.ON_THE_WAY
+                        || booking.getStatus() == BookingStatus.ARRIVED
+                        || booking.getStatus() == BookingStatus.IN_PROGRESS
+                        || booking.getStatus() == BookingStatus.DISPUTED) {
                     if (!isCustomer && !isAssignedMua && !isAgencyOwner) {
                         throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
@@ -1095,6 +1108,10 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         }
         if (hasMuaTag) {
             return "MUA";
+        }
+        if (lower.contains("studio từ chối") || lower.contains("studio hủy") || lower.contains("agency từ chối")
+                || lower.contains("agency hủy") || lower.contains("không có thợ thay thế") || lower.contains("đổi thợ")) {
+            return "AGENCY";
         }
         if (lower.contains("vắng mặt") || lower.contains("no-show") || lower.contains("không gặp khách") || lower.contains("khách không có mặt")) {
             return "MUA";

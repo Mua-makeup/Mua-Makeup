@@ -7,6 +7,7 @@ import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
+import com.makeup.platform.entity.booking.BookingPartner;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
@@ -64,12 +65,15 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             LEFT JOIN FETCH m.user mu
             LEFT JOIN FETCH b.servicePackage sp
             LEFT JOIN FETCH b.style st
-            WHERE (b.mua.id = :muaId OR EXISTS (
-                SELECT 1 FROM BookingStaffAssignmentEntity bsa
-                WHERE bsa.booking = b
-                  AND bsa.staff.mua.id = :muaId
-                  AND bsa.status IN (AssignmentStatus.ACTIVE, AssignmentStatus.EMERGENCY_CANCELLED)
-            ))
+            WHERE (
+                (b.bookingPartner = BookingPartner.FREELANCER_DIRECT AND b.mua.id = :muaId)
+                OR EXISTS (
+                    SELECT 1 FROM BookingStaffAssignmentEntity bsa
+                    WHERE bsa.booking = b
+                      AND bsa.staff.mua.id = :muaId
+                      AND bsa.status IN (AssignmentStatus.ACTIVE, AssignmentStatus.EMERGENCY_CANCELLED)
+                )
+            )
               AND (
                   b.bookingDate = :date
                   OR b.status IN (
@@ -92,12 +96,15 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             LEFT JOIN FETCH m.user mu
             LEFT JOIN FETCH b.servicePackage sp
             LEFT JOIN FETCH b.style st
-            WHERE (b.mua.id = :muaId OR EXISTS (
-                SELECT 1 FROM BookingStaffAssignmentEntity bsa
-                WHERE bsa.booking = b
-                  AND bsa.staff.mua.id = :muaId
-                  AND bsa.status IN (AssignmentStatus.ACTIVE, AssignmentStatus.EMERGENCY_CANCELLED)
-            ))
+            WHERE (
+                (b.bookingPartner = BookingPartner.FREELANCER_DIRECT AND b.mua.id = :muaId)
+                OR EXISTS (
+                    SELECT 1 FROM BookingStaffAssignmentEntity bsa
+                    WHERE bsa.booking = b
+                      AND bsa.staff.mua.id = :muaId
+                      AND bsa.status IN (AssignmentStatus.ACTIVE, AssignmentStatus.EMERGENCY_CANCELLED)
+                )
+            )
             ORDER BY b.createdAt DESC
             """)
     List<BookingEntity> findAllFreelancerBookings(

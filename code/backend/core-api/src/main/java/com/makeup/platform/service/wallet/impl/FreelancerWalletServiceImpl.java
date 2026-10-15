@@ -7,6 +7,7 @@ import com.makeup.platform.dto.response.wallet.FreelancerWalletRes;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.wallet.LedgerEntryEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.entity.wallet.WalletHoldEntity;
 import com.makeup.platform.repository.UserRepository;
@@ -21,6 +22,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.agency.OvertimeReportStatus;
+import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.dto.response.wallet.CustomerWalletTransactionRes;
 import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import org.springframework.data.domain.PageRequest;
@@ -40,6 +44,7 @@ public class FreelancerWalletServiceImpl implements FreelancerWalletService {
     private final UserRepository userRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final BookingRepository bookingRepository;
+    private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
 
     @Override
     @Transactional
@@ -60,6 +65,9 @@ public class FreelancerWalletServiceImpl implements FreelancerWalletService {
                             .build();
                     return walletRepository.save(newWallet);
                 });
+
+        // 0. Đồng bộ các khoản phụ cấp tăng ca đã được duyệt của các đơn đã hoàn tất nhưng chưa ghi có vào ví thợ
+        syncPendingOvertimeAllowances(muaUserId, wallet);
 
         // 1. Đồng bộ và xác nhận lại trạng thái của các khoản cọc nếu đơn đã xong hoặc hủy
         List<WalletHoldEntity> rawActiveHolds = walletHoldRepository.findAllByMuaUserIdAndStatus(muaUserId, "ACTIVE");
@@ -144,5 +152,84 @@ public class FreelancerWalletServiceImpl implements FreelancerWalletService {
                 .heldDeposits(heldDeposits)
                 .recentTransactions(recentTransactions)
                 .build();
+    }
+
+    private void syncPendingOvertimeAllowances(Long muaUserId, WalletEntity staffWallet) {
+        try {
+            List<AgencyStaffOvertimeReportEntity> allReports = agencyStaffOvertimeReportRepository.findAll();
+            for (AgencyStaffOvertimeReportEntity ot : allReports) {
+                if (ot.getStatus() == OvertimeReportStatus.APPROVED_WAIVED && ot.getPenaltyAmountApplied() != null
+                        && ot.getPenaltyAmountApplied().compareTo(BigDecimal.ZERO) > 0) {
+
+                    if (ot.getStaff() != null && ot.getStaff().getMua() != null && ot.getStaff().getMua().getUser() != null
+                            && ot.getStaff().getMua().getUser().getId().equals(muaUserId)) {
+
+                        String creditKey = "ot:credit:booking:" + ot.getBookingId() + ":staff:" + muaUserId;
+                        String debitKey = "ot:debit:booking:" + ot.getBookingId() + ":staff:" + muaUserId;
+
+                        if (!ledgerEntryRepository.existsByIdempotencyKey(creditKey)) {
+                            BookingEntity booking = bookingRepository.findById(ot.getBookingId()).orElse(null);
+                            if (booking != null && (booking.getStatus() == BookingStatus.COMPLETED || booking.getStatus() == BookingStatus.PAID_OUT)) {
+                                BigDecimal allowance = ot.getPenaltyAmountApplied();
+
+                                // 1. Trừ ví Studio nếu chưa trừ
+                                if (ot.getAgency() != null && ot.getAgency().getOwner() != null && !ledgerEntryRepository.existsByIdempotencyKey(debitKey)) {
+                                    UserEntity owner = ot.getAgency().getOwner();
+                                    walletRepository.findByUserIdWithLock(owner.getId()).ifPresent(ownerWallet -> {
+                                        BigDecimal bBefore = ownerWallet.getAvailableBalance() != null ? ownerWallet.getAvailableBalance() : BigDecimal.ZERO;
+                                        BigDecimal deductAmount = bBefore.min(allowance);
+                                        if (deductAmount.compareTo(BigDecimal.ZERO) > 0) {
+                                            ownerWallet.setAvailableBalance(bBefore.subtract(deductAmount));
+                                            walletRepository.save(ownerWallet);
+
+                                            String sName = ot.getStaff().getMua().getUser().getFullName();
+                                            LedgerEntryEntity debitEntry = LedgerEntryEntity.builder()
+                                                    .referenceType("OVERTIME_PAYMENT")
+                                                    .referenceId(ot.getId())
+                                                    .wallet(ownerWallet)
+                                                    .entryType("DEBIT")
+                                                    .amount(deductAmount)
+                                                    .balanceAfter(ownerWallet.getAvailableBalance())
+                                                    .description(String.format("Chi trả phụ cấp làm thêm giờ đơn #%s cho thợ %s (-%s đ)",
+                                                            booking.getBookingCode(), sName, String.format("%,d", deductAmount.longValue())))
+                                                    .idempotencyKey(debitKey)
+                                                    .build();
+                                            ledgerEntryRepository.save(debitEntry);
+                                            log.info("[FreelancerWallet] Debited pending overtime {} VND from agency owner userId={}", deductAmount, owner.getId());
+                                        } else {
+                                            log.warn("[FreelancerWallet] Agency owner userId={} has insufficient balance ({}) for overtime allowance {}, skipping debit to prevent constraint violation",
+                                                    owner.getId(), bBefore, allowance);
+                                        }
+                                    });
+                                }
+
+                                // 2. Cộng ví thợ
+                                BigDecimal curBalance = staffWallet.getAvailableBalance() != null ? staffWallet.getAvailableBalance() : BigDecimal.ZERO;
+                                staffWallet.setAvailableBalance(curBalance.add(allowance));
+                                walletRepository.save(staffWallet);
+
+                                LedgerEntryEntity creditEntry = LedgerEntryEntity.builder()
+                                        .referenceType("OVERTIME_ALLOWANCE")
+                                        .referenceId(ot.getId())
+                                        .wallet(staffWallet)
+                                        .entryType("CREDIT")
+                                        .amount(allowance)
+                                        .balanceAfter(staffWallet.getAvailableBalance())
+                                        .description(String.format("Nhận phụ cấp làm thêm giờ đơn #%s (+%d phút) từ Studio (+%s đ)",
+                                                booking.getBookingCode(), ot.getOvertimeMinutes(), String.format("%,d", allowance.longValue())))
+                                        .idempotencyKey(creditKey)
+                                        .build();
+                                ledgerEntryRepository.save(creditEntry);
+
+                                log.info("[FreelancerWallet] Synced pending overtime allowance {} VND for staff userId={} reportId={}",
+                                        allowance, muaUserId, ot.getId());
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[FreelancerWallet] Could not sync overtime allowances for user {}: {}", muaUserId, ex.getMessage());
+        }
     }
 }

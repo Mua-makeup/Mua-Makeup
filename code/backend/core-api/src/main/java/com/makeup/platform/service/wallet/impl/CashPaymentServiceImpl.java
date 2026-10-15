@@ -5,6 +5,7 @@ import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.wallet.CashPaymentConfirmationReq;
 import com.makeup.platform.dto.response.wallet.CashReceiptStatusRes;
 import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
@@ -16,6 +17,7 @@ import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
+import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
 import com.makeup.platform.service.wallet.CashPaymentService;
@@ -53,6 +55,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     private final BookingSettlementService bookingSettlementService;
     private final SimpMessagingTemplate messagingTemplate;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -123,18 +126,19 @@ public class CashPaymentServiceImpl implements CashPaymentService {
 
         boolean isPrimaryMua = booking.getMua() != null && booking.getMua().getUser() != null
                 && booking.getMua().getUser().getId().equals(workerUserId);
-        boolean isAssignedStaff = false;
+        boolean isAssignedPrimaryStaff = false;
         if (!isPrimaryMua && booking.getAgency() != null) {
-            isAssignedStaff = bookingStaffAssignmentRepository.findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
+            isAssignedPrimaryStaff = bookingStaffAssignmentRepository.findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
                     .stream()
+                    .filter(a -> a.getAssignmentRole() == AssignmentRole.PRIMARY_MUA)
                     .anyMatch(a -> a.getStaff() != null && a.getStaff().getMua() != null
                             && a.getStaff().getMua().getUser() != null
                             && a.getStaff().getMua().getUser().getId().equals(workerUserId));
         }
 
-        if (!isPrimaryMua && !isAssignedStaff) {
+        if (!isPrimaryMua && !isAssignedPrimaryStaff) {
             throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
-                    "cash_receipt.worker_not_assigned", HttpStatus.FORBIDDEN);
+                    "cash_receipt.only_primary_worker_allowed", HttpStatus.FORBIDDEN);
         }
 
         UserEntity workerUser = userRepository.findById(workerUserId)
@@ -187,6 +191,70 @@ public class CashPaymentServiceImpl implements CashPaymentService {
 
         log.info("[CashReceipt] Worker {} confirmed cash for booking {}", workerUserId, bookingId);
         return mapToRes(receipt, bookingId);
+    }
+
+    @Override
+    @Transactional
+    public CashReceiptStatusRes declineByWorker(Long bookingId, Long workerUserId, String reason) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        boolean isPrimaryMua = booking.getMua() != null && booking.getMua().getUser() != null
+                && booking.getMua().getUser().getId().equals(workerUserId);
+        boolean isAssignedPrimaryStaff = false;
+        if (!isPrimaryMua && booking.getAgency() != null) {
+            isAssignedPrimaryStaff = bookingStaffAssignmentRepository.findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
+                    .stream()
+                    .filter(a -> a.getAssignmentRole() == AssignmentRole.PRIMARY_MUA)
+                    .anyMatch(a -> a.getStaff() != null && a.getStaff().getMua() != null
+                            && a.getStaff().getMua().getUser() != null
+                            && a.getStaff().getMua().getUser().getId().equals(workerUserId));
+        }
+
+        if (!isPrimaryMua && !isAssignedPrimaryStaff) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
+                    "cash_receipt.only_primary_worker_allowed", HttpStatus.FORBIDDEN);
+        }
+
+        BookingCashReceiptEntity receipt = cashReceiptRepository.findByBookingIdWithLock(bookingId).orElse(null);
+        if (receipt != null) {
+            receipt.setCustomerConfirmedAt(null);
+            receipt.setFreelancerConfirmedAt(null);
+            receipt.setStatus("DECLINED_BY_WORKER");
+            cashReceiptRepository.save(receipt);
+        }
+
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "WORKER_CASH_DECLINED");
+            payload.put("bookingId", bookingId);
+            payload.put("bookingCode", booking.getBookingCode());
+            payload.put("reason", StringUtils.hasText(reason) ? reason : "Chuyên viên báo chưa nhận được tiền mặt");
+            payload.put("status", "DECLINED_BY_WORKER");
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+        } catch (Exception ex) {
+            log.warn("[CashReceipt] Failed to broadcast WORKER_CASH_DECLINED: {}", ex.getMessage());
+        }
+
+        if (booking.getCustomer() != null && notificationService != null) {
+            try {
+                notificationService.sendNotification(
+                        booking.getCustomer().getId(),
+                        "Chưa nhận được tiền mặt",
+                        "Chuyên viên báo chưa nhận được tiền mặt cho ca làm #" + booking.getBookingCode() + ". Vui lòng kiểm tra lại hoặc trao tiền trực tiếp cho chuyên viên.",
+                        "CASH_DECLINED",
+                        bookingId
+                );
+            } catch (Exception ex) {
+                log.warn("[CashReceipt] Failed to send notification for cash decline: {}", ex.getMessage());
+            }
+        }
+
+        log.info("[CashReceipt] Worker {} declined cash confirmation for booking {}", workerUserId, bookingId);
+        return receipt != null ? mapToRes(receipt, bookingId) : null;
     }
 
     @Override

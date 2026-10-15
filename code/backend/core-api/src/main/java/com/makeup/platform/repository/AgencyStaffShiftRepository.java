@@ -97,4 +97,17 @@ public interface AgencyStaffShiftRepository extends JpaRepository<AgencyStaffShi
             "WHERE s.staff.id = :staffId AND s.isActive = true " +
             "ORDER BY s.dayOfWeek ASC, s.startTime ASC")
     List<AgencyStaffShiftEntity> findAllActiveByStaffIdWithStaff(@Param("staffId") Long staffId);
+
+    @Query("SELECT s FROM AgencyStaffShiftEntity s " +
+            "JOIN FETCH s.staff st " +
+            "LEFT JOIN FETCH st.mua m " +
+            "LEFT JOIN FETCH m.user u " +
+            "WHERE s.staff.id = :staffId AND s.isActive = true " +
+            "AND ((s.workDate IS NOT NULL AND s.workDate BETWEEN :startDate AND :endDate) " +
+            "     OR (s.workDate IS NULL AND s.isRecurring = true)) " +
+            "ORDER BY s.dayOfWeek ASC, s.startTime ASC")
+    List<AgencyStaffShiftEntity> findAllActiveByStaffIdAndWeekRange(
+            @Param("staffId") Long staffId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

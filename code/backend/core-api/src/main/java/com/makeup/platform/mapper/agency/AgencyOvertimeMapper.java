@@ -5,7 +5,11 @@ import com.makeup.platform.dto.response.agency.OvertimeRuleRes;
 import com.makeup.platform.entity.agency.AgencyOvertimeRuleEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.agency.OvertimePenaltyType;
+import com.makeup.platform.entity.agency.OvertimePolicyType;
 import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
 
 @Component
 public class AgencyOvertimeMapper {
@@ -53,9 +57,15 @@ public class AgencyOvertimeMapper {
 
         Long ruleId = null;
         String ruleName = null;
+        OvertimePolicyType policyType = null;
+        OvertimePenaltyType penaltyType = null;
+        BigDecimal penaltyValue = null;
         if (entity.getRule() != null) {
             ruleId = entity.getRule().getId();
             ruleName = entity.getRule().getRuleName();
+            policyType = entity.getRule().getPolicyType();
+            penaltyType = entity.getRule().getPenaltyType();
+            penaltyValue = entity.getRule().getPenaltyValue();
         }
 
         return OvertimeReportRes.builder()
@@ -69,6 +79,9 @@ public class AgencyOvertimeMapper {
                 .reasonType(entity.getReasonType())
                 .ruleId(ruleId)
                 .ruleName(ruleName)
+                .policyType(policyType)
+                .penaltyType(penaltyType)
+                .penaltyValue(penaltyValue)
                 .explanationText(entity.getExplanationText())
                 .proofImageUrl(entity.getProofImageUrl())
                 .status(entity.getStatus())

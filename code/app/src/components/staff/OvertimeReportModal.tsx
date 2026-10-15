@@ -20,6 +20,7 @@ import {
   OvertimeReasonType,
   OvertimeRuleItem,
 } from '@/services/agency-staff.service';
+import { bookingService } from '@/services/booking.service';
 
 interface Props {
   visible: boolean;
@@ -42,9 +43,37 @@ export const OvertimeReportModal: React.FC<Props> = ({
 }) => {
   const calculatedOvertime = Math.max(1, actualMinutes - estimatedMinutes);
   const [overtimeMinutes, setOvertimeMinutes] = useState(calculatedOvertime.toString());
+  const QUICK_REASONS = [
+    {
+      key: 'CUSTOMER_LATE',
+      title: 'Khách đến muộn / Trễ giờ',
+      icon: 'time-outline',
+      template: 'Khách hàng đến muộn hơn thời gian hẹn ban đầu, dẫn đến thời gian kết thúc ca làm bị kéo dài.',
+    },
+    {
+      key: 'ADDITIONAL_SERVICES',
+      title: 'Khách đổi kiểu / Đính đá / Dặm thêm',
+      icon: 'color-wand-outline',
+      template: 'Khách hàng phát sinh yêu cầu đổi kiểu trang điểm phức tạp hơn và dặm thêm phấn, làm tóc kỹ hơn dự kiến.',
+    },
+    {
+      key: 'LOCATION_DIFFICULTY',
+      title: 'Khó khăn hiện trường / Thiếu sáng',
+      icon: 'alert-circle-outline',
+      template: 'Hiện trường làm việc chật hẹp hoặc thiếu nguồn ánh sáng đầy đủ khiến thao tác cần thêm thời gian để đảm bảo chất lượng.',
+    },
+    {
+      key: 'OTHER_CUSTOM',
+      title: 'Lý do phát sinh khác',
+      icon: 'create-outline',
+      template: '',
+    },
+  ];
+
+  const [selectedQuickKey, setSelectedQuickKey] = useState<string>('CUSTOMER_LATE');
   const [reasonType, setReasonType] = useState<OvertimeReasonType>('OTHER_CUSTOM_REASON');
   const [selectedRuleId, setSelectedRuleId] = useState<number | undefined>(undefined);
-  const [explanationText, setExplanationText] = useState('');
+  const [explanationText, setExplanationText] = useState(QUICK_REASONS[0].template);
   const [proofImageUri, setProofImageUri] = useState<string | null>(null);
   const [rules, setRules] = useState<OvertimeRuleItem[]>([]);
   const [isLoadingRules, setIsLoadingRules] = useState(false);
@@ -70,6 +99,14 @@ export const OvertimeReportModal: React.FC<Props> = ({
       // Bỏ qua lỗi nếu studio chưa cài đặt rules
     } finally {
       setIsLoadingRules(false);
+    }
+  };
+
+  const handleSelectQuickReason = (item: (typeof QUICK_REASONS)[0]) => {
+    setSelectedQuickKey(item.key);
+    setReasonType('OTHER_CUSTOM_REASON');
+    if (!explanationText || QUICK_REASONS.some((q) => q.template === explanationText)) {
+      setExplanationText(item.template);
     }
   };
 
@@ -107,13 +144,26 @@ export const OvertimeReportModal: React.FC<Props> = ({
 
     try {
       setIsSubmitting(true);
+
+      let finalProofUrl = proofImageUri || undefined;
+      if (proofImageUri && (proofImageUri.startsWith('file://') || proofImageUri.startsWith('content://') || proofImageUri.startsWith('/'))) {
+        try {
+          const uploadRes = await bookingService.uploadDisputeProof(bookingId, proofImageUri);
+          if (uploadRes?.completionPhotoUrl) {
+            finalProofUrl = uploadRes.completionPhotoUrl;
+          }
+        } catch (uploadErr) {
+          console.warn('[OvertimeReport] Could not upload photo to Cloudinary, sending direct uri:', uploadErr);
+        }
+      }
+
       await agencyStaffService.submitOvertimeReport({
         bookingId,
         overtimeMinutes: mins,
         reasonType,
         ruleId: reasonType === 'PRESET_RULE' ? selectedRuleId : undefined,
         explanationText: explanationText.trim(),
-        proofImageUrl: proofImageUri || undefined,
+        proofImageUrl: finalProofUrl,
       });
 
       Alert.alert('Thành công', 'Đã nộp báo cáo giải trình làm thêm giờ tới Studio Admin.');
@@ -177,8 +227,23 @@ export const OvertimeReportModal: React.FC<Props> = ({
 
             {/* Phân loại lý do */}
             <Text style={styles.label}>Loại giải trình *</Text>
-            <View style={styles.reasonTabRow}>
-              {rules.length > 0 ? (
+
+            {rules.length > 0 && (
+              <View style={styles.reasonTabRow}>
+                <TouchableOpacity
+                  style={[styles.reasonTab, reasonType === 'OTHER_CUSTOM_REASON' && styles.reasonTabActive]}
+                  onPress={() => setReasonType('OTHER_CUSTOM_REASON')}
+                >
+                  <Text
+                    style={[
+                      styles.reasonTabText,
+                      reasonType === 'OTHER_CUSTOM_REASON' && styles.reasonTabTextActive,
+                    ]}
+                  >
+                    Lý Do Phổ Biến
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={[styles.reasonTab, reasonType === 'PRESET_RULE' && styles.reasonTabActive]}
                   onPress={() => setReasonType('PRESET_RULE')}
@@ -189,28 +254,45 @@ export const OvertimeReportModal: React.FC<Props> = ({
                       reasonType === 'PRESET_RULE' && styles.reasonTabTextActive,
                     ]}
                   >
-                    Theo Quy Chế Studio
+                    Theo Quy Chế Studio ({rules.length})
                   </Text>
                 </TouchableOpacity>
-              ) : null}
+              </View>
+            )}
 
-              <TouchableOpacity
-                style={[
-                  styles.reasonTab,
-                  reasonType === 'OTHER_CUSTOM_REASON' && styles.reasonTabActive,
-                ]}
-                onPress={() => setReasonType('OTHER_CUSTOM_REASON')}
-              >
-                <Text
-                  style={[
-                    styles.reasonTabText,
-                    reasonType === 'OTHER_CUSTOM_REASON' && styles.reasonTabTextActive,
-                  ]}
-                >
-                  Lý Do Phát Sinh Khác
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Các lý do phổ biến chọn nhanh dạng chips trực quan */}
+            {reasonType === 'OTHER_CUSTOM_REASON' && (
+              <View style={styles.quickReasonGrid}>
+                {QUICK_REASONS.map((item) => {
+                  const isSelected = selectedQuickKey === item.key;
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.quickReasonChip, isSelected && styles.quickReasonChipActive]}
+                      onPress={() => handleSelectQuickReason(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={15}
+                        color={isSelected ? '#0F172A' : '#64748B'}
+                      />
+                      <Text
+                        style={[
+                          styles.quickReasonChipText,
+                          isSelected && styles.quickReasonChipTextActive,
+                        ]}
+                      >
+                        {item.title}
+                      </Text>
+                      {isSelected ? (
+                        <Ionicons name="checkmark-circle" size={14} color="#0F172A" />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
             {/* Nếu chọn theo quy chế Studio */}
             {reasonType === 'PRESET_RULE' && rules.length > 0 ? (
@@ -394,6 +476,35 @@ const styles = StyleSheet.create({
   reasonTabTextActive: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  quickReasonGrid: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  quickReasonChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  quickReasonChipActive: {
+    borderColor: '#0F172A',
+    backgroundColor: '#F1F5F9',
+  },
+  quickReasonChipText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  quickReasonChipTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
   },
   ruleList: {
     gap: 6,

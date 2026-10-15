@@ -25,4 +25,8 @@ public interface ScheduledBookingService {
     void expireUnconfirmedScheduledBookings();
 
     List<ScheduledOfferRes> getPendingScheduledOffersForMua(Long muaUserId);
+
+    void escalateDisputeToAdmin(Long bookingId, Long customerId, String reason);
+
+    void acceptStudioDisputeResolution(Long bookingId, Long customerId);
 }

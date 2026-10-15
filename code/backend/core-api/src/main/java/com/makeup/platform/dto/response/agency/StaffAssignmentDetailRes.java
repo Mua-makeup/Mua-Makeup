@@ -10,6 +10,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Getter
 @Setter
@@ -36,5 +37,5 @@ public class StaffAssignmentDetailRes {
     private BigDecimal commissionAmount;
     private String commissionNote;
     private String payoutStatus;
-    private LocalDateTime payoutAt;
+    private OffsetDateTime payoutAt;
 }

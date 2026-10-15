@@ -27,6 +27,12 @@ export interface FreelancerBookingItem {
   assignmentStatus?: string;
   commissionRate?: number;
   commissionNote?: string;
+  soloPendingConfirmation?: boolean;
+  soloCommissionRate?: number;
+  bookingPartner?: string;
+  agencyId?: number;
+  agencyName?: string;
+  agencyLogoUrl?: string;
   createdAt: string;
   updatedAt?: string;
 }

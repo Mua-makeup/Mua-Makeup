@@ -17,6 +17,10 @@ public interface AgencyStaffOvertimeReportRepository extends JpaRepository<Agenc
 
     List<AgencyStaffOvertimeReportEntity> findByBookingId(Long bookingId);
 
+    boolean existsByBookingIdAndStaffId(Long bookingId, Long staffId);
+
+    Optional<AgencyStaffOvertimeReportEntity> findByBookingIdAndStaffId(Long bookingId, Long staffId);
+
     Page<AgencyStaffOvertimeReportEntity> findByAgencyId(Long agencyId, Pageable pageable);
 
     Page<AgencyStaffOvertimeReportEntity> findByAgencyIdAndStatus(Long agencyId, OvertimeReportStatus status, Pageable pageable);

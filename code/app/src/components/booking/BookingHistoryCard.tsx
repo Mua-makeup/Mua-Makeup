@@ -247,6 +247,8 @@ export const BookingHistoryCard: React.FC<Props> = ({
             <Text style={styles.totalAmount}>{formatPrice(booking.totalAmount)}</Text>
           </View>
         </View>
+
+        
       </TouchableOpacity>
 
       {/* FOOTER ACTIONS THEO TRẠNG THÁI */}
@@ -332,8 +334,7 @@ export const BookingHistoryCard: React.FC<Props> = ({
               onPress={() => onReviewPress && onReviewPress(booking)}
               activeOpacity={0.7}
             >
-              <Ionicons name="star-outline" size={14} color="#D97706" />
-              <Text style={styles.reviewActionText}>Đánh Giá ⭐</Text>
+              <Text style={styles.reviewActionText}>Đánh Giá</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.rebookActionBtn}
@@ -742,5 +743,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#059669',
     fontWeight: '700',
+  },
+  cardPaymentMethodRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  cardPaymentMethodPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignSelf: 'flex-start',
+  },
+  cardPaymentMethodText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
   },
 });

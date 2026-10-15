@@ -207,8 +207,16 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       const paidOut = bookings.filter((b) => b.status === 'PAID_OUT');
       const earnings = paidOut.reduce((acc, b) => acc + (b.earningsAmount || 0), 0);
 
-      const currentOnline = get().isOnline;
+      const currentFilter = get().selectedFilter;
+      const displayBookings = bookings.filter((b) => {
+        if (b.assignmentStatus === 'REPLACED') return false;
+        if (b.status === 'CANCELLED' || b.status === 'CANCELLED_EXPIRED') {
+          return currentFilter === 'COMPLETED';
+        }
+        return true;
+      });
 
+      const currentOnline = get().isOnline;
       const effectiveMuaId = profile?.muaId || (profile as any)?.id;
 
       set({
@@ -216,7 +224,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         // Giữ nguyên giá trị isOnline trong store, không đọc từ backend để thợ
         // luôn bắt đầu ở trạng thái "Đang Tạm Nghỉ" khi vừa đăng nhập vào
         isOnline: currentOnline,
-        todayBookings: bookings,
+        todayBookings: displayBookings,
         stats: {
           completedToday: completed.length,
           ratingAverage: (profile?.totalReviews && profile.totalReviews > 0) ? (profile.ratingAverage ?? null) : null,
@@ -717,12 +725,14 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       if (shownFinalPaymentNotices.has(notice.bookingId) || shownDepositNotices.has(notice.bookingId)) return;
       shownDepositNotices.add(notice.bookingId);
     }
-    soundManager.playJobAlertSound();
+    soundManager.stopJobAlertSound();
+    soundManager.playMatchSuccessSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     set({ depositNotice: notice, isDepositModalVisible: true });
   },
 
   dismissDepositNotice: () => {
+    soundManager.stopJobAlertSound();
     set({ isDepositModalVisible: false, depositNotice: null });
   },
 }));

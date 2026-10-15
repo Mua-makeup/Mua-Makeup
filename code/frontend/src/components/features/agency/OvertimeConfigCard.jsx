@@ -7,6 +7,7 @@ import {
   Plus,
   Edit2,
   Trash2,
+  Eye,
 } from 'lucide-react';
 import { Button } from '../../base/Button';
 import { Badge } from '../../base/Badge';
@@ -44,6 +45,7 @@ export const OvertimeConfigCard = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [reviewAction, setReviewAction] = useState('APPROVED');
   const [reviewNote, setReviewNote] = useState('');
+  const [customAllowance, setCustomAllowance] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Delete Rule State
@@ -68,6 +70,7 @@ export const OvertimeConfigCard = () => {
   const penaltyTypeOptions = [
     { value: 'FIXED_AMOUNT', label: t('overtime_penalty_type_fixed') },
     { value: 'PERCENT_COMMISSION', label: t('overtime_penalty_type_percent') },
+    { value: 'PER_MINUTE', label: t('overtime_penalty_type_per_minute') || 'Theo phút tăng ca (VNĐ/phút)' },
     { value: 'WARNING_ONLY', label: t('overtime_penalty_type_warning') },
   ];
 
@@ -296,6 +299,15 @@ export const OvertimeConfigCard = () => {
     setSelectedReport(report);
     setReviewAction(action);
     setReviewNote('');
+    if (action === 'APPROVE_ALLOWANCE') {
+      if (report.penaltyType === 'FIXED_AMOUNT' && report.penaltyValue) {
+        setCustomAllowance(String(report.penaltyValue));
+      } else {
+        setCustomAllowance('');
+      }
+    } else {
+      setCustomAllowance('');
+    }
     setIsReviewModalOpen(true);
   };
 
@@ -304,12 +316,15 @@ export const OvertimeConfigCard = () => {
     setIsSaving(true);
     try {
       await agencyService.reviewOvertimeReport(selectedReport.id, {
-        status: reviewAction,
-        reviewNote: reviewNote.trim() || undefined,
+        action: reviewAction,
+        customPenaltyAmount: (reviewAction === 'APPROVE_ALLOWANCE' && customAllowance) ? Number(customAllowance) : undefined,
+        adminNotes: reviewNote.trim() || undefined,
       });
       setIsReviewModalOpen(false);
       setToastMessage({
-        text: t('update_success'),
+        text: reviewAction === 'APPROVE_ALLOWANCE'
+          ? 'Đã duyệt thưởng tăng ca và trích chuyển tiền vào ví thợ thành công!'
+          : (t('update_success') || 'Đã xét duyệt báo cáo tăng ca thành công!'),
         type: 'success',
       });
       await loadData();
@@ -326,7 +341,6 @@ export const OvertimeConfigCard = () => {
 
   const renderPenaltyDisplay = (rule) => {
     const isAllowance = rule.policyType === 'ALLOWANCE';
-    const isPenalty = rule.policyType === 'PENALTY';
 
     if (rule.penaltyType === 'PERCENT_COMMISSION') {
       if (isAllowance) {
@@ -354,6 +368,21 @@ export const OvertimeConfigCard = () => {
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 shadow-2xs font-mono">
           -{formatCurrency(rule.penaltyValue)}
+        </span>
+      );
+    }
+
+    if (rule.penaltyType === 'PER_MINUTE') {
+      if (isAllowance) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 font-mono shadow-2xs">
+            +{formatCurrency(rule.penaltyValue)}/phút
+          </span>
+        );
+      }
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 shadow-2xs font-mono">
+          -{formatCurrency(rule.penaltyValue)}/phút
         </span>
       );
     }
@@ -671,12 +700,14 @@ export const OvertimeConfigCard = () => {
               label={
                 penaltyType === 'PERCENT_COMMISSION'
                   ? `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp cộng thêm' : 'Mức phạt khấu trừ'} (%)`
+                  : penaltyType === 'PER_MINUTE'
+                  ? `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp tính theo mỗi phút' : 'Mức phạt khấu trừ theo mỗi phút'} (VNĐ/phút)`
                   : `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp cộng thêm' : 'Mức phạt khấu trừ'} (VNĐ)`
               }
               type="number"
               min="0"
               max={penaltyType === 'PERCENT_COMMISSION' ? '100' : undefined}
-              step={penaltyType === 'PERCENT_COMMISSION' ? '1' : '10000'}
+              step={penaltyType === 'PERCENT_COMMISSION' ? '1' : penaltyType === 'PER_MINUTE' ? '500' : '10000'}
               disabled={penaltyType === 'WARNING_ONLY'}
               required={penaltyType !== 'WARNING_ONLY'}
               value={penaltyValue}
@@ -684,6 +715,8 @@ export const OvertimeConfigCard = () => {
               helperText={
                 penaltyType === 'PERCENT_COMMISSION'
                   ? (policyType === 'ALLOWANCE' ? 'Tỷ lệ % hoa hồng được cộng thêm cho thợ' : 'Tỷ lệ % hoa hồng bị khấu trừ của thợ')
+                  : penaltyType === 'PER_MINUTE'
+                  ? (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)' : 'Số tiền phạt khấu trừ cho mỗi phút vi phạm (VNĐ/phút)')
                   : penaltyType === 'WARNING_ONLY'
                   ? t('overtime_penalty_type_warning')
                   : (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho thợ (VNĐ)' : 'Số tiền phạt khấu trừ thợ (VNĐ)')
@@ -743,44 +776,77 @@ export const OvertimeConfigCard = () => {
                     </td>
                     <td className="px-5 py-3.5 text-xs">
                       <span className="font-bold text-slate-900 dark:text-white block">
-                        +{r.actualOvertimeMinutes} {t('unit_minutes')}
+                        +{r.overtimeMinutes ?? r.actualOvertimeMinutes ?? 0} {t('unit_minutes') || 'phút'}
                       </span>
                       <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                        {formatCurrency(r.calculatedAmount)}
+                        {formatCurrency(r.penaltyAmountApplied || r.customerSurchargeAmount || 0)}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-xs max-w-xs">
-                      <p className="text-slate-600 dark:text-slate-400 truncate" title={r.reason}>
-                        {r.reason || '—'}
+                      <p className="text-slate-700 dark:text-slate-300 font-medium" title={r.explanationText || r.reason}>
+                        {r.explanationText || r.reason || '—'}
                       </p>
+                      {r.proofImageUrl ? (
+                        <a
+                          href={r.proofImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                        >
+                          <Eye className="w-3 h-3" /> Xem ảnh đối chứng
+                        </a>
+                      ) : null}
                     </td>
                     <td className="px-5 py-3.5">
-                      {r.status === 'PENDING' && <Badge variant="pending">{t('status_pending')}</Badge>}
-                      {r.status === 'APPROVED' && <Badge variant="active">{t('status_verified')}</Badge>}
-                      {r.status === 'REJECTED' && <Badge variant="rejected">{t('status_rejected')}</Badge>}
+                      {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING') && (
+                        <Badge variant="pending">{t('status_pending') || 'Chờ Duyệt'}</Badge>
+                      )}
+                      {(r.status === 'APPROVED_WAIVED' || r.status === 'APPROVED') && (
+                        <Badge variant="active">{t('status_verified') || 'Đã Miễn Trừ / Duyệt'}</Badge>
+                      )}
+                      {r.status === 'PENALIZED' && (
+                        <Badge variant="rejected">Đã Phạt Thợ</Badge>
+                      )}
+                      {r.status === 'CHARGED_CUSTOMER' && (
+                        <Badge variant="info">Thu Phụ Phí Khách</Badge>
+                      )}
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      {r.status === 'PENDING' ? (
+                      {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING') ? (
                         <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={CheckCircle2}
-                            onClick={() => openReview(r, 'APPROVED')}
-                          >
-                            {t('action_approve')}
-                          </Button>
+                          {r.policyType !== 'PENALTY' ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={CheckCircle2}
+                              onClick={() => openReview(r, 'APPROVE_ALLOWANCE')}
+                              className="!bg-emerald-600 hover:!bg-emerald-700 text-white shadow-2xs font-medium"
+                            >
+                              Duyệt Thưởng Tăng Ca
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={CheckCircle2}
+                              onClick={() => openReview(r, 'WAIVE_PENALTY')}
+                            >
+                              Duyệt Miễn Trừ
+                            </Button>
+                          )}
                           <Button
                             variant="danger"
                             size="sm"
                             icon={XCircle}
-                            onClick={() => openReview(r, 'REJECTED')}
+                            onClick={() => openReview(r, 'DEDUCT_BY_RULE')}
                           >
-                            {t('action_reject')}
+                            Phạt / Từ Chối
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">—</span>
+                        <span className="text-xs text-slate-400 italic">
+                          {r.adminNotes ? `Ghi chú: ${r.adminNotes}` : '—'}
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -797,7 +863,11 @@ export const OvertimeConfigCard = () => {
         onClose={() => setIsReviewModalOpen(false)}
         title={
           <span className="font-bold text-slate-900 dark:text-white text-base">
-            {reviewAction === 'APPROVED' ? t('action_approve') : t('action_reject')}
+            {reviewAction === 'APPROVE_ALLOWANCE'
+              ? 'Xác Nhận Duyệt Thưởng Tăng Ca Cho Thợ'
+              : reviewAction === 'WAIVE_PENALTY'
+              ? 'Xác Nhận Duyệt Miễn Trừ Tăng Ca'
+              : 'Xác Nhận Chế Tài / Phạt Tăng Ca'}
           </span>
         }
         maxWidth="max-w-md"
@@ -811,11 +881,16 @@ export const OvertimeConfigCard = () => {
               {t('cancel')}
             </Button>
             <Button
-              variant={reviewAction === 'APPROVED' ? 'primary' : 'danger'}
+              variant={reviewAction === 'DEDUCT_BY_RULE' ? 'danger' : 'primary'}
               onClick={handleConfirmReview}
               isLoading={isSaving}
+              className={reviewAction === 'APPROVE_ALLOWANCE' ? '!bg-emerald-600 hover:!bg-emerald-700 text-white' : undefined}
             >
-              {reviewAction === 'APPROVED' ? t('action_approve') : t('action_reject')}
+              {reviewAction === 'APPROVE_ALLOWANCE'
+                ? 'Duyệt & Chuyển Tiền Vào Ví'
+                : reviewAction === 'WAIVE_PENALTY'
+                ? 'Xác Nhận Duyệt'
+                : 'Áp Dụng Chế Tài'}
             </Button>
           </>
         }
@@ -826,14 +901,50 @@ export const OvertimeConfigCard = () => {
               {t('staff_label')} <strong className="text-slate-900 dark:text-white">{selectedReport?.staffName}</strong> • {t('booking_label')}: <strong className="text-slate-900 dark:text-white">#{selectedReport?.bookingId}</strong>
             </p>
             <p className="text-slate-700 dark:text-slate-300">
-              {t('overtime_incurred_label')}: <strong className="text-slate-900 dark:text-white">+{selectedReport?.actualOvertimeMinutes} {t('unit_minutes')}</strong> ({formatCurrency(selectedReport?.calculatedAmount)})
+              {t('overtime_incurred_label')}: <strong className="text-slate-900 dark:text-white">+{selectedReport?.overtimeMinutes ?? selectedReport?.actualOvertimeMinutes} {t('unit_minutes') || 'phút'}</strong>
+              {selectedReport?.ruleName && (
+                <span className="ml-1 text-slate-500">({selectedReport.ruleName})</span>
+              )}
             </p>
-            <p className="text-slate-500 dark:text-slate-400 italic mt-1">"{selectedReport?.reason}"</p>
+            <p className="text-slate-500 dark:text-slate-400 italic mt-1">"{selectedReport?.explanationText || selectedReport?.reason}"</p>
+            {selectedReport?.proofImageUrl && (
+              <div className="pt-2">
+                <span className="font-semibold block text-slate-700 dark:text-slate-300 mb-1">Ảnh đối chứng từ thợ:</span>
+                <img
+                  src={selectedReport.proofImageUrl}
+                  alt="Ảnh đối chứng"
+                  className="max-h-40 rounded-lg border border-slate-200 dark:border-slate-700 object-cover"
+                />
+              </div>
+            )}
           </div>
+
+          {reviewAction === 'APPROVE_ALLOWANCE' && (
+            <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                <span>Trợ cấp tăng ca cho thợ:</span>
+                {selectedReport?.penaltyType === 'PERCENT_COMMISSION' && selectedReport?.penaltyValue && (
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400">
+                    +{selectedReport.penaltyValue}% theo quy chế
+                  </span>
+                )}
+              </div>
+              <Input
+                label="Số tiền trợ cấp thưởng tăng ca (VND)"
+                type="number"
+                placeholder={selectedReport?.penaltyType === 'FIXED_AMOUNT' ? String(selectedReport?.penaltyValue || 0) : 'Nhập số tiền hoặc để tự động'}
+                value={customAllowance}
+                onChange={(e) => setCustomAllowance(e.target.value)}
+              />
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed italic">
+                * Khi bấm duyệt, số tiền này sẽ được trích từ ví Studio / doanh thu đơn chuyển trực tiếp vào ví của thợ và gửi thông báo cho thợ.
+              </p>
+            </div>
+          )}
 
           <Textarea
             label={t('overtime_review_agency_notes')}
-            placeholder={t('overtime_review_agency_notes_placeholder')}
+            placeholder={t('overtime_review_agency_notes_placeholder') || 'Nhập lý do hoặc căn cứ xét duyệt...'}
             value={reviewNote}
             onChange={(e) => setReviewNote(e.target.value)}
             rows={3}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
-import { Sparkles, X, ArrowRight, Clock, Bell, User, UserPlus, Phone, ShieldAlert } from 'lucide-react';
+import { Sparkles, X, ArrowRight, Clock, Bell, User, UserPlus, Phone, ShieldAlert, CalendarOff } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { USER_ROLES } from '../../../constants/roles.constant';
 import { agencyService } from '../../../services/agency.service';
@@ -226,6 +226,40 @@ export const AgencyRealtimeNotifier = () => {
             if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             setActiveToast(toastData);
             toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 8000);
+          } else if (payload.type === 'STAFF_LEAVE_SUBMITTED') {
+            window.dispatchEvent(
+              new CustomEvent('agency:leave-request', { detail: payload })
+            );
+
+            notificationSound.playBookingChime();
+
+            const notifItem = addNotification({
+              id: payload.id || `leave_${Date.now()}`,
+              type: 'STAFF_LEAVE_SUBMITTED',
+              title: 'Đơn xin nghỉ ca mới',
+              content: payload.content || `Thợ ${payload.staffName || 'Studio'} xin nghỉ ca ${payload.shiftName || ''} ngày ${payload.leaveDate || ''}`,
+              staffName: payload.staffName,
+              shiftName: payload.shiftName,
+              leaveDate: payload.leaveDate,
+              reason: payload.reason,
+              requestId: payload.requestId,
+              timestamp: payload.timestamp || Date.now(),
+            });
+
+            const toastData = notifItem || {
+              id: payload.id || `leave_${Date.now()}`,
+              type: 'STAFF_LEAVE_SUBMITTED',
+              title: 'Đơn xin nghỉ ca mới',
+              staffName: payload.staffName,
+              shiftName: payload.shiftName,
+              leaveDate: payload.leaveDate,
+              reason: payload.reason,
+              timestamp: Date.now(),
+            };
+
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            setActiveToast(toastData);
+            toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 9000);
           } else if (payload.type === 'DISPATCH_STATUS_UPDATED') {
             window.dispatchEvent(
               new CustomEvent('agency:dispatch-alert', { detail: payload })
@@ -249,11 +283,13 @@ export const AgencyRealtimeNotifier = () => {
             stompClient.subscribe(`/topic/agency/${agencyId}/bookings`, handleMessage);
             stompClient.subscribe(`/topic/agency/${agencyId}/staff-applications`, handleMessage);
             stompClient.subscribe(`/topic/agency/${agencyId}/dispatch-alerts`, handleMessage);
+            stompClient.subscribe(`/topic/agency/${agencyId}/leave-requests`, handleMessage);
           }
           // Also subscribe to non-parameterized topics as fallback
           stompClient.subscribe('/topic/agency/bookings', handleMessage);
           stompClient.subscribe('/topic/agency/staff-applications', handleMessage);
           stompClient.subscribe('/topic/agency/dispatch-alerts', handleMessage);
+          stompClient.subscribe('/topic/agency/leave-requests', handleMessage);
         },
         onStompError: (frame) => {
           console.warn('[AgencyRealtimeNotifier] STOMP Error:', frame.headers['message']);
@@ -280,13 +316,16 @@ export const AgencyRealtimeNotifier = () => {
 
   const isEmergency = activeToast.type === 'EMERGENCY_REASSIGNMENT_ALERT';
   const isStaffApp = activeToast.type === 'STAFF_APPLICATION';
+  const isLeaveReq = activeToast.type === 'STAFF_LEAVE_SUBMITTED';
 
   return (
     <aside
-      aria-label={isEmergency ? 'Emergency Alert' : isStaffApp ? 'Staff Application Alert' : 'New Booking Alert'}
+      aria-label={isEmergency ? 'Emergency Alert' : isLeaveReq ? 'Leave Request Alert' : isStaffApp ? 'Staff Application Alert' : 'New Booking Alert'}
       className={`fixed bottom-4 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-[1250] sm:max-w-sm w-auto sm:w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 shadow-2xl border-2 duration-300 ring-4 animate-in slide-in-from-bottom-5 ${
         isEmergency
           ? 'border-2 border-red-600 ring-red-500/25'
+          : isLeaveReq
+          ? 'border-amber-500/60 dark:border-amber-500/50 ring-amber-500/20'
           : isStaffApp
           ? 'border-indigo-500/40 dark:border-indigo-500/30 ring-indigo-500/10'
           : 'border-amber-500/40 dark:border-amber-500/30 ring-amber-500/10'
@@ -294,7 +333,7 @@ export const AgencyRealtimeNotifier = () => {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          {studioLogo && !isEmergency ? (
+          {studioLogo && !isEmergency && !isLeaveReq ? (
             <img
               src={studioLogo}
               alt="Studio"
@@ -307,6 +346,10 @@ export const AgencyRealtimeNotifier = () => {
           ) : isEmergency ? (
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 text-white flex items-center justify-center shadow-md">
               <ShieldAlert className="w-5 h-5" />
+            </div>
+          ) : isLeaveReq ? (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-rose-500 text-white flex items-center justify-center shadow-md">
+              <CalendarOff className="w-5 h-5" />
             </div>
           ) : isStaffApp ? (
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center shadow-md">
@@ -322,13 +365,15 @@ export const AgencyRealtimeNotifier = () => {
               <span>
                 {isEmergency
                   ? t('notification_emergency_title')
+                  : isLeaveReq
+                  ? 'Đơn Xin Nghỉ Ca Mới'
                   : isStaffApp
                   ? t('notification_staff_application_title')
                   : t('notification_new_booking_title')}
               </span>
               <span
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
-                  isEmergency ? 'bg-red-600' : isStaffApp ? 'bg-indigo-500' : 'bg-amber-500'
+                  isEmergency ? 'bg-red-600' : isLeaveReq ? 'bg-amber-600' : isStaffApp ? 'bg-indigo-500' : 'bg-amber-500'
                 }`}
               >
                 {isEmergency ? t('emergency_badge') : t('new_badge')}
@@ -340,7 +385,7 @@ export const AgencyRealtimeNotifier = () => {
               )}
             </h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-              #{isStaffApp ? activeToast.inviteCode : activeToast.bookingCode}
+              #{isStaffApp ? activeToast.inviteCode : isLeaveReq ? (activeToast.shiftName || 'Nghỉ ca') : activeToast.bookingCode}
             </p>
           </div>
         </div>
@@ -414,6 +459,32 @@ export const AgencyRealtimeNotifier = () => {
                 </a>
               </div>
             </div>
+          )}
+        </div>
+      ) : isLeaveReq ? (
+        <div className="mt-3 bg-amber-50/60 dark:bg-amber-950/40 rounded-xl p-3 border border-amber-200 dark:border-amber-800/60 space-y-1.5 text-xs">
+          <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <User className="w-3.5 h-3.5 text-amber-600" />
+              Thợ:
+            </span>
+            <span className="font-bold truncate max-w-[180px]">{activeToast.staffName || 'Thợ Studio'}</span>
+          </div>
+
+          <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              Ca & Ngày:
+            </span>
+            <span className="font-medium text-amber-700 dark:text-amber-300">
+              {activeToast.shiftName} • {activeToast.leaveDate}
+            </span>
+          </div>
+
+          {activeToast.reason && (
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 italic pt-1 border-t border-amber-200/50 dark:border-amber-800/50">
+              "Lý do: {activeToast.reason}"
+            </p>
           )}
         </div>
       ) : isStaffApp ? (
@@ -501,13 +572,19 @@ export const AgencyRealtimeNotifier = () => {
               }
             }
             if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-            const targetRoute = isStaffApp ? '/agency/staff' : '/agency/bookings';
+            const targetRoute = isLeaveReq
+              ? '/agency/shifts?tab=leave-requests'
+              : isStaffApp
+              ? '/agency/staff'
+              : '/agency/bookings';
             setActiveToast(null);
             navigate(targetRoute);
           }}
           className={`flex-1 py-2 px-3 rounded-xl text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
             isEmergency
               ? 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 shadow-rose-500/20'
+              : isLeaveReq
+              ? 'bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 shadow-amber-500/20'
               : isStaffApp
               ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-indigo-500/20'
               : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 shadow-amber-500/20'
@@ -516,6 +593,8 @@ export const AgencyRealtimeNotifier = () => {
           <span>
             {isEmergency
               ? t('notification_emergency_reassign_btn')
+              : isLeaveReq
+              ? 'Xem & Duyệt Đơn'
               : isStaffApp
               ? t('btn_review_application')
               : t('btn_view_booking_detail')}

@@ -68,6 +68,9 @@ public class DispatchMatrixMapper {
                 } else if (matchedRule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION && booking != null && booking.getTotalAmount() != null) {
                     BigDecimal pct = matchedRule.getPenaltyValue() != null ? matchedRule.getPenaltyValue() : BigDecimal.ZERO;
                     overtimePay = booking.getTotalAmount().multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                } else if (matchedRule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
+                    BigDecimal ratePerMinute = matchedRule.getPenaltyValue() != null ? matchedRule.getPenaltyValue() : BigDecimal.ZERO;
+                    overtimePay = ratePerMinute.multiply(BigDecimal.valueOf(overtimeMinutes)).setScale(0, RoundingMode.HALF_UP);
                 }
             } else {
                 isOvertime = true;

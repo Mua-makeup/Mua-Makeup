@@ -182,6 +182,11 @@ public final class ErrorCodes {
 
     // Phân hệ Đánh giá & Phản hồi (Reviews)
     public static final String ERR_REVIEW_NOT_FOUND = "ERR_REVIEW_NOT_FOUND";
+
+    // Phân hệ Đơn xin nghỉ ca của Thợ Studio (Staff Leave Requests)
+    public static final String ERR_LEAVE_REQUEST_NOT_FOUND = "ERR_LEAVE_REQUEST_NOT_FOUND";
+    public static final String ERR_DUPLICATE_LEAVE_REQUEST = "ERR_DUPLICATE_LEAVE_REQUEST";
+    public static final String ERR_INVALID_LEAVE_ACTION = "ERR_INVALID_LEAVE_ACTION";
 }
 
 

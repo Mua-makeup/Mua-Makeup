@@ -173,6 +173,7 @@ export interface BookingStatusDetailRes {
   emergencyProofUrl?: string;
   emergencyReason?: string;
   emergencyReportedAt?: string;
+  disputeOrigin?: 'CUSTOMER' | 'MUA' | 'DUAL' | string;
   completionPhotoUrl?: string;
   isDepositPaid?: boolean;
   depositTimeoutSeconds?: number;
@@ -198,6 +199,8 @@ export interface BookingStatusDetailRes {
   overtimePay?: number;
   overtimeRuleName?: string;
   overtimePolicyType?: string;
+  soloPendingConfirmation?: boolean;
+  soloCommissionRate?: number;
 }
 
 export interface StaffAssignmentItem {
@@ -211,9 +214,13 @@ export interface StaffAssignmentItem {
   assignedAt?: string;
   confirmedAt?: string;
   isConfirmedByStaff?: boolean;
+  cancellationReason?: string;
+  proofDocumentUrl?: string;
   commissionRate?: number;
   commissionAmount?: number;
   commissionNote?: string;
+  overtimePay?: number;
+  overtimeMinutes?: number;
 }
 
 export interface CandidatePackageRes {
@@ -394,6 +401,20 @@ export const bookingService = {
       reason,
       emergencyProofUrl,
     });
+  },
+
+  /**
+   * Khách hàng leo thang khiếu nại lên Super Admin sau khi Studio từ chối hoàn cọc (Mô hình C)
+   */
+  async escalateDispute(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/escalate-dispute`, { reason });
+  },
+
+  /**
+   * Khách hàng chấp nhận kết quả xử lý từ chối của Studio, đóng khiếu nại (Mô hình C)
+   */
+  async acceptStudioResolution(bookingId: number): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/accept-studio-dispute-resolution`);
   },
 
   /**

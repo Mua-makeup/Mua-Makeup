@@ -349,14 +349,20 @@ export const CancelBookingModal: React.FC<Props> = ({
             <View style={styles.policyHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <Ionicons name="shield-checkmark" size={15} color="#B45309" />
-                <Text style={[styles.policyHeaderTitle, { color: '#B45309' }]}>Khiếu Nại Hoàn Cọc Lên Admin</Text>
+                <Text style={[styles.policyHeaderTitle, { color: '#B45309' }]}>
+                  {((booking as any)?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId))
+                    ? 'Khiếu Nại Hoàn Cọc Lên Studio'
+                    : 'Khiếu Nại Hoàn Cọc Lên Admin'}
+                </Text>
               </View>
               <Text style={[styles.policyAmountValue, { color: '#059669' }]}>
                 +{formatCurrency(booking.depositAmount)}
               </Text>
             </View>
             <Text style={[styles.policyDesc, { color: '#92400E' }]}>
-              Lịch hẹn đã đến giờ. Admin sẽ xác minh sự việc và hoàn 100% tiền cọc về Ví của bạn sau khi duyệt.
+              {((booking as any)?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId))
+                ? 'Lịch hẹn đã đến giờ. Quản lý Studio sẽ kiểm tra sự việc và hoàn 100% tiền cọc về Ví của bạn.'
+                : 'Lịch hẹn đã đến giờ. Admin sẽ xác minh sự việc và hoàn 100% tiền cọc về Ví của bạn sau khi duyệt.'}
             </Text>
           </View>
         )}

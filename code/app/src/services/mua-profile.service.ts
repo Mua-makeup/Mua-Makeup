@@ -23,8 +23,11 @@ export interface MuaCertificate {
 }
 
 export interface MuaPublicProfile {
+  id?: number;
   muaId: number;
   muaCode?: string;
+  agencyId?: number;
+  agencyName?: string;
   fullName: string;
   avatarUrl?: string;
   coverImageUrl?: string;

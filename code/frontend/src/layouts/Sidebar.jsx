@@ -103,6 +103,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       label: t('nav_agency_shifts'),
       icon: CalendarDays,
     },
+    {
+      to: '/agency/disputes',
+      label: t('nav_agency_disputes') || 'Khiếu nại',
+      icon: AlertTriangle,
+    },
   ];
 
   const navItems = role === USER_ROLES.SUPER_ADMIN ? superAdminNav : agencyAdminNav;

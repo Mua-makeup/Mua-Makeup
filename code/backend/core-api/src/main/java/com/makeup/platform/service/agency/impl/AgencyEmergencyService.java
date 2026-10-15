@@ -316,15 +316,16 @@ public class AgencyEmergencyService {
         if (primaryAssignment == null) {
             primaryAssignment = activeAssignments.get(0);
             primaryAssignment.setAssignmentRole(AssignmentRole.PRIMARY_MUA);
-            // Thợ phụ được đôn lên thợ chính: Bắt buộc phải bấm tiếp nhận đơn (chấp nhận làm thợ chính)
-            primaryAssignment.setIsConfirmedByStaff(false);
-            primaryAssignment.setConfirmedAt(null);
-            bookingStaffAssignmentRepository.save(primaryAssignment);
             if (primaryAssignment.getStaff() != null && primaryAssignment.getStaff().getMua() != null) {
                 booking.setMua(primaryAssignment.getStaff().getMua());
             }
             isPromotedFromAssistant = true;
         }
+
+        // Bắt buộc thợ đảm nhiệm Solo phải bấm xác nhận đồng ý làm Solo (nhận trọn hoa hồng) hoặc từ chối
+        primaryAssignment.setIsConfirmedByStaff(false);
+        primaryAssignment.setConfirmedAt(null);
+        bookingStaffAssignmentRepository.save(primaryAssignment);
 
         AgencyStaffEntity primaryStaff = primaryAssignment.getStaff();
         String primaryStaffName = (primaryStaff != null && primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
@@ -437,20 +438,18 @@ public class AgencyEmergencyService {
 
         support.broadcastDispatchUpdate(agency.getId(), savedBooking);
 
-        // Nếu là thợ phụ được đôn lên thợ chính: Bắn thông báo realtime (WebSocket STOMP + DB) kèm tỷ lệ hoa hồng mới
-        if (isPromotedFromAssistant) {
-            try {
-                notificationService.createSoloPromotionOfferNotification(
-                        agency,
-                        primaryStaff,
-                        savedBooking,
-                        primaryAssignment.getCommissionRate(),
-                        req != null ? req.getResolutionNote() : null
-                );
-            } catch (Exception ex) {
-                log.error("[AgencyEmergency] Failed to send solo promotion offer notification to staff {}: {}",
-                        primaryStaff.getId(), ex.getMessage());
-            }
+        // Bắn thông báo realtime (WebSocket STOMP + DB) kèm tỷ lệ hoa hồng mới cho thợ đảm nhiệm Solo
+        try {
+            notificationService.createSoloPromotionOfferNotification(
+                    agency,
+                    primaryStaff,
+                    savedBooking,
+                    primaryAssignment.getCommissionRate(),
+                    req != null ? req.getResolutionNote() : null
+            );
+        } catch (Exception ex) {
+            log.error("[AgencyEmergency] Failed to send solo promotion offer notification to staff {}: {}",
+                    primaryStaff.getId(), ex.getMessage());
         }
 
         log.info("Booking {} emergency resolved as solo assignment for staff {} with transferred rate {}%",

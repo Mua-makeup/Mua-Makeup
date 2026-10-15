@@ -37,6 +37,7 @@ interface DisputeDossierModalProps {
   depositAmount?: number;
   disputeOrigin?: string;
   counterpartyName?: string;
+  isAgencyBooking?: boolean;
   autoOpenForm?: boolean;
   onCounterDispute?: () => void;
   onDisputeSuccess?: () => void;
@@ -73,6 +74,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
   depositAmount = 0,
   disputeOrigin,
   counterpartyName,
+  isAgencyBooking = false,
   autoOpenForm = false,
   onCounterDispute,
   onDisputeSuccess,
@@ -342,7 +344,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerDualTitle}>Tranh Chấp 2 Chiều Phát Sinh Đồng Thời</Text>
                 <Text style={styles.bannerDualSub}>
-                  Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Ban Quản Trị sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để ra phán quyết xử lý tiền cọc.
+                  {isAgencyBooking
+                    ? 'Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Quản lý Studio sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để xử lý thỏa đáng.'
+                    : 'Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Ban Quản Trị sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để ra phán quyết xử lý tiền cọc.'}
                 </Text>
               </View>
             </View>
@@ -356,7 +360,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                     : (isMuaOnly ? 'Chuyên Viên Make-up Đã Báo Cáo Sự Cố' : 'Yêu Cầu Khiếu Nại Do Bạn Gửi')}
                 </Text>
                 <Text style={styles.bannerSingleSub}>
-                  Tiền cọc {formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Admin sẽ đối chiếu minh chứng và giải ngân công bằng.
+                  {isAgencyBooking
+                    ? `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Quản lý Studio sẽ kiểm tra minh chứng và xử lý.`
+                    : `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Admin sẽ đối chiếu minh chứng và giải ngân công bằng.`}
                 </Text>
               </View>
             </View>

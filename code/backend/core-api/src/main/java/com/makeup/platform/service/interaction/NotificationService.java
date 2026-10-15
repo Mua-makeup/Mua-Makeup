@@ -5,6 +5,8 @@ import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.dto.response.notification.NotificationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
+import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
@@ -112,4 +114,21 @@ public interface NotificationService {
             String roleName,
             BigDecimal commissionRate
     );
+
+    void createOvertimeReportSubmittedNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            AgencyStaffOvertimeReportEntity report
+    );
+
+    void createOvertimeApprovedNotification(
+            UserEntity staffUser,
+            AgencyProfileEntity agency,
+            String bookingCode,
+            Integer overtimeMinutes,
+            BigDecimal allowanceAmount
+    );
+
+    void sendNotification(Long userId, String title, String content, String type, Long bookingId);
 }
+

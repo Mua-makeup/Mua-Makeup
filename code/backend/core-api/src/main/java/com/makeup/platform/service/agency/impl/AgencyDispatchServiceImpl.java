@@ -570,7 +570,6 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 || booking.getStatus() == BookingStatus.PAID_OUT
                 || booking.getStatus() == BookingStatus.CANCELLED
                 || booking.getStatus() == BookingStatus.CANCELLED_EXPIRED
-                || booking.getStatus() == BookingStatus.DISPUTED
                 || booking.getStatus() == BookingStatus.DISPUTE_REFUNDED
                 || booking.getStatus() == BookingStatus.DISPUTE_COMPENSATED) {
             throw new CustomBusinessException(ErrorCodes.ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS, "dispatch.cannot_dispatch_in_status");
@@ -869,6 +868,29 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             }
         }
 
+        if (agencyStaffOvertimeReportRepository.existsByBookingIdAndStaffId(booking.getId(), staff.getId())) {
+            log.info("[OvertimeAutoRecord] Báo cáo tăng ca đã tồn tại cho staffId={} bookingId={}, bỏ qua tạo mới để chống đúp",
+                    staff.getId(), booking.getId());
+            return;
+        }
+
+        // Tìm vai trò và tỷ lệ hoa hồng của nhân sự trong ca làm
+        AssignmentRole assignmentRole = AssignmentRole.PRIMARY_MUA;
+        BigDecimal staffCommRate = BigDecimal.valueOf(100);
+        if (booking.getStaffAssignments() != null) {
+            for (BookingStaffAssignmentEntity sa : booking.getStaffAssignments()) {
+                if (sa.getStaff() != null && sa.getStaff().getId().equals(staff.getId())) {
+                    if (sa.getAssignmentRole() != null) {
+                        assignmentRole = sa.getAssignmentRole();
+                    }
+                    if (sa.getCommissionRate() != null && sa.getCommissionRate().compareTo(BigDecimal.ZERO) > 0) {
+                        staffCommRate = sa.getCommissionRate();
+                    }
+                    break;
+                }
+            }
+        }
+
         BigDecimal overtimePay = BigDecimal.ZERO;
         if (matchedRule != null) {
             if (matchedRule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
@@ -876,7 +898,21 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
             } else if (matchedRule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION && booking.getTotalAmount() != null) {
                 BigDecimal pct = matchedRule.getPenaltyValue() != null ? matchedRule.getPenaltyValue() : BigDecimal.ZERO;
                 overtimePay = booking.getTotalAmount().multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            } else if (matchedRule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
+                BigDecimal ratePerMinute = matchedRule.getPenaltyValue() != null ? matchedRule.getPenaltyValue() : BigDecimal.ZERO;
+                overtimePay = ratePerMinute.multiply(BigDecimal.valueOf(overtimeMinutes)).setScale(0, RoundingMode.HALF_UP);
             }
+        }
+
+        // PHÂN BIỆT ROLE: Thợ phụ (Assistant MUA) nhận phụ cấp tăng ca theo tỷ lệ hoa hồng thỏa thuận của mình
+        if (assignmentRole == AssignmentRole.ASSISTANT_MUA && overtimePay.compareTo(BigDecimal.ZERO) > 0) {
+            if (staffCommRate.compareTo(BigDecimal.ZERO) > 0 && staffCommRate.compareTo(BigDecimal.valueOf(100)) < 0) {
+                overtimePay = overtimePay.multiply(staffCommRate).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            } else {
+                overtimePay = overtimePay.multiply(BigDecimal.valueOf(0.5)).setScale(0, RoundingMode.HALF_UP);
+            }
+            log.info("[OvertimeAutoRecord] Thợ phụ staffId={} áp dụng phụ cấp tăng ca theo tỷ lệ hoa hồng {}%: {}đ",
+                    staff.getId(), staffCommRate, overtimePay);
         }
 
         AgencyStaffOvertimeReportEntity report = AgencyStaffOvertimeReportEntity.builder()

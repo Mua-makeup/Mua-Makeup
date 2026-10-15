@@ -60,6 +60,33 @@ export interface StaffShiftItem {
   isActive: boolean;
 }
 
+export interface StaffLeaveRequestItem {
+  id: number;
+  agencyId: number;
+  agencyName?: string;
+  staffId: number;
+  staffName?: string;
+  staffPhone?: string;
+  leaveDate: string;
+  startTime: string;
+  endTime: string;
+  shiftName: string;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  rejectionReason?: string;
+  reviewedByUserName?: string;
+  reviewedAt?: string;
+  createdAt: string;
+}
+
+export interface CreateLeaveRequestReq {
+  leaveDate: string;
+  startTime: string;
+  endTime: string;
+  shiftName: string;
+  reason: string;
+}
+
 export const agencyStaffService = {
   /**
    * Thợ xác nhận tiếp nhận ca điều phối (hỗ trợ theo bookingId hoặc assignmentId)
@@ -110,7 +137,7 @@ export const agencyStaffService = {
    * Nộp báo cáo giải trình ca làm bị kéo dài quá thời lượng dự kiến
    */
   async submitOvertimeReport(req: SubmitOvertimeReportReq): Promise<OvertimeReportItem> {
-    const res = await apiClient.post<ApiResponse<OvertimeReportItem>>('/agencies/overtime-reports', req);
+    const res = await apiClient.post<ApiResponse<OvertimeReportItem>>('/agency/overtime-reports', req);
     return res.data.data;
   },
 
@@ -119,7 +146,7 @@ export const agencyStaffService = {
    */
   async getAgencyOvertimeRules(): Promise<OvertimeRuleItem[]> {
     try {
-      const res = await apiClient.get<ApiResponse<OvertimeRuleItem[]>>('/agencies/overtime-rules');
+      const res = await apiClient.get<ApiResponse<OvertimeRuleItem[]>>('/agency/overtime-rules');
       return res.data?.data || [];
     } catch {
       return [];
@@ -132,7 +159,7 @@ export const agencyStaffService = {
   async getMyOvertimeReports(): Promise<OvertimeReportItem[]> {
     try {
       const res = await apiClient.get<ApiResponse<{ content?: OvertimeReportItem[] } | OvertimeReportItem[]>>(
-        '/agencies/overtime-reports'
+        '/agency/overtime-reports'
       );
       const data = res.data?.data;
       if (Array.isArray(data)) return data;
@@ -146,12 +173,52 @@ export const agencyStaffService = {
   /**
    * Lấy danh sách ca làm việc theo tuần của nhân viên Studio
    */
-  async getMyStaffShifts(staffId: number): Promise<StaffShiftItem[]> {
+  async getMyStaffShifts(
+    staffId: number,
+    params?: { startDate?: string; endDate?: string }
+  ): Promise<StaffShiftItem[]> {
     try {
-      const res = await apiClient.get<ApiResponse<StaffShiftItem[]>>(`/agencies/shifts/staff/${staffId}`);
+      const res = await apiClient.get<ApiResponse<StaffShiftItem[]>>(`/agencies/shifts/staff/${staffId}`, {
+        params,
+      });
       return res.data?.data || [];
     } catch {
       return [];
     }
+  },
+
+  /**
+   * Thợ gửi đơn xin nghỉ ca / lịch bận
+   */
+  async submitLeaveRequest(data: CreateLeaveRequestReq): Promise<StaffLeaveRequestItem> {
+    const res = await apiClient.post<ApiResponse<StaffLeaveRequestItem>>(
+      '/agencies/staff/leave-requests',
+      data
+    );
+    if (!res.data?.success) {
+      throw new Error(res.data?.message || 'Không thể gửi đơn xin nghỉ ca.');
+    }
+    return res.data.data;
+  },
+
+  /**
+   * Thợ xem danh sách các đơn xin nghỉ ca của mình
+   */
+  async getMyLeaveRequests(): Promise<StaffLeaveRequestItem[]> {
+    try {
+      const res = await apiClient.get<ApiResponse<StaffLeaveRequestItem[]>>(
+        '/agencies/staff/leave-requests'
+      );
+      return res.data?.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Thợ hủy đơn xin nghỉ ca đang chờ duyệt
+   */
+  async cancelMyLeaveRequest(requestId: number): Promise<void> {
+    await apiClient.delete(`/agencies/staff/leave-requests/${requestId}`);
   },
 };

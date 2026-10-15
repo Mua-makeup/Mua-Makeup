@@ -224,6 +224,20 @@ export const depositService = {
   },
 
   /**
+   * Chuyên viên thi công (Thợ chính) từ chối / báo chưa nhận được tiền mặt từ khách
+   */
+  async declineWorkerCashReceipt(
+    bookingId: number,
+    reason?: string
+  ): Promise<CashReceiptStatus> {
+    const res = await apiClient.post(
+      `/bookings/${bookingId}/cash-decline`,
+      { reason: reason || 'Chuyên viên báo chưa nhận được tiền mặt' }
+    );
+    return res.data?.data;
+  },
+
+  /**
    * Lấy thông tin ví thợ tự do (số dư, cọc đang giữ, danh sách cọc theo booking)
    */
   async getFreelancerWallet(): Promise<FreelancerWalletInfo> {
