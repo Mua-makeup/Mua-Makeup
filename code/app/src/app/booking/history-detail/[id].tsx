@@ -2793,6 +2793,8 @@ export default function BookingHistoryDetailScreen() {
         viewAsRole={isWorkstationRole ? 'MUA' : 'CUSTOMER'}
         bookingCode={bookingDetail?.bookingCode}
         depositAmount={bookingDetail?.depositAmount}
+        totalAmount={bookingDetail?.totalAmount}
+        bookingStatus={bookingDetail?.status}
         disputeOrigin={bookingDetail?.disputeOrigin}
         counterpartyName={isWorkstationRole ? bookingDetail?.customerName : bookingDetail?.muaName}
         autoOpenForm={isDisputeDossierAutoOpen}

@@ -6,14 +6,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  ScrollView,
   useWindowDimensions,
   Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { reviewService, ReviewItem } from '@/services/review.service';
 import { BrandColors } from '@/constants/theme';
 
@@ -35,17 +34,10 @@ export const StudioReviewSection: React.FC<Props> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [totalElements, setTotalElements] = useState(0);
 
-  // Modal danh sách tất cả đánh giá & modal phóng to ảnh
-  const [isAllReviewsModalVisible, setIsAllReviewsModalVisible] = useState(false);
+  // Modal phóng to ảnh preview
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
 
-  // State phân trang khi mở modal xem tất cả
-  const [allReviews, setAllReviews] = useState<ReviewItem[]>([]);
-  const [modalPage, setModalPage] = useState(0);
-  const [modalTotalPages, setModalTotalPages] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  // Tải 2 đánh giá mới nhất để preview (chuẩn giao diện Shopee như MUA)
+  // Tải 2 đánh giá mới nhất để preview
   useEffect(() => {
     if (!studioId) return;
     let isMounted = true;
@@ -72,37 +64,13 @@ export const StudioReviewSection: React.FC<Props> = ({
     };
   }, [studioId]);
 
-  // Mở modal xem toàn bộ đánh giá
-  const handleOpenAllReviews = async () => {
+  // Điều hướng sang màn hình toàn bộ đánh giá của Studio (chuẩn Ảnh 2 như MUA)
+  const handleOpenAllReviews = () => {
     Haptics.selectionAsync();
-    setIsAllReviewsModalVisible(true);
-    try {
-      const res = await reviewService.getReviewsForAgency(studioId, 0, 10);
-      if (res) {
-        setAllReviews(res.content || []);
-        setModalPage(0);
-        setModalTotalPages(res.totalPages || 0);
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleLoadMoreModal = async () => {
-    if (isLoadingMore || modalPage + 1 >= modalTotalPages) return;
-    try {
-      setIsLoadingMore(true);
-      const nextPage = modalPage + 1;
-      const res = await reviewService.getReviewsForAgency(studioId, nextPage, 10);
-      if (res && res.content) {
-        setAllReviews((prev) => [...prev, ...res.content]);
-        setModalPage(nextPage);
-      }
-    } catch (err) {
-      console.warn('[StudioReviewSection] Lỗi tải thêm đánh giá modal:', err);
-    } finally {
-      setIsLoadingMore(false);
-    }
+    router.push({
+      pathname: '/studio-reviews/[id]',
+      params: { id: studioId, studioName: studioName || 'Studio & Viện Cưới' },
+    });
   };
 
   const renderStars = (rating: number, size = 12) => {
@@ -287,102 +255,7 @@ export const StudioReviewSection: React.FC<Props> = ({
         </TouchableOpacity>
       )}
 
-      {/* 4. MODAL TOÀN BỘ ĐÁNH GIÁ CỦA STUDIO */}
-      <Modal
-        visible={isAllReviewsModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setIsAllReviewsModalVisible(false)}
-      >
-        <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              style={styles.modalCloseBtn}
-              onPress={() => setIsAllReviewsModalVisible(false)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={22} color="#0F172A" />
-            </TouchableOpacity>
-            <View style={styles.modalTitleBox}>
-              <Text style={styles.modalTitle}>Đánh Giá Dịch Vụ</Text>
-              <Text style={styles.modalSubtitle}>
-                {displayRating} ⭐ ({effectiveTotalCount} lượt đánh giá) • {studioName || 'Studio'}
-              </Text>
-            </View>
-            <View style={{ width: 36 }} />
-          </View>
-
-          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-            {allReviews.map((rev) => (
-              <View key={`modal-rev-${rev.id}`} style={styles.modalReviewItem}>
-                <View style={styles.itemHeader}>
-                  <View style={styles.customerInfoRow}>
-                    {rev.customerAvatar ? (
-                      <Image source={{ uri: rev.customerAvatar }} style={styles.avatar} contentFit="cover" />
-                    ) : (
-                      <View style={styles.avatarPlaceholder}>
-                        <Text style={styles.avatarInitial}>
-                          {(rev.customerName || 'K').charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={{ marginLeft: 8 }}>
-                      <Text style={styles.customerName}>{maskName(rev.customerName)}</Text>
-                      <View style={styles.starsRow}>{renderStars(rev.rating)}</View>
-                    </View>
-                  </View>
-                  <Text style={styles.reviewDate}>{formatDate(rev.createdAt)}</Text>
-                </View>
-
-                {rev.packageName || rev.categoryName || rev.styleName ? (
-                  <View style={styles.variationRow}>
-                    <Text style={styles.variationLabel}>Dịch vụ: </Text>
-                    <Text style={styles.variationValue} numberOfLines={1}>
-                      {rev.packageName || rev.categoryName || rev.styleName}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {rev.comment ? <Text style={styles.commentText}>{rev.comment}</Text> : null}
-
-                {rev.imageUrls && rev.imageUrls.length > 0 && (
-                  <View style={styles.thumbnailRow}>
-                    {rev.imageUrls.map((url, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        style={[styles.photoContainer, { width: 100, height: 100 }]}
-                        onPress={() => setSelectedPhotoUrl(url)}
-                        activeOpacity={0.88}
-                      >
-                        <Image source={{ uri: url }} style={styles.thumbnailLarge} contentFit="cover" />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-
-            {modalPage + 1 < modalTotalPages && (
-              <TouchableOpacity
-                style={styles.modalLoadMoreBtn}
-                onPress={handleLoadMoreModal}
-                disabled={isLoadingMore}
-                activeOpacity={0.8}
-              >
-                {isLoadingMore ? (
-                  <ActivityIndicator size="small" color={BrandColors.primary} />
-                ) : (
-                  <Text style={styles.modalLoadMoreText}>Xem thêm đánh giá cũ hơn</Text>
-                )}
-              </TouchableOpacity>
-            )}
-
-            <View style={{ height: 32 }} />
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      {/* 5. MODAL LIGHTBOX XEM ẢNH FULL SIZE */}
+      {/* 4. MODAL LIGHTBOX XEM ẢNH FULL SIZE */}
       {selectedPhotoUrl && (
         <Modal
           visible={Boolean(selectedPhotoUrl)}
@@ -601,61 +474,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#334155',
     fontWeight: '600',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  modalCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitleBox: {
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  modalSubtitle: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  modalBody: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  modalReviewItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  modalLoadMoreBtn: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    marginTop: 12,
-  },
-  modalLoadMoreText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: BrandColors.primary,
   },
   lightboxBackdrop: {
     flex: 1,

@@ -3360,6 +3360,7 @@ export default function JobExecutionScreen() {
       <DisputeDossierModal
         visible={isDisputeDossierOpen}
         onClose={() => setIsDisputeDossierOpen(false)}
+        bookingId={id ? Number(id) : undefined}
         cancellationReason={booking?.cancellationReason}
         emergencyReason={booking?.emergencyReason}
         emergencyProofUrl={booking?.emergencyProofUrl || disputeProofUrl}
@@ -3367,6 +3368,8 @@ export default function JobExecutionScreen() {
         viewAsRole="MUA"
         bookingCode={booking?.bookingCode}
         depositAmount={booking?.depositAmount}
+        totalAmount={booking?.totalAmount}
+        bookingStatus={booking?.status}
         disputeOrigin={booking?.disputeOrigin}
         counterpartyName={booking?.customerName}
         onCounterDispute={() => {
@@ -3375,6 +3378,7 @@ export default function JobExecutionScreen() {
           setDisputeProofUrl('');
           setIsCancelModalVisible(true);
         }}
+        onDisputeSuccess={() => fetchBookingDetail()}
       />
 
     </SafeAreaView>

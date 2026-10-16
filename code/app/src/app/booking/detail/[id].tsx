@@ -2025,6 +2025,8 @@ export default function CustomerBookingDetailScreen() {
         viewAsRole="CUSTOMER"
         bookingCode={bookingDetail?.bookingCode}
         depositAmount={bookingDetail?.depositAmount}
+        totalAmount={bookingDetail?.totalAmount}
+        bookingStatus={bookingDetail?.status}
         disputeOrigin={bookingDetail?.disputeOrigin}
         counterpartyName={isAgencyBooking ? (bookingDetail?.agencyName || 'Studio') : bookingDetail?.muaName}
         isAgencyBooking={isAgencyBooking}

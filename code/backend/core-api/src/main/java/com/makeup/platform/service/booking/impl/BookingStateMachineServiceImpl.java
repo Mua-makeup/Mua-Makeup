@@ -489,8 +489,11 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     || to == BookingStatus.DISPUTED;
             case COMPLETED -> to == BookingStatus.PAID_OUT
                     || to == BookingStatus.DISPUTED;
+            case PAID_OUT -> to == BookingStatus.DISPUTED;
             case DISPUTED -> to == BookingStatus.PAID_OUT
-                    || to == BookingStatus.CANCELLED;
+                    || to == BookingStatus.CANCELLED
+                    || to == BookingStatus.DISPUTE_REFUNDED
+                    || to == BookingStatus.DISPUTE_COMPENSATED;
             default -> false;
         };
     }
@@ -612,7 +615,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 break;
 
             case DISPUTED:
-                if (!isCustomer && !isAssignedMua) {
+                if (!isCustomer && !isAssignedMua && !isAgencyOwner) {
                     throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                             "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                 }

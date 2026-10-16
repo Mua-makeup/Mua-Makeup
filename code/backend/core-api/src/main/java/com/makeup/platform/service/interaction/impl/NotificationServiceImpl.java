@@ -653,12 +653,6 @@ public class NotificationServiceImpl implements NotificationService {
             return;
         }
 
-        List<UserEntity> superAdmins = userRepository.findAllByRoleName(SecurityConstants.ROLE_SUPER_ADMIN);
-        if (superAdmins == null || superAdmins.isEmpty()) {
-            log.warn("[Notification] No Super Admin found to receive dispute notification for bookingId={}", booking.getId());
-            return;
-        }
-
         String customerName = booking.getCustomer() != null ? booking.getCustomer().getFullName() : "Khách hàng";
         String customerPhone = booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : "";
         String muaName = (booking.getMua() != null && booking.getMua().getUser() != null)
@@ -684,24 +678,84 @@ public class NotificationServiceImpl implements NotificationService {
         metadata.put("totalAmount", booking.getTotalAmount());
         metadata.put("reportedAt", LocalDateTime.now().toString());
 
-        for (UserEntity admin : superAdmins) {
-            String title = "Báo Cáo Khiếu Nại: #" + booking.getBookingCode();
-            String content = "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ". Cần Ban Quản Trị xem xét phân xử.";
+        // 1. Gửi thông báo tới Ban Quản Trị Hệ Thống (Super Admins)
+        List<UserEntity> superAdmins = userRepository.findAllByRoleName(SecurityConstants.ROLE_SUPER_ADMIN);
+        if (superAdmins != null && !superAdmins.isEmpty()) {
+            for (UserEntity admin : superAdmins) {
+                String title = "Báo Cáo Khiếu Nại: #" + booking.getBookingCode();
+                String content = "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ". Cần Ban Quản Trị xem xét phân xử.";
 
-            NotificationEntity entity = NotificationEntity.builder()
-                    .user(admin)
-                    .booking(booking)
-                    .type("BOOKING_DISPUTE")
-                    .title(title)
-                    .content(content)
-                    .metadata(metadata)
-                    .isRead(false)
-                    .build();
+                NotificationEntity entity = NotificationEntity.builder()
+                        .user(admin)
+                        .booking(booking)
+                        .type("BOOKING_DISPUTE")
+                        .title(title)
+                        .content(content)
+                        .metadata(metadata)
+                        .isRead(false)
+                        .build();
 
-            notificationRepository.save(entity);
+                notificationRepository.save(entity);
+            }
         }
 
-        // Broadcast realtime qua STOMP WebSocket tới Ban Quản Trị
+        // 2. Gửi thông báo tới Thợ Freelance MUA (nếu có) kèm quyền giải trình
+        if (booking.getMua() != null && booking.getMua().getUser() != null) {
+            UserEntity muaUser = booking.getMua().getUser();
+            String muaNoticeTitle = "Khách Hàng Khiếu Nại Ca Làm Việc #" + booking.getBookingCode();
+            String muaNoticeContent = "Khách hàng đã gửi khiếu nại ca #" + booking.getBookingCode() + " (Lý do: " + reason + "). Bạn có quyền gửi lời khai giải trình và ảnh minh chứng tại chi tiết ca làm việc.";
+            createInAppNotification(
+                    muaUser.getId(),
+                    null,
+                    booking.getId(),
+                    "BOOKING_DISPUTE_NOTICE",
+                    muaNoticeTitle,
+                    muaNoticeContent,
+                    metadata
+            );
+        }
+
+        // 3. Nếu là đơn của Studio / Agency: Gửi thông báo tới Nhân viên Agency VÀ Chủ Studio (Agency Admin)
+        if (booking.getAgency() != null) {
+            AgencyProfileEntity agency = booking.getAgency();
+
+            // 3a. Gửi cho nhân viên làm ca (Staff) nếu có
+            if (booking.getStaff() != null && booking.getStaff().getMua() != null && booking.getStaff().getMua().getUser() != null) {
+                UserEntity staffUser = booking.getStaff().getMua().getUser();
+                String staffNoticeTitle = "Khách Hàng Khiếu Nại Ca Làm Việc #" + booking.getBookingCode();
+                String staffNoticeContent = "Khách hàng đã gửi khiếu nại ca #" + booking.getBookingCode() + " (Lý do: " + reason + "). Bạn có quyền gửi lời khai giải trình và ảnh minh chứng tại chi tiết ca làm việc.";
+                createInAppNotification(
+                        staffUser.getId(),
+                        agency.getId(),
+                        booking.getId(),
+                        "BOOKING_DISPUTE_NOTICE",
+                        staffNoticeTitle,
+                        staffNoticeContent,
+                        metadata
+                );
+            }
+
+            // 3b. Gửi cho Chủ Studio (Agency Owner / Admin)
+            if (agency.getOwner() != null) {
+                UserEntity agencyOwner = agency.getOwner();
+                String staffDisplayName = (booking.getStaff() != null && booking.getStaff().getMua() != null && booking.getStaff().getMua().getUser() != null)
+                        ? booking.getStaff().getMua().getUser().getFullName()
+                        : "Nhân viên";
+                String agencyNoticeTitle = "Khiếu Nại Đơn Của Nhân Viên: #" + booking.getBookingCode();
+                String agencyNoticeContent = "Khách hàng đã gửi khiếu nại ca làm việc của nhân viên " + staffDisplayName + " (Đơn #" + booking.getBookingCode() + "). Vui lòng theo dõi giải trình của nhân viên và phán quyết từ Ban Quản Trị.";
+                createInAppNotification(
+                        agencyOwner.getId(),
+                        agency.getId(),
+                        booking.getId(),
+                        "AGENCY_STAFF_DISPUTED",
+                        agencyNoticeTitle,
+                        agencyNoticeContent,
+                        metadata
+                );
+            }
+        }
+
+        // 4. Broadcast realtime qua STOMP WebSocket tới Ban Quản Trị & Topic trạng thái đơn
         try {
             Map<String, Object> payload = new HashMap<>(metadata);
             payload.put("type", "BOOKING_DISPUTE");
@@ -712,9 +766,14 @@ public class NotificationServiceImpl implements NotificationService {
 
             messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
             messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
-            log.info("[WebSocket] Sent dispute notification to /topic/admin/notifications for bookingId={}", booking.getId());
+            messagingTemplate.convertAndSend("/topic/booking-status/" + booking.getId(), payload);
+
+            if (booking.getAgency() != null) {
+                messagingTemplate.convertAndSend("/topic/agency-notifications/" + booking.getAgency().getId(), payload);
+            }
+            log.info("[WebSocket] Sent dispute notification to Admin, MUA/Staff, and Agency for bookingId={}", booking.getId());
         } catch (Exception e) {
-            log.error("[WebSocket] Failed to broadcast dispute notification to /topic/admin/notifications", e);
+            log.error("[WebSocket] Failed to broadcast dispute notification: {}", e.getMessage());
         }
     }
 

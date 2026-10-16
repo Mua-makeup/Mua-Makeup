@@ -35,6 +35,8 @@ interface DisputeDossierModalProps {
   viewAsRole: 'CUSTOMER' | 'MUA';
   bookingCode?: string;
   depositAmount?: number;
+  totalAmount?: number;
+  bookingStatus?: string;
   disputeOrigin?: string;
   counterpartyName?: string;
   isAgencyBooking?: boolean;
@@ -61,6 +63,15 @@ const MUA_QUICK_REASONS = [
   'Lý do khác...',
 ];
 
+const MUA_POST_COMPLETION_REASONS = [
+  'Đã hoàn thành đúng mẫu thỏa thuận và khách đã nghiệm thu',
+  'Khách đã kiểm tra, hài lòng và xác nhận tại chỗ trước khi về',
+  'Khách tự ý can thiệp hoặc làm hỏng lớp trang điểm sau khi thợ bàn giao',
+  'Đã sử dụng mỹ phẩm chính hãng và tư vấn kỹ càng trước khi làm',
+  'Đã có mặt và phục vụ đúng thời gian cam kết',
+  'Lý do khác...',
+];
+
 export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
   visible,
   onClose,
@@ -72,6 +83,8 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
   viewAsRole,
   bookingCode,
   depositAmount = 0,
+  totalAmount = 0,
+  bookingStatus,
   disputeOrigin,
   counterpartyName,
   isAgencyBooking = false,
@@ -81,7 +94,19 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
 }) => {
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
-  const quickReasons = viewAsRole === 'CUSTOMER' ? CUSTOMER_QUICK_REASONS : MUA_QUICK_REASONS;
+  const isPostCompletion =
+    bookingStatus === 'COMPLETED' ||
+    bookingStatus === 'PAID_OUT' ||
+    (Boolean(totalAmount && depositAmount && totalAmount > depositAmount) &&
+      !emergencyReason?.toLowerCase().includes('vắng mặt') &&
+      !emergencyReason?.toLowerCase().includes('không gặp khách'));
+
+  const quickReasons =
+    viewAsRole === 'CUSTOMER'
+      ? CUSTOMER_QUICK_REASONS
+      : isPostCompletion
+      ? MUA_POST_COMPLETION_REASONS
+      : MUA_QUICK_REASONS;
 
   // Inline counter dispute state
   const [isEditingCounterDispute, setIsEditingCounterDispute] = useState(autoOpenForm);
@@ -279,8 +304,10 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        'Đã Gửi Báo Cáo Đối Chất',
-        'Lời khai và minh chứng của bạn đã được gửi thành công tới Ban Quản Trị. Admin sẽ xem xét đối chiếu hai bên để ra phán quyết công bằng.'
+        isMUA ? 'Đã Gửi Lời Khai Giải Trình' : 'Đã Gửi Báo Cáo Đối Chất',
+        isMUA
+          ? 'Lời khai giải trình và minh chứng của bạn đã được gửi thành công tới Ban Quản Trị để đối chiếu công bằng với khiếu nại của khách.'
+          : 'Lời khai và minh chứng của bạn đã được gửi thành công tới Ban Quản Trị. Admin sẽ xem xét đối chiếu hai bên để ra phán quyết công bằng.'
       );
       setIsEditingCounterDispute(false);
       onDisputeSuccess?.();
@@ -331,7 +358,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
         <View style={{ flex: 1, marginLeft: 10 }}>
           <Text style={styles.headerTitle}>Hồ Sơ Khiếu Nại Đơn Hàng</Text>
           <Text style={styles.headerSub}>
-            Mã ca: #{bookingCode || 'N/A'} • Tiền cọc: {formatVnd(depositAmount)}
+            {isPostCompletion
+              ? `Mã ca: #${bookingCode || 'N/A'} • Tổng tiền: ${formatVnd(totalAmount || depositAmount)} (Hoàn 100%)`
+              : `Mã ca: #${bookingCode || 'N/A'} • Tiền cọc: ${formatVnd(depositAmount)}`}
           </Text>
         </View>
       </View>
@@ -344,7 +373,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerDualTitle}>Tranh Chấp 2 Chiều Phát Sinh Đồng Thời</Text>
                 <Text style={styles.bannerDualSub}>
-                  {isAgencyBooking
+                  {isPostCompletion
+                    ? `Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Ban Quản Trị sẽ đối chiếu lời khai và ảnh minh chứng để ra phán quyết hoàn 100% (${formatVnd(totalAmount || depositAmount)}) hoặc bảo lưu thù lao.`
+                    : isAgencyBooking
                     ? 'Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Quản lý Studio sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để xử lý thỏa đáng.'
                     : 'Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Ban Quản Trị sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để ra phán quyết xử lý tiền cọc.'}
                 </Text>
@@ -355,12 +386,20 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
               <Ionicons name="alert-circle-outline" size={18} color="#059669" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerSingleTitle}>
-                  {isMUA
+                  {isPostCompletion
+                    ? isMUA
+                      ? 'Khách Hàng Khiếu Nại Chất Lượng Sau Ca'
+                      : 'Yêu Cầu Khiếu Nại Sau Ca Do Bạn Gửi'
+                    : isMUA
                     ? (isMuaOnly ? 'Báo Cáo Sự Cố Do Bạn Khởi Tạo' : 'Đơn Hàng Do Khách Hàng Khiếu Nại')
                     : (isMuaOnly ? 'Chuyên Viên Make-up Đã Báo Cáo Sự Cố' : 'Yêu Cầu Khiếu Nại Do Bạn Gửi')}
                 </Text>
                 <Text style={styles.bannerSingleSub}>
-                  {isAgencyBooking
+                  {isPostCompletion
+                    ? isMUA
+                      ? `Đơn hàng đã hoàn thành ca. Khách hàng đang khiếu nại yêu cầu hoàn 100% tiền đơn (${formatVnd(totalAmount || depositAmount)}). Bạn có quyền giải trình và gửi ảnh minh chứng để bảo vệ quyền lợi.`
+                      : `Yêu cầu khiếu nại chất lượng ca làm việc. Số tiền khiếu nại: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Admin sẽ đối chiếu minh chứng hai bên và phân xử công bằng.`
+                    : isAgencyBooking
                     ? `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Quản lý Studio sẽ kiểm tra minh chứng và xử lý.`
                     : `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Admin sẽ đối chiếu minh chứng và giải ngân công bằng.`}
                 </Text>
@@ -464,14 +503,18 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                 )}
               </>
             ) : isEditingCounterDispute ? (
-              /* Inline Form Soạn Thảo Lời Khai Đối Chất Ngay Tại Chỗ */
+              /* Inline Form Soạn Thảo Lời Khai Giải Trình / Đối Chất Ngay Tại Chỗ */
               <View style={styles.inlineFormBox}>
                 <View style={styles.inlineFormHeader}>
                   <Ionicons name="create" size={16} color="#EA580C" />
-                  <Text style={styles.inlineFormTitle}>Soạn Thảo Lời Khai Đối Chất</Text>
+                  <Text style={styles.inlineFormTitle}>
+                    {isMUA ? 'Soạn Thảo Lời Khai Giải Trình' : 'Soạn Thảo Lời Khai Đối Chất'}
+                  </Text>
                 </View>
                 <Text style={styles.inlineFormSub}>
-                  Chọn hoặc nhập lý do thực tế tại thời điểm hẹn để Ban Quản Trị đối soát:
+                  {isMUA
+                    ? 'Chọn hoặc nhập lý do giải trình thực tế để Ban Quản Trị đối soát và bảo vệ quyền lợi thù lao:'
+                    : 'Chọn hoặc nhập lý do thực tế tại thời điểm hẹn để Ban Quản Trị đối soát:'}
                 </Text>
 
                 {/* Chips lý do nhanh */}
@@ -494,7 +537,11 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                 {/* Text Input */}
                 <TextInput
                   style={styles.textArea}
-                  placeholder="Nhập chi tiết tình huống thực tế tại thời điểm hẹn..."
+                  placeholder={
+                    isMUA
+                      ? 'Nhập chi tiết lời khai giải trình, quy trình làm đẹp, thái độ hợp tác của khách...'
+                      : 'Nhập chi tiết tình huống thực tế tại thời điểm hẹn...'
+                  }
                   placeholderTextColor="#94A3B8"
                   value={detailReason}
                   onChangeText={setDetailReason}
@@ -505,7 +552,11 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                 />
 
                 {/* Image Proof */}
-                <Text style={styles.proofPickerLabel}>Ảnh minh chứng (nhật ký cuộc gọi, check-in):</Text>
+                <Text style={styles.proofPickerLabel}>
+                  {isMUA
+                    ? 'Ảnh minh chứng nghiệm thu tại chỗ (hoặc nhật ký làm việc):'
+                    : 'Ảnh minh chứng (nhật ký cuộc gọi, check-in, hiện trường):'}
+                </Text>
                 {proofLocalUri ? (
                   <View style={styles.proofPreviewWrap}>
                     <TouchableOpacity
@@ -556,7 +607,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                     ) : (
                       <>
                         <Ionicons name="paper-plane" size={15} color="#FFFFFF" />
-                        <Text style={styles.inlineSubmitBtnText}>Gửi Báo Cáo Đối Chất</Text>
+                        <Text style={styles.inlineSubmitBtnText}>
+                          {isMUA ? 'Gửi Lời Khai Giải Trình' : 'Gửi Báo Cáo Đối Chất'}
+                        </Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -565,9 +618,13 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
             ) : (
               <View style={styles.notSubmittedBox}>
                 <Ionicons name="information-circle-outline" size={20} color="#D97706" />
-                <Text style={styles.notSubmittedTitle}>Bạn chưa gửi báo cáo phản hồi sự cố</Text>
+                <Text style={styles.notSubmittedTitle}>
+                  {isMUA ? 'Bạn chưa gửi lời khai giải trình cho ca làm việc này' : 'Bạn chưa gửi báo cáo phản hồi sự cố'}
+                </Text>
                 <Text style={styles.notSubmittedSub}>
-                  Nếu nhận thấy đối tác báo cáo chưa chính xác, bạn có thể gửi phản hồi kèm ảnh minh chứng để bảo vệ quyền lợi.
+                  {isMUA
+                    ? 'Khách hàng đang khiếu nại ca này. Bạn hãy nộp lời khai giải trình và ảnh nghiệm thu thực tế để Ban Quản Trị xem xét bảo vệ quyền lợi của bạn.'
+                    : 'Nếu nhận thấy đối tác báo cáo chưa chính xác, bạn có thể gửi phản hồi kèm ảnh minh chứng để bảo vệ quyền lợi.'}
                 </Text>
 
                 <TouchableOpacity
@@ -576,7 +633,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                   activeOpacity={0.85}
                 >
                   <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.counterDisputeBtnText}>Gửi Báo Cáo Phản Hồi Ngay</Text>
+                  <Text style={styles.counterDisputeBtnText}>
+                    {isMUA ? 'Soạn Lời Khai Giải Trình Ngay' : 'Gửi Báo Cáo Phản Hồi Ngay'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
