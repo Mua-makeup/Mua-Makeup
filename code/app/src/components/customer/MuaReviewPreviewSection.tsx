@@ -6,11 +6,15 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { reviewService, ReviewItem } from '@/services/review.service';
 import { BrandColors } from '@/constants/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PREVIEW_PHOTO_SIZE = Math.floor((SCREEN_WIDTH - 32 - 8) / 2);
 
 interface Props {
   muaId: number;
@@ -174,6 +178,16 @@ export const MuaReviewPreviewSection: React.FC<Props> = ({
                 <Text style={styles.reviewDate}>{formatDate(rev.createdAt)}</Text>
               </View>
 
+              {/* Tên dịch vụ dạng badge xám bo góc (Chỉ hiện tên dịch vụ theo yêu cầu) */}
+              {(rev.packageName || rev.categoryName || rev.styleName) ? (
+                <View style={styles.variationRow}>
+                  <Text style={styles.variationLabel}>Dịch vụ: </Text>
+                  <Text style={styles.variationValue} numberOfLines={1}>
+                    {rev.packageName || rev.categoryName || rev.styleName}
+                  </Text>
+                </View>
+              ) : null}
+
               {/* Nội dung comment */}
               {rev.comment ? (
                 <Text style={styles.commentText} numberOfLines={2}>
@@ -181,17 +195,22 @@ export const MuaReviewPreviewSection: React.FC<Props> = ({
                 </Text>
               ) : null}
 
-              {/* Thumbnail ảnh đính kèm (nếu có) */}
+              {/* Thumbnail ảnh đính kèm (Chuẩn Shopee - 2 ảnh to trên 1 hàng như Ảnh 4) */}
               {rev.imageUrls && rev.imageUrls.length > 0 ? (
                 <View style={styles.thumbnailRow}>
-                  {rev.imageUrls.slice(0, 3).map((url, idx) => (
-                    <Image key={idx} source={{ uri: url }} style={styles.thumbnail} />
-                  ))}
-                  {rev.imageUrls.length > 3 && (
-                    <View style={styles.moreThumbBox}>
-                      <Text style={styles.moreThumbText}>+{rev.imageUrls.length - 3}</Text>
-                    </View>
-                  )}
+                  {rev.imageUrls.slice(0, 2).map((url, idx) => {
+                    const isSecondAndHasMore = idx === 1 && rev.imageUrls.length > 2;
+                    return (
+                      <View key={idx} style={styles.photoContainer}>
+                        <Image source={{ uri: url }} style={styles.thumbnailLarge} resizeMode="cover" />
+                        {isSecondAndHasMore && (
+                          <View style={styles.morePhotoOverlay}>
+                            <Text style={styles.morePhotoText}>+{rev.imageUrls.length - 2}</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
               ) : null}
             </TouchableOpacity>
@@ -329,30 +348,35 @@ const styles = StyleSheet.create({
   },
   thumbnailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    marginTop: 10,
   },
-  thumbnail: {
-    width: 58,
-    height: 58,
-    borderRadius: 6,
+  photoContainer: {
+    width: PREVIEW_PHOTO_SIZE,
+    height: PREVIEW_PHOTO_SIZE,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
     backgroundColor: '#F1F5F9',
   },
-  moreThumbBox: {
-    width: 58,
-    height: 58,
-    borderRadius: 6,
-    backgroundColor: '#F1F5F9',
+  thumbnailLarge: {
+    width: '100%',
+    height: '100%',
+  },
+  morePhotoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  moreThumbText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
+  morePhotoText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   bottomViewAllBtn: {
     flexDirection: 'row',
@@ -380,5 +404,28 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
+  },
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 6,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  variationLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  variationValue: {
+    flex: 1,
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
   },
 });

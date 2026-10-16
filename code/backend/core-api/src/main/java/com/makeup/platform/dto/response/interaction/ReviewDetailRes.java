@@ -18,6 +18,9 @@ public class ReviewDetailRes {
     private Long id;
     private Long bookingId;
     private String bookingCode;
+    private String packageName;
+    private String categoryName;
+    private String styleName;
     private Long customerId;
     private String customerName;
     private String customerAvatar;

@@ -1,5 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,8 @@ import { BrandColors } from '@/constants/theme';
 import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
+import { reviewService, ReviewItem } from '@/services/review.service';
+import { ReviewModal } from '@/components/customer/ReviewModal';
 import { useNotificationStore } from '@/store/notification.store';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
@@ -140,7 +142,8 @@ export default function CustomerBookingDetailScreen() {
     try {
       const data = await bookingService.getBookingStatus(bookingId);
       if (data?.status === 'PAID_OUT' || data?.status === 'CANCELLED' || data?.status === 'CANCELLED_EXPIRED') {
-        router.replace(`/booking/history-detail/${bookingId}` as any);
+        const reviewParam = data?.status === 'PAID_OUT' ? '?openReview=true' : '';
+        router.replace(`/booking/history-detail/${bookingId}${reviewParam}` as any);
         return;
       }
       setBookingDetail(data);
@@ -1973,19 +1976,8 @@ export default function CustomerBookingDetailScreen() {
             ) : null}
 
             <TouchableOpacity
-              style={styles.reviewActionBtn}
-              onPress={() => {
-                Alert.alert('Đánh Giá Chuyên Viên ⭐', `Cảm ơn bạn đã sử dụng dịch vụ! Đơn ${bookingDetail.bookingCode} đã hoàn tất.`);
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="star" size={18} color="#FFFFFF" />
-              <Text style={styles.reviewActionBtnText}>Đánh Giá Chuyên Viên ⭐</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[styles.secondaryCancelBtn, { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }]}
-              onPress={() => router.push(`/booking/history-detail/${bookingId}` as any)}
+              onPress={() => router.push(`/booking/history-detail/${bookingId}?openReview=true` as any)}
               activeOpacity={0.85}
             >
               <Text style={[styles.secondaryCancelBtnText, { color: '#059669', fontWeight: '700' }]}>

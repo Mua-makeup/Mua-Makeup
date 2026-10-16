@@ -23,27 +23,34 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     Page<ReviewEntity> findByMuaIdAndStatusAndIsDeletedFalse(Long muaId, ReviewStatus status, Pageable pageable);
 
     @Query(value = """
-            SELECT * FROM interaction_schema.reviews r
+            SELECT r.* FROM interaction_schema.reviews r
+            JOIN booking_schema.bookings b ON r.booking_id = b.id
+            LEFT JOIN catalog_schema.service_packages sp ON b.package_id = sp.id
             WHERE r.mua_id = :muaId
               AND r.status = 'APPROVED'
               AND r.is_deleted = false
               AND (:rating IS NULL OR r.rating = :rating)
               AND (:hasImages IS NULL OR (:hasImages = true AND jsonb_array_length(r.image_urls) > 0) OR (:hasImages = false AND (r.image_urls IS NULL OR jsonb_array_length(r.image_urls) = 0)))
+              AND (:categoryId IS NULL OR sp.master_category_id = :categoryId)
             ORDER BY r.created_at DESC
             """,
             countQuery = """
             SELECT count(*) FROM interaction_schema.reviews r
+            JOIN booking_schema.bookings b ON r.booking_id = b.id
+            LEFT JOIN catalog_schema.service_packages sp ON b.package_id = sp.id
             WHERE r.mua_id = :muaId
               AND r.status = 'APPROVED'
               AND r.is_deleted = false
               AND (:rating IS NULL OR r.rating = :rating)
               AND (:hasImages IS NULL OR (:hasImages = true AND jsonb_array_length(r.image_urls) > 0) OR (:hasImages = false AND (r.image_urls IS NULL OR jsonb_array_length(r.image_urls) = 0)))
+              AND (:categoryId IS NULL OR sp.master_category_id = :categoryId)
             """,
             nativeQuery = true)
     Page<ReviewEntity> findByMuaIdWithFilters(
             @Param("muaId") Long muaId,
             @Param("rating") Integer rating,
             @Param("hasImages") Boolean hasImages,
+            @Param("categoryId") Integer categoryId,
             Pageable pageable
     );
 
@@ -64,6 +71,20 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
             GROUP BY r.rating
             """, nativeQuery = true)
     List<Object[]> countRatingsGroupedByMuaId(@Param("muaId") Long muaId);
+
+    @Query(value = """
+            SELECT mc.id, mc.category_name, count(r.id)
+            FROM interaction_schema.reviews r
+            JOIN booking_schema.bookings b ON r.booking_id = b.id
+            JOIN catalog_schema.service_packages sp ON b.package_id = sp.id
+            JOIN catalog_schema.master_service_categories mc ON sp.master_category_id = mc.id
+            WHERE r.mua_id = :muaId
+              AND r.status = 'APPROVED'
+              AND r.is_deleted = false
+            GROUP BY mc.id, mc.category_name
+            ORDER BY count(r.id) DESC
+            """, nativeQuery = true)
+    List<Object[]> countCategoriesGroupedByMuaId(@Param("muaId") Long muaId);
 
     long countByMuaIdAndStatusAndIsDeletedFalse(Long muaId, ReviewStatus status);
 
@@ -116,11 +137,20 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     long countByAgencyIdAndStatusAndIsDeletedFalse(Long agencyId, ReviewStatus status);
 
     @Query(value = """
-            SELECT COALESCE(AVG(r.rating), 5.00)
+            SELECT AVG(r.rating)
             FROM interaction_schema.reviews r
             WHERE r.agency_id = :agencyId
               AND r.status = 'APPROVED'
               AND r.is_deleted = false
             """, nativeQuery = true)
     Double getAgencyAverageRating(@Param("agencyId") Long agencyId);
+
+    @Query(value = """
+            SELECT COALESCE(AVG(r.rating), 4.65)
+            FROM interaction_schema.reviews r
+            WHERE r.agency_id IS NOT NULL
+              AND r.status = 'APPROVED'
+              AND r.is_deleted = false
+            """, nativeQuery = true)
+    Double getAgencySystemOverallAverageRating();
 }

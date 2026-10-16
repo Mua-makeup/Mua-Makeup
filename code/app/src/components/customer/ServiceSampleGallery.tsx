@@ -5,7 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
+  LayoutChangeEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,17 +21,90 @@ interface Props {
   onPressPhoto: (photo: PortfolioShowcase, index: number) => void;
 }
 
-const { width } = Dimensions.get('window');
-const COLUMN_WIDTH = (width - 32 - 12) / 2;
-
 export const ServiceSampleGallery: React.FC<Props> = ({
   selectedPackage,
   showcases,
   isLoading,
   onPressPhoto,
 }) => {
+  const { width: windowWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = React.useState<number>(0);
+
+  const onContainerLayout = (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    if (width > 0 && Math.abs(width - containerWidth) > 2) {
+      setContainerWidth(width);
+    }
+  };
+
+  // Tính toán chiều rộng và số cột động theo chuẩn đa màn hình (Mobile, Tablet, Web)
+  const activeWidth = containerWidth > 0 ? containerWidth : windowWidth;
+  const paddingH = 32; // paddingHorizontal 16 * 2
+  const availableWidth = Math.max(260, activeWidth - paddingH);
+  const numColumns = availableWidth >= 900 ? 4 : availableWidth >= 600 ? 3 : 2;
+  const gap = 12;
+  const columnWidth = Math.floor((availableWidth - gap * (numColumns - 1)) / numColumns);
+
+  // Tổng hợp toàn bộ ảnh thực tế (Ảnh chính diện + Toàn bộ các góc chụp bổ sung)
+  const allPhotos = React.useMemo(() => {
+    const list: {
+      id: string;
+      photoUrl: string;
+      title?: string;
+      styleName?: string;
+      originalShowcase: PortfolioShowcase;
+      originalIndex: number;
+    }[] = [];
+
+    showcases.forEach((sc, scIdx) => {
+      const mainUrl = sc.imageUrl || sc.thumbnailUrl;
+      if (mainUrl) {
+        list.push({
+          id: `sc-${sc.id}-main`,
+          photoUrl: mainUrl,
+          title: sc.title,
+          styleName: sc.styleName,
+          originalShowcase: sc,
+          originalIndex: scIdx,
+        });
+      }
+      if (sc.additionalImages && sc.additionalImages.length > 0) {
+        sc.additionalImages.forEach((addUrl, addIdx) => {
+          if (addUrl) {
+            list.push({
+              id: `sc-${sc.id}-add-${addIdx}`,
+              photoUrl: addUrl,
+              title: sc.title ? `${sc.title} (Góc ${addIdx + 2})` : undefined,
+              styleName: sc.styleName,
+              originalShowcase: sc,
+              originalIndex: scIdx,
+            });
+          }
+        });
+      }
+    });
+
+    // Nếu album chưa có ảnh riêng nhưng gói dịch vụ có ảnh đại diện -> nạp ảnh đại diện gói
+    if (list.length === 0 && selectedPackage?.coverImageUrl) {
+      list.push({
+        id: `pkg-${selectedPackage.id}-cover`,
+        photoUrl: selectedPackage.coverImageUrl,
+        title: selectedPackage.packageName,
+        styleName: selectedPackage.styles?.[0]?.styleName,
+        originalShowcase: {
+          id: 0,
+          title: selectedPackage.packageName,
+          imageUrl: selectedPackage.coverImageUrl,
+        },
+        originalIndex: 0,
+      });
+    }
+
+    return list;
+  }, [showcases, selectedPackage]);
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={onContainerLayout}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="images-outline" size={18} color={BrandColors.primary} />
@@ -49,7 +123,7 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           <ActivityIndicator size="small" color={BrandColors.primary} />
           <Text style={styles.loadingText}>Đang tải bộ sưu tập ảnh của gói...</Text>
         </View>
-      ) : showcases.length === 0 ? (
+      ) : allPhotos.length === 0 ? (
         /* TRẠNG THÁI CHƯA CÓ ẢNH RIÊNG CHO GÓI */
         <View style={styles.emptyBox}>
           <Ionicons name="camera-outline" size={36} color="#CBD5E1" />
@@ -59,53 +133,58 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           </Text>
         </View>
       ) : (
-        /* LƯỚI ẢNH MẪU 2 CỘT */
-        <View style={styles.grid}>
-          {showcases.map((item, index) => {
+        /* LƯỚI ẢNH MẪU ĐA MÀN HÌNH CHUẨN ĐẸP */
+        <View style={[styles.grid, { gap }]}>
+          {allPhotos.map((item) => {
             const photoUrl =
-              item.imageUrl ||
-              item.thumbnailUrl ||
+              item.photoUrl ||
               'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=500&auto=format&fit=crop&q=80';
 
             return (
               <TouchableOpacity
-                key={`showcase-${item.id}-${index}`}
-                style={styles.card}
-                onPress={() => onPressPhoto(item, index)}
+                key={item.id}
+                style={[styles.card, { width: columnWidth }]}
+                onPress={() => onPressPhoto(item.originalShowcase, item.originalIndex)}
                 activeOpacity={0.85}
               >
-                <Image
-                  source={{ uri: photoUrl }}
-                  style={styles.image}
-                  contentFit="cover"
-                  transition={250}
-                />
+                <View style={styles.imageBox}>
+                  <Image
+                    source={{ uri: photoUrl }}
+                    style={styles.image}
+                    contentFit="cover"
+                    transition={250}
+                  />
 
-                {/* Badge số lượng ảnh phụ đi kèm */}
-                {item.additionalImages && item.additionalImages.length > 0 && (
-                  <View style={styles.additionalBadge}>
-                    <Ionicons name="images" size={11} color="#FFFFFF" />
-                    <Text style={styles.additionalBadgeText}>
-                      +{item.additionalImages.length}
-                    </Text>
+                  {/* Badge số lượng ảnh phụ đi kèm cho ảnh chính */}
+                  {item.id.endsWith('-main') &&
+                    item.originalShowcase?.additionalImages &&
+                    item.originalShowcase.additionalImages.length > 0 && (
+                      <View style={styles.additionalBadge}>
+                        <Ionicons name="images" size={11} color="#FFFFFF" />
+                        <Text style={styles.additionalBadgeText}>
+                          +{item.originalShowcase.additionalImages.length}
+                        </Text>
+                      </View>
+                    )}
+
+                  <View style={styles.zoomHintOverlay}>
+                    <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
+                    <Text style={styles.zoomHintText}>Soi cận cảnh</Text>
                   </View>
-                )}
-
-                <View style={styles.zoomHintOverlay}>
-                  <Ionicons name="scan-outline" size={14} color="#FFFFFF" />
-                  <Text style={styles.zoomHintText}>Soi cận cảnh</Text>
                 </View>
 
-                {item.title && (
+                {item.title ? (
                   <View style={styles.captionContainer}>
                     <Text style={styles.captionText} numberOfLines={1}>
                       {item.title}
                     </Text>
-                    {item.styleName && (
-                      <Text style={styles.styleBadge}>{item.styleName}</Text>
-                    )}
+                    {item.styleName ? (
+                      <Text style={styles.styleBadge} numberOfLines={1}>
+                        {item.styleName}
+                      </Text>
+                    ) : null}
                   </View>
-                )}
+                ) : null}
               </TouchableOpacity>
             );
           })}
@@ -121,6 +200,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 24,
+    overflow: 'hidden',
   },
   header: {
     marginBottom: 14,
@@ -175,10 +255,8 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
   },
   card: {
-    width: COLUMN_WIDTH,
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#F1F5F9',
@@ -186,9 +264,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  imageBox: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#F1F5F9',
+    position: 'relative',
+    overflow: 'hidden',
+  },
   image: {
     width: '100%',
-    height: 190,
+    height: '100%',
   },
   additionalBadge: {
     position: 'absolute',
@@ -212,7 +297,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -226,7 +311,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   captionContainer: {
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     backgroundColor: '#FFFFFF',
   },
   captionText: {

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "app.scheduling.auto-review-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "app.scheduling.auto-review-enabled", havingValue = "true", matchIfMissing = false)
 public class AutoReviewScheduler {
 
     private final AutoReviewService autoReviewService;

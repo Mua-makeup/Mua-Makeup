@@ -363,17 +363,6 @@ export default function ExploreScreen() {
                 </>
               ) : null}
 
-              {mua.maxServiceRadiusKm != null && (
-                <>
-                  <Text style={styles.dotSeparator}>•</Text>
-                  <View style={styles.distBox}>
-                    <Ionicons name="radio-outline" size={12} color="#2563EB" />
-                    <Text style={[styles.distText, { color: '#2563EB' }]}>
-                      Nhận {mua.maxServiceRadiusKm}km
-                    </Text>
-                  </View>
-                </>
-              )}
             </View>
           </View>
         </View>
@@ -402,6 +391,15 @@ export default function ExploreScreen() {
               {mua.isOnline ? '🟢 Đang trực tuyến' : '📅 Nhận hẹn trước'}
             </Text>
           </View>
+
+          {mua.maxServiceRadiusKm != null && (
+            <View style={[styles.badgeItem, styles.badgeRadius]}>
+              <Ionicons name="radio-outline" size={11} color="#2563EB" />
+              <Text style={[styles.badgeItemText, styles.badgeRadiusText]}>
+                Nhận {mua.maxServiceRadiusKm}km
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* BOTTOM PRICE & ACTION */}
@@ -1079,6 +1077,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 16,
     padding: 14,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -1117,6 +1116,7 @@ const styles = StyleSheet.create({
   muaInfoCol: {
     flex: 1,
     justifyContent: 'center',
+    minWidth: 0,
   },
   muaNameRow: {
     flexDirection: 'row',
@@ -1127,6 +1127,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: BrandColors.slateHeading,
+    flexShrink: 1,
   },
   muaCategory: {
     fontSize: 12,
@@ -1137,7 +1138,9 @@ const styles = StyleSheet.create({
   ratingAndDistRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    flexWrap: 'wrap',
+    columnGap: 6,
+    rowGap: 3,
   },
   ratingBox: {
     flexDirection: 'row',
@@ -1161,6 +1164,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    flexShrink: 1,
   },
   distText: {
     fontSize: 11.5,
@@ -1205,6 +1209,18 @@ const styles = StyleSheet.create({
     color: '#059669',
     fontWeight: '600',
   },
+  badgeRadius: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EFF6FF',
+    borderColor: '#DBEAFE',
+    borderWidth: 0.8,
+  },
+  badgeRadiusText: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
   muaCardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1244,6 +1260,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 16,
     padding: 14,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -1277,6 +1294,7 @@ const styles = StyleSheet.create({
   studioInfoCol: {
     flex: 1,
     justifyContent: 'center',
+    minWidth: 0,
   },
   studioNameRow: {
     flexDirection: 'row',

@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { reviewService, ReviewItem, MuaRatingSummary } from '@/services/review.service';
 
 interface MuaReviewsModalProps {
@@ -31,6 +32,7 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
   muaName,
   isOwnerView = false,
 }) => {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState<MuaRatingSummary | null>(null);
@@ -272,6 +274,18 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
                       </View>
                     </View>
 
+                    {/* Shopee-style: Phân loại dịch vụ */}
+                    {(rev.categoryName || rev.packageName || rev.styleName) ? (
+                      <View style={styles.variationRow}>
+                        <Text style={styles.variationLabel}>Phân loại: </Text>
+                        <Text style={styles.variationValue} numberOfLines={2}>
+                          {[rev.categoryName, rev.packageName, rev.styleName]
+                            .filter((v, idx, arr) => Boolean(v) && arr.indexOf(v) === idx)
+                            .join(' • ')}
+                        </Text>
+                      </View>
+                    ) : null}
+
                     {/* Comment text */}
                     {rev.comment ? (
                       <Text style={styles.commentText}>{rev.comment}</Text>
@@ -295,6 +309,30 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
                           />
                         ))}
                       </ScrollView>
+                    ) : null}
+
+                    {/* Booking Reference & Navigation to History Detail */}
+                    {rev.bookingId ? (
+                      <View style={styles.bookingFooterRow}>
+                        <View style={styles.bookingTag}>
+                          <Ionicons name="receipt-outline" size={12} color="#475569" />
+                          <Text style={styles.bookingTagText}>
+                            {rev.bookingCode ? `#${rev.bookingCode}` : `Đơn #${rev.bookingId}`}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.viewDetailBtn}
+                          onPress={() => {
+                            onClose();
+                            router.push(`/booking/history-detail/${rev.bookingId}` as any);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.viewDetailBtnText}>Xem chi tiết đơn</Text>
+                          <Ionicons name="chevron-forward" size={13} color="#E11D48" />
+                        </TouchableOpacity>
+                      </View>
                     ) : null}
                   </View>
                 ))
@@ -641,5 +679,66 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#E11D48',
+  },
+  bookingFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  bookingTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  bookingTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  viewDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  viewDetailBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E11D48',
+  },
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    marginTop: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  variationLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  variationValue: {
+    flex: 1,
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
+    lineHeight: 15,
   },
 });

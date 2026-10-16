@@ -18,6 +18,8 @@ export interface AgencyPublicProfile {
   longitude?: number;
   isVerified?: boolean;
   ratingAvg?: number;
+  bayesianRating?: number;
+  totalReviews?: number;
   createdAt?: string;
 }
 

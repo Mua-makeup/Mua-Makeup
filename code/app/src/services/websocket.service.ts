@@ -52,11 +52,7 @@ class WebSocketService {
         return ws;
       },
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
-      debug: (str) => {
-        if (__DEV__) {
-          console.log('[WebSocket-STOMP Debug]:', str);
-        }
-      },
+      debug: () => {},
       reconnectDelay: 3000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
@@ -161,7 +157,6 @@ class WebSocketService {
     });
 
     this.subscriptions.set(topic, sub);
-    console.log('[WebSocket-STOMP] Subscribed topic:', topic);
   }
 
   /**
@@ -175,7 +170,6 @@ class WebSocketService {
         sub.unsubscribe();
       } catch { }
       this.subscriptions.delete(topic);
-      console.log('[WebSocket-STOMP] Unsubscribed topic:', topic);
     }
   }
 

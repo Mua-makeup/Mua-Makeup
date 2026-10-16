@@ -26,10 +26,11 @@ public class MuaReviewQueryController extends BaseController {
             @PathVariable Long muaId,
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) Boolean hasImages,
+            @RequestParam(required = false) Integer categoryId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        Page<ReviewDetailRes> res = reviewService.getReviewsForMua(muaId, rating, hasImages, page, size);
+        Page<ReviewDetailRes> res = reviewService.getReviewsForMua(muaId, rating, hasImages, categoryId, page, size);
         return ok(res, "review.list_success");
     }
 

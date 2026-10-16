@@ -5,6 +5,8 @@ import com.makeup.platform.dto.response.agency.AgencyProfileRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 @Component
 public class AgencyProfileMapper {
 
@@ -25,6 +27,9 @@ public class AgencyProfileMapper {
             ownerPhone = entity.getOwner().getPhoneNumber();
         }
 
+        BigDecimal effectiveRating = (entity.getTotalReviews() != null && entity.getTotalReviews() > 0) ? entity.getRatingAvg() : null;
+        BigDecimal effectiveBayesian = (entity.getTotalReviews() != null && entity.getTotalReviews() > 0) ? entity.getBayesianRating() : null;
+
         return AgencyProfileRes.builder()
                 .id(entity.getId())
                 .ownerId(ownerId)
@@ -42,7 +47,9 @@ public class AgencyProfileMapper {
                 .longitude(entity.getLongitude())
                 .commissionRateInternal(entity.getCommissionRateInternal())
                 .isVerified(entity.getIsVerified())
-                .ratingAvg(entity.getRatingAvg())
+                .ratingAvg(effectiveRating)
+                .bayesianRating(effectiveBayesian)
+                .totalReviews(entity.getTotalReviews() != null ? entity.getTotalReviews() : 0)
                 .isSurgeEnabled(entity.getIsSurgeEnabled() == null || entity.getIsSurgeEnabled())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

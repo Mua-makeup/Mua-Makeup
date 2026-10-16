@@ -151,10 +151,15 @@ export const BookingHistoryCard: React.FC<Props> = ({
               {booking.packageName}
             </Text>
 
-            {booking.styleName ? (
-              <Text style={styles.styleTextSimple} numberOfLines={1}>
-                Tone: {booking.styleName}
-              </Text>
+            {(booking.packageName || booking.styleName) ? (
+              <View style={styles.variationRow}>
+                <Text style={styles.variationLabel}>Phân loại: </Text>
+                <Text style={styles.variationValue} numberOfLines={1}>
+                  {[booking.packageName, booking.styleName ? `Tone ${booking.styleName}` : null]
+                    .filter(Boolean)
+                    .join(' • ')}
+                </Text>
+              </View>
             ) : null}
 
             {isStudioBooking ? (
@@ -304,6 +309,27 @@ export const BookingHistoryCard: React.FC<Props> = ({
               <Text style={styles.disputeActionText}>Khiếu Nại</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.depositActionBtn}
+              onPress={() => onPress(booking)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="card-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.depositActionText}>Thanh Toán 70%</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {booking.status === 'PAID_OUT' && (
+          <>
+            <TouchableOpacity
+              style={styles.disputeActionBtn}
+              onPress={() => onDisputePress && onDisputePress(booking)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="alert-circle-outline" size={14} color="#EA580C" />
+              <Text style={styles.disputeActionText}>Khiếu Nại</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.reviewActionBtn}
               onPress={() => onReviewPress && onReviewPress(booking)}
               activeOpacity={0.7}
@@ -377,10 +403,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
   },
-  styleTextSimple: {
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+    marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  variationLabel: {
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+  },
+  variationValue: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
   },
   infoLine: {
     flexDirection: 'row',

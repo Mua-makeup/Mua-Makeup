@@ -203,13 +203,11 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {item.packageName && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900">
-                <Sparkles className="w-3 h-3" />
                 Gói: {item.packageName}
               </span>
             )}
             {item.styleName && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                <Tag className="w-3 h-3" />
                 Phong cách: {item.styleName}
               </span>
             )}

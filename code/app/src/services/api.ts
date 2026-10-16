@@ -4,7 +4,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/utils/storage';
 
 
-const DEFAULT_DEV_HOST = '192.168.1.122';
+const DEFAULT_DEV_HOST = '192.168.1.235';
 
 const getDevApiBaseUrl = () => {
   // 1. Trình duyệt Web (laptop hoặc mobile browser)

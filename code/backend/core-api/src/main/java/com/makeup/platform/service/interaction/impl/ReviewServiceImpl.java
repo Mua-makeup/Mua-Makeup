@@ -4,6 +4,8 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.interaction.ReviewSubmittedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.interaction.CreateReviewReq;
+import com.makeup.platform.dto.request.interaction.UpdateReviewReq;
+import com.makeup.platform.dto.response.interaction.CategoryReviewCountRes;
 import com.makeup.platform.dto.response.interaction.MuaRatingSummaryRes;
 import com.makeup.platform.dto.response.interaction.ReviewDetailRes;
 import com.makeup.platform.entity.booking.BookingEntity;
@@ -16,6 +18,7 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.interaction.ReviewRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.service.interaction.ReviewService;
+import com.makeup.platform.service.media.MediaStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -25,6 +28,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -42,6 +46,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final MuaProfileRepository muaProfileRepository;
     private final ReviewMapper reviewMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final MediaStorageService mediaStorageService;
 
     @Override
     @Transactional
@@ -58,10 +63,10 @@ public class ReviewServiceImpl implements ReviewService {
                     "review.unauthorized", HttpStatus.FORBIDDEN);
         }
 
-        if (booking.getStatus() != BookingStatus.COMPLETED && booking.getStatus() != BookingStatus.PAID_OUT) {
-            log.warn("[Review] Booking id={} status is {}, not eligible for review", booking.getId(), booking.getStatus());
+        if (booking.getStatus() != BookingStatus.PAID_OUT) {
+            log.warn("[Review] Booking id={} status is {}, not eligible for review (must be PAID_OUT)", booking.getId(), booking.getStatus());
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
-                    "review.booking_not_completed", HttpStatus.BAD_REQUEST);
+                    "review.booking_not_paid_out", HttpStatus.BAD_REQUEST);
         }
 
         if (reviewRepository.existsByBookingId(booking.getId())) {
@@ -147,6 +152,67 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Transactional
+    public ReviewDetailRes updateReview(Long customerUserId, Long reviewId, UpdateReviewReq req) {
+        log.info("[Review] Customer id={} updating review id={}", customerUserId, reviewId);
+
+        ReviewEntity review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_REVIEW_NOT_FOUND,
+                        "review.not_found", HttpStatus.NOT_FOUND));
+
+        if (review.getCustomer() == null || !review.getCustomer().getId().equals(customerUserId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "review.unauthorized", HttpStatus.FORBIDDEN);
+        }
+
+        review.setRating(req.getRating());
+        review.setComment(req.getComment());
+        if (req.getImageUrls() != null) {
+            review.setImageUrls(new ArrayList<>(req.getImageUrls()));
+        }
+
+        ReviewEntity updated = reviewRepository.save(review);
+
+        // Bắn lại Spring EventBus để cập nhật lại Rolling Window và Bayesian Score
+        if (updated.getStatus() == ReviewStatus.APPROVED) {
+            Long agencyId = updated.getAgency() != null ? updated.getAgency().getId() : null;
+            Long muaId = updated.getMua() != null ? updated.getMua().getId() : null;
+            Long bookingId = updated.getBooking() != null ? updated.getBooking().getId() : null;
+
+            if (muaId != null) {
+                eventPublisher.publishEvent(new ReviewSubmittedEvent(
+                        this,
+                        updated.getId(),
+                        bookingId,
+                        muaId,
+                        customerUserId,
+                        req.getRating(),
+                        agencyId
+                ));
+            }
+        }
+
+        return reviewMapper.toDetailRes(updated);
+    }
+
+    @Override
+    public List<String> uploadReviewImages(Long customerUserId, List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return List.of();
+        }
+        List<String> uploadedUrls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                var uploadRes = mediaStorageService.uploadImage(file, "reviews/" + customerUserId);
+                if (uploadRes != null && uploadRes.getImageUrl() != null) {
+                    uploadedUrls.add(uploadRes.getImageUrl());
+                }
+            }
+        }
+        return uploadedUrls;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ReviewDetailRes getReviewByBookingId(Long bookingId) {
         return reviewRepository.findByBookingId(bookingId)
@@ -156,11 +222,11 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ReviewDetailRes> getReviewsForMua(Long muaId, Integer rating, Boolean hasImages, int page, int size) {
+    public Page<ReviewDetailRes> getReviewsForMua(Long muaId, Integer rating, Boolean hasImages, Integer categoryId, int page, int size) {
         int pageNumber = Math.max(0, page);
         int pageSize = (size > 0 && size <= 50) ? size : 10;
         PageRequest pageRequest = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "created_at"));
-        return reviewRepository.findByMuaIdWithFilters(muaId, rating, hasImages, pageRequest)
+        return reviewRepository.findByMuaIdWithFilters(muaId, rating, hasImages, categoryId, pageRequest)
                 .map(reviewMapper::toDetailRes);
     }
 
@@ -194,6 +260,21 @@ public class ReviewServiceImpl implements ReviewService {
             }
         }
 
+        // Thống kê phân loại danh mục dịch vụ theo chuẩn Shopee
+        List<Object[]> categoryCounts = reviewRepository.countCategoriesGroupedByMuaId(muaId);
+        List<CategoryReviewCountRes> categoryBreakdown = new ArrayList<>();
+        if (categoryCounts != null) {
+            for (Object[] row : categoryCounts) {
+                if (row != null && row.length >= 3 && row[0] != null && row[1] != null && row[2] != null) {
+                    categoryBreakdown.add(CategoryReviewCountRes.builder()
+                            .categoryId(((Number) row[0]).intValue())
+                            .categoryName((String) row[1])
+                            .count(((Number) row[2]).longValue())
+                            .build());
+                }
+            }
+        }
+
         return MuaRatingSummaryRes.builder()
                 .muaId(mua.getId())
                 .ratingAvg(effectiveRating)
@@ -211,6 +292,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .count3Star(c3)
                 .count2Star(c2)
                 .count1Star(c1)
+                .categoryBreakdown(categoryBreakdown)
                 .build();
     }
 

@@ -67,7 +67,7 @@ public class AutoReviewServiceImpl implements AutoReviewService {
         LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(autoReviewMinutes);
         log.info("[AutoReview] Scanning completed bookings older than {} ({} minutes ago)", cutoffTime, autoReviewMinutes);
 
-        List<BookingStatus> eligibleStatuses = List.of(BookingStatus.COMPLETED, BookingStatus.PAID_OUT);
+        List<BookingStatus> eligibleStatuses = List.of(BookingStatus.PAID_OUT);
         List<Long> eligibleBookingIds = bookingRepository.findEligibleBookingIdsForAutoReview(
                 eligibleStatuses,
                 cutoffTime,
@@ -109,8 +109,8 @@ public class AutoReviewServiceImpl implements AutoReviewService {
             return;
         }
 
-        if (booking.getStatus() != BookingStatus.COMPLETED && booking.getStatus() != BookingStatus.PAID_OUT) {
-            log.warn("[AutoReview] Booking ID: {} status is {} (not COMPLETED/PAID_OUT), skipping",
+        if (booking.getStatus() != BookingStatus.PAID_OUT) {
+            log.warn("[AutoReview] Booking ID: {} status is {} (not PAID_OUT), skipping",
                     bookingId, booking.getStatus());
             return;
         }
