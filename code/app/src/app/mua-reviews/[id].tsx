@@ -422,7 +422,7 @@ export default function MuaReviewsScreen() {
                       ]}
                       numberOfLines={1}
                     >
-                      {isCategoryActive ? selectedCategoryName : 'Dịch vụ'}
+                      Dịch vụ
                     </Text>
                     <Ionicons
                       name="chevron-down"
@@ -441,6 +441,38 @@ export default function MuaReviewsScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Tag phân loại đang lọc (hiển thị trọn vẹn tên gói dịch vụ và nút hủy 1 chạm) */}
+              {(isCategoryActive || isStarActive) && (
+                <View style={styles.activeFilterPillsRow}>
+                  {isCategoryActive && (
+                    <View style={styles.activePill}>
+                      <Ionicons name="pricetag" size={11} color={BrandColors.primary} />
+                      <Text style={styles.activePillText} numberOfLines={1}>
+                        {selectedCategoryName}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => handleSelectCategory(null, 'Tất cả')}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close-circle" size={15} color={BrandColors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {isStarActive && (
+                    <View style={styles.activePill}>
+                      <Ionicons name="star" size={11} color="#F59E0B" />
+                      <Text style={styles.activePillText}>{selectedFilter} sao</Text>
+                      <TouchableOpacity
+                        onPress={() => handleSelectStarRating(null)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close-circle" size={15} color={BrandColors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
 
 
@@ -867,7 +899,33 @@ const styles = StyleSheet.create({
     color: BrandColors.primary,
     fontWeight: '600',
   },
-
+  activeFilterPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    maxWidth: '100%',
+  },
+  activePillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BrandColors.primary,
+    flexShrink: 1,
+  },
 
   // 6. Review Cards
   shopeeCardDivider: {

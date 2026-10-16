@@ -36,6 +36,7 @@ import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingStateMachineService;
 import com.makeup.platform.service.booking.ScheduledBookingService;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.service.mua.MuaReputationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -86,6 +87,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final BookingStateMachineService bookingStateMachineService;
     private final SimpMessagingTemplate messagingTemplate;
     private final MakeupStyleRepository makeupStyleRepository;
+    private final MuaReputationService muaReputationService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final int DEFAULT_BUFFER_MINUTES = 30;
@@ -466,6 +468,17 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 muaUserId
         ));
 
+        // Ghi nhận MUA đã nhận ca và cập nhật lại acceptance_rate / rank_score
+        if (booking.getMua() != null) {
+            muaReputationService.recordOfferAndRecalculate(
+                    booking.getMua().getId(),
+                    booking.getId(),
+                    "SCHEDULED",
+                    "ACCEPTED",
+                    "Chuyên viên đã xác nhận tiếp nhận ca hẹn trước"
+            );
+        }
+
         log.info("[ScheduledBooking] MUA userId: {} confirmed booking ID: {}", muaUserId, bookingId);
     }
 
@@ -531,6 +544,17 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 BookingStatus.CANCELLED,
                 muaUserId
         ));
+
+        // Ghi nhận MUA từ chối ca hẹn và cập nhật lại acceptance_rate / rank_score
+        if (booking.getMua() != null) {
+            muaReputationService.recordOfferAndRecalculate(
+                    booking.getMua().getId(),
+                    booking.getId(),
+                    "SCHEDULED",
+                    "REJECTED",
+                    cancelReason
+            );
+        }
 
         log.info("[ScheduledBooking] MUA userId: {} rejected booking ID: {}, reason: {}", muaUserId, bookingId, cancelReason);
     }
@@ -643,6 +667,17 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     } catch (Exception ex) {
                         log.warn("[ConfirmationExpiration] Failed to broadcast revoke offer: {}", ex.getMessage());
                     }
+                }
+
+                // Ghi nhận ca bị hết hạn do thợ không bấm xác nhận và cập nhật lại acceptance_rate / rank_score
+                if (b.getMua() != null) {
+                    muaReputationService.recordOfferAndRecalculate(
+                            b.getMua().getId(),
+                            b.getId(),
+                            "SCHEDULED",
+                            "EXPIRED",
+                            reason
+                    );
                 }
 
                 log.info("[ConfirmationExpiration] Expired requested booking ID: {} cancelled and refunded", b.getId());

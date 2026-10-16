@@ -50,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.service.mua.MuaReputationService;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -95,6 +96,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final BookingDepositRepository bookingDepositRepository;
     private final ObjectMapper objectMapper;
     private final MUACalendarService muaCalendarService;
+    private final MuaReputationService muaReputationService;
 
     @Override
     @Transactional
@@ -441,6 +443,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         if (currentMuaIdStr != null && currentMuaIdStr.equals(String.valueOf(muaId))) {
             log.info("[SequentialDispatch] MUA id={} manually skipped bookingId={}", muaId, bookingId);
+
+            // Ghi nhận MUA đã bấm bỏ qua đơn khẩn cấp và tính lại acceptance_rate / rank_score
+            muaReputationService.recordOfferAndRecalculate(
+                    muaId,
+                    bookingId,
+                    "INSTANT",
+                    "SKIPPED",
+                    "Chuyên viên chủ động bấm bỏ qua đơn khẩn cấp"
+            );
+
             String targetedMuaStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(bookingId) + ":target_mua");
             if (targetedMuaStr != null && !targetedMuaStr.isEmpty()) {
                 log.info("[SequentialDispatch] Targeted MUA id={} rejected bookingId={}, cancelling immediately without cascading", muaId, bookingId);
@@ -641,7 +653,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             return false;
         }
         String current = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
-        return String.valueOf(expectedMuaId).equals(current) && dispatchNextCandidate(bookingId);
+        if (String.valueOf(expectedMuaId).equals(current)) {
+            // Ghi nhận MUA để trôi hết thời gian chờ 30s mà không nhận và tính lại acceptance_rate / rank_score
+            muaReputationService.recordOfferAndRecalculate(
+                    expectedMuaId,
+                    bookingId,
+                    "INSTANT",
+                    "EXPIRED",
+                    "Hết thời gian đếm ngược nhận đơn khẩn cấp mà chuyên viên không phản hồi"
+            );
+            return dispatchNextCandidate(bookingId);
+        }
+        return false;
     }
 
     @Override

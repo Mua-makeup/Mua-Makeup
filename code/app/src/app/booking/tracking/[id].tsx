@@ -81,7 +81,7 @@ export default function BookingLiveTrackingScreen() {
   // Status Transition Pop-up Modal State
   const [statusPopup, setStatusPopup] = useState<{
     visible: boolean;
-    type: 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'DISPUTED';
+    type: 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'COMPLETED_WAITING_PAYMENT' | 'PAID_OUT' | 'DISPUTED';
     title: string;
     message: string;
   } | null>(null);
@@ -426,7 +426,7 @@ export default function BookingLiveTrackingScreen() {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               setStatusPopup({
                 visible: true,
-                type: 'COMPLETED',
+                type: 'COMPLETED_WAITING_PAYMENT',
                 title: '🎉 Buổi Make-up Đã Hoàn Tất!',
                 message: 'Chuyên viên đã hoàn tất make-up. Vui lòng thanh toán phần còn lại (70%) để hoàn tất hợp đồng dịch vụ!',
               });
@@ -445,9 +445,9 @@ export default function BookingLiveTrackingScreen() {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               setStatusPopup({
                 visible: true,
-                type: 'COMPLETED',
+                type: 'PAID_OUT',
                 title: '✨ Quyết Toán Thành Công!',
-                message: 'Khoản thanh toán dịch vụ đã hoàn tất thành công. Hãy đánh giá dịch vụ để ủng hộ chuyên viên nhé!',
+                message: 'Khoản thanh toán dịch vụ đã hoàn tất thành công. Hãy dành ít phút đánh giá dịch vụ để ủng hộ chuyên viên nhé!',
               });
             } else {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1366,6 +1366,10 @@ export default function BookingLiveTrackingScreen() {
                     ? 'location'
                     : statusPopup?.type === 'IN_PROGRESS'
                     ? 'brush'
+                    : statusPopup?.type === 'PAID_OUT'
+                    ? 'star'
+                    : statusPopup?.type === 'COMPLETED_WAITING_PAYMENT'
+                    ? 'wallet'
                     : 'checkmark-done-circle'
                 }
                 size={36}
@@ -1395,10 +1399,12 @@ export default function BookingLiveTrackingScreen() {
                 },
               ]}
               onPress={() => {
-                const isCompleted = statusPopup?.type === 'COMPLETED';
+                const isPaidOut = statusPopup?.type === 'PAID_OUT' || statusPopup?.type === 'COMPLETED';
                 setStatusPopup(null);
-                if (isCompleted) {
-                  setIsReviewModalVisible(true);
+                if (isPaidOut) {
+                  setTimeout(() => {
+                    setIsReviewModalVisible(true);
+                  }, 250);
                 }
               }}
               activeOpacity={0.85}
@@ -1408,7 +1414,9 @@ export default function BookingLiveTrackingScreen() {
                   ? 'Đón Thợ Ngay'
                   : statusPopup?.type === 'IN_PROGRESS'
                   ? 'Xem Tiến Trình'
-                  : 'Đánh Giá Ngay'}
+                  : statusPopup?.type === 'COMPLETED_WAITING_PAYMENT'
+                  ? 'Thanh Toán 70% Ngay'
+                  : '★ Đánh Giá Ngay'}
               </Text>
             </TouchableOpacity>
           </DismissibleModal>

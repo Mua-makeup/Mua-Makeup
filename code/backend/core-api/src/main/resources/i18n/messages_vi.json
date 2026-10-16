@@ -677,6 +677,7 @@
     "booking_not_paid_out": "Chỉ có thể đánh giá sau khi đơn hàng đã hoàn tất và thanh toán toàn bộ chi phí.",
     "not_found": "Không tìm thấy thông tin đánh giá.",
     "update_success": "Cập nhật đánh giá thành công! Cảm ơn bạn.",
-    "upload_images_success": "Tải ảnh đánh giá lên thành công."
+    "upload_images_success": "Tải ảnh đánh giá lên thành công.",
+    "missing_files": "Vui lòng chọn ít nhất một hình ảnh để tải lên."
   }
 }

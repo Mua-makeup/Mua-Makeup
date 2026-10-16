@@ -145,18 +145,11 @@ export const ReviewModal: React.FC<Props> = ({
         });
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onClose();
+        if (onSuccess) onSuccess();
         Alert.alert(
           'Thành công',
-          'Đánh giá của bạn đã được cập nhật thành công!',
-          [
-            {
-              text: 'Đồng ý',
-              onPress: () => {
-                onClose();
-                if (onSuccess) onSuccess();
-              },
-            },
-          ]
+          'Đánh giá của bạn đã được cập nhật thành công!'
         );
       } else {
         // Mode tạo mới đánh giá
@@ -168,18 +161,11 @@ export const ReviewModal: React.FC<Props> = ({
         });
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onClose();
+        if (onSuccess) onSuccess();
         Alert.alert(
           'Thành công',
-          'Cảm ơn bạn đã gửi đánh giá! Ý kiến của bạn giúp nâng cao chất lượng cộng đồng làm đẹp.',
-          [
-            {
-              text: 'Đồng ý',
-              onPress: () => {
-                onClose();
-                if (onSuccess) onSuccess();
-              },
-            },
-          ]
+          'Cảm ơn bạn đã gửi đánh giá! Ý kiến của bạn giúp nâng cao chất lượng cộng đồng làm đẹp.'
         );
       }
     } catch (err: any) {

@@ -1,5 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -89,7 +89,7 @@ function formatScheduleOrCompletionTime(
           isCompleted: true,
         };
       }
-    } catch {}
+    } catch { }
   }
 
   const startFormatted = startTime ? formatTimeVN(startTime) : '--:--';
@@ -107,7 +107,7 @@ function formatScheduleOrCompletionTime(
           endFormatted = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
         }
       }
-    } catch {}
+    } catch { }
   }
 
   return {
@@ -146,6 +146,8 @@ export default function BookingHistoryDetailScreen() {
   const [isDisputeDossierAutoOpen, setIsDisputeDossierAutoOpen] = useState(false);
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
   const [existingReview, setExistingReview] = useState<ReviewItem | null>(null);
+  const [isReviewLoaded, setIsReviewLoaded] = useState(false);
+  const hasAutoOpenedReviewRef = useRef(false);
 
   // Trạng thái thanh toán 70% còn lại cho Khách
   const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
@@ -162,16 +164,13 @@ export default function BookingHistoryDetailScreen() {
     else setIsLoading(true);
 
     try {
-      const data = await bookingService.getBookingStatus(bookingId);
+      const [data, rev] = await Promise.all([
+        bookingService.getBookingStatus(bookingId),
+        reviewService.getReviewByBookingId(bookingId).catch(() => null),
+      ]);
       setBookingDetail(data);
-
-      // Tra cứu đánh giá của đơn hàng (cho cả Khách và Thợ cùng xem)
-      try {
-        const rev = await reviewService.getReviewByBookingId(bookingId);
-        setExistingReview(rev);
-      } catch {
-        setExistingReview(null);
-      }
+      setExistingReview(rev);
+      setIsReviewLoaded(true);
     } catch (err: any) {
       Alert.alert('Lỗi Tải Dữ Liệu', err?.response?.data?.message || err.message || 'Không thể tải chi tiết đơn hàng.');
     } finally {
@@ -195,17 +194,26 @@ export default function BookingHistoryDetailScreen() {
     };
   }, [bookingId]);
 
-  // Tự động mở Modal Khiếu nại hoặc Đánh giá nếu có điều hướng từ danh sách đơn
+  // Tự động mở Modal Khiếu nại hoặc Gợi ý Đánh giá sau khi thanh toán hoàn tất
   useEffect(() => {
-    if (bookingDetail) {
+    if (bookingDetail && isReviewLoaded) {
       if (openDispute === 'true' && (bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT' || bookingDetail.status === 'DISPUTED')) {
         setIsDisputeDossierAutoOpen(true);
         setIsDisputeDossierOpen(true);
-      } else if (openReview === 'true' && bookingDetail.status === 'PAID_OUT') {
-        setIsReviewModalVisible(true);
+      } else if (
+        bookingDetail.status === 'PAID_OUT' &&
+        !isWorkstationRole &&
+        !existingReview &&
+        !hasAutoOpenedReviewRef.current
+      ) {
+        hasAutoOpenedReviewRef.current = true;
+        const timer = setTimeout(() => {
+          setIsReviewModalVisible(true);
+        }, 600);
+        return () => clearTimeout(timer);
       }
     }
-  }, [bookingDetail?.status, openDispute, openReview]);
+  }, [bookingDetail?.status, isReviewLoaded, openDispute, openReview, existingReview, isWorkstationRole]);
 
   const formatPrice = (price?: number | null) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
@@ -770,8 +778,8 @@ export default function BookingHistoryDetailScreen() {
           <Text style={isStudioBooking ? styles.partnerTypeSubStudio : styles.partnerTypeSubFreelance}>
             {isStudioBooking
               ? (bookingDetail.agencyName
-                  ? `Ca làm thuộc quản lý & điều phối bởi ${bookingDetail.agencyName}`
-                  : 'Đơn hàng dịch vụ thuộc quản lý của Studio làm đẹp')
+                ? `Ca làm thuộc quản lý & điều phối bởi ${bookingDetail.agencyName}`
+                : 'Đơn hàng dịch vụ thuộc quản lý của Studio làm đẹp')
               : 'Ca làm nhận trực tiếp từ khách hàng cá nhân trên nền tảng'}
           </Text>
         </View>
@@ -987,8 +995,8 @@ export default function BookingHistoryDetailScreen() {
                       ? 'Khách hàng đã xác nhận đưa tiền mặt. Vui lòng kiểm tra và bấm "Xác Nhận Đã Thu Tiền Mặt" bên dưới.'
                       : 'Ca làm đã hoàn tất. Đang chờ khách hàng thanh toán 70% còn lại (Tiền mặt hoặc Ví điện tử).'
                     : isCashPaidConfirmed
-                    ? `Bạn đã xác nhận trả ${formatPrice(remainingAmount)} tiền mặt. Chuyên viên đang kiểm tra để chốt quyết toán.`
-                    : `Chuyên viên đã hoàn thành buổi trang điểm. Vui lòng thanh toán khoản tiền còn lại ${formatPrice(remainingAmount)}.`}
+                      ? `Bạn đã xác nhận trả ${formatPrice(remainingAmount)} tiền mặt. Chuyên viên đang kiểm tra để chốt quyết toán.`
+                      : `Chuyên viên đã hoàn thành buổi trang điểm. Vui lòng thanh toán khoản tiền còn lại ${formatPrice(remainingAmount)}.`}
                 </Text>
               </View>
             </View>
@@ -1043,8 +1051,8 @@ export default function BookingHistoryDetailScreen() {
                   {isSplit5050
                     ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HÒA GIẢI 50% - 50%'
                     : isWorkstationRole
-                    ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH'
-                    : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ HOÀN 100% TIỀN CỌC'}
+                      ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH'
+                      : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ HOÀN 100% TIỀN CỌC'}
                 </Text>
                 <Text style={styles.statusCardDesc}>
                   {isSplit5050
@@ -1052,8 +1060,8 @@ export default function BookingHistoryDetailScreen() {
                       ? `Ban Quản Trị đã phê duyệt hòa giải 50/50. Bạn nhận được 50% cọc (${formatPrice(Math.round(depositAmount * 0.5))}) bồi thường vào Ví thợ, 50% còn lại đã hoàn trả về Ví khách hàng.`
                       : `Ban Quản Trị đã phê duyệt hòa giải 50/50. Bạn đã được hoàn trả 50% tiền cọc (${formatPrice(Math.round(depositAmount * 0.5))}) về Ví cá nhân, 50% còn lại được bồi thường cho thợ make-up.`
                     : isWorkstationRole
-                    ? `Ban Quản Trị đã xem xét và chấp thuận hoàn 100% tiền cọc (${formatPrice(depositAmount)}) cho khách hàng do sự cố khiếu nại. Ca làm này không phát sinh thu nhập thợ.`
-                    : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% tiền cọc (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn trả trực tiếp vào Ví cá nhân của bạn.`}
+                      ? `Ban Quản Trị đã xem xét và chấp thuận hoàn 100% tiền cọc (${formatPrice(depositAmount)}) cho khách hàng do sự cố khiếu nại. Ca làm này không phát sinh thu nhập thợ.`
+                      : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% tiền cọc (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn trả trực tiếp vào Ví cá nhân của bạn.`}
                 </Text>
               </View>
             </View>
@@ -1095,8 +1103,8 @@ export default function BookingHistoryDetailScreen() {
                   isSplit5050
                     ? { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }
                     : isWorkstationRole
-                    ? { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }
-                    : undefined,
+                      ? { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }
+                      : undefined,
                 ]}
               >
                 <Ionicons
@@ -1110,8 +1118,8 @@ export default function BookingHistoryDetailScreen() {
                     isSplit5050
                       ? { color: '#0F172A' }
                       : isWorkstationRole
-                      ? { color: '#B45309' }
-                      : undefined,
+                        ? { color: '#B45309' }
+                        : undefined,
                   ]}
                 >
                   {isSplit5050
@@ -1119,8 +1127,8 @@ export default function BookingHistoryDetailScreen() {
                       ? 'Hòa Giải 50/50 • Nhận 50% Cọc'
                       : 'Hòa Giải 50/50 • Hoàn 50% Về Ví'
                     : isWorkstationRole
-                    ? 'Đã Hoàn Cọc Khách Hàng'
-                    : 'Đã Hoàn Cọc 100% Về Ví'}
+                      ? 'Đã Hoàn Cọc Khách Hàng'
+                      : 'Đã Hoàn Cọc 100% Về Ví'}
                 </Text>
               </View>
               <Text style={styles.statusTimeText}>
@@ -1267,8 +1275,8 @@ export default function BookingHistoryDetailScreen() {
                   {isSlotTakenCancelled
                     ? `Khoản cọc (${formatPrice(depositAmount)}) đã được hoàn trả 100% vào Ví cá nhân của bạn ngay sau khi thanh toán.`
                     : (isWorkstationRole
-                    ? `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được hoàn lại 100% vào Ví của khách hàng do thợ hủy ca.`
-                    : `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn lại 100% vào Ví cá nhân của bạn.`)}
+                      ? `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được hoàn lại 100% vào Ví của khách hàng do thợ hủy ca.`
+                      : `Khoản cọc 30% (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn lại 100% vào Ví cá nhân của bạn.`)}
                 </Text>
               </View>
             ) : (
@@ -2014,22 +2022,22 @@ export default function BookingHistoryDetailScreen() {
           {/* CÁC BƯỚC / HẠNG MỤC DỊCH VỤ - TÁCH RIÊNG TIÊU CHUẨN VÀ ADD-ON */}
           {((bookingDetail.componentItems && bookingDetail.componentItems.length > 0) ||
             (!bookingDetail.addonItems?.length && bookingDetail.packageItems && bookingDetail.packageItems.length > 0)) && (
-            <View style={styles.itemsListWrap}>
-              <View style={styles.itemHeaderWrap}>
-                <Ionicons name="list-outline" size={14} color="#059669" />
-                <Text style={styles.itemsListTitle}>Quy trình & Hạng mục tiêu chuẩn trong gói:</Text>
-              </View>
-              {(bookingDetail.componentItems && bookingDetail.componentItems.length > 0
-                ? bookingDetail.componentItems
-                : bookingDetail.packageItems || []
-              ).map((item, idx) => (
-                <View key={`comp-${idx}`} style={styles.itemRow}>
-                  <Ionicons name="checkmark-circle" size={15} color="#10B981" />
-                  <Text style={styles.itemText}>{item}</Text>
+              <View style={styles.itemsListWrap}>
+                <View style={styles.itemHeaderWrap}>
+                  <Ionicons name="list-outline" size={14} color="#059669" />
+                  <Text style={styles.itemsListTitle}>Quy trình & Hạng mục tiêu chuẩn trong gói:</Text>
                 </View>
-              ))}
-            </View>
-          )}
+                {(bookingDetail.componentItems && bookingDetail.componentItems.length > 0
+                  ? bookingDetail.componentItems
+                  : bookingDetail.packageItems || []
+                ).map((item, idx) => (
+                  <View key={`comp-${idx}`} style={styles.itemRow}>
+                    <Ionicons name="checkmark-circle" size={15} color="#10B981" />
+                    <Text style={styles.itemText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
           {bookingDetail.addonItems && bookingDetail.addonItems.length > 0 && (
             <View style={[styles.itemsListWrap, styles.addonWrap]}>
@@ -2137,8 +2145,8 @@ export default function BookingHistoryDetailScreen() {
                       ? `Hòa giải 50/50: Hoàn 50% (${formatPrice(Math.round(depositAmount * 0.5))}) về Khách & 50% (${formatPrice(Math.round(depositAmount * 0.5))}) về Thợ`
                       : `Hòa giải 50/50: Đã hoàn 50% (${formatPrice(Math.round(depositAmount * 0.5))}) về Ví cá nhân của bạn`
                     : isWorkstationRole
-                    ? `Admin phê duyệt khiếu nại: Hoàn 100% (${formatPrice(depositAmount)}) về Ví của khách hàng`
-                    : `Admin phê duyệt khiếu nại: Đã hoàn 100% (${formatPrice(depositAmount)}) về Ví cá nhân của bạn`}
+                      ? `Admin phê duyệt khiếu nại: Hoàn 100% (${formatPrice(depositAmount)}) về Ví của khách hàng`
+                      : `Admin phê duyệt khiếu nại: Đã hoàn 100% (${formatPrice(depositAmount)}) về Ví cá nhân của bạn`}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
@@ -2296,8 +2304,8 @@ export default function BookingHistoryDetailScreen() {
                   {isDisputeCompensated
                     ? 'Ca không diễn ra — Miễn thanh toán khoản còn lại 70%'
                     : isDisputeRefunded
-                    ? 'Đã giải quyết khiếu nại — Miễn thanh toán khoản còn lại 70%'
-                    : 'Đơn đã hủy — Miễn thanh toán khoản còn lại'}
+                      ? 'Đã giải quyết khiếu nại — Miễn thanh toán khoản còn lại 70%'
+                      : 'Đơn đã hủy — Miễn thanh toán khoản còn lại'}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -2384,8 +2392,8 @@ export default function BookingHistoryDetailScreen() {
                   <Text style={styles.paymentStageMethod}>
                     {isPaidOut
                       ? (isCashPaidConfirmed
-                          ? 'Tiền mặt trực tiếp (Thợ chính đã thu đủ tại ca)'
-                          : 'Thanh toán trực tuyến (MoMo / VNPay / Chuyển khoản)')
+                        ? 'Tiền mặt trực tiếp (Thợ chính đã thu đủ tại ca)'
+                        : 'Thanh toán trực tuyến (MoMo / VNPay / Chuyển khoản)')
                       : 'Thu tiền mặt trực tiếp hoặc quét mã online'}
                   </Text>
                 </View>
@@ -2492,10 +2500,10 @@ export default function BookingHistoryDetailScreen() {
                   const myOt = myStaff?.overtimePay != null && Number(myStaff.overtimePay) > 0
                     ? Number(myStaff.overtimePay)
                     : (rawOt > 0
-                        ? (isPrimary
-                            ? rawOt
-                            : Math.round(rawOt * ((myCommRate || 20) / 100)))
-                        : 0);
+                      ? (isPrimary
+                        ? rawOt
+                        : Math.round(rawOt * ((myCommRate || 20) / 100)))
+                      : 0);
                   const totalStaffIncome = myCommAmt + myOt;
 
                   return (
@@ -2699,18 +2707,7 @@ export default function BookingHistoryDetailScreen() {
                 <Text style={styles.rebookBtnText}>Đặt Lại Ca Này</Text>
               </TouchableOpacity>
 
-              {isNormalPaidOut && (
-                <TouchableOpacity
-                  style={styles.reviewBtn}
-                  onPress={() => setIsReviewModalVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name={existingReview ? "create-outline" : "star-outline"} size={17} color={BrandColors.primary} />
-                  <Text style={styles.reviewBtnText}>
-                    {existingReview ? 'Chỉnh Sửa Đánh Giá' : 'Đánh Giá Dịch Vụ'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+
 
               {(bookingDetail?.status === 'COMPLETED' || bookingDetail?.status === 'PAID_OUT') && (
                 <TouchableOpacity
@@ -2812,7 +2809,10 @@ export default function BookingHistoryDetailScreen() {
           muaName={bookingDetail.muaName || 'Chuyên viên trang điểm'}
           initialData={existingReview}
           onClose={() => setIsReviewModalVisible(false)}
-          onSuccess={() => loadData(true)}
+          onSuccess={() => {
+            setIsReviewModalVisible(false);
+            loadData(true);
+          }}
         />
       )}
     </SafeAreaView>

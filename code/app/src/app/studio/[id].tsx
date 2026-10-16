@@ -30,6 +30,7 @@ import { PackageSelectorList } from '@/components/customer/PackageSelectorList';
 import { PackageIncludedSteps } from '@/components/customer/PackageIncludedSteps';
 import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
+import { StudioReviewSection } from '@/components/customer/StudioReviewSection';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -510,6 +511,14 @@ export default function StudioProfileScreen() {
             </View>
           )}
         </View>
+
+        {/* ĐÁNH GIÁ TỪ KHÁCH HÀNG (REVIEWS & RATINGS) */}
+        <StudioReviewSection
+          studioId={studioId}
+          studioName={studio.agencyName}
+          ratingAverage={studio.ratingAvg}
+          totalReviews={studio.totalReviews}
+        />
 
         {/* CAM KẾT CHẤT LƯỢNG DỊCH VỤ CỦA STUDIO */}
         <View style={styles.commitmentCard}>

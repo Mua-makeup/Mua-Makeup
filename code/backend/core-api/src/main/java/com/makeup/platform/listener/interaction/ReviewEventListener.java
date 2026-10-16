@@ -1,4 +1,4 @@
-cd package com.makeup.platform.listener.interaction;
+package com.makeup.platform.listener.interaction;
 
 import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.event.interaction.ReviewSubmittedEvent;
@@ -268,18 +268,15 @@ public class ReviewEventListener {
         double bayesianScore = mua.getBayesianRating() != null ? mua.getBayesianRating().doubleValue() : 4.60;
         BigDecimal acceptanceRate = mua.getAcceptanceRate() != null ? mua.getAcceptanceRate() : BigDecimal.valueOf(100.0);
 
-        // 3. Cơ chế Gamification Huy hiệu & Phí hoa hồng ưu đãi
+        // 3. Cơ chế Gamification Huy hiệu (Badge Tier)
         // Điều chỉnh ngưỡng sao thực tế hơn khi không có auto-review (4.70★ thay vì 4.90★)
         if (bayesianScore >= 4.70 && completedJobs >= 50 && acceptanceRate.compareTo(BigDecimal.valueOf(85.0)) >= 0) {
             mua.setBadgeTier(BadgeTier.GOLD_TOP_PRO);
-            mua.setCommissionRate(new BigDecimal("0.10")); // Giảm phí sàn còn 10%
-            log.info("[Gamification] MUA id={} awarded GOLD_TOP_PRO badge (10% commission)", muaId);
+            log.info("[Gamification] MUA id={} awarded GOLD_TOP_PRO badge", muaId);
         } else if (bayesianScore >= 4.50 && completedJobs >= 20) {
             mua.setBadgeTier(BadgeTier.SILVER);
-            mua.setCommissionRate(new BigDecimal("0.15")); // Phí sàn 15%
         } else {
             mua.setBadgeTier(BadgeTier.STANDARD);
-            mua.setCommissionRate(new BigDecimal("0.20")); // Phí sàn tiêu chuẩn 20%
         }
 
         // 4. Tính toán điểm Xếp hạng Tìm kiếm Explore (Search Ranking Score)
@@ -288,10 +285,12 @@ public class ReviewEventListener {
         double expComp = Math.min(100.0, (Math.log10(completedJobs + 1) / Math.log10(101.0)) * 100.0) * 0.45;
         double onlineComp = Boolean.TRUE.equals(mua.getIsOnline()) ? (100.0 * 0.30) : 0.0;
         double baseRankScore = ratingComp + expComp + onlineComp;
-        mua.setRankScore(BigDecimal.valueOf(baseRankScore).setScale(2, RoundingMode.HALF_UP));
+        double acceptanceFactor = acceptanceRate.doubleValue() / 100.0;
+        double finalRankScore = baseRankScore * (0.70 + 0.30 * acceptanceFactor);
+        mua.setRankScore(BigDecimal.valueOf(finalRankScore).setScale(2, RoundingMode.HALF_UP));
 
         muaProfileRepository.save(mua);
-        log.info("[RankEngine] Recalculated MUA id={} stats: completedJobs={}, rankScore={}, badge={}, commission={}",
-                muaId, completedJobs, mua.getRankScore(), mua.getBadgeTier(), mua.getCommissionRate());
+        log.info("[RankEngine] Recalculated MUA id={} stats: completedJobs={}, rankScore={}, badge={}",
+                muaId, completedJobs, mua.getRankScore(), mua.getBadgeTier());
     }
 }

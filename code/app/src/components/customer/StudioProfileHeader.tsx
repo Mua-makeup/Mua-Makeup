@@ -85,7 +85,11 @@ export const StudioProfileHeader: React.FC<Props> = ({ studio, distanceKm }) => 
                 <Ionicons name="star" size={14} color="#F59E0B" />
                 <Text style={styles.statValue}>{rating}</Text>
               </View>
-              <Text style={styles.statLabel}>135 đánh giá</Text>
+              <Text style={styles.statLabel}>
+                {studio.totalReviews != null && studio.totalReviews > 0
+                  ? `${studio.totalReviews} đánh giá`
+                  : 'Chưa có đánh giá'}
+              </Text>
             </View>
 
             <View style={styles.statDivider} />

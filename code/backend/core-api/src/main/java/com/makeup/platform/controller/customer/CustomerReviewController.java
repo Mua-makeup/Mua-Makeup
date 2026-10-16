@@ -21,8 +21,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.makeup.platform.common.constants.ErrorCodes;
+import com.makeup.platform.common.exception.CustomBusinessException;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -63,10 +67,27 @@ public class CustomerReviewController extends BaseController {
     @PostMapping(value = "/upload-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<List<String>>> uploadReviewImages(
-            @RequestParam("files") List<MultipartFile> files
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @RequestParam(value = "file", required = false) List<MultipartFile> singleFiles,
+            MultipartHttpServletRequest request
     ) {
+        List<MultipartFile> targetFiles = new ArrayList<>();
+        if (files != null && !files.isEmpty()) {
+            targetFiles.addAll(files);
+        }
+        if (singleFiles != null && !singleFiles.isEmpty()) {
+            targetFiles.addAll(singleFiles);
+        }
+        if (targetFiles.isEmpty() && request != null) {
+            request.getFileMap().values().forEach(targetFiles::add);
+        }
+
+        if (targetFiles.isEmpty()) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "review.missing_files");
+        }
+
         Long customerId = SecurityContextUtils.getCurrentUserId();
-        List<String> urls = reviewService.uploadReviewImages(customerId, files);
+        List<String> urls = reviewService.uploadReviewImages(customerId, targetFiles);
         return ok(urls, "review.upload_images_success");
     }
 

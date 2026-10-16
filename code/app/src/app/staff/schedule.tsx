@@ -49,7 +49,7 @@ export interface ShiftSlotDefinition {
   label: string;
 }
 
-// 4 mốc ca cố định chuẩn toàn hệ thống: Ca sáng, Ca chiều, Ca tối, Cả ngày
+// 3 mốc ca cố định chuẩn toàn hệ thống: Ca sáng, Ca chiều, Ca tối
 export const FIXED_SHIFT_SLOTS: ShiftSlotDefinition[] = [
   {
     id: 'MORNING',
@@ -72,20 +72,12 @@ export const FIXED_SHIFT_SLOTS: ShiftSlotDefinition[] = [
     endTime: '21:30',
     label: '18:00 - 21:30',
   },
-  {
-    id: 'ALL_DAY',
-    name: 'Cả ngày',
-    startTime: '08:00',
-    endTime: '17:00',
-    label: '08:00 - 17:00',
-  },
 ];
 
 export const BUSY_PRESET_SLOTS = [
   { id: 'MORNING', label: 'Ca sáng', start: '08:00', end: '12:00' },
   { id: 'AFTERNOON', label: 'Ca chiều', start: '13:00', end: '17:00' },
   { id: 'EVENING', label: 'Ca tối', start: '18:00', end: '21:30' },
-  { id: 'ALL_DAY', label: 'Cả ngày', start: '08:00', end: '17:00' },
 ];
 
 export const BUSY_PRESET_REASONS = [
@@ -589,23 +581,7 @@ export default function StaffScheduleScreen() {
         return Number(s.dayOfWeek) === Number(weekday.dayOfWeek);
       });
 
-      // 1. Nếu là dòng Cả ngày (ALL_DAY): Khớp ca cả ngày (08:00 - 17:00),
-      // hoặc tên ca có chữ "cả ngày" / "full", hoặc ca kéo dài trên 7 tiếng
-      if (slot.id === 'ALL_DAY') {
-        return dayShifts.find((s) => {
-          const sStart = parseTimeToMinutes(s.startTime);
-          const sEnd = parseTimeToMinutes(s.endTime);
-          const name = (s.shiftName || '').toLowerCase();
-          return (
-            name.includes('cả ngày') ||
-            name.includes('full') ||
-            (sStart <= 9 * 60 && sEnd >= 16 * 60 + 30) ||
-            (Math.abs(sStart - slotStart) <= 30 && Math.abs(sEnd - slotEnd) <= 30)
-          );
-        });
-      }
-
-      // 2. Khớp chính xác theo khung giờ của ca cố định (Sáng, Chiều, Tối)
+      // 1. Khớp chính xác theo khung giờ của ca cố định (Sáng, Chiều, Tối)
       const exact = dayShifts.find((s) => {
         const sStart = parseTimeToMinutes(s.startTime);
         const sEnd = parseTimeToMinutes(s.endTime);
@@ -739,25 +715,13 @@ export default function StaffScheduleScreen() {
               </View>
 
               <View style={styles.timetableHeaderRight}>
-                {/* Nút 1: Mở Calendar Picker để xem các tuần khác */}
+                {/* Nút: Mở Calendar Picker để xem các tuần khác */}
                 <TouchableOpacity
                   style={styles.calendarIconBtn}
                   onPress={handleOpenDatePicker}
                   activeOpacity={0.8}
                 >
                   <Ionicons name="calendar-outline" size={20} color="#BE123C" />
-                </TouchableOpacity>
-
-                {/* Nút 2: Về tuần hôm nay (Nút tròn đỏ hiển thị ngày như ảnh mẫu) */}
-                <TouchableOpacity
-                  style={styles.todayIconBtn}
-                  onPress={handleToday}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.todayIconInner}>
-                    <Ionicons name="calendar" size={13} color="#FFFFFF" />
-                    <Text style={styles.todayIconNumber}>{new Date().getDate()}</Text>
-                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1045,9 +1009,9 @@ export default function StaffScheduleScreen() {
                   </View>
                 </View>
 
-                {/* 4 khung ca cố định chuẩn toàn hệ thống */}
+                {/* 3 khung ca cố định chuẩn toàn hệ thống */}
                 <Text style={styles.subFieldSectionLabel}>
-                  Chỉ áp dụng đăng ký theo 4 khung ca làm việc tiêu chuẩn:
+                  Chỉ áp dụng đăng ký theo 3 khung ca làm việc tiêu chuẩn:
                 </Text>
                 <View style={styles.presetTimeGrid}>
                   {BUSY_PRESET_SLOTS.map((slot) => {

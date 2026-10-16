@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { apiClient } from './api';
 import { ApiResponse } from './auth.service';
 
@@ -107,29 +108,48 @@ export const reviewService = {
     if (!localUris || localUris.length === 0) return [];
 
     const formData = new FormData();
+    const isWeb = Platform.OS === 'web' || typeof window !== 'undefined';
+
     for (let i = 0; i < localUris.length; i++) {
       const uri = localUris[i];
-      const filename = uri.split('/').pop() || `review_photo_${Date.now()}_${i}.jpg`;
+      const filename = uri.split('/').pop()?.split('?')[0] || `review_photo_${Date.now()}_${i}.jpg`;
       const match = /\.(\w+)$/.exec(filename);
       const ext = match ? match[1].toLowerCase() : 'jpg';
       const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
 
-      // @ts-ignore
-      formData.append('files', {
-        uri,
-        name: filename,
-        type: mimeType,
-      });
+      if (isWeb || uri.startsWith('blob:') || uri.startsWith('data:')) {
+        try {
+          const resp = await fetch(uri);
+          const blob = await resp.blob();
+          formData.append('files', blob, filename);
+          formData.append('file', blob, filename);
+        } catch {
+          const fileObj = {
+            uri,
+            name: filename,
+            type: mimeType,
+          };
+          // @ts-ignore
+          formData.append('files', fileObj);
+          // @ts-ignore
+          formData.append('file', fileObj);
+        }
+      } else {
+        const fileObj = {
+          uri,
+          name: filename,
+          type: mimeType,
+        };
+        // @ts-ignore
+        formData.append('files', fileObj);
+        // @ts-ignore
+        formData.append('file', fileObj);
+      }
     }
 
     const res = await apiClient.post<ApiResponse<string[]>>(
       '/customer/reviews/upload-images',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      formData
     );
     return res.data?.data || [];
   },
@@ -184,5 +204,20 @@ export const reviewService = {
       `/public/reviews/mua/${muaId}/summary`
     );
     return res.data.data;
+  },
+
+  /**
+   * Lấy danh sách đánh giá công khai của Studio / Agency
+   */
+  async getReviewsForAgency(
+    agencyId: number,
+    page: number = 0,
+    size: number = 10
+  ): Promise<PaginatedReviews> {
+    const res = await apiClient.get<ApiResponse<PaginatedReviews>>(
+      `/public/reviews/agency/${agencyId}`,
+      { params: { page, size } }
+    );
+    return res.data?.data || { content: [], totalElements: 0, totalPages: 0, size, number: page };
   },
 };
