@@ -2648,9 +2648,7 @@ export default function BookingHistoryDetailScreen() {
                 {/* 3. Nội dung nhận xét */}
                 {existingReview.comment ? (
                   <Text style={styles.reviewCommentContent}>{existingReview.comment}</Text>
-                ) : (
-                  <Text style={styles.reviewCommentEmpty}>Khách hàng không để lại nhận xét bằng chữ.</Text>
-                )}
+                ) : null}
 
                 {/* 4. Hình ảnh đính kèm: Chuẩn 2 ảnh to trên 1 hàng như Profile & Shopee */}
                 {existingReview.imageUrls && existingReview.imageUrls.length > 0 ? (
