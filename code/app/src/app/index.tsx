@@ -339,11 +339,11 @@ export default function HomeScreen() {
                 <View style={styles.profileShortcutIcon}>
                   <Ionicons name={isFreelanceMUA ? 'ribbon' : 'business'} size={16} color="#2563EB" />
                 </View>
-                <View>
-                  <Text style={styles.profileShortcutTitle}>
+                <View style={styles.profileShortcutTextGroup}>
+                  <Text style={styles.profileShortcutTitle} numberOfLines={1}>
                     {isFreelanceMUA ? 'Hồ Sơ Nghề Nghiệp & Chứng Chỉ' : 'Hồ Sơ Nhân Sự Studio'}
                   </Text>
-                  <Text style={styles.profileShortcutSub}>
+                  <Text style={styles.profileShortcutSub} numberOfLines={1} ellipsizeMode="tail">
                     {isFreelanceMUA
                       ? 'Cập nhật tiểu sử, số năm kinh nghiệm & chứng chỉ'
                       : 'Xem cơ sở làm việc, hoa hồng & chứng chỉ Studio'}
@@ -353,25 +353,6 @@ export default function HomeScreen() {
 
               <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
-
-            {isAgencyStaff && (
-              <TouchableOpacity
-                style={styles.profileShortcutBanner}
-                activeOpacity={0.8}
-                onPress={() => router.push('/staff/schedule' as any)}
-              >
-                <View style={styles.profileShortcutLeft}>
-                  <Ionicons name="calendar-outline" size={18} color="#0F172A" />
-                  <View>
-                    <Text style={styles.profileShortcutTitle}>Lịch Ca Trực Studio & Lịch Bận</Text>
-                    <Text style={styles.profileShortcutSub}>
-                      Xem thời khóa biểu phân ca và khóa khung giờ bận cá nhân
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-              </TouchableOpacity>
-            )}
 
             {/* Banner nổi bật khi có đơn hẹn mới đang chờ xác nhận hoặc có ca làm */}
             {pendingRequestedJob ? (
@@ -1343,36 +1324,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 10,
-    marginBottom: 6,
+    marginHorizontal: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 6,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   profileShortcutLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     flex: 1,
+    marginRight: 8,
   },
   profileShortcutIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F5F3FF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  profileShortcutTextGroup: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   profileShortcutTitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
   profileShortcutSub: {
-    fontSize: 10.5,
+    fontSize: 11,
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 15,
   },
   workstationSectionHeader: {
     flexDirection: 'row',

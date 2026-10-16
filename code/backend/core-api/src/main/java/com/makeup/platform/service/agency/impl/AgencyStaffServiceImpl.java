@@ -21,6 +21,7 @@ import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffStyleEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.mapper.agency.AgencyInvitationMapper;
+import com.makeup.platform.mapper.agency.AgencyStaffPackageMapper;
 import com.makeup.platform.mapper.agency.AgencyStaffMapper;
 import com.makeup.platform.common.constants.SecurityConstants;
 import com.makeup.platform.entity.auth.RoleEntity;
@@ -84,6 +85,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final AgencyStaffMapper agencyStaffMapper;
+    private final AgencyStaffPackageMapper agencyStaffPackageMapper;
     private final AgencyInvitationMapper agencyInvitationMapper;
     private final NotificationService notificationService;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -497,6 +499,15 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         } else {
             res.setAssignedStyles(Collections.emptyList());
         }
+
+        List<AgencyStaffServiceEntity> packages = agencyStaffServiceRepository.findByStaffIdWithPackage(staffId);
+        if (packages != null && !packages.isEmpty()) {
+            res.setAssignedPackages(packages.stream()
+                    .map(agencyStaffPackageMapper::toAssignedPackageRes)
+                    .collect(Collectors.toList()));
+        } else {
+            res.setAssignedPackages(Collections.emptyList());
+        }
         return res;
     }
 
@@ -599,6 +610,15 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                     .collect(Collectors.toList()));
         } else {
             res.setAssignedStyles(Collections.emptyList());
+        }
+
+        List<AgencyStaffServiceEntity> packages = agencyStaffServiceRepository.findByStaffIdWithPackage(staff.getId());
+        if (packages != null && !packages.isEmpty()) {
+            res.setAssignedPackages(packages.stream()
+                    .map(agencyStaffPackageMapper::toAssignedPackageRes)
+                    .collect(Collectors.toList()));
+        } else {
+            res.setAssignedPackages(Collections.emptyList());
         }
         return res;
     }

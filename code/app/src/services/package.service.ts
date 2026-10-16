@@ -36,6 +36,7 @@ export interface PackageSummary {
 export interface PackageDetail extends PackageSummary {
   description?: string;
   items?: PackageItem[];
+  galleryImages?: string[];
   createdAt?: string;
   updatedAt?: string;
 }

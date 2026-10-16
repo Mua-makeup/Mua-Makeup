@@ -42,6 +42,7 @@ public class AgencyStaffDetailRes {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<AssignedStyleRes> assignedStyles;
+    private List<AssignedPackageRes> assignedPackages;
     private List<MuaCertificateItem> certificates;
     private List<String> portfolioImages;
     private Integer totalCompletedJobs;

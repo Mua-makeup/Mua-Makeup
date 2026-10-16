@@ -8,4 +8,6 @@ public interface AgencyStaffPackageService {
     StaffPackagesRes assignPackagesToStaff(Long userId, AssignStaffPackagesReq req);
 
     StaffPackagesRes getStaffPackages(Long userId, Long staffId);
+
+    StaffPackagesRes getMyStaffPackages(Long userId);
 }

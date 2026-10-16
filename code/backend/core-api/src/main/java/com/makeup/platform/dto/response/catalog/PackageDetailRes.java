@@ -31,6 +31,7 @@ public class PackageDetailRes {
     private Integer durationMinutes;
     private Boolean isAvailable;
     private String coverImageUrl;
+    private List<String> galleryImages;
     private List<MakeupStyleRes> styles;
     private List<PackageItemRes> items;
     private LocalDateTime createdAt;

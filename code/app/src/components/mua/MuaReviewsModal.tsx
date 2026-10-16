@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { reviewService, ReviewItem, MuaRatingSummary } from '@/services/review.service';
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 
 interface MuaReviewsModalProps {
   visible: boolean;
@@ -127,40 +127,29 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
   const ratingScore = summary?.ratingAvg != null ? summary.ratingAvg.toFixed(1) : null;
 
   return (
-    <Modal
+    <DismissibleModal
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
+      onClose={onClose}
+      contentStyle={styles.modalContainer}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <View style={styles.headerLeft}>
-              <View style={styles.headerIconCircle}>
-                <Ionicons name="star" size={18} color="#D97706" />
-              </View>
-              <View>
-                <Text style={styles.headerTitle}>
-                  {isOwnerView ? 'Đánh Giá Của Khách Hàng' : 'Đánh Giá & Nhận Xét'}
-                </Text>
-                {muaName ? (
-                  <Text style={styles.headerSubtitle} numberOfLines={1}>
-                    Chuyên viên {muaName}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={onClose}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={20} color="#64748B" />
-            </TouchableOpacity>
+      {/* Header */}
+      <View style={styles.modalHeader}>
+        <View style={styles.headerLeft}>
+          <View style={styles.headerIconCircle}>
+            <Ionicons name="star" size={18} color="#D97706" />
           </View>
+          <View>
+            <Text style={styles.headerTitle}>
+              {isOwnerView ? 'Đánh Giá Của Khách Hàng' : 'Đánh Giá & Nhận Xét'}
+            </Text>
+            {muaName ? (
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
+                Chuyên viên {muaName}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </View>
 
           {/* Body Content */}
           {isLoading ? (
@@ -358,30 +347,18 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
               ) : null}
             </ScrollView>
           )}
-        </View>
-      </View>
-    </Modal>
+    </DismissibleModal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'flex-end',
-  },
   modalContainer: {
     backgroundColor: '#F8FAFC',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '88%',
+    maxHeight: '90%',
     minHeight: '60%',
     paddingBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -418,15 +395,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
   },
   loadingContainer: {
     paddingVertical: 60,

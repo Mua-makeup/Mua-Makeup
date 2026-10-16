@@ -250,10 +250,11 @@ export const WorkstationHeader: React.FC = () => {
 
     if (currentActiveShift) {
       const timeStr = `${currentActiveShift.startTime.slice(0, 5)} - ${currentActiveShift.endTime.slice(0, 5)}`;
+      const hasTimeInName = currentActiveShift.shiftName.includes(currentActiveShift.startTime.slice(0, 5));
       return {
         isActive: true,
         text: 'Đang trong ca trực',
-        detail: `${currentActiveShift.shiftName} (${timeStr})`,
+        detail: hasTimeInName ? currentActiveShift.shiftName : `${currentActiveShift.shiftName} (${timeStr})`,
       };
     }
 
@@ -273,10 +274,11 @@ export const WorkstationHeader: React.FC = () => {
     if (todayShifts.length > 0) {
       const firstShift = todayShifts[0];
       const timeStr = `${firstShift.startTime.slice(0, 5)} - ${firstShift.endTime.slice(0, 5)}`;
+      const hasTimeInName = firstShift.shiftName.includes(firstShift.startTime.slice(0, 5));
       return {
         isActive: true,
         text: 'Đang trong ca trực',
-        detail: `${firstShift.shiftName} (${timeStr})`,
+        detail: hasTimeInName ? firstShift.shiftName : `${firstShift.shiftName} (${timeStr})`,
       };
     }
 
@@ -321,7 +323,7 @@ export const WorkstationHeader: React.FC = () => {
                 </Text>
               </View>
             </View>
-            <Text style={styles.roleSubtext}>
+            <Text style={styles.roleSubtext} numberOfLines={1}>
               {isAgencyStaff
                 ? `${staffDutyStatus.text} • ${profile?.agencyName || 'Studio'}`
                 : `${profile?.experienceYears ? `${profile.experienceYears} năm kinh nghiệm` : 'Thợ trang điểm tự do'} • Bán kính ${currentRadius}km`}
