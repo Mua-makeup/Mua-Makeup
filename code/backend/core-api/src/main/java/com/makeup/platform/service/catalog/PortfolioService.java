@@ -26,4 +26,18 @@ public interface PortfolioService {
     PageResponse<PortfolioDetailRes> getMyPortfolios(Long userId, Pageable pageable);
 
     PortfolioDetailRes getPortfolioDetail(Long portfolioId);
+
+    PortfolioDetailRes createAgencyPortfolioShowcase(Long userId, CreatePortfolioReq req);
+
+    PortfolioDetailRes updateAgencyPortfolioShowcase(Long userId, Long portfolioId, UpdatePortfolioReq req);
+
+    PortfolioDetailRes updateAgencyFeaturedStatus(Long userId, Long portfolioId, UpdatePortfolioFeaturedReq req);
+
+    PortfolioDetailRes updateAgencyVisibilityStatus(Long userId, Long portfolioId, UpdatePortfolioVisibilityReq req);
+
+    void softDeleteAgencyPortfolio(Long userId, Long portfolioId);
+
+    PageResponse<PortfolioDetailRes> getMyAgencyPortfolios(Long userId, Pageable pageable);
+
+    PageResponse<PortfolioSummaryRes> getAgencyPublicGallery(Long agencyId, Integer styleId, Long packageId, Boolean isFeatured, Pageable pageable);
 }

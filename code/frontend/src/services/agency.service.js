@@ -124,5 +124,24 @@ export const agencyService = {
   getDisputes: (params) => apiClient.get('/agency/disputes', { params }),
   getDisputeDetail: (bookingId) => apiClient.get(`/agency/disputes/${bookingId}`),
   resolveDispute: (bookingId, data) => apiClient.post(`/agency/disputes/${bookingId}/resolve`, data),
+
+  // Bộ Sưu Tập Tác Phẩm Studio (Portfolio Showcases)
+  getMyPortfolios: (params) => apiClient.get('/agencies/my-agency/portfolios', { params }),
+  getPortfolioDetail: (id) => apiClient.get(`/agencies/my-agency/portfolios/${id}`),
+  createPortfolio: (formData) =>
+    apiClient.post('/agencies/my-agency/portfolios', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  updatePortfolio: (id, data) => {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    return apiClient.put(`/agencies/my-agency/portfolios/${id}`, data, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
+  },
+  togglePortfolioFeatured: (id, isFeatured) =>
+    apiClient.patch(`/agencies/my-agency/portfolios/${id}/featured`, { isFeatured }),
+  togglePortfolioVisibility: (id, isVisible) =>
+    apiClient.patch(`/agencies/my-agency/portfolios/${id}/visibility`, { isVisible }),
+  deletePortfolio: (id) => apiClient.delete(`/agencies/my-agency/portfolios/${id}`),
 };
 

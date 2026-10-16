@@ -39,7 +39,7 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           </Text>
         </View>
         <Text style={styles.subtitle}>
-          Tác phẩm thợ đã hoàn thành cho gói này (Chạm vào ảnh để zoom cận cảnh)
+          Tác phẩm thực tế gắn với gói dịch vụ này (Chạm vào ảnh để zoom cận cảnh)
         </Text>
       </View>
 
@@ -55,7 +55,7 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           <Ionicons name="camera-outline" size={36} color="#CBD5E1" />
           <Text style={styles.emptyTitle}>Chưa có ảnh mẫu riêng cho gói này</Text>
           <Text style={styles.emptySubtitle}>
-            Thợ đang cập nhật các tác phẩm mới nhất cho gói {selectedPackage?.packageName}.
+            Đơn vị đang cập nhật các tác phẩm mẫu mới nhất cho gói {selectedPackage?.packageName}.
           </Text>
         </View>
       ) : (
@@ -80,6 +80,17 @@ export const ServiceSampleGallery: React.FC<Props> = ({
                   contentFit="cover"
                   transition={250}
                 />
+
+                {/* Badge số lượng ảnh phụ đi kèm */}
+                {item.additionalImages && item.additionalImages.length > 0 && (
+                  <View style={styles.additionalBadge}>
+                    <Ionicons name="images" size={11} color="#FFFFFF" />
+                    <Text style={styles.additionalBadgeText}>
+                      +{item.additionalImages.length}
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.zoomHintOverlay}>
                   <Ionicons name="scan-outline" size={14} color="#FFFFFF" />
                   <Text style={styles.zoomHintText}>Soi cận cảnh</Text>
@@ -178,6 +189,24 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 190,
+  },
+  additionalBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(225, 29, 72, 0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    zIndex: 2,
+  },
+  additionalBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   zoomHintOverlay: {
     position: 'absolute',

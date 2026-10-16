@@ -227,6 +227,7 @@ export default function JobExecutionScreen() {
   const isPrimaryRole = myAssignment?.role === 'PRIMARY_MUA' || (!isAssistantRole && (!myAssignment || booking?.muaId === (userInfo?.muaId || profile?.muaId)));
   const isAgencyBooking =
     booking?.bookingPartner === 'AGENCY' ||
+    booking?.bookingPartner === 'AGENCY_DISPATCH' ||
     Boolean(booking?.agencyId || (booking as any)?.agency || (booking?.assignedStaff && booking.assignedStaff.length > 0) || myAssignment);
 
   const isMyAssignmentBusy =
@@ -1164,7 +1165,7 @@ export default function JobExecutionScreen() {
 
       // Chờ modal đóng hoàn toàn trên iOS trước khi hiển thị Alert quyết toán thành công
       setTimeout(() => {
-        const isAgency = booking?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
+        const isAgency = booking?.bookingPartner === 'AGENCY' || booking?.bookingPartner === 'AGENCY_DISPATCH' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
         Alert.alert(
           'Quyết Toán Thành Công! 🎉',
           isAgency
@@ -1824,7 +1825,7 @@ export default function JobExecutionScreen() {
                   </View>
                   <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
-                      {booking?.bookingPartner === 'AGENCY' ? 'Đơn Studio' : 'Phân Công'}
+                      {booking?.bookingPartner === 'AGENCY' || booking?.bookingPartner === 'AGENCY_DISPATCH' ? 'Đơn Studio' : 'Phân Công'}
                     </Text>
                   </View>
                 </View>

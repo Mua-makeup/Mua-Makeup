@@ -172,7 +172,7 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
   const isStudioOrder =
     booking.bookingPartner === 'AGENCY_DISPATCH' ||
     booking.bookingPartner === 'AGENCY' ||
-    Boolean(booking.agencyId || booking.agencyName || booking.assignmentRole);
+    Boolean(booking.agencyId || booking.agencyName);
 
   return (
     <View style={[styles.card, isRequested && styles.cardRequested]}>

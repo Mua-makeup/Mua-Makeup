@@ -140,6 +140,12 @@
     "disputes_fetch_success": "Studio disputes fetched successfully.",
     "dispute_detail_fetch_success": "Studio dispute detail fetched successfully.",
     "dispute_resolved_success": "Dispute resolved successfully.",
+    "portfolio_create_success": "Studio portfolio showcase created successfully!",
+    "portfolio_update_success": "Studio portfolio showcase updated successfully!",
+    "portfolio_delete_success": "Studio portfolio showcase deleted successfully!",
+    "portfolio_get_success": "Get studio portfolio detail successfully.",
+    "portfolios_list_success": "Get studio portfolios list successfully.",
+    "portfolio_files_empty": "Please select at least one image file to upload.",
     "review": {
       "decision_required": "Decision is required.",
       "decision_invalid": "Invalid decision. Only VERIFIED or REJECTED is accepted."

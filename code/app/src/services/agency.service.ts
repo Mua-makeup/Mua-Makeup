@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { PortfolioShowcase } from './mua-profile.service';
 
 export interface AgencyPublicProfile {
   id: number;
@@ -46,6 +47,37 @@ export const agencyService = {
     } catch (error) {
       console.warn(`[agencyService] Lỗi lấy thông tin studio ${agencyId}:`, error);
       return null;
+    }
+  },
+
+  /**
+   * Lấy danh sách bộ sưu tập tác phẩm / ảnh mẫu công khai của Studio
+   */
+  async getPublicAgencyPortfolios(
+    agencyId: number,
+    params?: {
+      packageId?: number;
+      styleId?: number;
+      isFeatured?: boolean;
+      page?: number;
+      size?: number;
+    }
+  ): Promise<PortfolioShowcase[]> {
+    try {
+      const response = await apiClient.get(`/agencies/${agencyId}/portfolios`, {
+        params: {
+          package_id: params?.packageId,
+          style_id: params?.styleId,
+          is_featured: params?.isFeatured,
+          page: params?.page ?? 0,
+          size: params?.size ?? 50,
+        },
+      });
+      const data = response.data?.data;
+      return data?.content || [];
+    } catch (error) {
+      console.warn(`[agencyService] Lỗi lấy portfolio studio ${agencyId}:`, error);
+      return [];
     }
   },
 };

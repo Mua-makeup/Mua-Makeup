@@ -140,6 +140,12 @@
     "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
     "dispute_resolved_success": "Giải quyết khiếu nại thành công.",
+    "portfolio_create_success": "Tạo tác phẩm mẫu Studio thành công!",
+    "portfolio_update_success": "Cập nhật tác phẩm mẫu Studio thành công!",
+    "portfolio_delete_success": "Xóa tác phẩm mẫu Studio thành công!",
+    "portfolio_get_success": "Lấy chi tiết tác phẩm mẫu Studio thành công.",
+    "portfolios_list_success": "Lấy danh sách tác phẩm mẫu Studio thành công.",
+    "portfolio_files_empty": "Vui lòng chọn ít nhất một tệp ảnh để tải lên.",
     "review": {
       "decision_required": "Quyết định phê duyệt là bắt buộc.",
       "decision_invalid": "Quyết định phê duyệt không hợp lệ. Chỉ chấp nhận VERIFIED hoặc REJECTED."

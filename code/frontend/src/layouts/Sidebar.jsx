@@ -14,6 +14,7 @@ import {
   TrendingUp,
   MapPin,
   AlertTriangle,
+  Image,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -87,6 +88,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/agency/packages',
       label: t('nav_agency_packages'),
       icon: Package,
+    },
+    {
+      to: '/agency/portfolio',
+      label: t('nav_agency_portfolio'),
+      icon: Image,
     },
     {
       to: '/agency/surcharges',

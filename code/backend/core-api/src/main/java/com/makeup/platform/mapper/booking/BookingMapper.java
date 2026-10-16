@@ -11,6 +11,7 @@ import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.catalog.PackageItemType;
@@ -308,13 +309,22 @@ public class BookingMapper {
                             : earnings);
                 }
             } else if (entity.getMua() != null && entity.getMua().getId().equals(muaId)) {
-                assignmentRole = "PRIMARY_MUA";
+                if (entity.getBookingPartner() == BookingPartner.AGENCY_DISPATCH || entity.getAgency() != null) {
+                    assignmentRole = "PRIMARY_MUA";
+                } else {
+                    assignmentRole = null;
+                }
                 isConfirmedByStaff = entity.getStatus() != BookingStatus.AGENCY_ASSIGNED;
                 assignmentStatus = "ACTIVE";
             }
         } else if (entity.getStatus() == BookingStatus.AGENCY_ASSIGNED) {
             isConfirmedByStaff = false;
         }
+
+        String bookingPartner = entity.getBookingPartner() != null ? entity.getBookingPartner().name() : null;
+        Long agencyId = entity.getAgency() != null ? entity.getAgency().getId() : null;
+        String agencyName = entity.getAgency() != null ? entity.getAgency().getAgencyName() : null;
+        String agencyLogoUrl = entity.getAgency() != null ? entity.getAgency().getLogoUrl() : null;
 
         return FreelancerBookingItemRes.builder()
                 .id(entity.getId())
@@ -343,6 +353,10 @@ public class BookingMapper {
                 .commissionNote(commissionNote)
                 .soloPendingConfirmation(soloPendingConfirmation)
                 .soloCommissionRate(soloCommissionRate)
+                .bookingPartner(bookingPartner)
+                .agencyId(agencyId)
+                .agencyName(agencyName)
+                .agencyLogoUrl(agencyLogoUrl)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

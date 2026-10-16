@@ -57,6 +57,8 @@ export interface MuaPublicProfile {
 export interface PortfolioShowcase {
   id: number;
   muaId?: number;
+  agencyId?: number;
+  agencyName?: string;
   title: string;
   description?: string;
   imageUrl: string;
