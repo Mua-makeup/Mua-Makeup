@@ -42,6 +42,7 @@ export default function MuaDetailScreen() {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState(0);
 
   const currentMuaId = Number(id) || 1;
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
@@ -56,8 +57,9 @@ export default function MuaDetailScreen() {
     return () => resetDetail();
   }, [id, fetchMuaDetails, resetDetail]);
 
-  const handleOpenPhoto = (_photo: PortfolioShowcase, index: number) => {
+  const handleOpenPhoto = (_photo: PortfolioShowcase, index: number, angleIndex: number = 0) => {
     setSelectedPhotoIndex(index);
+    setSelectedAngleIndex(angleIndex);
     setIsModalVisible(true);
   };
 
@@ -264,6 +266,7 @@ export default function MuaDetailScreen() {
         visible={isModalVisible}
         showcases={showcases}
         initialIndex={selectedPhotoIndex}
+        initialAngleIndex={selectedAngleIndex}
         onClose={() => setIsModalVisible(false)}
       />
     </View>

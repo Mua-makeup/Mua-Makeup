@@ -72,6 +72,21 @@ const MUA_POST_COMPLETION_REASONS = [
   'Lý do khác...',
 ];
 
+function cleanProofImageUrl(raw?: string | null): string | null {
+  if (!raw) return null;
+  let clean = raw.replace(/^\[.*?\]:?\s*/, '').trim();
+  if (clean.startsWith('[') && clean.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+        clean = parsed[0];
+      }
+    } catch {}
+  }
+  const match = clean.match(/https?:\/\/[^\s"',|\]]+/);
+  return match ? match[0] : (clean.startsWith('http') ? clean : null);
+}
+
 export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
   visible,
   onClose,
@@ -94,6 +109,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
 }) => {
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
+  // 1. Phân loại ca đã hoàn tất dịch vụ
   const isPostCompletion =
     bookingStatus === 'COMPLETED' ||
     bookingStatus === 'PAID_OUT' ||
@@ -101,33 +117,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
       !emergencyReason?.toLowerCase().includes('vắng mặt') &&
       !emergencyReason?.toLowerCase().includes('không gặp khách'));
 
-  const quickReasons =
-    viewAsRole === 'CUSTOMER'
-      ? CUSTOMER_QUICK_REASONS
-      : isPostCompletion
-      ? MUA_POST_COMPLETION_REASONS
-      : MUA_QUICK_REASONS;
-
-  // Inline counter dispute state
-  const [isEditingCounterDispute, setIsEditingCounterDispute] = useState(autoOpenForm);
-  const [selectedReason, setSelectedReason] = useState(quickReasons[0]);
-  const [detailReason, setDetailReason] = useState('');
-  const [proofLocalUri, setProofLocalUri] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (visible && autoOpenForm) {
-      setIsEditingCounterDispute(true);
-    }
-    if (!visible) {
-      setIsEditingCounterDispute(false);
-      setSelectedReason(quickReasons[0]);
-      setDetailReason('');
-      setProofLocalUri(null);
-    }
-  }, [visible, autoOpenForm]);
-
-  // Parse statements and proofs
+  // 2. Bóc tách nội dung và ảnh minh chứng của 2 bên
   const rawReason = (emergencyReason || cancellationReason || '').trim();
   const rawProof = (emergencyProofUrl || '').trim();
   const proofUrls = rawProof ? rawProof.split('|').map((u) => u.trim()).filter(Boolean) : [];
@@ -212,17 +202,72 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
     }
   }
 
+  // 3. Đơn hàng CHỈ ĐƯỢC COI LÀ CÓ KHIẾU NẠI khi thực sự có lý do sự cố hoặc phán quyết tranh chấp
+  const hasEverDisputed = Boolean(
+    (emergencyReason && emergencyReason.trim().length > 0) ||
+    (cancellationReason && (
+      cancellationReason.toLowerCase().includes('khiếu nại') ||
+      cancellationReason.toLowerCase().includes('giải trình') ||
+      cancellationReason.toLowerCase().includes('bác bỏ') ||
+      cancellationReason.toLowerCase().includes('bồi thường') ||
+      cancellationReason.toLowerCase().includes('hòa giải')
+    )) ||
+    bookingStatus === 'DISPUTED' ||
+    bookingStatus === 'DISPUTE_REFUNDED' ||
+    bookingStatus === 'DISPUTE_COMPENSATED'
+  );
+
+  const cleanCustomerStatement = hasEverDisputed ? customerStatement : '';
+  const cleanMuaStatement = hasEverDisputed ? muaStatement : '';
+  const cleanCustomerProof = hasEverDisputed ? customerProof : undefined;
+  const cleanMuaProof = hasEverDisputed ? muaProof : undefined;
+
   const isMUA = viewAsRole === 'MUA';
   const counterpartyTitle = isMUA
     ? `Báo Cáo Của Khách Hàng (${counterpartyName || 'Khách Hàng'})`
     : `Báo Cáo Của Chuyên Viên MUA (${counterpartyName || 'Thợ Trang Điểm'})`;
 
-  const counterpartyStatement = isMUA ? customerStatement : muaStatement;
-  const counterpartyProof = isMUA ? customerProof : muaProof;
+  const counterpartyStatement = isMUA ? cleanCustomerStatement : cleanMuaStatement;
+  const counterpartyProof = isMUA ? cleanCustomerProof : cleanMuaProof;
 
-  const myStatement = isMUA ? muaStatement : customerStatement;
-  const myProof = isMUA ? muaProof : customerProof;
+  const myStatement = isMUA ? cleanMuaStatement : cleanCustomerStatement;
+  const myProof = isMUA ? cleanMuaProof : cleanCustomerProof;
   const hasMyStatement = Boolean(myStatement);
+
+  // Trạng thái ĐÃ GIẢI QUYẾT chỉ kích hoạt khi đơn hàng THỰC SỰ ĐÃ TỪNG KHIẾU NẠI
+  const isResolved = hasEverDisputed && (
+    bookingStatus === 'PAID_OUT' ||
+    bookingStatus === 'DISPUTE_REFUNDED' ||
+    bookingStatus === 'DISPUTE_COMPENSATED'
+  );
+
+  const quickReasons =
+    viewAsRole === 'CUSTOMER'
+      ? CUSTOMER_QUICK_REASONS
+      : isPostCompletion
+      ? MUA_POST_COMPLETION_REASONS
+      : MUA_QUICK_REASONS;
+
+  // Inline counter dispute state:
+  // Nếu chưa có khiếu nại (đơn bình thường) và autoOpenForm=true -> luôn mở form soạn khiếu nại mới
+  // Nếu đã giải quyết dứt điểm (isResolved=true) -> đóng form
+  const [isEditingCounterDispute, setIsEditingCounterDispute] = useState(autoOpenForm && !isResolved);
+  const [selectedReason, setSelectedReason] = useState(quickReasons[0]);
+  const [detailReason, setDetailReason] = useState('');
+  const [proofLocalUri, setProofLocalUri] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (visible && autoOpenForm && !isResolved) {
+      setIsEditingCounterDispute(true);
+    }
+    if (!visible) {
+      setIsEditingCounterDispute(false);
+      setSelectedReason(quickReasons[0]);
+      setDetailReason('');
+      setProofLocalUri(null);
+    }
+  }, [visible, autoOpenForm, isResolved]);
 
   const handlePickImage = async () => {
     try {
@@ -281,7 +326,12 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
         : selectedReason;
 
     if (!finalReasonText.trim()) {
-      Alert.alert('Thiếu Thông Tin', 'Vui lòng chọn hoặc nhập lý do đối chất của bạn.');
+      Alert.alert(
+        'Thiếu Thông Tin',
+        isMUA
+          ? 'Vui lòng chọn hoặc nhập lý do giải trình của bạn.'
+          : 'Vui lòng chọn hoặc nhập lý do khiếu nại của bạn.'
+      );
       return;
     }
 
@@ -304,15 +354,19 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        isMUA ? 'Đã Gửi Lời Khai Giải Trình' : 'Đã Gửi Báo Cáo Đối Chất',
+        isMUA ? 'Đã Gửi Lời Khai Giải Trình' : 'Đã Gửi Yêu Cầu Khiếu Nại',
         isMUA
           ? 'Lời khai giải trình và minh chứng của bạn đã được gửi thành công tới Ban Quản Trị để đối chiếu công bằng với khiếu nại của khách.'
-          : 'Lời khai và minh chứng của bạn đã được gửi thành công tới Ban Quản Trị. Admin sẽ xem xét đối chiếu hai bên để ra phán quyết công bằng.'
+          : 'Yêu cầu khiếu nại và minh chứng của bạn đã được gửi tới Ban Quản Trị. Admin sẽ xác minh và phản hồi sớm nhất.'
       );
       setIsEditingCounterDispute(false);
-      onDisputeSuccess?.();
+      try {
+        onDisputeSuccess?.();
+      } catch (cbErr) {
+        console.warn('[DisputeDossierModal] onDisputeSuccess error:', cbErr);
+      }
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || err.message || 'Không thể gửi báo cáo đối chất.');
+      Alert.alert('Lỗi', err?.response?.data?.message || err.message || (isMUA ? 'Không thể gửi giải trình.' : 'Không thể gửi khiếu nại.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -356,18 +410,89 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
           <Ionicons name="scale-outline" size={20} color="#E11D48" />
         </View>
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={styles.headerTitle}>Hồ Sơ Khiếu Nại Đơn Hàng</Text>
+          <Text style={styles.headerTitle}>
+            {isMUA
+              ? 'Hồ Sơ Khiếu Nại & Giải Trình'
+              : (hasMyStatement ? 'Hồ Sơ Khiếu Nại Của Bạn' : 'Gửi Yêu Cầu Khiếu Nại')}
+          </Text>
           <Text style={styles.headerSub}>
             {isPostCompletion
-              ? `Mã ca: #${bookingCode || 'N/A'} • Tổng tiền: ${formatVnd(totalAmount || depositAmount)} (Hoàn 100%)`
-              : `Mã ca: #${bookingCode || 'N/A'} • Tiền cọc: ${formatVnd(depositAmount)}`}
+              ? (isResolved
+                  ? `Mã ca: #${bookingCode || 'N/A'} • Đã giải quyết khiếu nại`
+                  : `Mã ca: #${bookingCode || 'N/A'} • Tổng tiền: ${formatVnd(totalAmount || depositAmount)} (Hoàn 100%)`)
+              : (isResolved
+                  ? `Mã ca: #${bookingCode || 'N/A'} • Đã giải quyết khiếu nại cọc`
+                  : `Mã ca: #${bookingCode || 'N/A'} • Tiền cọc: ${formatVnd(depositAmount)}`)}
           </Text>
         </View>
+        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="close" size={20} color="#64748B" />
+        </TouchableOpacity>
       </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
-          {/* Dispute Origin Banner */}
-          {isDual ? (
+          {/* Dispute Origin / Resolution Banner */}
+          {isResolved ? (
+            <View
+              style={[
+                styles.bannerResolved,
+                {
+                  backgroundColor: bookingStatus === 'PAID_OUT' ? (isMUA ? '#ECFDF5' : '#FFF1F2') : '#ECFDF5',
+                  borderColor: bookingStatus === 'PAID_OUT' ? (isMUA ? '#A7F3D0' : '#FECDD3') : '#A7F3D0',
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                <Ionicons
+                  name={bookingStatus === 'PAID_OUT' ? (isMUA ? 'shield-checkmark' : 'shield-half') : 'shield-checkmark'}
+                  size={20}
+                  color={bookingStatus === 'PAID_OUT' ? (isMUA ? '#059669' : '#E11D48') : '#059669'}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.bannerDualTitle,
+                      {
+                        color: bookingStatus === 'PAID_OUT' ? (isMUA ? '#065F46' : '#9F1239') : '#065F46',
+                      },
+                    ]}
+                  >
+                    {bookingStatus === 'PAID_OUT'
+                      ? (isPostCompletion
+                          ? (isMUA ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • BÁC KHIẾU NẠI CỦA KHÁCH' : 'KHIẾU NẠI ĐÃ XỬ LÝ • BÁC BỎ YÊU CẦU KHIẾU NẠI')
+                          : (isMUA ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • BỒI THƯỜNG CHO THỢ' : 'KHIẾU NẠI ĐÃ XỬ LÝ • BỒI THƯỜNG CHO THỢ'))
+                      : (isPostCompletion
+                          ? (isMUA ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • CHẤP NHẬN KHIẾU NẠI CỦA KHÁCH' : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN TIỀN 100% ĐƠN HÀNG')
+                          : (isMUA ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH' : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ HOÀN 100% TIỀN CỌC'))}
+                  </Text>
+                  <Text style={[styles.bannerDualSub, { color: '#334155', marginTop: 4 }]}>
+                    {bookingStatus === 'PAID_OUT'
+                      ? (isPostCompletion
+                          ? (isMUA
+                              ? `Admin đã công nhận giải trình của bạn và bác bỏ khiếu nại của khách. Toàn bộ thù lao ca làm việc (${formatVnd(totalAmount || depositAmount)}) được bảo lưu nguyên vẹn, bạn không bị trừ tiền.`
+                              : `Căn cứ lời khai giải trình và minh chứng của chuyên viên, Ban Quản Trị quyết định bác bỏ yêu cầu khiếu nại của bạn. Đơn hàng giữ nguyên kết quả đã hoàn thành.`)
+                          : (isMUA
+                              ? `Admin đã phê duyệt khiếu nại và giải ngân tiền cọc bồi thường (${formatVnd(depositAmount)}) vào ví của bạn.`
+                              : `Ban Quản Trị đã từ chối yêu cầu hoàn cọc và chuyển tiền cọc (${formatVnd(depositAmount)}) bồi thường cho thợ.`))
+                      : (isPostCompletion
+                          ? (isMUA
+                              ? `Ban Quản Trị đã chấp thuận khiếu nại của khách hàng, tiến hành hoàn 100% tiền đơn (${formatVnd(totalAmount || depositAmount)}) cho khách. Đơn hàng không phát sinh thu nhập thợ.`
+                              : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% chi phí dịch vụ (${formatVnd(totalAmount || depositAmount)}) đã được hoàn trả trực tiếp vào Ví cá nhân của bạn.`)
+                          : (isMUA
+                              ? `Ban Quản Trị đã chấp thuận hoàn 100% tiền cọc (${formatVnd(depositAmount)}) cho khách hàng.`
+                              : `Admin đã phê duyệt hoàn trả 100% tiền cọc (${formatVnd(depositAmount)}) vào Ví cá nhân của bạn.`))}
+                  </Text>
+                </View>
+              </View>
+
+              {cancellationReason ? (
+                <View style={styles.adminVerdictBox}>
+                  <Text style={styles.adminVerdictLabel}>Phán quyết của Admin:</Text>
+                  <Text style={styles.adminVerdictContent}>{cancellationReason}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : isMUA && isDual ? (
             <View style={styles.bannerDual}>
               <Ionicons name="git-compare-outline" size={18} color="#2563EB" />
               <View style={{ flex: 1 }}>
@@ -389,81 +514,97 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                   {isPostCompletion
                     ? isMUA
                       ? 'Khách Hàng Khiếu Nại Chất Lượng Sau Ca'
-                      : 'Yêu Cầu Khiếu Nại Sau Ca Do Bạn Gửi'
+                      : hasMyStatement
+                      ? 'Yêu Cầu Khiếu Nại Đang Được Tiếp Nhận'
+                      : 'Gửi Khiếu Nại Dịch Vụ Sau Ca Làm'
                     : isMUA
                     ? (isMuaOnly ? 'Báo Cáo Sự Cố Do Bạn Khởi Tạo' : 'Đơn Hàng Do Khách Hàng Khiếu Nại')
-                    : (isMuaOnly ? 'Chuyên Viên Make-up Đã Báo Cáo Sự Cố' : 'Yêu Cầu Khiếu Nại Do Bạn Gửi')}
+                    : hasMyStatement
+                    ? 'Yêu Cầu Khiếu Nại Đang Được Xử Lý'
+                    : 'Gửi Yêu Cầu Khiếu Nại Dịch Vụ'}
                 </Text>
                 <Text style={styles.bannerSingleSub}>
                   {isPostCompletion
                     ? isMUA
                       ? `Đơn hàng đã hoàn thành ca. Khách hàng đang khiếu nại yêu cầu hoàn 100% tiền đơn (${formatVnd(totalAmount || depositAmount)}). Bạn có quyền giải trình và gửi ảnh minh chứng để bảo vệ quyền lợi.`
-                      : `Yêu cầu khiếu nại chất lượng ca làm việc. Số tiền khiếu nại: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Admin sẽ đối chiếu minh chứng hai bên và phân xử công bằng.`
+                      : hasMyStatement
+                      ? `Yêu cầu khiếu nại chất lượng ca làm việc đã được gửi tới Ban Quản Trị. Số tiền yêu cầu hoàn: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Admin sẽ xác minh và phản hồi kết quả sớm nhất.`
+                      : `Nếu dịch vụ không đạt yêu cầu hoặc có sự cố, bạn có thể gửi yêu cầu khiếu nại. Số tiền yêu cầu hoàn: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Ban Quản Trị sẽ tiếp nhận và xử lý thỏa đáng.`
                     : isAgencyBooking
                     ? `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Quản lý Studio sẽ kiểm tra minh chứng và xử lý.`
-                    : `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Admin sẽ đối chiếu minh chứng và giải ngân công bằng.`}
+                    : hasMyStatement
+                    ? `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Admin sẽ đối chiếu minh chứng và giải ngân công bằng.`
+                    : `Nếu có sự cố phát sinh tại buổi hẹn, bạn có thể gửi yêu cầu khiếu nại để Ban Quản Trị can thiệp xử lý tiền cọc.`}
                 </Text>
               </View>
             </View>
           )}
 
-          {/* Section 1: Counterparty Dossier (Hồ sơ của đối tác) */}
-          <View style={styles.dossierCard}>
-            <View style={styles.dossierHeader}>
-              <View style={[styles.dossierRoleBadge, { backgroundColor: isMUA ? '#FFF1F2' : '#FEF3C7' }]}>
-                <Ionicons
-                  name={isMUA ? 'person-outline' : 'brush-outline'}
-                  size={13}
-                  color={isMUA ? '#E11D48' : '#D97706'}
-                />
-                <Text style={[styles.dossierRoleText, { color: isMUA ? '#E11D48' : '#D97706' }]}>
-                  {isMUA ? 'Phía Khách Hàng' : 'Phía Chuyên Viên'}
+          {/* Section 1: Counterparty Dossier (CHỈ HIỂN THỊ VỚI THỢ MUA KHI CÓ KHIẾU NẠI) */}
+          {isMUA && hasEverDisputed && (
+            <View style={styles.dossierCard}>
+              <View style={styles.dossierHeader}>
+                <View style={[styles.dossierRoleBadge, { backgroundColor: '#FFF1F2' }]}>
+                  <Ionicons
+                    name="person-outline"
+                    size={13}
+                    color="#E11D48"
+                  />
+                  <Text style={[styles.dossierRoleText, { color: '#E11D48' }]}>
+                    Phía Khách Hàng
+                  </Text>
+                </View>
+                {reportedAt ? (
+                  <Text style={styles.dossierTimeText}>{formatDateTimeVN(reportedAt)}</Text>
+                ) : null}
+              </View>
+
+              <Text style={styles.dossierTitle}>{counterpartyTitle}</Text>
+
+              <View style={styles.statementBox}>
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color="#64748B" style={styles.quoteIcon} />
+                <Text style={styles.statementText}>
+                  "{counterpartyStatement || 'Khách hàng chưa nộp lời khai riêng'}"
                 </Text>
               </View>
-              {reportedAt ? (
-                <Text style={styles.dossierTimeText}>{formatDateTimeVN(reportedAt)}</Text>
-              ) : null}
-            </View>
 
-            <Text style={styles.dossierTitle}>{counterpartyTitle}</Text>
-
-            <View style={styles.statementBox}>
-              <Ionicons name="chatbubble-ellipses-outline" size={16} color="#64748B" style={styles.quoteIcon} />
-              <Text style={styles.statementText}>
-                "{counterpartyStatement || (isMUA ? 'Khách hàng chưa nộp lời khai riêng' : 'Chuyên viên chưa gửi lời khai')}"
-              </Text>
-            </View>
-
-            {/* Proof photo of counterparty */}
-            <View style={styles.proofSection}>
-              <Text style={styles.proofLabel}>Ảnh minh chứng tại hiện trường:</Text>
-              {counterpartyProof ? (
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setPreviewPhotoUrl(counterpartyProof)}
-                  style={styles.proofThumbnailWrap}
-                >
-                  <Image source={{ uri: counterpartyProof }} style={styles.proofThumbnail} resizeMode="cover" />
-                  <View style={styles.zoomBadge}>
-                    <Ionicons name="expand" size={13} color="#FFFFFF" />
-                    <Text style={styles.zoomText}>Phóng to</Text>
+              {/* Proof photo of counterparty */}
+              <View style={styles.proofSection}>
+                <Text style={styles.proofLabel}>Ảnh minh chứng khách hàng gửi:</Text>
+                {cleanProofImageUrl(counterpartyProof) ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setPreviewPhotoUrl(cleanProofImageUrl(counterpartyProof))}
+                    style={styles.proofThumbnailWrap}
+                  >
+                    <Image source={{ uri: cleanProofImageUrl(counterpartyProof)! }} style={styles.proofThumbnail} resizeMode="cover" />
+                    <View style={styles.zoomBadge}>
+                      <Ionicons name="expand" size={13} color="#FFFFFF" />
+                      <Text style={styles.zoomText}>Phóng to</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.noProofBox}>
+                    <Ionicons name="image-outline" size={16} color="#94A3B8" />
+                    <Text style={styles.noProofText}>Không có ảnh minh chứng đính kèm</Text>
                   </View>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.noProofBox}>
-                  <Ionicons name="image-outline" size={16} color="#94A3B8" />
-                  <Text style={styles.noProofText}>Không có ảnh minh chứng đính kèm</Text>
-                </View>
-              )}
+                )}
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Section 2: My Dossier (Hồ sơ của bạn) */}
           <View style={[styles.dossierCard, !hasMyStatement && styles.dossierCardPending]}>
             <View style={styles.dossierHeader}>
-              <View style={[styles.dossierRoleBadge, { backgroundColor: '#F1F5F9' }]}>
-                <Ionicons name="shield-outline" size={13} color="#475569" />
-                <Text style={[styles.dossierRoleText, { color: '#475569' }]}>Báo Cáo Của Bạn</Text>
+              <View style={[styles.dossierRoleBadge, { backgroundColor: isMUA ? '#F1F5F9' : '#FFF1F2' }]}>
+                <Ionicons
+                  name={isMUA ? 'shield-outline' : 'warning-outline'}
+                  size={13}
+                  color={isMUA ? '#475569' : '#E11D48'}
+                />
+                <Text style={[styles.dossierRoleText, { color: isMUA ? '#475569' : '#E11D48' }]}>
+                  {isMUA ? 'Lời Khai Giải Trình Của Bạn' : 'Nội Dung Khiếu Nại Của Bạn'}
+                </Text>
               </View>
               {hasMyStatement && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -485,15 +626,15 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                   <Text style={styles.statementText}>"{myStatement}"</Text>
                 </View>
 
-                {myProof && (
+                {cleanProofImageUrl(myProof) && (
                   <View style={styles.proofSection}>
                     <Text style={styles.proofLabel}>Ảnh minh chứng bạn đã tải lên:</Text>
                     <TouchableOpacity
                       activeOpacity={0.85}
-                      onPress={() => setPreviewPhotoUrl(myProof)}
+                      onPress={() => setPreviewPhotoUrl(cleanProofImageUrl(myProof))}
                       style={styles.proofThumbnailWrap}
                     >
-                      <Image source={{ uri: myProof }} style={styles.proofThumbnail} resizeMode="cover" />
+                      <Image source={{ uri: cleanProofImageUrl(myProof)! }} style={styles.proofThumbnail} resizeMode="cover" />
                       <View style={styles.zoomBadge}>
                         <Ionicons name="expand" size={13} color="#FFFFFF" />
                         <Text style={styles.zoomText}>Phóng to</Text>
@@ -503,32 +644,40 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                 )}
               </>
             ) : isEditingCounterDispute ? (
-              /* Inline Form Soạn Thảo Lời Khai Giải Trình / Đối Chất Ngay Tại Chỗ */
+              /* Inline Form Soạn Thảo Khiếu Nại (Khách) / Lời Khai Giải Trình (MUA) */
               <View style={styles.inlineFormBox}>
                 <View style={styles.inlineFormHeader}>
                   <Ionicons name="create" size={16} color="#EA580C" />
                   <Text style={styles.inlineFormTitle}>
-                    {isMUA ? 'Soạn Thảo Lời Khai Giải Trình' : 'Soạn Thảo Lời Khai Đối Chất'}
+                    {isMUA ? 'Soạn Thảo Lời Khai Giải Trình' : 'Soạn Thảo Yêu Cầu Khiếu Nại'}
                   </Text>
                 </View>
                 <Text style={styles.inlineFormSub}>
                   {isMUA
                     ? 'Chọn hoặc nhập lý do giải trình thực tế để Ban Quản Trị đối soát và bảo vệ quyền lợi thù lao:'
-                    : 'Chọn hoặc nhập lý do thực tế tại thời điểm hẹn để Ban Quản Trị đối soát:'}
+                    : 'Chọn hoặc nhập lý do khiếu nại dịch vụ để Ban Quản Trị tiếp nhận và giải quyết hoàn tiền:'}
                 </Text>
 
-                {/* Chips lý do nhanh */}
-                <View style={styles.chipsWrap}>
+                {/* Danh sách lý do giải trình chọn nhanh (Radio List chống tràn viền) */}
+                <View style={styles.reasonRadioList}>
                   {quickReasons.map((r, idx) => {
                     const isSelected = selectedReason === r;
                     return (
                       <TouchableOpacity
                         key={idx}
-                        style={[styles.chipItem, isSelected && styles.chipItemSelected]}
+                        style={[styles.reasonRadioItem, isSelected && styles.reasonRadioItemSelected]}
                         onPress={() => setSelectedReason(r)}
                         activeOpacity={0.8}
                       >
-                        <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{r}</Text>
+                        <Ionicons
+                          name={isSelected ? 'radio-button-on' : 'ellipse-outline'}
+                          size={18}
+                          color={isSelected ? '#EA580C' : '#94A3B8'}
+                          style={{ marginRight: 8, marginTop: 1 }}
+                        />
+                        <Text style={[styles.reasonRadioText, isSelected && styles.reasonRadioTextSelected]}>
+                          {r}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -540,7 +689,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                   placeholder={
                     isMUA
                       ? 'Nhập chi tiết lời khai giải trình, quy trình làm đẹp, thái độ hợp tác của khách...'
-                      : 'Nhập chi tiết tình huống thực tế tại thời điểm hẹn...'
+                      : 'Mô tả chi tiết vấn đề bạn gặp phải (make-up không đúng thỏa thuận, thợ đến muộn, làm hỏng đồ, thái độ không tốt...)'
                   }
                   placeholderTextColor="#94A3B8"
                   value={detailReason}
@@ -555,7 +704,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                 <Text style={styles.proofPickerLabel}>
                   {isMUA
                     ? 'Ảnh minh chứng nghiệm thu tại chỗ (hoặc nhật ký làm việc):'
-                    : 'Ảnh minh chứng (nhật ký cuộc gọi, check-in, hiện trường):'}
+                    : 'Ảnh minh chứng khiếu nại (ảnh lớp make-up, đồ vật bị ảnh hưởng, hiện trường...):'}
                 </Text>
                 {proofLocalUri ? (
                   <View style={styles.proofPreviewWrap}>
@@ -608,23 +757,33 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                       <>
                         <Ionicons name="paper-plane" size={15} color="#FFFFFF" />
                         <Text style={styles.inlineSubmitBtnText}>
-                          {isMUA ? 'Gửi Lời Khai Giải Trình' : 'Gửi Báo Cáo Đối Chất'}
+                          {isMUA ? 'Gửi Lời Khai Giải Trình' : 'Gửi Yêu Cầu Khiếu Nại'}
                         </Text>
                       </>
                     )}
                   </TouchableOpacity>
                 </View>
               </View>
+            ) : isResolved ? (
+              <View style={styles.notSubmittedBox}>
+                <Ionicons name="checkmark-done-circle-outline" size={24} color="#059669" />
+                <Text style={[styles.notSubmittedTitle, { color: '#065F46' }]}>
+                  Vụ việc đã được Ban Quản Trị giải quyết dứt điểm
+                </Text>
+                <Text style={styles.notSubmittedSub}>
+                  Hồ sơ khiếu nại của ca làm này đã đóng theo kết quả phán quyết chính thức của Admin.
+                </Text>
+              </View>
             ) : (
               <View style={styles.notSubmittedBox}>
                 <Ionicons name="information-circle-outline" size={20} color="#D97706" />
                 <Text style={styles.notSubmittedTitle}>
-                  {isMUA ? 'Bạn chưa gửi lời khai giải trình cho ca làm việc này' : 'Bạn chưa gửi báo cáo phản hồi sự cố'}
+                  {isMUA ? 'Bạn chưa gửi lời khai giải trình cho ca làm việc này' : 'Bạn chưa gửi yêu cầu khiếu nại cho ca làm việc này'}
                 </Text>
                 <Text style={styles.notSubmittedSub}>
                   {isMUA
                     ? 'Khách hàng đang khiếu nại ca này. Bạn hãy nộp lời khai giải trình và ảnh nghiệm thu thực tế để Ban Quản Trị xem xét bảo vệ quyền lợi của bạn.'
-                    : 'Nếu nhận thấy đối tác báo cáo chưa chính xác, bạn có thể gửi phản hồi kèm ảnh minh chứng để bảo vệ quyền lợi.'}
+                    : 'Nếu ca làm việc có vấn đề về chất lượng hoặc sự cố phát sinh, bạn có thể gửi yêu cầu khiếu nại kèm minh chứng để yêu cầu hoàn tiền.'}
                 </Text>
 
                 <TouchableOpacity
@@ -634,7 +793,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                 >
                   <Ionicons name="create-outline" size={16} color="#FFFFFF" />
                   <Text style={styles.counterDisputeBtnText}>
-                    {isMUA ? 'Soạn Lời Khai Giải Trình Ngay' : 'Gửi Báo Cáo Phản Hồi Ngay'}
+                    {isMUA ? 'Soạn Lời Khai Giải Trình Ngay' : 'Soạn Yêu Cầu Khiếu Nại Ngay'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -660,6 +819,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    zIndex: 10,
   },
   headerIconWrap: {
     width: 36,
@@ -700,6 +861,33 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     padding: 12,
+  },
+  bannerResolved: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    padding: 12,
+  },
+  adminVerdictBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  adminVerdictLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  adminVerdictContent: {
+    fontSize: 12,
+    color: '#334155',
+    fontStyle: 'italic',
+    lineHeight: 17,
   },
   bannerDualTitle: {
     fontSize: 12,
@@ -919,31 +1107,34 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginBottom: 10,
   },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
+  reasonRadioList: {
+    gap: 7,
+    marginBottom: 12,
   },
-  chipItem: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
+  reasonRadioItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#FED7AA',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  chipItemSelected: {
-    backgroundColor: '#EA580C',
+  reasonRadioItemSelected: {
+    backgroundColor: '#FFEDD5',
     borderColor: '#EA580C',
+    borderWidth: 1.5,
   },
-  chipText: {
-    fontSize: 11,
-    color: '#475569',
+  reasonRadioText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#334155',
+    lineHeight: 18,
     fontWeight: '500',
   },
-  chipTextSelected: {
-    color: '#FFFFFF',
+  reasonRadioTextSelected: {
+    color: '#9A3412',
     fontWeight: '700',
   },
   textArea: {

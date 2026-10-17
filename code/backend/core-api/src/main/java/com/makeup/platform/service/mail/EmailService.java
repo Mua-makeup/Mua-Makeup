@@ -166,5 +166,92 @@ public interface EmailService {
             Integer overtimeMinutes,
             String reason
     );
+
+    // =========================================================================
+    // DISPUTE & COMPLAINT EMAIL NOTIFICATIONS (KHIẾU NẠI & TRANH CHẤP)
+    // =========================================================================
+
+    void sendAdminDisputeAlertEmail(
+            String toEmail,
+            String adminName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String workerName,
+            String workerPhone,
+            String disputeReason,
+            String disputeProofUrl,
+            BigDecimal depositAmount,
+            BigDecimal totalAmount
+    );
+
+    void sendCustomerDisputeReceivedEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String workerName,
+            String packageName,
+            String reason,
+            BigDecimal depositAmount
+    );
+
+    void sendWorkerDisputeNoticeEmail(
+            String toEmail,
+            String workerName,
+            String bookingCode,
+            String customerName,
+            String reason,
+            Integer hoursToCounter
+    );
+
+    void sendAgencyDisputeNoticeEmail(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            String bookingCode,
+            String customerName,
+            String reason
+    );
+
+    void sendCustomerDisputeResolutionEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal refundAmount
+    );
+
+    void sendWorkerDisputeResolutionEmail(
+            String toEmail,
+            String workerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal payoutAmount
+    );
+
+    void sendWorkerDisputeResolutionEmail(
+            String toEmail,
+            String workerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal payoutAmount,
+            boolean isCompletedService
+    );
+
+    void sendAgencyDisputeResolutionEmail(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote
+    );
 }
+
 

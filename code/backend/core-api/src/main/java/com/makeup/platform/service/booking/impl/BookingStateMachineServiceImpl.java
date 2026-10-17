@@ -1099,7 +1099,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
 
     private String resolveDisputeOrigin(String emergencyReason, String cancellationReason) {
         String rawReason = emergencyReason != null ? emergencyReason : cancellationReason;
-        if (rawReason == null) return "CUSTOMER";
+        if (rawReason == null || rawReason.isBlank()) return null;
         String lower = rawReason.toLowerCase();
         boolean hasCustomerTag = rawReason.contains("[Khách hàng]");
         boolean hasMuaTag = rawReason.contains("[Chuyên viên MUA]");

@@ -13,6 +13,20 @@ const getSavedSoundSetting = () => {
   }
 };
 
+export const extractCleanProofUrl = (raw) => {
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const found = extractCleanProofUrl(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  const str = String(raw).trim();
+  const match = str.match(/https?:\/\/[^\s"',|\]}]+/i);
+  return match ? match[0] : null;
+};
+
 export const mapServerNotification = (item) => {
   const meta = item.metadata || {};
   return {
@@ -43,9 +57,11 @@ export const mapServerNotification = (item) => {
     inviteCode: meta.inviteCode,
     certName: meta.certName,
     imageUrl: meta.imageUrl,
-    proofUrl: meta.proofUrl,
+    proofUrl: extractCleanProofUrl(meta.proofUrl || item.proofUrl || meta.proofDocumentUrl),
     reason: meta.reason,
     depositAmount: meta.depositAmount,
+    bookingPartner: meta.bookingPartner || item.bookingPartner,
+    agencyId: meta.agencyId || item.agencyId,
     timestamp: item.createdAt ? new Date(item.createdAt).getTime() : Date.now(),
     isRead: Boolean(item.isRead),
   };

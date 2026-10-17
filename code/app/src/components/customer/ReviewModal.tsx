@@ -59,7 +59,7 @@ export const ReviewModal: React.FC<Props> = ({
       if (initialData) {
         setRating(initialData.rating || 5);
         setComment(initialData.comment || '');
-        setImages(initialData.imageUrls ? [...initialData.imageUrls] : []);
+        setImages(initialData.imageUrls ? Array.from(new Set(initialData.imageUrls)) : []);
       } else {
         setRating(5);
         setComment('');
@@ -131,8 +131,10 @@ export const ReviewModal: React.FC<Props> = ({
       if (localUris.length > 0) {
         setUploadStatusText(`Đang tải lên ${localUris.length} ảnh...`);
         const newlyUploaded = await reviewService.uploadReviewImages(localUris);
-        finalUrls = [...finalUrls, ...newlyUploaded];
+        finalUrls = Array.from(new Set([...finalUrls, ...newlyUploaded]));
       }
+
+      finalUrls = Array.from(new Set(finalUrls));
 
       setUploadStatusText('Đang lưu đánh giá...');
 

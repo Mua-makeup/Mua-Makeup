@@ -74,11 +74,9 @@ public class CustomerReviewController extends BaseController {
         List<MultipartFile> targetFiles = new ArrayList<>();
         if (files != null && !files.isEmpty()) {
             targetFiles.addAll(files);
-        }
-        if (singleFiles != null && !singleFiles.isEmpty()) {
+        } else if (singleFiles != null && !singleFiles.isEmpty()) {
             targetFiles.addAll(singleFiles);
-        }
-        if (targetFiles.isEmpty() && request != null) {
+        } else if (request != null) {
             request.getFileMap().values().forEach(targetFiles::add);
         }
 

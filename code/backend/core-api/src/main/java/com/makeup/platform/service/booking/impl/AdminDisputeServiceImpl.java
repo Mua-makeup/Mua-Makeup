@@ -27,6 +27,7 @@ import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.booking.AdminDisputeService;
 import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.interaction.NotificationService;
+import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.mua.MUACalendarService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
 import jakarta.persistence.criteria.Predicate;
@@ -68,6 +69,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     private final SimpMessagingTemplate messagingTemplate;
     private final MUACalendarService muaCalendarService;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -229,7 +231,6 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         BookingStatus targetStatus;
 
         boolean isCompletedService = StringUtils.hasText(booking.getCompletionPhotoUrl())
-                || booking.getActualEndTime() != null
                 || (booking.getTotalAmount() != null && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0
                     && booking.getDepositAmount() != null && booking.getTotalAmount().compareTo(booking.getDepositAmount()) > 0);
 
@@ -418,9 +419,15 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 }
             }
 
-            booking.setCancellationReason("Admin phê duyệt bồi thường cho thợ: " + note);
+            booking.setCancellationReason(isCompletedService
+                    ? "Admin bác bỏ khiếu nại của khách, công nhận giải trình của thợ. Bảo lưu thù lao ca làm việc: " + note
+                    : "Admin phê duyệt bồi thường cọc cho thợ: " + note);
 
         } else if ("SPLIT_SETTLEMENT_50_50".equalsIgnoreCase(resolution) || "SPLIT_50_50".equalsIgnoreCase(resolution)) {
+            if (isCompletedService) {
+                throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                        "dispute.split_not_allowed_for_completed_booking", HttpStatus.BAD_REQUEST);
+            }
             targetStatus = BookingStatus.DISPUTE_REFUNDED;
 
             BigDecimal totalDeposit = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
@@ -587,14 +594,24 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             // Gửi In-App Notification & Push cho Thợ MUA hoặc Nhân viên Studio
             UserEntity workerUser = (savedBooking.getMua() != null && savedBooking.getMua().getUser() != null)
                     ? savedBooking.getMua().getUser()
-                    : (savedBooking.getStaff() != null && savedBooking.getStaff().getMua() != null ? savedBooking.getStaff().getMua().getUser() : null);
+                    : null;
+            if (workerUser == null && savedBooking.getStaffAssignments() != null) {
+                for (var assignment : savedBooking.getStaffAssignments()) {
+                    if (assignment.getStaff() != null && assignment.getStaff().getMua() != null && assignment.getStaff().getMua().getUser() != null) {
+                        workerUser = assignment.getStaff().getMua().getUser();
+                        break;
+                    }
+                }
+            }
             if (workerUser != null) {
                 String workerTitle = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)
                         ? "Kết Quả Phân Xử Khiếu Nại: #" + savedBooking.getBookingCode()
                         : "Giải Trình Khiếu Nại Đã Được Duyệt: #" + savedBooking.getBookingCode();
                 String workerContent = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)
                         ? "Ban Quản Trị đã chấp thuận khiếu nại của khách hàng đơn #" + savedBooking.getBookingCode() + " và bác bỏ giải trình. Toàn bộ tiền đơn đã được hoàn lại cho khách. Ghi chú Admin: " + note
-                        : "Ban Quản Trị đã duyệt lời khai giải trình của bạn cho đơn #" + savedBooking.getBookingCode() + " và từ chối khiếu nại của khách hàng. Thù lao ca làm việc được bảo lưu trọn vẹn. Ghi chú Admin: " + note;
+                        : (isCompletedService
+                                ? "Ban Quản Trị đã duyệt lời khai giải trình của bạn cho đơn #" + savedBooking.getBookingCode() + " và từ chối khiếu nại của khách hàng. Bạn không bị trừ tiền, toàn bộ thù lao ca làm việc được bảo lưu nguyên vẹn. Ghi chú Admin: " + note
+                                : "Ban Quản Trị đã duyệt lời khai giải trình của bạn cho đơn #" + savedBooking.getBookingCode() + " và từ chối khiếu nại của khách hàng. Thù lao bồi thường cọc đã được cộng vào ví của bạn. Ghi chú Admin: " + note);
                 notificationService.createInAppNotification(
                         workerUser.getId(),
                         savedBooking.getAgency() != null ? savedBooking.getAgency().getId() : null,
@@ -619,6 +636,73 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                         ownerContent,
                         payload
                 );
+            }
+
+            // =========================================================================
+            // GỬI EMAIL THÔNG BÁO PHÁN QUYẾT KHIẾU NẠI CHO CÁC BÊN
+            // =========================================================================
+            BigDecimal actualRefund = BigDecimal.ZERO;
+            BigDecimal actualPayout = BigDecimal.ZERO;
+            BigDecimal depAmount = savedBooking.getDepositAmount() != null ? savedBooking.getDepositAmount() : BigDecimal.ZERO;
+            BigDecimal totAmount = savedBooking.getTotalAmount() != null ? savedBooking.getTotalAmount() : depAmount;
+
+            if ("APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)) {
+                actualRefund = isCompletedService ? totAmount : depAmount;
+            } else if ("SPLIT_SETTLEMENT_50_50".equalsIgnoreCase(resolution) || "SPLIT_50_50".equalsIgnoreCase(resolution)) {
+                actualRefund = depAmount.divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
+                actualPayout = depAmount.subtract(actualRefund);
+            } else {
+                actualPayout = isCompletedService ? totAmount : depAmount;
+            }
+
+            // 1. Gửi Email kết quả phân xử tới Khách hàng
+            if (savedBooking.getCustomer() != null && StringUtils.hasText(savedBooking.getCustomer().getEmail())) {
+                try {
+                    emailService.sendCustomerDisputeResolutionEmail(
+                            savedBooking.getCustomer().getEmail(),
+                            savedBooking.getCustomer().getFullName(),
+                            savedBooking.getBookingCode(),
+                            resolution,
+                            note,
+                            actualRefund
+                    );
+                } catch (Exception ex) {
+                    log.error("[EmailService] Failed to send dispute resolution email to customer {}: {}", savedBooking.getCustomer().getEmail(), ex.getMessage());
+                }
+            }
+
+            // 2. Gửi Email kết quả phân xử tới Thợ MUA / Nhân viên Studio
+            if (workerUser != null && StringUtils.hasText(workerUser.getEmail())) {
+                try {
+                    emailService.sendWorkerDisputeResolutionEmail(
+                            workerUser.getEmail(),
+                            workerUser.getFullName(),
+                            savedBooking.getBookingCode(),
+                            resolution,
+                            note,
+                            actualPayout,
+                            isCompletedService
+                    );
+                } catch (Exception ex) {
+                    log.error("[EmailService] Failed to send dispute resolution email to worker {}: {}", workerUser.getEmail(), ex.getMessage());
+                }
+            }
+
+            // 3. Gửi Email kết quả phân xử tới Chủ Studio (nếu là đơn Agency)
+            if (savedBooking.getAgency() != null && savedBooking.getAgency().getOwner() != null && StringUtils.hasText(savedBooking.getAgency().getOwner().getEmail())) {
+                try {
+                    emailService.sendAgencyDisputeResolutionEmail(
+                            savedBooking.getAgency().getOwner().getEmail(),
+                            savedBooking.getAgency().getOwner().getFullName(),
+                            savedBooking.getAgency().getAgencyName(),
+                            workerUser != null ? workerUser.getFullName() : "Nhân viên",
+                            savedBooking.getBookingCode(),
+                            resolution,
+                            note
+                    );
+                } catch (Exception ex) {
+                    log.error("[EmailService] Failed to send dispute resolution email to agency {}: {}", savedBooking.getAgency().getOwner().getEmail(), ex.getMessage());
+                }
             }
         } catch (Exception ex) {
             log.error("[AdminDispute] Failed to broadcast dispute resolution STOMP event: {}", ex.getMessage());

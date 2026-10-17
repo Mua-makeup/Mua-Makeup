@@ -9,6 +9,7 @@ import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.mapper.interaction.NotificationMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
@@ -677,30 +678,84 @@ public class NotificationServiceImpl implements NotificationService {
         metadata.put("depositAmount", booking.getDepositAmount());
         metadata.put("totalAmount", booking.getTotalAmount());
         metadata.put("reportedAt", LocalDateTime.now().toString());
+        metadata.put("bookingPartner", booking.getBookingPartner() != null ? booking.getBookingPartner().name() : null);
+        metadata.put("agencyId", booking.getAgency() != null ? booking.getAgency().getId() : null);
+        metadata.put("agencyName", booking.getAgency() != null ? booking.getAgency().getAgencyName() : null);
 
-        // 1. Gửi thông báo tới Ban Quản Trị Hệ Thống (Super Admins)
-        List<UserEntity> superAdmins = userRepository.findAllByRoleName(SecurityConstants.ROLE_SUPER_ADMIN);
-        if (superAdmins != null && !superAdmins.isEmpty()) {
-            for (UserEntity admin : superAdmins) {
-                String title = "Báo Cáo Khiếu Nại: #" + booking.getBookingCode();
-                String content = "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ". Cần Ban Quản Trị xem xét phân xử.";
+        boolean isFreelancerDirect = booking.getBookingPartner() == BookingPartner.FREELANCER_DIRECT || booking.getAgency() == null;
+        boolean isEscalatedToAdmin = (booking.getCancellationReason() != null && booking.getCancellationReason().contains("[LEO_THANG_ADMIN]"))
+                || (booking.getEmergencyReason() != null && booking.getEmergencyReason().contains("[LEO_THANG_ADMIN]"));
+        boolean shouldNotifyAdmin = isFreelancerDirect || isEscalatedToAdmin;
 
-                NotificationEntity entity = NotificationEntity.builder()
-                        .user(admin)
-                        .booking(booking)
-                        .type("BOOKING_DISPUTE")
-                        .title(title)
-                        .content(content)
-                        .metadata(metadata)
-                        .isRead(false)
-                        .build();
+        // 1. Gửi thông báo & Email tới Ban Quản Trị Hệ Thống (Super Admins) CHỈ KHI là đơn Thợ Tự Do hoặc đã leo thang lên Admin
+        if (shouldNotifyAdmin) {
+            List<UserEntity> superAdmins = userRepository.findAllByRoleName(SecurityConstants.ROLE_SUPER_ADMIN);
+            if (superAdmins != null && !superAdmins.isEmpty()) {
+                for (UserEntity admin : superAdmins) {
+                    String title = "Báo Cáo Khiếu Nại: #" + booking.getBookingCode();
+                    String content = "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ". Cần Ban Quản Trị xem xét phân xử.";
 
-                notificationRepository.save(entity);
+                    NotificationEntity entity = NotificationEntity.builder()
+                            .user(admin)
+                            .booking(booking)
+                            .type("BOOKING_DISPUTE")
+                            .title(title)
+                            .content(content)
+                            .metadata(metadata)
+                            .isRead(false)
+                            .build();
+
+                    notificationRepository.save(entity);
+
+                    // Gửi Email cảnh báo khiếu nại tới Admin
+                    if (StringUtils.hasText(admin.getEmail())) {
+                        try {
+                            emailService.sendAdminDisputeAlertEmail(
+                                    admin.getEmail(),
+                                    admin.getFullName(),
+                                    booking.getBookingCode(),
+                                    customerName,
+                                    customerPhone,
+                                    muaName,
+                                    muaPhone,
+                                    reason,
+                                    booking.getEmergencyProofUrl(),
+                                    booking.getDepositAmount(),
+                                    booking.getTotalAmount()
+                            );
+                        } catch (Exception ex) {
+                            log.error("[EmailService] Failed to send dispute alert email to admin {}: {}", admin.getEmail(), ex.getMessage());
+                        }
+                    }
+                }
             }
         }
 
-        // 2. Gửi thông báo tới Thợ Freelance MUA (nếu có) kèm quyền giải trình
-        if (booking.getMua() != null && booking.getMua().getUser() != null) {
+        // 2. Gửi Email xác nhận tiếp nhận khiếu nại tới Khách hàng
+        if (booking.getCustomer() != null && StringUtils.hasText(booking.getCustomer().getEmail())) {
+            try {
+                String packageName = (booking.getServicePackage() != null && StringUtils.hasText(booking.getServicePackage().getPackageName()))
+                        ? booking.getServicePackage().getPackageName()
+                        : "Gói dịch vụ make-up";
+
+                emailService.sendCustomerDisputeReceivedEmail(
+                        booking.getCustomer().getEmail(),
+                        customerName,
+                        booking.getBookingCode(),
+                        muaName,
+                        packageName,
+                        reason,
+                        booking.getDepositAmount()
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send dispute received email to customer {}: {}", booking.getCustomer().getEmail(), ex.getMessage());
+            }
+        }
+
+        boolean muaHasSubmitted = reason != null && (reason.contains("[Chuyên viên MUA]") || reason.contains("[Thợ MUA]"));
+
+        // 3. Gửi thông báo & Email tới Thợ Freelance MUA (nếu có) kèm quyền giải trình (chỉ khi thợ chưa giải trình)
+        if (!muaHasSubmitted && booking.getMua() != null && booking.getMua().getUser() != null) {
             UserEntity muaUser = booking.getMua().getUser();
             String muaNoticeTitle = "Khách Hàng Khiếu Nại Ca Làm Việc #" + booking.getBookingCode();
             String muaNoticeContent = "Khách hàng đã gửi khiếu nại ca #" + booking.getBookingCode() + " (Lý do: " + reason + "). Bạn có quyền gửi lời khai giải trình và ảnh minh chứng tại chi tiết ca làm việc.";
@@ -713,15 +768,42 @@ public class NotificationServiceImpl implements NotificationService {
                     muaNoticeContent,
                     metadata
             );
+
+            // Gửi Email yêu cầu thợ gửi giải trình đối chất
+            if (StringUtils.hasText(muaUser.getEmail())) {
+                try {
+                    emailService.sendWorkerDisputeNoticeEmail(
+                            muaUser.getEmail(),
+                            muaUser.getFullName(),
+                            booking.getBookingCode(),
+                            customerName,
+                            reason,
+                            24
+                    );
+                } catch (Exception ex) {
+                    log.error("[EmailService] Failed to send dispute notice email to worker {}: {}", muaUser.getEmail(), ex.getMessage());
+                }
+            }
         }
 
-        // 3. Nếu là đơn của Studio / Agency: Gửi thông báo tới Nhân viên Agency VÀ Chủ Studio (Agency Admin)
+        // 4. Nếu là đơn của Studio / Agency: Gửi thông báo tới Nhân viên Agency VÀ Chủ Studio (Agency Admin)
         if (booking.getAgency() != null) {
             AgencyProfileEntity agency = booking.getAgency();
 
-            // 3a. Gửi cho nhân viên làm ca (Staff) nếu có
-            if (booking.getStaff() != null && booking.getStaff().getMua() != null && booking.getStaff().getMua().getUser() != null) {
-                UserEntity staffUser = booking.getStaff().getMua().getUser();
+            // 4a. Gửi cho nhân viên làm ca (Staff) nếu có (chỉ khi thợ chưa giải trình)
+            UserEntity staffUser = (booking.getMua() != null && booking.getMua().getUser() != null)
+                    ? booking.getMua().getUser()
+                    : null;
+            if (staffUser == null && booking.getStaffAssignments() != null) {
+                for (var assignment : booking.getStaffAssignments()) {
+                    if (assignment.getStaff() != null && assignment.getStaff().getMua() != null && assignment.getStaff().getMua().getUser() != null) {
+                        staffUser = assignment.getStaff().getMua().getUser();
+                        break;
+                    }
+                }
+            }
+
+            if (!muaHasSubmitted && staffUser != null) {
                 String staffNoticeTitle = "Khách Hàng Khiếu Nại Ca Làm Việc #" + booking.getBookingCode();
                 String staffNoticeContent = "Khách hàng đã gửi khiếu nại ca #" + booking.getBookingCode() + " (Lý do: " + reason + "). Bạn có quyền gửi lời khai giải trình và ảnh minh chứng tại chi tiết ca làm việc.";
                 createInAppNotification(
@@ -733,13 +815,29 @@ public class NotificationServiceImpl implements NotificationService {
                         staffNoticeContent,
                         metadata
                 );
+
+                // Gửi Email yêu cầu nhân viên giải trình
+                if (StringUtils.hasText(staffUser.getEmail())) {
+                    try {
+                        emailService.sendWorkerDisputeNoticeEmail(
+                                staffUser.getEmail(),
+                                staffUser.getFullName(),
+                                booking.getBookingCode(),
+                                customerName,
+                                reason,
+                                24
+                        );
+                    } catch (Exception ex) {
+                        log.error("[EmailService] Failed to send dispute notice email to staff {}: {}", staffUser.getEmail(), ex.getMessage());
+                    }
+                }
             }
 
-            // 3b. Gửi cho Chủ Studio (Agency Owner / Admin)
+            // 4b. Gửi cho Chủ Studio (Agency Owner / Admin)
             if (agency.getOwner() != null) {
                 UserEntity agencyOwner = agency.getOwner();
-                String staffDisplayName = (booking.getStaff() != null && booking.getStaff().getMua() != null && booking.getStaff().getMua().getUser() != null)
-                        ? booking.getStaff().getMua().getUser().getFullName()
+                String staffDisplayName = (staffUser != null && staffUser.getFullName() != null)
+                        ? staffUser.getFullName()
                         : "Nhân viên";
                 String agencyNoticeTitle = "Khiếu Nại Đơn Của Nhân Viên: #" + booking.getBookingCode();
                 String agencyNoticeContent = "Khách hàng đã gửi khiếu nại ca làm việc của nhân viên " + staffDisplayName + " (Đơn #" + booking.getBookingCode() + "). Vui lòng theo dõi giải trình của nhân viên và phán quyết từ Ban Quản Trị.";
@@ -752,10 +850,28 @@ public class NotificationServiceImpl implements NotificationService {
                         agencyNoticeContent,
                         metadata
                 );
+
+                // Gửi Email cảnh báo tới Chủ Studio
+                if (StringUtils.hasText(agencyOwner.getEmail())) {
+                    try {
+                        emailService.sendAgencyDisputeNoticeEmail(
+                                agencyOwner.getEmail(),
+                                agencyOwner.getFullName(),
+                                agency.getAgencyName(),
+                                staffDisplayName,
+                                staffUser != null ? staffUser.getPhoneNumber() : "",
+                                booking.getBookingCode(),
+                                customerName,
+                                reason
+                        );
+                    } catch (Exception ex) {
+                        log.error("[EmailService] Failed to send dispute notice email to agency owner {}: {}", agencyOwner.getEmail(), ex.getMessage());
+                    }
+                }
             }
         }
 
-        // 4. Broadcast realtime qua STOMP WebSocket tới Ban Quản Trị & Topic trạng thái đơn
+        // 5. Broadcast realtime qua STOMP WebSocket tới Ban Quản Trị & Topic trạng thái đơn
         try {
             Map<String, Object> payload = new HashMap<>(metadata);
             payload.put("type", "BOOKING_DISPUTE");
@@ -764,14 +880,16 @@ public class NotificationServiceImpl implements NotificationService {
             payload.put("content", "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ".");
             payload.put("timestamp", System.currentTimeMillis());
 
-            messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
-            messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
+            if (shouldNotifyAdmin) {
+                messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
+                messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
+            }
             messagingTemplate.convertAndSend("/topic/booking-status/" + booking.getId(), payload);
 
             if (booking.getAgency() != null) {
                 messagingTemplate.convertAndSend("/topic/agency-notifications/" + booking.getAgency().getId(), payload);
             }
-            log.info("[WebSocket] Sent dispute notification to Admin, MUA/Staff, and Agency for bookingId={}", booking.getId());
+            log.info("[WebSocket] Sent dispute notification (shouldNotifyAdmin={}) for bookingId={}", shouldNotifyAdmin, booking.getId());
         } catch (Exception e) {
             log.error("[WebSocket] Failed to broadcast dispute notification: {}", e.getMessage());
         }

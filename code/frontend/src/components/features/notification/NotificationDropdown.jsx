@@ -48,6 +48,15 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   }, [fetchNotifications]);
 
   const displayNotifications = notifications.filter((n) => {
+    if (role === USER_ROLES.SUPER_ADMIN && n.type === 'BOOKING_DISPUTE') {
+      const isAgencyDispute = n.bookingPartner === 'AGENCY_DISPATCH' || Boolean(n.agencyId);
+      const isEscalated =
+        (n.reason && n.reason.includes('[LEO_THANG_ADMIN]')) ||
+        (n.content && n.content.includes('[LEO_THANG_ADMIN]'));
+      if (isAgencyDispute && !isEscalated) {
+        return false;
+      }
+    }
     if (role === USER_ROLES.AGENCY_ADMIN) {
       return n.type !== 'STAFF_LEAVE_APPROVED' && n.type !== 'STAFF_LEAVE_REJECTED';
     }

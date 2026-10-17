@@ -56,6 +56,35 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
   return R * c;
 }
 
+function parseDisputeProofImages(raw?: string | null): string[] {
+  if (!raw) return [];
+  const list: string[] = [];
+  const parts = raw.split('|').map((s) => s.trim()).filter(Boolean);
+  parts.forEach((p) => {
+    let clean = p.replace(/^\[.*?\]:?\s*/, '').trim();
+    if (clean.startsWith('[') && clean.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(clean);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((u) => {
+            if (typeof u === 'string' && u.startsWith('http') && !list.includes(u)) list.push(u);
+          });
+          return;
+        }
+      } catch {}
+    }
+    const urlMatches = clean.match(/https?:\/\/[^\s"',|\]]+/g);
+    if (urlMatches) {
+      urlMatches.forEach((u) => {
+        if (!list.includes(u)) list.push(u);
+      });
+    } else if (clean.startsWith('http') && !list.includes(clean)) {
+      list.push(clean);
+    }
+  });
+  return list;
+}
+
 interface ExtendedBookingItem {
   id: number;
   bookingCode: string;
@@ -227,6 +256,7 @@ export default function JobExecutionScreen() {
   const isPrimaryRole = myAssignment?.role === 'PRIMARY_MUA' || (!isAssistantRole && (!myAssignment || booking?.muaId === (userInfo?.muaId || profile?.muaId)));
   const isAgencyBooking =
     booking?.bookingPartner === 'AGENCY' ||
+    booking?.bookingPartner === 'AGENCY_DISPATCH' ||
     Boolean(booking?.agencyId || (booking as any)?.agency || (booking?.assignedStaff && booking.assignedStaff.length > 0) || myAssignment);
 
   const isMyAssignmentBusy =
@@ -753,7 +783,14 @@ export default function JobExecutionScreen() {
             earningsAmount: Number(detail.earningsAmount || 0),
           });
         }
-        if (detail.status === 'PAID_OUT' || detail.status === 'CANCELLED' || detail.status === 'CANCELLED_EXPIRED') {
+        if (
+          detail.status === 'PAID_OUT' ||
+          detail.status === 'CANCELLED' ||
+          detail.status === 'CANCELLED_EXPIRED' ||
+          detail.status === 'DISPUTED' ||
+          detail.status === 'DISPUTE_REFUNDED' ||
+          detail.status === 'DISPUTE_COMPENSATED'
+        ) {
           router.replace(`/booking/history-detail/${bookingId}` as any);
           return;
         }
@@ -1164,7 +1201,7 @@ export default function JobExecutionScreen() {
 
       // Chờ modal đóng hoàn toàn trên iOS trước khi hiển thị Alert quyết toán thành công
       setTimeout(() => {
-        const isAgency = booking?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
+        const isAgency = booking?.bookingPartner === 'AGENCY' || booking?.bookingPartner === 'AGENCY_DISPATCH' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
         Alert.alert(
           'Quyết Toán Thành Công! 🎉',
           isAgency
@@ -1282,6 +1319,18 @@ export default function JobExecutionScreen() {
   }
 
   const isDisputeMode = currentStatus === 'ARRIVED' || currentStatus === 'IN_PROGRESS';
+  const isPostCompletion = Boolean(
+    booking?.completionPhotoUrl ||
+    booking?.completedAt ||
+    (booking?.cancellationReason && (
+      booking.cancellationReason.toLowerCase().includes('sau ca') ||
+      booking.cancellationReason.toLowerCase().includes('tổng tiền đơn') ||
+      booking.cancellationReason.toLowerCase().includes('chất lượng') ||
+      booking.cancellationReason.toLowerCase().includes('thù lao ca làm') ||
+      booking.cancellationReason.toLowerCase().includes('bảo lưu thù lao') ||
+      booking.cancellationReason.toLowerCase().includes('công nhận giải trình')
+    ))
+  );
   const canCancelOrDispute =
     currentStatus !== 'REQUESTED' &&
     currentStatus !== 'COMPLETED' &&
@@ -1333,7 +1382,9 @@ export default function JobExecutionScreen() {
         >
           <Ionicons name="scale-outline" size={20} color="#FFFFFF" />
           <Text style={styles.stickyCancelNoticeText} numberOfLines={1}>
-            Đơn đang khiếu nại (Cọc {formatVnd(booking?.depositAmount || 0)} bảo chứng)
+            {isPostCompletion
+              ? 'Đơn đang khiếu nại (Chờ phân xử chất lượng)'
+              : `Đơn đang khiếu nại (Cọc ${formatVnd(booking?.depositAmount || 0)} bảo chứng)`}
           </Text>
           <View style={[styles.stickyCancelNoticeBtn, { backgroundColor: '#FFFFFF' }]}>
             <Text style={[styles.stickyCancelNoticeBtnText, { color: '#EA580C' }]}>Xem Chi Tiết</Text>
@@ -1824,7 +1875,7 @@ export default function JobExecutionScreen() {
                   </View>
                   <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
-                      {booking?.bookingPartner === 'AGENCY' ? 'Đơn Studio' : 'Phân Công'}
+                      {booking?.bookingPartner === 'AGENCY' || booking?.bookingPartner === 'AGENCY_DISPATCH' ? 'Đơn Studio' : 'Phân Công'}
                     </Text>
                   </View>
                 </View>
@@ -2547,7 +2598,9 @@ export default function JobExecutionScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.muaDisputeTitle}>CA ĐANG CHỜ ADMIN PHÂN XỬ</Text>
                       <Text style={styles.muaDisputeSubtitle}>
-                        Ban Quản Trị đang đối soát minh chứng tại hiện trường để giải ngân 100% tiền cọc cho bạn.
+                        {isPostCompletion
+                          ? 'Ban Quản Trị đang đối soát minh chứng để giải quyết khiếu nại chất lượng ca làm.'
+                          : 'Ban Quản Trị đang đối soát minh chứng tại hiện trường để giải ngân 100% tiền cọc cho bạn.'}
                       </Text>
                     </View>
                   </View>
@@ -2561,16 +2614,41 @@ export default function JobExecutionScreen() {
                     </View>
                   )}
 
-                  {(booking?.emergencyProofUrl || disputeProofUrl) ? (
-                    <View style={styles.muaDisputeProofBox}>
-                      <Text style={styles.muaDisputeProofLabel}>Ảnh minh chứng hiện trường đã gửi:</Text>
-                      <Image
-                        source={{ uri: booking?.emergencyProofUrl || disputeProofUrl }}
-                        style={styles.muaDisputeProofImage}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  ) : null}
+                  {(() => {
+                    const disputeImages = parseDisputeProofImages(booking?.emergencyProofUrl || disputeProofUrl);
+                    if (disputeImages.length === 0) return null;
+                    return (
+                      <View style={styles.muaDisputeProofBox}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <Text style={styles.muaDisputeProofLabel}>Ảnh minh chứng hiện trường ({disputeImages.length}):</Text>
+                          <TouchableOpacity onPress={() => setIsDisputeDossierOpen(true)}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563EB' }}>Xem chi tiết</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {disputeImages.length === 1 ? (
+                          <TouchableOpacity activeOpacity={0.9} onPress={() => setIsDisputeDossierOpen(true)}>
+                            <Image
+                              source={{ uri: disputeImages[0] }}
+                              style={styles.muaDisputeProofImage}
+                              resizeMode="cover"
+                            />
+                          </TouchableOpacity>
+                        ) : (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                            {disputeImages.map((imgUri, idx) => (
+                              <TouchableOpacity key={idx} activeOpacity={0.85} onPress={() => setIsDisputeDossierOpen(true)}>
+                                <Image
+                                  source={{ uri: imgUri }}
+                                  style={{ width: 220, height: 160, borderRadius: 10, backgroundColor: '#E2E8F0' }}
+                                  resizeMode="cover"
+                                />
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        )}
+                      </View>
+                    );
+                  })()}
 
                   <TouchableOpacity
                     style={styles.viewDisputeDossierBtn}
@@ -2607,9 +2685,15 @@ export default function JobExecutionScreen() {
                       <Ionicons name="shield-checkmark" size={24} color="#059669" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.muaDisputeTitle, { color: '#065F46' }]}>KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ BỒI THƯỜNG CỌC</Text>
+                      <Text style={[styles.muaDisputeTitle, { color: '#065F46' }]}>
+                        {isPostCompletion
+                          ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • BÁC KHIẾU NẠI CỦA KHÁCH'
+                          : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ BỒI THƯỜNG CỌC'}
+                      </Text>
                       <Text style={[styles.muaDisputeSubtitle, { color: '#047857' }]}>
-                        Admin đã thẩm định minh chứng và bồi thường 100% tiền cọc ({formatVnd(booking?.depositAmount || 0)}) vào ví chuyên viên của bạn.
+                        {isPostCompletion
+                          ? `Admin đã công nhận giải trình của bạn và bác bỏ khiếu nại của khách. Toàn bộ thù lao ca làm việc (${formatVnd(booking?.totalAmount || 0)}) được bảo lưu nguyên vẹn, bạn không bị trừ tiền.`
+                          : `Admin đã thẩm định minh chứng và bồi thường 100% tiền cọc (${formatVnd(booking?.depositAmount || 0)}) vào ví chuyên viên của bạn.`}
                       </Text>
                     </View>
                   </View>
@@ -2660,9 +2744,15 @@ export default function JobExecutionScreen() {
                       <Ionicons name="alert-circle" size={24} color="#D97706" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.muaDisputeTitle, { color: '#92400E' }]}>KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH</Text>
+                      <Text style={[styles.muaDisputeTitle, { color: '#92400E' }]}>
+                        {isPostCompletion
+                          ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • CHẤP NHẬN KHIẾU NẠI CỦA KHÁCH'
+                          : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH'}
+                      </Text>
                       <Text style={[styles.muaDisputeSubtitle, { color: '#B45309' }]}>
-                        Ban Quản Trị đã hoàn 100% tiền cọc cho khách hàng do sự cố khiếu nại. Ca hẹn đã khép lại và không phát sinh thu nhập thợ.
+                        {isPostCompletion
+                          ? `Ban Quản Trị đã xem xét và chấp thuận khiếu nại của khách hàng, tiến hành hoàn 100% tiền đơn (${formatVnd(booking?.totalAmount || booking?.depositAmount || 0)}) cho khách. Ca làm không phát sinh thu nhập thợ.`
+                          : 'Ban Quản Trị đã hoàn 100% tiền cọc cho khách hàng do sự cố khiếu nại. Ca hẹn đã khép lại và không phát sinh thu nhập thợ.'}
                       </Text>
                     </View>
                   </View>
@@ -3378,7 +3468,7 @@ export default function JobExecutionScreen() {
           setDisputeProofUrl('');
           setIsCancelModalVisible(true);
         }}
-        onDisputeSuccess={() => fetchBookingDetail()}
+        onDisputeSuccess={() => loadBookingDetail(true)}
       />
 
     </SafeAreaView>

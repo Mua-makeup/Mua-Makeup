@@ -32,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -163,6 +164,12 @@ public class ReviewServiceImpl implements ReviewService {
         if (review.getCustomer() == null || !review.getCustomer().getId().equals(customerUserId)) {
             throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                     "review.unauthorized", HttpStatus.FORBIDDEN);
+        }
+
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+        if (review.getCreatedAt() != null && review.getCreatedAt().isBefore(sevenDaysAgo)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                    "review.edit_expired", HttpStatus.BAD_REQUEST);
         }
 
         review.setRating(req.getRating());

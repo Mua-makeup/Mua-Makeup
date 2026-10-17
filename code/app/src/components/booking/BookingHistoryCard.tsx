@@ -38,6 +38,19 @@ export const BookingHistoryCard: React.FC<Props> = ({
       booking.cancellationReason.toLowerCase().includes('hoàn tất thanh toán trước')
     )) || booking.isDepositRefunded === true);
 
+  const isPostCompletion = Boolean(
+    booking.completionPhotoUrl ||
+    booking.completedAt ||
+    (booking.cancellationReason && (
+      booking.cancellationReason.toLowerCase().includes('sau ca') ||
+      booking.cancellationReason.toLowerCase().includes('tổng tiền đơn') ||
+      booking.cancellationReason.toLowerCase().includes('chất lượng') ||
+      booking.cancellationReason.toLowerCase().includes('thù lao ca làm') ||
+      booking.cancellationReason.toLowerCase().includes('bảo lưu thù lao') ||
+      booking.cancellationReason.toLowerCase().includes('công nhận giải trình')
+    ))
+  );
+
   const getStatusBadge = (status: BookingStatusType) => {
     if (isSlotTakenCancelled) {
       return { label: 'Trùng Lịch • Đã Hoàn Cọc', color: '#059669', bg: '#D1FAE5' };
@@ -68,9 +81,9 @@ export const BookingHistoryCard: React.FC<Props> = ({
       case 'DISPUTED':
         return { label: 'Đang Khiếu Nại', color: '#EA580C', bg: '#FFEDD5' };
       case 'DISPUTE_REFUNDED':
-        return { label: 'Đã Hoàn Cọc', color: '#059669', bg: '#f0fff0ff' };
+        return { label: isPostCompletion ? 'Đã Hoàn Tiền' : 'Đã Hoàn Cọc', color: '#059669', bg: '#f0fff0ff' };
       case 'DISPUTE_COMPENSATED':
-        return { label: 'Bồi Thường Thợ', color: '#B45309', bg: '#FEF3C7' };
+        return { label: isPostCompletion ? 'Bảo Lưu Thù Lao' : 'Bồi Thường Thợ', color: '#B45309', bg: '#FEF3C7' };
       default:
         return { label: status, color: '#64748B', bg: '#F1F5F9' };
     }
@@ -226,9 +239,9 @@ export const BookingHistoryCard: React.FC<Props> = ({
                 : isSlotTakenCancelled
                 ? 'Đã hoàn về ví:'
                 : (booking.status === 'DISPUTE_REFUNDED'
-                    ? 'Đã hoàn cọc:'
+                    ? (isPostCompletion ? 'Hoàn tiền đơn:' : 'Đã hoàn cọc:')
                     : (booking.status === 'DISPUTE_COMPENSATED'
-                        ? 'Bồi thường cọc:'
+                        ? (isPostCompletion ? 'Bảo lưu thù lao:' : 'Bồi thường cọc:')
                         : (booking.isDepositPaid ? 'Đã cọc Escrow:' : 'Tiền cọc (30%):')))}
             </Text>
             <Text
@@ -239,7 +252,13 @@ export const BookingHistoryCard: React.FC<Props> = ({
                 booking.status === 'DISPUTE_COMPENSATED' && { color: '#B45309' },
               ]}
             >
-              {booking.status === 'CANCELLED_EXPIRED' ? '0 đ' : formatPrice(booking.depositAmount || 0)}
+              {booking.status === 'CANCELLED_EXPIRED'
+                ? '0 đ'
+                : formatPrice(
+                    (isPostCompletion && booking.status === 'DISPUTE_REFUNDED')
+                      ? (booking.totalAmount || booking.depositAmount || 0)
+                      : (booking.depositAmount || 0)
+                  )}
             </Text>
           </View>
           <View style={styles.totalBox}>

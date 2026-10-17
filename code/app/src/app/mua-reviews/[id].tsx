@@ -45,7 +45,8 @@ export default function MuaReviewsScreen() {
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
 
   // Image Lightbox Viewer Modal
-  const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Expanded Comment Map (for 'Xem thêm / Thu gọn')
   const [expandedCommentIds, setExpandedCommentIds] = useState<Record<number, boolean>>({});
@@ -551,21 +552,46 @@ export default function MuaReviewsScreen() {
                 <Text style={styles.commentEmpty}>Khách hàng không để lại nhận xét bằng chữ.</Text>
               )}
 
-              {/* Attached Review Photos (Chuẩn Shopee - 2 ảnh to trên 1 hàng như Ảnh 4) */}
-              {item.imageUrls && item.imageUrls.length > 0 ? (
-                <View style={styles.reviewPhotosGrid}>
-                  {item.imageUrls.map((url, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={styles.reviewPhotoLargeCard}
-                      onPress={() => setLightboxImageUrl(url)}
-                      activeOpacity={0.85}
-                    >
-                      <Image source={{ uri: url }} style={styles.reviewPhotoImage} resizeMode="cover" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : null}
+              {/* Attached Review Photos (Bố cục 1 hàng gồm 2 ảnh, có +N ở ảnh thứ 2 nếu nhiều hơn) */}
+              {(() => {
+                const uniqueImages = Array.from(new Set(item.imageUrls || []));
+                if (uniqueImages.length === 0) return null;
+
+                const hasMore = uniqueImages.length > 2;
+                const displayImages = uniqueImages.slice(0, 2);
+                const extraCount = uniqueImages.length - 2;
+
+                return (
+                  <View style={styles.reviewPhotosRow}>
+                    {displayImages.map((url, idx) => {
+                      const isSecondWithMore = idx === 1 && hasMore;
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[
+                            styles.reviewPhotoCard,
+                            displayImages.length === 1 && { width: '50%', flex: 0 },
+                          ]}
+                          onPress={() => {
+                            setLightboxImages(uniqueImages);
+                            setLightboxIndex(idx);
+                          }}
+                          activeOpacity={0.88}
+                        >
+                          <Image source={{ uri: url }} style={styles.reviewPhotoImage} contentFit="cover" />
+
+                          {/* Lớp phủ +N nếu có nhiều hơn 2 ảnh */}
+                          {isSecondWithMore && (
+                            <View style={styles.reviewPhotoMoreOverlay}>
+                              <Text style={styles.reviewPhotoMoreText}>+{extraCount}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })()}
             </View>
           );
         }}
@@ -719,27 +745,65 @@ export default function MuaReviewsScreen() {
 
       {/* 6. FULLSCREEN IMAGE LIGHTBOX MODAL */}
       <Modal
-        visible={!!lightboxImageUrl}
+        visible={lightboxImages.length > 0}
         transparent
         animationType="fade"
-        onRequestClose={() => setLightboxImageUrl(null)}
+        onRequestClose={() => setLightboxImages([])}
       >
         <View style={styles.lightboxOverlay}>
-          <TouchableOpacity
-            style={styles.lightboxCloseBtn}
-            onPress={() => setLightboxImageUrl(null)}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Ionicons name="close-circle" size={32} color="#FFFFFF" />
-          </TouchableOpacity>
+          {/* Header với nút đóng và số trang */}
+          <SafeAreaView style={styles.lightboxHeader}>
+            <TouchableOpacity
+              style={styles.lightboxCloseBtn}
+              onPress={() => setLightboxImages([])}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
 
-          {lightboxImageUrl && (
-            <Image
-              source={{ uri: lightboxImageUrl }}
-              style={styles.lightboxImage}
-              resizeMode="contain"
-            />
-          )}
+            {lightboxImages.length > 1 && (
+              <View style={styles.lightboxCounterBadge}>
+                <Text style={styles.lightboxCounterText}>
+                  Ảnh {lightboxIndex + 1} / {lightboxImages.length}
+                </Text>
+              </View>
+            )}
+
+            <View style={{ width: 40 }} />
+          </SafeAreaView>
+
+          {/* Vùng xem ảnh kèm 2 mũi tên điều hướng < > */}
+          <View style={styles.lightboxViewerArea}>
+            {lightboxImages[lightboxIndex] && (
+              <Image
+                source={{ uri: lightboxImages[lightboxIndex] }}
+                style={styles.lightboxImage}
+                contentFit="contain"
+              />
+            )}
+
+            {/* Mũi tên lùi < */}
+            {lightboxIndex > 0 && (
+              <TouchableOpacity
+                style={[styles.lightboxNavBtn, styles.lightboxNavPrev]}
+                onPress={() => setLightboxIndex((i) => i - 1)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+
+            {/* Mũi tên tiến > */}
+            {lightboxIndex < lightboxImages.length - 1 && (
+              <TouchableOpacity
+                style={[styles.lightboxNavBtn, styles.lightboxNavNext]}
+                onPress={() => setLightboxIndex((i) => i + 1)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="chevron-forward" size={26} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1049,22 +1113,38 @@ const styles = StyleSheet.create({
     color: BrandColors.slatePlaceholder,
     marginTop: 6,
   },
-  reviewPhotosGrid: {
+  reviewPhotosRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
     marginTop: 10,
+    width: '100%',
   },
-  reviewPhotoLargeCard: {
-    width: REVIEW_PHOTO_SIZE,
-    height: REVIEW_PHOTO_SIZE,
-    borderRadius: 8,
+  reviewPhotoCard: {
+    flex: 1,
+    height: 140,
+    borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    position: 'relative',
   },
   reviewPhotoImage: {
     width: '100%',
     height: '100%',
+  },
+  reviewPhotoMoreOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.52)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  reviewPhotoMoreText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 
   // 8. Dropdown BottomSheet Modal
@@ -1123,19 +1203,63 @@ const styles = StyleSheet.create({
   // 9. Lightbox Overlay
   lightboxOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: '#000000',
+    justifyContent: 'space-between',
+  },
+  lightboxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    zIndex: 10,
+  },
+  lightboxCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  lightboxCloseBtn: {
+  lightboxCounterBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  lightboxCounterText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  lightboxViewerArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  lightboxNavBtn: {
     position: 'absolute',
-    top: 50,
-    right: 20,
-    zIndex: 10,
+    top: '50%',
+    marginTop: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  lightboxNavPrev: {
+    left: 12,
+  },
+  lightboxNavNext: {
+    right: 12,
   },
   lightboxImage: {
-    width: SCREEN_WIDTH - 20,
-    height: '75%',
+    width: '100%',
+    height: '100%',
   },
 
   // Helpers

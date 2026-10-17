@@ -13,16 +13,17 @@ import com.makeup.platform.dto.request.mua.UpdatePortfolioVisibilityReq;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.dto.response.mua.PortfolioDetailRes;
 import com.makeup.platform.dto.response.mua.PortfolioSummaryRes;
+import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.PortfolioShowcaseEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.mapper.catalog.PortfolioMapper;
+import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.PortfolioShowcaseRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
-import com.makeup.platform.repository.catalog.projection.PortfolioSummaryProjection;
 import com.makeup.platform.service.catalog.PortfolioService;
 import com.makeup.platform.service.media.MediaStorageService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class PortfolioServiceImpl implements PortfolioService {
 
     private final PortfolioShowcaseRepository portfolioRepository;
     private final MuaProfileRepository muaProfileRepository;
+    private final AgencyProfileRepository agencyProfileRepository;
     private final MakeupStyleRepository makeupStyleRepository;
     private final ServicePackageRepository servicePackageRepository;
     private final MediaStorageService mediaStorageService;
@@ -153,8 +155,37 @@ public class PortfolioServiceImpl implements PortfolioService {
             showcase.setServicePackage(null);
         }
 
+        // 1. Cập nhật ảnh chính nếu có tải lên file mới
+        if (req.getImageFile() != null && !req.getImageFile().isEmpty()) {
+            FileValidationUtils.validateImageFile(req.getImageFile(), MediaConstants.MAX_MAIN_IMAGE_SIZE);
+            CloudMediaUploadResult mainResult = mediaStorageService.uploadImage(req.getImageFile(), "portfolios/" + mua.getId());
+            showcase.setImageUrl(mainResult.getImageUrl());
+            showcase.setThumbnailUrl(mainResult.getThumbnailUrl());
+        }
+
+        // 2. Cập nhật danh sách ảnh phụ (giữ lại ảnh cũ được chọn + upload ảnh mới)
+        List<String> currentAdditional = req.getExistingAdditionalImages() != null
+                ? new ArrayList<>(req.getExistingAdditionalImages())
+                : (showcase.getAdditionalImages() != null ? new ArrayList<>(showcase.getAdditionalImages()) : new ArrayList<>());
+
+        if (req.getAdditionalFiles() != null && !req.getAdditionalFiles().isEmpty()) {
+            if (currentAdditional.size() + req.getAdditionalFiles().size() > MediaConstants.MAX_ADDITIONAL_IMAGES_COUNT) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_TOO_MANY_ADDITIONAL_IMAGES,
+                        "mua.portfolio_files_limit",
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+            for (MultipartFile file : req.getAdditionalFiles()) {
+                FileValidationUtils.validateImageFile(file, MediaConstants.MAX_ADDITIONAL_IMAGE_SIZE);
+                CloudMediaUploadResult subResult = mediaStorageService.uploadImage(file, "portfolios/" + mua.getId() + "/additional");
+                currentAdditional.add(subResult.getImageUrl());
+            }
+        }
+        showcase.setAdditionalImages(currentAdditional);
+
         showcase.setTitle(req.getTitle().trim());
-        showcase.setDescription(req.getDescription());
+        showcase.setDescription(req.getDescription() != null ? req.getDescription().trim() : null);
 
         PortfolioShowcaseEntity updated = portfolioRepository.save(showcase);
         return portfolioMapper.toDetailRes(updated);
@@ -231,19 +262,21 @@ public class PortfolioServiceImpl implements PortfolioService {
     @Transactional(readOnly = true)
     @Cacheable(value = "mua_portfolios", key = "#muaId + '_' + #styleId + '_' + #packageId + '_' + #isFeatured + '_' + #pageable.pageNumber + '_' + #pageable.pageSize")
     public PageResponse<PortfolioSummaryRes> getPublicGallery(Long muaId, Integer styleId, Long packageId, Boolean isFeatured, Pageable pageable) {
-        Page<PortfolioSummaryProjection> projectedPage = portfolioRepository.findPublicGalleryProjected(
+        Page<PortfolioShowcaseEntity> page = portfolioRepository.findPublicGallery(
                 muaId, styleId, packageId, isFeatured, pageable
         );
 
-        List<PortfolioSummaryRes> dtoList = portfolioMapper.toSummaryResListFromProjections(projectedPage.getContent());
+        List<PortfolioSummaryRes> dtoList = page.getContent().stream()
+                .map(portfolioMapper::toSummaryRes)
+                .toList();
 
         return PageResponse.<PortfolioSummaryRes>builder()
                 .content(dtoList)
-                .page(projectedPage.getNumber())
-                .size(projectedPage.getSize())
-                .totalElements(projectedPage.getTotalElements())
-                .totalPages(projectedPage.getTotalPages())
-                .last(projectedPage.isLast())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
                 .build();
     }
 
@@ -288,7 +321,283 @@ public class PortfolioServiceImpl implements PortfolioService {
                         portfolioId
                 ));
 
-        if (!showcase.getMua().getId().equals(muaId)) {
+        if (showcase.getMua() == null || !showcase.getMua().getId().equals(muaId)) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_PORTFOLIO_ACCESS_DENIED,
+                    "ERR_PORTFOLIO_ACCESS_DENIED",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+
+        return showcase;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PortfolioDetailRes createAgencyPortfolioShowcase(Long userId, CreatePortfolioReq req) {
+        AgencyProfileEntity agency = getAgencyProfileByUserId(userId);
+
+        FileValidationUtils.validateImageFile(req.getImageFile(), MediaConstants.MAX_MAIN_IMAGE_SIZE);
+
+        if (req.getAdditionalFiles() != null && req.getAdditionalFiles().size() > MediaConstants.MAX_ADDITIONAL_IMAGES_COUNT) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_TOO_MANY_ADDITIONAL_IMAGES,
+                    "ERR_TOO_MANY_ADDITIONAL_IMAGES",
+                    new Object[]{MediaConstants.MAX_ADDITIONAL_IMAGES_COUNT},
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        MakeupStyleEntity style = null;
+        if (req.getStyleId() != null) {
+            style = makeupStyleRepository.findById(req.getStyleId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_STYLE_NOT_FOUND, "ERR_STYLE_NOT_FOUND", req.getStyleId()));
+        }
+
+        ServicePackageEntity servicePackage = null;
+        if (req.getPackageId() != null) {
+            servicePackage = servicePackageRepository.findById(req.getPackageId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "ERR_PACKAGE_NOT_FOUND", req.getPackageId()));
+            if (servicePackage.getAgency() == null || !servicePackage.getAgency().getId().equals(agency.getId())) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_PACKAGE_NOT_OWNED,
+                        "ERR_PACKAGE_NOT_OWNED",
+                        HttpStatus.FORBIDDEN
+                );
+            }
+        }
+
+        List<String> uploadedCloudIds = new ArrayList<>();
+        try {
+            CloudMediaUploadResult mainResult = mediaStorageService.uploadImage(req.getImageFile(), "portfolios/agency_" + agency.getId());
+            uploadedCloudIds.add(mainResult.getPublicId());
+
+            List<String> additionalUrls = new ArrayList<>();
+            if (req.getAdditionalFiles() != null && !req.getAdditionalFiles().isEmpty()) {
+                for (MultipartFile file : req.getAdditionalFiles()) {
+                    FileValidationUtils.validateImageFile(file, MediaConstants.MAX_ADDITIONAL_IMAGE_SIZE);
+                    CloudMediaUploadResult subResult = mediaStorageService.uploadImage(file, "portfolios/agency_" + agency.getId() + "/additional");
+                    uploadedCloudIds.add(subResult.getPublicId());
+                    additionalUrls.add(subResult.getImageUrl());
+                }
+            }
+
+            boolean isFeatured = Boolean.TRUE.equals(req.getIsFeatured());
+            if (isFeatured) {
+                List<PortfolioShowcaseEntity> currentFeatured = portfolioRepository.findAgencyFeaturedForUpdate(agency.getId());
+                if (currentFeatured.size() >= MediaConstants.MAX_FEATURED_PORTFOLIO_COUNT) {
+                    throw new CustomBusinessException(
+                            ErrorCodes.ERR_PORTFOLIO_FEATURED_LIMIT_EXCEEDED,
+                            "ERR_PORTFOLIO_FEATURED_LIMIT_EXCEEDED",
+                            new Object[]{MediaConstants.MAX_FEATURED_PORTFOLIO_COUNT},
+                            HttpStatus.BAD_REQUEST
+                    );
+                }
+            }
+
+            PortfolioShowcaseEntity entity = PortfolioShowcaseEntity.builder()
+                    .agency(agency)
+                    .mua(null)
+                    .title(req.getTitle().trim())
+                    .description(req.getDescription() != null ? req.getDescription().trim() : null)
+                    .imageUrl(mainResult.getImageUrl())
+                    .thumbnailUrl(mainResult.getThumbnailUrl())
+                    .additionalImages(additionalUrls)
+                    .style(style)
+                    .servicePackage(servicePackage)
+                    .isFeatured(isFeatured)
+                    .isVisible(true)
+                    .isDeleted(false)
+                    .build();
+
+            PortfolioShowcaseEntity saved = portfolioRepository.save(entity);
+            return portfolioMapper.toDetailRes(saved);
+        } catch (Exception ex) {
+            mediaStorageService.deleteMediaBatchAsync(uploadedCloudIds);
+            throw ex;
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PortfolioDetailRes updateAgencyPortfolioShowcase(Long userId, Long portfolioId, UpdatePortfolioReq req) {
+        AgencyProfileEntity agency = getAgencyProfileByUserId(userId);
+        PortfolioShowcaseEntity showcase = getShowcaseAndValidateAgencyOwner(portfolioId, agency.getId());
+
+        if (req.getStyleId() != null) {
+            MakeupStyleEntity style = makeupStyleRepository.findById(req.getStyleId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_STYLE_NOT_FOUND, "ERR_STYLE_NOT_FOUND", req.getStyleId()));
+            showcase.setStyle(style);
+        } else {
+            showcase.setStyle(null);
+        }
+
+        if (req.getPackageId() != null) {
+            ServicePackageEntity servicePackage = servicePackageRepository.findById(req.getPackageId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "ERR_PACKAGE_NOT_FOUND", req.getPackageId()));
+            if (servicePackage.getAgency() == null || !servicePackage.getAgency().getId().equals(agency.getId())) {
+                throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_OWNED, "ERR_PACKAGE_NOT_OWNED", HttpStatus.FORBIDDEN);
+            }
+            showcase.setServicePackage(servicePackage);
+        } else {
+            showcase.setServicePackage(null);
+        }
+
+        // 1. Cập nhật ảnh chính nếu có tải lên file mới
+        if (req.getImageFile() != null && !req.getImageFile().isEmpty()) {
+            FileValidationUtils.validateImageFile(req.getImageFile(), MediaConstants.MAX_MAIN_IMAGE_SIZE);
+            CloudMediaUploadResult mainResult = mediaStorageService.uploadImage(req.getImageFile(), "portfolios/agency_" + agency.getId());
+            showcase.setImageUrl(mainResult.getImageUrl());
+            showcase.setThumbnailUrl(mainResult.getThumbnailUrl());
+        }
+
+        // 2. Cập nhật danh sách ảnh phụ (giữ lại ảnh cũ được chọn + upload ảnh mới)
+        List<String> currentAdditional = req.getExistingAdditionalImages() != null
+                ? new ArrayList<>(req.getExistingAdditionalImages())
+                : (showcase.getAdditionalImages() != null ? new ArrayList<>(showcase.getAdditionalImages()) : new ArrayList<>());
+
+        if (req.getAdditionalFiles() != null && !req.getAdditionalFiles().isEmpty()) {
+            if (currentAdditional.size() + req.getAdditionalFiles().size() > MediaConstants.MAX_ADDITIONAL_IMAGES_COUNT) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_TOO_MANY_ADDITIONAL_IMAGES,
+                        "agency.portfolio_files_limit",
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+            for (MultipartFile file : req.getAdditionalFiles()) {
+                FileValidationUtils.validateImageFile(file, MediaConstants.MAX_ADDITIONAL_IMAGE_SIZE);
+                CloudMediaUploadResult subResult = mediaStorageService.uploadImage(file, "portfolios/agency_" + agency.getId() + "/additional");
+                currentAdditional.add(subResult.getImageUrl());
+            }
+        }
+        showcase.setAdditionalImages(currentAdditional);
+
+        showcase.setTitle(req.getTitle().trim());
+        showcase.setDescription(req.getDescription() != null ? req.getDescription().trim() : null);
+
+        PortfolioShowcaseEntity updated = portfolioRepository.save(showcase);
+        return portfolioMapper.toDetailRes(updated);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PortfolioDetailRes updateAgencyFeaturedStatus(Long userId, Long portfolioId, UpdatePortfolioFeaturedReq req) {
+        AgencyProfileEntity agency = getAgencyProfileByUserId(userId);
+        PortfolioShowcaseEntity showcase = getShowcaseAndValidateAgencyOwner(portfolioId, agency.getId());
+
+        if (Boolean.TRUE.equals(req.getIsFeatured())) {
+            if (Boolean.FALSE.equals(showcase.getIsVisible())) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_CANNOT_FEATURE_HIDDEN_PORTFOLIO,
+                        "ERR_CANNOT_FEATURE_HIDDEN_PORTFOLIO",
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+
+            List<PortfolioShowcaseEntity> currentFeatured = portfolioRepository.findAgencyFeaturedForUpdate(agency.getId());
+            boolean alreadyFeatured = currentFeatured.stream().anyMatch(p -> p.getId().equals(showcase.getId()));
+
+            if (!alreadyFeatured && currentFeatured.size() >= MediaConstants.MAX_FEATURED_PORTFOLIO_COUNT) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_PORTFOLIO_FEATURED_LIMIT_EXCEEDED,
+                        "ERR_PORTFOLIO_FEATURED_LIMIT_EXCEEDED",
+                        new Object[]{MediaConstants.MAX_FEATURED_PORTFOLIO_COUNT},
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+            showcase.setIsFeatured(true);
+        } else {
+            showcase.setIsFeatured(false);
+        }
+
+        PortfolioShowcaseEntity updated = portfolioRepository.save(showcase);
+        return portfolioMapper.toDetailRes(updated);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PortfolioDetailRes updateAgencyVisibilityStatus(Long userId, Long portfolioId, UpdatePortfolioVisibilityReq req) {
+        AgencyProfileEntity agency = getAgencyProfileByUserId(userId);
+        PortfolioShowcaseEntity showcase = getShowcaseAndValidateAgencyOwner(portfolioId, agency.getId());
+
+        boolean newVisibility = Boolean.TRUE.equals(req.getIsVisible());
+        showcase.setIsVisible(newVisibility);
+
+        if (!newVisibility && Boolean.TRUE.equals(showcase.getIsFeatured())) {
+            showcase.setIsFeatured(false);
+        }
+
+        PortfolioShowcaseEntity updated = portfolioRepository.save(showcase);
+        return portfolioMapper.toDetailRes(updated);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void softDeleteAgencyPortfolio(Long userId, Long portfolioId) {
+        AgencyProfileEntity agency = getAgencyProfileByUserId(userId);
+        PortfolioShowcaseEntity showcase = getShowcaseAndValidateAgencyOwner(portfolioId, agency.getId());
+
+        showcase.setIsFeatured(false);
+        showcase.setIsDeleted(true);
+        showcase.setDeletedAt(LocalDateTime.now());
+        portfolioRepository.save(showcase);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PortfolioDetailRes> getMyAgencyPortfolios(Long userId, Pageable pageable) {
+        AgencyProfileEntity agency = getAgencyProfileByUserId(userId);
+        Page<PortfolioShowcaseEntity> page = portfolioRepository.findAllByAgencyIdOrderByCreatedAtDesc(agency.getId(), pageable);
+        List<PortfolioDetailRes> dtoList = page.getContent().stream().map(portfolioMapper::toDetailRes).toList();
+
+        return PageResponse.<PortfolioDetailRes>builder()
+                .content(dtoList)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PortfolioSummaryRes> getAgencyPublicGallery(Long agencyId, Integer styleId, Long packageId, Boolean isFeatured, Pageable pageable) {
+        Page<PortfolioShowcaseEntity> page = portfolioRepository.findAgencyPublicGallery(
+                agencyId, styleId, packageId, isFeatured, pageable
+        );
+
+        List<PortfolioSummaryRes> dtoList = page.getContent().stream()
+                .map(portfolioMapper::toSummaryRes)
+                .toList();
+
+        return PageResponse.<PortfolioSummaryRes>builder()
+                .content(dtoList)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalElements(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .last(page.isLast())
+                .build();
+    }
+
+    private AgencyProfileEntity getAgencyProfileByUserId(Long userId) {
+        return agencyProfileRepository.findByOwnerId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_AGENCY_NOT_FOUND,
+                        "ERR_AGENCY_NOT_FOUND"
+                ));
+    }
+
+    private PortfolioShowcaseEntity getShowcaseAndValidateAgencyOwner(Long portfolioId, Long agencyId) {
+        PortfolioShowcaseEntity showcase = portfolioRepository.findById(portfolioId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_PORTFOLIO_NOT_FOUND,
+                        "ERR_PORTFOLIO_NOT_FOUND",
+                        portfolioId
+                ));
+
+        if (showcase.getAgency() == null || !showcase.getAgency().getId().equals(agencyId)) {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_PORTFOLIO_ACCESS_DENIED,
                     "ERR_PORTFOLIO_ACCESS_DENIED",

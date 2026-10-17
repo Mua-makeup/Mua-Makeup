@@ -122,7 +122,6 @@ export const reviewService = {
           const resp = await fetch(uri);
           const blob = await resp.blob();
           formData.append('files', blob, filename);
-          formData.append('file', blob, filename);
         } catch {
           const fileObj = {
             uri,
@@ -131,8 +130,6 @@ export const reviewService = {
           };
           // @ts-ignore
           formData.append('files', fileObj);
-          // @ts-ignore
-          formData.append('file', fileObj);
         }
       } else {
         const fileObj = {
@@ -142,8 +139,6 @@ export const reviewService = {
         };
         // @ts-ignore
         formData.append('files', fileObj);
-        // @ts-ignore
-        formData.append('file', fileObj);
       }
     }
 

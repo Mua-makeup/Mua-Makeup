@@ -18,4 +18,8 @@ public class CloudMediaUploadResult {
     private String thumbnailUrl;
     private String format;
     private Long bytes;
+
+    public String getSecureUrl() {
+        return imageUrl;
+    }
 }

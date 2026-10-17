@@ -45,10 +45,14 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
         return { label: 'Hết Hạn Cọc', bg: '#F1F5F9', text: '#64748B', icon: 'close-circle' };
       case 'DISPUTED':
         return { label: 'Đang Khiếu Nại', bg: '#FFEDD5', text: '#EA580C', icon: 'alert-circle' };
-      case 'DISPUTE_REFUNDED':
-        return { label: 'Đã Hoàn Cọc Khách', bg: '#FEF3C7', text: '#B45309', icon: 'shield-checkmark' };
-      case 'DISPUTE_COMPENSATED':
-        return { label: 'Bồi Thường Cho Thợ', bg: '#ECFDF5', text: '#059669', icon: 'shield-checkmark' };
+      case 'DISPUTE_REFUNDED': {
+        const isPost = Boolean((booking as any)?.completionPhotoUrl || (booking as any)?.completedAt || (booking as any)?.cancellationReason?.toLowerCase().includes('sau ca') || (booking as any)?.cancellationReason?.toLowerCase().includes('tổng tiền đơn'));
+        return { label: isPost ? 'Đã Hoàn Tiền Đơn' : 'Đã Hoàn Cọc Khách', bg: '#FEF3C7', text: '#B45309', icon: 'shield-checkmark' };
+      }
+      case 'DISPUTE_COMPENSATED': {
+        const isPost = Boolean((booking as any)?.completionPhotoUrl || (booking as any)?.completedAt || (booking as any)?.cancellationReason?.toLowerCase().includes('sau ca') || (booking as any)?.cancellationReason?.toLowerCase().includes('bác bỏ'));
+        return { label: isPost ? 'Bảo Lưu Thù Lao' : 'Bồi Thường Cho Thợ', bg: '#ECFDF5', text: '#059669', icon: 'shield-checkmark' };
+      }
       default:
         return { label: status, bg: '#F8FAFC', text: '#64748B', icon: 'help-circle' };
     }
@@ -172,7 +176,7 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
   const isStudioOrder =
     booking.bookingPartner === 'AGENCY_DISPATCH' ||
     booking.bookingPartner === 'AGENCY' ||
-    Boolean(booking.agencyId || booking.agencyName || booking.assignmentRole);
+    Boolean(booking.agencyId || booking.agencyName);
 
   return (
     <View style={[styles.card, isRequested && styles.cardRequested]}>

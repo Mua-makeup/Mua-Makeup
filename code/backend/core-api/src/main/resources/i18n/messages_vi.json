@@ -140,6 +140,12 @@
     "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
     "dispute_resolved_success": "Giải quyết khiếu nại thành công.",
+    "portfolio_create_success": "Tạo tác phẩm mẫu Studio thành công!",
+    "portfolio_update_success": "Cập nhật tác phẩm mẫu Studio thành công!",
+    "portfolio_delete_success": "Xóa tác phẩm mẫu Studio thành công!",
+    "portfolio_get_success": "Lấy chi tiết tác phẩm mẫu Studio thành công.",
+    "portfolios_list_success": "Lấy danh sách tác phẩm mẫu Studio thành công.",
+    "portfolio_files_empty": "Vui lòng chọn ít nhất một tệp ảnh để tải lên.",
     "review": {
       "decision_required": "Quyết định phê duyệt là bắt buộc.",
       "decision_invalid": "Quyết định phê duyệt không hợp lệ. Chỉ chấp nhận VERIFIED hoặc REJECTED."
@@ -425,6 +431,7 @@
   "dispute": {
     "not_in_disputed_state": "Đơn hàng không nằm ở trạng thái tranh chấp (DISPUTED).",
     "invalid_resolution_type": "Loại phán quyết không hợp lệ. Phải là APPROVE_REFUND_CUSTOMER hoặc REJECT_AND_PAYOUT_MUA.",
+    "split_not_allowed_for_completed_booking": "Khiếu nại sau khi kết thúc ca chỉ cho phép hoàn tiền 100% cho khách hoặc bác bỏ khiếu nại bảo lưu tiền thợ, không áp dụng hòa giải chia đôi.",
     "resolution_required": "Quyết định phân xử không được để trống.",
     "note_required": "Ghi chú phân xử của Admin không được để trống."
   },
@@ -677,6 +684,7 @@
     "booking_not_paid_out": "Chỉ có thể đánh giá sau khi đơn hàng đã hoàn tất và thanh toán toàn bộ chi phí.",
     "not_found": "Không tìm thấy thông tin đánh giá.",
     "update_success": "Cập nhật đánh giá thành công! Cảm ơn bạn.",
+    "edit_expired": "Đã quá thời hạn 7 ngày cho phép chỉnh sửa đánh giá.",
     "upload_images_success": "Tải ảnh đánh giá lên thành công.",
     "missing_files": "Vui lòng chọn ít nhất một hình ảnh để tải lên."
   }

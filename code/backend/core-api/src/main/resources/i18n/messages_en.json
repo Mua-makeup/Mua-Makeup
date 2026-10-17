@@ -140,6 +140,12 @@
     "disputes_fetch_success": "Studio disputes fetched successfully.",
     "dispute_detail_fetch_success": "Studio dispute detail fetched successfully.",
     "dispute_resolved_success": "Dispute resolved successfully.",
+    "portfolio_create_success": "Studio portfolio showcase created successfully!",
+    "portfolio_update_success": "Studio portfolio showcase updated successfully!",
+    "portfolio_delete_success": "Studio portfolio showcase deleted successfully!",
+    "portfolio_get_success": "Get studio portfolio detail successfully.",
+    "portfolios_list_success": "Get studio portfolios list successfully.",
+    "portfolio_files_empty": "Please select at least one image file to upload.",
     "review": {
       "decision_required": "Decision is required.",
       "decision_invalid": "Invalid decision. Only VERIFIED or REJECTED is accepted."
@@ -425,6 +431,7 @@
   "dispute": {
     "not_in_disputed_state": "Booking is not in DISPUTED state.",
     "invalid_resolution_type": "Invalid resolution type. Must be APPROVE_REFUND_CUSTOMER or REJECT_AND_PAYOUT_MUA.",
+    "split_not_allowed_for_completed_booking": "Post-completion disputes only support 100% refund to customer or rejection retaining worker payout. 50/50 split is not allowed.",
     "resolution_required": "Dispute resolution cannot be blank.",
     "note_required": "Admin resolution note cannot be blank."
   },
@@ -672,6 +679,7 @@
     "booking_not_paid_out": "You can only submit a review after the booking has been completed and fully settled.",
     "not_found": "Review details not found.",
     "update_success": "Review updated successfully! Thank you for your feedback.",
+    "edit_expired": "The 7-day review editing period has expired.",
     "upload_images_success": "Review images uploaded successfully.",
     "missing_files": "Please select at least one image to upload."
   }

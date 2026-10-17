@@ -5,8 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions,
-  LayoutChangeEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +16,17 @@ interface Props {
   selectedPackage: PackageDetail | null;
   showcases: PortfolioShowcase[];
   isLoading: boolean;
-  onPressPhoto: (photo: PortfolioShowcase, index: number) => void;
+  onPressPhoto: (photo: PortfolioShowcase, index: number, angleIndex?: number) => void;
+}
+
+interface PhotoItem {
+  id: string;
+  photoUrl: string;
+  title?: string;
+  styleName?: string;
+  originalShowcase: PortfolioShowcase;
+  originalIndex: number;
+  angleIndex: number;
 }
 
 export const ServiceSampleGallery: React.FC<Props> = ({
@@ -27,34 +35,9 @@ export const ServiceSampleGallery: React.FC<Props> = ({
   isLoading,
   onPressPhoto,
 }) => {
-  const { width: windowWidth } = useWindowDimensions();
-  const [containerWidth, setContainerWidth] = React.useState<number>(0);
-
-  const onContainerLayout = (event: LayoutChangeEvent) => {
-    const width = event.nativeEvent.layout.width;
-    if (width > 0 && Math.abs(width - containerWidth) > 2) {
-      setContainerWidth(width);
-    }
-  };
-
-  // Tính toán chiều rộng và số cột động theo chuẩn đa màn hình (Mobile, Tablet, Web)
-  const activeWidth = containerWidth > 0 ? containerWidth : windowWidth;
-  const paddingH = 32; // paddingHorizontal 16 * 2
-  const availableWidth = Math.max(260, activeWidth - paddingH);
-  const numColumns = availableWidth >= 900 ? 4 : availableWidth >= 600 ? 3 : 2;
-  const gap = 12;
-  const columnWidth = Math.floor((availableWidth - gap * (numColumns - 1)) / numColumns);
-
   // Tổng hợp toàn bộ ảnh thực tế (Ảnh chính diện + Toàn bộ các góc chụp bổ sung)
-  const allPhotos = React.useMemo(() => {
-    const list: {
-      id: string;
-      photoUrl: string;
-      title?: string;
-      styleName?: string;
-      originalShowcase: PortfolioShowcase;
-      originalIndex: number;
-    }[] = [];
+  const allPhotos = React.useMemo<PhotoItem[]>(() => {
+    const list: PhotoItem[] = [];
 
     showcases.forEach((sc, scIdx) => {
       const mainUrl = sc.imageUrl || sc.thumbnailUrl;
@@ -66,6 +49,7 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           styleName: sc.styleName,
           originalShowcase: sc,
           originalIndex: scIdx,
+          angleIndex: 0,
         });
       }
       if (sc.additionalImages && sc.additionalImages.length > 0) {
@@ -78,6 +62,7 @@ export const ServiceSampleGallery: React.FC<Props> = ({
               styleName: sc.styleName,
               originalShowcase: sc,
               originalIndex: scIdx,
+              angleIndex: addIdx + 1,
             });
           }
         });
@@ -97,14 +82,138 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           imageUrl: selectedPackage.coverImageUrl,
         },
         originalIndex: 0,
+        angleIndex: 0,
       });
     }
 
     return list;
   }, [showcases, selectedPackage]);
 
+  // Render 1 ô ảnh đơn lẻ trong Collage
+  const renderPhotoItem = (
+    item: PhotoItem,
+    customStyle?: any,
+    overlayText?: string
+  ) => {
+    const photoUrl =
+      item.photoUrl ||
+      'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=500&auto=format&fit=crop&q=80';
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.photoTouch, customStyle]}
+        onPress={() => onPressPhoto(item.originalShowcase, item.originalIndex, item.angleIndex)}
+        activeOpacity={0.88}
+      >
+        <Image
+          source={{ uri: photoUrl }}
+          style={styles.photoImg}
+          contentFit="cover"
+          transition={200}
+        />
+
+        {/* Lớp phủ +N kiểu Facebook khi có nhiều hơn 5 ảnh */}
+        {overlayText && (
+          <View style={styles.moreOverlay}>
+            <Text style={styles.moreOverlayText}>{overlayText}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  // Bố cục Facebook Collage theo số lượng ảnh với rãnh trắng cách biệt
+  const renderFacebookCollage = () => {
+    const total = allPhotos.length;
+
+    // Trường hợp 1 ảnh duy nhất: Ảnh to toàn màn hình tỷ lệ 16:10
+    if (total === 1) {
+      return (
+        <View style={styles.collageContainer}>
+          <View style={{ width: '100%', height: 230 }}>
+            {renderPhotoItem(allPhotos[0], { width: '100%', height: '100%' })}
+          </View>
+        </View>
+      );
+    }
+
+    // Trường hợp 2 ảnh: 2 ảnh chia đôi 50% - 50% nằm ngang
+    if (total === 2) {
+      return (
+        <View style={styles.collageContainer}>
+          <View style={[styles.flexRow, { height: 200 }]}>
+            {renderPhotoItem(allPhotos[0], styles.flex1)}
+            {renderPhotoItem(allPhotos[1], styles.flex1)}
+          </View>
+        </View>
+      );
+    }
+
+    // Trường hợp 3 ảnh: 1 ảnh to bên trái chiếm 62% + 2 ảnh nhỏ bên phải xếp chồng
+    if (total === 3) {
+      return (
+        <View style={styles.collageContainer}>
+          <View style={[styles.flexRow, { height: 235 }]}>
+            {renderPhotoItem(allPhotos[0], { flex: 1.6, height: '100%' })}
+            <View style={[styles.flexCol, { flex: 1 }]}>
+              {renderPhotoItem(allPhotos[1], styles.flex1)}
+              {renderPhotoItem(allPhotos[2], styles.flex1)}
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    // Trường hợp 4 ảnh: Lưới 2x2 cân xứng (2 hàng x 2 cột) với rãnh trắng ngăn cách
+    if (total === 4) {
+      return (
+        <View style={styles.collageContainer}>
+          <View style={[styles.flexCol, { height: 240 }]}>
+            <View style={[styles.flexRow, styles.flex1]}>
+              {renderPhotoItem(allPhotos[0], styles.flex1)}
+              {renderPhotoItem(allPhotos[1], styles.flex1)}
+            </View>
+            <View style={[styles.flexRow, styles.flex1]}>
+              {renderPhotoItem(allPhotos[2], styles.flex1)}
+              {renderPhotoItem(allPhotos[3], styles.flex1)}
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    // Trường hợp 5 ảnh hoặc nhiều hơn: Hàng trên 2 ảnh to, hàng dưới 3 ảnh nhỏ (kèm +N ở ảnh cuối)
+    const extraCount = total - 5;
+    return (
+      <View style={styles.collageContainer}>
+        <View style={[styles.flexCol, { height: 260 }]}>
+          {/* Hàng trên: 2 ảnh to (chiếm 58% chiều cao) */}
+          <View style={[styles.flexRow, { height: 152 }]}>
+            {renderPhotoItem(allPhotos[0], styles.flex1)}
+            {renderPhotoItem(allPhotos[1], styles.flex1)}
+          </View>
+
+          {/* Hàng dưới: 3 ảnh nhỏ (chiếm 42% chiều cao) */}
+          <View style={[styles.flexRow, { height: 104 }]}>
+            {renderPhotoItem(allPhotos[2], styles.flex1)}
+            {renderPhotoItem(allPhotos[3], styles.flex1)}
+            {renderPhotoItem(
+              allPhotos[4],
+              styles.flex1,
+              extraCount > 0 ? `+${extraCount + 1}` : undefined
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const primaryStyleName =
+    allPhotos[0]?.styleName || selectedPackage?.styles?.[0]?.styleName;
+
   return (
-    <View style={styles.container} onLayout={onContainerLayout}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="images-outline" size={18} color={BrandColors.primary} />
@@ -113,7 +222,7 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           </Text>
         </View>
         <Text style={styles.subtitle}>
-          Tác phẩm thợ đã hoàn thành cho gói này (Chạm vào ảnh để zoom cận cảnh)
+          Tác phẩm thực tế gắn với gói dịch vụ này (Chạm vào ảnh để zoom cận cảnh)
         </Text>
       </View>
 
@@ -129,52 +238,45 @@ export const ServiceSampleGallery: React.FC<Props> = ({
           <Ionicons name="camera-outline" size={36} color="#CBD5E1" />
           <Text style={styles.emptyTitle}>Chưa có ảnh mẫu riêng cho gói này</Text>
           <Text style={styles.emptySubtitle}>
-            Thợ đang cập nhật các tác phẩm mới nhất cho gói {selectedPackage?.packageName}.
+            Đơn vị đang cập nhật các tác phẩm mẫu mới nhất cho gói {selectedPackage?.packageName}.
           </Text>
         </View>
       ) : (
-        /* LƯỚI ẢNH MẪU ĐA MÀN HÌNH CHUẨN ĐẸP */
-        <View style={[styles.grid, { gap }]}>
-          {allPhotos.map((item) => {
-            const photoUrl =
-              item.photoUrl ||
-              'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=500&auto=format&fit=crop&q=80';
+        /* KHỐI FACEBOOK MULTI-PHOTO COLLAGE */
+        <View style={styles.galleryWrapper}>
+          {renderFacebookCollage()}
 
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.card, { width: columnWidth }]}
-                onPress={() => onPressPhoto(item.originalShowcase, item.originalIndex)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.imageBox}>
-                  <Image
-                    source={{ uri: photoUrl }}
-                    style={styles.image}
-                    contentFit="cover"
-                    transition={250}
-                  />
-                  <View style={styles.zoomHintOverlay}>
-                    <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
-                    <Text style={styles.zoomHintText}>Soi cận cảnh</Text>
-                  </View>
+          {/* THANH FOOTER THÔNG TIN & XEM TẤT CẢ */}
+          <View style={styles.footerRow}>
+            <View style={styles.footerInfo}>
+              {allPhotos[0]?.title ? (
+                <Text style={styles.footerTitle} numberOfLines={1}>
+                  {allPhotos[0].title}
+                </Text>
+              ) : null}
+              {primaryStyleName ? (
+                <View style={styles.styleBadgeWrapper}>
+                  <View style={styles.styleDot} />
+                  <Text style={styles.styleBadgeText} numberOfLines={1}>
+                    {primaryStyleName}
+                  </Text>
                 </View>
+              ) : null}
+            </View>
 
-                {item.title ? (
-                  <View style={styles.captionContainer}>
-                    <Text style={styles.captionText} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-                    {item.styleName ? (
-                      <Text style={styles.styleBadge} numberOfLines={1}>
-                        {item.styleName}
-                      </Text>
-                    ) : null}
-                  </View>
-                ) : null}
+            {allPhotos.length > 1 && (
+              <TouchableOpacity
+                style={styles.viewAllBtn}
+                onPress={() => onPressPhoto(allPhotos[0].originalShowcase, allPhotos[0].originalIndex)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="albums-outline" size={14} color={BrandColors.primary} />
+                <Text style={styles.viewAllText}>
+                  Xem trọn bộ ({allPhotos.length})
+                </Text>
               </TouchableOpacity>
-            );
-          })}
+            )}
+          </View>
         </View>
       )}
     </View>
@@ -186,11 +288,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 20,
     overflow: 'hidden',
   },
   header: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   titleRow: {
     flexDirection: 'row',
@@ -239,60 +341,103 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 17,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  card: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: '#F1F5F9',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  imageBox: {
+  galleryWrapper: {
     width: '100%',
-    aspectRatio: 1,
+  },
+  collageContainer: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    padding: 3,
+  },
+  flexRow: {
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  flexCol: {
+    flexDirection: 'column',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  flex1: {
+    flex: 1,
+    height: '100%',
+  },
+  photoTouch: {
     backgroundColor: '#F1F5F9',
     position: 'relative',
     overflow: 'hidden',
+    borderRadius: 6,
   },
-  image: {
+  photoImg: {
     width: '100%',
     height: '100%',
   },
-  zoomHintOverlay: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+  moreOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.52)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  moreOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 8,
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingHorizontal: 2,
   },
-  zoomHintText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '600',
+  footerInfo: {
+    flex: 1,
+    marginRight: 10,
   },
-  captionContainer: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
-  },
-  captionText: {
-    fontSize: 12,
+  footerTitle: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
-  styleBadge: {
-    fontSize: 10,
-    color: BrandColors.primary,
-    fontWeight: '600',
+  styleBadgeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 2,
   },
+  styleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: BrandColors.primary,
+  },
+  styleBadgeText: {
+    fontSize: 11,
+    color: BrandColors.primary,
+    fontWeight: '600',
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
 });
+

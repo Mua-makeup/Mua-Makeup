@@ -139,9 +139,10 @@ export default function BookingHistoryDetailScreen() {
     (bookingDetail?.muaName && bookingDetail.muaName !== 'Chuyên Viên Make-up' && bookingDetail.muaName.trim().length > 0)
   );
 
-  // Modal phóng to ảnh nghiệm thu hoặc minh chứng
+  // Modal phóng to ảnh nghiệm thu hoặc minh chứng / review
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
-  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const [previewPhotoList, setPreviewPhotoList] = useState<string[]>([]);
+  const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
   const [isDisputeDossierOpen, setIsDisputeDossierOpen] = useState(false);
   const [isDisputeDossierAutoOpen, setIsDisputeDossierAutoOpen] = useState(false);
   const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
@@ -197,8 +198,33 @@ export default function BookingHistoryDetailScreen() {
   // Tự động mở Modal Khiếu nại hoặc Gợi ý Đánh giá sau khi thanh toán hoàn tất
   useEffect(() => {
     if (bookingDetail && isReviewLoaded) {
-      if (openDispute === 'true' && (bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT' || bookingDetail.status === 'DISPUTED')) {
-        setIsDisputeDossierAutoOpen(true);
+      const hasDispute = Boolean(
+        bookingDetail.emergencyReason ||
+        bookingDetail.disputeOrigin ||
+        bookingDetail.cancellationReason?.toLowerCase().includes('khiếu nại') ||
+        bookingDetail.cancellationReason?.toLowerCase().includes('giải trình') ||
+        bookingDetail.cancellationReason?.toLowerCase().includes('bác bỏ') ||
+        bookingDetail.cancellationReason?.toLowerCase().includes('bồi thường') ||
+        bookingDetail.cancellationReason?.toLowerCase().includes('hòa giải') ||
+        bookingDetail.status === 'DISPUTED' ||
+        bookingDetail.status === 'DISPUTE_REFUNDED' ||
+        bookingDetail.status === 'DISPUTE_COMPENSATED'
+      );
+      const isResolved = hasDispute && (
+        bookingDetail.status === 'PAID_OUT' ||
+        bookingDetail.status === 'DISPUTE_REFUNDED' ||
+        bookingDetail.status === 'DISPUTE_COMPENSATED'
+      );
+
+      if (
+        openDispute === 'true' &&
+        (bookingDetail.status === 'COMPLETED' ||
+          bookingDetail.status === 'PAID_OUT' ||
+          bookingDetail.status === 'DISPUTED' ||
+          bookingDetail.status === 'DISPUTE_REFUNDED' ||
+          bookingDetail.status === 'DISPUTE_COMPENSATED')
+      ) {
+        setIsDisputeDossierAutoOpen(!isResolved && !hasDispute);
         setIsDisputeDossierOpen(true);
       } else if (
         bookingDetail.status === 'PAID_OUT' &&
@@ -393,12 +419,28 @@ export default function BookingHistoryDetailScreen() {
     )
   );
 
+  const totalAmount = bookingDetail.totalAmount || 0;
+  const depositAmount = bookingDetail.depositAmount ?? Math.round(totalAmount * 0.3);
+  const remainingAmount = Math.max(0, totalAmount - depositAmount);
+
+  // Phân biệt khiếu nại sau ca hoàn thành (100% dịch vụ) vs khiếu nại hủy/bỏ hẹn tiền cọc
+  const isPostCompletion =
+    Boolean(bookingDetail.completionPhotoUrl) ||
+    (totalAmount > 0 && depositAmount > 0 && totalAmount > depositAmount &&
+      !emergencyReasonLower.includes('vắng mặt') &&
+      !emergencyReasonLower.includes('không gặp khách') &&
+      !cancelReasonLower.includes('vắng mặt') &&
+      !cancelReasonLower.includes('không gặp khách'));
+
   const isDisputeCompensated = bookingDetail.status === 'DISPUTE_COMPENSATED' || (
     isPaidOut && (
       (bookingDetail.cancellationReason && (
         bookingDetail.cancellationReason.toLowerCase().includes('bồi thường') ||
         bookingDetail.cancellationReason.toLowerCase().includes('từ chối') ||
         bookingDetail.cancellationReason.toLowerCase().includes('khiếu nại') ||
+        bookingDetail.cancellationReason.toLowerCase().includes('bác bỏ') ||
+        bookingDetail.cancellationReason.toLowerCase().includes('giải trình') ||
+        bookingDetail.cancellationReason.toLowerCase().includes('bảo lưu') ||
         bookingDetail.cancellationReason.toLowerCase().includes('vắng mặt')
       )) ||
       (!bookingDetail.completionPhotoUrl && !!bookingDetail.emergencyReason)
@@ -406,10 +448,6 @@ export default function BookingHistoryDetailScreen() {
   );
   const isNormalPaidOut = isPaidOut && !isDisputeCompensated;
   const isNormalCancelled = isCancelled && !isDisputeRefunded && !isAgencyCancelled;
-
-  const totalAmount = bookingDetail.totalAmount || 0;
-  const depositAmount = bookingDetail.depositAmount ?? Math.round(totalAmount * 0.3);
-  const remainingAmount = Math.max(0, totalAmount - depositAmount);
 
   const isStudioBooking =
     bookingDetail.bookingPartner === 'AGENCY_DISPATCH' ||
@@ -474,6 +512,29 @@ export default function BookingHistoryDetailScreen() {
 
   // Bóc tách chi tiết hồ sơ khiếu nại (Lời khai & Ảnh minh chứng sạch của MUA và Khách)
   const disputeDossier = (() => {
+    const hasDisputeKeywords = Boolean(
+      bookingDetail.emergencyReason ||
+      cancelReasonLower.includes('khiếu nại') ||
+      cancelReasonLower.includes('giải trình') ||
+      cancelReasonLower.includes('bác bỏ') ||
+      cancelReasonLower.includes('bồi thường') ||
+      cancelReasonLower.includes('hòa giải') ||
+      bookingDetail.status === 'DISPUTED' ||
+      bookingDetail.status === 'DISPUTE_REFUNDED' ||
+      bookingDetail.status === 'DISPUTE_COMPENSATED'
+    );
+
+    if (!hasDisputeKeywords) {
+      return {
+        isDual: false,
+        customerStatement: '',
+        muaStatement: '',
+        customerProofUrl: undefined,
+        muaProofUrl: undefined,
+        hasDisputeInfo: false,
+      };
+    }
+
     const rawReason = (bookingDetail.emergencyReason || bookingDetail.cancellationReason || '').trim();
     const rawProof = (bookingDetail.emergencyProofUrl || '').trim();
     const origin = bookingDetail.disputeOrigin;
@@ -567,6 +628,18 @@ export default function BookingHistoryDetailScreen() {
       hasDisputeInfo: !!(customerStatement || muaStatement || customerProofUrl || muaProofUrl),
     };
   })();
+
+  const hasDisputeRecord = Boolean(
+    bookingDetail.emergencyReason ||
+    cancelReasonLower.includes('khiếu nại') ||
+    cancelReasonLower.includes('giải trình') ||
+    cancelReasonLower.includes('bác bỏ') ||
+    cancelReasonLower.includes('bồi thường') ||
+    cancelReasonLower.includes('hòa giải') ||
+    bookingDetail.status === 'DISPUTED' ||
+    bookingDetail.status === 'DISPUTE_REFUNDED' ||
+    bookingDetail.status === 'DISPUTE_COMPENSATED'
+  );
 
   const renderDisputeDossierDetails = (isSplitVariant: boolean) => {
     if (!disputeDossier.hasDisputeInfo) {
@@ -905,13 +978,21 @@ export default function BookingHistoryDetailScreen() {
                   ]}
                 >
                   {isWorkstationRole
-                    ? 'ĐÃ NHẬN 100% CỌC BỒI THƯỜNG'
-                    : 'KHIẾU NẠI ĐÃ XỬ LÝ • BỒI THƯỜNG CHO THỢ'}
+                    ? (isPostCompletion
+                        ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • BÁC KHIẾU NẠI CỦA KHÁCH'
+                        : 'ĐÃ NHẬN 100% CỌC BỒI THƯỜNG')
+                    : (isPostCompletion
+                        ? 'KHIẾU NẠI ĐÃ XỬ LÝ • BÁC BỎ YÊU CẦU KHIẾU NẠI'
+                        : 'KHIẾU NẠI ĐÃ XỬ LÝ • BỒI THƯỜNG CHO THỢ')}
                 </Text>
                 <Text style={styles.statusCardDesc}>
                   {isWorkstationRole
-                    ? `Admin đã phê duyệt khiếu nại (khách vắng mặt/bỏ hẹn) và giải ngân 100% tiền cọc (${formatPrice(depositAmount)}) vào ví thu nhập của bạn.`
-                    : `Ban Quản Trị đã từ chối yêu cầu hoàn cọc và chuyển toàn bộ tiền cọc (${formatPrice(depositAmount)}) bồi thường cho thợ make-up theo chính sách bảo vệ ca hẹn.`}
+                    ? (isPostCompletion
+                        ? `Admin đã công nhận giải trình của bạn và bác bỏ khiếu nại của khách. Toàn bộ thù lao ca làm việc (${formatPrice(totalAmount)}) được bảo lưu nguyên vẹn, bạn không bị trừ tiền.`
+                        : `Admin đã phê duyệt khiếu nại (khách vắng mặt/bỏ hẹn) và giải ngân 100% tiền cọc (${formatPrice(depositAmount)}) vào ví thu nhập của bạn.`)
+                    : (isPostCompletion
+                        ? `Căn cứ lời khai giải trình và minh chứng của chuyên viên, Ban Quản Trị quyết định bác bỏ yêu cầu khiếu nại của bạn. Đơn hàng giữ nguyên kết quả đã hoàn thành.`
+                        : `Ban Quản Trị đã từ chối yêu cầu hoàn cọc và chuyển toàn bộ tiền cọc (${formatPrice(depositAmount)}) bồi thường cho thợ make-up theo chính sách bảo vệ ca hẹn.`)}
                 </Text>
               </View>
             </View>
@@ -967,7 +1048,9 @@ export default function BookingHistoryDetailScreen() {
                     { color: isWorkstationRole ? '#059669' : '#E11D48' },
                   ]}
                 >
-                  {isWorkstationRole ? 'Đã Nhận Bồi Thường Cọc' : 'Khấu Trừ Bồi Thường Cọc'}
+                  {isWorkstationRole
+                    ? (isPostCompletion ? 'Bảo Lưu Thù Lao Ca Làm' : 'Đã Nhận Bồi Thường Cọc')
+                    : (isPostCompletion ? 'Khiếu Nại Bị Bác Bỏ' : 'Khấu Trừ Bồi Thường Cọc')}
                 </Text>
               </View>
               <Text style={styles.statusTimeText}>
@@ -1051,8 +1134,12 @@ export default function BookingHistoryDetailScreen() {
                   {isSplit5050
                     ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HÒA GIẢI 50% - 50%'
                     : isWorkstationRole
-                      ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH'
-                      : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ HOÀN 100% TIỀN CỌC'}
+                      ? (isPostCompletion
+                          ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • CHẤP NHẬN KHIẾU NẠI CỦA KHÁCH'
+                          : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH')
+                      : (isPostCompletion
+                          ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN TIỀN 100% ĐƠN HÀNG'
+                          : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ HOÀN 100% TIỀN CỌC')}
                 </Text>
                 <Text style={styles.statusCardDesc}>
                   {isSplit5050
@@ -1060,8 +1147,12 @@ export default function BookingHistoryDetailScreen() {
                       ? `Ban Quản Trị đã phê duyệt hòa giải 50/50. Bạn nhận được 50% cọc (${formatPrice(Math.round(depositAmount * 0.5))}) bồi thường vào Ví thợ, 50% còn lại đã hoàn trả về Ví khách hàng.`
                       : `Ban Quản Trị đã phê duyệt hòa giải 50/50. Bạn đã được hoàn trả 50% tiền cọc (${formatPrice(Math.round(depositAmount * 0.5))}) về Ví cá nhân, 50% còn lại được bồi thường cho thợ make-up.`
                     : isWorkstationRole
-                      ? `Ban Quản Trị đã xem xét và chấp thuận hoàn 100% tiền cọc (${formatPrice(depositAmount)}) cho khách hàng do sự cố khiếu nại. Ca làm này không phát sinh thu nhập thợ.`
-                      : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% tiền cọc (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn trả trực tiếp vào Ví cá nhân của bạn.`}
+                      ? (isPostCompletion
+                          ? `Ban Quản Trị đã xem xét và chấp thuận khiếu nại của khách hàng, tiến hành hoàn 100% tiền đơn (${formatPrice(totalAmount || depositAmount)}) cho khách. Đơn hàng không phát sinh thu nhập thợ.`
+                          : `Ban Quản Trị đã xem xét và chấp thuận hoàn 100% tiền cọc (${formatPrice(depositAmount)}) cho khách hàng do sự cố khiếu nại. Ca làm này không phát sinh thu nhập thợ.`)
+                      : (isPostCompletion
+                          ? `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% chi phí dịch vụ (${formatPrice(totalAmount || depositAmount)}) đã được hoàn trả trực tiếp vào Ví cá nhân của bạn.`
+                          : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% tiền cọc (${formatPrice(depositAmount)}) đã được bảo chứng và hoàn trả trực tiếp vào Ví cá nhân của bạn.`)}
                 </Text>
               </View>
             </View>
@@ -1127,8 +1218,8 @@ export default function BookingHistoryDetailScreen() {
                       ? 'Hòa Giải 50/50 • Nhận 50% Cọc'
                       : 'Hòa Giải 50/50 • Hoàn 50% Về Ví'
                     : isWorkstationRole
-                      ? 'Đã Hoàn Cọc Khách Hàng'
-                      : 'Đã Hoàn Cọc 100% Về Ví'}
+                      ? (isPostCompletion ? 'Đã Hoàn 100% Khách Hàng' : 'Đã Hoàn Cọc Khách Hàng')
+                      : (isPostCompletion ? 'Đã Hoàn 100% Về Ví' : 'Đã Hoàn Cọc 100% Về Ví')}
                 </Text>
               </View>
               <Text style={styles.statusTimeText}>
@@ -1397,7 +1488,9 @@ export default function BookingHistoryDetailScreen() {
           } else if (isMuaReport) {
             if (isWorkstationRole) {
               title = 'BÁO CÁO SỰ CỐ TỪ BẠN (CHUYÊN VIÊN MUA)';
-              subtitle = 'Bạn đã gửi báo cáo sự cố (khách vắng mặt/không liên lạc được). Ban Quản Trị đang đối soát minh chứng để giải ngân 100% tiền cọc cho bạn.';
+              subtitle = isPostCompletion
+                ? 'Bạn đã gửi giải trình ca làm việc. Ban Quản Trị đang đối soát minh chứng để giải quyết khiếu nại.'
+                : 'Bạn đã gửi báo cáo sự cố (khách vắng mặt/không liên lạc được). Ban Quản Trị đang đối soát minh chứng để giải ngân 100% tiền cọc cho bạn.';
               reporterBadge = 'Báo Cáo Từ Bạn (MUA)';
               reasonLabel = 'Lý do bạn báo cáo sự cố:';
             } else {
@@ -1413,7 +1506,9 @@ export default function BookingHistoryDetailScreen() {
 
             if (isEscalatedToAdmin) {
               title = 'ĐANG CHỜ ADMIN SÀN PHÁN QUYẾT';
-              subtitle = 'Đơn khiếu nại đã được gửi lên Ban Quản Trị Sàn phân xử tối hậu. Tiền cọc được bảo lưu an toàn trong Quỹ Escrow.';
+              subtitle = isPostCompletion
+                ? 'Đơn khiếu nại đã được gửi lên Ban Quản Trị Sàn phân xử tối hậu. Quyền lợi hai bên được bảo chứng an toàn.'
+                : 'Đơn khiếu nại đã được gửi lên Ban Quản Trị Sàn phân xử tối hậu. Tiền cọc được bảo lưu an toàn trong Quỹ Escrow.';
               reporterBadge = 'Admin Sàn Thụ Lý';
               reasonLabel = 'Nội dung khiếu nại:';
             } else if (isStudioRejected) {
@@ -1423,7 +1518,9 @@ export default function BookingHistoryDetailScreen() {
               reasonLabel = 'Lý do khiếu nại & phản hồi:';
             } else if (!isWorkstationRole) {
               title = 'YÊU CẦU KHIẾU NẠI TỪ BẠN (KHÁCH HÀNG)';
-              subtitle = 'Bạn đã gửi yêu cầu khiếu nại ca hẹn này. Ban Quản Trị đang xác minh minh chứng để bảo vệ quyền lợi và hoàn cọc cho bạn.';
+              subtitle = isPostCompletion
+                ? 'Bạn đã gửi yêu cầu khiếu nại ca hẹn này. Ban Quản Trị đang xác minh minh chứng chất lượng dịch vụ để giải quyết cho bạn.'
+                : 'Bạn đã gửi yêu cầu khiếu nại ca hẹn này. Ban Quản Trị đang xác minh minh chứng để bảo vệ quyền lợi và hoàn cọc cho bạn.';
               reporterBadge = 'Khiếu Nại Của Bạn (Khách)';
               reasonLabel = 'Lý do bạn khiếu nại:';
             } else {
@@ -1562,8 +1659,8 @@ export default function BookingHistoryDetailScreen() {
                   <Ionicons name="create-outline" size={17} color="#FFFFFF" />
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
                     {isWorkstationRole
-                      ? 'Gửi Báo Cáo Phản Hồi Khiếu Nại Của Thợ'
-                      : 'Gửi Báo Cáo Đối Chất / Khiếu Nại Của Bạn'}
+                      ? 'Gửi Lời Khai Giải Trình Của Thợ'
+                      : 'Gửi Yêu Cầu Khiếu Nại Của Bạn'}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1596,7 +1693,7 @@ export default function BookingHistoryDetailScreen() {
               >
                 <Ionicons name="document-text-outline" size={16} color={canSubmitCounterDispute ? '#9A3412' : '#FFFFFF'} />
                 <Text style={{ fontSize: 13, fontWeight: '700', color: canSubmitCounterDispute ? '#9A3412' : '#FFFFFF' }}>
-                  Xem Toàn Bộ Hồ Sơ Khiếu Nại & Đối Chất
+                  {isWorkstationRole ? 'Xem Toàn Bộ Hồ Sơ Khiếu Nại & Giải Trình' : 'Xem Chi Tiết Yêu Cầu Khiếu Nại'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -2066,7 +2163,13 @@ export default function BookingHistoryDetailScreen() {
             </View>
             <TouchableOpacity
               style={styles.photoContainer}
-              onPress={() => setIsPhotoModalVisible(true)}
+              onPress={() => {
+                if (bookingDetail.completionPhotoUrl) {
+                  setPreviewPhotoList([bookingDetail.completionPhotoUrl]);
+                  setPreviewPhotoIndex(0);
+                  setIsPhotoModalVisible(true);
+                }
+              }}
               activeOpacity={0.9}
             >
               <Image
@@ -2596,16 +2699,33 @@ export default function BookingHistoryDetailScreen() {
                 <Ionicons name="star" size={18} color="#F59E0B" />
                 <Text style={styles.cardSectionTitle}>Đánh Giá Của Khách Hàng</Text>
               </View>
-              {existingReview && !isWorkstationRole && (
-                <TouchableOpacity
-                  style={styles.editReviewSmallBtn}
-                  onPress={() => setIsReviewModalVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="create-outline" size={13} color={BrandColors.primary} />
-                  <Text style={styles.editReviewSmallBtnText}>Chỉnh Sửa</Text>
-                </TouchableOpacity>
-              )}
+              {existingReview && !isWorkstationRole && (() => {
+                const isWithin7Days = (() => {
+                  if (!existingReview.createdAt) return true;
+                  const diffMs = Date.now() - new Date(existingReview.createdAt).getTime();
+                  return diffMs <= 7 * 24 * 60 * 60 * 1000;
+                })();
+
+                if (!isWithin7Days) {
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="time-outline" size={12} color="#94A3B8" />
+                      <Text style={{ fontSize: 11.5, color: '#94A3B8' }}>Hết hạn sửa (sau 7 ngày)</Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <TouchableOpacity
+                    style={styles.editReviewSmallBtn}
+                    onPress={() => setIsReviewModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="create-outline" size={13} color={BrandColors.primary} />
+                    <Text style={styles.editReviewSmallBtnText}>Chỉnh Sửa</Text>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
 
             {existingReview ? (
@@ -2650,24 +2770,51 @@ export default function BookingHistoryDetailScreen() {
                   <Text style={styles.reviewCommentContent}>{existingReview.comment}</Text>
                 ) : null}
 
-                {/* 4. Hình ảnh đính kèm: Chuẩn 2 ảnh to trên 1 hàng như Profile & Shopee */}
-                {existingReview.imageUrls && existingReview.imageUrls.length > 0 ? (
-                  <View style={styles.reviewPhotosGrid}>
-                    {existingReview.imageUrls.map((imgUrl, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        style={styles.reviewPhotoLargeCard}
-                        onPress={() => {
-                          setPreviewPhotoUrl(imgUrl);
-                          setIsPhotoModalVisible(true);
-                        }}
-                        activeOpacity={0.85}
-                      >
-                        <Image source={{ uri: imgUrl }} style={styles.reviewPhotoImage} contentFit="cover" />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                ) : null}
+                {/* 4. Hình ảnh đính kèm: Bố cục 1 hàng gồm 2 ảnh (hiện +N ở ảnh thứ 2 nếu có nhiều hơn 2 ảnh) */}
+                {(() => {
+                  const uniqueImages = Array.from(new Set(existingReview.imageUrls || []));
+                  if (uniqueImages.length === 0) return null;
+
+                  const hasMore = uniqueImages.length > 2;
+                  const displayImages = uniqueImages.slice(0, 2);
+                  const extraCount = uniqueImages.length - 2;
+
+                  return (
+                    <View style={styles.reviewPhotosRow}>
+                      {displayImages.map((imgUrl, idx) => {
+                        const isSecondWithMore = idx === 1 && hasMore;
+                        return (
+                          <TouchableOpacity
+                            key={idx}
+                            style={[
+                              styles.reviewPhotoCard,
+                              displayImages.length === 1 && { width: '50%', flex: 0 },
+                            ]}
+                            onPress={() => {
+                              setPreviewPhotoList(uniqueImages);
+                              setPreviewPhotoIndex(idx);
+                              setIsPhotoModalVisible(true);
+                            }}
+                            activeOpacity={0.88}
+                          >
+                            <Image
+                              source={{ uri: imgUrl }}
+                              style={styles.reviewPhotoImage}
+                              contentFit="cover"
+                            />
+
+                            {/* Lớp phủ +N nếu có nhiều hơn 2 ảnh */}
+                            {isSecondWithMore && (
+                              <View style={styles.reviewPhotoMoreOverlay}>
+                                <Text style={styles.reviewPhotoMoreText}>+{extraCount}</Text>
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                })()}
               </View>
             ) : (
               <View style={styles.emptyReviewBox}>
@@ -2705,20 +2852,34 @@ export default function BookingHistoryDetailScreen() {
                 <Text style={styles.rebookBtnText}>Đặt Lại Ca Này</Text>
               </TouchableOpacity>
 
-
-
-              {(bookingDetail?.status === 'COMPLETED' || bookingDetail?.status === 'PAID_OUT') && (
+              {hasDisputeRecord ? (
                 <TouchableOpacity
-                  style={styles.disputeBtn}
+                  style={[styles.disputeBtn, { borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' }]}
                   onPress={() => {
-                    setIsDisputeDossierAutoOpen(true);
+                    setIsDisputeDossierAutoOpen(false);
                     setIsDisputeDossierOpen(true);
                   }}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="alert-circle-outline" size={17} color="#EA580C" />
-                  <Text style={styles.disputeBtnText}>Khiếu Nại / Báo Cáo Sự Cố Ca Này</Text>
+                  <Ionicons name="document-text-outline" size={17} color="#475569" />
+                  <Text style={[styles.disputeBtnText, { color: '#334155' }]}>
+                    {bookingDetail?.status === 'DISPUTED' ? 'Xem Hồ Sơ Đang Khiếu Nại' : 'Xem Kết Quả Giải Quyết Khiếu Nại'}
+                  </Text>
                 </TouchableOpacity>
+              ) : (
+                (bookingDetail?.status === 'COMPLETED' || bookingDetail?.status === 'PAID_OUT') && (
+                  <TouchableOpacity
+                    style={styles.disputeBtn}
+                    onPress={() => {
+                      setIsDisputeDossierAutoOpen(true);
+                      setIsDisputeDossierOpen(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="alert-circle-outline" size={17} color="#EA580C" />
+                    <Text style={styles.disputeBtnText}>Khiếu Nại / Báo Cáo Sự Cố Ca Này</Text>
+                  </TouchableOpacity>
+                )
               )}
             </>
           ) : (
@@ -2737,45 +2898,104 @@ export default function BookingHistoryDetailScreen() {
                 <Text style={styles.rebookBtnText}>Về Bàn Làm Việc</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.reviewBtn}
-                onPress={() => router.push('/profile/freelancer-wallet')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="wallet-outline" size={17} color={BrandColors.primary} />
-                <Text style={styles.reviewBtnText}>Kiểm Tra Ví Thợ</Text>
-              </TouchableOpacity>
+              {hasDisputeRecord ? (
+                <TouchableOpacity
+                  style={[styles.disputeBtn, { borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' }]}
+                  onPress={() => {
+                    setIsDisputeDossierAutoOpen(false);
+                    setIsDisputeDossierOpen(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="document-text-outline" size={17} color="#475569" />
+                  <Text style={[styles.disputeBtnText, { color: '#334155' }]}>
+                    {bookingDetail?.status === 'DISPUTED' ? 'Xem Hồ Sơ Khiếu Nại / Giải Trình' : 'Xem Kết Quả Giải Quyết Khiếu Nại'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.reviewBtn}
+                  onPress={() => router.push('/profile/freelancer-wallet')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="wallet-outline" size={17} color={BrandColors.primary} />
+                  <Text style={styles.reviewBtnText}>Kiểm Tra Ví Thợ</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
         </View>
       </ScrollView>
 
-      {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU HOẶC MINH CHỨNG */}
+      {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU HOẶC MINH CHỨNG / REVIEW */}
       <Modal
-        visible={isPhotoModalVisible || !!previewPhotoUrl}
+        visible={isPhotoModalVisible}
         transparent
         animationType="fade"
         statusBarTranslucent
         onRequestClose={() => {
           setIsPhotoModalVisible(false);
-          setPreviewPhotoUrl(null);
+          setPreviewPhotoList([]);
         }}
       >
-        <Pressable
-          style={styles.photoModalFullscreen}
-          onPress={() => {
-            setIsPhotoModalVisible(false);
-            setPreviewPhotoUrl(null);
-          }}
-        >
-          {(previewPhotoUrl || bookingDetail.completionPhotoUrl) && (
-            <Image
-              source={{ uri: previewPhotoUrl || bookingDetail.completionPhotoUrl }}
-              style={styles.photoModalImage}
-              contentFit="contain"
-            />
-          )}
-        </Pressable>
+        <View style={styles.photoModalFullscreen}>
+          {/* Header với nút đóng và số trang */}
+          <SafeAreaView style={styles.photoModalHeader}>
+            <TouchableOpacity
+              style={styles.photoModalCloseBtn}
+              onPress={() => {
+                setIsPhotoModalVisible(false);
+                setPreviewPhotoList([]);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {previewPhotoList.length > 1 && (
+              <View style={styles.photoModalCounterBadge}>
+                <Text style={styles.photoModalCounterText}>
+                  Ảnh {previewPhotoIndex + 1} / {previewPhotoList.length}
+                </Text>
+              </View>
+            )}
+
+            <View style={{ width: 40 }} />
+          </SafeAreaView>
+
+          {/* Vùng xem ảnh kèm 2 mũi tên điều hướng < > */}
+          <View style={styles.photoModalViewerArea}>
+            {previewPhotoList[previewPhotoIndex] && (
+              <Image
+                source={{ uri: previewPhotoList[previewPhotoIndex] }}
+                style={styles.photoModalImage}
+                contentFit="contain"
+              />
+            )}
+
+            {/* Mũi tên lùi < */}
+            {previewPhotoIndex > 0 && (
+              <TouchableOpacity
+                style={[styles.photoModalNavBtn, styles.photoModalNavPrev]}
+                onPress={() => setPreviewPhotoIndex((i) => i - 1)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+
+            {/* Mũi tên tiến > */}
+            {previewPhotoIndex < previewPhotoList.length - 1 && (
+              <TouchableOpacity
+                style={[styles.photoModalNavBtn, styles.photoModalNavNext]}
+                onPress={() => setPreviewPhotoIndex((i) => i + 1)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="chevron-forward" size={26} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </Modal>
 
       {/* MODAL XEM CHI TIẾT HỒ SƠ KHIẾU NẠI & MINH CHỨNG HAI BÊN (TÍCH HỢP INLINE FORM ĐỐI CHẤT) */}
@@ -3676,13 +3896,58 @@ const styles = StyleSheet.create({
   photoModalFullscreen: {
     flex: 1,
     backgroundColor: '#000000',
+    justifyContent: 'space-between',
+  },
+  photoModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    zIndex: 10,
+  },
+  photoModalCloseBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 0,
   },
-  photoModalContent: {
-    width: '100%',
+  photoModalCounterBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  photoModalCounterText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  photoModalViewerArea: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  photoModalNavBtn: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  photoModalNavPrev: {
+    left: 12,
+  },
+  photoModalNavNext: {
+    right: 12,
   },
   photoModalImage: {
     width: '100%',
@@ -3910,22 +4175,38 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginTop: 4,
   },
-  reviewPhotosGrid: {
+  reviewPhotosRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
     marginTop: 10,
+    width: '100%',
   },
-  reviewPhotoLargeCard: {
-    width: HISTORY_REVIEW_PHOTO_SIZE,
-    height: HISTORY_REVIEW_PHOTO_SIZE,
-    borderRadius: 8,
+  reviewPhotoCard: {
+    flex: 1,
+    height: 140,
+    borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    position: 'relative',
   },
   reviewPhotoImage: {
     width: '100%',
     height: '100%',
+  },
+  reviewPhotoMoreOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.52)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  reviewPhotoMoreText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   emptyReviewBox: {
     alignItems: 'center',

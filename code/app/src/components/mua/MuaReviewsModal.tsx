@@ -5,6 +5,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   ActivityIndicator,
   Image,
@@ -134,6 +135,12 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Đóng modal đánh giá"
+        />
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.modalHeader}>

@@ -141,7 +141,14 @@ export default function CustomerBookingDetailScreen() {
 
     try {
       const data = await bookingService.getBookingStatus(bookingId);
-      if (data?.status === 'PAID_OUT' || data?.status === 'CANCELLED' || data?.status === 'CANCELLED_EXPIRED') {
+      if (
+        data?.status === 'PAID_OUT' ||
+        data?.status === 'CANCELLED' ||
+        data?.status === 'CANCELLED_EXPIRED' ||
+        data?.status === 'DISPUTED' ||
+        data?.status === 'DISPUTE_REFUNDED' ||
+        data?.status === 'DISPUTE_COMPENSATED'
+      ) {
         const reviewParam = data?.status === 'PAID_OUT' ? '?openReview=true' : '';
         router.replace(`/booking/history-detail/${bookingId}${reviewParam}` as any);
         return;
@@ -301,13 +308,16 @@ export default function CustomerBookingDetailScreen() {
         }
         return { label: 'Đang Khiếu Nại', color: '#EA580C', bg: '#FFEDD5', icon: 'alert-circle-outline' };
       }
-      case 'DISPUTE_REFUNDED':
-        return { label: 'Đã Hoàn 100% Cọc', color: '#059669', bg: '#D1FAE5', icon: 'shield-checkmark-outline' };
+      case 'DISPUTE_REFUNDED': {
+        const isPost = Boolean(bookingDetail?.completionPhotoUrl || bookingDetail?.completedAt || bookingDetail?.cancellationReason?.toLowerCase().includes('sau ca') || bookingDetail?.cancellationReason?.toLowerCase().includes('tổng tiền đơn'));
+        return { label: isPost ? 'Đã Hoàn 100% Tiền Đơn' : 'Đã Hoàn 100% Cọc', color: '#059669', bg: '#D1FAE5', icon: 'shield-checkmark-outline' };
+      }
       case 'DISPUTE_COMPENSATED': {
         if (reason?.includes('[KHACH_DONG_Y_KET_QUA]')) {
           return { label: 'Đã Đồng Ý Kết Quả', color: '#2563EB', bg: '#DBEAFE', icon: 'checkmark-circle-outline' };
         }
-        return { label: 'Đã Phán Quyết Bồi Thường', color: '#4B5563', bg: '#F3F4F6', icon: 'shield-checkmark-outline' };
+        const isPost = Boolean(bookingDetail?.completionPhotoUrl || bookingDetail?.completedAt || bookingDetail?.cancellationReason?.toLowerCase().includes('sau ca') || bookingDetail?.cancellationReason?.toLowerCase().includes('bác bỏ khiếu nại'));
+        return { label: isPost ? 'Bác Bỏ Khiếu Nại' : 'Đã Phán Quyết Bồi Thường', color: '#4B5563', bg: '#F3F4F6', icon: 'shield-checkmark-outline' };
       }
       default:
         return { label: status || 'Không rõ', color: '#64748B', bg: '#F1F5F9', icon: 'help-circle-outline' };
@@ -762,11 +772,21 @@ export default function CustomerBookingDetailScreen() {
                       ? 'Đang chờ Admin Sàn làm trọng tài phân xử'
                       : (bookingDetail.emergencyReason || bookingDetail.cancellationReason || 'Đơn hàng đang trong quá trình khiếu nại')
                   )}
-                  {bookingDetail.status === 'DISPUTE_REFUNDED' && (bookingDetail.cancellationReason || 'Đã duyệt khiếu nại: Hoàn 100% tiền cọc về Ví của bạn')}
+                  {bookingDetail.status === 'DISPUTE_REFUNDED' && (
+                    bookingDetail.cancellationReason || (
+                      (bookingDetail.completionPhotoUrl || bookingDetail.completedAt || bookingDetail.cancellationReason?.toLowerCase().includes('sau ca'))
+                        ? 'Đã duyệt khiếu nại: Hoàn 100% tiền đơn về Ví của bạn'
+                        : 'Đã duyệt khiếu nại: Hoàn 100% tiền cọc về Ví của bạn'
+                    )
+                  )}
                   {bookingDetail.status === 'DISPUTE_COMPENSATED' && (
                     (bookingDetail.cancellationReason || '').includes('[KHACH_DONG_Y_KET_QUA]')
                       ? 'Đã giải quyết: Bạn đã chấp nhận kết quả từ Studio'
-                      : (bookingDetail.cancellationReason || 'Đã duyệt phân xử: Tiền cọc dùng để bồi thường thiệt hại')
+                      : (bookingDetail.cancellationReason || (
+                          (bookingDetail.completionPhotoUrl || bookingDetail.completedAt || bookingDetail.cancellationReason?.toLowerCase().includes('sau ca'))
+                            ? 'Đã giải quyết: Bác bỏ khiếu nại, bảo lưu thù lao ca làm'
+                            : 'Đã duyệt phân xử: Tiền cọc dùng để bồi thường thiệt hại'
+                        ))
                   )}
                   {isCancelled && (bookingDetail.cancellationReason || 'Đơn đã hủy theo yêu cầu')}
                 </Text>
@@ -1081,7 +1101,7 @@ export default function CustomerBookingDetailScreen() {
                 >
                   <Ionicons name="create-outline" size={17} color="#FFFFFF" />
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
-                    Gửi Báo Cáo Đối Chất / Khiếu Nại Của Bạn
+                    Gửi Yêu Cầu Khiếu Nại Của Bạn
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1102,7 +1122,7 @@ export default function CustomerBookingDetailScreen() {
               >
                 <Ionicons name="document-text-outline" size={16} color={isMuaReport ? '#9A3412' : '#FFFFFF'} />
                 <Text style={{ ...styles.viewDisputeDossierBtnText, color: isMuaReport ? '#9A3412' : '#FFFFFF' }}>
-                  Xem Chi Tiết Báo Cáo & Minh Chứng Hai Bên
+                  Xem Chi Tiết Yêu Cầu Khiếu Nại
                 </Text>
               </TouchableOpacity>
             </View>

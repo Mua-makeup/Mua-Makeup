@@ -41,6 +41,10 @@ public class FreelancerBookingItemRes {
     private String commissionNote;
     private Boolean soloPendingConfirmation;
     private BigDecimal soloCommissionRate;
+    private String bookingPartner;
+    private Long agencyId;
+    private String agencyName;
+    private String agencyLogoUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
