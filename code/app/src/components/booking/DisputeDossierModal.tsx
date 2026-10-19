@@ -469,40 +469,90 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                     {bookingStatus === 'PAID_OUT'
                       ? (isPostCompletion
                           ? (isMUA
-                              ? `Admin đã công nhận giải trình của bạn và bác bỏ khiếu nại của khách. Toàn bộ thù lao ca làm việc (${formatVnd(totalAmount || depositAmount)}) được bảo lưu nguyên vẹn, bạn không bị trừ tiền.`
-                              : `Căn cứ lời khai giải trình và minh chứng của chuyên viên, Ban Quản Trị quyết định bác bỏ yêu cầu khiếu nại của bạn. Đơn hàng giữ nguyên kết quả đã hoàn thành.`)
+                              ? (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý đã bác bỏ khiếu nại của khách hàng. Toàn bộ thù lao ca làm việc (${formatVnd(totalAmount || depositAmount)}) được bảo lưu nguyên vẹn, bạn không bị trừ tiền.`
+                                  : `Admin đã công nhận giải trình của bạn và bác bỏ khiếu nại của khách. Toàn bộ thù lao ca làm việc (${formatVnd(totalAmount || depositAmount)}) được bảo lưu nguyên vẹn, bạn không bị trừ tiền.`)
+                              : (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý quyết định bác bỏ yêu cầu khiếu nại của bạn. Toàn bộ kết quả ca làm việc được giữ nguyên.`
+                                  : `Căn cứ lời khai giải trình và minh chứng của chuyên viên, Ban Quản Trị quyết định bác bỏ yêu cầu khiếu nại của bạn. Đơn hàng giữ nguyên kết quả đã hoàn thành.`))
                           : (isMUA
-                              ? `Admin đã phê duyệt khiếu nại và giải ngân tiền cọc bồi thường (${formatVnd(depositAmount)}) vào ví của bạn.`
-                              : `Ban Quản Trị đã từ chối yêu cầu hoàn cọc và chuyển tiền cọc (${formatVnd(depositAmount)}) bồi thường cho thợ.`))
+                              ? (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý đã bác bỏ yêu cầu hoàn cọc của khách để bảo vệ quyền lợi của bạn.`
+                                  : `Admin đã phê duyệt khiếu nại và giải ngân tiền cọc bồi thường (${formatVnd(depositAmount)}) vào ví của bạn.`)
+                              : (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý đã từ chối yêu cầu hoàn cọc của bạn.`
+                                  : `Ban Quản Trị đã từ chối yêu cầu hoàn cọc và chuyển tiền cọc (${formatVnd(depositAmount)}) bồi thường cho thợ.`)))
                       : (isPostCompletion
                           ? (isMUA
-                              ? `Ban Quản Trị đã chấp thuận khiếu nại của khách hàng, tiến hành hoàn 100% tiền đơn (${formatVnd(totalAmount || depositAmount)}) cho khách. Đơn hàng không phát sinh thu nhập thợ.`
-                              : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% chi phí dịch vụ (${formatVnd(totalAmount || depositAmount)}) đã được hoàn trả trực tiếp vào Ví cá nhân của bạn.`)
+                              ? (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý đã chấp thuận khiếu nại của khách hàng, tiến hành hoàn 100% tiền đơn (${formatVnd(totalAmount || depositAmount)}) cho khách. Đơn hàng không phát sinh thu nhập thợ.`
+                                  : `Ban Quản Trị đã chấp thuận khiếu nại của khách hàng, tiến hành hoàn 100% tiền đơn (${formatVnd(totalAmount || depositAmount)}) cho khách. Đơn hàng không phát sinh thu nhập thợ.`)
+                              : (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% chi phí dịch vụ (${formatVnd(totalAmount || depositAmount)}) đã được hoàn trả trực tiếp vào Ví cá nhân của bạn.`
+                                  : `Admin đã phê duyệt yêu cầu khiếu nại của bạn. Toàn bộ 100% chi phí dịch vụ (${formatVnd(totalAmount || depositAmount)}) đã được hoàn trả trực tiếp vào Ví cá nhân của bạn.`))
                           : (isMUA
-                              ? `Ban Quản Trị đã chấp thuận hoàn 100% tiền cọc (${formatVnd(depositAmount)}) cho khách hàng.`
-                              : `Admin đã phê duyệt hoàn trả 100% tiền cọc (${formatVnd(depositAmount)}) vào Ví cá nhân của bạn.`))}
+                              ? (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý đã chấp thuận hoàn 100% tiền cọc (${formatVnd(depositAmount)}) cho khách hàng.`
+                                  : `Ban Quản Trị đã chấp thuận hoàn 100% tiền cọc (${formatVnd(depositAmount)}) cho khách hàng.`)
+                              : (cancellationReason?.includes('Studio')
+                                  ? `Studio quản lý đã phê duyệt hoàn trả 100% tiền cọc (${formatVnd(depositAmount)}) vào Ví cá nhân của bạn.`
+                                  : `Admin đã phê duyệt hoàn trả 100% tiền cọc (${formatVnd(depositAmount)}) vào Ví cá nhân của bạn.`)))}
                   </Text>
                 </View>
               </View>
 
               {cancellationReason ? (
                 <View style={styles.adminVerdictBox}>
-                  <Text style={styles.adminVerdictLabel}>Phán quyết của Admin:</Text>
+                  <Text style={styles.adminVerdictLabel}>
+                    {cancellationReason.includes('Studio') ? 'Phán quyết của Studio:' : 'Phán quyết của Admin:'}
+                  </Text>
                   <Text style={styles.adminVerdictContent}>{cancellationReason}</Text>
                 </View>
               ) : null}
             </View>
-          ) : isMUA && isDual ? (
+          ) : cancellationReason?.includes('[LEO_THANG_ADMIN]') || emergencyReason?.includes('[LEO_THANG_ADMIN]') ? (
+            <View style={[styles.bannerSingle, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }]}>
+              <Ionicons name="shield-checkmark" size={18} color="#DC2626" />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.bannerSingleTitle, { color: '#991B1B' }]}>
+                  Đang Chờ Admin Sàn Phán Quyết
+                </Text>
+                <Text style={[styles.bannerSingleSub, { color: '#7F1D1D' }]}>
+                  {isMUA
+                    ? 'Khách hàng đã chuyển khiếu nại lên Ban Quản Trị Sàn phân xử tối hậu. Quyền lợi và thù lao hai bên đang được bảo lưu xem xét.'
+                    : 'Hồ sơ khiếu nại đã được chuyển lên Ban Quản Trị Sàn phân xử tối hậu. Quyền lợi hai bên được bảo chứng an toàn.'}
+                </Text>
+              </View>
+            </View>
+          ) : cancellationReason?.includes('[STUDIO_TU_CHOI]') || emergencyReason?.includes('[STUDIO_TU_CHOI]') ? (
+            <View style={[styles.bannerSingle, { backgroundColor: '#FFF7ED', borderColor: '#FDBA74' }]}>
+              <Ionicons name="alert-circle" size={18} color="#EA580C" />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.bannerSingleTitle, { color: '#9A3412' }]}>
+                  {isMUA
+                    ? (isPostCompletion ? 'Studio Đã Bác Bỏ Khiếu Nại Của Khách' : 'Studio Đã Từ Chối Yêu Cầu Cọc Của Khách')
+                    : (isPostCompletion ? 'Studio Đã Bác Bỏ Khiếu Nại Của Bạn' : 'Studio Đã Từ Chối Hoàn Cọc')}
+                </Text>
+                <Text style={[styles.bannerSingleSub, { color: '#7C2D12' }]}>
+                  {isMUA
+                    ? 'Studio quản lý đã bác bỏ khiếu nại của khách hàng để bảo vệ quyền lợi ca làm việc của bạn. Đang chờ phản hồi tiếp theo từ phía khách hàng.'
+                    : 'Studio quản lý đã từ chối yêu cầu của bạn. Bạn có thể chấp nhận giải quyết nội bộ hoặc chuyển hồ sơ lên Ban Quản Trị Sàn phân xử tối hậu.'}
+                </Text>
+              </View>
+            </View>
+          ) : isDual ? (
             <View style={styles.bannerDual}>
               <Ionicons name="git-compare-outline" size={18} color="#2563EB" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerDualTitle}>Tranh Chấp 2 Chiều Phát Sinh Đồng Thời</Text>
                 <Text style={styles.bannerDualSub}>
-                  {isPostCompletion
-                    ? `Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Ban Quản Trị sẽ đối chiếu lời khai và ảnh minh chứng để ra phán quyết hoàn 100% (${formatVnd(totalAmount || depositAmount)}) hoặc bảo lưu thù lao.`
-                    : isAgencyBooking
-                    ? 'Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Quản lý Studio sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để xử lý thỏa đáng.'
-                    : 'Cả bạn và đối tác đều đã gửi lời khai đối lập nhau. Ban Quản Trị sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để ra phán quyết xử lý tiền cọc.'}
+                  {isMUA
+                    ? (isAgencyBooking
+                        ? 'Cả bạn và khách hàng đều đã gửi lời khai đối lập nhau. Quản lý Studio sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để xử lý thỏa đáng.'
+                        : `Cả bạn và khách hàng đều đã gửi lời khai đối lập nhau. Ban Quản Trị Sàn sẽ đối chiếu lời khai và ảnh minh chứng để ra phán quyết ${isPostCompletion ? `hoàn 100% (${formatVnd(totalAmount || depositAmount)})` : 'xử lý tiền cọc'} hoặc bảo lưu thù lao.`)
+                    : (isAgencyBooking
+                        ? 'Cả bạn và chuyên viên make-up đều đã gửi lời khai đối lập nhau. Quản lý Studio sẽ đối chiếu lời khai và ảnh minh chứng của hai bên để xử lý thỏa đáng.'
+                        : `Cả bạn và chuyên viên make-up đều đã gửi lời khai đối lập nhau. Ban Quản Trị Sàn sẽ đối chiếu lời khai và ảnh minh chứng để ra phán quyết ${isPostCompletion ? `hoàn 100% (${formatVnd(totalAmount || depositAmount)})` : 'xử lý tiền cọc'} hoặc bảo lưu thù lao.`)}
                 </Text>
               </View>
             </View>
@@ -528,7 +578,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                     ? isMUA
                       ? `Đơn hàng đã hoàn thành ca. Khách hàng đang khiếu nại yêu cầu hoàn 100% tiền đơn (${formatVnd(totalAmount || depositAmount)}). Bạn có quyền giải trình và gửi ảnh minh chứng để bảo vệ quyền lợi.`
                       : hasMyStatement
-                      ? `Yêu cầu khiếu nại chất lượng ca làm việc đã được gửi tới Ban Quản Trị. Số tiền yêu cầu hoàn: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Admin sẽ xác minh và phản hồi kết quả sớm nhất.`
+                      ? (isAgencyBooking
+                          ? `Yêu cầu khiếu nại chất lượng ca làm việc đã được gửi tới Studio quản lý. Số tiền yêu cầu hoàn: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Quản lý Studio sẽ đối soát và phản hồi kết quả.`
+                          : `Yêu cầu khiếu nại chất lượng ca làm việc đã được gửi tới Ban Quản Trị. Số tiền yêu cầu hoàn: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Admin sẽ xác minh và phản hồi kết quả sớm nhất.`)
                       : `Nếu dịch vụ không đạt yêu cầu hoặc có sự cố, bạn có thể gửi yêu cầu khiếu nại. Số tiền yêu cầu hoàn: ${formatVnd(totalAmount || depositAmount)} (100% giá trị đơn). Ban Quản Trị sẽ tiếp nhận và xử lý thỏa đáng.`
                     : isAgencyBooking
                     ? `Tiền cọc ${formatVnd(depositAmount)} đang được khóa an toàn trong Quỹ Escrow. Quản lý Studio sẽ kiểm tra minh chứng và xử lý.`
@@ -537,6 +589,21 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                     : `Nếu có sự cố phát sinh tại buổi hẹn, bạn có thể gửi yêu cầu khiếu nại để Ban Quản Trị can thiệp xử lý tiền cọc.`}
                 </Text>
               </View>
+            </View>
+          )}
+
+          {/* Phán quyết giải quyết từ Studio nếu Studio đã xử lý từ chối */}
+          {(cancellationReason?.includes('[STUDIO_TU_CHOI]') || emergencyReason?.includes('[STUDIO_TU_CHOI]')) && (
+            <View style={[styles.adminVerdictBox, { backgroundColor: '#FFF7ED', borderColor: '#FED7AA', marginTop: 10 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Ionicons name="document-text" size={15} color="#C2410C" />
+                <Text style={[styles.adminVerdictLabel, { color: '#C2410C', marginBottom: 0 }]}>
+                  Ghi chú phán quyết từ Studio:
+                </Text>
+              </View>
+              <Text style={[styles.adminVerdictContent, { color: '#7C2D12' }]}>
+                {(cancellationReason || emergencyReason || '').replace(/\[STUDIO_TU_CHOI\]:\s*/g, '')}
+              </Text>
             </View>
           )}
 

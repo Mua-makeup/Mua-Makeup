@@ -45,6 +45,7 @@ public class AgencyDisputeRes {
     private String emergencyProofUrl;
     private OffsetDateTime emergencyReportedAt;
     private String cancellationReason;
+    private String disputeOrigin;
     private Boolean isEscalatedToAdmin;
     private Boolean isStudioRejected;
 
@@ -53,6 +54,9 @@ public class AgencyDisputeRes {
     private BigDecimal surchargeFee;
     private BigDecimal totalAmount;
     private BigDecimal depositAmount;
+
+    // Service Completion Proof
+    private String completionPhotoUrl;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

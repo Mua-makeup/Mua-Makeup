@@ -260,6 +260,41 @@ export const AgencyRealtimeNotifier = () => {
             if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             setActiveToast(toastData);
             toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 9000);
+          } else if (
+            payload.type === 'BOOKING_DISPUTE' ||
+            payload.type === 'AGENCY_STAFF_DISPUTED' ||
+            payload.type === 'AGENCY_DISPUTE_RESOLVED' ||
+            payload.type === 'AGENCY_DISPUTE_RESULT'
+          ) {
+            window.dispatchEvent(
+              new CustomEvent('agency:dispute-alert', { detail: payload })
+            );
+
+            notificationSound.playBookingChime();
+
+            const notifItem = addNotification({
+              id: payload.id || `dispute_${Date.now()}`,
+              type: payload.type || 'BOOKING_DISPUTE',
+              title: payload.title || (payload.type === 'AGENCY_DISPUTE_RESOLVED' ? 'Khiếu nại đã giải quyết' : 'Báo cáo khiếu nại mới'),
+              content: payload.content || payload.note || `Đơn hàng #${payload.bookingCode || ''} có thông tin khiếu nại cần xử lý`,
+              bookingId: payload.bookingId,
+              bookingCode: payload.bookingCode,
+              note: payload.note,
+              timestamp: payload.timestamp || Date.now(),
+            });
+
+            const toastData = notifItem || {
+              id: payload.id || `dispute_${Date.now()}`,
+              type: 'BOOKING_DISPUTE',
+              title: payload.title || 'Khiếu Nại & Sự Cố Ca Làm',
+              content: payload.content || payload.note || `Đơn hàng #${payload.bookingCode || ''} có thông tin khiếu nại cần xử lý`,
+              bookingCode: payload.bookingCode,
+              timestamp: Date.now(),
+            };
+
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            setActiveToast(toastData);
+            toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 10000);
           } else if (payload.type === 'DISPATCH_STATUS_UPDATED') {
             window.dispatchEvent(
               new CustomEvent('agency:dispatch-alert', { detail: payload })
@@ -317,13 +352,20 @@ export const AgencyRealtimeNotifier = () => {
   const isEmergency = activeToast.type === 'EMERGENCY_REASSIGNMENT_ALERT';
   const isStaffApp = activeToast.type === 'STAFF_APPLICATION';
   const isLeaveReq = activeToast.type === 'STAFF_LEAVE_SUBMITTED';
+  const isDispute =
+    activeToast.type === 'BOOKING_DISPUTE' ||
+    activeToast.type === 'AGENCY_STAFF_DISPUTED' ||
+    activeToast.type === 'AGENCY_DISPUTE_RESOLVED' ||
+    activeToast.type === 'AGENCY_DISPUTE_RESULT';
 
   return (
     <aside
-      aria-label={isEmergency ? 'Emergency Alert' : isLeaveReq ? 'Leave Request Alert' : isStaffApp ? 'Staff Application Alert' : 'New Booking Alert'}
+      aria-label={isEmergency ? 'Emergency Alert' : isLeaveReq ? 'Leave Request Alert' : isStaffApp ? 'Staff Application Alert' : isDispute ? 'Dispute Alert' : 'New Booking Alert'}
       className={`fixed bottom-4 sm:bottom-6 right-4 sm:right-6 left-4 sm:left-auto z-[1250] sm:max-w-sm w-auto sm:w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 shadow-2xl border-2 duration-300 ring-4 animate-in slide-in-from-bottom-5 ${
         isEmergency
           ? 'border-2 border-red-600 ring-red-500/25'
+          : isDispute
+          ? 'border-orange-500/60 dark:border-orange-500/50 ring-orange-500/20'
           : isLeaveReq
           ? 'border-amber-500/60 dark:border-amber-500/50 ring-amber-500/20'
           : isStaffApp
@@ -333,7 +375,7 @@ export const AgencyRealtimeNotifier = () => {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          {studioLogo && !isEmergency && !isLeaveReq ? (
+          {studioLogo && !isEmergency && !isLeaveReq && !isDispute ? (
             <img
               src={studioLogo}
               alt="Studio"
@@ -345,6 +387,10 @@ export const AgencyRealtimeNotifier = () => {
             />
           ) : isEmergency ? (
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 text-white flex items-center justify-center shadow-md">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+          ) : isDispute ? (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center shadow-md">
               <ShieldAlert className="w-5 h-5" />
             </div>
           ) : isLeaveReq ? (
@@ -365,6 +411,8 @@ export const AgencyRealtimeNotifier = () => {
               <span>
                 {isEmergency
                   ? t('notification_emergency_title')
+                  : isDispute
+                  ? (activeToast.title || 'Khiếu Nại Đơn Hàng')
                   : isLeaveReq
                   ? 'Đơn Xin Nghỉ Ca Mới'
                   : isStaffApp
@@ -373,10 +421,26 @@ export const AgencyRealtimeNotifier = () => {
               </span>
               <span
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${
-                  isEmergency ? 'bg-red-600' : isLeaveReq ? 'bg-amber-600' : isStaffApp ? 'bg-indigo-500' : 'bg-amber-500'
+                  isEmergency
+                    ? 'bg-red-600'
+                    : isDispute
+                    ? 'bg-orange-600'
+                    : isLeaveReq
+                    ? 'bg-amber-600'
+                    : isStaffApp
+                    ? 'bg-indigo-500'
+                    : 'bg-amber-500'
                 }`}
               >
-                {isEmergency ? t('emergency_badge') : t('new_badge')}
+                {isEmergency
+                  ? t('emergency_badge')
+                  : isDispute
+                  ? 'Khiếu nại'
+                  : isLeaveReq
+                  ? 'Nghỉ ca'
+                  : isStaffApp
+                  ? t('new_badge')
+                  : t('new_badge')}
               </span>
               {activeToast.otherCount > 0 && (
                 <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-1.5 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
@@ -572,7 +636,9 @@ export const AgencyRealtimeNotifier = () => {
               }
             }
             if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-            const targetRoute = isLeaveReq
+            const targetRoute = isDispute
+              ? '/agency/disputes'
+              : isLeaveReq
               ? '/agency/shifts?tab=leave-requests'
               : isStaffApp
               ? '/agency/staff'
@@ -583,6 +649,8 @@ export const AgencyRealtimeNotifier = () => {
           className={`flex-1 py-2 px-3 rounded-xl text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] ${
             isEmergency
               ? 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 shadow-rose-500/20'
+              : isDispute
+              ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 shadow-orange-500/20'
               : isLeaveReq
               ? 'bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 shadow-amber-500/20'
               : isStaffApp
@@ -593,6 +661,8 @@ export const AgencyRealtimeNotifier = () => {
           <span>
             {isEmergency
               ? t('notification_emergency_reassign_btn')
+              : isDispute
+              ? 'Xử Lý Khiếu Nại'
               : isLeaveReq
               ? 'Xem & Duyệt Đơn'
               : isStaffApp

@@ -6,6 +6,7 @@ import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.admin.ResolveDisputeReq;
 import com.makeup.platform.dto.response.agency.AgencyDisputeRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
@@ -20,6 +21,8 @@ import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.agency.AgencyDisputeService;
 import com.makeup.platform.service.booking.BookingAuditService;
+import com.makeup.platform.service.interaction.NotificationService;
+import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.mua.MUACalendarService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +59,8 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
     private final BookingAuditService bookingAuditService;
     private final SimpMessagingTemplate messagingTemplate;
     private final MUACalendarService muaCalendarService;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -146,22 +151,33 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
         BookingStatus currentStatus = booking.getStatus();
         BookingStatus targetStatus;
 
+        boolean isCompletedService = StringUtils.hasText(booking.getCompletionPhotoUrl())
+                || (booking.getTotalAmount() != null && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0
+                    && booking.getDepositAmount() != null && booking.getTotalAmount().compareTo(booking.getDepositAmount()) > 0);
+
+        BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+        Optional<BookingDepositEntity> depositOpt = bookingDepositRepository.findByBookingId(bookingId);
+        if (depositOpt.isPresent()) {
+            BookingDepositEntity dep = depositOpt.get();
+            if (dep.getPaidAmount() != null && dep.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
+                depositAmount = dep.getPaidAmount();
+            }
+        }
+
+        BigDecimal refundAmount = (isCompletedService && booking.getTotalAmount() != null && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
+                ? booking.getTotalAmount()
+                : depositAmount;
+
         if ("APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution)) {
             targetStatus = BookingStatus.DISPUTE_REFUNDED;
 
-            // Hoàn cọc cho khách hàng từ Escrow vào ví khách
-            BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
-            Optional<BookingDepositEntity> depositOpt = bookingDepositRepository.findByBookingId(bookingId);
             if (depositOpt.isPresent()) {
                 BookingDepositEntity dep = depositOpt.get();
-                if (dep.getPaidAmount() != null && dep.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
-                    depositAmount = dep.getPaidAmount();
-                }
                 dep.setStatus("REFUNDED");
                 bookingDepositRepository.save(dep);
             }
 
-            if (depositAmount.compareTo(BigDecimal.ZERO) > 0 && booking.getCustomer() != null) {
+            if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && booking.getCustomer() != null) {
                 Long customerId = booking.getCustomer().getId();
                 WalletEntity customerWallet = walletRepository.findByUserId(customerId)
                         .orElseGet(() -> walletRepository.save(WalletEntity.builder()
@@ -172,7 +188,7 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
                                 .build()));
 
                 BigDecimal currentAvailable = customerWallet.getAvailableBalance() != null ? customerWallet.getAvailableBalance() : BigDecimal.ZERO;
-                BigDecimal newBalance = currentAvailable.add(depositAmount);
+                BigDecimal newBalance = currentAvailable.add(refundAmount);
                 customerWallet.setAvailableBalance(newBalance);
 
                 BigDecimal curFrozen = customerWallet.getFrozenBalance() != null ? customerWallet.getFrozenBalance() : BigDecimal.ZERO;
@@ -188,24 +204,55 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
                     walletHoldRepository.save(hold);
                 }
 
-                // Double entry ledger
+                // Double entry ledger for customer
                 String idempotencyKey = "agency_dispute_refund:booking:" + bookingId;
                 if (!ledgerEntryRepository.existsByIdempotencyKey(idempotencyKey)) {
+                    String desc = isCompletedService
+                            ? "Studio (" + agency.getAgencyName() + ") duyệt khiếu nại sau ca: Hoàn 100% tổng tiền đơn #" + booking.getBookingCode() + " (" + note + ")"
+                            : "Studio (" + agency.getAgencyName() + ") duyệt khiếu nại hoàn cọc đơn #" + booking.getBookingCode() + " (" + note + ")";
                     LedgerEntryEntity ledgerEntry = LedgerEntryEntity.builder()
                             .referenceType("BOOKING_REFUND")
                             .referenceId(bookingId)
                             .wallet(customerWallet)
                             .entryType("CREDIT")
-                            .amount(depositAmount)
+                            .amount(refundAmount)
                             .balanceAfter(newBalance)
-                            .description("Studio (" + agency.getAgencyName() + ") duyệt khiếu nại hoàn cọc đơn #" + booking.getBookingCode() + " (" + note + ")")
+                            .description(desc)
                             .idempotencyKey(idempotencyKey)
                             .build();
                     ledgerEntryRepository.save(ledgerEntry);
                 }
+
+                // Nếu ca đã hoàn thành, tiến hành thu hồi từ ví của chủ Studio
+                if (isCompletedService && agency.getOwner() != null) {
+                    walletRepository.findByUserIdWithLock(agency.getOwner().getId()).ifPresent(agencyWallet -> {
+                        BigDecimal curAvail = agencyWallet.getAvailableBalance() != null ? agencyWallet.getAvailableBalance() : BigDecimal.ZERO;
+                        BigDecimal clawbackBalance = curAvail.subtract(refundAmount).max(BigDecimal.ZERO);
+                        agencyWallet.setAvailableBalance(clawbackBalance);
+                        walletRepository.save(agencyWallet);
+
+                        String clawbackKey = "agency_dispute_clawback:booking:" + bookingId;
+                        if (!ledgerEntryRepository.existsByIdempotencyKey(clawbackKey)) {
+                            LedgerEntryEntity clawbackEntry = LedgerEntryEntity.builder()
+                                    .referenceType("BOOKING_CLAWBACK")
+                                    .referenceId(bookingId)
+                                    .wallet(agencyWallet)
+                                    .entryType("DEBIT")
+                                    .amount(refundAmount)
+                                    .balanceAfter(clawbackBalance)
+                                    .description("Thu hồi thù lao đơn #" + booking.getBookingCode() + " do Studio chấp thuận khiếu nại của khách hàng (" + note + ")")
+                                    .idempotencyKey(clawbackKey)
+                                    .build();
+                            ledgerEntryRepository.save(clawbackEntry);
+                        }
+                    });
+                }
             }
 
-            booking.setCancellationReason("Studio phê duyệt khiếu nại hoàn cọc: " + note);
+            booking.setCancellationReason(isCompletedService
+                    ? "Studio phê duyệt khiếu nại sau ca (Hoàn 100% tổng tiền đơn): " + note
+                    : "Studio phê duyệt khiếu nại hoàn cọc: " + note);
+
             try {
                 muaCalendarService.releaseSlotByBookingId(bookingId);
             } catch (Exception ex) {
@@ -213,9 +260,11 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
             }
 
         } else {
-            // Studio từ chối hoàn cọc -> Vẫn giữ trạng thái DISPUTED để khách có quyền chấp nhận hoặc leo thang lên Admin sàn
+            // Studio từ chối hoàn cọc / bác bỏ khiếu nại -> Giữ trạng thái DISPUTED để khách có quyền chấp nhận hoặc leo thang lên Admin sàn
             targetStatus = BookingStatus.DISPUTED;
-            booking.setCancellationReason("[STUDIO_TU_CHOI]: " + (StringUtils.hasText(note) ? note : "Studio không đồng ý hoàn cọc"));
+            booking.setCancellationReason(isCompletedService
+                    ? "[STUDIO_TU_CHOI]: Studio bác bỏ khiếu nại sau ca (Bảo lưu thù lao ca làm): " + (StringUtils.hasText(note) ? note : "Studio không chấp thuận khiếu nại")
+                    : "[STUDIO_TU_CHOI]: " + (StringUtils.hasText(note) ? note : "Studio không đồng ý hoàn cọc"));
         }
 
         booking.setStatus(targetStatus);
@@ -231,20 +280,152 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
         );
 
         // Realtime notification & broadcast
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "AGENCY_DISPUTE_RESOLVED");
-            payload.put("bookingId", savedBooking.getId());
-            payload.put("bookingCode", savedBooking.getBookingCode());
-            payload.put("status", savedBooking.getStatus().name());
-            payload.put("resolution", resolution);
-            payload.put("note", note);
-            payload.put("timestamp", System.currentTimeMillis());
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "AGENCY_DISPUTE_RESOLVED");
+        payload.put("bookingId", savedBooking.getId());
+        payload.put("bookingCode", savedBooking.getBookingCode());
+        payload.put("status", savedBooking.getStatus().name());
+        payload.put("resolution", resolution);
+        payload.put("targetStatus", targetStatus.name());
+        payload.put("isCompletedService", isCompletedService);
+        payload.put("note", note);
+        payload.put("timestamp", System.currentTimeMillis());
 
+        try {
             messagingTemplate.convertAndSend("/topic/booking-status/" + savedBooking.getId(), payload);
             messagingTemplate.convertAndSend("/topic/agency/" + agency.getId() + "/bookings", payload);
+            messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
         } catch (Exception ex) {
             log.warn("[AgencyDispute] Failed to broadcast dispute resolved: {}", ex.getMessage());
+        }
+
+        // 1. In-App Notification cho Khách hàng
+        if (savedBooking.getCustomer() != null) {
+            boolean isApproved = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution);
+            String custTitle = isApproved
+                    ? "Studio Đã Chấp Thuận Khiếu Nại: #" + savedBooking.getBookingCode()
+                    : "Studio Từ Chối Khiếu Nại Đơn Hàng: #" + savedBooking.getBookingCode();
+            String custContent = isApproved
+                    ? "Studio " + agency.getAgencyName() + " đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". " + (isCompletedService ? "Toàn bộ 100% tiền đơn hàng" : "Tiền cọc") + " đã được hoàn về ví của bạn. Ghi chú Studio: " + note
+                    : "Studio " + agency.getAgencyName() + " đã từ chối yêu cầu khiếu nại của bạn cho đơn #" + savedBooking.getBookingCode() + ". Bạn có thể đồng ý với quyết định này hoặc khiếu nại lên Ban Quản Trị Sàn để được phân xử. Ghi chú Studio: " + note;
+            try {
+                notificationService.createInAppNotification(
+                        savedBooking.getCustomer().getId(),
+                        null,
+                        bookingId,
+                        "DISPUTE_RESOLUTION_RESULT",
+                        custTitle,
+                        custContent,
+                        payload
+                );
+            } catch (Exception ex) {
+                log.error("[AgencyDispute] Failed to create in-app notification for customer: {}", ex.getMessage());
+            }
+        }
+
+        // 2. In-App Notification cho Chuyên viên Staff MUA phụ trách
+        UserEntity staffUser = null;
+        if (savedBooking.getStaffAssignments() != null) {
+            for (var assignment : savedBooking.getStaffAssignments()) {
+                if (assignment.getStaff() != null && assignment.getStaff().getMua() != null && assignment.getStaff().getMua().getUser() != null) {
+                    staffUser = assignment.getStaff().getMua().getUser();
+                    break;
+                }
+            }
+        }
+        if (staffUser != null) {
+            boolean isApproved = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution);
+            String staffTitle = isApproved
+                    ? "Studio Đã Phê Duyệt Khiếu Nại Ca Làm: #" + savedBooking.getBookingCode()
+                    : "Studio Bác Bỏ Khiếu Nại Ca Làm: #" + savedBooking.getBookingCode();
+            String staffContent = isApproved
+                    ? "Studio " + agency.getAgencyName() + " đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". Toàn bộ tiền đơn đã được hoàn lại cho khách hàng. Ghi chú: " + note
+                    : "Studio " + agency.getAgencyName() + " đã bảo vệ kết quả ca làm đơn #" + savedBooking.getBookingCode() + " và bác bỏ khiếu nại của khách hàng. Ghi chú: " + note;
+            try {
+                notificationService.createInAppNotification(
+                        staffUser.getId(),
+                        agency.getId(),
+                        bookingId,
+                        "AGENCY_DISPUTE_RESULT",
+                        staffTitle,
+                        staffContent,
+                        payload
+                );
+            } catch (Exception ex) {
+                log.error("[AgencyDispute] Failed to create in-app notification for staff: {}", ex.getMessage());
+            }
+        }
+
+        // 3. In-App Notification xác nhận cho Chủ Studio
+        try {
+            boolean isApproved = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution);
+            String agencyOwnerTitle = "Đã Xử Lý Khiếu Nại Đơn: #" + savedBooking.getBookingCode();
+            String agencyOwnerContent = "Bạn đã xử lý khiếu nại đơn #" + savedBooking.getBookingCode() + " (" + (isApproved ? "Chấp thuận hoàn tiền" : "Từ chối khiếu nại") + "). Ghi chú: " + note;
+            notificationService.createInAppNotification(
+                    agencyOwnerId,
+                    agency.getId(),
+                    bookingId,
+                    "AGENCY_DISPUTE_RESULT",
+                    agencyOwnerTitle,
+                    agencyOwnerContent,
+                    payload
+            );
+        } catch (Exception ex) {
+            log.error("[AgencyDispute] Failed to create in-app notification for agency owner: {}", ex.getMessage());
+        }
+
+        // 4. Gửi EMAIL thông báo cho các bên
+        // 4.1. Email Khách hàng
+        if (savedBooking.getCustomer() != null && StringUtils.hasText(savedBooking.getCustomer().getEmail())) {
+            try {
+                boolean isApproved = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution);
+                emailService.sendCustomerDisputeResolutionEmail(
+                        savedBooking.getCustomer().getEmail(),
+                        savedBooking.getCustomer().getFullName(),
+                        savedBooking.getBookingCode(),
+                        resolution,
+                        note,
+                        isApproved ? refundAmount : BigDecimal.ZERO
+                );
+            } catch (Exception ex) {
+                log.error("[AgencyDispute] Failed to send dispute resolution email to customer {}: {}", savedBooking.getCustomer().getEmail(), ex.getMessage());
+            }
+        }
+
+        // 4.2. Email Chuyên viên Staff MUA
+        if (staffUser != null && StringUtils.hasText(staffUser.getEmail())) {
+            try {
+                boolean isApproved = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution);
+                BigDecimal staffPayout = isApproved ? BigDecimal.ZERO : refundAmount;
+                emailService.sendWorkerDisputeResolutionEmail(
+                        staffUser.getEmail(),
+                        staffUser.getFullName(),
+                        savedBooking.getBookingCode(),
+                        resolution,
+                        note,
+                        staffPayout,
+                        isCompletedService
+                );
+            } catch (Exception ex) {
+                log.error("[AgencyDispute] Failed to send dispute resolution email to staff {}: {}", staffUser.getEmail(), ex.getMessage());
+            }
+        }
+
+        // 4.3. Email Chủ Studio
+        if (agency.getOwner() != null && StringUtils.hasText(agency.getOwner().getEmail())) {
+            try {
+                emailService.sendAgencyDisputeResolutionEmail(
+                        agency.getOwner().getEmail(),
+                        agency.getOwner().getFullName(),
+                        agency.getAgencyName(),
+                        staffUser != null ? staffUser.getFullName() : "Nhân viên phụ trách",
+                        savedBooking.getBookingCode(),
+                        resolution,
+                        note
+                );
+            } catch (Exception ex) {
+                log.error("[AgencyDispute] Failed to send dispute resolution email to agency owner {}: {}", agency.getOwner().getEmail(), ex.getMessage());
+            }
         }
 
         return agencyDisputeMapper.toRes(savedBooking);

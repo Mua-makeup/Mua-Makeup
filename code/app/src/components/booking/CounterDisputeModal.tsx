@@ -179,7 +179,9 @@ export const CounterDisputeModal: React.FC<CounterDisputeModalProps> = ({
         <View style={styles.noticeBox}>
           <Ionicons name="information-circle-outline" size={18} color="#9A3412" style={{ marginTop: 1 }} />
           <Text style={styles.noticeText}>
-            Đối tác đã gửi báo cáo trước. Hãy gửi lời khai và ảnh minh chứng (nhật ký cuộc gọi, ảnh check-in hiện trường) để Ban Quản Trị bảo vệ quyền lợi của bạn.
+            {viewAsRole === 'MUA'
+              ? 'Khách hàng đã gửi khiếu nại trước. Hãy gửi lời khai giải trình và ảnh minh chứng ca làm để Studio / Ban Quản Trị bảo vệ quyền lợi của bạn.'
+              : 'Chuyên viên make-up đã gửi báo cáo trước. Hãy gửi lời khai phản hồi và ảnh minh chứng để bảo vệ quyền lợi của bạn.'}
           </Text>
         </View>
 

@@ -157,8 +157,17 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
     setIsOpen(false);
-    if (notif.type === 'BOOKING_DISPUTE') {
-      navigate('/admin/disputes');
+    if (
+      notif.type === 'BOOKING_DISPUTE' ||
+      notif.type === 'AGENCY_STAFF_DISPUTED' ||
+      notif.type === 'AGENCY_DISPUTE_RESULT' ||
+      notif.type === 'DISPUTE_RESOLUTION_RESULT'
+    ) {
+      if (role === USER_ROLES.AGENCY_ADMIN) {
+        navigate('/agency/disputes');
+      } else {
+        navigate('/admin/disputes');
+      }
     } else if (
       notif.type === 'STAFF_LEAVE_SUBMITTED' ||
       notif.type === 'STAFF_LEAVE_APPROVED' ||
@@ -171,8 +180,6 @@ export const NotificationDropdown = ({ agencyLogo }) => {
       navigate('/agency/staff');
     } else if (notif.type === 'CERTIFICATE_VERIFICATION') {
       navigate('/admin/muas/credentials');
-    } else if (notif.type === 'BOOKING_DISPUTE') {
-      navigate('/admin/disputes');
     } else {
       if (role === USER_ROLES.SUPER_ADMIN) {
         navigate('/admin/muas/credentials');

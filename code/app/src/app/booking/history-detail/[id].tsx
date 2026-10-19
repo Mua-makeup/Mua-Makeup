@@ -185,8 +185,19 @@ export default function BookingHistoryDetailScreen() {
     if (!bookingId) return;
     const topic = `/topic/booking-status/${bookingId}`;
     websocketService.subscribe(topic, (msg: any) => {
-      if (msg?.status === 'PAID_OUT' || msg?.type === 'PAYMENT_COMPLETED') {
-        setBookingDetail((prev) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
+      if (
+        msg?.status === 'PAID_OUT' ||
+        msg?.type === 'PAYMENT_COMPLETED' ||
+        msg?.type === 'AGENCY_DISPUTE_RESOLVED' ||
+        msg?.type === 'DISPUTE_ESCALATED' ||
+        msg?.type === 'DISPUTE_RESOLVED' ||
+        msg?.status === 'DISPUTED' ||
+        msg?.status === 'DISPUTE_REFUNDED' ||
+        msg?.status === 'DISPUTE_COMPENSATED'
+      ) {
+        if (msg?.status === 'PAID_OUT') {
+          setBookingDetail((prev) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
+        }
         loadData(true);
       }
     });
@@ -350,6 +361,64 @@ export default function BookingHistoryDetailScreen() {
               Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể cập nhật quyết toán.');
             } finally {
               setIsConfirmingMuaReceivedCash(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const [isSubmittingAccept, setIsSubmittingAccept] = useState(false);
+  const [isSubmittingEscalate, setIsSubmittingEscalate] = useState(false);
+
+  const handleAcceptStudioResolution = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Chấp Nhận Kết Quả Từ Studio',
+      'Bạn có chắc chắn đồng ý với kết quả giải quyết của Studio và đóng khiếu nại này?',
+      [
+        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        {
+          text: 'Đồng Ý & Đóng Khiếu Nại',
+          onPress: async () => {
+            try {
+              setIsSubmittingAccept(true);
+              await bookingService.acceptStudioResolution(bookingId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Thành Công', 'Đã ghi nhận chấp nhận kết quả từ Studio.');
+              await loadData(true);
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể cập nhật.');
+            } finally {
+              setIsSubmittingAccept(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEscalateToAdmin = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Chuyển Khiếu Nại Lên Admin Sàn',
+      'Bạn không đồng ý với quyết định của Studio và muốn chuyển hồ sơ lên Ban Quản Trị Sàn để làm trọng tài phân xử tối hậu?',
+      [
+        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        {
+          text: 'Chuyển Lên Sàn Phân Xử',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsSubmittingEscalate(true);
+              await bookingService.escalateDispute(bookingId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Đã Chuyển Lên Sàn', 'Hồ sơ đã được gửi lên Ban Quản Trị Sàn phân xử tối hậu.');
+              await loadData(true);
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể chuyển khiếu nại lên Admin.');
+            } finally {
+              setIsSubmittingEscalate(false);
             }
           },
         },
@@ -1474,15 +1543,62 @@ export default function BookingHistoryDetailScreen() {
             }
           }
 
+          const isStudioRejected = Boolean(
+            bookingDetail.cancellationReason?.includes('[STUDIO_TU_CHOI]') ||
+            bookingDetail.emergencyReason?.includes('[STUDIO_TU_CHOI]') ||
+            rawDisputeReason.includes('[STUDIO_TU_CHOI]')
+          );
+          const isEscalatedToAdmin = Boolean(
+            bookingDetail.cancellationReason?.includes('[LEO_THANG_ADMIN]') ||
+            bookingDetail.emergencyReason?.includes('[LEO_THANG_ADMIN]') ||
+            rawDisputeReason.includes('[LEO_THANG_ADMIN]')
+          );
+          const isAgencyBooking = Boolean(bookingDetail.agencyId || bookingDetail.agencyName);
+
+          let studioRejectNote = '';
+          if (isStudioRejected) {
+            const fullReason = `${bookingDetail.cancellationReason || ''} ${bookingDetail.emergencyReason || ''}`;
+            const match = fullReason.match(/\[STUDIO_TU_CHOI\]:\s*([^\[]+)/);
+            if (match && match[1]) {
+              studioRejectNote = match[1].trim();
+            }
+          }
+
           let title = 'ĐƠN ĐANG TRANH CHẤP / KHIẾU NẠI';
           let subtitle = '';
           let reporterBadge = '';
           let reasonLabel = 'Lý do sự cố báo cáo:';
           let statement = rawDisputeReason.replace(/\[.*?\]:?/g, '').trim();
 
-          if (isDual) {
+          if (isEscalatedToAdmin) {
+            title = 'ĐANG CHỜ ADMIN SÀN PHÁN QUYẾT';
+            subtitle = isWorkstationRole
+              ? 'Khách hàng đã chuyển khiếu nại lên Ban Quản Trị Sàn phân xử tối hậu. Quyền lợi và thù lao hai bên đang được bảo lưu xem xét.'
+              : 'Hồ sơ khiếu nại đã được gửi lên Ban Quản Trị Sàn làm trọng tài phân xử tối hậu. Quyền lợi hai bên được bảo chứng an toàn.';
+            reporterBadge = 'Admin Sàn Thụ Lý';
+            reasonLabel = 'Nội dung khiếu nại:';
+          } else if (isStudioRejected) {
+            title = isPostCompletion
+              ? (isWorkstationRole ? 'STUDIO ĐÃ BÁC BỎ KHIẾU NẠI CỦA KHÁCH' : 'STUDIO ĐÃ BÁC BỎ KHIẾU NẠI')
+              : (isWorkstationRole ? 'STUDIO ĐÃ TỪ CHỐI HOÀN CỌC CHO KHÁCH' : 'STUDIO ĐÃ TỪ CHỐI HOÀN CỌC');
+            subtitle = isPostCompletion
+              ? (isWorkstationRole
+                  ? 'Studio quản lý đã bác bỏ khiếu nại của khách để bảo vệ kết quả ca làm của bạn. Đang chờ phản hồi tiếp theo từ khách hàng.'
+                  : 'Studio phụ trách đã từ chối yêu cầu khiếu nại chất lượng ca làm của bạn. Bạn có thể chấp nhận giải quyết từ Studio hoặc khiếu nại lên Admin Sàn.')
+              : (isWorkstationRole
+                  ? 'Studio quản lý đã từ chối yêu cầu hoàn cọc của khách hàng. Đang chờ phản hồi tiếp theo từ khách hàng.'
+                  : 'Studio phụ trách đã từ chối yêu cầu hoàn cọc của bạn. Bạn có thể chấp nhận giải quyết từ Studio hoặc chuyển lên Admin Sàn.');
+            reporterBadge = 'Studio Từ Chối';
+            reasonLabel = 'Lý do khiếu nại & phản hồi:';
+          } else if (isDual) {
             title = 'TRANH CHẤP 2 CHIỀU ĐANG ĐỐI SOÁT';
-            subtitle = 'Cả bạn và đối phương đều đã nộp báo cáo tranh chấp. Ban Quản Trị đang tổng hợp minh chứng hai bên để đưa ra phán quyết công bằng.';
+            subtitle = isWorkstationRole
+              ? (isAgencyBooking
+                  ? 'Cả bạn và khách hàng đều đã nộp báo cáo tranh chấp. Quản lý Studio đang đối chiếu minh chứng hai bên để xử lý thỏa đáng.'
+                  : 'Cả bạn và khách hàng đều đã nộp báo cáo tranh chấp. Ban Quản Trị Sàn đang tổng hợp minh chứng hai bên để đưa ra phán quyết công bằng.')
+              : (isAgencyBooking
+                  ? 'Cả bạn và chuyên viên make-up đều đã nộp báo cáo tranh chấp. Quản lý Studio đang đối chiếu minh chứng hai bên để xử lý thỏa đáng.'
+                  : 'Cả bạn và thợ make-up đều đã nộp báo cáo tranh chấp. Ban Quản Trị Sàn đang tổng hợp minh chứng hai bên để đưa ra phán quyết công bằng.');
             reporterBadge = 'Tranh Chấp 2 Chiều';
             reasonLabel = 'Nội dung phản ánh hai bên:';
           } else if (isMuaReport) {
@@ -1501,22 +1617,7 @@ export default function BookingHistoryDetailScreen() {
             }
           } else {
             // Customer reported
-            const isStudioRejected = rawDisputeReason.includes('[STUDIO_TU_CHOI]');
-            const isEscalatedToAdmin = rawDisputeReason.includes('[LEO_THANG_ADMIN]');
-
-            if (isEscalatedToAdmin) {
-              title = 'ĐANG CHỜ ADMIN SÀN PHÁN QUYẾT';
-              subtitle = isPostCompletion
-                ? 'Đơn khiếu nại đã được gửi lên Ban Quản Trị Sàn phân xử tối hậu. Quyền lợi hai bên được bảo chứng an toàn.'
-                : 'Đơn khiếu nại đã được gửi lên Ban Quản Trị Sàn phân xử tối hậu. Tiền cọc được bảo lưu an toàn trong Quỹ Escrow.';
-              reporterBadge = 'Admin Sàn Thụ Lý';
-              reasonLabel = 'Nội dung khiếu nại:';
-            } else if (isStudioRejected) {
-              title = 'STUDIO ĐÃ TỪ CHỐI HOÀN CỌC';
-              subtitle = 'Studio phụ trách đã từ chối yêu cầu hoàn cọc. Khách hàng có thể chấp nhận giải quyết hoặc chuyển lên Admin Sàn.';
-              reporterBadge = 'Studio Từ Chối';
-              reasonLabel = 'Lý do khiếu nại & phản hồi:';
-            } else if (!isWorkstationRole) {
+            if (!isWorkstationRole) {
               title = 'YÊU CẦU KHIẾU NẠI TỪ BẠN (KHÁCH HÀNG)';
               subtitle = isPostCompletion
                 ? 'Bạn đã gửi yêu cầu khiếu nại ca hẹn này. Ban Quản Trị đang xác minh minh chứng chất lượng dịch vụ để giải quyết cho bạn.'
@@ -1539,21 +1640,31 @@ export default function BookingHistoryDetailScreen() {
           return (
             <View style={[styles.statusCard, styles.statusCardDisputed]}>
               <View style={styles.statusCardHeader}>
-                <View style={[styles.statusIconBox, { backgroundColor: isDual ? '#334155' : '#EA580C' }]}>
-                  <Ionicons name={isDual ? 'scale' : 'warning'} size={22} color="#FFFFFF" />
+                <View style={[styles.statusIconBox, { backgroundColor: isStudioRejected ? '#EA580C' : isDual ? '#334155' : '#EA580C' }]}>
+                  <Ionicons name={isStudioRejected ? 'alert-circle' : isDual ? 'scale' : 'warning'} size={22} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
-                    <Text style={[styles.statusCardTitle, { color: isDual ? '#0F172A' : '#9A3412', marginBottom: 0 }]}>{title}</Text>
+                    <Text style={[styles.statusCardTitle, { color: isStudioRejected ? '#9A3412' : isDual ? '#0F172A' : '#9A3412', marginBottom: 0 }]}>{title}</Text>
                     {reporterBadge ? (
-                      <View style={{ backgroundColor: isDual ? '#F1F5F9' : isMuaReport ? '#FEF3C7' : '#FCE7F3', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isDual ? '#CBD5E1' : isMuaReport ? '#FDE68A' : '#FBCFE8' }}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: isDual ? '#334155' : isMuaReport ? '#92400E' : '#9D174D' }}>
+                      <View style={{ backgroundColor: isStudioRejected ? '#FFEDD5' : isDual ? '#F1F5F9' : isMuaReport ? '#FEF3C7' : '#FCE7F3', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isStudioRejected ? '#FED7AA' : isDual ? '#CBD5E1' : isMuaReport ? '#FDE68A' : '#FBCFE8' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: isStudioRejected ? '#C2410C' : isDual ? '#334155' : isMuaReport ? '#92400E' : '#9D174D' }}>
                           {reporterBadge}
                         </Text>
                       </View>
                     ) : null}
                   </View>
                   <Text style={styles.statusCardDesc}>{subtitle}</Text>
+                  {isStudioRejected && studioRejectNote ? (
+                    <View style={{ marginTop: 6, padding: 8, backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: '#FED7AA' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#C2410C', marginBottom: 2 }}>
+                        Lý do Studio bác bỏ:
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#7C2D12', lineHeight: 17 }}>
+                        "{studioRejectNote}"
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
 
@@ -1629,6 +1740,71 @@ export default function BookingHistoryDetailScreen() {
                     </View>
                   )}
                 </>
+              )}
+
+              {/* Box hành động của khách khi Studio từ chối/bác bỏ khiếu nại */}
+              {isStudioRejected && !isEscalatedToAdmin && !isWorkstationRole && (
+                <View style={{ marginTop: 12, backgroundColor: '#FFF7ED', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#FDBA74' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <Ionicons name="alert-circle" size={18} color="#C2410C" />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#9A3412' }}>
+                      {isPostCompletion ? 'Studio Đã Bác Bỏ Khiếu Nại' : 'Studio Đã Từ Chối Hoàn Cọc'}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: '#9A3412', marginTop: 2, fontStyle: 'italic', lineHeight: 16 }}>
+                    {isPostCompletion
+                      ? 'Bạn có thể chấp nhận giải quyết nội bộ từ Studio hoặc chuyển khiếu nại lên Ban Quản Trị Sàn phân xử tối hậu.'
+                      : 'Bạn có thể chấp nhận giải quyết nội bộ hoặc chuyển vụ việc lên Admin Sàn phân xử tối hậu.'}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#FFFFFF',
+                        borderWidth: 1,
+                        borderColor: '#D1D5DB',
+                        paddingVertical: 10,
+                        paddingHorizontal: 8,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={handleAcceptStudioResolution}
+                      disabled={isSubmittingAccept}
+                    >
+                      {isSubmittingAccept ? (
+                        <ActivityIndicator size="small" color="#4B5563" />
+                      ) : (
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151' }}>
+                          Chấp Nhận Kết Quả
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#DC2626',
+                        paddingVertical: 10,
+                        paddingHorizontal: 8,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={handleEscalateToAdmin}
+                      disabled={isSubmittingEscalate}
+                    >
+                      {isSubmittingEscalate ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                          Khiếu Nại Lên Sàn
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
 
               {/* Nút gửi lời khai / minh chứng đối chất nếu bên này chưa gửi */}

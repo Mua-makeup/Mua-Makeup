@@ -46,6 +46,25 @@ public class AgencyDisputeMapper {
         String customerAvatar = entity.getCustomer() != null ? entity.getCustomer().getAvatarUrl() : null;
         Long customerId = entity.getCustomer() != null ? entity.getCustomer().getId() : null;
 
+        String rawReason = entity.getEmergencyReason() != null ? entity.getEmergencyReason() : entity.getCancellationReason();
+        String disputeOrigin = "CUSTOMER";
+        if (rawReason != null) {
+            String lower = rawReason.toLowerCase();
+            boolean hasCustomerTag = rawReason.contains("[Khách hàng]");
+            boolean hasMuaTag = rawReason.contains("[Chuyên viên MUA]");
+            if (hasCustomerTag && hasMuaTag) {
+                disputeOrigin = "DUAL";
+            } else if (hasCustomerTag) {
+                disputeOrigin = "CUSTOMER";
+            } else if (hasMuaTag) {
+                disputeOrigin = "MUA";
+            } else if (lower.contains("vắng mặt") || lower.contains("no-show") || lower.contains("không gặp khách") || lower.contains("khách không có mặt")) {
+                disputeOrigin = "MUA";
+            } else {
+                disputeOrigin = "CUSTOMER";
+            }
+        }
+
         return AgencyDisputeRes.builder()
                 .bookingId(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -67,6 +86,7 @@ public class AgencyDisputeMapper {
                 .emergencyProofUrl(entity.getEmergencyProofUrl())
                 .emergencyReportedAt(entity.getEmergencyReportedAt())
                 .cancellationReason(entity.getCancellationReason())
+                .disputeOrigin(disputeOrigin)
                 .isEscalatedToAdmin((entity.getCancellationReason() != null && entity.getCancellationReason().contains("[LEO_THANG_ADMIN]"))
                         || (entity.getEmergencyReason() != null && entity.getEmergencyReason().contains("[LEO_THANG_ADMIN]")))
                 .isStudioRejected(entity.getCancellationReason() != null && entity.getCancellationReason().contains("[STUDIO_TU_CHOI]"))
@@ -74,6 +94,7 @@ public class AgencyDisputeMapper {
                 .surchargeFee(entity.getSurchargeFee())
                 .totalAmount(entity.getTotalAmount())
                 .depositAmount(entity.getDepositAmount())
+                .completionPhotoUrl(entity.getCompletionPhotoUrl())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

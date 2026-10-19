@@ -801,12 +801,30 @@ export default function CustomerBookingDetailScreen() {
           const rawDisputeProof = (bookingDetail.emergencyProofUrl || '').trim();
           const proofUrls = rawDisputeProof ? rawDisputeProof.split('|').map((u) => u.trim()).filter(Boolean) : [];
 
-          const isStudioRejected = rawDisputeReason.includes('[STUDIO_TU_CHOI]');
-          const isEscalatedToAdmin = rawDisputeReason.includes('[LEO_THANG_ADMIN]');
+          const isStudioRejected = Boolean(
+            bookingDetail.cancellationReason?.includes('[STUDIO_TU_CHOI]') ||
+            bookingDetail.emergencyReason?.includes('[STUDIO_TU_CHOI]') ||
+            rawDisputeReason.includes('[STUDIO_TU_CHOI]')
+          );
+          const isEscalatedToAdmin = Boolean(
+            bookingDetail.cancellationReason?.includes('[LEO_THANG_ADMIN]') ||
+            bookingDetail.emergencyReason?.includes('[LEO_THANG_ADMIN]') ||
+            rawDisputeReason.includes('[LEO_THANG_ADMIN]')
+          );
+
+          const isPostCompletion = Boolean(
+            bookingDetail.status === 'COMPLETED' ||
+            bookingDetail.status === 'PAID_OUT' ||
+            bookingDetail.completionPhotoUrl ||
+            (bookingDetail.totalAmount && bookingDetail.depositAmount && Number(bookingDetail.totalAmount) > Number(bookingDetail.depositAmount) &&
+              !rawDisputeReason?.toLowerCase().includes('vắng mặt') &&
+              !rawDisputeReason?.toLowerCase().includes('không gặp khách'))
+          );
 
           let studioRejectNote = '';
           if (isStudioRejected) {
-            const match = rawDisputeReason.match(/\[STUDIO_TU_CHOI\]:\s*([^\[]+)/);
+            const fullReason = `${bookingDetail.cancellationReason || ''} ${bookingDetail.emergencyReason || ''}`;
+            const match = fullReason.match(/\[STUDIO_TU_CHOI\]:\s*([^\[]+)/);
             if (match && match[1]) {
               studioRejectNote = match[1].trim();
             }
@@ -885,8 +903,10 @@ export default function CustomerBookingDetailScreen() {
             subtitle = 'Vụ việc đã được chuyển lên Ban Quản Trị Sàn phân xử tối hậu. Tiền cọc được bảo lưu an toàn trong Escrow.';
             reporterBadge = 'Admin Sàn Thụ Lý';
           } else if (isStudioRejected) {
-            title = 'STUDIO ĐÃ TỪ CHỐI HOÀN CỌC';
-            subtitle = 'Studio phụ trách đã từ chối yêu cầu hoàn cọc của bạn. Bạn có thể chấp nhận giải quyết nội bộ hoặc khiếu nại lên Admin Sàn.';
+            title = isPostCompletion ? 'STUDIO ĐÃ BÁC BỎ KHIẾU NẠI' : 'STUDIO ĐÃ TỪ CHỐI HOÀN CỌC';
+            subtitle = isPostCompletion
+              ? 'Studio phụ trách đã từ chối yêu cầu khiếu nại chất lượng dịch vụ của bạn. Bạn có thể chấp nhận giải quyết nội bộ hoặc khiếu nại lên Admin Sàn.'
+              : 'Studio phụ trách đã từ chối yêu cầu hoàn cọc của bạn. Bạn có thể chấp nhận giải quyết nội bộ hoặc khiếu nại lên Admin Sàn.';
             reporterBadge = 'Studio Từ Chối';
           } else if (isDual) {
             title = 'TRANH CHẤP 2 CHIỀU ĐANG ĐỐI SOÁT';
@@ -1002,7 +1022,7 @@ export default function CustomerBookingDetailScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <Ionicons name="alert-circle" size={18} color="#C2410C" />
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#9A3412' }}>
-                      Studio Đã Từ Chối Hoàn Cọc
+                      {isPostCompletion ? 'Studio Đã Bác Bỏ Khiếu Nại' : 'Studio Đã Từ Chối Hoàn Cọc'}
                     </Text>
                   </View>
                   {studioRejectNote ? (
@@ -1011,7 +1031,9 @@ export default function CustomerBookingDetailScreen() {
                     </Text>
                   ) : null}
                   <Text style={{ fontSize: 11, color: '#9A3412', marginTop: 4, fontStyle: 'italic' }}>
-                    Bạn có thể chấp nhận giải quyết nội bộ hoặc chuyển vụ việc lên Admin Sàn phân xử tối hậu.
+                    {isPostCompletion
+                      ? 'Bạn có thể chấp nhận kết quả từ Studio hoặc khiếu nại lên Ban Quản Trị Sàn phân xử tối hậu.'
+                      : 'Bạn có thể chấp nhận giải quyết nội bộ hoặc chuyển vụ việc lên Admin Sàn phân xử tối hậu.'}
                   </Text>
 
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
