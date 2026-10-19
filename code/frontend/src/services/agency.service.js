@@ -143,5 +143,12 @@ export const agencyService = {
   togglePortfolioVisibility: (id, isVisible) =>
     apiClient.patch(`/agencies/my-agency/portfolios/${id}/visibility`, { isVisible }),
   deletePortfolio: (id) => apiClient.delete(`/agencies/my-agency/portfolios/${id}`),
+
+  // Ví Doanh Thu & Sổ Cái Studio
+  getAgencyWallet: () => apiClient.get('/agency/wallet'),
+
+  // Đánh giá dịch vụ Studio
+  getAgencyReviews: (params) => apiClient.get('/agency/reviews', { params }),
+  getAgencyReviewOverview: () => apiClient.get('/agency/reviews/overview'),
 };
 

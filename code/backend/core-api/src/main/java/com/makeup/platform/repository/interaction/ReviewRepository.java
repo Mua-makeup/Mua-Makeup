@@ -153,4 +153,65 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
               AND r.is_deleted = false
             """, nativeQuery = true)
     Double getAgencySystemOverallAverageRating();
+
+    @Query(value = """
+            SELECT r FROM ReviewEntity r
+            LEFT JOIN r.booking b
+            WHERE (r.agency.id = :agencyId OR b.agency.id = :agencyId)
+              AND r.isDeleted = false
+              AND (:rating IS NULL OR r.rating = :rating)
+            ORDER BY r.createdAt DESC
+            """,
+            countQuery = """
+            SELECT COUNT(r.id) FROM ReviewEntity r
+            LEFT JOIN r.booking b
+            WHERE (r.agency.id = :agencyId OR b.agency.id = :agencyId)
+              AND r.isDeleted = false
+              AND (:rating IS NULL OR r.rating = :rating)
+            """)
+    Page<ReviewEntity> findAgencyReviews(
+            @Param("agencyId") Long agencyId,
+            @Param("rating") Integer rating,
+            Pageable pageable
+    );
+
+    @Query(value = """
+            SELECT r FROM ReviewEntity r
+            LEFT JOIN r.booking b
+            LEFT JOIN b.customer c
+            WHERE (r.agency.id = :agencyId OR b.agency.id = :agencyId)
+              AND r.isDeleted = false
+              AND (:rating IS NULL OR r.rating = :rating)
+              AND (LOWER(b.bookingCode) LIKE :pattern
+                   OR LOWER(c.fullName) LIKE :pattern
+                   OR LOWER(r.comment) LIKE :pattern)
+            ORDER BY r.createdAt DESC
+            """,
+            countQuery = """
+            SELECT COUNT(r.id) FROM ReviewEntity r
+            LEFT JOIN r.booking b
+            LEFT JOIN b.customer c
+            WHERE (r.agency.id = :agencyId OR b.agency.id = :agencyId)
+              AND r.isDeleted = false
+              AND (:rating IS NULL OR r.rating = :rating)
+              AND (LOWER(b.bookingCode) LIKE :pattern
+                   OR LOWER(c.fullName) LIKE :pattern
+                   OR LOWER(r.comment) LIKE :pattern)
+            """)
+    Page<ReviewEntity> findAgencyReviewsWithKeyword(
+            @Param("agencyId") Long agencyId,
+            @Param("rating") Integer rating,
+            @Param("pattern") String pattern,
+            Pageable pageable
+    );
+
+    @Query(value = """
+            SELECT r.rating, COUNT(r.id)
+            FROM interaction_schema.reviews r
+            LEFT JOIN booking_schema.bookings b ON r.booking_id = b.id
+            WHERE (r.agency_id = :agencyId OR b.agency_id = :agencyId)
+              AND r.is_deleted = false
+            GROUP BY r.rating
+            """, nativeQuery = true)
+    List<Object[]> getAgencyRatingCounts(@Param("agencyId") Long agencyId);
 }

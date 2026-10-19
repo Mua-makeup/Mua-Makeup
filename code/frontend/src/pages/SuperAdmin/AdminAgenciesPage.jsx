@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2,
   Search,
@@ -258,6 +258,17 @@ export const AdminAgenciesPage = () => {
     },
   ];
 
+  const sortedAgencies = useMemo(() => {
+    return [...agencies].sort((a, b) => {
+      const aPending = a.isVerified === false || !a.isVerified;
+      const bPending = b.isVerified === false || !b.isVerified;
+      if (aPending !== bPending) {
+        return aPending ? -1 : 1;
+      }
+      return (b.id || 0) - (a.id || 0);
+    });
+  }, [agencies]);
+
   return (
     <div className="space-y-6">
       {/* Page Header (Stats pills removed as requested) */}
@@ -359,7 +370,7 @@ export const AdminAgenciesPage = () => {
       {/* Main Table with Unified DataTable Component */}
       <DataTable
         columns={columns}
-        data={agencies}
+        data={sortedAgencies}
         isLoading={isLoading}
         emptyMessage={searchQuery ? t('admin_agency_empty_search') : t('admin_agency_empty_list')}
         pagination={{

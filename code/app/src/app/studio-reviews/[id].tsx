@@ -513,10 +513,7 @@ export default function StudioReviewsScreen() {
                     return (
                       <TouchableOpacity
                         key={pIdx}
-                        style={[
-                          styles.reviewPhotoCard,
-                          displayImages.length === 1 && { width: '50%', flex: 0 },
-                        ]}
+                        style={displayImages.length === 1 ? styles.reviewPhotoCardSingle : styles.reviewPhotoCard}
                         onPress={() => {
                           setLightboxImages(uniqueImages);
                           setLightboxIndex(pIdx);
@@ -984,6 +981,17 @@ const styles = StyleSheet.create({
   },
   reviewPhotoCard: {
     flex: 1,
+    height: 140,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    position: 'relative',
+  },
+  reviewPhotoCardSingle: {
+    width: '48%',
+    maxWidth: '48%',
     height: 140,
     borderRadius: 10,
     overflow: 'hidden',

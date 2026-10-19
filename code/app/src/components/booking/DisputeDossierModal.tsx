@@ -41,6 +41,7 @@ interface DisputeDossierModalProps {
   counterpartyName?: string;
   isAgencyBooking?: boolean;
   autoOpenForm?: boolean;
+  isAssistantRole?: boolean;
   onCounterDispute?: () => void;
   onDisputeSuccess?: () => void;
 }
@@ -104,6 +105,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
   counterpartyName,
   isAgencyBooking = false,
   autoOpenForm = false,
+  isAssistantRole = false,
   onCounterDispute,
   onDisputeSuccess,
 }) => {
@@ -248,26 +250,29 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
       ? MUA_POST_COMPLETION_REASONS
       : MUA_QUICK_REASONS;
 
+  // Thợ phụ (ASSISTANT_MUA) tuyệt đối không có quyền can thiệp/nộp giải trình khiếu nại (chỉ Thợ chính)
+  const canIntervene = !isAssistantRole;
+
   // Inline counter dispute state:
-  // Nếu chưa có khiếu nại (đơn bình thường) và autoOpenForm=true -> luôn mở form soạn khiếu nại mới
-  // Nếu đã giải quyết dứt điểm (isResolved=true) -> đóng form
-  const [isEditingCounterDispute, setIsEditingCounterDispute] = useState(autoOpenForm && !isResolved);
+  const [isEditingCounterDispute, setIsEditingCounterDispute] = useState(
+    autoOpenForm && !isResolved && canIntervene
+  );
   const [selectedReason, setSelectedReason] = useState(quickReasons[0]);
   const [detailReason, setDetailReason] = useState('');
   const [proofLocalUri, setProofLocalUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (visible && autoOpenForm && !isResolved) {
+    if (visible && autoOpenForm && !isResolved && canIntervene) {
       setIsEditingCounterDispute(true);
     }
-    if (!visible) {
+    if (!visible || !canIntervene) {
       setIsEditingCounterDispute(false);
       setSelectedReason(quickReasons[0]);
       setDetailReason('');
       setProofLocalUri(null);
     }
-  }, [visible, autoOpenForm, isResolved]);
+  }, [visible, autoOpenForm, isResolved, canIntervene]);
 
   const handlePickImage = async () => {
     try {
@@ -278,7 +283,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.8,
       });
@@ -315,6 +320,11 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
   const handleSubmitDispute = async () => {
     if (!bookingId) {
       Alert.alert('Lỗi', 'Không tìm thấy mã đơn hàng.');
+      return;
+    }
+
+    if (isAssistantRole) {
+      Alert.alert('Không Có Quyền', 'Chỉ Thợ Chính mới có thẩm quyền gửi lời khai giải trình cho ca làm việc này.');
       return;
     }
 
@@ -370,6 +380,34 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleModalEscalateToAdmin = () => {
+    Alert.alert(
+      'Chuyển Khiếu Nại Lên Admin Sàn',
+      'Bạn không đồng ý với quyết định của Studio và muốn chuyển hồ sơ lên Ban Quản Trị Sàn để làm trọng tài phân xử tối hậu?',
+      [
+        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        {
+          text: 'Chuyển Lên Sàn Phân Xử',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsSubmitting(true);
+              await bookingService.escalateDispute(bookingId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Đã Chuyển Lên Sàn', 'Hồ sơ đã được gửi lên Ban Quản Trị Sàn phân xử tối hậu.');
+              onDisputeSuccess?.();
+              onClose();
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể chuyển khiếu nại lên Admin.');
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -607,6 +645,34 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
             </View>
           )}
 
+          {/* Nút hành động cho khách hàng khi Studio đã từ chối nhưng chưa leo thang */}
+          {!isMUA &&
+            (cancellationReason?.includes('[STUDIO_TU_CHOI]') || emergencyReason?.includes('[STUDIO_TU_CHOI]')) &&
+            !(cancellationReason?.includes('[LEO_THANG_ADMIN]') || emergencyReason?.includes('[LEO_THANG_ADMIN]')) && (
+              <View style={{ marginTop: 10, gap: 8 }}>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#DC2626',
+                    paddingVertical: 11,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                  onPress={handleModalEscalateToAdmin}
+                  disabled={isSubmitting}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="shield-outline" size={16} color="#FFFFFF" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                    Không Đồng Ý - Chuyển Lên Admin Sàn Phân Xử
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
           {/* Section 1: Counterparty Dossier (CHỈ HIỂN THỊ VỚI THỢ MUA KHI CÓ KHIẾU NẠI) */}
           {isMUA && hasEverDisputed && (
             <View style={styles.dossierCard}>
@@ -670,7 +736,9 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                   color={isMUA ? '#475569' : '#E11D48'}
                 />
                 <Text style={[styles.dossierRoleText, { color: isMUA ? '#475569' : '#E11D48' }]}>
-                  {isMUA ? 'Lời Khai Giải Trình Của Bạn' : 'Nội Dung Khiếu Nại Của Bạn'}
+                  {isMUA
+                    ? (isAssistantRole ? 'Lời Khai Giải Trình (Thợ Chính)' : 'Lời Khai Giải Trình Của Bạn')
+                    : 'Nội Dung Khiếu Nại Của Bạn'}
                 </Text>
               </View>
               {hasMyStatement && (
@@ -710,7 +778,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                   </View>
                 )}
               </>
-            ) : isEditingCounterDispute ? (
+            ) : isEditingCounterDispute && canIntervene ? (
               /* Inline Form Soạn Thảo Khiếu Nại (Khách) / Lời Khai Giải Trình (MUA) */
               <View style={styles.inlineFormBox}>
                 <View style={styles.inlineFormHeader}>
@@ -839,6 +907,16 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
                 </Text>
                 <Text style={styles.notSubmittedSub}>
                   Hồ sơ khiếu nại của ca làm này đã đóng theo kết quả phán quyết chính thức của Admin.
+                </Text>
+              </View>
+            ) : isAssistantRole ? (
+              <View style={styles.notSubmittedBox}>
+                <Ionicons name="information-circle-outline" size={22} color="#64748B" />
+                <Text style={[styles.notSubmittedTitle, { color: '#334155' }]}>
+                  Chỉ Thợ Chính Mới Có Quyền Giải Trình
+                </Text>
+                <Text style={styles.notSubmittedSub}>
+                  Bạn đang tham gia ca làm việc với vai trò Thợ Phụ. Chỉ Thợ Chính phụ trách ca mới có thẩm quyền gửi lời khai giải trình và ảnh minh chứng đối soát cho Ban Quản Trị.
                 </Text>
               </View>
             ) : (

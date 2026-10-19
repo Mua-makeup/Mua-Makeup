@@ -303,22 +303,39 @@ export const AdminDisputesPage = () => {
           else if (!customerStatement) customerStatement = trimmed;
         }
       });
+    } else if (isMuaOnly) {
+      muaStatement = rawReason.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+      customerStatement = 'Chưa gửi lời khai riêng';
+    } else {
+      customerStatement = rawReason.replace(/\[Khách hàng\]:?/, '').trim();
+      muaStatement = 'Chưa gửi lời khai riêng';
+    }
 
-      const hasTaggedProofs = rawProofParts.some((p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]'));
-      if (hasTaggedProofs) {
-        rawProofParts.forEach((item) => {
-          const cleaned = cleanUrl(item);
-          if (!cleaned) return;
-          if (item.includes('[Khách hàng]')) {
-            customerProofUrls.push(cleaned);
-          } else if (item.includes('[Chuyên viên MUA]')) {
+    // Parse proof images independently of statement dual state
+    const hasTaggedProofs = rawProofParts.some(
+      (p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]') || p.includes('[Thợ MUA]')
+    );
+    if (hasTaggedProofs) {
+      rawProofParts.forEach((item) => {
+        const cleaned = cleanUrl(item);
+        if (!cleaned) return;
+        if (item.includes('[Khách hàng]')) {
+          customerProofUrls.push(cleaned);
+        } else if (item.includes('[Chuyên viên MUA]') || item.includes('[Thợ MUA]')) {
+          muaProofUrls.push(cleaned);
+        } else {
+          if (isMuaOnly) {
             muaProofUrls.push(cleaned);
-          } else {
+          } else if (isDual) {
             if (muaProofUrls.length === 0) muaProofUrls.push(cleaned);
             else customerProofUrls.push(cleaned);
+          } else {
+            customerProofUrls.push(cleaned);
           }
-        });
-      } else {
+        }
+      });
+    } else {
+      if (isDual) {
         if (rawReason.startsWith('[Khách hàng]')) {
           customerProofUrls = rawProofParts.slice(0, 1).map(cleanUrl).filter(Boolean);
           muaProofUrls = rawProofParts.slice(1).map(cleanUrl).filter(Boolean);
@@ -326,17 +343,13 @@ export const AdminDisputesPage = () => {
           muaProofUrls = rawProofParts.slice(0, 1).map(cleanUrl).filter(Boolean);
           customerProofUrls = rawProofParts.slice(1).map(cleanUrl).filter(Boolean);
         }
+      } else if (isMuaOnly) {
+        muaProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
+        customerProofUrls = [];
+      } else {
+        customerProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
+        muaProofUrls = [];
       }
-    } else if (isMuaOnly) {
-      muaStatement = rawReason.replace(/\[Chuyên viên MUA\]:?/, '').trim();
-      customerStatement = 'Chưa gửi lời khai riêng';
-      muaProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
-      customerProofUrls = [];
-    } else {
-      customerStatement = rawReason.replace(/\[Khách hàng\]:?/, '').trim();
-      muaStatement = 'Chưa gửi lời khai riêng';
-      customerProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
-      muaProofUrls = [];
     }
 
     const proofUrls = [...customerProofUrls, ...muaProofUrls];
@@ -593,6 +606,19 @@ export const AdminDisputesPage = () => {
     },
   ];
 
+  const sortedDisputes = useMemo(() => {
+    return [...disputes].sort((a, b) => {
+      const aPending = a.status === 'DISPUTED';
+      const bPending = b.status === 'DISPUTED';
+      if (aPending !== bPending) {
+        return aPending ? -1 : 1;
+      }
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return timeB - timeA;
+    });
+  }, [disputes]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -735,7 +761,7 @@ export const AdminDisputesPage = () => {
       {/* Disputes Data Table */}
       <DataTable
         columns={columns}
-        data={disputes}
+        data={sortedDisputes}
         isLoading={isLoading}
         onRowClick={(row) => handleOpenDetail(row)}
         pagination={{

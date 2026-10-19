@@ -319,12 +319,15 @@ export const AgencyRealtimeNotifier = () => {
             stompClient.subscribe(`/topic/agency/${agencyId}/staff-applications`, handleMessage);
             stompClient.subscribe(`/topic/agency/${agencyId}/dispatch-alerts`, handleMessage);
             stompClient.subscribe(`/topic/agency/${agencyId}/leave-requests`, handleMessage);
+            stompClient.subscribe(`/topic/agency/${agencyId}/notifications`, handleMessage);
+            stompClient.subscribe(`/topic/agency-notifications/${agencyId}`, handleMessage);
           }
           // Also subscribe to non-parameterized topics as fallback
           stompClient.subscribe('/topic/agency/bookings', handleMessage);
           stompClient.subscribe('/topic/agency/staff-applications', handleMessage);
           stompClient.subscribe('/topic/agency/dispatch-alerts', handleMessage);
           stompClient.subscribe('/topic/agency/leave-requests', handleMessage);
+          stompClient.subscribe('/topic/agency/notifications', handleMessage);
         },
         onStompError: (frame) => {
           console.warn('[AgencyRealtimeNotifier] STOMP Error:', frame.headers['message']);
@@ -523,6 +526,24 @@ export const AgencyRealtimeNotifier = () => {
                 </a>
               </div>
             </div>
+          )}
+        </div>
+      ) : isDispute ? (
+        <div className="mt-3 bg-orange-50/70 dark:bg-orange-950/40 rounded-xl p-3 border border-orange-200 dark:border-orange-800/60 space-y-1.5 text-xs">
+          <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <ShieldAlert className="w-3.5 h-3.5 text-orange-600" />
+              Mã đơn:
+            </span>
+            <span className="font-mono font-bold text-orange-700 dark:text-orange-300">
+              #{activeToast.bookingCode}
+            </span>
+          </div>
+
+          {(activeToast.content || activeToast.note) && (
+            <p className="text-[11px] text-slate-700 dark:text-slate-200 font-medium pt-1 border-t border-orange-200/60 dark:border-orange-800/60 line-clamp-3">
+              "{activeToast.content || activeToast.note}"
+            </p>
           )}
         </div>
       ) : isLeaveReq ? (

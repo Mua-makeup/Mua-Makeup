@@ -15,6 +15,8 @@ import {
   MapPin,
   AlertTriangle,
   Image,
+  Wallet,
+  Star,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -113,6 +115,16 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/agency/disputes',
       label: t('nav_agency_disputes') || 'Khiếu nại',
       icon: AlertTriangle,
+    },
+    {
+      to: '/agency/wallet',
+      label: t('nav_agency_wallet') || 'Ví Doanh Thu',
+      icon: Wallet,
+    },
+    {
+      to: '/agency/reviews',
+      label: t('nav_agency_reviews') || 'Đánh Giá Dịch Vụ',
+      icon: Star,
     },
   ];
 

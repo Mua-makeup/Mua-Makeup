@@ -199,6 +199,7 @@
     "deposit_not_paid": "Cannot start trip: Customer deposit has not been paid.",
     "assistant_not_confirmed": "Assistant artist has not confirmed the booking yet, cannot start trip.",
     "assistant_cannot_transition_state": "Assistant artist is only allowed to accept assignments and report busy. Job execution is managed by the Primary artist.",
+    "assistant_cannot_dispute": "Assistant artist is not authorized to intervene in disputes or submit statements. Only the Primary artist can perform this action.",
     "confirm_scheduled_success": "Scheduled booking confirmed successfully!",
     "reject_scheduled_success": "Scheduled booking rejected successfully.",
     "cancel_requested_success": "Booking cancelled successfully. Deposit refunded to your wallet.",
@@ -682,5 +683,13 @@
     "edit_expired": "The 7-day review editing period has expired.",
     "upload_images_success": "Review images uploaded successfully.",
     "missing_files": "Please select at least one image to upload."
+  },
+  "agency": {
+    "not_found": "Agency profile not found.",
+    "bookings_fetch_success": "Agency bookings retrieved successfully.",
+    "stats_fetch_success": "Agency statistics retrieved successfully.",
+    "wallet_fetch_success": "Agency revenue wallet retrieved successfully.",
+    "reviews_fetch_success": "Agency reviews retrieved successfully.",
+    "review_overview_success": "Agency review overview retrieved successfully."
   }
 }

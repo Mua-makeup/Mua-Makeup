@@ -199,6 +199,7 @@
     "deposit_not_paid": "Không thể bắt đầu di chuyển: Khách hàng chưa hoàn tất thanh toán cọc.",
     "assistant_not_confirmed": "Thợ phụ chưa bấm xác nhận đơn, chưa thể bắt đầu di chuyển.",
     "assistant_cannot_transition_state": "Thợ phụ chỉ được phép tiếp nhận đơn và báo bận. Tiến độ ca làm do Thợ chính cập nhật.",
+    "assistant_cannot_dispute": "Thợ phụ không có quyền can thiệp khiếu nại hoặc nộp giải trình. Chỉ Thợ chính mới có thẩm quyền thực hiện.",
     "confirm_scheduled_success": "Chuyên viên xác nhận nhận ca hẹn trước thành công!",
     "reject_scheduled_success": "Từ chối tiếp nhận ca hẹn trước thành công.",
     "cancel_requested_success": "Hủy ca hẹn thành công. Tiền cọc đã được hoàn về Ví của bạn.",
@@ -687,5 +688,13 @@
     "edit_expired": "Đã quá thời hạn 7 ngày cho phép chỉnh sửa đánh giá.",
     "upload_images_success": "Tải ảnh đánh giá lên thành công.",
     "missing_files": "Vui lòng chọn ít nhất một hình ảnh để tải lên."
+  },
+  "agency": {
+    "not_found": "Không tìm thấy thông tin Studio / Đại lý.",
+    "bookings_fetch_success": "Tải danh sách đơn đặt lịch của Studio thành công.",
+    "stats_fetch_success": "Tải thống kê tổng quan của Studio thành công.",
+    "wallet_fetch_success": "Tải thông tin ví doanh thu Studio thành công.",
+    "reviews_fetch_success": "Tải danh sách đánh giá của Studio thành công.",
+    "review_overview_success": "Tải thống kê đánh giá của Studio thành công."
   }
 }

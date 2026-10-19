@@ -785,8 +785,10 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 ? reason.trim()
                 : "Khách hàng không đồng ý kết quả từ Studio và yêu cầu Ban Quản Trị Sàn phân xử";
         String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
-        booking.setCancellationReason("[LEO_THANG_ADMIN]: " + effectiveReason + (existing.isBlank() ? "" : " | " + existing));
-        bookingRepository.save(booking);
+        String escalatedReason = "[LEO_THANG_ADMIN]: " + effectiveReason + (existing.isBlank() ? "" : " | " + existing);
+        booking.setCancellationReason(escalatedReason);
+        booking.setEmergencyReason(escalatedReason);
+        BookingEntity savedBooking = bookingRepository.save(booking);
 
         bookingAuditService.logTransition(
                 bookingId,
@@ -797,20 +799,27 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         );
 
         try {
-            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, Map.of(
+            Map<String, Object> payload = Map.of(
                     "type", "DISPUTE_ESCALATED_TO_ADMIN",
                     "bookingId", bookingId,
-                    "bookingCode", booking.getBookingCode(),
+                    "bookingCode", savedBooking.getBookingCode(),
                     "reason", effectiveReason,
                     "timestamp", System.currentTimeMillis()
-            ));
-            messagingTemplate.convertAndSend("/topic/admin/disputes", Map.of(
-                    "type", "NEW_ESCALATED_DISPUTE",
-                    "bookingId", bookingId,
-                    "bookingCode", booking.getBookingCode(),
-                    "agencyId", booking.getAgency() != null ? booking.getAgency().getId() : 0,
-                    "timestamp", System.currentTimeMillis()
-            ));
+            );
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+            messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
+            messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
+
+            if (savedBooking.getAgency() != null) {
+                messagingTemplate.convertAndSend("/topic/agency/" + savedBooking.getAgency().getId() + "/dispatch-alerts", Map.of(
+                        "type", "AGENCY_DISPUTE_ESCALATED",
+                        "bookingId", bookingId,
+                        "bookingCode", savedBooking.getBookingCode(),
+                        "reason", effectiveReason,
+                        "timestamp", System.currentTimeMillis()
+                ));
+            }
         } catch (Exception ex) {
             log.warn("[EscalateDispute] Failed to broadcast websocket: {}", ex.getMessage());
         }

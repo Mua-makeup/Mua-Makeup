@@ -190,7 +190,7 @@ export const AgencyPortfolioPage = () => {
               onChange={(e) => setFilterPackageId(e.target.value)}
               className="text-xs py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20"
             >
-              <option value="ALL">Tất cả gói dịch vụ ({portfolios.length})</option>
+              <option value="ALL">{t('agency_portfolio_all_packages')} ({portfolios.length})</option>
               {packageFilterOptions.map((opt) => (
                 <option key={opt.id} value={opt.id}>
                   {opt.name}
@@ -233,7 +233,7 @@ export const AgencyPortfolioPage = () => {
             {t('agency_portfolio_empty')}
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
-            Hãy tải lên các hình ảnh tác phẩm thực tế đầu tiên để khách hàng có thể chiêm ngưỡng tay nghề của Studio trên ứng dụng.
+            {t('agency_portfolio_empty_desc')}
           </p>
           <Button
             variant="primary"
@@ -260,7 +260,7 @@ export const AgencyPortfolioPage = () => {
                 <div
                   className="relative aspect-[4/3] bg-slate-100 dark:bg-slate-800 overflow-hidden cursor-pointer"
                   onClick={() => setViewingItem(item)}
-                  title="Nhấn để xem chi tiết ảnh và các góc chụp"
+                  title={t('agency_portfolio_click_to_view')}
                 >
                   <img
                     src={photoUrl}
@@ -279,7 +279,7 @@ export const AgencyPortfolioPage = () => {
                       handleToggleFeatured(item);
                     }}
                     disabled={togglingId === item.id}
-                    title={item.isFeatured ? 'Bỏ ghim tiêu biểu' : 'Ghim tiêu biểu'}
+                    title={item.isFeatured ? t('agency_portfolio_unpin_featured') : t('agency_portfolio_pin_featured')}
                     className={`absolute top-2.5 right-2.5 p-1.5 rounded-full backdrop-blur-md transition-colors ${
                       item.isFeatured
                         ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
@@ -297,13 +297,13 @@ export const AgencyPortfolioPage = () => {
                         : 'bg-slate-800/90 text-slate-300'
                     }`}
                   >
-                    {item.isVisible ? 'Hiển thị' : 'Đã ẩn'}
+                    {item.isVisible ? t('status_visible') : t('status_hidden')}
                   </span>
 
                   {/* Additional Images Count Badge */}
                   {item.additionalImages?.length > 0 && (
                     <span className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-600/90 text-white backdrop-blur-md shadow-sm flex items-center gap-1">
-                      <span>+{item.additionalImages.length} ảnh phụ</span>
+                      <span>+{item.additionalImages.length} {t('agency_portfolio_additional_photos_suffix')}</span>
                     </span>
                   )}
                 </div>
@@ -360,12 +360,12 @@ export const AgencyPortfolioPage = () => {
                       {item.isVisible ? (
                         <>
                           <EyeOff className="w-3.5 h-3.5" />
-                          <span>Ẩn</span>
+                          <span>{t('btn_hide')}</span>
                         </>
                       ) : (
                         <>
                           <Eye className="w-3.5 h-3.5 text-emerald-500" />
-                          <span className="text-emerald-500">Bật</span>
+                          <span className="text-emerald-500">{t('btn_show')}</span>
                         </>
                       )}
                     </button>

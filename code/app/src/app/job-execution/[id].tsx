@@ -3462,7 +3462,9 @@ export default function JobExecutionScreen() {
         bookingStatus={booking?.status}
         disputeOrigin={booking?.disputeOrigin}
         counterpartyName={booking?.customerName}
+        isAssistantRole={isAssistantRole}
         onCounterDispute={() => {
+          if (isAssistantRole) return;
           setCancelModalType('CUSTOMER_ABSENT_DISPUTE');
           setCancelReason('');
           setDisputeProofUrl('');

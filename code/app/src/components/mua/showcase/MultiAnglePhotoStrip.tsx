@@ -54,7 +54,7 @@ export const MultiAnglePhotoStrip: React.FC<MultiAnglePhotoStripProps> = ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         selectionLimit: maxPhotos - imageUris.length,
         quality: 0.8,

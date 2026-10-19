@@ -137,15 +137,30 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 boolean isCustomer = "ROLE_CUSTOMER".equals(userRole)
                         || (booking.getCustomer() != null && booking.getCustomer().getId().equals(userId));
                 String roleTag = isCustomer ? "[Khách hàng]" : "[Chuyên viên MUA]";
-                String existingReason = StringUtils.hasText(booking.getEmergencyReason())
-                        ? booking.getEmergencyReason()
-                        : (booking.getCancellationReason() != null ? booking.getCancellationReason() : "");
+                String currentCancellation = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
+                String currentEmergency = booking.getEmergencyReason() != null ? booking.getEmergencyReason() : "";
+
+                boolean isEscalated = currentCancellation.contains("[LEO_THANG_ADMIN]") || currentEmergency.contains("[LEO_THANG_ADMIN]");
+                boolean isStudioRejected = currentCancellation.contains("[STUDIO_TU_CHOI]") || currentEmergency.contains("[STUDIO_TU_CHOI]");
+
+                String existingReason = StringUtils.hasText(currentEmergency)
+                        ? currentEmergency
+                        : currentCancellation;
 
                 String formattedPart = roleTag + ": " + (req.getReason() != null ? req.getReason().trim() : "");
                 if (req.getReason() != null && !existingReason.contains(req.getReason().trim())) {
                     String updatedReason = StringUtils.hasText(existingReason)
                             ? existingReason + " | " + formattedPart
                             : formattedPart;
+
+                    // Bảo đảm cờ leo thang Admin và Studio từ chối không bao giờ bị xóa khi thợ/khách nộp giải trình
+                    if (isEscalated && !updatedReason.contains("[LEO_THANG_ADMIN]")) {
+                        updatedReason = "[LEO_THANG_ADMIN]: " + updatedReason;
+                    }
+                    if (isStudioRejected && !updatedReason.contains("[STUDIO_TU_CHOI]")) {
+                        updatedReason = updatedReason + " | [STUDIO_TU_CHOI]";
+                    }
+
                     booking.setCancellationReason(updatedReason);
                     booking.setEmergencyReason(updatedReason);
                 }
@@ -520,6 +535,15 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         boolean isAgencyOwner = booking.getAgency() != null && booking.getAgency().getOwner() != null
                 && booking.getAgency().getOwner().getId().equals(userId);
 
+        boolean isAssistantOnBooking = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE)
+                .stream()
+                .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
+                        && a.getStaff() != null && a.getStaff().getMua() != null
+                        && ((a.getStaff().getMua().getId() != null && a.getStaff().getMua().getId().equals(userId))
+                                || (a.getStaff().getMua().getUser() != null
+                                && a.getStaff().getMua().getUser().getId().equals(userId))));
+
         switch (toStatus) {
             case ACCEPTED:
                 if (booking.getStatus() == BookingStatus.AGENCY_ASSIGNED) {
@@ -540,14 +564,6 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             case IN_PROGRESS:
             case COMPLETED:
                 // Thợ phụ TUYỆT ĐỐI KHÔNG được phép chuyển trạng thái đơn (chỉ thợ chính mới có quyền)
-                boolean isAssistantOnBooking = bookingStaffAssignmentRepository
-                        .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE)
-                        .stream()
-                        .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
-                                && a.getStaff() != null && a.getStaff().getMua() != null
-                                && a.getStaff().getMua().getUser() != null
-                                && a.getStaff().getMua().getUser().getId().equals(userId));
-
                 if (isAssistantOnBooking) {
                     log.warn("[StateMachine] Assistant MUA userId={} attempted unauthorized status transition to {} on bookingId={}",
                             userId, toStatus, booking.getId());
@@ -615,6 +631,13 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 break;
 
             case DISPUTED:
+                // Thợ phụ không có quyền khiếu nại hoặc nộp giải trình (chỉ Thợ chính mới có quyền)
+                if (isAssistantOnBooking) {
+                    log.warn("[StateMachine] Assistant MUA userId={} attempted unauthorized dispute action on bookingId={}",
+                            userId, booking.getId());
+                    throw new CustomBusinessException(ErrorCodes.ERR_ASSISTANT_CANNOT_TRANSITION_STATE,
+                            "booking.assistant_cannot_dispute", HttpStatus.FORBIDDEN);
+                }
                 if (!isCustomer && !isAssignedMua && !isAgencyOwner) {
                     throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                             "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
@@ -666,6 +689,21 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     @Transactional
     public BookingCompletionPhotoRes uploadDisputeProof(Long bookingId, Long userId, MultipartFile file) {
         BookingEntity booking = getBookingAndVerifyActor(bookingId, userId, true);
+
+        boolean isAssistantOnBooking = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE)
+                .stream()
+                .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
+                        && a.getStaff() != null && a.getStaff().getMua() != null
+                        && ((a.getStaff().getMua().getId() != null && a.getStaff().getMua().getId().equals(userId))
+                                || (a.getStaff().getMua().getUser() != null
+                                && a.getStaff().getMua().getUser().getId().equals(userId))));
+        if (isAssistantOnBooking) {
+            log.warn("[StateMachine] Assistant MUA userId={} attempted unauthorized dispute proof upload on bookingId={}",
+                    userId, bookingId);
+            throw new CustomBusinessException(ErrorCodes.ERR_ASSISTANT_CANNOT_TRANSITION_STATE,
+                    "booking.assistant_cannot_dispute", HttpStatus.FORBIDDEN);
+        }
 
         // Validate image file (size, format, magic bytes)
         FileValidationUtils.validateImageFile(file, MediaConstants.MAX_MAIN_IMAGE_SIZE);
