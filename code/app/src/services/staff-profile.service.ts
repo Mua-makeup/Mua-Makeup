@@ -9,6 +9,15 @@ export interface AssignedStyle {
   isQualified?: boolean;
 }
 
+export interface AssignedPackage {
+  packageId: number;
+  packageName: string;
+  categoryName?: string;
+  price?: number;
+  proficiencyLevel?: 'PRIMARY_MUA' | 'ASSISTANT_MUA' | 'APPRENTICE';
+  isQualified?: boolean;
+}
+
 export interface StaffCertificate {
   certName: string;
   imageUrl: string;
@@ -45,6 +54,7 @@ export interface AgencyStaffProfile {
   totalReviews?: number;
   totalCompletedJobs?: number;
   assignedStyles?: AssignedStyle[];
+  assignedPackages?: AssignedPackage[];
   certificates?: StaffCertificate[];
   note?: string;
 }
@@ -86,6 +96,12 @@ export const staffProfileService = {
       inviteCode: inviteCode.trim(),
     });
     return res.data.data;
+  },
+
+  /** Lấy danh sách các gói dịch vụ Studio phân công cho thợ */
+  async getMyAssignedPackages(): Promise<AssignedPackage[]> {
+    const res = await apiClient.get<ApiResponse<{ staffId: number; staffName?: string; assignedPackages: AssignedPackage[] }>>('/agencies/staff/me/packages');
+    return res.data.data?.assignedPackages || [];
   },
 
   /** Thợ Studio nộp chứng chỉ nghề nghiệp lên Studio */

@@ -75,9 +75,46 @@ export const FIXED_SHIFT_SLOTS: ShiftSlotDefinition[] = [
 ];
 
 export const BUSY_PRESET_SLOTS = [
-  { id: 'MORNING', label: 'Ca sáng', start: '08:00', end: '12:00' },
-  { id: 'AFTERNOON', label: 'Ca chiều', start: '13:00', end: '17:00' },
-  { id: 'EVENING', label: 'Ca tối', start: '18:00', end: '21:30' },
+  {
+    id: 'MORNING',
+    label: 'Ca sáng',
+    start: '08:00',
+    end: '12:00',
+    timeRange: '08:00 - 12:00',
+    desc: 'Khung giờ sáng tiêu chuẩn',
+    duration: '4 tiếng',
+    icon: 'sunny-outline',
+  },
+  {
+    id: 'AFTERNOON',
+    label: 'Ca chiều',
+    start: '13:00',
+    end: '17:00',
+    timeRange: '13:00 - 17:00',
+    desc: 'Khung giờ chiều tiêu chuẩn',
+    duration: '4 tiếng',
+    icon: 'partly-sunny-outline',
+  },
+  {
+    id: 'EVENING',
+    label: 'Ca tối',
+    start: '18:00',
+    end: '21:30',
+    timeRange: '18:00 - 21:30',
+    desc: 'Khung giờ tối tăng ca',
+    duration: '3.5 tiếng',
+    icon: 'moon-outline',
+  },
+  {
+    id: 'ALL_DAY',
+    label: 'Cả ngày',
+    start: '08:00',
+    end: '17:00',
+    timeRange: '08:00 - 17:00',
+    desc: 'Toàn bộ thời gian làm việc trong ngày',
+    duration: '8 tiếng',
+    icon: 'calendar-outline',
+  },
 ];
 
 export const BUSY_PRESET_REASONS = [
@@ -1009,11 +1046,11 @@ export default function StaffScheduleScreen() {
                   </View>
                 </View>
 
-                {/* 3 khung ca cố định chuẩn toàn hệ thống */}
+                {/* Danh sách khung ca làm việc tiêu chuẩn */}
                 <Text style={styles.subFieldSectionLabel}>
-                  Chỉ áp dụng đăng ký theo 3 khung ca làm việc tiêu chuẩn:
+                  Chọn 1 khung ca làm việc tiêu chuẩn cần xin nghỉ:
                 </Text>
-                <View style={styles.presetTimeGrid}>
+                <View style={styles.presetSlotList}>
                   {BUSY_PRESET_SLOTS.map((slot) => {
                     const isSelected =
                       busyStartTime === slot.start && busyEndTime === slot.end;
@@ -1021,8 +1058,8 @@ export default function StaffScheduleScreen() {
                       <TouchableOpacity
                         key={slot.id}
                         style={[
-                          styles.presetTimeChip,
-                          isSelected && styles.presetTimeChipActive,
+                          styles.presetSlotCard,
+                          isSelected && styles.presetSlotCardActive,
                         ]}
                         onPress={() => {
                           setBusyStartTime(slot.start);
@@ -1030,22 +1067,66 @@ export default function StaffScheduleScreen() {
                         }}
                         activeOpacity={0.7}
                       >
-                        <Text
-                          style={[
-                            styles.presetTimeChipLabel,
-                            isSelected && styles.presetTimeChipLabelActive,
-                          ]}
-                        >
-                          {slot.label}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.presetTimeChipSub,
-                            isSelected && styles.presetTimeChipSubActive,
-                          ]}
-                        >
-                          {slot.start} - {slot.end}
-                        </Text>
+                        <View style={styles.presetSlotCardLeft}>
+                          <View
+                            style={[
+                              styles.presetSlotIconCircle,
+                              isSelected && styles.presetSlotIconCircleActive,
+                            ]}
+                          >
+                            <Ionicons
+                              name={slot.icon as any}
+                              size={18}
+                              color={isSelected ? '#E11D48' : '#64748B'}
+                            />
+                          </View>
+                          <View style={styles.presetSlotTextCol}>
+                            <View style={styles.presetSlotTitleRow}>
+                              <Text
+                                style={[
+                                  styles.presetSlotTitle,
+                                  isSelected && styles.presetSlotTitleActive,
+                                ]}
+                              >
+                                {slot.label}
+                              </Text>
+                              {slot.duration && (
+                                <Text
+                                  style={[
+                                    styles.presetSlotDurationText,
+                                    isSelected && styles.presetSlotDurationTextActive,
+                                  ]}
+                                >
+                                  • {slot.duration}
+                                </Text>
+                              )}
+                            </View>
+                            <Text style={styles.presetSlotDescText}>{slot.desc}</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.presetSlotCardRight}>
+                          <View
+                            style={[
+                              styles.presetSlotBadge,
+                              isSelected && styles.presetSlotBadgeActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.presetSlotBadgeText,
+                                isSelected && styles.presetSlotBadgeTextActive,
+                              ]}
+                            >
+                              {slot.start} - {slot.end}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                            size={20}
+                            color={isSelected ? '#E11D48' : '#CBD5E1'}
+                          />
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -2177,6 +2258,98 @@ const styles = StyleSheet.create({
   quickDateChipSubActive: {
     color: '#E11D48',
     fontWeight: '600',
+  },
+  presetSlotList: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  presetSlotCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  presetSlotCardActive: {
+    borderColor: '#E11D48',
+    backgroundColor: '#FFF1F2',
+  },
+  presetSlotCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  presetSlotIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  presetSlotIconCircleActive: {
+    backgroundColor: '#FFE4E6',
+  },
+  presetSlotTextCol: {
+    flex: 1,
+  },
+  presetSlotTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  presetSlotTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  presetSlotTitleActive: {
+    color: '#BE123C',
+  },
+  presetSlotDurationText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  presetSlotDurationTextActive: {
+    color: '#E11D48',
+  },
+  presetSlotDescText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  presetSlotCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 6,
+  },
+  presetSlotBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetSlotBadgeActive: {
+    backgroundColor: '#FFE4E6',
+    borderColor: '#FECDD3',
+  },
+  presetSlotBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  presetSlotBadgeTextActive: {
+    color: '#BE123C',
+    fontWeight: '700',
   },
   presetTimeGrid: {
     flexDirection: 'row',

@@ -456,6 +456,79 @@ export default function StaffWorkProfileScreen() {
             )}
           </View>
 
+          {/* GÓI DỊCH VỤ STUDIO PHÂN CÔNG */}
+          <View style={styles.card}>
+            <View style={styles.cardHeaderWithAction}>
+              <View style={styles.cardTitleRow}>
+                <Ionicons name="brush-outline" size={16} color={BrandColors.primary} />
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  Gói Dịch Vụ Phân Công ({staffProfile.assignedPackages?.length || 0})
+                </Text>
+              </View>
+            </View>
+
+            {(!staffProfile.assignedPackages || staffProfile.assignedPackages.length === 0) ? (
+              <View style={styles.emptyCertBox}>
+                <Text style={styles.emptyText}>Chưa có gói dịch vụ nào được Studio gán cho bạn.</Text>
+                <Text style={styles.emptySubText}>
+                  Khi Studio phân công các gói trang điểm phụ trách, danh sách sẽ hiển thị tại đây.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.packageList}>
+                {staffProfile.assignedPackages.map((pkg) => {
+                  const isPrimary = pkg.proficiencyLevel === 'PRIMARY_MUA';
+                  const roleLabel = isPrimary ? 'Thợ chính' : pkg.proficiencyLevel === 'ASSISTANT_MUA' ? 'Thợ phụ' : 'Học việc';
+
+                  return (
+                    <TouchableOpacity
+                      key={`pkg-${pkg.packageId}`}
+                      style={styles.packageCardItem}
+                      activeOpacity={0.7}
+                      onPress={() => router.push(`/staff/package-detail/${pkg.packageId}` as any)}
+                    >
+                      <View style={styles.pkgTopRow}>
+                        <View style={styles.pkgTitleCol}>
+                          {pkg.categoryName ? (
+                            <View style={styles.pkgCategoryBadge}>
+                              <Text style={styles.pkgCategoryText} numberOfLines={1}>
+                                {pkg.categoryName}
+                              </Text>
+                            </View>
+                          ) : null}
+                          <Text style={styles.pkgName} numberOfLines={1}>
+                            {pkg.packageName}
+                          </Text>
+                        </View>
+                        {pkg.price != null && (
+                          <Text style={styles.pkgPrice}>
+                            {pkg.price.toLocaleString('vi-VN')} đ
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={styles.pkgBottomRow}>
+                        <View style={styles.pkgBadgesGroup}>
+                          {pkg.isQualified && (
+                            <View style={styles.qualifiedBadge}>
+                              <Ionicons name="checkmark-circle" size={12} color="#15803D" />
+                              <Text style={styles.qualifiedText}>Đạt chuẩn tay nghề</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.pkgDetailBtn}>
+                          <Text style={styles.pkgDetailBtnText}>Chi tiết</Text>
+                          <Ionicons name="chevron-forward" size={13} color={BrandColors.primary} />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+
           {staffProfile.note ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Ghi Chú Nội Bộ</Text>
@@ -1118,6 +1191,119 @@ const styles = StyleSheet.create({
   fullPreviewImage: {
     width: '90%',
     height: '80%',
+  },
+  // ASSIGNED PACKAGES STYLES
+  packageList: {
+    gap: 10,
+  },
+  packageCardItem: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  pkgTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  pkgTitleCol: {
+    flex: 1,
+    gap: 3,
+  },
+  pkgCategoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: '#FECDD3',
+  },
+  pkgCategoryText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: BrandColors.primary,
+  },
+  pkgName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  pkgPrice: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: BrandColors.primary,
+  },
+  pkgBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  pkgBadgesGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    flex: 1,
+    marginRight: 8,
+  },
+  roleBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+  },
+  rolePrimaryBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 0.5,
+    borderColor: '#BFDBFE',
+  },
+  rolePrimaryText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
+  roleAssistantBadge: {
+    backgroundColor: '#F5F3FF',
+    borderWidth: 0.5,
+    borderColor: '#DDD6FE',
+  },
+  roleAssistantText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6D28D9',
+  },
+  qualifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: '#BBF7D0',
+  },
+  qualifiedText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#15803D',
+  },
+  pkgDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  pkgDetailBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BrandColors.primary,
   },
 });
 
