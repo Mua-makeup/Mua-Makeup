@@ -202,13 +202,25 @@ export default function StaffWorkProfileScreen() {
           <Ionicons name="business-outline" size={40} color={BrandColors.slateMuted} />
           <Text style={styles.errorTitle}>Chưa Liên Kết Studio</Text>
           <Text style={styles.errorSub}>{errorMessage}</Text>
-          <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={refreshStaffProfile}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.retryBtnText}>Thử lại</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={refreshStaffProfile}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.retryBtnText}>Thử lại</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.retryBtn, { backgroundColor: BrandColors.primary, borderColor: BrandColors.primary }]}
+              onPress={() => router.replace('/join' as any)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.retryBtnText, { color: '#FFFFFF', fontWeight: '700' }]}>
+                Gia Nhập Studio
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : staffProfile ? (
         <ScrollView

@@ -49,10 +49,42 @@ export interface AgencyStaffProfile {
   note?: string;
 }
 
+export interface PublicAgencyInvitation {
+  inviteCode: string;
+  agencyId: number;
+  agencyCode?: string;
+  agencyName: string;
+  logoUrl?: string;
+  hotline?: string;
+  addressStreet?: string;
+  district?: string;
+  city?: string;
+  proposedCommissionRate?: number;
+  note?: string;
+  expiresAt?: string;
+  isExpired?: boolean;
+}
+
 export const staffProfileService = {
   /** Lấy thông tin chi tiết hồ sơ nhân sự Studio của tài khoản hiện tại */
   async getMyStaffProfile(): Promise<AgencyStaffProfile> {
     const res = await apiClient.get<ApiResponse<AgencyStaffProfile>>('/agencies/staff/me');
+    return res.data.data;
+  },
+
+  /** Lấy thông tin công khai của Studio theo mã mời (Invite Code) */
+  async getPublicInvitationInfo(inviteCode: string): Promise<PublicAgencyInvitation> {
+    const res = await apiClient.get<ApiResponse<PublicAgencyInvitation>>(
+      `/agencies/invitations/${encodeURIComponent(inviteCode.trim())}/public`
+    );
+    return res.data.data;
+  },
+
+  /** Thợ MUA nộp đơn xin gia nhập Studio theo mã mời */
+  async acceptInvitation(inviteCode: string): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>('/agencies/invitations/accept', {
+      inviteCode: inviteCode.trim(),
+    });
     return res.data.data;
   },
 
@@ -77,3 +109,4 @@ export const staffProfileService = {
     });
   },
 };
+

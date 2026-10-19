@@ -177,7 +177,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
     } else if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       navigate('/agency/bookings');
     } else if (notif.type === 'STAFF_APPLICATION') {
-      navigate('/agency/staff');
+      navigate('/agency/staff?tab=pending');
     } else if (notif.type === 'CERTIFICATE_VERIFICATION') {
       navigate('/admin/muas/credentials');
     } else {

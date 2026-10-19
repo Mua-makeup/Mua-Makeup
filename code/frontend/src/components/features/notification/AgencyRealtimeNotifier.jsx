@@ -641,7 +641,7 @@ export const AgencyRealtimeNotifier = () => {
               : isLeaveReq
               ? '/agency/shifts?tab=leave-requests'
               : isStaffApp
-              ? '/agency/staff'
+              ? '/agency/staff?tab=pending'
               : '/agency/bookings';
             setActiveToast(null);
             navigate(targetRoute);

@@ -197,8 +197,8 @@ export const AccountModal: React.FC = () => {
             )}
 
 
-            {/* 4. Hồ Sơ Nhân Sự Studio (Chỉ dành cho Agency Staff) */}
-            {isAgencyStaff && (
+            {/* 4. Hồ Sơ Nhân Sự Studio (Nếu đã gia nhập) hoặc Gia Nhập Studio (Nếu là Thợ tự do) */}
+            {isAgencyStaff ? (
               <TouchableOpacity
                 style={styles.modalActionRow}
                 onPress={() => handleNavigate(() => router.push('/profile/staff-profile'))}
@@ -210,7 +210,19 @@ export const AccountModal: React.FC = () => {
                 </Text>
                 <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
               </TouchableOpacity>
-            )}
+            ) : isFreelanceMUA ? (
+              <TouchableOpacity
+                style={styles.modalActionRow}
+                onPress={() => handleNavigate(() => router.push('/join' as any))}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="business-outline" size={22} color={BrandColors.primary} />
+                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
+                  Gia Nhập Studio
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
+              </TouchableOpacity>
+            ) : null}
 
             {/* Lịch ca trực (Chỉ cho Nhân viên Studio) */}
             {isAgencyStaff && (

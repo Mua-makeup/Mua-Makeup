@@ -581,7 +581,9 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     @Override
     @Transactional(readOnly = true)
     public AgencyStaffDetailRes getMyStaffProfile(Long userId) {
-        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveOrPendingStaffByUserId(userId)
+                .stream()
+                .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_STAFF_NOT_FOUND,
                         "ERR_STAFF_NOT_FOUND"

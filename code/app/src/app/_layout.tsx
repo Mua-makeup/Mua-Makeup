@@ -164,6 +164,7 @@ export default function RootLayout() {
           <Stack.Screen name="booking/deposit/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="booking/tracking/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="booking/instant-matched/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="join" options={{ presentation: 'card' }} />
           <Stack.Screen name="notifications" options={{ presentation: 'card', headerShown: false }} />
         </Stack>
         {/* Modal Popup toàn cục hiển thị đẹp mắt trên cả Web Laptop & Điện thoại */}

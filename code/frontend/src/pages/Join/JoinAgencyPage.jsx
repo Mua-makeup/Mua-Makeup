@@ -251,6 +251,14 @@ export const JoinAgencyPage = () => {
             </div>
 
             <div className="space-y-3">
+              <a
+                href={`app://join?code=${encodeURIComponent(inviteCode)}`}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold text-sm shadow-md hover:opacity-95 transition-all cursor-pointer"
+              >
+                <Smartphone className="w-4 h-4" />
+                {language === 'vi' ? 'Mở trong ứng dụng MUA Makeup' : 'Open in MUA Makeup App'}
+              </a>
+
               <Button
                 variant="primary"
                 className="w-full justify-center gap-2 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-semibold py-2.5 shadow-lg shadow-rose-500/25"
