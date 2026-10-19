@@ -119,6 +119,19 @@ public class AgencyStaffPackageServiceImpl implements AgencyStaffPackageService 
         return agencyStaffPackageMapper.toStaffPackagesRes(staff, assignments);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public StaffPackagesRes getMyStaffPackages(Long userId) {
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_STAFF_NOT_FOUND,
+                        "ERR_STAFF_NOT_FOUND"
+                ));
+
+        List<AgencyStaffServiceEntity> assignments = agencyStaffServiceRepository.findByStaffIdWithPackage(staff.getId());
+        return agencyStaffPackageMapper.toStaffPackagesRes(staff, assignments);
+    }
+
     private AgencyStaffEntity getStaffById(Long staffId) {
         return agencyStaffRepository.findById(staffId)
                 .orElseThrow(() -> new ResourceNotFoundException(

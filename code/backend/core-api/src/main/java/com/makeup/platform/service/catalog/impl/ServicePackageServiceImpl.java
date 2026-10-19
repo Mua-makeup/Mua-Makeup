@@ -8,10 +8,7 @@ import com.makeup.platform.dto.request.catalog.CreatePackageReq;
 import com.makeup.platform.dto.request.catalog.UpdatePackageReq;
 import com.makeup.platform.dto.response.catalog.PackageDetailRes;
 import com.makeup.platform.dto.response.catalog.PackageSummaryRes;
-import com.makeup.platform.entity.catalog.MakeupStyleEntity;
-import com.makeup.platform.entity.catalog.MasterCategoryEntity;
-import com.makeup.platform.entity.catalog.PackageItemEntity;
-import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.entity.catalog.*;
 import com.makeup.platform.mapper.catalog.ServicePackageMapper;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.MasterCategoryRepository;
@@ -29,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.makeup.platform.repository.catalog.PortfolioShowcaseRepository;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -161,7 +159,10 @@ public class ServicePackageServiceImpl implements ServicePackageService {
             throw new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                     "catalog.package_not_found", packageId);
         }
-        return packageMapper.toDetailRes(pkg, getCoverImageUrl(pkg.getId()));
+
+        List<String> allImages = getAllImagesForPackage(pkg.getId());
+        String coverUrl = allImages.isEmpty() ? getCoverImageUrl(pkg.getId()) : allImages.get(0);
+        return packageMapper.toDetailRes(pkg, coverUrl, allImages);
     }
 
     @Override
@@ -230,6 +231,30 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         List<String> covers = portfolioShowcaseRepository.findCoverImagesByPackageId(
                 packageId, PageRequest.of(0, 1));
         return covers.isEmpty() ? null : covers.get(0);
+    }
+
+    private List<String> getAllImagesForPackage(Long packageId) {
+        if (packageId == null) {
+            return Collections.emptyList();
+        }
+        List<PortfolioShowcaseEntity> showcases = portfolioShowcaseRepository.findAllByPackageId(packageId);
+        if (showcases == null || showcases.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> images = new ArrayList<>();
+        for (PortfolioShowcaseEntity sc : showcases) {
+            if (StringUtils.hasText(sc.getImageUrl()) && !images.contains(sc.getImageUrl())) {
+                images.add(sc.getImageUrl());
+            }
+            if (sc.getAdditionalImages() != null) {
+                for (String addImg : sc.getAdditionalImages()) {
+                    if (StringUtils.hasText(addImg) && !images.contains(addImg)) {
+                        images.add(addImg);
+                    }
+                }
+            }
+        }
+        return images;
     }
 
     private Map<Long, String> getCoverImageMap(List<ServicePackageEntity> packages) {

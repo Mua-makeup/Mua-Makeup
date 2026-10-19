@@ -227,8 +227,45 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   }, [visible]);
 
   const loadInitialAddressAndProviders = async () => {
+    // 1. Ưu tiên hàng đầu cho Đặt khẩn cấp: Tọa độ GPS thời gian thực của thiết bị
+    if (storeLat && storeLng) {
+      const cur = { latitude: storeLat, longitude: storeLng };
+      setCoords(cur);
+      if (currentAddress && currentAddress !== 'Đang xác định vị trí...' && currentAddress !== 'Chưa cấp quyền vị trí') {
+        setAddress(currentAddress);
+      }
+      fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
+      return;
+    }
+
+    // 2. Nếu store chưa có tọa độ, thử quét GPS thiết bị ngay lập tức
     try {
-      // 1. Thử lấy địa chỉ mặc định từ Sổ địa chỉ khách hàng
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let loc = null;
+        try {
+          loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        } catch {
+          loc = await Location.getLastKnownPositionAsync();
+        }
+
+        if (loc?.coords) {
+          const cur = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setCoords(cur);
+          const geoRes = await mapsService.reverseGeocode(cur.latitude, cur.longitude).catch(() => null);
+          if (geoRes?.formattedAddress) {
+            setAddress(geoRes.formattedAddress);
+          }
+          fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
+          return;
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi, tiếp tục fallback
+    }
+
+    // 3. Fallback: Sổ địa chỉ đã lưu của khách hàng (chỉ khi thiết bị không thể bật GPS)
+    try {
       const savedAddresses = await customerAddressService.getSavedAddresses();
       if (Array.isArray(savedAddresses) && savedAddresses.length > 0) {
         const defaultAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
@@ -241,21 +278,10 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
         }
       }
     } catch {
-      // Bỏ qua lỗi, tiếp tục fallback GPS
+      // Bỏ qua lỗi
     }
 
-    // 2. Fallback sang GPS thiết bị
-    if (currentAddress && currentAddress !== 'Đang xác định vị trí...' && currentAddress !== 'Chưa cấp quyền vị trí') {
-      setAddress(currentAddress);
-    }
-
-    if (storeLat && storeLng) {
-      const cur = { latitude: storeLat, longitude: storeLng };
-      setCoords(cur);
-      fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
-    } else {
-      refreshLocation();
-    }
+    refreshLocation();
   };
 
   const refreshLocation = async () => {
@@ -289,7 +315,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           if (geoRes?.formattedAddress) {
             setAddress(geoRes.formattedAddress);
           }
-          await fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius);
+          await fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       } else {
@@ -737,6 +763,31 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   );
                 })}
               </View>
+            </View>
+
+            {/* VỊ TRÍ ĐIỂM ĐÓN / TÂM QUÉT RADAR */}
+            <View style={styles.pickupLocationBanner}>
+              <View style={styles.pickupLocationLeft}>
+                <Ionicons name="location" size={14} color="#E11D48" />
+                <Text style={styles.pickupLocationText} numberOfLines={1}>
+                  Tâm quét: {address || currentAddress || 'Vị trí hiện tại'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.refreshGpsBtn}
+                onPress={refreshLocation}
+                disabled={isLocating}
+                activeOpacity={0.75}
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color="#BE123C" />
+                ) : (
+                  <>
+                    <Ionicons name="locate" size={12} color="#BE123C" />
+                    <Text style={styles.refreshGpsText}>Lấy lại GPS</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* GỢI Ý MỞ RỘNG BÁN KÍNH KHI 0 THỢ */}
@@ -1911,5 +1962,45 @@ const styles = StyleSheet.create({
   targetedCloseBtn: {
     padding: 4,
     marginLeft: 4,
+  },
+  pickupLocationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  pickupLocationLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    marginRight: 8,
+  },
+  pickupLocationText: {
+    fontSize: 11,
+    color: '#BE123C',
+    fontWeight: '600',
+    flex: 1,
+  },
+  refreshGpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFE4E6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  refreshGpsText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#BE123C',
   },
 });
