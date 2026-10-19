@@ -31,6 +31,8 @@ public class AgencyProfileRes {
     private BigDecimal commissionRateInternal;
     private Boolean isVerified;
     private BigDecimal ratingAvg;
+    private BigDecimal bayesianRating;
+    private Integer totalReviews;
     private Boolean isSurgeEnabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

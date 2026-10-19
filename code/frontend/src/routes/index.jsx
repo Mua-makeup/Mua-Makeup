@@ -34,6 +34,8 @@ import { StaffManagementPage } from '../pages/Agency/StaffManagementPage';
 import { StaffDetailPage } from '../pages/Agency/StaffDetailPage';
 import { ShiftSchedulePage } from '../pages/Agency/ShiftSchedulePage';
 import { AgencySettingsPage } from '../pages/Agency/AgencySettingsPage';
+import { AgencyDisputesPage } from '../pages/Agency/AgencyDisputesPage';
+import { AgencyPortfolioPage } from '../pages/Agency/AgencyPortfolioPage';
 
 export const AppRoutes = () => {
   return (
@@ -84,10 +86,12 @@ export const AppRoutes = () => {
           <Route path="profile" element={<Navigate to="/agency/settings" replace />} />
           <Route path="settings" element={<AgencySettingsPage />} />
           <Route path="packages" element={<ServicePackageListPage />} />
+          <Route path="portfolio" element={<AgencyPortfolioPage />} />
           <Route path="surcharges" element={<SurchargeConfigPage />} />
           <Route path="staff" element={<StaffManagementPage />} />
           <Route path="staff/:staffId" element={<StaffDetailPage />} />
           <Route path="shifts" element={<ShiftSchedulePage />} />
+          <Route path="disputes" element={<AgencyDisputesPage />} />
         </Route>
 
         {/* 404 Not Found Catch-All Route */}

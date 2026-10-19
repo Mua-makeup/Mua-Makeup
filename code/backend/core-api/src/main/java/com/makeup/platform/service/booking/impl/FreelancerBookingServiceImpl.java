@@ -71,7 +71,7 @@ public class FreelancerBookingServiceImpl implements FreelancerBookingService {
         }
 
         return bookings.stream()
-                .map(bookingMapper::toFreelancerBookingRes)
+                .map(b -> bookingMapper.toFreelancerBookingRes(b, mua.getId()))
                 .toList();
     }
 }

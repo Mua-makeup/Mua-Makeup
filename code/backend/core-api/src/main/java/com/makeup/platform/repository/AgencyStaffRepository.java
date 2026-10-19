@@ -47,6 +47,14 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
     Optional<AgencyStaffEntity> findActiveStaffByUserId(@Param("userId") Long userId);
 
     @Query("SELECT s FROM AgencyStaffEntity s " +
+           "JOIN FETCH s.agency " +
+           "LEFT JOIN FETCH s.mua m " +
+           "LEFT JOIN FETCH m.user " +
+           "WHERE s.mua.user.id = :userId AND (s.status = 'ACTIVE' OR s.status = 'PENDING') " +
+           "ORDER BY s.joinedAt DESC")
+    List<AgencyStaffEntity> findActiveOrPendingStaffByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT s FROM AgencyStaffEntity s " +
            "JOIN FETCH s.agency a " +
            "LEFT JOIN FETCH a.owner o " +
            "LEFT JOIN FETCH s.mua m " +

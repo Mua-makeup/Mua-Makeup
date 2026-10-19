@@ -146,6 +146,7 @@ export default function RootLayout() {
           <Stack.Screen name="bookings" options={{ animation: 'none' }} />
           <Stack.Screen name="activity" options={{ animation: 'none' }} />
           <Stack.Screen name="mua/packages/index" options={{ animation: 'none' }} />
+          <Stack.Screen name="staff/schedule" options={{ animation: 'none' }} />
           <Stack.Screen name="mua-detail/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/customer-wallet" options={{ presentation: 'card' }} />
@@ -163,6 +164,7 @@ export default function RootLayout() {
           <Stack.Screen name="booking/deposit/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="booking/tracking/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="booking/instant-matched/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="join" options={{ presentation: 'card' }} />
           <Stack.Screen name="notifications" options={{ presentation: 'card', headerShown: false }} />
         </Stack>
         {/* Modal Popup toàn cục hiển thị đẹp mắt trên cả Web Laptop & Điện thoại */}

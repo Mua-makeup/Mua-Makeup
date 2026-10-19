@@ -21,6 +21,8 @@ public class BookingStaffAssignmentMapper {
 
         AgencyStaffEntity staff = entity.getStaff();
         Long staffId = null;
+        Long muaId = null;
+        Long userId = null;
         String staffName = null;
         String staffPhone = null;
         String staffAvatarUrl = null;
@@ -29,8 +31,10 @@ public class BookingStaffAssignmentMapper {
             staffId = staff.getId();
             MuaProfileEntity mua = staff.getMua();
             if (mua != null) {
+                muaId = mua.getId();
                 UserEntity user = mua.getUser();
                 if (user != null) {
+                    userId = user.getId();
                     staffName = user.getFullName();
                     staffPhone = user.getPhoneNumber();
                     staffAvatarUrl = user.getAvatarUrl();
@@ -41,6 +45,8 @@ public class BookingStaffAssignmentMapper {
         return StaffAssignmentDetailRes.builder()
                 .id(entity.getId())
                 .staffId(staffId)
+                .muaId(muaId)
+                .userId(userId)
                 .staffName(staffName)
                 .staffPhone(staffPhone)
                 .staffAvatarUrl(staffAvatarUrl)
@@ -48,13 +54,14 @@ public class BookingStaffAssignmentMapper {
                 .status(entity.getStatus())
                 .assignedAt(entity.getAssignedAt() != null ? entity.getAssignedAt().toLocalDateTime() : null)
                 .confirmedAt(entity.getConfirmedAt() != null ? entity.getConfirmedAt().toLocalDateTime() : null)
+                .isConfirmedByStaff(Boolean.TRUE.equals(entity.getIsConfirmedByStaff()))
                 .cancellationReason(entity.getCancellationReason())
                 .proofDocumentUrl(entity.getProofDocumentUrl())
                 .commissionRate(entity.getCommissionRate())
                 .commissionAmount(entity.getCommissionAmount())
                 .commissionNote(entity.getCommissionNote())
                 .payoutStatus(entity.getPayoutStatus())
-                .payoutAt(entity.getPayoutAt() != null ? entity.getPayoutAt().toLocalDateTime() : null)
+                .payoutAt(entity.getPayoutAt())
                 .build();
     }
 

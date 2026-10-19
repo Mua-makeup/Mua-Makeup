@@ -15,6 +15,7 @@ import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
@@ -36,6 +37,10 @@ import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingStateMachineService;
 import com.makeup.platform.service.media.MediaStorageService;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.booking.BookingHistoryEntity;
+import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
+import com.makeup.platform.repository.booking.BookingHistoryRepository;
 import com.makeup.platform.service.interaction.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -94,9 +99,11 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final WalletHoldRepository walletHoldRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final NotificationService notificationService;
     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
+    private final BookingHistoryRepository bookingHistoryRepository;
+    private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
+    private final NotificationService notificationService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
@@ -172,7 +179,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                         userId
                 ));
                 try {
-                    notificationService.createDisputeNotification(saved);
+                        notificationService.createDisputeNotification(saved);
                     log.info("[StateMachine] Broadcast secondary dispute update notification for bookingId={}", bookingId);
                 } catch (Exception ex) {
                     log.error("[StateMachine] Failed to broadcast secondary dispute notification: {}", ex.getMessage());
@@ -196,6 +203,23 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 log.warn("[StateMachine] Cannot start trip: Deposit not paid for bookingId={}", bookingId);
                 throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_PAID,
                         "booking.deposit_not_paid", HttpStatus.BAD_REQUEST);
+            }
+
+            // Chặn di chuyển nếu có thợ phụ nhưng thợ phụ chưa bấm xác nhận nhận ca
+            List<BookingStaffAssignmentEntity> activeAssignments = bookingStaffAssignmentRepository
+                    .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
+
+            boolean hasUnconfirmedAssistant = activeAssignments.stream()
+                    .filter(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA)
+                    .anyMatch(a -> !Boolean.TRUE.equals(a.getIsConfirmedByStaff()));
+
+            if (hasUnconfirmedAssistant) {
+                log.warn("[StateMachine] Cannot start trip: Assistant artist has not confirmed yet for bookingId={}", bookingId);
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_ASSISTANT_NOT_CONFIRMED,
+                        "booking.assistant_not_confirmed",
+                        HttpStatus.BAD_REQUEST
+                );
             }
         }
 
@@ -366,8 +390,9 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 });
 
             }
-            // 5b. Release calendar slot upon cancellation
-            if (targetStatus == BookingStatus.CANCELLED || targetStatus == BookingStatus.DISPUTED) {
+            // 5b. Release calendar slot upon completion, cancellation, or dispute
+            if (targetStatus == BookingStatus.CANCELLED || targetStatus == BookingStatus.DISPUTED
+                    || targetStatus == BookingStatus.COMPLETED || targetStatus == BookingStatus.PAID_OUT) {
                 try {
                     muaCalendarService.releaseSlotByBookingId(savedBooking.getId());
                     log.info("[StateMachine] Released calendar slots for bookingId={} upon reaching status {}",
@@ -457,13 +482,18 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     || to == BookingStatus.CANCELLED
                     || to == BookingStatus.DISPUTED;
             case ARRIVED -> to == BookingStatus.IN_PROGRESS
+                    || to == BookingStatus.CANCELLED
                     || to == BookingStatus.DISPUTED;
             case IN_PROGRESS -> to == BookingStatus.COMPLETED
+                    || to == BookingStatus.CANCELLED
                     || to == BookingStatus.DISPUTED;
             case COMPLETED -> to == BookingStatus.PAID_OUT
                     || to == BookingStatus.DISPUTED;
+            case PAID_OUT -> to == BookingStatus.DISPUTED;
             case DISPUTED -> to == BookingStatus.PAID_OUT
-                    || to == BookingStatus.CANCELLED;
+                    || to == BookingStatus.CANCELLED
+                    || to == BookingStatus.DISPUTE_REFUNDED
+                    || to == BookingStatus.DISPUTE_COMPENSATED;
             default -> false;
         };
     }
@@ -478,8 +508,15 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         }
 
         boolean isCustomer = booking.getCustomer() != null && booking.getCustomer().getId().equals(userId);
-        boolean isAssignedMua = booking.getMua() != null && booking.getMua().getUser() != null
-                && booking.getMua().getUser().getId().equals(userId);
+        boolean isAssignedStaffOnBooking = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE)
+                .stream()
+                .anyMatch(a -> a.getAssignmentRole() != AssignmentRole.ASSISTANT_MUA
+                        && a.getStaff() != null && a.getStaff().getMua() != null
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(userId));
+        boolean isAssignedMua = (booking.getMua() != null && booking.getMua().getUser() != null
+                && booking.getMua().getUser().getId().equals(userId)) || isAssignedStaffOnBooking;
         boolean isAgencyOwner = booking.getAgency() != null && booking.getAgency().getOwner() != null
                 && booking.getAgency().getOwner().getId().equals(userId);
 
@@ -502,6 +539,22 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             case ARRIVED:
             case IN_PROGRESS:
             case COMPLETED:
+                // Thợ phụ TUYỆT ĐỐI KHÔNG được phép chuyển trạng thái đơn (chỉ thợ chính mới có quyền)
+                boolean isAssistantOnBooking = bookingStaffAssignmentRepository
+                        .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE)
+                        .stream()
+                        .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
+                                && a.getStaff() != null && a.getStaff().getMua() != null
+                                && a.getStaff().getMua().getUser() != null
+                                && a.getStaff().getMua().getUser().getId().equals(userId));
+
+                if (isAssistantOnBooking) {
+                    log.warn("[StateMachine] Assistant MUA userId={} attempted unauthorized status transition to {} on bookingId={}",
+                            userId, toStatus, booking.getId());
+                    throw new CustomBusinessException(ErrorCodes.ERR_ASSISTANT_CANNOT_TRANSITION_STATE,
+                            "booking.assistant_cannot_transition_state", HttpStatus.FORBIDDEN);
+                }
+
                 if (!isAssignedMua) {
                     throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                             "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
@@ -547,7 +600,10 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                     }
                 } else if (booking.getStatus() == BookingStatus.ACCEPTED
-                        || booking.getStatus() == BookingStatus.ON_THE_WAY) {
+                        || booking.getStatus() == BookingStatus.ON_THE_WAY
+                        || booking.getStatus() == BookingStatus.ARRIVED
+                        || booking.getStatus() == BookingStatus.IN_PROGRESS
+                        || booking.getStatus() == BookingStatus.DISPUTED) {
                     if (!isCustomer && !isAssignedMua && !isAgencyOwner) {
                         throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                                 "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
@@ -559,7 +615,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 break;
 
             case DISPUTED:
-                if (!isCustomer && !isAssignedMua) {
+                if (!isCustomer && !isAssignedMua && !isAgencyOwner) {
                     throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
                             "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
                 }
@@ -581,25 +637,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     @Override
     @Transactional
     public BookingCompletionPhotoRes uploadCompletionPhoto(Long bookingId, Long userId, MultipartFile file) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
-                        "booking.not_found", HttpStatus.NOT_FOUND));
-
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
-                        "auth.user_not_found", HttpStatus.NOT_FOUND));
-
-        // Authorization check: only assigned MUA or SUPER_ADMIN
-        boolean isSuperAdmin = user.getRole() != null && "ROLE_SUPER_ADMIN".equals(user.getRole().getName());
-        boolean isAssignedMua = booking.getMua() != null && booking.getMua().getUser() != null
-                && booking.getMua().getUser().getId().equals(userId);
-
-        if (!isSuperAdmin && !isAssignedMua) {
-            log.warn("[StateMachine] Unauthorized completion photo upload attempt for bookingId={} by userId={}",
-                    bookingId, userId);
-            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
-                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
-        }
+        BookingEntity booking = getBookingAndVerifyActor(bookingId, userId, false);
 
         if (booking.getStatus() != BookingStatus.IN_PROGRESS) {
             log.warn("[StateMachine] Cannot upload completion photo for bookingId={} because current status is {} (must be IN_PROGRESS)",
@@ -627,26 +665,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     @Override
     @Transactional
     public BookingCompletionPhotoRes uploadDisputeProof(Long bookingId, Long userId, MultipartFile file) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
-                        "booking.not_found", HttpStatus.NOT_FOUND));
-
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
-                        "auth.user_not_found", HttpStatus.NOT_FOUND));
-
-        // Authorization check: only assigned MUA, customer, or SUPER_ADMIN
-        boolean isSuperAdmin = user.getRole() != null && "ROLE_SUPER_ADMIN".equals(user.getRole().getName());
-        boolean isAssignedMua = booking.getMua() != null && booking.getMua().getUser() != null
-                && booking.getMua().getUser().getId().equals(userId);
-        boolean isCustomer = booking.getCustomer() != null && booking.getCustomer().getId().equals(userId);
-
-        if (!isSuperAdmin && !isAssignedMua && !isCustomer) {
-            log.warn("[StateMachine] Unauthorized dispute proof upload attempt for bookingId={} by userId={}",
-                    bookingId, userId);
-            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
-                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
-        }
+        BookingEntity booking = getBookingAndVerifyActor(bookingId, userId, true);
 
         // Validate image file (size, format, magic bytes)
         FileValidationUtils.validateImageFile(file, MediaConstants.MAX_MAIN_IMAGE_SIZE);
@@ -655,6 +674,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         CloudMediaUploadResult uploadResult = mediaStorageService.uploadImage(file, "bookings/" + bookingId + "/dispute-proof");
 
         // Save URL with role-tag to booking emergencyProofUrl without overwriting existing other-party proofs
+        boolean isCustomer = booking.getCustomer() != null && booking.getCustomer().getId().equals(userId);
         String roleTag = isCustomer ? "[Khách hàng]" : "[Chuyên viên MUA]";
         String formattedProof = roleTag + ":" + uploadResult.getImageUrl();
         String currentProofs = booking.getEmergencyProofUrl();
@@ -678,6 +698,39 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .publicId(uploadResult.getPublicId())
                 .uploadedAt(LocalDateTime.now())
                 .build();
+    }
+
+    private BookingEntity getBookingAndVerifyActor(Long bookingId, Long userId, boolean allowCustomer) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found", HttpStatus.NOT_FOUND));
+
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
+                        "auth.user_not_found", HttpStatus.NOT_FOUND));
+
+        boolean isSuperAdmin = user.getRole() != null && "ROLE_SUPER_ADMIN".equals(user.getRole().getName());
+        boolean isAssignedMua = booking.getMua() != null && booking.getMua().getUser() != null
+                && booking.getMua().getUser().getId().equals(userId);
+        boolean isCustomer = allowCustomer && booking.getCustomer() != null && booking.getCustomer().getId().equals(userId);
+
+        boolean isStaffOnBooking = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE)
+                .stream()
+                .anyMatch(a -> (a.getStaff() != null && a.getStaff().getMua() != null
+                                && a.getStaff().getMua().getId().equals(userId))
+                        || (a.getStaff() != null && a.getStaff().getMua() != null
+                                && a.getStaff().getMua().getUser() != null
+                                && a.getStaff().getMua().getUser().getId().equals(userId)));
+
+        if (!isSuperAdmin && !isAssignedMua && !isCustomer && !isStaffOnBooking) {
+            log.warn("[StateMachine] Unauthorized photo upload attempt for bookingId={} by userId={}",
+                    bookingId, userId);
+            throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED_TRANSITION,
+                    "booking.unauthorized_transition", HttpStatus.FORBIDDEN);
+        }
+
+        return booking;
     }
 
     private BigDecimal getFreelancerCommissionRate() {
@@ -935,12 +988,48 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         List<StaffAssignmentDetailRes> assignedStaff = List.of();
         try {
             List<BookingStaffAssignmentEntity> assignments = bookingStaffAssignmentRepository
-                    .findWithStaffAndUserByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
+                    .findAllWithStaffAndUserByBookingId(booking.getId());
             if (assignments != null && !assignments.isEmpty()) {
                 assignedStaff = bookingStaffAssignmentMapper.toDetailResList(assignments);
             }
         } catch (Exception e) {
             log.warn("[StateMachine] Unable to fetch staff assignments for bookingId={}: {}", booking.getId(), e.getMessage());
+        }
+
+        LocalDateTime completedAt = null;
+        if (booking.getStatus() == BookingStatus.COMPLETED || booking.getStatus() == BookingStatus.PAID_OUT) {
+            completedAt = bookingHistoryRepository.findByBookingIdOrderByCreatedAtAsc(booking.getId())
+                    .stream()
+                    .filter(h -> h.getToStatus() == BookingStatus.COMPLETED)
+                    .map(BookingHistoryEntity::getCreatedAt)
+                    .findFirst()
+                    .orElse(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt());
+        }
+
+        Integer overtimeMinutes = null;
+        BigDecimal overtimePay = null;
+        String overtimeRuleName = null;
+        String overtimePolicyType = null;
+        try {
+            List<AgencyStaffOvertimeReportEntity> otReports = agencyStaffOvertimeReportRepository.findByBookingId(booking.getId());
+            if (otReports != null && !otReports.isEmpty()) {
+                AgencyStaffOvertimeReportEntity ot = otReports.get(0);
+                overtimeMinutes = ot.getOvertimeMinutes();
+                overtimePay = ot.getPenaltyAmountApplied();
+                if (ot.getRule() != null) {
+                    overtimeRuleName = ot.getRule().getRuleName();
+                    overtimePolicyType = ot.getRule().getPolicyType() != null ? ot.getRule().getPolicyType().name() : "ALLOWANCE";
+                } else {
+                    overtimeRuleName = "Làm thêm giờ";
+                    overtimePolicyType = "ALLOWANCE";
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[StateMachine] Error reading overtime reports for booking {}: {}", booking.getId(), ex.getMessage());
+        }
+
+        if (overtimePay != null && overtimePay.compareTo(BigDecimal.ZERO) > 0) {
+            earningsAmount = earningsAmount.add(overtimePay);
         }
 
         return BookingStatusDetailRes.builder()
@@ -1000,12 +1089,17 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .agencyAddress(agencyAddress)
                 .assignedStaff(assignedStaff)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
+                .completedAt(completedAt)
+                .overtimeMinutes(overtimeMinutes)
+                .overtimePay(overtimePay)
+                .overtimeRuleName(overtimeRuleName)
+                .overtimePolicyType(overtimePolicyType)
                 .build();
     }
 
     private String resolveDisputeOrigin(String emergencyReason, String cancellationReason) {
         String rawReason = emergencyReason != null ? emergencyReason : cancellationReason;
-        if (rawReason == null) return "CUSTOMER";
+        if (rawReason == null || rawReason.isBlank()) return null;
         String lower = rawReason.toLowerCase();
         boolean hasCustomerTag = rawReason.contains("[Khách hàng]");
         boolean hasMuaTag = rawReason.contains("[Chuyên viên MUA]");
@@ -1017,6 +1111,10 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         }
         if (hasMuaTag) {
             return "MUA";
+        }
+        if (lower.contains("studio từ chối") || lower.contains("studio hủy") || lower.contains("agency từ chối")
+                || lower.contains("agency hủy") || lower.contains("không có thợ thay thế") || lower.contains("đổi thợ")) {
+            return "AGENCY";
         }
         if (lower.contains("vắng mặt") || lower.contains("no-show") || lower.contains("không gặp khách") || lower.contains("khách không có mặt")) {
             return "MUA";

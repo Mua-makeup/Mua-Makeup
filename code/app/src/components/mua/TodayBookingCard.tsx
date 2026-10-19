@@ -45,10 +45,14 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
         return { label: 'Hết Hạn Cọc', bg: '#F1F5F9', text: '#64748B', icon: 'close-circle' };
       case 'DISPUTED':
         return { label: 'Đang Khiếu Nại', bg: '#FFEDD5', text: '#EA580C', icon: 'alert-circle' };
-      case 'DISPUTE_REFUNDED':
-        return { label: 'Đã Hoàn Cọc Khách', bg: '#FEF3C7', text: '#B45309', icon: 'shield-checkmark' };
-      case 'DISPUTE_COMPENSATED':
-        return { label: 'Bồi Thường Cho Thợ', bg: '#ECFDF5', text: '#059669', icon: 'shield-checkmark' };
+      case 'DISPUTE_REFUNDED': {
+        const isPost = Boolean((booking as any)?.completionPhotoUrl || (booking as any)?.completedAt || (booking as any)?.cancellationReason?.toLowerCase().includes('sau ca') || (booking as any)?.cancellationReason?.toLowerCase().includes('tổng tiền đơn'));
+        return { label: isPost ? 'Đã Hoàn Tiền Đơn' : 'Đã Hoàn Cọc Khách', bg: '#FEF3C7', text: '#B45309', icon: 'shield-checkmark' };
+      }
+      case 'DISPUTE_COMPENSATED': {
+        const isPost = Boolean((booking as any)?.completionPhotoUrl || (booking as any)?.completedAt || (booking as any)?.cancellationReason?.toLowerCase().includes('sau ca') || (booking as any)?.cancellationReason?.toLowerCase().includes('bác bỏ'));
+        return { label: isPost ? 'Bảo Lưu Thù Lao' : 'Bồi Thường Cho Thợ', bg: '#ECFDF5', text: '#059669', icon: 'shield-checkmark' };
+      }
       default:
         return { label: status, bg: '#F8FAFC', text: '#64748B', icon: 'help-circle' };
     }
@@ -169,16 +173,28 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
 
   const isRequested = booking.status === 'REQUESTED';
 
+  const isStudioOrder =
+    booking.bookingPartner === 'AGENCY_DISPATCH' ||
+    booking.bookingPartner === 'AGENCY' ||
+    Boolean(booking.agencyId || booking.agencyName);
+
   return (
     <View style={[styles.card, isRequested && styles.cardRequested]}>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={handleEnterJob}
       >
-        {/* Header: Mã đơn + Thời gian + Status badge */}
+        {/* Header: Loại đơn + Mã đơn + Thời gian + Status badge */}
         <View style={styles.cardHeader}>
           <View style={styles.headerLeft}>
-            <Text style={styles.bookingCode}>{booking.bookingCode}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+              <View style={isStudioOrder ? styles.typeBadgeStudio : styles.typeBadgeFreelance}>
+                <Text style={isStudioOrder ? styles.typeBadgeStudioText : styles.typeBadgeFreelanceText}>
+                  {isStudioOrder ? 'STUDIO' : 'TỰ DO'}
+                </Text>
+              </View>
+              <Text style={styles.bookingCode}>{booking.bookingCode}</Text>
+            </View>
             <View style={styles.timeTag}>
               <Ionicons name="time-outline" size={13} color="#64748B" />
               <Text style={styles.timeText}>
@@ -189,7 +205,6 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-              <Ionicons name={badge.icon as any} size={12} color={badge.text} />
               <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
@@ -198,9 +213,29 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
 
         {/* Package & Customer info */}
         <View style={styles.mainInfo}>
-          <Text style={styles.packageName} numberOfLines={2}>
+          <Text style={styles.packageName} numberOfLines={1}>
             {booking.packageName}
           </Text>
+
+          {(booking.packageName || (booking as any).styleName) ? (
+            <View style={styles.variationRow}>
+              <Text style={styles.variationLabel}>Phân loại: </Text>
+              <Text style={styles.variationValue} numberOfLines={1}>
+                {[booking.packageName, (booking as any).styleName ? `Tone ${(booking as any).styleName}` : null]
+                  .filter(Boolean)
+                  .join(' • ')}
+              </Text>
+            </View>
+          ) : null}
+
+          {isStudioOrder && (
+            <View style={styles.agencyNoticeRow}>
+              <Text style={styles.agencyNoticeText} numberOfLines={1}>
+                Studio: <Text style={{ fontWeight: '700' }}>{booking.agencyName || 'Đại lý phân công'}</Text>
+                {booking.assignmentRole ? ` • ${booking.assignmentRole === 'PRIMARY_MUA' ? 'Thợ chính' : 'Thợ phụ'}` : ''}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.customerRow}>
             <View style={styles.customerBlock}>
@@ -223,13 +258,26 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
               {booking.destinationAddress || 'Trang điểm tại studio / địa điểm thỏa thuận'}
             </Text>
           </View>
+
+          {/* Phương thức thanh toán đồng bộ */}
+          <View style={styles.paymentMethodCardRow}>
+            <Text style={[styles.paymentMethodCardText, booking.status === 'PAID_OUT' && { color: '#065F46' }]}>
+              {booking.status === 'PAID_OUT'
+                ? 'PTTT: Cọc Escrow • Đã quyết toán 100% (Tiền mặt/Online)'
+                : (booking.status === 'COMPLETED'
+                    ? 'PTTT: Đã cọc Escrow • Chờ thu 70% (Tiền mặt/Online)'
+                    : 'PTTT: Cọc Escrow bảo chứng trực tuyến')}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
 
       {/* Financials & Actions */}
       <View style={styles.footerRow}>
         <View style={styles.earningsBox}>
-          <Text style={styles.earningsLabel}>Thu nhập thợ (80%):</Text>
+          <Text style={styles.earningsLabel}>
+            {isStudioOrder ? 'Thu nhập hoa hồng:' : 'Thu nhập thợ (80%):'}
+          </Text>
           <Text style={styles.earningsValue}>{formatVnd(booking.earningsAmount)}</Text>
         </View>
 
@@ -377,7 +425,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+    marginBottom: 4,
+  },
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  variationLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  variationValue: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
   },
   customerRow: {
     flexDirection: 'row',
@@ -533,5 +604,69 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  typeBadgeStudio: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  typeBadgeStudioText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#4338CA',
+    letterSpacing: 0.2,
+  },
+  typeBadgeFreelance: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  typeBadgeFreelanceText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.2,
+  },
+  agencyNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  agencyNoticeText: {
+    fontSize: 11,
+    color: '#4338CA',
+    flex: 1,
+  },
+  paymentMethodCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignSelf: 'flex-start',
+  },
+  paymentMethodCardText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#475569',
   },
 });

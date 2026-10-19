@@ -155,7 +155,7 @@ export const StaffCommissionSplitMatrix = ({
                   </div>
 
                   {/* Right: Commission & Payout Status */}
-                  <div className="flex sm:flex-col items-end justify-between sm:justify-center shrink-0 pt-1 sm:pt-0 border-t sm:border-0 border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-col items-end">
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono text-[11px] text-slate-500">
                         ({rate}%)
@@ -164,6 +164,11 @@ export const StaffCommissionSplitMatrix = ({
                         {isEmergencyCancelled ? '0 ₫' : formatCurrency(amount)}
                       </span>
                     </div>
+                    {!isEmergencyCancelled && amount !== Math.round((totalAmount * rate) / 100) && (
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
+                        {formatCurrency(Math.round((totalAmount * rate) / 100))} ({rate}%) {amount > Math.round((totalAmount * rate) / 100) ? `+ ${formatCurrency(amount - Math.round((totalAmount * rate) / 100))} tăng ca` : `- ${formatCurrency(Math.round((totalAmount * rate) / 100) - amount)}`}
+                      </span>
+                    )}
 
                     <div className="mt-0.5">
                       {isEmergencyCancelled ? (

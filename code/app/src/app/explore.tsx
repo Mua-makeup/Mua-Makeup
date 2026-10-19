@@ -26,6 +26,7 @@ import { SearchSuggestionsOverlay } from '@/components/customer/SearchSuggestion
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { ExploreFilterModal } from '@/components/customer/ExploreFilterModal';
 import { StudioServicesModal } from '@/components/customer/StudioServicesModal';
+import { calculateMuaRankScore } from '@/utils/ranking';
 
 const getDistanceKm = (
   lat1?: number | null,
@@ -231,6 +232,10 @@ export default function ExploreScreen() {
       }
 
       return true;
+    }).sort((a, b) => {
+      const scoreA = calculateMuaRankScore(a, latitude, longitude);
+      const scoreB = calculateMuaRankScore(b, latitude, longitude);
+      return scoreB - scoreA;
     });
   }, [muaList, selectedStyleId, selectedRadiusKm, latitude, longitude, minPrice, maxPrice, minRating, keyword]);
 
@@ -305,6 +310,12 @@ export default function ExploreScreen() {
               {hasVerifiedCert && (
                 <Ionicons name="checkmark-circle" size={16} color={BrandColors.primary} />
               )}
+              {mua.badgeTier === 'GOLD_TOP_PRO' && (
+                <View style={styles.topProBadge}>
+                  <Ionicons name="ribbon" size={11} color="#B45309" />
+                  <Text style={styles.topProText}>TOP PRO</Text>
+                </View>
+              )}
             </View>
 
             <Text style={styles.muaCategory} numberOfLines={1}>
@@ -315,10 +326,16 @@ export default function ExploreScreen() {
               <View style={styles.ratingBox}>
                 <Ionicons name="star" size={13} color="#F59E0B" />
                 <Text style={styles.ratingText}>
-                  {mua.ratingAverage != null ? Number(mua.ratingAverage).toFixed(1) : '5.0'}
+                  {mua.bayesianRating != null
+                    ? Number(mua.bayesianRating).toFixed(1)
+                    : mua.ratingAverage != null
+                    ? Number(mua.ratingAverage).toFixed(1)
+                    : '5.0'}
                 </Text>
                 <Text style={styles.reviewsCount}>
-                  ({mua.totalCompletedJobs != null && mua.totalCompletedJobs > 0
+                  ({mua.totalReviews != null && mua.totalReviews > 0
+                    ? `${mua.totalReviews} đánh giá`
+                    : mua.totalCompletedJobs != null && mua.totalCompletedJobs > 0
                     ? `${mua.totalCompletedJobs} ca`
                     : 'Mới'})
                 </Text>
@@ -346,17 +363,6 @@ export default function ExploreScreen() {
                 </>
               ) : null}
 
-              {mua.maxServiceRadiusKm != null && (
-                <>
-                  <Text style={styles.dotSeparator}>•</Text>
-                  <View style={styles.distBox}>
-                    <Ionicons name="radio-outline" size={12} color="#2563EB" />
-                    <Text style={[styles.distText, { color: '#2563EB' }]}>
-                      Nhận {mua.maxServiceRadiusKm}km
-                    </Text>
-                  </View>
-                </>
-              )}
             </View>
           </View>
         </View>
@@ -385,6 +391,15 @@ export default function ExploreScreen() {
               {mua.isOnline ? '🟢 Đang trực tuyến' : '📅 Nhận hẹn trước'}
             </Text>
           </View>
+
+          {mua.maxServiceRadiusKm != null && (
+            <View style={[styles.badgeItem, styles.badgeRadius]}>
+              <Ionicons name="radio-outline" size={11} color="#2563EB" />
+              <Text style={[styles.badgeItemText, styles.badgeRadiusText]}>
+                Nhận {mua.maxServiceRadiusKm}km
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* BOTTOM PRICE & ACTION */}
@@ -448,7 +463,7 @@ export default function ExploreScreen() {
               <View style={styles.ratingBox}>
                 <Ionicons name="star" size={13} color="#F59E0B" />
                 <Text style={styles.ratingText}>
-                  {item.ratingAvg != null ? Number(item.ratingAvg).toFixed(1) : '5.0'}
+                  {item.ratingAvg != null && Number(item.ratingAvg) > 0 ? Number(item.ratingAvg).toFixed(1) : 'Mới'}
                 </Text>
               </View>
 
@@ -1062,6 +1077,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 16,
     padding: 14,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -1100,6 +1116,7 @@ const styles = StyleSheet.create({
   muaInfoCol: {
     flex: 1,
     justifyContent: 'center',
+    minWidth: 0,
   },
   muaNameRow: {
     flexDirection: 'row',
@@ -1110,6 +1127,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: BrandColors.slateHeading,
+    flexShrink: 1,
   },
   muaCategory: {
     fontSize: 12,
@@ -1120,7 +1138,9 @@ const styles = StyleSheet.create({
   ratingAndDistRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    flexWrap: 'wrap',
+    columnGap: 6,
+    rowGap: 3,
   },
   ratingBox: {
     flexDirection: 'row',
@@ -1144,6 +1164,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    flexShrink: 1,
   },
   distText: {
     fontSize: 11.5,
@@ -1188,6 +1209,18 @@ const styles = StyleSheet.create({
     color: '#059669',
     fontWeight: '600',
   },
+  badgeRadius: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EFF6FF',
+    borderColor: '#DBEAFE',
+    borderWidth: 0.8,
+  },
+  badgeRadiusText: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
   muaCardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1227,6 +1260,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 16,
     padding: 14,
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -1260,6 +1294,7 @@ const styles = StyleSheet.create({
   studioInfoCol: {
     flex: 1,
     justifyContent: 'center',
+    minWidth: 0,
   },
   studioNameRow: {
     flexDirection: 'row',
@@ -1325,5 +1360,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  topProBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  topProText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.3,
   },
 });

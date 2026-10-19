@@ -30,12 +30,16 @@ import { PackageSelectorList } from '@/components/customer/PackageSelectorList';
 import { PackageIncludedSteps } from '@/components/customer/PackageIncludedSteps';
 import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
+import { StudioReviewSection } from '@/components/customer/StudioReviewSection';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface StudioGalleryItem {
   id: string | number;
   imageUrl: string;
+  thumbnailUrl?: string;
+  additionalImages?: string[];
+  description?: string;
   title: string;
   categoryName?: string;
   styleNames?: string[];
@@ -63,11 +67,13 @@ export default function StudioProfileScreen() {
   // Bộ lọc tag cho Bộ Sưu Tập Tác Phẩm Studio
   const [selectedCategoryTag, setSelectedCategoryTag] = useState<string>('ALL');
   const [selectedStyleTag, setSelectedStyleTag] = useState<string>('ALL');
+  const [studioPortfolios, setStudioPortfolios] = useState<PortfolioShowcase[]>([]);
 
   // State xem ảnh phóng to Modal
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
   const [modalShowcaseList, setModalShowcaseList] = useState<PortfolioShowcase[]>([]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState(0);
 
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
@@ -80,9 +86,10 @@ export default function StudioProfileScreen() {
       setIsLoading(true);
       setErrorMessage(null);
       try {
-        const [studioRes, packageSummaries] = await Promise.all([
+        const [studioRes, packageSummaries, portfolioRes] = await Promise.all([
           agencyService.getAgencyProfileById(studioId),
           packageService.listPackages({ agencyId: studioId, availableOnly: true }),
+          agencyService.getPublicAgencyPortfolios(studioId),
         ]);
 
         if (!isMounted) return;
@@ -94,6 +101,7 @@ export default function StudioProfileScreen() {
         }
 
         setStudio(studioRes);
+        setStudioPortfolios(portfolioRes || []);
 
         // Tải chi tiết từng gói dịch vụ để có danh sách các bước thực hiện & ảnh
         const detailedList: PackageDetail[] = await Promise.all(
@@ -155,33 +163,75 @@ export default function StudioProfileScreen() {
     const catSet = new Set<string>();
     const styleSet = new Set<string>();
 
-    packages.forEach((pkg, idx) => {
+    const pkgMap = new Map<number, PackageDetail>();
+    packages.forEach((pkg) => {
+      pkgMap.set(Number(pkg.id), pkg);
       if (pkg.categoryName) catSet.add(pkg.categoryName);
       const sNames = pkg.styles?.map((s) => s.styleName || (s as any).name).filter(Boolean) || [];
       sNames.forEach((name) => styleSet.add(name));
+    });
 
+    // 1. Thêm các ảnh thực tế từ portfolio của Studio
+    studioPortfolios.forEach((sp) => {
+      const linkedPkg = sp.packageId ? pkgMap.get(Number(sp.packageId)) : undefined;
+      const catName = linkedPkg?.categoryName || undefined;
+      if (catName) catSet.add(catName);
+
+      const sNames = sp.styleName
+        ? [sp.styleName]
+        : (linkedPkg?.styles?.map((s) => s.styleName || (s as any).name).filter(Boolean) || []);
+      sNames.forEach((name) => styleSet.add(name));
+
+      items.push({
+        id: `showcase-${sp.id}`,
+        imageUrl: sp.imageUrl || sp.thumbnailUrl || '',
+        thumbnailUrl: sp.thumbnailUrl,
+        additionalImages: sp.additionalImages || [],
+        description: sp.description,
+        title: sp.title,
+        categoryName: catName,
+        styleNames: sNames,
+        packageId: sp.packageId ? String(sp.packageId) : undefined,
+        packageName: sp.packageName || linkedPkg?.packageName,
+        price: linkedPkg?.price,
+      });
+
+      showcases.push({
+        ...sp,
+        styleName: sNames[0],
+      });
+    });
+
+    // 2. Thêm ảnh bìa từ các gói dịch vụ nếu chưa có trong portfolio
+    packages.forEach((pkg, idx) => {
       if (pkg.coverImageUrl) {
-        items.push({
-          id: `pkg-${pkg.id}`,
-          imageUrl: pkg.coverImageUrl,
-          title: pkg.packageName,
-          categoryName: pkg.categoryName,
-          styleNames: sNames,
-          packageId: pkg.id,
-          packageName: pkg.packageName,
-          price: pkg.price,
-        });
+        const alreadyInPortfolio = studioPortfolios.some(
+          (sp) => sp.imageUrl === pkg.coverImageUrl || (sp.packageId && Number(sp.packageId) === Number(pkg.id))
+        );
+        if (!alreadyInPortfolio) {
+          const sNames = pkg.styles?.map((s) => s.styleName || (s as any).name).filter(Boolean) || [];
+          items.push({
+            id: `pkg-${pkg.id}`,
+            imageUrl: pkg.coverImageUrl,
+            title: pkg.packageName,
+            categoryName: pkg.categoryName,
+            styleNames: sNames,
+            packageId: pkg.id,
+            packageName: pkg.packageName,
+            price: pkg.price,
+          });
 
-        showcases.push({
-          id: Number(pkg.id) * 1000 + idx,
-          title: pkg.packageName,
-          description: pkg.description,
-          imageUrl: pkg.coverImageUrl,
-          thumbnailUrl: pkg.coverImageUrl,
-          packageId: pkg.id,
-          packageName: pkg.packageName,
-          styleName: sNames[0],
-        });
+          showcases.push({
+            id: Number(pkg.id) * 1000 + idx,
+            title: pkg.packageName,
+            description: pkg.description,
+            imageUrl: pkg.coverImageUrl,
+            thumbnailUrl: pkg.coverImageUrl,
+            packageId: pkg.id,
+            packageName: pkg.packageName,
+            styleName: sNames[0],
+          });
+        }
       }
     });
 
@@ -191,7 +241,7 @@ export default function StudioProfileScreen() {
       styleList: Array.from(styleSet),
       allStudioShowcases: showcases,
     };
-  }, [packages]);
+  }, [packages, studioPortfolios]);
 
   // Lọc danh sách tác phẩm bộ sưu tập theo Category và Style
   const filteredGalleryItems = useMemo(() => {
@@ -209,34 +259,38 @@ export default function StudioProfileScreen() {
     if (!selectedPackage) return [];
     const list: PortfolioShowcase[] = [];
 
-    // 1. Ảnh bìa chính của gói
+    // 1. Tác phẩm thực tế gắn với gói dịch vụ này từ Portfolio của Studio
+    const directMatches = studioPortfolios.filter(
+      (it) => it.packageId && Number(it.packageId) === Number(selectedPackage.id)
+    );
+    list.push(...directMatches);
+
+    // 2. Nếu có ảnh bìa riêng của gói và chưa nằm trong danh sách
     if (selectedPackage.coverImageUrl) {
-      list.push({
-        id: Number(selectedPackage.id) * 1000 + 1,
-        title: selectedPackage.packageName,
-        description: selectedPackage.description,
-        imageUrl: selectedPackage.coverImageUrl,
-        thumbnailUrl: selectedPackage.coverImageUrl,
-        packageId: selectedPackage.id,
-        packageName: selectedPackage.packageName,
-        styleName: selectedPackage.styles?.[0]?.styleName,
-      });
+      const exists = list.some((it) => it.imageUrl === selectedPackage.coverImageUrl);
+      if (!exists) {
+        list.unshift({
+          id: Number(selectedPackage.id) * 1000 + 1,
+          title: selectedPackage.packageName,
+          description: selectedPackage.description,
+          imageUrl: selectedPackage.coverImageUrl,
+          thumbnailUrl: selectedPackage.coverImageUrl,
+          packageId: Number(selectedPackage.id),
+          packageName: selectedPackage.packageName,
+          styleName: selectedPackage.styles?.[0]?.styleName,
+        });
+      }
     }
 
-    // 2. Các ảnh khác của studio gắn với gói này
-    const extraMatches = allStudioShowcases.filter(
-      (it) => it.packageId === selectedPackage.id && it.imageUrl !== selectedPackage.coverImageUrl
-    );
-    list.push(...extraMatches);
-
     return list;
-  }, [selectedPackage, allStudioShowcases]);
+  }, [selectedPackage, studioPortfolios]);
 
   // Mở modal xem ảnh mẫu theo dịch vụ
-  const handleOpenPackagePhoto = (_photo: PortfolioShowcase, index: number) => {
+  const handleOpenPackagePhoto = (_photo: PortfolioShowcase, index: number, angleIndex: number = 0) => {
     Haptics.selectionAsync();
     setModalShowcaseList(packageShowcases);
     setSelectedPhotoIndex(index);
+    setSelectedAngleIndex(angleIndex);
     setIsPhotoModalVisible(true);
   };
 
@@ -246,9 +300,11 @@ export default function StudioProfileScreen() {
     const convertedList: PortfolioShowcase[] = filteredGalleryItems.map((g, idx) => ({
       id: Number(g.packageId || idx) * 1000 + idx,
       title: g.title,
+      description: g.description,
       imageUrl: g.imageUrl,
-      thumbnailUrl: g.imageUrl,
-      packageId: g.packageId,
+      thumbnailUrl: g.thumbnailUrl || g.imageUrl,
+      additionalImages: g.additionalImages || [],
+      packageId: g.packageId ? Number(g.packageId) : undefined,
       packageName: g.packageName,
       styleName: g.styleNames?.[0],
     }));
@@ -490,6 +546,17 @@ export default function StudioProfileScreen() {
                   activeOpacity={0.88}
                 >
                   <Image source={{ uri: item.imageUrl }} style={styles.galleryImage} contentFit="cover" />
+                  
+                  {/* Badge số lượng ảnh phụ đi kèm */}
+                  {item.additionalImages && item.additionalImages.length > 0 && (
+                    <View style={styles.additionalBadge}>
+                      <Ionicons name="images" size={11} color="#FFFFFF" />
+                      <Text style={styles.additionalBadgeText}>
+                        +{item.additionalImages.length}
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.zoomHintOverlay}>
                     <Ionicons name="scan-outline" size={13} color="#FFFFFF" />
                     <Text style={styles.zoomHintText}>Soi cận cảnh</Text>
@@ -510,6 +577,14 @@ export default function StudioProfileScreen() {
             </View>
           )}
         </View>
+
+        {/* ĐÁNH GIÁ TỪ KHÁCH HÀNG (REVIEWS & RATINGS) */}
+        <StudioReviewSection
+          studioId={studioId}
+          studioName={studio.agencyName}
+          ratingAverage={studio.ratingAvg}
+          totalReviews={studio.totalReviews}
+        />
 
         {/* CAM KẾT CHẤT LƯỢNG DỊCH VỤ CỦA STUDIO */}
         <View style={styles.commitmentCard}>
@@ -574,6 +649,7 @@ export default function StudioProfileScreen() {
         visible={isPhotoModalVisible}
         showcases={modalShowcaseList}
         initialIndex={selectedPhotoIndex}
+        initialAngleIndex={selectedAngleIndex}
         onClose={() => setIsPhotoModalVisible(false)}
       />
     </View>
@@ -762,6 +838,24 @@ const styles = StyleSheet.create({
   galleryImage: {
     width: '100%',
     height: '100%',
+  },
+  additionalBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(225, 29, 72, 0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    zIndex: 2,
+  },
+  additionalBadgeText: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   zoomHintOverlay: {
     position: 'absolute',

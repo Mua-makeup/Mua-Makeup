@@ -15,6 +15,7 @@ interface Props {
   onTrackPress?: (booking: CustomerBookingItem) => void;
   onReviewPress?: (booking: CustomerBookingItem) => void;
   onRebookPress?: (booking: CustomerBookingItem) => void;
+  onDisputePress?: (booking: CustomerBookingItem) => void;
 }
 
 export const BookingHistoryCard: React.FC<Props> = ({
@@ -23,6 +24,7 @@ export const BookingHistoryCard: React.FC<Props> = ({
   onTrackPress,
   onReviewPress,
   onRebookPress,
+  onDisputePress,
 }) => {
   const isStudioBooking =
     booking.bookingPartner === 'AGENCY_DISPATCH' ||
@@ -35,6 +37,19 @@ export const BookingHistoryCard: React.FC<Props> = ({
       booking.cancellationReason.toLowerCase().includes('trùng') ||
       booking.cancellationReason.toLowerCase().includes('hoàn tất thanh toán trước')
     )) || booking.isDepositRefunded === true);
+
+  const isPostCompletion = Boolean(
+    booking.completionPhotoUrl ||
+    booking.completedAt ||
+    (booking.cancellationReason && (
+      booking.cancellationReason.toLowerCase().includes('sau ca') ||
+      booking.cancellationReason.toLowerCase().includes('tổng tiền đơn') ||
+      booking.cancellationReason.toLowerCase().includes('chất lượng') ||
+      booking.cancellationReason.toLowerCase().includes('thù lao ca làm') ||
+      booking.cancellationReason.toLowerCase().includes('bảo lưu thù lao') ||
+      booking.cancellationReason.toLowerCase().includes('công nhận giải trình')
+    ))
+  );
 
   const getStatusBadge = (status: BookingStatusType) => {
     if (isSlotTakenCancelled) {
@@ -66,9 +81,9 @@ export const BookingHistoryCard: React.FC<Props> = ({
       case 'DISPUTED':
         return { label: 'Đang Khiếu Nại', color: '#EA580C', bg: '#FFEDD5' };
       case 'DISPUTE_REFUNDED':
-        return { label: 'Đã Hoàn Cọc', color: '#059669', bg: '#f0fff0ff' };
+        return { label: isPostCompletion ? 'Đã Hoàn Tiền' : 'Đã Hoàn Cọc', color: '#059669', bg: '#f0fff0ff' };
       case 'DISPUTE_COMPENSATED':
-        return { label: 'Bồi Thường Thợ', color: '#B45309', bg: '#FEF3C7' };
+        return { label: isPostCompletion ? 'Bảo Lưu Thù Lao' : 'Bồi Thường Thợ', color: '#B45309', bg: '#FEF3C7' };
       default:
         return { label: status, color: '#64748B', bg: '#F1F5F9' };
     }
@@ -149,10 +164,15 @@ export const BookingHistoryCard: React.FC<Props> = ({
               {booking.packageName}
             </Text>
 
-            {booking.styleName ? (
-              <Text style={styles.styleTextSimple} numberOfLines={1}>
-                Tone: {booking.styleName}
-              </Text>
+            {(booking.packageName || booking.styleName) ? (
+              <View style={styles.variationRow}>
+                <Text style={styles.variationLabel}>Phân loại: </Text>
+                <Text style={styles.variationValue} numberOfLines={1}>
+                  {[booking.packageName, booking.styleName ? `Tone ${booking.styleName}` : null]
+                    .filter(Boolean)
+                    .join(' • ')}
+                </Text>
+              </View>
             ) : null}
 
             {isStudioBooking ? (
@@ -219,9 +239,9 @@ export const BookingHistoryCard: React.FC<Props> = ({
                 : isSlotTakenCancelled
                 ? 'Đã hoàn về ví:'
                 : (booking.status === 'DISPUTE_REFUNDED'
-                    ? 'Đã hoàn cọc:'
+                    ? (isPostCompletion ? 'Hoàn tiền đơn:' : 'Đã hoàn cọc:')
                     : (booking.status === 'DISPUTE_COMPENSATED'
-                        ? 'Bồi thường cọc:'
+                        ? (isPostCompletion ? 'Bảo lưu thù lao:' : 'Bồi thường cọc:')
                         : (booking.isDepositPaid ? 'Đã cọc Escrow:' : 'Tiền cọc (30%):')))}
             </Text>
             <Text
@@ -232,7 +252,13 @@ export const BookingHistoryCard: React.FC<Props> = ({
                 booking.status === 'DISPUTE_COMPENSATED' && { color: '#B45309' },
               ]}
             >
-              {booking.status === 'CANCELLED_EXPIRED' ? '0 đ' : formatPrice(booking.depositAmount || 0)}
+              {booking.status === 'CANCELLED_EXPIRED'
+                ? '0 đ'
+                : formatPrice(
+                    (isPostCompletion && booking.status === 'DISPUTE_REFUNDED')
+                      ? (booking.totalAmount || booking.depositAmount || 0)
+                      : (booking.depositAmount || 0)
+                  )}
             </Text>
           </View>
           <View style={styles.totalBox}>
@@ -240,6 +266,8 @@ export const BookingHistoryCard: React.FC<Props> = ({
             <Text style={styles.totalAmount}>{formatPrice(booking.totalAmount)}</Text>
           </View>
         </View>
+
+        
       </TouchableOpacity>
 
       {/* FOOTER ACTIONS THEO TRẠNG THÁI */}
@@ -292,12 +320,40 @@ export const BookingHistoryCard: React.FC<Props> = ({
         {booking.status === 'COMPLETED' && (
           <>
             <TouchableOpacity
+              style={styles.disputeActionBtn}
+              onPress={() => onDisputePress && onDisputePress(booking)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="alert-circle-outline" size={14} color="#EA580C" />
+              <Text style={styles.disputeActionText}>Khiếu Nại</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.depositActionBtn}
+              onPress={() => onPress(booking)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="card-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.depositActionText}>Thanh Toán 70%</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {booking.status === 'PAID_OUT' && (
+          <>
+            <TouchableOpacity
+              style={styles.disputeActionBtn}
+              onPress={() => onDisputePress && onDisputePress(booking)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="alert-circle-outline" size={14} color="#EA580C" />
+              <Text style={styles.disputeActionText}>Khiếu Nại</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.reviewActionBtn}
               onPress={() => onReviewPress && onReviewPress(booking)}
               activeOpacity={0.7}
             >
-              <Ionicons name="star-outline" size={14} color="#D97706" />
-              <Text style={styles.reviewActionText}>Đánh Giá ⭐</Text>
+              <Text style={styles.reviewActionText}>Đánh Giá</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.rebookActionBtn}
@@ -366,10 +422,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748B',
   },
-  styleTextSimple: {
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+    marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  variationLabel: {
     fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
+  },
+  variationValue: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
   },
   infoLine: {
     flexDirection: 'row',
@@ -594,6 +669,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
+  disputeActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  disputeActionText: {
+    fontSize: 12,
+    color: '#EA580C',
+    fontWeight: '700',
+  },
   reviewActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -671,5 +762,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#059669',
     fontWeight: '700',
+  },
+  cardPaymentMethodRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  cardPaymentMethodPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignSelf: 'flex-start',
+  },
+  cardPaymentMethodText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
   },
 });

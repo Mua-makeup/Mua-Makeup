@@ -12,7 +12,6 @@ import com.makeup.platform.dto.response.agency.DispatchAssignmentRes;
 import com.makeup.platform.dto.response.agency.EmergencyApprovalRes;
 import com.makeup.platform.dto.response.agency.EmergencyReassignmentRes;
 import com.makeup.platform.dto.response.agency.StaffAvailabilityMatrixRes;
-
 import java.util.List;
 
 public interface AgencyDispatchService {
@@ -38,4 +37,6 @@ public interface AgencyDispatchService {
     AgencyBookingRes updateStaffCommissions(Long ownerUserId, Long bookingId, UpdateStaffCommissionSplitReq req);
 
     void confirmAssignmentByBooking(Long muaUserId, Long bookingId);
+
+    void declineAssignmentByBooking(Long muaUserId, Long bookingId, String reason);
 }

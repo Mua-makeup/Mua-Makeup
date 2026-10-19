@@ -2,9 +2,12 @@ package com.makeup.platform.repository.booking;
 
 import com.makeup.platform.repository.booking.projection.BookingRevenueRow;
 
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
+import com.makeup.platform.entity.booking.BookingPartner;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
@@ -62,14 +65,22 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             LEFT JOIN FETCH m.user mu
             LEFT JOIN FETCH b.servicePackage sp
             LEFT JOIN FETCH b.style st
-            WHERE b.mua.id = :muaId
+            WHERE (
+                (b.bookingPartner = BookingPartner.FREELANCER_DIRECT AND b.mua.id = :muaId)
+                OR EXISTS (
+                    SELECT 1 FROM BookingStaffAssignmentEntity bsa
+                    WHERE bsa.booking = b
+                      AND bsa.staff.mua.id = :muaId
+                      AND bsa.status IN (AssignmentStatus.ACTIVE, AssignmentStatus.EMERGENCY_CANCELLED)
+                )
+            )
               AND (
                   b.bookingDate = :date
                   OR b.status IN (
-                      com.makeup.platform.entity.booking.BookingStatus.ACCEPTED,
-                      com.makeup.platform.entity.booking.BookingStatus.ON_THE_WAY,
-                      com.makeup.platform.entity.booking.BookingStatus.ARRIVED,
-                      com.makeup.platform.entity.booking.BookingStatus.IN_PROGRESS
+                      BookingStatus.ACCEPTED,
+                      BookingStatus.ON_THE_WAY,
+                      BookingStatus.ARRIVED,
+                      BookingStatus.IN_PROGRESS
                   )
               )
             ORDER BY b.createdAt DESC
@@ -85,7 +96,15 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             LEFT JOIN FETCH m.user mu
             LEFT JOIN FETCH b.servicePackage sp
             LEFT JOIN FETCH b.style st
-            WHERE b.mua.id = :muaId
+            WHERE (
+                (b.bookingPartner = BookingPartner.FREELANCER_DIRECT AND b.mua.id = :muaId)
+                OR EXISTS (
+                    SELECT 1 FROM BookingStaffAssignmentEntity bsa
+                    WHERE bsa.booking = b
+                      AND bsa.staff.mua.id = :muaId
+                      AND bsa.status IN (AssignmentStatus.ACTIVE, AssignmentStatus.EMERGENCY_CANCELLED)
+                )
+            )
             ORDER BY b.createdAt DESC
             """)
     List<BookingEntity> findAllFreelancerBookings(
@@ -271,4 +290,19 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
             @Param("today") LocalDate today,
             @Param("currentTime") LocalTime currentTime);
     boolean existsByIdAndCustomerId(Long id, Long customerId);
+
+    @Query("""
+            SELECT b.id FROM BookingEntity b
+            WHERE b.status IN (:completedStatuses)
+              AND b.updatedAt <= :cutoffTime
+              AND NOT EXISTS (
+                  SELECT 1 FROM com.makeup.platform.entity.interaction.ReviewEntity r
+                  WHERE r.booking.id = b.id
+              )
+            ORDER BY b.updatedAt ASC
+            """)
+    List<Long> findEligibleBookingIdsForAutoReview(
+            @Param("completedStatuses") Collection<BookingStatus> completedStatuses,
+            @Param("cutoffTime") LocalDateTime cutoffTime,
+            Pageable pageable);
 }

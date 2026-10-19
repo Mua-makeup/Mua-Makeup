@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users,
   QrCode,
@@ -27,7 +27,23 @@ import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 export const StaffManagementPage = () => {
   const { t } = useI18nStore();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'pending'
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'pending' ? 'pending' : 'active';
+  const [activeTab, setActiveTab] = useState(initialTab); // 'active' | 'pending'
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl === 'pending' && activeTab !== 'pending') {
+      setActiveTab('pending');
+    } else if (!tabFromUrl && activeTab !== 'active') {
+      // Keep or reset
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams(newTab === 'pending' ? { tab: 'pending' } : {});
+  };
   const [activeStaff, setActiveStaff] = useState([]);
   const [pendingApplications, setPendingApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -416,7 +432,7 @@ export const StaffManagementPage = () => {
           {/* Tabs */}
           <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none pb-0.5">
             <button
-              onClick={() => setActiveTab('active')}
+              onClick={() => handleTabChange('active')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeTab === 'active'
                   ? 'border-rose-600 text-rose-600 dark:text-rose-400'
@@ -428,7 +444,7 @@ export const StaffManagementPage = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab('pending')}
+              onClick={() => handleTabChange('pending')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeTab === 'pending'
                   ? 'border-rose-600 text-rose-600 dark:text-rose-400'

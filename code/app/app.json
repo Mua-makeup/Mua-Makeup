@@ -8,7 +8,10 @@
     "scheme": "app",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Cho phép ứng dụng sử dụng Camera để quét mã QR tuyển dụng của Studio."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -41,6 +44,12 @@
           "icon": "./assets/images/icon.png",
           "color": "#E11D48",
           "sounds": []
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép ứng dụng sử dụng Camera để quét mã QR tuyển dụng của Studio."
         }
       ]
     ],

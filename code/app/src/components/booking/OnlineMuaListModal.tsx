@@ -24,6 +24,7 @@ import { showGlobalPopup } from '@/store/popup.store';
 import { AddressEditModal } from '@/components/booking/AddressEditModal';
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 import { LocationMapPickerModal } from '@/components/booking/LocationMapPickerModal';
+import { MuaReviewsModal } from '@/components/mua/MuaReviewsModal';
 
 interface Props {
   visible: boolean;
@@ -46,6 +47,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   onSelectMua,
   onFallbackRandomScan,
 }) => {
+  const [reviewTargetMua, setReviewTargetMua] = useState<{ id: number; name: string } | null>(null);
   const { latitude: storeLat, longitude: storeLng, currentAddress, fetchCurrentLocation } = useLocationStore();
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [providers, setProviders] = useState<NearbyProviderRes[]>([]);
@@ -401,12 +403,23 @@ export const OnlineMuaListModal: React.FC<Props> = ({
 
                     {/* Rating & Distance */}
                     <View style={styles.metaRow}>
-                      <View style={styles.ratingBadge}>
+                      <TouchableOpacity
+                        style={styles.ratingBadge}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          const id = item.providerId || (item as any).id || (item as any).muaId;
+                          if (id) {
+                            setReviewTargetMua({ id, name: item.fullName || 'Chuyên viên' });
+                          }
+                        }}
+                      >
                         <Ionicons name="star" size={11} color="#F59E0B" />
                         <Text style={styles.ratingText}>
-                          {item.ratingAvg ? Number(item.ratingAvg).toFixed(1) : '5.0'}
+                          {item.ratingAvg != null && Number(item.ratingAvg) > 0
+                            ? Number(item.ratingAvg).toFixed(1)
+                            : 'Mới'}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
 
                       <View style={styles.distanceBadge}>
                         <Ionicons name="navigate" size={11} color="#059669" />
@@ -459,6 +472,16 @@ export const OnlineMuaListModal: React.FC<Props> = ({
               )}
             />
           )}
+
+          {reviewTargetMua ? (
+            <MuaReviewsModal
+              visible={!!reviewTargetMua}
+              onClose={() => setReviewTargetMua(null)}
+              muaId={reviewTargetMua.id}
+              muaName={reviewTargetMua.name}
+              isOwnerView={false}
+            />
+          ) : null}
         </DismissibleModal>
   );
 };

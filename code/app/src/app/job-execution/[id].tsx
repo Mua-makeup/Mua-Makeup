@@ -32,11 +32,14 @@ import { bookingService, BookingStatusType } from '@/services/booking.service';
 import { telemetryService } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
+import { agencyStaffService } from '@/services/agency-staff.service';
+import { useAuthStore } from '@/store/auth.store';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useUndoStore } from '@/store/undo.store';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { getTodayVN, formatDateVN, formatTimeVN } from '@/utils/date';
+import { soundManager } from '@/utils/sound';
 
 function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth radius in meters
@@ -51,6 +54,35 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c;
+}
+
+function parseDisputeProofImages(raw?: string | null): string[] {
+  if (!raw) return [];
+  const list: string[] = [];
+  const parts = raw.split('|').map((s) => s.trim()).filter(Boolean);
+  parts.forEach((p) => {
+    let clean = p.replace(/^\[.*?\]:?\s*/, '').trim();
+    if (clean.startsWith('[') && clean.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(clean);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((u) => {
+            if (typeof u === 'string' && u.startsWith('http') && !list.includes(u)) list.push(u);
+          });
+          return;
+        }
+      } catch {}
+    }
+    const urlMatches = clean.match(/https?:\/\/[^\s"',|\]]+/g);
+    if (urlMatches) {
+      urlMatches.forEach((u) => {
+        if (!list.includes(u)) list.push(u);
+      });
+    } else if (clean.startsWith('http') && !list.includes(clean)) {
+      list.push(clean);
+    }
+  });
+  return list;
 }
 
 interface ExtendedBookingItem {
@@ -84,10 +116,73 @@ interface ExtendedBookingItem {
   isCancelRequested?: boolean;
   cancelRequestedReason?: string;
   disputeOrigin?: string;
+  assignedStaff?: any[];
+  bookingPartner?: string;
+  agencyId?: number;
+  agencyName?: string;
+  agencyPhone?: string;
+  agencyAddress?: string;
+  muaId?: number;
+  packageItems?: string[];
+  componentItems?: string[];
+  addonItems?: string[];
+  completedAt?: string;
+  overtimeMinutes?: number;
+  overtimePay?: number;
+  overtimeRuleName?: string;
+  overtimePolicyType?: string;
 }
 
 const formatVnd = (amount: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
+
+function formatScheduleOrCompletionTime(
+  startTime?: string,
+  durationMinutes: number = 60,
+  status?: string,
+  completedAt?: string
+) {
+  const isCompleted = status === 'COMPLETED' || status === 'PAID_OUT';
+  const startFormatted = startTime ? formatTimeVN(startTime) : '--:--';
+
+  if (isCompleted && completedAt) {
+    try {
+      const compDate = new Date(completedAt);
+      if (!isNaN(compDate.getTime())) {
+        const compFormatted = formatTimeVN(compDate.toISOString());
+        return {
+          timeRange: `${startFormatted} - ${compFormatted}`,
+          subText: `Hoàn thành lúc ${compFormatted}`,
+          isCompleted: true,
+        };
+      }
+    } catch {}
+  }
+
+  // Calculate estimated end time
+  let endFormatted = '--:--';
+  if (startTime) {
+    try {
+      const parts = startTime.split(':');
+      if (parts.length >= 2) {
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!isNaN(h) && !isNaN(m)) {
+          const total = h * 60 + m + (durationMinutes || 60);
+          const endH = Math.floor(total / 60) % 24;
+          const endM = total % 60;
+          endFormatted = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+        }
+      }
+    } catch {}
+  }
+
+  return {
+    timeRange: `${startFormatted} - ${endFormatted}`,
+    subText: `Ước tính (${durationMinutes || 60}p)`,
+    isCompleted: false,
+  };
+}
 
 const DISPUTE_REASONS = [
   'Khách hàng không có mặt tại điểm hẹn (No-show)',
@@ -95,6 +190,14 @@ const DISPUTE_REASONS = [
   'Khách hàng từ chối làm dịch vụ tại chỗ',
   'Địa chỉ không có thật hoặc không đảm bảo an toàn',
   'Sự cố cá nhân đột xuất bất khả kháng',
+];
+
+const AGENCY_EMERGENCY_REASONS = [
+  'Gặp sự cố giao thông / tai nạn trên đường đi',
+  'Bị ốm đột xuất không thể tiếp tục thực hiện ca',
+  'Cốp đồ nghề hoặc mỹ phẩm trang điểm gặp sự cố',
+  'Gia đình có việc khẩn cấp đột xuất bất khả kháng',
+  'Lý do khác...',
 ];
 
 export default function JobExecutionScreen() {
@@ -112,7 +215,7 @@ export default function JobExecutionScreen() {
 
   // Cancellation / Dispute Modal State
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
-  const [cancelModalType, setCancelModalType] = useState<'CUSTOMER_ABSENT_DISPUTE' | 'MUA_CANCEL'>('CUSTOMER_ABSENT_DISPUTE');
+  const [cancelModalType, setCancelModalType] = useState<'AGENCY_EMERGENCY_BUSY' | 'CUSTOMER_ABSENT_DISPUTE' | 'MUA_CANCEL'>('CUSTOMER_ABSENT_DISPUTE');
   const [cancelReason, setCancelReason] = useState('');
   const [disputeProofUrl, setDisputeProofUrl] = useState('');
   const [isUploadingProof, setIsUploadingProof] = useState(false);
@@ -135,6 +238,94 @@ export default function JobExecutionScreen() {
   const [isBothCashConfirmed, setIsBothCashConfirmed] = useState(false);
   const [isCashPromptModalVisible, setIsCashPromptModalVisible] = useState(false);
   const [cashAmountExpected, setCashAmountExpected] = useState<number>(0);
+
+  const { userInfo } = useAuthStore();
+  const [isConfirmingSolo, setIsConfirmingSolo] = useState(false);
+  const [isDecliningSolo, setIsDecliningSolo] = useState(false);
+
+  // Xác định phân công của chuyên viên hiện tại (so khớp đa tầng: userId, muaId, staffId, phone)
+  const myAssignment = (booking?.assignedStaff || []).find((s: any) => {
+    if (userInfo?.id && (s.userId === userInfo.id || s.staffId === userInfo.id)) return true;
+    if (userInfo?.muaId && (s.muaId === userInfo.muaId || s.staffId === userInfo.muaId)) return true;
+    if (profile?.muaId && (s.muaId === profile.muaId || s.staffId === profile.muaId)) return true;
+    if (userInfo?.phoneNumber && s.staffPhone && s.staffPhone.replace(/\D/g, '') === userInfo.phoneNumber.replace(/\D/g, '')) return true;
+    return false;
+  }) || null;
+
+  const isAssistantRole = myAssignment?.role === 'ASSISTANT_MUA';
+  const isPrimaryRole = myAssignment?.role === 'PRIMARY_MUA' || (!isAssistantRole && (!myAssignment || booking?.muaId === (userInfo?.muaId || profile?.muaId)));
+  const isAgencyBooking =
+    booking?.bookingPartner === 'AGENCY' ||
+    booking?.bookingPartner === 'AGENCY_DISPATCH' ||
+    Boolean(booking?.agencyId || (booking as any)?.agency || (booking?.assignedStaff && booking.assignedStaff.length > 0) || myAssignment);
+
+  const isMyAssignmentBusy =
+    myAssignment?.status === 'EMERGENCY_CANCELLED' ||
+    myAssignment?.status === 'REPORTED_BUSY_PENDING_APPROVAL' ||
+    (isAgencyBooking && Boolean(booking?.emergencyReason) && myAssignment?.status !== 'ACTIVE');
+
+  const isPendingMyConfirmation = !isMyAssignmentBusy && (myAssignment
+    ? Boolean(myAssignment.isConfirmedByStaff === false || !myAssignment.confirmedAt)
+    : (currentStatus === 'AGENCY_ASSIGNED'));
+
+  const handleConfirmMyAssignment = () => {
+    const roleText = isPrimaryRole ? 'Thợ chính' : (isAssistantRole ? 'Thợ phụ' : 'Chuyên viên');
+    const commissionText = myAssignment?.commissionRate !== undefined && myAssignment?.commissionRate !== null ? ` với mức hoa hồng ${myAssignment.commissionRate}%` : '';
+
+    Alert.alert(
+      'Xác Nhận Tiếp Nhận Ca',
+      `Bạn có chắc chắn muốn tiếp nhận ca làm #${booking?.bookingCode} với vai trò ${roleText}${commissionText} không?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Tiếp Nhận Ngay',
+          style: 'default',
+          onPress: async () => {
+            try {
+              setIsConfirmingSolo(true);
+              await agencyStaffService.confirmAssignment(bookingId, 'booking');
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Thành Công 🎉', 'Bạn đã xác nhận tiếp nhận phân công cho ca làm này.');
+              await loadBookingDetail();
+            } catch (err: any) {
+              const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận phân công.';
+              Alert.alert('Lỗi Xác Nhận', msg);
+            } finally {
+              setIsConfirmingSolo(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeclineMyAssignment = () => {
+    Alert.alert(
+      'Từ Chối Ca Làm',
+      'Bạn có chắc chắn muốn từ chối phân công cho ca này? Hệ thống sẽ chuyển lại ca về bộ phận điều phối của Studio để tìm thợ khác thay thế.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xác Nhận Từ Chối',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsDecliningSolo(true);
+              await agencyStaffService.declineAssignmentByBooking(bookingId, 'Thợ từ chối nhận phân công');
+              Alert.alert('Đã Từ Chối', 'Đơn đã được chuyển lại về Studio điều phối.', [
+                { text: 'Về Bàn Làm Việc', onPress: navigateBackToWorkstation },
+              ]);
+            } catch (err: any) {
+              const msg = err?.response?.data?.message || err?.message || 'Không thể từ chối ca làm.';
+              Alert.alert('Lỗi Từ Chối', msg);
+            } finally {
+              setIsDecliningSolo(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Cờ chống hiển thị trùng lặp Alert hủy đơn 2 lần
   const hasHandledCancelAlertRef = useRef(false);
@@ -194,6 +385,14 @@ export default function JobExecutionScreen() {
 
   const isScheduled = booking?.bookingType === 'SCHEDULED' || booking?.bookingCode?.includes('SCHED');
   const isInstant = booking?.bookingType === 'REALTIME_INSTANT' || booking?.bookingType === 'INSTANT' || booking?.bookingCode?.includes('INSTANT');
+
+  // Ngắt toàn bộ rung báo động dồn dập ngay khi vào màn hình ca làm việc
+  useEffect(() => {
+    soundManager.stopJobAlertSound();
+    return () => {
+      soundManager.stopJobAlertSound();
+    };
+  }, []);
 
   // Lấy vị trí đã biết gần nhất ngay khi mount để map hiển thị trong <10ms
   useEffect(() => {
@@ -355,10 +554,18 @@ export default function JobExecutionScreen() {
         loadBookingDetail();
       }
       if (msg?.type === 'CUSTOMER_CASH_PAID') {
-        const amt = msg?.cashAmount || (booking?.totalAmount ? Math.round(booking.totalAmount * 0.7) : 0);
-        setCashAmountExpected(amt);
-        setIsCashPromptModalVisible(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        // Chỉ thợ chính (Lead MUA) mới nhận và hiển thị modal xác nhận thu tiền mặt
+        const isAssistant = myAssignment?.role === 'ASSISTANT_MUA';
+        if (!isAssistant) {
+          const amt = msg?.cashAmount || (booking?.totalAmount ? Math.round(booking.totalAmount * 0.7) : 0);
+          setCashAmountExpected(amt);
+          setIsCashPromptModalVisible(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+      }
+
+      if (msg?.type === 'WORKER_CASH_DECLINED') {
+        setIsCashPromptModalVisible(false);
       }
 
       if (msg?.type === 'PAYMENT_COMPLETED' || msg?.status === 'PAID_OUT') {
@@ -384,6 +591,20 @@ export default function JobExecutionScreen() {
               : prev
           );
         }
+        loadBookingDetail();
+      }
+
+      if (
+        msg?.type === 'DISPATCH_STATUS_UPDATED' ||
+        msg?.type === 'STAFF_ASSIGNMENT_CONFIRMED' ||
+        msg?.type === 'STAFF_ASSIGNMENT_DECLINED' ||
+        msg?.type === 'STAFF_REPORTED_BUSY' ||
+        msg?.type === 'SOLO_DISPATCH_PROCEEDED' ||
+        msg?.type === 'EMERGENCY_REASSIGNED' ||
+        msg?.type === 'AGENCY_REASSIGNED_STAFF' ||
+        msg?.type === 'COMMISSIONS_UPDATED'
+      ) {
+        console.log('[JobExecution] Realtime dispatch update received:', msg?.type);
         loadBookingDetail();
       }
 
@@ -546,9 +767,11 @@ export default function JobExecutionScreen() {
     };
   }, [currentStatus]);
 
-  const loadBookingDetail = async () => {
+  const loadBookingDetail = async (isSilent: boolean = false) => {
     try {
-      setIsLoading(true);
+      if (!isSilent) {
+        setIsLoading((prev) => (booking ? false : true));
+      }
       const detail = await bookingService.getBookingStatus(bookingId);
       if (detail) {
         if (detail.status === 'PAID_OUT') {
@@ -560,7 +783,14 @@ export default function JobExecutionScreen() {
             earningsAmount: Number(detail.earningsAmount || 0),
           });
         }
-        if (detail.status === 'PAID_OUT' || detail.status === 'CANCELLED' || detail.status === 'CANCELLED_EXPIRED') {
+        if (
+          detail.status === 'PAID_OUT' ||
+          detail.status === 'CANCELLED' ||
+          detail.status === 'CANCELLED_EXPIRED' ||
+          detail.status === 'DISPUTED' ||
+          detail.status === 'DISPUTE_REFUNDED' ||
+          detail.status === 'DISPUTE_COMPENSATED'
+        ) {
           router.replace(`/booking/history-detail/${bookingId}` as any);
           return;
         }
@@ -604,6 +834,21 @@ export default function JobExecutionScreen() {
           createdAt: detail.updatedAt || new Date().toISOString(),
           isCancelRequested: detail.isCancelRequested,
           cancelRequestedReason: detail.cancelRequestedReason,
+          assignedStaff: detail.assignedStaff || [],
+          bookingPartner: detail.bookingPartner,
+          agencyId: detail.agencyId,
+          agencyName: detail.agencyName,
+          agencyPhone: detail.agencyPhone,
+          agencyAddress: detail.agencyAddress,
+          muaId: detail.muaId,
+          packageItems: detail.packageItems || [],
+          componentItems: detail.componentItems || [],
+          addonItems: detail.addonItems || [],
+          completedAt: detail.completedAt,
+          overtimeMinutes: detail.overtimeMinutes,
+          overtimePay: detail.overtimePay != null ? Number(detail.overtimePay) : undefined,
+          overtimeRuleName: detail.overtimeRuleName,
+          overtimePolicyType: detail.overtimePolicyType,
         });
         setCurrentStatus(detail.status as BookingStatusType);
         if (detail.status === 'IN_PROGRESS') {
@@ -698,11 +943,11 @@ export default function JobExecutionScreen() {
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        mediaTypes: ['images'],
+        allowsEditing: false,
         quality: 0.8,
       });
-      if (!result.canceled && result.assets && result.assets[0]) {
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
         await uploadDisputeProof(result.assets[0].uri);
       }
     } catch (err) {
@@ -712,12 +957,17 @@ export default function JobExecutionScreen() {
 
   const handlePickDisputeProof = async () => {
     try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền Thư Viện', 'Vui lòng cấp quyền truy cập thư viện ảnh để chọn ảnh minh chứng.');
+        return;
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        mediaTypes: ['images'],
+        allowsEditing: false,
         quality: 0.8,
       });
-      if (!result.canceled && result.assets && result.assets[0]) {
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
         await uploadDisputeProof(result.assets[0].uri);
       }
     } catch (err) {
@@ -726,28 +976,62 @@ export default function JobExecutionScreen() {
   };
 
   const uploadDisputeProof = async (uri: string) => {
+    // 1. Hiển thị ngay ảnh xem trước cục bộ để giao diện NGAY LẬP TỨC load ảnh lên
+    setDisputeProofUrl(uri);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // 2. Nếu đang ở tab Báo Bận Studio (Agency), ảnh sẽ được gửi trực tiếp
+    // cùng với request /report-emergency-busy khi người dùng ấn nút nộp báo cáo
+    if (cancelModalType === 'AGENCY_EMERGENCY_BUSY') {
+      return;
+    }
+
+    // 3. Nếu ở tab Khách vắng mặt (Dispute), upload lên Cloudinary
     try {
       setIsUploadingProof(true);
-      // Hiển thị ngay ảnh xem trước cục bộ để giao diện không bị trống
-      setDisputeProofUrl(uri);
       const res = await freelancerBookingService.uploadDisputeProof(bookingId, uri);
       const url = res?.completionPhotoUrl || res?.photoUrl || res?.thumbnailUrl;
       if (url) {
         setDisputeProofUrl(url);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (e: any) {
-      setDisputeProofUrl('');
-      Alert.alert('Lỗi Tải Ảnh', e?.response?.data?.message || 'Không thể tải ảnh minh chứng lên máy chủ.');
+      console.warn('Lỗi tải ảnh minh chứng dispute:', e);
+      // Vẫn giữ lại uri cục bộ để người dùng xem được và gửi kèm
     } finally {
       setIsUploadingProof(false);
     }
   };
 
-  // Xử lý Hủy ca hoặc Báo sự cố khách vắng mặt
+  // Xử lý Hủy ca hoặc Báo sự cố khách vắng mặt / Báo bận lên Studio
   const handleConfirmCancelOrDispute = async () => {
     if (!cancelReason.trim()) {
       Alert.alert('Lý Do Bắt Buộc', 'Vui lòng nhập hoặc chọn lý do cụ thể.');
+      return;
+    }
+
+    if (cancelModalType === 'AGENCY_EMERGENCY_BUSY') {
+      try {
+        setIsSubmittingCancel(true);
+        await agencyStaffService.reportEmergencyBusy(bookingId, {
+          emergencyReason: cancelReason.trim(),
+          proofImageUri: disputeProofUrl && !disputeProofUrl.startsWith('http') ? disputeProofUrl : undefined,
+          proofDocumentUrl: disputeProofUrl && disputeProofUrl.startsWith('http') ? disputeProofUrl : undefined,
+        });
+
+        setIsCancelModalVisible(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+        Alert.alert(
+          'Đã Báo Cáo Lên Studio (Agency)',
+          'Quản lý Studio (Agency Admin) đã nhận được báo cáo bận khẩn cấp của bạn và sẽ tiến hành điều phối thợ khác thay thế phục vụ khách hàng.',
+          [{ text: 'Về Bàn Làm Việc', onPress: navigateBackToWorkstation }]
+        );
+      } catch (err: any) {
+        const msg = err.response?.data?.message || err.message || 'Không thể gửi báo cáo bận lên Studio.';
+        Alert.alert('Thất Bại', msg);
+      } finally {
+        setIsSubmittingCancel(false);
+      }
       return;
     }
 
@@ -842,6 +1126,26 @@ export default function JobExecutionScreen() {
   };
 
   const handleStartMoving = () => {
+    // Kiểm tra xem thợ phụ đã bấm xác nhận đơn hay chưa
+    const assignedStaff = booking?.assignedStaff || [];
+    const unconfirmedAssistants = assignedStaff.filter(
+      (s: any) =>
+        s.role === 'ASSISTANT_MUA' &&
+        s.status !== 'REPLACED' &&
+        s.status !== 'EMERGENCY_CANCELLED' &&
+        !s.isConfirmedByStaff &&
+        !s.confirmedAt
+    );
+
+    if (unconfirmedAssistants.length > 0) {
+      const names = unconfirmedAssistants.map((s: any) => s.staffName).join(', ');
+      Alert.alert(
+        'Chưa Thể Di Chuyển',
+        `Thợ phụ (${names}) chưa bấm xác nhận tiếp nhận đơn. Vui lòng đợi thợ phụ xác nhận trước khi bắt đầu di chuyển.`
+      );
+      return;
+    }
+
     const isFutureDate = booking?.bookingDate && booking.bookingDate > getTodayVN();
     if (isFutureDate) {
       Alert.alert(
@@ -887,7 +1191,7 @@ export default function JobExecutionScreen() {
     try {
       setIsConfirmingCash(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const res = await depositService.confirmWorkerCashReceipt(bookingId, 'v1');
+      await depositService.confirmWorkerCashReceipt(bookingId, 'v1');
       setCashReceiptConfirmed(true);
       setIsCashPromptModalVisible(false);
       setIsBothCashConfirmed(true);
@@ -895,22 +1199,30 @@ export default function JobExecutionScreen() {
       setBooking((prev: any) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      const isAgency = booking?.bookingPartner === 'AGENCY' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
-      Alert.alert(
-        'Quyết Toán Thành Công! 🎉',
-        isAgency
-          ? 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow đã được quyết toán vào Ví Studio.'
-          : 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow (sau khi trừ phí sàn) đã được quyết toán vào Ví của bạn.',
-        isAgency
-          ? [{ text: 'Đóng' }]
-          : [
-              { text: 'Xem Ví Thợ', onPress: () => router.push('/profile/freelancer-wallet') },
-              { text: 'Đóng' }
-            ]
-      );
+      // Chờ modal đóng hoàn toàn trên iOS trước khi hiển thị Alert quyết toán thành công
+      setTimeout(() => {
+        const isAgency = booking?.bookingPartner === 'AGENCY' || booking?.bookingPartner === 'AGENCY_DISPATCH' || Boolean((booking as any)?.agencyId || (booking as any)?.agency);
+        Alert.alert(
+          'Quyết Toán Thành Công! 🎉',
+          isAgency
+            ? 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow đã được quyết toán vào Ví Studio.'
+            : 'Xác nhận đã nhận đủ 70% tiền mặt thành công. Ca làm đã hoàn tất 100% và khoản cọc Escrow (sau khi trừ phí sàn) đã được quyết toán vào Ví của bạn.',
+          isAgency
+            ? [{ text: 'Đóng' }]
+            : [
+                { text: 'Xem Ví Thợ', onPress: () => router.replace('/profile/freelancer-wallet') },
+                { text: 'Đóng' }
+              ]
+        );
+      }, 350);
       loadBookingDetail();
     } catch (err: any) {
-      Alert.alert('Lỗi Xác Nhận', err?.response?.data?.message || err?.message || 'Không thể xác nhận tiền mặt.');
+      console.error('[CashReceipt] Confirm worker cash failed:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận tiền mặt.';
+      setIsCashPromptModalVisible(false);
+      setTimeout(() => {
+        Alert.alert('Lỗi Xác Nhận', msg);
+      }, 350);
     } finally {
       setIsConfirmingCash(false);
     }
@@ -935,6 +1247,27 @@ export default function JobExecutionScreen() {
   };
 
   const handleConfirmCashReceipt = handlePromptConfirmCashReceipt;
+
+  const handleDeclineCashReceipt = async () => {
+    try {
+      setIsConfirmingCash(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await depositService.declineWorkerCashReceipt(bookingId, 'Chuyên viên báo chưa nhận được tiền mặt');
+      setIsCashPromptModalVisible(false);
+      setTimeout(() => {
+        Alert.alert(
+          'Đã Báo Chưa Nhận Tiền',
+          'Hệ thống đã thông báo tới khách hàng là bạn chưa nhận được tiền mặt. Khách hàng sẽ kiểm tra lại hoặc đổi phương thức thanh toán.'
+        );
+      }, 350);
+      loadBookingDetail(true);
+    } catch (err: any) {
+      console.error('[CashReceipt] Decline cash failed:', err);
+      setIsCashPromptModalVisible(false);
+    } finally {
+      setIsConfirmingCash(false);
+    }
+  };
 
   // Xử lý khi khách hàng yêu cầu hủy chuyến: Thợ Đồng ý và nhận 100% bồi thường cọc
   const handleAcceptCustomerCancel = async () => {
@@ -986,6 +1319,18 @@ export default function JobExecutionScreen() {
   }
 
   const isDisputeMode = currentStatus === 'ARRIVED' || currentStatus === 'IN_PROGRESS';
+  const isPostCompletion = Boolean(
+    booking?.completionPhotoUrl ||
+    booking?.completedAt ||
+    (booking?.cancellationReason && (
+      booking.cancellationReason.toLowerCase().includes('sau ca') ||
+      booking.cancellationReason.toLowerCase().includes('tổng tiền đơn') ||
+      booking.cancellationReason.toLowerCase().includes('chất lượng') ||
+      booking.cancellationReason.toLowerCase().includes('thù lao ca làm') ||
+      booking.cancellationReason.toLowerCase().includes('bảo lưu thù lao') ||
+      booking.cancellationReason.toLowerCase().includes('công nhận giải trình')
+    ))
+  );
   const canCancelOrDispute =
     currentStatus !== 'REQUESTED' &&
     currentStatus !== 'COMPLETED' &&
@@ -1037,7 +1382,9 @@ export default function JobExecutionScreen() {
         >
           <Ionicons name="scale-outline" size={20} color="#FFFFFF" />
           <Text style={styles.stickyCancelNoticeText} numberOfLines={1}>
-            Đơn đang khiếu nại (Cọc {formatVnd(booking?.depositAmount || 0)} bảo chứng)
+            {isPostCompletion
+              ? 'Đơn đang khiếu nại (Chờ phân xử chất lượng)'
+              : `Đơn đang khiếu nại (Cọc ${formatVnd(booking?.depositAmount || 0)} bảo chứng)`}
           </Text>
           <View style={[styles.stickyCancelNoticeBtn, { backgroundColor: '#FFFFFF' }]}>
             <Text style={[styles.stickyCancelNoticeBtnText, { color: '#EA580C' }]}>Xem Chi Tiết</Text>
@@ -1045,28 +1392,56 @@ export default function JobExecutionScreen() {
         </TouchableOpacity>
       )}
 
+      {/* BANNER CẢNH BÁO PHÂN CÔNG THỢ CHÍNH / THỢ PHỤ / BÁO BẬN */}
+      {isMyAssignmentBusy ? (
+        <View style={[styles.stickyCancelNoticeBar, { backgroundColor: '#D97706' }]}>
+          <Ionicons name="hourglass" size={18} color="#FFFFFF" />
+          <Text style={styles.stickyCancelNoticeText} numberOfLines={2}>
+            Bạn đã báo bận cho ca làm này. Studio đang xử lý duyệt và điều phối.
+          </Text>
+        </View>
+      ) : isPendingMyConfirmation ? (
+        <View style={[styles.stickyCancelNoticeBar, { backgroundColor: '#B45309' }]}>
+          <Ionicons name="information-circle" size={18} color="#FFFFFF" />
+          <Text style={styles.stickyCancelNoticeText} numberOfLines={2}>
+            Studio đã phân công bạn làm {isPrimaryRole ? 'Thợ Chính' : 'Thợ Phụ'}{myAssignment?.commissionRate ? ` (${myAssignment.commissionRate}% hoa hồng)` : ''}. Vui lòng bấm tiếp nhận bên dưới.
+          </Text>
+        </View>
+      ) : isAssistantRole ? (
+        <View style={[styles.stickyCancelNoticeBar, { backgroundColor: '#227eceff' }]}>
+          <Ionicons name="people" size={18} color="#FFFFFF" />
+          <Text style={styles.stickyCancelNoticeText} numberOfLines={1}>
+            Bạn tham gia với vai trò Thợ Phụ{myAssignment?.commissionRate ? ` (${myAssignment.commissionRate}% hoa hồng)` : ''} • Đã tiếp nhận ca
+          </Text>
+        </View>
+      ) : isPrimaryRole && (booking?.assignedStaff || []).some((s: any) => s.role === 'ASSISTANT_MUA' && s.status !== 'REPLACED' && s.status !== 'EMERGENCY_CANCELLED' && !s.isConfirmedByStaff && !s.confirmedAt) ? (
+        <View style={[styles.stickyCancelNoticeBar, { backgroundColor: '#D97706' }]}>
+          <Ionicons name="hourglass" size={18} color="#FFFFFF" />
+          <Text style={styles.stickyCancelNoticeText} numberOfLines={2}>
+            Bạn đã tiếp nhận (Thợ Chính). Đang chờ thợ phụ xác nhận để bắt đầu di chuyển.
+          </Text>
+        </View>
+      ) : null}
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ========================================================================= */}
         {/* GIAO DIỆN CHUYÊN BIỆT: YÊU CẦU ĐẶT HẸN TRƯỚC CHỜ THỢ XÁC NHẬN (REQUESTED)  */}
         {/* ========================================================================= */}
         {currentStatus === 'REQUESTED' && (
           <View style={styles.waitingContainer}>
-            <View style={[styles.waitingTimerBox, { borderColor: '#FDE68A', backgroundColor: '#FFFBEB' }]}>
-              <View style={[styles.timerCircleBig, { borderColor: '#D97706', backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="calendar" size={28} color="#D97706" />
-                <Text style={[styles.timerBigNumber, { color: '#B45309', fontSize: 16, marginTop: 4 }]}>
-                  {booking?.bookingDate ? formatDateVN(booking.bookingDate) : 'Lịch Hẹn'}
-                </Text>
-                <Text style={[styles.timerBigUnit, { color: '#B45309' }]}>
-                  {booking?.startTime ? `Giờ: ${booking.startTime}` : 'Chờ Tiếp Nhận'}
+            <View style={[styles.waitingTimerBox, { borderColor: '#FDE68A', backgroundColor: '#FFFBEB', padding: 18, alignItems: 'center' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 12 }}>
+                <Ionicons name="calendar" size={16} color="#D97706" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Yêu Cầu Đặt Lịch Hẹn Trước
                 </Text>
               </View>
 
-              <Text style={[styles.waitingNoticeTitle, { color: '#92400E' }]}>
-                Khách hàng đã đặt cọc Escrow 30% và đang chờ bạn tiếp nhận!
+              <Text style={[styles.waitingNoticeTitle, { color: '#92400E', fontSize: 17, marginBottom: 6 }]}>
+                Khách hàng đã đặt cọc và đang chờ bạn tiếp nhận!
               </Text>
-              <Text style={styles.waitingNoticeSub}>
-                Khoản cọc đã được khóa bảo chứng an toàn. Vui lòng kiểm tra lịch trình và bấm TIẾP NHẬN CA HẸN bên dưới để xác nhận phục vụ khách hàng.
+              <Text style={[styles.waitingNoticeSub, { lineHeight: 18 }]}>
+                Khoản cọc đã được bảo chứng an toàn qua quỹ Escrow. Vui lòng kiểm tra lịch trình bên dưới và bấm TIẾP NHẬN CA HẸN để xác nhận phục vụ khách.
               </Text>
             </View>
           </View>
@@ -1077,22 +1452,40 @@ export default function JobExecutionScreen() {
         {/* ========================================================================= */}
         {currentStatus === 'AGENCY_ASSIGNED' && (
           <View style={styles.waitingContainer}>
-            <View style={[styles.waitingTimerBox, { borderColor: '#BAE6FD', backgroundColor: '#F0F9FF' }]}>
-              <View style={[styles.timerCircleBig, { borderColor: '#0284C7', backgroundColor: '#E0F2FE' }]}>
-                <Ionicons name="business" size={28} color="#0284C7" />
-                <Text style={[styles.timerBigNumber, { color: '#0369A1', fontSize: 16, marginTop: 4 }]}>
-                  {booking?.bookingDate ? formatDateVN(booking.bookingDate) : 'Ca Studio'}
-                </Text>
-                <Text style={[styles.timerBigUnit, { color: '#0369A1' }]}>
-                  {booking?.startTime ? `Giờ: ${booking.startTime}` : 'Studio Chỉ Định'}
+            <View style={[styles.waitingTimerBox, { borderColor: '#BAE6FD', backgroundColor: '#F0F9FF', padding: 18, alignItems: 'center' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E0F2FE', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 12 }}>
+                <Ionicons name="business" size={16} color="#0284C7" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Studio Phân Công Ca Làm
                 </Text>
               </View>
 
-              <Text style={[styles.waitingNoticeTitle, { color: '#0369A1' }]}>
-                Bạn đã được Studio điều phối thực hiện ca làm này!
+              <Text style={[styles.waitingNoticeTitle, { color: '#0369A1', fontSize: 17, marginBottom: 4 }]}>
+                {isPendingMyConfirmation
+                  ? `Bạn được phân công làm ${isPrimaryRole ? 'Thợ Chính' : 'Thợ Phụ'}!`
+                  : isAssistantRole
+                    ? 'Bạn đã tiếp nhận ca với vai trò Thợ Phụ'
+                    : (booking?.assignedStaff || []).some((s: any) => s.role === 'ASSISTANT_MUA' && s.status !== 'REPLACED' && s.status !== 'EMERGENCY_CANCELLED' && !s.isConfirmedByStaff && !s.confirmedAt)
+                      ? 'Đã tiếp nhận Thợ Chính • Chờ thợ phụ xác nhận'
+                      : 'Đã sẵn sàng thực hiện ca làm Studio!'}
               </Text>
-              <Text style={styles.waitingNoticeSub}>
-                Vui lòng kiểm tra kỹ thông tin dịch vụ, điểm hẹn và bấm XÁC NHẬN ĐƠN HÀNG bên dưới để tiếp nhận ca làm trước khi bắt đầu di chuyển.
+
+              {myAssignment?.commissionRate ? (
+                <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginVertical: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#1D4ED8' }}>
+                    Hoa hồng phân bổ: {myAssignment.commissionRate}% giá trị đơn
+                  </Text>
+                </View>
+              ) : null}
+
+              <Text style={[styles.waitingNoticeSub, { marginTop: 4, lineHeight: 18 }]}>
+                {isPendingMyConfirmation
+                  ? `Vui lòng kiểm tra kỹ thông tin dịch vụ, điểm hẹn bên dưới và bấm TIẾP NHẬN (${isPrimaryRole ? 'THỢ CHÍNH' : 'THỢ PHỤ'}) để tiếp nhận ca.`
+                  : isAssistantRole
+                    ? 'Bạn đã tiếp nhận thành công. Vui lòng chuẩn bị và đợi Thợ Chính bắt đầu di chuyển & quản lý ca làm.'
+                    : (booking?.assignedStaff || []).some((s: any) => s.role === 'ASSISTANT_MUA' && s.status !== 'REPLACED' && s.status !== 'EMERGENCY_CANCELLED' && !s.isConfirmedByStaff && !s.confirmedAt)
+                      ? 'Bạn đã tiếp nhận đơn. Đang đợi thợ phụ xác nhận để hệ thống mở khóa nút Bắt Đầu Di Chuyển.'
+                      : 'Cả 2 thợ đã xác nhận thành công. Bạn có thể bấm Bắt Đầu Di Chuyển để đến điểm hẹn của khách hàng.'}
               </Text>
             </View>
           </View>
@@ -1228,15 +1621,27 @@ export default function JobExecutionScreen() {
                 </View>
 
                 <View style={styles.scheduledHeroBody}>
-                  <View style={styles.scheduledHeroTimeCol}>
-                    <Text style={styles.scheduledHeroTimeLabel}>Thời Gian Hẹn</Text>
-                    <Text style={styles.scheduledHeroTimeValue}>
-                      {booking?.startTime ? formatTimeVN(booking.startTime) : '--:--'}
-                    </Text>
-                    <Text style={styles.scheduledHeroDateValue}>
-                      {booking?.bookingDate ? formatDateVN(booking.bookingDate) : '--/--/----'}
-                    </Text>
-                  </View>
+                  {(() => {
+                    const timeInfo = formatScheduleOrCompletionTime(
+                      booking?.startTime,
+                      booking?.estimatedDurationMinutes || 60,
+                      currentStatus,
+                      booking?.completedAt
+                    );
+                    return (
+                      <View style={styles.scheduledHeroTimeCol}>
+                        <Text style={styles.scheduledHeroTimeLabel}>
+                          {timeInfo.isCompleted ? 'Thời Gian Hoàn Thành' : 'Thời Gian Thực Hiện'}
+                        </Text>
+                        <Text style={styles.scheduledHeroTimeValue} numberOfLines={1} adjustsFontSizeToFit>
+                          {timeInfo.timeRange}
+                        </Text>
+                        <Text style={styles.scheduledHeroDateValue} numberOfLines={1} adjustsFontSizeToFit>
+                          {booking?.bookingDate ? formatDateVN(booking.bookingDate) : '--/--/----'} • {timeInfo.subText}
+                        </Text>
+                      </View>
+                    );
+                  })()}
 
                   <View style={styles.scheduledHeroDivider} />
 
@@ -1278,11 +1683,28 @@ export default function JobExecutionScreen() {
                 </View>
 
                 <View style={styles.instantHeroBody}>
-                  <View style={styles.instantHeroTimeCol}>
-                    <Text style={styles.instantHeroTimeLabel}>Yêu Cầu</Text>
-                    <Text style={styles.instantHeroTimeValue}>Làm Ngay</Text>
-                    <Text style={styles.instantHeroSubValue}>Ưu tiên di chuyển</Text>
-                  </View>
+                  {(() => {
+                    const startStr = booking?.startTime || (booking?.createdAt ? formatTimeVN(booking.createdAt) : undefined);
+                    const timeInfo = formatScheduleOrCompletionTime(
+                      startStr,
+                      booking?.estimatedDurationMinutes || 60,
+                      currentStatus,
+                      booking?.completedAt
+                    );
+                    return (
+                      <View style={styles.instantHeroTimeCol}>
+                        <Text style={styles.instantHeroTimeLabel}>
+                          {timeInfo.isCompleted ? 'Hoàn Thành' : 'Thời Gian Thực Hiện'}
+                        </Text>
+                        <Text style={styles.instantHeroTimeValue} numberOfLines={1} adjustsFontSizeToFit>
+                          {timeInfo.timeRange}
+                        </Text>
+                        <Text style={styles.instantHeroSubValue} numberOfLines={1} adjustsFontSizeToFit>
+                          {timeInfo.subText}
+                        </Text>
+                      </View>
+                    );
+                  })()}
 
                   <View style={styles.instantHeroDivider} />
 
@@ -1302,8 +1724,10 @@ export default function JobExecutionScreen() {
               </View>
             )}
 
-            {/* Step Progress Timeline */}
-            <JobTimelineStep currentStatus={currentStatus} />
+            {/* Step Progress Timeline - Chỉ hiển thị khi ca làm đã tiếp nhận và đang triển khai */}
+            {currentStatus !== 'AGENCY_ASSIGNED' && currentStatus !== 'REQUESTED' && (
+              <JobTimelineStep currentStatus={currentStatus} />
+            )}
 
             {/* THẺ QUỸ BẢO CHỨNG ESCROW & XÁC NHẬN CỌC DÀNH CHO THỢ */}
             {isDepositPaid && (
@@ -1333,7 +1757,11 @@ export default function JobExecutionScreen() {
                   </View>
                   <View style={styles.escrowDetailDivider} />
                   <View style={styles.escrowDetailItem}>
-                    <Text style={styles.escrowDetailLabel} numberOfLines={1}>Tiền mặt thu tại chỗ (70%):</Text>
+                    <Text style={styles.escrowDetailLabel} numberOfLines={1}>
+                      {currentStatus === 'PAID_OUT' || cashReceiptConfirmed
+                        ? 'Đã tất toán (100%):'
+                        : 'Khoản còn lại (70%):'}
+                    </Text>
                     <Text style={styles.escrowDetailValueCash}>
                       {formatVnd(Math.max(0, (booking?.totalAmount || 0) - (booking?.depositAmount !== undefined && booking?.depositAmount !== null ? Number(booking.depositAmount) : (booking?.totalAmount || 0) * 0.3)))}
                     </Text>
@@ -1343,7 +1771,7 @@ export default function JobExecutionScreen() {
                 <View style={styles.escrowGuaranteeBox}>
                   <Ionicons name="shield-outline" size={15} color="#047857" style={{ marginTop: 1 }} />
                   <Text style={styles.escrowGuaranteeText}>
-                    Khoản cọc 30% và thu nhập ca làm ({formatVnd(booking?.earningsAmount || 0)}) được sàn bảo chứng 100%, tự động giải ngân vào Ví của bạn ngay sau khi hoàn thành buổi làm đẹp.
+                    Khoản cọc 30% và thu nhập ca làm ({formatVnd(booking?.earningsAmount || 0)}) được sàn bảo chứng 100%, tự động giải ngân vào Ví của bạn ngay sau khi hoàn thành buổi làm đẹp. Khoản 70% còn lại khách có thể thanh toán trực tiếp hoặc qua cổng trực tuyến.
                   </Text>
                 </View>
               </View>
@@ -1435,10 +1863,283 @@ export default function JobExecutionScreen() {
               </View>
             )}
 
+            {/* THẺ ĐƠN HÀNG TỪ STUDIO & ĐỘI NGŨ THỰC HIỆN DÀNH RIÊNG CHO PHÍA THỢ */}
+            {(Boolean(booking?.agencyId || booking?.agencyName || (booking?.assignedStaff && booking.assignedStaff.length > 0))) && (
+              <View style={[styles.infoCard, { borderColor: '#BAE6FD', backgroundColor: '#F8FAFC' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                    <Ionicons name="business" size={20} color="#0284C7" />
+                    <Text style={[styles.cardSectionTitle, { color: '#0369A1', marginBottom: 0 }]}>
+                      Studio Điều Phối Ca Làm
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                      {booking?.bookingPartner === 'AGENCY' || booking?.bookingPartner === 'AGENCY_DISPATCH' ? 'Đơn Studio' : 'Phân Công'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Thông tin Studio */}
+                <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#0F172A', marginBottom: 4 }}>
+                    {booking?.agencyName || 'Studio Làm Đẹp'}
+                  </Text>
+                  {booking?.agencyAddress && (
+                    <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 6 }}>
+                      📍 {booking.agencyAddress}
+                    </Text>
+                  )}
+                  {booking?.agencyPhone && (
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(`tel:${booking.agencyPhone}`)}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, alignSelf: 'flex-start' }}
+                    >
+                      <Ionicons name="call" size={14} color="#0284C7" />
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#0284C7' }}>
+                        Hotline Studio: {booking.agencyPhone}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Danh sách Đội Ngũ Thực Hiện */}
+                {(() => {
+                  const isStaffBusy = (s: any) =>
+                    s.status === 'EMERGENCY_CANCELLED' ||
+                    s.status === 'REPORTED_BUSY_PENDING_APPROVAL' ||
+                    (s.status === 'REPLACED' && Boolean(s.cancellationReason)) ||
+                    (Boolean(s.cancellationReason) && !s.isConfirmedByStaff);
+
+                  // Chỉ hiển thị các thợ thật sự đang được gán (ACTIVE/CONFIRMED) hoặc thợ đã từng gán mà báo bận
+                  // Bỏ qua thợ bị thay thế thuần túy không có báo bận
+                  const relevantStaff = (booking?.assignedStaff || []).filter((s: any) => {
+                    if (s.status === 'ACTIVE' || s.status === 'CONFIRMED') return true;
+                    if (isStaffBusy(s)) return true;
+                    if (s.status === 'DECLINED') return true;
+                    return false;
+                  });
+
+                  // Ưu tiên hiển thị: Thợ đang hoạt động lên trước (Thợ chính trước, thợ phụ sau), thợ báo bận xếp phía sau
+                  const sortedStaff = [...relevantStaff].sort((a: any, b: any) => {
+                    const aBusy = isStaffBusy(a) || a.status === 'DECLINED';
+                    const bBusy = isStaffBusy(b) || b.status === 'DECLINED';
+                    if (aBusy !== bBusy) return aBusy ? 1 : -1;
+                    if (a.role === 'PRIMARY_MUA' && b.role !== 'PRIMARY_MUA') return -1;
+                    if (b.role === 'PRIMARY_MUA' && a.role !== 'PRIMARY_MUA') return 1;
+                    return 0;
+                  });
+
+                  const activeStaffCount = sortedStaff.filter((s: any) => !isStaffBusy(s) && s.status !== 'DECLINED').length;
+                  const busyStaffCount = sortedStaff.filter((s: any) => isStaffBusy(s)).length;
+
+                  return (
+                    <>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 }}>
+                        Đội Ngũ Thực Hiện ({activeStaffCount} chuyên viên{busyStaffCount > 0 ? ` - ${busyStaffCount} báo bận` : ''}):
+                      </Text>
+
+                      <View style={{ gap: 8 }}>
+                        {sortedStaff.map((staff: any, idx: number) => {
+                          const isSelf = Boolean(
+                            (userInfo?.id && (staff.userId === userInfo.id || staff.staffId === userInfo.id)) ||
+                            (userInfo?.muaId && (staff.muaId === userInfo.muaId || staff.staffId === userInfo.muaId)) ||
+                            (profile?.muaId && (staff.muaId === profile.muaId || staff.staffId === profile.muaId)) ||
+                            (userInfo?.phoneNumber && staff.staffPhone && staff.staffPhone.replace(/\D/g, '') === userInfo.phoneNumber.replace(/\D/g, ''))
+                          );
+                          const isPrimary = staff.role === 'PRIMARY_MUA';
+                          const isBusy = isStaffBusy(staff);
+                          const isDeclined = staff.status === 'DECLINED';
+                          const isConfirmed = !isBusy && !isDeclined && Boolean(staff.isConfirmedByStaff || staff.confirmedAt || staff.status === 'CONFIRMED');
+
+                          return (
+                            <View
+                              key={staff.id || idx}
+                              style={{
+                                backgroundColor: isSelf ? '#F0FDF4' : (isBusy ? '#FFF7ED' : '#FFFFFF'),
+                                borderRadius: 10,
+                                padding: 10,
+                                borderWidth: 1,
+                                borderColor: isSelf ? '#86EFAC' : (isBusy ? '#FED7AA' : '#E2E8F0'),
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                opacity: isBusy ? 0.92 : 1,
+                              }}
+                            >
+                              <View style={{ flex: 1, marginRight: 8 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                  <Text style={{ fontSize: 14, fontWeight: '700', color: isBusy ? '#475569' : '#0F172A' }}>
+                                    {staff.staffName || 'Chuyên viên'}
+                                  </Text>
+                                  {isSelf && (
+                                    <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>Bạn</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                                  {staff.staffPhone || '---'}
+                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                  <View
+                                    style={{
+                                      backgroundColor: isBusy ? '#FEE2E2' : (isPrimary ? '#FEF3C7' : '#EFF6FF'),
+                                      paddingHorizontal: 6,
+                                      paddingVertical: 2,
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: '700',
+                                        color: isBusy ? '#B91C1C' : (isPrimary ? '#B45309' : '#2563EB'),
+                                      }}
+                                    >
+                                      {isPrimary ? (isBusy ? 'Thợ Chính (Đã báo bận)' : 'Thợ Chính') : (isBusy ? 'Thợ Phụ (Đã báo bận)' : 'Thợ Phụ')}
+                                      {staff.commissionRate !== undefined && staff.commissionRate !== null ? ` (${staff.commissionRate}%)` : ''}
+                                    </Text>
+                                  </View>
+                                </View>
+                                {isBusy && Boolean(staff.cancellationReason) && (
+                                  <Text style={{ fontSize: 11, color: '#B45309', marginTop: 3, fontStyle: 'italic' }}>
+                                    Lý do: {staff.cancellationReason}
+                                  </Text>
+                                )}
+                              </View>
+
+                              <View style={{ alignItems: 'flex-end' }}>
+                                {isBusy ? (
+                                  <View
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      backgroundColor: '#FEF2F2',
+                                      borderColor: '#FECACA',
+                                      borderWidth: 1,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 4,
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <Ionicons name="alert-circle" size={12} color="#DC2626" />
+                                    <Text
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: '700',
+                                        color: '#DC2626',
+                                      }}
+                                    >
+                                      Báo bận
+                                    </Text>
+                                  </View>
+                                ) : isDeclined ? (
+                                  <View
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      backgroundColor: '#F1F5F9',
+                                      borderColor: '#CBD5E1',
+                                      borderWidth: 1,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 4,
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <Ionicons name="close-circle-outline" size={12} color="#64748B" />
+                                    <Text
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: '700',
+                                        color: '#64748B',
+                                      }}
+                                    >
+                                      Đã từ chối
+                                    </Text>
+                                  </View>
+                                ) : (
+                                  <View
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      backgroundColor: isConfirmed ? '#ECFDF5' : '#FFFBEB',
+                                      borderColor: isConfirmed ? '#A7F3D0' : '#FDE68A',
+                                      borderWidth: 1,
+                                      paddingHorizontal: 8,
+                                      paddingVertical: 4,
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <Ionicons
+                                      name={isConfirmed ? 'checkmark-circle' : 'time-outline'}
+                                      size={12}
+                                      color={isConfirmed ? '#059669' : '#D97706'}
+                                    />
+                                    <Text
+                                      style={{
+                                        fontSize: 11,
+                                        fontWeight: '700',
+                                        color: isConfirmed ? '#059669' : '#D97706',
+                                      }}
+                                    >
+                                      {isConfirmed ? 'Đã xác nhận' : 'Chờ xác nhận'}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </>
+                  );
+                })()}
+              </View>
+            )}
+
             {/* Service & Client Card */}
             <View style={styles.infoCard}>
               <Text style={styles.cardSectionTitle}>Thông Tin Dịch Vụ</Text>
               <Text style={styles.packageName}>{booking?.packageName}</Text>
+
+              {/* Service details: Required / standard package items & Add-ons */}
+              {((booking?.componentItems && booking.componentItems.length > 0) ||
+                (booking?.addonItems && booking.addonItems.length > 0) ||
+                (booking?.packageItems && booking.packageItems.length > 0)) && (
+                <View style={{ marginTop: 8, marginBottom: 8, padding: 10, backgroundColor: '#F8FAFC', borderRadius: 8, borderWidth: 1, borderColor: '#F1F5F9' }}>
+                  {((booking?.componentItems && booking.componentItems.length > 0) ? booking.componentItems : (booking?.packageItems || [])).length > 0 && (
+                    <View style={{ marginBottom: (booking?.addonItems && booking.addonItems.length > 0) ? 8 : 0 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>
+                        Dịch vụ gói chuẩn
+                      </Text>
+                      {((booking?.componentItems && booking.componentItems.length > 0) ? booking.componentItems : (booking?.packageItems || [])).map((item, idx) => (
+                        <View key={`comp-${idx}`} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
+                          <Ionicons name="checkmark-circle" size={14} color="#10B981" style={{ marginRight: 6 }} />
+                          <Text style={{ fontSize: 13, color: '#334155' }}>{item}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {booking?.addonItems && booking.addonItems.length > 0 && (
+                    <View>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#6366F1', textTransform: 'uppercase', marginBottom: 4 }}>
+                        Dịch vụ bổ sung (Add-on)
+                      </Text>
+                      {booking.addonItems.map((item, idx) => (
+                        <View key={`addon-${idx}`} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
+                          <Ionicons name="add-circle" size={14} color="#6366F1" style={{ marginRight: 6 }} />
+                          <Text style={{ fontSize: 13, color: '#1E293B', fontWeight: '600' }}>{item}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
 
               <View style={styles.divider} />
 
@@ -1499,6 +2200,21 @@ export default function JobExecutionScreen() {
                 <Text style={styles.financeValue}>{formatVnd(booking?.depositAmount || 0)}</Text>
               </View>
 
+              {/* Phụ cấp làm thêm giờ nếu đơn áp dụng quy tắc tăng ca */}
+              {(booking?.overtimePay || 0) > 0 && (
+                <View style={[styles.financeRow, { backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, marginVertical: 3 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="time" size={14} color="#16A34A" style={{ marginRight: 4 }} />
+                    <Text style={[styles.financeLabel, { color: '#15803D', fontWeight: '600' }]}>
+                      Phụ cấp làm thêm giờ {booking?.overtimeMinutes ? `(+${booking.overtimeMinutes}p)` : ''}:
+                    </Text>
+                  </View>
+                  <Text style={[styles.financeValue, { color: '#15803D', fontWeight: '700' }]}>
+                    +{formatVnd(booking?.overtimePay || 0)}
+                  </Text>
+                </View>
+              )}
+
               <View style={[styles.financeRow, styles.earningsHighlight]}>
                 <Text style={styles.earningsLabelText}>Thu nhập thợ thực nhận:</Text>
                 <Text style={styles.earningsValueText}>{formatVnd(booking?.earningsAmount || 0)}</Text>
@@ -1510,7 +2226,14 @@ export default function JobExecutionScreen() {
 
       {/* Floating Bottom Action Bar based on current Status */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {currentStatus === 'REQUESTED' ? (
+        {isMyAssignmentBusy ? (
+          <View style={{ flex: 1, backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="hourglass-outline" size={18} color="#B45309" />
+            <Text style={{ flex: 1, fontSize: 13, color: '#B45309', fontWeight: '500' }}>
+              Bạn đã gửi báo bận cho ca làm này. Vui lòng chờ Studio xử lý duyệt.
+            </Text>
+          </View>
+        ) : currentStatus === 'REQUESTED' ? (
           /* ========================================================================= */
           /* NÚT HÀNH ĐỘNG KHI ĐƠN HẸN ĐANG CHỜ THỢ XÁC NHẬN (REQUESTED)                */
           /* ========================================================================= */
@@ -1540,58 +2263,94 @@ export default function JobExecutionScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        ) : currentStatus === 'AGENCY_ASSIGNED' ? (
+        ) : isPendingMyConfirmation ? (
           /* ========================================================================= */
-          /* NÚT HÀNH ĐỘNG KHI ĐƠN ĐƯỢC STUDIO ĐIỀU PHỐI (AGENCY_ASSIGNED)              */
+          /* TH1: CHUYÊN VIÊN CHƯA BẤM TIẾP NHẬN PHÂN CÔNG (THỢ CHÍNH HOẶC THỢ PHỤ)    */
           /* ========================================================================= */
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={styles.cancelSecondaryBtn}
+              style={[styles.cancelSecondaryBtn, { borderColor: '#FECACA', backgroundColor: '#FEF2F2' }]}
+              onPress={handleDeclineMyAssignment}
+              disabled={isDecliningSolo || isConfirmingSolo}
+            >
+              {isDecliningSolo ? (
+                <ActivityIndicator size="small" color="#DC2626" />
+              ) : (
+                <>
+                  <Ionicons name="close-circle-outline" size={16} color="#DC2626" />
+                  <Text style={[styles.cancelSecondaryBtnText, { color: '#DC2626' }]}>Từ Chối</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.cancelSecondaryBtn,
+                { borderColor: '#FED7AA', backgroundColor: '#FFF7ED' }
+              ]}
               onPress={() => {
-                setCancelModalType('MUA_CANCEL');
+                setCancelModalType(isAgencyBooking ? 'AGENCY_EMERGENCY_BUSY' : 'MUA_CANCEL');
                 setCancelReason('');
+                setDisputeProofUrl('');
                 setIsCancelModalVisible(true);
               }}
-              disabled={isTransitioning}
+              disabled={isDecliningSolo || isConfirmingSolo}
             >
-              <Ionicons name="warning-outline" size={16} color="#DC2626" />
-              <Text style={styles.cancelSecondaryBtnText}>Báo Bận</Text>
+              <Ionicons name="warning-outline" size={16} color="#EA580C" />
+              <Text style={[styles.cancelSecondaryBtnText, { color: '#EA580C' }]}>Báo Bận</Text>
             </TouchableOpacity>
+
             <View style={{ flex: 1 }}>
               <TouchableOpacity
-                style={[styles.primaryActionBtn, { backgroundColor: '#2563EB' }, isTransitioning && styles.disabledBtn]}
-                onPress={async () => {
-                  try {
-                    setIsTransitioning(true);
-                    await freelancerBookingService.transitionBookingState(bookingId, 'ACCEPTED');
-                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    Alert.alert('Tiếp Nhận Thành Công 🎉', 'Bạn đã xác nhận tiếp nhận đơn hàng của Studio.');
-                    await loadBookingDetail();
-                  } catch (err: any) {
-                    const msg = err?.response?.data?.message || err?.message || 'Không thể xác nhận tiếp nhận đơn hàng.';
-                    Alert.alert('Lỗi Tiếp Nhận', msg);
-                  } finally {
-                    setIsTransitioning(false);
-                  }
-                }}
-                disabled={isTransitioning}
+                style={[
+                  styles.primaryActionBtn,
+                  { backgroundColor: isPrimaryRole ? '#059669' : '#2563EB' },
+                  isConfirmingSolo && styles.disabledBtn
+                ]}
+                onPress={handleConfirmMyAssignment}
+                disabled={isDecliningSolo || isConfirmingSolo}
               >
-                {isTransitioning ? (
+                {isConfirmingSolo ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <>
                     <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-                    <Text style={styles.btnText}>XÁC NHẬN ĐƠN HÀNG</Text>
+                    <Text style={styles.btnText}>
+                      {isPrimaryRole ? 'NHẬN THỢ CHÍNH' : 'NHẬN THỢ PHỤ'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
           </View>
+        ) : isAssistantRole ? (
+          /* ========================================================================= */
+          /* TH2: THỢ PHỤ ĐÃ TIẾP NHẬN - CHỈ ĐỢI THỢ CHÍNH CẬP NHẬT TIẾN ĐỘ            */
+          /* ========================================================================= */
+          <View style={{ flex: 1, gap: 8 }}>
+            <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="checkmark-circle" size={18} color="#2563EB" />
+              <Text style={{ flex: 1, fontSize: 12, color: '#1E40AF', fontWeight: '500' }}>
+                Đã tiếp nhận vai trò Thợ Phụ{myAssignment?.commissionRate ? ` (${myAssignment.commissionRate}% hoa hồng)` : ''}. Tiến độ di chuyển & hoàn thành do Thợ Chính cập nhật.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.cancelSecondaryBtn, { width: '100%', borderColor: '#CBD5E1' }]}
+              onPress={() => {
+                setCancelModalType(isAgencyBooking ? 'AGENCY_EMERGENCY_BUSY' : 'MUA_CANCEL');
+                setCancelReason('');
+                setDisputeProofUrl('');
+                setIsCancelModalVisible(true);
+              }}
+              disabled={isTransitioning}
+            >
+              <Ionicons name="warning-outline" size={16} color="#DC2626" />
+              <Text style={styles.cancelSecondaryBtnText}>Báo Bận Khẩn Cấp</Text>
+            </TouchableOpacity>
+          </View>
         ) : currentStatus === 'ACCEPTED' && !isDepositPaid ? (
           /* ========================================================================= */
-          /* NÚT HÀNH ĐỘNG KHI ĐANG CHỜ KHÁCH ĐẶT CỌC:                                 */
-          /* Trong 10 phút: Khóa nút di chuyển, hiện "ĐANG CHỜ KHÁCH CỌC..."           */
-          /* Quá 10 phút: Hiện nút màu đỏ "HỦY ĐƠN HÀNG (QUÁ HẠN 10 PHÚT)"             */
+          /* TH3: CA ĐẶT KHẨN CẤP CHỜ KHÁCH ĐẶT CỌC 30% (10 PHÚT)                      */
           /* ========================================================================= */
           isDepositTimeout ? (
             <TouchableOpacity
@@ -1621,101 +2380,126 @@ export default function JobExecutionScreen() {
           )
         ) : (
           /* ========================================================================= */
-          /* NÚT HÀNH ĐỘNG KHI ĐÃ CỌC: TIẾN TRÌNH DI CHUYỂN, CHECK-IN, LÀM VIỆC        */
+          /* TH4: THỢ CHÍNH QUẢN LÝ TIẾN TRÌNH CA LÀM (DI CHUYỂN, CHECK-IN, LÀM VIỆC)   */
           /* ========================================================================= */
           <View style={styles.actionRow}>
-            {canCancelOrDispute && (
-              <TouchableOpacity
-                style={styles.cancelSecondaryBtn}
-                onPress={() => {
-                  setCancelModalType('CUSTOMER_ABSENT_DISPUTE');
-                  setCancelReason('');
-                  setDisputeProofUrl('');
-                  setIsCancelModalVisible(true);
-                }}
-              >
-                <Ionicons
-                  name={isDisputeMode ? 'alert-circle-outline' : 'warning-outline'}
-                  size={16}
-                  color="#E11D48"
-                />
-                <Text style={styles.cancelSecondaryBtnText}>
-                  {isDisputeMode ? 'Báo Sự Cố' : 'Báo Vắng / Hủy'}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <View style={{ flex: 1 }}>
-              {currentStatus === 'ACCEPTED' && (
-                <TouchableOpacity
-                  style={[styles.primaryActionBtn, { backgroundColor: '#059669' }, isTransitioning && styles.disabledBtn]}
-                  onPress={handleStartMoving}
-                  disabled={isTransitioning}
-                >
-                  {isTransitioning ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="bicycle-outline" size={20} color="#FFFFFF" />
-                      <Text style={styles.btnText}>BẮT ĐẦU DI CHUYỂN (GPS)</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-
-              {currentStatus === 'ON_THE_WAY' && (
-                <TouchableOpacity
-                  style={[styles.primaryActionBtn, isTransitioning && styles.disabledBtn]}
-                  onPress={() => handleTransitionState('ARRIVED')}
-                  disabled={isTransitioning}
-                >
-                  {isTransitioning ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="location" size={18} color="#FFFFFF" />
-                      <Text style={styles.btnText}>ĐÃ TỚI NƠI (CHECK-IN)</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-
-              {currentStatus === 'ARRIVED' && (
-                <TouchableOpacity
-                  style={[styles.primaryActionBtn, isTransitioning && styles.disabledBtn]}
-                  onPress={() => handleTransitionState('IN_PROGRESS')}
-                  disabled={isTransitioning}
-                >
-                  {isTransitioning ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="brush" size={18} color="#FFFFFF" />
-                      <Text style={styles.btnText}>BẮT ĐẦU TRANG ĐIỂM</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-
-              {currentStatus === 'IN_PROGRESS' && (
-                <View style={{ gap: 8 }}>
+                {canCancelOrDispute && (
                   <TouchableOpacity
-                    style={[styles.completeActionBtn, isTransitioning && styles.disabledBtn]}
-                    onPress={() => setIsCameraVisible(true)}
-                    disabled={isTransitioning}
+                    style={styles.cancelSecondaryBtn}
+                    onPress={() => {
+                      setCancelModalType(isAgencyBooking ? 'AGENCY_EMERGENCY_BUSY' : 'CUSTOMER_ABSENT_DISPUTE');
+                      setCancelReason('');
+                      setDisputeProofUrl('');
+                      setIsCancelModalVisible(true);
+                    }}
                   >
-                    <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
-                    <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
+                    <Ionicons
+                      name={isAgencyBooking ? 'warning-outline' : isDisputeMode ? 'alert-circle-outline' : 'warning-outline'}
+                      size={16}
+                      color="#E11D48"
+                    />
+                    <Text style={styles.cancelSecondaryBtnText}>
+                      {isAgencyBooking ? 'Báo Bận / Sự Cố' : isDisputeMode ? 'Báo Sự Cố' : 'Báo Vắng / Hủy'}
+                    </Text>
                   </TouchableOpacity>
+                )}
 
-                  <TouchableOpacity
-                    style={styles.overtimeReportBtn}
-                    onPress={() => setIsOvertimeModalVisible(true)}
-                  >
-                    <Text style={styles.overtimeReportBtnText}>Giải trình làm quá giờ</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                <View style={{ flex: 1 }}>
+                  {(currentStatus === 'ACCEPTED' || currentStatus === 'AGENCY_ASSIGNED') && (() => {
+                    const unconfirmedAssistants = (booking?.assignedStaff || []).filter(
+                      (s: any) =>
+                        s.role === 'ASSISTANT_MUA' &&
+                        s.status !== 'REPLACED' &&
+                        s.status !== 'EMERGENCY_CANCELLED' &&
+                        !s.isConfirmedByStaff &&
+                        !s.confirmedAt
+                    );
+                    return (
+                      <View style={{ gap: 6 }}>
+                        {unconfirmedAssistants.length > 0 && (
+                          <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A' }}>
+                            <Text style={{ fontSize: 11, color: '#92400E', fontWeight: '500' }}>
+                              ⚠️ Chờ thợ phụ ({unconfirmedAssistants.map((s: any) => s.staffName).join(', ')}) xác nhận để bắt đầu di chuyển
+                            </Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={[
+                            styles.primaryActionBtn,
+                            { backgroundColor: unconfirmedAssistants.length > 0 ? '#9CA3AF' : '#059669' },
+                            (isTransitioning || unconfirmedAssistants.length > 0) && styles.disabledBtn
+                          ]}
+                          onPress={handleStartMoving}
+                          disabled={isTransitioning || unconfirmedAssistants.length > 0}
+                        >
+                          {isTransitioning ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons name="bicycle-outline" size={20} color="#FFFFFF" />
+                              <Text style={styles.btnText}>
+                                {unconfirmedAssistants.length > 0 ? 'CHỜ THỢ PHỤ XÁC NHẬN' : 'BẮT ĐẦU DI CHUYỂN (GPS)'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })()}
+
+                  {currentStatus === 'ON_THE_WAY' && (
+                    <TouchableOpacity
+                      style={[styles.primaryActionBtn, isTransitioning && styles.disabledBtn]}
+                      onPress={() => handleTransitionState('ARRIVED')}
+                      disabled={isTransitioning}
+                    >
+                      {isTransitioning ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="location" size={18} color="#FFFFFF" />
+                          <Text style={styles.btnText}>ĐÃ TỚI NƠI (CHECK-IN)</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {currentStatus === 'ARRIVED' && (
+                    <TouchableOpacity
+                      style={[styles.primaryActionBtn, isTransitioning && styles.disabledBtn]}
+                      onPress={() => handleTransitionState('IN_PROGRESS')}
+                      disabled={isTransitioning}
+                    >
+                      {isTransitioning ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="brush" size={18} color="#FFFFFF" />
+                          <Text style={styles.btnText}>BẮT ĐẦU TRANG ĐIỂM</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+
+                  {currentStatus === 'IN_PROGRESS' && (
+                    <View style={{ gap: 8 }}>
+                      <TouchableOpacity
+                        style={[styles.completeActionBtn, isTransitioning && styles.disabledBtn]}
+                        onPress={() => setIsCameraVisible(true)}
+                        disabled={isTransitioning}
+                      >
+                        <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+                        <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.overtimeReportBtn}
+                        onPress={() => setIsOvertimeModalVisible(true)}
+                      >
+                        <Text style={styles.overtimeReportBtnText}>Giải trình làm quá giờ</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
               {(currentStatus === 'COMPLETED' || currentStatus === 'PAID_OUT') && (
                 <View style={{ gap: 10 }}>
@@ -1785,7 +2569,7 @@ export default function JobExecutionScreen() {
 
                   <TouchableOpacity
                     style={[styles.cancelSecondaryBtn, { borderColor: '#CBD5E1', marginTop: 4 }]}
-                    onPress={() => router.push('/profile/freelancer-wallet')}
+                    onPress={() => router.replace('/profile/freelancer-wallet')}
                   >
                     <Ionicons name="wallet-outline" size={16} color="#475569" />
                     <Text style={[styles.cancelSecondaryBtnText, { color: '#475569' }]}>
@@ -1795,7 +2579,7 @@ export default function JobExecutionScreen() {
 
                   <TouchableOpacity
                     style={[styles.cancelSecondaryBtn, { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5', marginTop: 4 }]}
-                    onPress={() => router.push(`/booking/history-detail/${bookingId}` as any)}
+                    onPress={() => router.replace(`/booking/history-detail/${bookingId}` as any)}
                   >
                     <Ionicons name="receipt-outline" size={16} color="#059669" />
                     <Text style={[styles.cancelSecondaryBtnText, { color: '#059669', fontWeight: '700' }]}>
@@ -1814,7 +2598,9 @@ export default function JobExecutionScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.muaDisputeTitle}>CA ĐANG CHỜ ADMIN PHÂN XỬ</Text>
                       <Text style={styles.muaDisputeSubtitle}>
-                        Ban Quản Trị đang đối soát minh chứng tại hiện trường để giải ngân 100% tiền cọc cho bạn.
+                        {isPostCompletion
+                          ? 'Ban Quản Trị đang đối soát minh chứng để giải quyết khiếu nại chất lượng ca làm.'
+                          : 'Ban Quản Trị đang đối soát minh chứng tại hiện trường để giải ngân 100% tiền cọc cho bạn.'}
                       </Text>
                     </View>
                   </View>
@@ -1828,16 +2614,41 @@ export default function JobExecutionScreen() {
                     </View>
                   )}
 
-                  {(booking?.emergencyProofUrl || disputeProofUrl) ? (
-                    <View style={styles.muaDisputeProofBox}>
-                      <Text style={styles.muaDisputeProofLabel}>Ảnh minh chứng hiện trường đã gửi:</Text>
-                      <Image
-                        source={{ uri: booking?.emergencyProofUrl || disputeProofUrl }}
-                        style={styles.muaDisputeProofImage}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  ) : null}
+                  {(() => {
+                    const disputeImages = parseDisputeProofImages(booking?.emergencyProofUrl || disputeProofUrl);
+                    if (disputeImages.length === 0) return null;
+                    return (
+                      <View style={styles.muaDisputeProofBox}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <Text style={styles.muaDisputeProofLabel}>Ảnh minh chứng hiện trường ({disputeImages.length}):</Text>
+                          <TouchableOpacity onPress={() => setIsDisputeDossierOpen(true)}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#2563EB' }}>Xem chi tiết</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {disputeImages.length === 1 ? (
+                          <TouchableOpacity activeOpacity={0.9} onPress={() => setIsDisputeDossierOpen(true)}>
+                            <Image
+                              source={{ uri: disputeImages[0] }}
+                              style={styles.muaDisputeProofImage}
+                              resizeMode="cover"
+                            />
+                          </TouchableOpacity>
+                        ) : (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                            {disputeImages.map((imgUri, idx) => (
+                              <TouchableOpacity key={idx} activeOpacity={0.85} onPress={() => setIsDisputeDossierOpen(true)}>
+                                <Image
+                                  source={{ uri: imgUri }}
+                                  style={{ width: 220, height: 160, borderRadius: 10, backgroundColor: '#E2E8F0' }}
+                                  resizeMode="cover"
+                                />
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        )}
+                      </View>
+                    );
+                  })()}
 
                   <TouchableOpacity
                     style={styles.viewDisputeDossierBtn}
@@ -1851,7 +2662,7 @@ export default function JobExecutionScreen() {
                   <View style={styles.muaDisputeFooterRow}>
                     <TouchableOpacity
                       style={styles.muaDisputeWalletBtn}
-                      onPress={() => router.push('/profile/freelancer-wallet')}
+                      onPress={() => router.replace('/profile/freelancer-wallet')}
                     >
                       <Ionicons name="wallet-outline" size={16} color="#059669" />
                       <Text style={styles.muaDisputeWalletBtnText}>Ví Thu Nhập</Text>
@@ -1874,9 +2685,15 @@ export default function JobExecutionScreen() {
                       <Ionicons name="shield-checkmark" size={24} color="#059669" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.muaDisputeTitle, { color: '#065F46' }]}>KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ BỒI THƯỜNG CỌC</Text>
+                      <Text style={[styles.muaDisputeTitle, { color: '#065F46' }]}>
+                        {isPostCompletion
+                          ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • BÁC KHIẾU NẠI CỦA KHÁCH'
+                          : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • ĐÃ BỒI THƯỜNG CỌC'}
+                      </Text>
                       <Text style={[styles.muaDisputeSubtitle, { color: '#047857' }]}>
-                        Admin đã thẩm định minh chứng và bồi thường 100% tiền cọc ({formatVnd(booking?.depositAmount || 0)}) vào ví chuyên viên của bạn.
+                        {isPostCompletion
+                          ? `Admin đã công nhận giải trình của bạn và bác bỏ khiếu nại của khách. Toàn bộ thù lao ca làm việc (${formatVnd(booking?.totalAmount || 0)}) được bảo lưu nguyên vẹn, bạn không bị trừ tiền.`
+                          : `Admin đã thẩm định minh chứng và bồi thường 100% tiền cọc (${formatVnd(booking?.depositAmount || 0)}) vào ví chuyên viên của bạn.`}
                       </Text>
                     </View>
                   </View>
@@ -1904,14 +2721,14 @@ export default function JobExecutionScreen() {
                   <View style={styles.muaDisputeFooterRow}>
                     <TouchableOpacity
                       style={styles.muaDisputeWalletBtn}
-                      onPress={() => router.push('/profile/freelancer-wallet')}
+                      onPress={() => router.replace('/profile/freelancer-wallet')}
                     >
                       <Ionicons name="wallet" size={16} color="#059669" />
                       <Text style={styles.muaDisputeWalletBtnText}>Kiểm Tra Ví Thu Nhập</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.muaDisputeHomeBtn}
-                      onPress={() => router.push(`/booking/history-detail/${bookingId}` as any)}
+                      onPress={() => router.replace(`/booking/history-detail/${bookingId}` as any)}
                     >
                       <Ionicons name="receipt-outline" size={16} color="#475569" />
                       <Text style={styles.muaDisputeHomeBtnText}>Xem Hóa Đơn</Text>
@@ -1927,9 +2744,15 @@ export default function JobExecutionScreen() {
                       <Ionicons name="alert-circle" size={24} color="#D97706" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.muaDisputeTitle, { color: '#92400E' }]}>KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH</Text>
+                      <Text style={[styles.muaDisputeTitle, { color: '#92400E' }]}>
+                        {isPostCompletion
+                          ? 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • CHẤP NHẬN KHIẾU NẠI CỦA KHÁCH'
+                          : 'KHIẾU NẠI ĐÃ GIẢI QUYẾT • HOÀN CỌC CHO KHÁCH'}
+                      </Text>
                       <Text style={[styles.muaDisputeSubtitle, { color: '#B45309' }]}>
-                        Ban Quản Trị đã hoàn 100% tiền cọc cho khách hàng do sự cố khiếu nại. Ca hẹn đã khép lại và không phát sinh thu nhập thợ.
+                        {isPostCompletion
+                          ? `Ban Quản Trị đã xem xét và chấp thuận khiếu nại của khách hàng, tiến hành hoàn 100% tiền đơn (${formatVnd(booking?.totalAmount || booking?.depositAmount || 0)}) cho khách. Ca làm không phát sinh thu nhập thợ.`
+                          : 'Ban Quản Trị đã hoàn 100% tiền cọc cho khách hàng do sự cố khiếu nại. Ca hẹn đã khép lại và không phát sinh thu nhập thợ.'}
                       </Text>
                     </View>
                   </View>
@@ -1953,7 +2776,7 @@ export default function JobExecutionScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.muaDisputeHomeBtn, { backgroundColor: '#F8FAFC' }]}
-                      onPress={() => router.push(`/booking/history-detail/${bookingId}` as any)}
+                      onPress={() => router.replace(`/booking/history-detail/${bookingId}` as any)}
                     >
                       <Ionicons name="receipt-outline" size={16} color="#475569" />
                       <Text style={styles.muaDisputeHomeBtnText}>Xem Chi Tiết</Text>
@@ -1974,7 +2797,9 @@ export default function JobExecutionScreen() {
         onClose={() => setIsCameraVisible(false)}
         onSuccess={(photoUrl) => {
           setIsCameraVisible(false);
-          handleTransitionState('COMPLETED', photoUrl);
+          setTimeout(() => {
+            handleTransitionState('COMPLETED', photoUrl);
+          }, 350);
         }}
       />
 
@@ -2018,19 +2843,37 @@ export default function JobExecutionScreen() {
                 <View
                   style={[
                     styles.disputeHeaderIconCircle,
-                    cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
+                    cancelModalType === 'AGENCY_EMERGENCY_BUSY'
+                      ? { backgroundColor: '#EFF6FF' }
+                      : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
                       ? { backgroundColor: '#FEF3C7' }
                       : { backgroundColor: '#FEE2E2' },
                   ]}
                 >
                   <Ionicons
-                    name={cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' ? 'warning' : 'close-circle'}
+                    name={
+                      cancelModalType === 'AGENCY_EMERGENCY_BUSY'
+                        ? 'business'
+                        : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
+                        ? 'warning'
+                        : 'close-circle'
+                    }
                     size={20}
-                    color={cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' ? '#D97706' : '#E11D48'}
+                    color={
+                      cancelModalType === 'AGENCY_EMERGENCY_BUSY'
+                        ? '#2563EB'
+                        : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
+                        ? '#D97706'
+                        : '#E11D48'
+                    }
                   />
                 </View>
                 <Text style={styles.disputeModalTitle} numberOfLines={1}>
-                  {cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' ? 'Báo Khách Vắng Mặt' : 'Xác Nhận Thợ Hủy Ca'}
+                  {isAgencyBooking
+                    ? 'Báo Cáo Sự Cố Lên Studio'
+                    : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
+                    ? 'Báo Khách Vắng Mặt (Admin)'
+                    : 'Xác Nhận Hủy Cả Đơn'}
                 </Text>
               </View>
               <TouchableOpacity
@@ -2047,62 +2890,200 @@ export default function JobExecutionScreen() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingTop: 4, paddingBottom: 16 }}
             >
-              {/* Segment Tabs chuyển đổi giữa Báo khách vắng mặt và Thợ tự hủy - CÂN ĐỐI 100% */}
-              <View style={styles.disputeTypeTabs}>
-                <TouchableOpacity
-                  style={[
-                    styles.disputeTypeTab,
-                    cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabActive,
-                  ]}
-                  onPress={() => setCancelModalType('CUSTOMER_ABSENT_DISPUTE')}
-                  activeOpacity={0.8}
-                >
-                  <Text
+              {/* Chỉ hiển thị tabs lựa chọn với đơn thợ tự do (Freelancer), đơn Studio do Agency quản lý hoàn toàn */}
+              {!isAgencyBooking && (
+                <View style={styles.disputeTypeTabs}>
+                  <TouchableOpacity
                     style={[
-                      styles.disputeTypeTabTitle,
-                      cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabTitleActive,
+                      styles.disputeTypeTab,
+                      cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabActive,
                     ]}
+                    onPress={() => {
+                      setCancelModalType('CUSTOMER_ABSENT_DISPUTE');
+                      setCancelReason('');
+                    }}
+                    activeOpacity={0.8}
                   >
-                    Khách Vắng Mặt
-                  </Text>
-                  <Text
-                    style={[
-                      styles.disputeTypeTabSub,
-                      cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabSubActive,
-                    ]}
-                  >
-                    Nhận 100% cọc
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.disputeTypeTabTitle,
+                        cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabTitleActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Khách Vắng Mặt
+                    </Text>
+                    <Text
+                      style={[
+                        styles.disputeTypeTabSub,
+                        cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && styles.disputeTypeTabSubActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Báo lên Admin
+                    </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.disputeTypeTab,
-                    cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabActive,
-                  ]}
-                  onPress={() => setCancelModalType('MUA_CANCEL')}
-                  activeOpacity={0.8}
-                >
-                  <Text
+                  <TouchableOpacity
                     style={[
-                      styles.disputeTypeTabTitle,
-                      cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabTitleActive,
+                      styles.disputeTypeTab,
+                      cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabActive,
                     ]}
+                    onPress={() => {
+                      setCancelModalType('MUA_CANCEL');
+                      setCancelReason('');
+                    }}
+                    activeOpacity={0.8}
                   >
-                    Thợ Tự Hủy Ca
-                  </Text>
-                  <Text
-                    style={[
-                      styles.disputeTypeTabSub,
-                      cancelModalType === 'MUA_CANCEL' && { color: '#EF4444', fontWeight: '700' },
-                    ]}
-                  >
-                    Hoàn cọc cho khách
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                    <Text
+                      style={[
+                        styles.disputeTypeTabTitle,
+                        cancelModalType === 'MUA_CANCEL' && styles.disputeTypeTabTitleActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Thợ Tự Hủy Ca
+                    </Text>
+                    <Text
+                      style={[
+                        styles.disputeTypeTabSub,
+                        cancelModalType === 'MUA_CANCEL' && { color: '#EF4444', fontWeight: '700' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Hoàn cọc khách
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
-              {cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' ? (
+              {cancelModalType === 'AGENCY_EMERGENCY_BUSY' ? (
+                <>
+                  {/* Chính sách thông báo lên Studio */}
+                  <View style={[styles.disputePolicyCard, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <Ionicons name="business" size={16} color="#2563EB" />
+                      <Text style={[styles.disputePolicyTitle, { color: '#1E40AF' }]}>Báo Bận Lên Quản Lý Studio</Text>
+                    </View>
+                    <Text style={[styles.disputePolicyDesc, { color: '#1E3A8A' }]}>
+                      Khi bạn gặp sự cố đột xuất (tai nạn, ốm đau, hỏng xe...), báo cáo sẽ được gửi trực tiếp đến Quản lý Studio ({booking?.agencyName || 'Agency Admin'}). Studio sẽ phân công thợ khác thay thế bạn phục vụ khách hàng mà không làm hủy đơn hẹn.
+                    </Text>
+                  </View>
+
+                  {/* PHẦN TẢI LÊN ẢNH MINH CHỨNG */}
+                  <View style={styles.proofSectionBox}>
+                    <View style={styles.proofSectionHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="camera" size={16} color="#2563EB" />
+                        <Text style={[styles.proofSectionTitle, { color: '#1E40AF' }]}>ẢNH MINH CHỨNG SỰ CỐ</Text>
+                      </View>
+                      <Text style={[styles.proofSectionRequired, { color: '#64748B' }]}>Khuyến khích</Text>
+                    </View>
+
+                    <Text style={{ fontSize: 11.5, color: '#64748B', marginBottom: 10, lineHeight: 16 }}>
+                      Đính kèm ảnh minh chứng sự cố (giấy tờ y tế, hiện trường giao thông...) giúp Studio duyệt thay thế nhanh hơn.
+                    </Text>
+
+                    {isUploadingProof ? (
+                      <View style={{ paddingVertical: 18, alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator size="small" color="#2563EB" />
+                        <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#1E40AF' }}>
+                          Đang tải ảnh minh chứng lên máy chủ...
+                        </Text>
+                      </View>
+                    ) : disputeProofUrl ? (
+                      <View style={styles.proofUploadedCard}>
+                        <View style={styles.proofUploadedHeader}>
+                          <View style={styles.proofSuccessBadge}>
+                            <Ionicons name="checkmark-circle" size={15} color="#166534" />
+                            <Text style={styles.proofSuccessText}>Đã đính kèm ảnh minh chứng</Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => setDisputeProofUrl('')}
+                            style={styles.proofDeleteBtn}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="trash-outline" size={14} color="#DC2626" />
+                            <Text style={styles.proofDeleteBtnText}>Xóa</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.proofUploadedBody}>
+                          <Image
+                            source={{ uri: disputeProofUrl }}
+                            style={styles.proofLargeThumbnail}
+                            resizeMode="cover"
+                          />
+                          <View style={styles.proofActionCol}>
+                            <TouchableOpacity
+                              style={styles.proofRetakeBtn}
+                              onPress={handleCaptureDisputeProof}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="camera-reverse" size={15} color="#2563EB" />
+                              <Text style={[styles.proofRetakeBtnText, { color: '#2563EB' }]}>Chụp lại ảnh</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.proofPickBtn}
+                              onPress={handlePickDisputeProof}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="images-outline" size={15} color="#475569" />
+                              <Text style={styles.proofPickBtnText}>Chọn từ thư viện</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.proofActionRow}>
+                        <TouchableOpacity
+                          style={[styles.proofBtn, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+                          onPress={handleCaptureDisputeProof}
+                        >
+                          <Ionicons name="camera" size={20} color="#2563EB" />
+                          <Text style={[styles.proofBtnText, { color: '#2563EB', fontWeight: '800' }]}>Chụp Ảnh</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.proofBtn}
+                          onPress={handlePickDisputeProof}
+                        >
+                          <Ionicons name="images" size={20} color="#475569" />
+                          <Text style={styles.proofBtnText}>Chọn Từ Thư Viện</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.modalSub}>Chọn lý do sự cố:</Text>
+                  <View style={styles.reasonsList}>
+                    {AGENCY_EMERGENCY_REASONS.map((r, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        style={[styles.reasonChip, cancelReason === r && styles.reasonChipSelected]}
+                        onPress={() => setCancelReason(r)}
+                      >
+                        <Text
+                          style={[
+                            styles.reasonChipText,
+                            cancelReason === r && styles.reasonChipTextSelected,
+                          ]}
+                        >
+                          {r}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TextInput
+                    style={styles.reasonInput}
+                    placeholder="Mô tả cụ thể sự cố gửi lên Quản lý Studio..."
+                    placeholderTextColor="#94A3B8"
+                    value={cancelReason}
+                    onChangeText={setCancelReason}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </>
+              ) : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' ? (
                 <>
                   {/* Chính sách nhận 100% cọc */}
                   <View style={styles.disputePolicyCard}>
@@ -2279,7 +3260,9 @@ export default function JobExecutionScreen() {
                 <TouchableOpacity
                   style={[
                     styles.modalSubmitBtn,
-                    cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
+                    cancelModalType === 'AGENCY_EMERGENCY_BUSY'
+                      ? { backgroundColor: '#2563EB' }
+                      : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
                       ? { backgroundColor: '#D97706' }
                       : { backgroundColor: '#DC2626' },
                     (isSubmittingCancel || (cancelModalType === 'CUSTOMER_ABSENT_DISPUTE' && !disputeProofUrl)) && styles.disabledBtn,
@@ -2291,7 +3274,9 @@ export default function JobExecutionScreen() {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={styles.modalSubmitBtnText}>
-                      {cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
+                      {cancelModalType === 'AGENCY_EMERGENCY_BUSY'
+                        ? 'Gửi Báo Cáo Lên Studio'
+                        : cancelModalType === 'CUSTOMER_ABSENT_DISPUTE'
                         ? (disputeProofUrl ? 'Gửi Báo Cáo Nhận 100% Cọc' : 'Bắt Buộc Đính Kèm Ảnh')
                         : 'Xác Nhận Hủy (Hoàn Khách)'}
                     </Text>
@@ -2305,9 +3290,9 @@ export default function JobExecutionScreen() {
 
 
 
-      {/* Modal Duy Nhất Xác Nhận Khách Đã Trả Tiền Mặt */}
+      {/* Modal Duy Nhất Xác Nhận Khách Đã Trả Tiền Mặt (Chỉ hiển thị cho Thợ chính) */}
       <Modal
-        visible={isCashPromptModalVisible}
+        visible={Boolean(isCashPromptModalVisible && isPrimaryRole && !isAssistantRole)}
         transparent
         animationType="fade"
         statusBarTranslucent
@@ -2353,7 +3338,7 @@ export default function JobExecutionScreen() {
             <View style={styles.cashPromptBtnRow}>
               <TouchableOpacity
                 style={styles.cashPromptRejectBtn}
-                onPress={() => setIsCashPromptModalVisible(false)}
+                onPress={handleDeclineCashReceipt}
                 disabled={isConfirmingCash}
                 activeOpacity={0.8}
               >
@@ -2362,7 +3347,7 @@ export default function JobExecutionScreen() {
 
               <TouchableOpacity
                 style={styles.cashPromptConfirmBtn}
-                onPress={handleConfirmCashReceipt}
+                onPress={performConfirmCashReceipt}
                 disabled={isConfirmingCash}
                 activeOpacity={0.8}
               >
@@ -2465,6 +3450,7 @@ export default function JobExecutionScreen() {
       <DisputeDossierModal
         visible={isDisputeDossierOpen}
         onClose={() => setIsDisputeDossierOpen(false)}
+        bookingId={id ? Number(id) : undefined}
         cancellationReason={booking?.cancellationReason}
         emergencyReason={booking?.emergencyReason}
         emergencyProofUrl={booking?.emergencyProofUrl || disputeProofUrl}
@@ -2472,6 +3458,8 @@ export default function JobExecutionScreen() {
         viewAsRole="MUA"
         bookingCode={booking?.bookingCode}
         depositAmount={booking?.depositAmount}
+        totalAmount={booking?.totalAmount}
+        bookingStatus={booking?.status}
         disputeOrigin={booking?.disputeOrigin}
         counterpartyName={booking?.customerName}
         onCounterDispute={() => {
@@ -2480,6 +3468,7 @@ export default function JobExecutionScreen() {
           setDisputeProofUrl('');
           setIsCancelModalVisible(true);
         }}
+        onDisputeSuccess={() => loadBookingDetail(true)}
       />
 
     </SafeAreaView>
@@ -2543,7 +3532,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 160,
   },
   depositBanner: {
     flexDirection: 'row',
@@ -4268,34 +5257,38 @@ const styles = StyleSheet.create({
     borderColor: '#E0F2FE',
   },
   scheduledHeroTimeCol: {
-    flex: 1,
+    flex: 1.35,
+    minWidth: 0,
   },
   scheduledHeroTimeLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#0284C7',
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   scheduledHeroTimeValue: {
-    fontSize: 22,
+    fontSize: 16.5,
     fontWeight: '900',
     color: '#0C4A6E',
     marginTop: 2,
+    letterSpacing: -0.2,
   },
   scheduledHeroDateValue: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#0369A1',
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   scheduledHeroDivider: {
     width: 1,
     height: 48,
     backgroundColor: '#E2E8F0',
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   scheduledHeroServiceCol: {
-    flex: 1.2,
+    flex: 1,
+    minWidth: 0,
   },
   scheduledHeroServiceLabel: {
     fontSize: 11,
@@ -4398,25 +5391,28 @@ const styles = StyleSheet.create({
     borderColor: '#FEF3C7',
   },
   instantHeroTimeCol: {
-    flex: 1,
+    flex: 1.35,
+    minWidth: 0,
   },
   instantHeroTimeLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#D97706',
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   instantHeroTimeValue: {
-    fontSize: 20,
+    fontSize: 16.5,
     fontWeight: '900',
     color: '#B45309',
     marginTop: 2,
+    letterSpacing: -0.2,
   },
   instantHeroSubValue: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#D97706',
     fontWeight: '600',
-    marginTop: 1,
+    marginTop: 2,
   },
   instantHeroDivider: {
     width: 1,

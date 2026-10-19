@@ -423,6 +423,11 @@ export const AdminDisputesPage = () => {
               Studio: {row.agencyName}
             </span>
           )}
+          {row.isEscalatedFromStudio && (
+            <span className="inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+              Studio Leo Thang
+            </span>
+          )}
         </div>
       ),
     },
@@ -747,7 +752,15 @@ export const AdminDisputesPage = () => {
       {/* Comprehensive Dispute Dossier & Arbitration Modal */}
       {isDetailModalOpen && selectedDispute && (() => {
         const disputeInfo = parseDisputeInfo(selectedDispute);
-        const halfDeposit = Math.round((selectedDispute.depositAmount || 0) / 2);
+        const isPostCompletion = Boolean(
+          selectedDispute.status === 'COMPLETED' ||
+          selectedDispute.status === 'PAID_OUT' ||
+          (selectedDispute.totalAmount && selectedDispute.depositAmount && Number(selectedDispute.totalAmount) > Number(selectedDispute.depositAmount))
+        );
+        const disputeAssetAmount = isPostCompletion && Number(selectedDispute.totalAmount || 0) > 0
+          ? Number(selectedDispute.totalAmount)
+          : Number(selectedDispute.depositAmount || 0);
+        const halfDeposit = Math.round(disputeAssetAmount / 2);
 
         return (
           <Modal
@@ -803,10 +816,10 @@ export const AdminDisputesPage = () => {
                     }
                   >
                     {resolutionAction === 'APPROVE_REFUND_CUSTOMER'
-                      ? t('btn_approve_refund') || 'Phê Duyệt Hoàn 100% Khách'
+                      ? (isPostCompletion ? 'Duyệt Khiếu Nại (Hoàn 100% Tiền Đơn)' : (t('btn_approve_refund') || 'Phê Duyệt Hoàn 100% Khách'))
                       : resolutionAction === 'SPLIT_SETTLEMENT_50_50'
                       ? 'Phán Quyết Hòa Giải 50% - 50%'
-                      : t('btn_reject_dispute') || 'Bác Bỏ & Bồi Thường 100% Thợ'}
+                      : (isPostCompletion ? 'Duyệt Giải Trình Thợ (Không Trừ Tiền Thợ)' : (t('btn_reject_dispute') || 'Bác Bỏ & Bồi Thường 100% Thợ'))}
                   </Button>
                 ) : (
                   <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -841,16 +854,30 @@ export const AdminDisputesPage = () => {
                   <span className="text-[10px] text-slate-500">Gói: {selectedDispute.packageName || 'Dịch vụ make-up'}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-rose-500 font-bold uppercase block">Tiền Cọc Đóng Băng (Escrow)</span>
-                  <span className="font-black text-rose-600 dark:text-rose-400 mt-1 block text-sm">
-                    {formatCurrency(selectedDispute.depositAmount)}
+                  <span className="text-[10px] text-rose-500 font-bold uppercase block">
+                    {isPostCompletion ? 'Tài Sản Khiếu Nại (100% Đơn)' : 'Tiền Cọc Đóng Băng (Escrow)'}
                   </span>
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Tài sản tranh chấp</span>
+                  <span className="font-black text-rose-600 dark:text-rose-400 mt-1 block text-sm">
+                    {formatCurrency(disputeAssetAmount)}
+                  </span>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                    {isPostCompletion ? 'Khiếu nại sau ca hoàn thành' : 'Tài sản tranh chấp'}
+                  </span>
                 </div>
               </div>
 
               {/* Conflict Origin Banner */}
-              {disputeInfo.disputeOrigin === 'DUAL' ? (
+              {selectedDispute.isEscalatedFromStudio ? (
+                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-xs">
+                  <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
+                  <div>
+                    <span className="font-bold block">Đơn Khiếu Nại Leo Thang Từ Studio ({selectedDispute.agencyName || 'Đại lý'})</span>
+                    <span className="text-[11px] text-rose-700 dark:text-rose-300">
+                      Studio đã từ chối hoàn cọc nhưng khách hàng không đồng thuận và chuyển lên Admin Sàn làm trọng tài phân xử tối hậu.
+                    </span>
+                  </div>
+                </div>
+              ) : disputeInfo.disputeOrigin === 'DUAL' ? (
                 <div className="flex items-center gap-2.5 p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 text-xs">
                   <Scale className="w-5 h-5 text-purple-600 shrink-0" />
                   <div>
@@ -1042,9 +1069,13 @@ export const AdminDisputesPage = () => {
                         {isSplit5050
                           ? 'ĐÃ PHÁN QUYẾT: HÒA GIẢI 50% - 50% (CHIA ĐÔI TIỀN CỌC)'
                           : isRefunded
-                          ? 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CỌC 100% CHO KHÁCH HÀNG'
+                          ? (isPostCompletion
+                              ? 'ĐÃ PHÁN QUYẾT: DUYỆT KHIẾU NẠI (HOÀN 100% TIỀN ĐƠN CHO KHÁCH)'
+                              : 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CỌC 100% CHO KHÁCH HÀNG')
                           : isCompensated
-                          ? 'ĐÃ PHÁN QUYẾT: BÁC BỎ KHIẾU NẠI & BỒI THƯỜNG CHO THỢ'
+                          ? (isPostCompletion
+                              ? 'ĐÃ PHÁN QUYẾT: DUYỆT GIẢI TRÌNH THỢ (BÁC KHIẾU NẠI & BẢO LƯU THÙ LAO)'
+                              : 'ĐÃ PHÁN QUYẾT: BÁC BỎ KHIẾU NẠI & BỒI THƯỜNG CHO THỢ')
                           : 'ĐÃ PHÁN QUYẾT XONG VỤ VIỆC'}
                       </span>
                     </div>
@@ -1066,15 +1097,15 @@ export const AdminDisputesPage = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wide">
                       <Scale className="w-4 h-4 text-rose-600" />
-                      <span>Hội Đồng Trọng Tài: Chọn Phán Quyết Xử Lý Tiền Cọc</span>
+                      <span>{isPostCompletion ? 'Hội Đồng Trọng Tài: Phán Quyết Khiếu Nại Sau Ca' : 'Hội Đồng Trọng Tài: Chọn Phán Quyết Xử Lý Tiền Cọc'}</span>
                     </div>
                     <span className="text-[11px] font-mono font-bold text-rose-600">
-                      Cọc Escrow: {formatCurrency(selectedDispute.depositAmount)}
+                      {isPostCompletion ? `Tổng tiền: ${formatCurrency(disputeAssetAmount)}` : `Cọc Escrow: ${formatCurrency(disputeAssetAmount)}`}
                     </span>
                   </div>
 
-                  {/* 3 Resolution Choice Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  {/* Resolution Choice Cards: Khi khiếu nại sau ca chỉ hiển thị 2 lựa chọn (bỏ 50-50) */}
+                  <div className={`grid ${isPostCompletion ? 'grid-cols-1 md:grid-cols-2 gap-3' : 'grid-cols-1 md:grid-cols-3 gap-2.5'}`}>
                     {/* Option 1: 100% Customer */}
                     <button
                       type="button"
@@ -1088,42 +1119,46 @@ export const AdminDisputesPage = () => {
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="font-bold text-xs flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          Hoàn 100% Khách
+                          {isPostCompletion ? 'Duyệt Khiếu Nại (Hoàn 100%)' : 'Hoàn 100% Khách'}
                         </span>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
-                          Lỗi Thợ
+                          {isPostCompletion ? 'Hoàn Tiền Đơn' : 'Lỗi Thợ'}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                        Hoàn toàn bộ <strong>{formatCurrency(selectedDispute.depositAmount)}</strong> về ví Khách. Thợ không nhận thù lao.
+                        {isPostCompletion
+                          ? `Hoàn toàn bộ ${formatCurrency(disputeAssetAmount)} về ví Khách. Thu hồi thù lao từ ${selectedDispute.agencyName ? `Studio (${selectedDispute.agencyName})` : 'Thợ'}.`
+                          : `Hoàn toàn bộ ${formatCurrency(disputeAssetAmount)} về ví Khách. Thợ không nhận thù lao.`}
                       </p>
                     </button>
 
-                    {/* Option 2: 50/50 Split */}
-                    <button
-                      type="button"
-                      onClick={() => setResolutionAction('SPLIT_SETTLEMENT_50_50')}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        resolutionAction === 'SPLIT_SETTLEMENT_50_50'
-                          ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/20 text-purple-900 dark:text-purple-100'
-                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-bold text-xs flex items-center gap-1.5">
-                          <Scale className="w-4 h-4 text-purple-600" />
-                          Hòa Giải 50% - 50%
-                        </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
-                          Công Bằng
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                        Chia đôi tiền cọc: Khách hoàn <strong>{formatCurrency(halfDeposit)}</strong>, Thợ bồi thường <strong>{formatCurrency(halfDeposit)}</strong>.
-                      </p>
-                    </button>
+                    {/* Option 2: 50/50 Split - Chỉ hiển thị khi sự cố hủy ca/bỏ hẹn trước khi hoàn thành dịch vụ */}
+                    {!isPostCompletion && (
+                      <button
+                        type="button"
+                        onClick={() => setResolutionAction('SPLIT_SETTLEMENT_50_50')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          resolutionAction === 'SPLIT_SETTLEMENT_50_50'
+                            ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/20 text-purple-900 dark:text-purple-100'
+                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-xs flex items-center gap-1.5">
+                            <Scale className="w-4 h-4 text-purple-600" />
+                            Hòa Giải 50% - 50%
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                            Công Bằng
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                          Chia đôi số tiền: Khách hoàn <strong>{formatCurrency(halfDeposit)}</strong>, Thợ bồi thường <strong>{formatCurrency(halfDeposit)}</strong>.
+                        </p>
+                      </button>
+                    )}
 
-                    {/* Option 3: 100% MUA */}
+                    {/* Option 3: Duyệt Giải Trình Thợ / Bác Khiếu Nại */}
                     <button
                       type="button"
                       onClick={() => setResolutionAction('REJECT_AND_PAYOUT_MUA')}
@@ -1136,14 +1171,16 @@ export const AdminDisputesPage = () => {
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="font-bold text-xs flex items-center gap-1.5">
                           <XCircle className="w-4 h-4 text-rose-600" />
-                          Bồi Thường 100% Thợ
+                          {isPostCompletion ? 'Duyệt Giải Trình Thợ' : 'Bồi Thường 100% Thợ'}
                         </span>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
-                          Lỗi Khách
+                          {isPostCompletion ? 'Bác Khiếu Nại' : 'Lỗi Khách'}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                        Bác bỏ khiếu nại. Chuyển <strong>{formatCurrency(selectedDispute.depositAmount)}</strong> vào ví Thợ bù chi phí đi lại.
+                        {isPostCompletion
+                          ? `Bác bỏ khiếu nại của khách, công nhận giải trình của thợ. Không trừ tiền thợ, bảo lưu toàn bộ ${formatCurrency(disputeAssetAmount)} cho ${selectedDispute.agencyName ? `Studio (${selectedDispute.agencyName})` : 'Thợ'}.`
+                          : `Bác bỏ khiếu nại. Chuyển ${formatCurrency(disputeAssetAmount)} vào ví ${selectedDispute.agencyName ? `Studio (${selectedDispute.agencyName})` : 'Thợ'} bù chi phí dịch vụ.`}
                       </p>
                     </button>
                   </div>
@@ -1159,11 +1196,15 @@ export const AdminDisputesPage = () => {
                     }`}
                   >
                     {resolutionAction === 'APPROVE_REFUND_CUSTOMER' &&
-                      'Quyết định: Hoàn trả 100% tiền cọc cho Khách Hàng. Đơn hàng chuyển sang ĐÃ HỦY (CANCELLED). Áp dụng khi Thợ không đến, đến quá trễ hoặc vi phạm nghiêm trọng.'}
+                      (isPostCompletion
+                        ? 'Quyết định: Chấp thuận khiếu nại của khách hàng. Hoàn 100% tổng tiền đơn cho Khách Hàng và thu hồi thù lao tương ứng từ Thợ/Studio.'
+                        : 'Quyết định: Hoàn trả 100% tiền cọc cho Khách Hàng. Đơn hàng chuyển sang ĐÃ HỦY (CANCELLED). Áp dụng khi Thợ không đến, đến quá trễ hoặc vi phạm nghiêm trọng.')}
                     {resolutionAction === 'SPLIT_SETTLEMENT_50_50' &&
                       `Quyết định: Hòa giải chia đôi. Khách hàng nhận lại ${formatCurrency(halfDeposit)} và Thợ nhận thù lao hỗ trợ ${formatCurrency(halfDeposit)}. Áp dụng cho sự cố bất khả kháng hoặc lỗi từ cả 2 phía.`}
                     {resolutionAction === 'REJECT_AND_PAYOUT_MUA' &&
-                      'Quyết định: Bác bỏ khiếu nại của khách, quyết toán 100% tiền cọc cho Thợ Make-up. Áp dụng khi Khách vắng mặt, không mở cửa hoặc hủy ca sát giờ.'}
+                      (isPostCompletion
+                        ? 'Quyết định: Bác bỏ khiếu nại của khách hàng, công nhận giải trình và bằng chứng của Thợ Make-up. Giữ nguyên và bảo lưu trọn vẹn thù lao ca làm việc, không trừ bất kỳ khoản tiền nào của Thợ.'
+                        : 'Quyết định: Bác bỏ khiếu nại của khách, quyết toán 100% tiền cọc cho Thợ Make-up. Áp dụng khi Khách vắng mặt, không mở cửa hoặc hủy ca sát giờ.')}
                   </div>
 
                   {/* Admin Note Input */}

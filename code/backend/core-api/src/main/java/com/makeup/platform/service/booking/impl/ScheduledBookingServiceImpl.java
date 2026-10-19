@@ -36,6 +36,7 @@ import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingStateMachineService;
 import com.makeup.platform.service.booking.ScheduledBookingService;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.service.mua.MuaReputationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -45,6 +46,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -85,6 +87,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final BookingStateMachineService bookingStateMachineService;
     private final SimpMessagingTemplate messagingTemplate;
     private final MakeupStyleRepository makeupStyleRepository;
+    private final MuaReputationService muaReputationService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final int DEFAULT_BUFFER_MINUTES = 30;
@@ -465,6 +468,17 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 muaUserId
         ));
 
+        // Ghi nhận MUA đã nhận ca và cập nhật lại acceptance_rate / rank_score
+        if (booking.getMua() != null) {
+            muaReputationService.recordOfferAndRecalculate(
+                    booking.getMua().getId(),
+                    booking.getId(),
+                    "SCHEDULED",
+                    "ACCEPTED",
+                    "Chuyên viên đã xác nhận tiếp nhận ca hẹn trước"
+            );
+        }
+
         log.info("[ScheduledBooking] MUA userId: {} confirmed booking ID: {}", muaUserId, bookingId);
     }
 
@@ -530,6 +544,17 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 BookingStatus.CANCELLED,
                 muaUserId
         ));
+
+        // Ghi nhận MUA từ chối ca hẹn và cập nhật lại acceptance_rate / rank_score
+        if (booking.getMua() != null) {
+            muaReputationService.recordOfferAndRecalculate(
+                    booking.getMua().getId(),
+                    booking.getId(),
+                    "SCHEDULED",
+                    "REJECTED",
+                    cancelReason
+            );
+        }
 
         log.info("[ScheduledBooking] MUA userId: {} rejected booking ID: {}, reason: {}", muaUserId, bookingId, cancelReason);
     }
@@ -644,6 +669,17 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     }
                 }
 
+                // Ghi nhận ca bị hết hạn do thợ không bấm xác nhận và cập nhật lại acceptance_rate / rank_score
+                if (b.getMua() != null) {
+                    muaReputationService.recordOfferAndRecalculate(
+                            b.getMua().getId(),
+                            b.getId(),
+                            "SCHEDULED",
+                            "EXPIRED",
+                            reason
+                    );
+                }
+
                 log.info("[ConfirmationExpiration] Expired requested booking ID: {} cancelled and refunded", b.getId());
             } catch (Exception e) {
                 log.error("[ConfirmationExpiration] Failed to expire requested booking ID: {}", b.getId(), e);
@@ -729,5 +765,93 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     .build());
         }
         return resList;
+    }
+
+    @Override
+    @Transactional
+    public void escalateDisputeToAdmin(Long bookingId, Long customerId, String reason) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "auth.unauthorized", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.DISPUTED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
+        }
+
+        String effectiveReason = StringUtils.hasText(reason)
+                ? reason.trim()
+                : "Khách hàng không đồng ý kết quả từ Studio và yêu cầu Ban Quản Trị Sàn phân xử";
+        String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
+        booking.setCancellationReason("[LEO_THANG_ADMIN]: " + effectiveReason + (existing.isBlank() ? "" : " | " + existing));
+        bookingRepository.save(booking);
+
+        bookingAuditService.logTransition(
+                bookingId,
+                BookingStatus.DISPUTED,
+                BookingStatus.DISPUTED,
+                customerId,
+                "Khách hàng khiếu nại leo thang lên Admin sàn: " + effectiveReason
+        );
+
+        try {
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, Map.of(
+                    "type", "DISPUTE_ESCALATED_TO_ADMIN",
+                    "bookingId", bookingId,
+                    "bookingCode", booking.getBookingCode(),
+                    "reason", effectiveReason,
+                    "timestamp", System.currentTimeMillis()
+            ));
+            messagingTemplate.convertAndSend("/topic/admin/disputes", Map.of(
+                    "type", "NEW_ESCALATED_DISPUTE",
+                    "bookingId", bookingId,
+                    "bookingCode", booking.getBookingCode(),
+                    "agencyId", booking.getAgency() != null ? booking.getAgency().getId() : 0,
+                    "timestamp", System.currentTimeMillis()
+            ));
+        } catch (Exception ex) {
+            log.warn("[EscalateDispute] Failed to broadcast websocket: {}", ex.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void acceptStudioDisputeResolution(Long bookingId, Long customerId) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "auth.unauthorized", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.DISPUTED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
+        }
+
+        booking.setStatus(BookingStatus.DISPUTE_COMPENSATED);
+        String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
+        booking.setCancellationReason("[KHACH_DONG_Y_KET_QUA]: Khách hàng chấp nhận giải quyết của Studio | " + existing);
+        bookingRepository.save(booking);
+
+        bookingAuditService.logTransition(
+                bookingId,
+                BookingStatus.DISPUTED,
+                BookingStatus.DISPUTE_COMPENSATED,
+                customerId,
+                "Khách hàng chấp nhận giải quyết nội bộ của Studio"
+        );
+
+        try {
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, Map.of(
+                    "type", "DISPUTE_RESOLUTION_ACCEPTED",
+                    "bookingId", bookingId,
+                    "status", "DISPUTE_COMPENSATED",
+                    "timestamp", System.currentTimeMillis()
+            ));
+        } catch (Exception ex) {
+            log.warn("[AcceptResolution] Failed to broadcast websocket: {}", ex.getMessage());
+        }
     }
 }

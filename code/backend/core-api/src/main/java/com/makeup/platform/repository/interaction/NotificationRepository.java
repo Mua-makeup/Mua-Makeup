@@ -14,7 +14,8 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
 
     Page<NotificationEntity> findByAgencyIdOrderByCreatedAtDesc(Long agencyId, Pageable pageable);
 
-    Page<NotificationEntity> findByAgencyIdAndIsDeletedFalseOrderByCreatedAtDesc(Long agencyId, Pageable pageable);
+    @Query("SELECT n FROM NotificationEntity n WHERE n.agency.id = :agencyId AND n.isDeleted = false AND n.type NOT IN ('STAFF_LEAVE_APPROVED', 'STAFF_LEAVE_REJECTED') ORDER BY n.createdAt DESC")
+    Page<NotificationEntity> findByAgencyIdAndIsDeletedFalseOrderByCreatedAtDesc(@Param("agencyId") Long agencyId, Pageable pageable);
 
     Page<NotificationEntity> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
@@ -22,7 +23,8 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
 
     long countByAgencyIdAndIsReadFalse(Long agencyId);
 
-    long countByAgencyIdAndIsReadFalseAndIsDeletedFalse(Long agencyId);
+    @Query("SELECT COUNT(n) FROM NotificationEntity n WHERE n.agency.id = :agencyId AND n.isRead = false AND n.isDeleted = false AND n.type NOT IN ('STAFF_LEAVE_APPROVED', 'STAFF_LEAVE_REJECTED')")
+    long countByAgencyIdAndIsReadFalseAndIsDeletedFalse(@Param("agencyId") Long agencyId);
 
     long countByUserIdAndIsReadFalse(Long userId);
 
@@ -46,7 +48,8 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
 
     @Query("""
             SELECT n FROM NotificationEntity n
-            WHERE ((:agencyId IS NOT NULL AND n.agency.id = :agencyId) OR (:agencyId IS NULL AND n.user.id = :userId))
+            WHERE ((:agencyId IS NOT NULL AND n.agency.id = :agencyId AND n.type NOT IN ('STAFF_LEAVE_APPROVED', 'STAFF_LEAVE_REJECTED'))
+                OR (:agencyId IS NULL AND n.user.id = :userId))
               AND n.isDeleted = false
               AND (:isRead IS NULL OR n.isRead = :isRead)
               AND (:type IS NULL OR n.type = :type)

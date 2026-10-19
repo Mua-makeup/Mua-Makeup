@@ -3,14 +3,17 @@ package com.makeup.platform.service.agency;
 import com.makeup.platform.dto.request.agency.AcceptInvitationReq;
 import com.makeup.platform.dto.request.agency.CreateInvitationReq;
 import com.makeup.platform.dto.request.agency.ReviewStaffApplicationReq;
+import com.makeup.platform.dto.request.agency.ReviewStaffCertificateReq;
 import com.makeup.platform.dto.request.agency.UpdateStaffCommissionReq;
 import com.makeup.platform.dto.request.agency.UpdateStaffStatusReq;
 import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
+import com.makeup.platform.dto.response.mua.CertificateRes;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -34,11 +37,13 @@ public interface AgencyStaffService {
     // Studio Admin: Phê duyệt (APPROVE) hoặc Từ chối (REJECT) đơn gia nhập
     AgencyStaffRes reviewStaffApplication(Long userId, Long staffId, ReviewStaffApplicationReq req);
 
-    // Studio Admin: Danh sách nhân viên (phân trang, lọc theo status)
+    // Studio Admin: Danh sách nhân viên (phân trang, lọc theo status tùy chọn)
     Page<AgencyStaffRes> getStaffList(Long userId, String status, Pageable pageable);
 
-    // Studio Admin: Danh sách nhân viên (phân trang tất cả)
-    Page<AgencyStaffRes> getStaffList(Long userId, Pageable pageable);
+    // Studio Admin: Danh sách nhân viên (phân trang tất cả, mặc định status = null)
+    default Page<AgencyStaffRes> getStaffList(Long userId, Pageable pageable) {
+        return getStaffList(userId, null, pageable);
+    }
 
     // Studio Admin: Chi tiết nhân viên
     AgencyStaffDetailRes getStaffDetail(Long userId, Long staffId);
@@ -56,18 +61,18 @@ public interface AgencyStaffService {
     AgencyStaffDetailRes getMyStaffProfile(Long userId);
 
     // Staff: Tải lên chứng chỉ nghề nghiệp nộp cho Studio
-    com.makeup.platform.dto.response.mua.CertificateRes uploadStaffCertificate(
+    CertificateRes uploadStaffCertificate(
             Long userId,
-            org.springframework.web.multipart.MultipartFile file,
+            MultipartFile file,
             String certName,
             String notes);
 
     // Studio Admin: Phê duyệt (VERIFIED) hoặc Từ chối (REJECTED) chứng chỉ của nhân viên
-    com.makeup.platform.dto.response.mua.CertificateRes reviewStaffCertificate(
+    CertificateRes reviewStaffCertificate(
             Long ownerUserId,
             Long staffId,
             String certName,
-            com.makeup.platform.dto.request.agency.ReviewStaffCertificateReq req);
+            ReviewStaffCertificateReq req);
 
     // Staff: Xóa chứng chỉ khi ở trạng thái PENDING hoặc REJECTED
     void deleteStaffCertificate(Long userId, String certName);

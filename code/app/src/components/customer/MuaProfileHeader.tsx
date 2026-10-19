@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { BrandColors } from '@/constants/theme';
 import { MuaPublicProfile } from '@/services/mua-profile.service';
 
@@ -21,7 +22,8 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
 
   const reviewsCount = Number(profile.totalReviews || 0);
   const completedJobs = Number(profile.totalCompletedJobs || 0);
-  const rating = profile.ratingAverage ? Number(profile.ratingAverage).toFixed(1) : (reviewsCount > 0 ? '5.0' : '5.0');
+  const hasReviews = reviewsCount > 0 && profile.ratingAverage != null;
+  const rating = hasReviews ? Number(profile.ratingAverage).toFixed(1) : 'Mới';
 
   // Tính tỷ lệ hài lòng chuẩn xác theo rating thật từ DB
   const satisfactionRate = profile.ratingAverage && Number(profile.ratingAverage) > 0
@@ -61,22 +63,44 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
             </View>
           </TouchableOpacity>
 
-          {/* Thống kê đánh giá và đơn hàng lấy 100% từ dữ liệu thực */}
-          {/* Thống kê đánh giá, năm kinh nghiệm và tỷ lệ đúng giờ của Thợ Tự Do */}
+          {/* Thống kê đánh giá, năm kinh nghiệm và tổng ca hoàn tất của Thợ (100% dữ liệu thực) */}
           <View style={styles.statsContainer}>
-            <View style={styles.statBox}>
-              <View style={styles.statIconRow}>
-                <Ionicons name="star" size={14} color="#F59E0B" />
-                <Text style={styles.statValue}>{rating}</Text>
-              </View>
-              <Text style={styles.statLabel}>{reviewsCount > 0 ? `${reviewsCount} đánh giá` : 'Đánh giá'}</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.statBox}
+              activeOpacity={0.7}
+              onPress={() => {
+                const targetId = profile.id || profile.muaId;
+                if (targetId) {
+                  router.push({
+                    pathname: '/mua-reviews/[id]',
+                    params: { id: targetId, muaName: profile.fullName },
+                  });
+                }
+              }}
+            >
+              {hasReviews ? (
+                <>
+                  <View style={styles.statIconRow}>
+                    <Ionicons name="star" size={14} color="#F59E0B" />
+                    <Text style={styles.statValue}>{Number(profile.ratingAverage).toFixed(1)}</Text>
+                  </View>
+                  <Text style={styles.statLabel}>{reviewsCount} đánh giá &gt;</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.statValue}>--</Text>
+                  <Text style={styles.statLabel}>Chưa có đánh giá</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             <View style={styles.statDivider} />
 
             <View style={styles.statBox}>
               <Text style={styles.statValue}>
-                {profile.experienceYears && profile.experienceYears > 0 ? `${profile.experienceYears}+` : '5+'} năm
+                {profile.experienceYears && profile.experienceYears > 0
+                  ? `${profile.experienceYears} năm`
+                  : '< 1 năm'}
               </Text>
               <Text style={styles.statLabel}>Kinh nghiệm</Text>
             </View>
@@ -84,8 +108,8 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
             <View style={styles.statDivider} />
 
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>100%</Text>
-              <Text style={styles.statLabel}>Đúng giờ</Text>
+              <Text style={styles.statValue}>{completedJobs}</Text>
+              <Text style={styles.statLabel}>Ca hoàn tất</Text>
             </View>
           </View>
         </View>

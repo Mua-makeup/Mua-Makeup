@@ -71,7 +71,15 @@ public class AgencyProfileEntity extends BaseEntity {
 
     @Column(name = "rating_avg", precision = 3, scale = 2)
     @Builder.Default
-    private BigDecimal ratingAvg = new BigDecimal("5.00");
+    private BigDecimal ratingAvg = null;
+
+    @Column(name = "bayesian_rating", precision = 3, scale = 2)
+    @Builder.Default
+    private BigDecimal bayesianRating = null;
+
+    @Column(name = "total_reviews", nullable = false)
+    @Builder.Default
+    private Integer totalReviews = 0;
 
     @Column(name = "is_surge_enabled", nullable = false)
     @Builder.Default

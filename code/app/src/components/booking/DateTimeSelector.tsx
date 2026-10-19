@@ -222,7 +222,7 @@ export const DateTimeSelector: React.FC<Props> = ({
     return () => {
       isMounted = false;
     };
-  }, [targetId, isAgency, selectedDate, durationMinutes, isTimeModalVisible]);
+  }, [targetId, isAgency, selectedDate, durationMinutes]);
 
   // Map tra cứu nhanh 90 ngày theo chuỗi 'YYYY-MM-DD'
   const calendarDaysMap = useMemo(() => {

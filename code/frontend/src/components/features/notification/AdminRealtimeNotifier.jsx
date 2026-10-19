@@ -4,7 +4,7 @@ import { Client } from '@stomp/stompjs';
 import { Award, X, ArrowRight, User, FileText, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { USER_ROLES } from '../../../constants/roles.constant';
-import { useNotificationStore, mapServerNotification } from '../../../store/useNotificationStore';
+import { useNotificationStore, mapServerNotification, extractCleanProofUrl } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { notificationService } from '../../../services/notification.service';
 import { notificationSound } from '../../../utils/notificationSound';
@@ -33,7 +33,12 @@ export const AdminRealtimeNotifier = () => {
           .filter(
             (item) =>
               !item.isRead &&
-              (item.type === 'CERTIFICATE_VERIFICATION' || item.type === 'BOOKING_DISPUTE')
+              (item.type === 'CERTIFICATE_VERIFICATION' ||
+                (item.type === 'BOOKING_DISPUTE' &&
+                  (item.metadata?.bookingPartner === 'FREELANCER_DIRECT' ||
+                    (!item.metadata?.agencyId && !item.agencyId) ||
+                    (item.metadata?.reason && item.metadata.reason.includes('[LEO_THANG_ADMIN]')) ||
+                    (item.content && item.content.includes('[LEO_THANG_ADMIN]')))))
           )
           .map(mapServerNotification);
 
@@ -52,6 +57,8 @@ export const AdminRealtimeNotifier = () => {
             const otherCount = candidateList.length - 1;
             const toastData = {
               ...targetItem,
+              proofUrl: extractCleanProofUrl(targetItem.proofUrl || targetItem.imageUrl),
+              imageUrl: extractCleanProofUrl(targetItem.imageUrl),
               otherCount: otherCount > 0 ? otherCount : 0,
             };
 
@@ -101,6 +108,15 @@ export const AdminRealtimeNotifier = () => {
           notificationSound.playBookingChime();
           toastTimeoutRef.current = setTimeout(() => setActiveToast(null), 8000);
         } else if (payload.type === 'BOOKING_DISPUTE') {
+          const isAgencyDispute = payload.bookingPartner === 'AGENCY_DISPATCH' || Boolean(payload.agencyId);
+          const isEscalated =
+            (payload.reason && payload.reason.includes('[LEO_THANG_ADMIN]')) ||
+            (payload.content && payload.content.includes('[LEO_THANG_ADMIN]'));
+          if (isAgencyDispute && !isEscalated) {
+            // Khiếu nại của Studio thuộc thẩm quyền giải quyết của Agency Admin, không hiện popup cho Super Admin
+            return;
+          }
+
           const disputeNotif = {
             id: `dispute-${payload.bookingId}-${Date.now()}`,
             type: 'BOOKING_DISPUTE',
@@ -109,7 +125,7 @@ export const AdminRealtimeNotifier = () => {
             customerName: payload.customerName,
             muaName: payload.muaName,
             reason: payload.reason,
-            proofUrl: payload.proofUrl,
+            proofUrl: extractCleanProofUrl(payload.proofUrl),
             depositAmount: payload.depositAmount,
             timestamp: payload.timestamp || Date.now(),
           };
@@ -257,16 +273,24 @@ export const AdminRealtimeNotifier = () => {
                 <strong>Lý do:</strong> {activeToast.reason}
               </p>
             )}
-            {activeToast.proofUrl && (
-              <div className="pt-1 flex items-center gap-2">
-                <img
-                  src={activeToast.proofUrl}
-                  alt="Minh chứng"
-                  className="w-12 h-12 object-cover rounded-lg border border-rose-200 dark:border-rose-800 shadow-sm"
-                />
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">Có ảnh minh chứng sự cố</span>
-              </div>
-            )}
+            {(() => {
+              const cleanProof = extractCleanProofUrl(activeToast.proofUrl);
+              if (!cleanProof) return null;
+              return (
+                <div className="pt-1 flex items-center gap-2">
+                  <img
+                    src={cleanProof}
+                    alt="Minh chứng"
+                    className="w-12 h-12 object-cover rounded-lg border border-rose-200 dark:border-rose-800 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => window.open(cleanProof, '_blank')}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Có ảnh minh chứng sự cố (bấm để xem)</span>
+                </div>
+              );
+            })()}
           </>
         ) : (
           <>
@@ -288,18 +312,26 @@ export const AdminRealtimeNotifier = () => {
               </span>
             </div>
 
-            {activeToast.imageUrl && (
-              <div className="pt-2 flex items-center gap-2">
-                <img
-                  src={activeToast.imageUrl}
-                  alt={activeToast.certName}
-                  className="w-12 h-12 object-cover rounded-lg border border-amber-200 dark:border-amber-800 shadow-sm"
-                />
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {t('cert_image_preview')}
-                </span>
-              </div>
-            )}
+            {(() => {
+              const cleanCert = extractCleanProofUrl(activeToast.imageUrl);
+              if (!cleanCert) return null;
+              return (
+                <div className="pt-2 flex items-center gap-2">
+                  <img
+                    src={cleanCert}
+                    alt={activeToast.certName || 'Chứng chỉ'}
+                    className="w-12 h-12 object-cover rounded-lg border border-amber-200 dark:border-amber-800 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => window.open(cleanCert, '_blank')}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {t('cert_image_preview')}
+                  </span>
+                </div>
+              );
+            })()}
 
             {activeToast.content && (
               <p className="text-[11px] text-slate-600 dark:text-slate-300 italic pt-1 border-t border-slate-200/60 dark:border-slate-700/60">

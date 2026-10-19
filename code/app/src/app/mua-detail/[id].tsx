@@ -19,6 +19,7 @@ import { PackageSelectorList } from '@/components/customer/PackageSelectorList';
 import { PackageIncludedSteps } from '@/components/customer/PackageIncludedSteps';
 import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
+import { MuaReviewPreviewSection } from '@/components/customer/MuaReviewPreviewSection';
 import { PortfolioShowcase } from '@/services/mua-profile.service';
 
 export default function MuaDetailScreen() {
@@ -41,6 +42,7 @@ export default function MuaDetailScreen() {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState(0);
 
   const currentMuaId = Number(id) || 1;
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
@@ -55,8 +57,9 @@ export default function MuaDetailScreen() {
     return () => resetDetail();
   }, [id, fetchMuaDetails, resetDetail]);
 
-  const handleOpenPhoto = (_photo: PortfolioShowcase, index: number) => {
+  const handleOpenPhoto = (_photo: PortfolioShowcase, index: number, angleIndex: number = 0) => {
     setSelectedPhotoIndex(index);
+    setSelectedAngleIndex(angleIndex);
     setIsModalVisible(true);
   };
 
@@ -199,6 +202,14 @@ export default function MuaDetailScreen() {
           isLoading={isLoadingShowcases}
           onPressPhoto={handleOpenPhoto}
         />
+
+        {/* ĐÁNH GIÁ CỦA KHÁCH HÀNG (PREVIEW 1-2 BÀI NHẸ NHÀNG + NÚT XEM TẤT CẢ) */}
+        <MuaReviewPreviewSection
+          muaId={Number(id)}
+          muaName={muaProfile?.fullName}
+          ratingAverage={muaProfile?.ratingAverage}
+          totalReviews={muaProfile?.totalReviews}
+        />
       </ScrollView>
 
       {/* STICKY BOTTOM ACTION BAR */}
@@ -255,6 +266,7 @@ export default function MuaDetailScreen() {
         visible={isModalVisible}
         showcases={showcases}
         initialIndex={selectedPhotoIndex}
+        initialAngleIndex={selectedAngleIndex}
         onClose={() => setIsModalVisible(false)}
       />
     </View>

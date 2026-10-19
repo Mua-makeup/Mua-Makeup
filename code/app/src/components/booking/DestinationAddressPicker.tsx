@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,11 @@ export const DestinationAddressPicker: React.FC<Props> = ({
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<number | undefined>(undefined);
   const [isMapImageLoading, setIsMapImageLoading] = useState(false);
   const [mapImageError, setMapImageError] = useState(false);
+
+  // Reset lỗi map khi thay đổi tọa độ
+  useEffect(() => {
+    setMapImageError(false);
+  }, [latitude, longitude]);
 
   // Lấy vị trí GPS thực tế chính xác cao
   const handleGetCurrentLocation = async () => {
@@ -103,13 +108,23 @@ export const DestinationAddressPicker: React.FC<Props> = ({
   };
 
   const hasValidCoordinates = latitude > 0 && longitude > 0;
-  const goongMapUrl = hasValidCoordinates
-    ? `https://rsapi.goong.io/staticmap/route?origin=${latitude},${longitude}&destination=${latitude},${longitude}&width=600&height=260&zoom=15&api_key=${GOONG_KEY}`
-    : null;
-  const fallbackMapUrl = hasValidCoordinates
-    ? `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=600x260&markers=${latitude},${longitude},red-pushpin`
-    : null;
+  const goongMapUrl = useMemo(() => {
+    return hasValidCoordinates
+      ? `https://rsapi.goong.io/staticmap/route?origin=${latitude},${longitude}&destination=${latitude},${longitude}&width=600&height=260&zoom=15&api_key=${GOONG_KEY}`
+      : null;
+  }, [hasValidCoordinates, latitude, longitude]);
+
+  const fallbackMapUrl = useMemo(() => {
+    return hasValidCoordinates
+      ? `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=600x260&markers=${latitude},${longitude},red-pushpin`
+      : null;
+  }, [hasValidCoordinates, latitude, longitude]);
+
   const miniMapUrl = mapImageError ? fallbackMapUrl : goongMapUrl;
+
+  const imageSource = useMemo(() => {
+    return miniMapUrl ? { uri: miniMapUrl } : undefined;
+  }, [miniMapUrl]);
 
   return (
     <View style={styles.container}>
@@ -234,10 +249,9 @@ export const DestinationAddressPicker: React.FC<Props> = ({
       {hasValidCoordinates && (
         <View style={styles.mapPreviewCard}>
           <Image
-            source={{ uri: miniMapUrl! }}
+            source={imageSource}
             style={styles.miniMapImage}
             resizeMode="cover"
-            onLoadStart={() => setIsMapImageLoading(true)}
             onLoadEnd={() => setIsMapImageLoading(false)}
             onError={() => {
               setIsMapImageLoading(false);

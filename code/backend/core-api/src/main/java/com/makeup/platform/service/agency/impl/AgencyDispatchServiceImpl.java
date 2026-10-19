@@ -27,12 +27,23 @@ import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.mapper.agency.AgencyBookingMapper;
 import com.makeup.platform.mapper.agency.DispatchMatrixMapper;
 import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
+import com.makeup.platform.entity.agency.AgencyOvertimeRuleEntity;
+import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
+import com.makeup.platform.entity.agency.AgencyStaffShiftEntity;
+import com.makeup.platform.entity.agency.OvertimePenaltyType;
+import com.makeup.platform.entity.agency.OvertimePolicyType;
+import com.makeup.platform.entity.agency.OvertimeReasonType;
+import com.makeup.platform.entity.agency.OvertimeReportStatus;
+import com.makeup.platform.repository.AgencyOvertimeRuleRepository;
+import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
+import com.makeup.platform.repository.AgencyStaffShiftRepository;
 import com.makeup.platform.repository.StaffMatrixRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.repository.custom.projection.StaffMatrixProjection;
 import com.makeup.platform.service.agency.AgencyDispatchService;
 import com.makeup.platform.service.booking.BookingAuditService;
+import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.mua.MUACalendarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,9 +56,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.makeup.platform.service.booking.BookingStateMachineService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -75,6 +89,9 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
     private final BookingRepository bookingRepository;
     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
     private final StaffMatrixRepository staffMatrixRepository;
+    private final AgencyStaffShiftRepository agencyStaffShiftRepository;
+    private final AgencyOvertimeRuleRepository agencyOvertimeRuleRepository;
+    private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
     private final MUACalendarService muaCalendarService;
     private final BookingAuditService bookingAuditService;
     private final BookingStateMachineService bookingStateMachineService;
@@ -85,6 +102,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
     private final AgencyBookingMapper agencyBookingMapper;
     private final DispatchMatrixMapper dispatchMatrixMapper;
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -126,7 +144,12 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 endTs
         );
 
-        return dispatchMatrixMapper.toMatrixRes(booking, projections);
+        List<AgencyOvertimeRuleEntity> activeRules = agencyOvertimeRuleRepository.findByAgencyId(agency.getId())
+                .stream()
+                .filter(r -> Boolean.TRUE.equals(r.getIsActive()))
+                .toList();
+
+        return dispatchMatrixMapper.toMatrixRes(booking, projections, activeRules);
     }
 
     @Override
@@ -218,7 +241,10 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
 
         StaffMatrixProjection primaryProj = support.findStaffProjection(projections, primaryStaffId);
 
-        boolean isPrimaryQualified = Boolean.TRUE.equals(primaryProj.getHasShift())
+        boolean isPrimaryShiftValid = Boolean.TRUE.equals(primaryProj.getHasShift())
+                || (Boolean.TRUE.equals(primaryProj.getHasOverlappingShift()) && primaryProj.getShiftOvertimeMinutes() != null && primaryProj.getShiftOvertimeMinutes() > 0);
+
+        boolean isPrimaryQualified = isPrimaryShiftValid
                 && Boolean.TRUE.equals(primaryProj.getHasPackage())
                 && Boolean.TRUE.equals(primaryProj.getHasStyle())
                 && Boolean.TRUE.equals(primaryProj.getHasCalendarFree());
@@ -235,7 +261,10 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
 
             StaffMatrixProjection astProj = support.findStaffProjection(projections, astId);
 
-            boolean isAstQualified = Boolean.TRUE.equals(astProj.getHasShift())
+            boolean isAstShiftValid = Boolean.TRUE.equals(astProj.getHasShift())
+                    || (Boolean.TRUE.equals(astProj.getHasOverlappingShift()) && astProj.getShiftOvertimeMinutes() != null && astProj.getShiftOvertimeMinutes() > 0);
+
+            boolean isAstQualified = isAstShiftValid
                     && Boolean.TRUE.equals(astProj.getHasCalendarFree());
 
             if (!isAstQualified) {
@@ -455,6 +484,12 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         log.info("Assigned {} staff members to booking {} (Primary: {})",
                 allSaved.size(), savedBooking.getBookingCode(), primaryStaff.getId());
 
+        // 6.5. Tự động ghi nhận báo cáo tăng ca nếu thợ làm ngoài giờ (vượt ca trực) theo quy chế Studio
+        recordOvertimeIfApplicable(savedBooking, primaryStaff, agency, startTime, endTime, agency.getOwner().getId());
+        for (AgencyStaffEntity astStaff : assistantStaffList) {
+            recordOvertimeIfApplicable(savedBooking, astStaff, agency, startTime, endTime, agency.getOwner().getId());
+        }
+
         // 7. Audit log transition into booking_history
         String primaryName = (primaryStaff.getMua() != null && primaryStaff.getMua().getUser() != null)
                 ? primaryStaff.getMua().getUser().getFullName() : (isEn ? "Primary Artist" : "Thợ chính");
@@ -486,6 +521,21 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 agency.getOwner().getId()
         ));
         support.broadcastDispatchUpdate(agency.getId(), savedBooking);
+
+        // 8a. Gửi thông báo in-app & Push notification cho từng thợ được điều phối
+        for (var assignedStaff : allSaved) {
+            try {
+                notificationService.createStaffDispatchedNotification(
+                        agency,
+                        assignedStaff.getStaff(),
+                        savedBooking,
+                        assignedStaff.getAssignmentRole().name(),
+                        assignedStaff.getCommissionRate()
+                );
+            } catch (Exception ex) {
+                log.warn("Failed to create dispatched notification for staff {}: {}", assignedStaff.getStaff().getId(), ex.getMessage());
+            }
+        }
 
         List<StaffAssignmentDetailRes> assignmentDetails = bookingStaffAssignmentMapper.toDetailResList(allSaved);
 
@@ -520,7 +570,6 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 || booking.getStatus() == BookingStatus.PAID_OUT
                 || booking.getStatus() == BookingStatus.CANCELLED
                 || booking.getStatus() == BookingStatus.CANCELLED_EXPIRED
-                || booking.getStatus() == BookingStatus.DISPUTED
                 || booking.getStatus() == BookingStatus.DISPUTE_REFUNDED
                 || booking.getStatus() == BookingStatus.DISPUTE_COMPENSATED) {
             throw new CustomBusinessException(ErrorCodes.ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS, "dispatch.cannot_dispatch_in_status");
@@ -642,6 +691,27 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 muaUserId,
                 confirmNote
         );
+
+        AgencyProfileEntity agency = (assignment.getStaff() != null) ? assignment.getStaff().getAgency() : null;
+        if (agency != null) {
+            support.broadcastDispatchUpdate(agency.getId(), booking);
+        }
+
+        try {
+            Map<String, Object> confirmPayload = new HashMap<>();
+            confirmPayload.put("type", "STAFF_ASSIGNMENT_CONFIRMED");
+            confirmPayload.put("bookingId", booking.getId());
+            confirmPayload.put("bookingCode", booking.getBookingCode());
+            confirmPayload.put("status", booking.getStatus().name());
+            confirmPayload.put("assignmentId", assignment.getId());
+            confirmPayload.put("staffId", assignment.getStaff() != null ? assignment.getStaff().getId() : null);
+            confirmPayload.put("role", assignment.getAssignmentRole().name());
+            confirmPayload.put("isConfirmedByStaff", true);
+            confirmPayload.put("timestamp", System.currentTimeMillis());
+            messagingTemplate.convertAndSend("/topic/booking-status/" + booking.getId(), confirmPayload);
+        } catch (Exception ex) {
+            log.warn("[AgencyDispatch] Failed to broadcast STAFF_ASSIGNMENT_CONFIRMED: {}", ex.getMessage());
+        }
     }
 
     @Override
@@ -698,6 +768,173 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
 
         bookingStaffAssignmentRepository.flush();
         BookingEntity refreshedBooking = bookingRepository.findById(bookingId).orElse(booking);
+        support.broadcastDispatchUpdate(agency.getId(), refreshedBooking);
         return agencyBookingMapper.toRes(refreshedBooking, agency);
+    }
+
+    @Override
+    @Transactional
+    public void declineAssignmentByBooking(Long muaUserId, Long bookingId, String reason) {
+        BookingStaffAssignmentEntity assignment = bookingStaffAssignmentRepository
+                .findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
+                .stream()
+                .filter(a -> a.getStaff() != null
+                        && a.getStaff().getMua() != null
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(muaUserId))
+                .findFirst()
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found"));
+
+        // Hủy phân công của thợ này và mở lại slot lịch
+        assignment.setStatus(AssignmentStatus.EMERGENCY_CANCELLED);
+        assignment.setCancellationReason(
+
+                StringUtils.hasText(reason) ? reason : "Thợ từ chối tiếp nhận ca / từ chối làm thợ chính");
+        assignment.setCancelledAt(OffsetDateTime.now());
+        bookingStaffAssignmentRepository.save(assignment);
+
+        if (assignment.getStaff() != null && assignment.getStaff().getMua() != null) {
+            muaCalendarService.releaseSlotByBookingIdAndMuaId(bookingId, assignment.getStaff().getMua().getId());
+        }
+
+        // Trả lại trạng thái đang điều thợ cho agency admin
+        BookingEntity booking = assignment.getBooking();
+        booking.setNeedsEmergencyReassignment(true);
+        booking.setStatus(BookingStatus.PENDING_AGENCY_DISPATCH);
+        booking.setEmergencyReason(StringUtils.hasText(reason) ? reason : "Thợ từ chối nhận ca / từ chối làm thợ chính");
+        booking.setEmergencyReportedAt(OffsetDateTime.now());
+        bookingRepository.save(booking);
+
+        String staffName = (assignment.getStaff() != null && assignment.getStaff().getMua() != null && assignment.getStaff().getMua().getUser() != null)
+                ? assignment.getStaff().getMua().getUser().getFullName() : "Thợ";
+
+        bookingAuditService.logTransition(
+                booking,
+                booking.getStatus(),
+                BookingStatus.PENDING_AGENCY_DISPATCH,
+                muaUserId,
+                "Thợ " + staffName + " từ chối tiếp nhận ca (" + assignment.getAssignmentRole().name() + "). Trả về Studio để điều thợ khác: " + (reason != null ? reason : "Không rõ")
+        );
+
+        AgencyProfileEntity agency = (assignment.getStaff() != null) ? assignment.getStaff().getAgency() : null;
+        if (agency != null) {
+            support.broadcastDispatchUpdate(agency.getId(), booking);
+        }
+    }
+
+    private void recordOvertimeIfApplicable(BookingEntity booking, AgencyStaffEntity staff, AgencyProfileEntity agency,
+                                            LocalTime startTime, LocalTime endTime, Long ownerUserId) {
+        if (booking == null || staff == null || agency == null || booking.getBookingDate() == null || startTime == null || endTime == null) {
+            return;
+        }
+
+        LocalDate bookingDate = booking.getBookingDate();
+        int dayOfWeek = bookingDate.getDayOfWeek().getValue() + 1; // EXTRACT(DOW) + 1 (1: Chủ nhật, 2: Thứ 2...)
+        List<AgencyStaffShiftEntity> shifts = agencyStaffShiftRepository.findActiveShiftsForStaffOnDate(staff.getId(), bookingDate, dayOfWeek);
+        if (shifts == null || shifts.isEmpty()) {
+            return;
+        }
+
+        // Tìm ca trực bao phủ giờ bắt đầu nhưng kết thúc sớm hơn giờ trả khách của đơn
+        AgencyStaffShiftEntity overlappingShift = shifts.stream()
+                .filter(sh -> !sh.getStartTime().isAfter(startTime) && sh.getEndTime().isBefore(endTime))
+                .findFirst()
+                .orElse(null);
+
+        if (overlappingShift == null) {
+            return; // Không phải ca tăng ca (đã nằm trọn vẹn trong ca)
+        }
+
+        int overtimeMinutes = (int) Duration.between(overlappingShift.getEndTime(), endTime).toMinutes();
+        if (overtimeMinutes <= 0) {
+            return;
+        }
+
+        // Tìm quy tắc overtime áp dụng từ bảng agency_overtime_rules của Studio
+        List<AgencyOvertimeRuleEntity> activeRules = agencyOvertimeRuleRepository.findByAgencyId(agency.getId())
+                .stream()
+                .filter(r -> Boolean.TRUE.equals(r.getIsActive()))
+                .toList();
+
+        AgencyOvertimeRuleEntity matchedRule = null;
+        for (AgencyOvertimeRuleEntity rule : activeRules) {
+            if (rule.getPolicyType() == null || rule.getPolicyType() == OvertimePolicyType.ALLOWANCE) {
+                int min = rule.getMinOvertimeMinutes() != null ? rule.getMinOvertimeMinutes() : 0;
+                Integer max = rule.getMaxOvertimeMinutes();
+                if (overtimeMinutes >= min && (max == null || overtimeMinutes <= max)) {
+                    matchedRule = rule;
+                    break;
+                }
+            }
+        }
+
+        if (agencyStaffOvertimeReportRepository.existsByBookingIdAndStaffId(booking.getId(), staff.getId())) {
+            log.info("[OvertimeAutoRecord] Báo cáo tăng ca đã tồn tại cho staffId={} bookingId={}, bỏ qua tạo mới để chống đúp",
+                    staff.getId(), booking.getId());
+            return;
+        }
+
+        // Tìm vai trò và tỷ lệ hoa hồng của nhân sự trong ca làm
+        AssignmentRole assignmentRole = AssignmentRole.PRIMARY_MUA;
+        BigDecimal staffCommRate = BigDecimal.valueOf(100);
+        if (booking.getStaffAssignments() != null) {
+            for (BookingStaffAssignmentEntity sa : booking.getStaffAssignments()) {
+                if (sa.getStaff() != null && sa.getStaff().getId().equals(staff.getId())) {
+                    if (sa.getAssignmentRole() != null) {
+                        assignmentRole = sa.getAssignmentRole();
+                    }
+                    if (sa.getCommissionRate() != null && sa.getCommissionRate().compareTo(BigDecimal.ZERO) > 0) {
+                        staffCommRate = sa.getCommissionRate();
+                    }
+                    break;
+                }
+            }
+        }
+
+        BigDecimal overtimePay = BigDecimal.ZERO;
+        if (matchedRule != null) {
+            if (matchedRule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
+                overtimePay = matchedRule.getPenaltyValue() != null ? matchedRule.getPenaltyValue() : BigDecimal.ZERO;
+            } else if (matchedRule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION && booking.getTotalAmount() != null) {
+                BigDecimal pct = matchedRule.getPenaltyValue() != null ? matchedRule.getPenaltyValue() : BigDecimal.ZERO;
+                overtimePay = booking.getTotalAmount().multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            } else if (matchedRule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
+                BigDecimal ratePerMinute = matchedRule.getPenaltyValue() != null ? matchedRule.getPenaltyValue() : BigDecimal.ZERO;
+                overtimePay = ratePerMinute.multiply(BigDecimal.valueOf(overtimeMinutes)).setScale(0, RoundingMode.HALF_UP);
+            }
+        }
+
+        // PHÂN BIỆT ROLE: Thợ phụ (Assistant MUA) nhận phụ cấp tăng ca theo tỷ lệ hoa hồng thỏa thuận của mình
+        if (assignmentRole == AssignmentRole.ASSISTANT_MUA && overtimePay.compareTo(BigDecimal.ZERO) > 0) {
+            if (staffCommRate.compareTo(BigDecimal.ZERO) > 0 && staffCommRate.compareTo(BigDecimal.valueOf(100)) < 0) {
+                overtimePay = overtimePay.multiply(staffCommRate).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            } else {
+                overtimePay = overtimePay.multiply(BigDecimal.valueOf(0.5)).setScale(0, RoundingMode.HALF_UP);
+            }
+            log.info("[OvertimeAutoRecord] Thợ phụ staffId={} áp dụng phụ cấp tăng ca theo tỷ lệ hoa hồng {}%: {}đ",
+                    staff.getId(), staffCommRate, overtimePay);
+        }
+
+        AgencyStaffOvertimeReportEntity report = AgencyStaffOvertimeReportEntity.builder()
+                .bookingId(booking.getId())
+                .staff(staff)
+                .agency(agency)
+                .overtimeMinutes(overtimeMinutes)
+                .reasonType(matchedRule != null ? OvertimeReasonType.PRESET_RULE : OvertimeReasonType.OTHER_CUSTOM_REASON)
+                .rule(matchedRule)
+                .explanationText(String.format("Đơn hàng #%s kết thúc lúc %s (vượt ca trực lúc %s). Tự động ghi nhận làm thêm %d phút theo quy chế.",
+                        booking.getBookingCode(), endTime, overlappingShift.getEndTime(), overtimeMinutes))
+                .proofImageUrl(null)
+                .status(OvertimeReportStatus.APPROVED_WAIVED)
+                .penaltyAmountApplied(overtimePay)
+                .customerSurchargeAmount(BigDecimal.ZERO)
+                .adminNotes("Hệ thống tự động ghi nhận khi điều phối thợ")
+                .reviewedByUserId(ownerUserId)
+                .reviewedAt(LocalDateTime.now())
+                .build();
+
+        agencyStaffOvertimeReportRepository.save(report);
+        log.info("[OvertimeAutoRecord] Tự động tạo báo cáo tăng ca {} phút (+{}đ) cho staffId={} bookingId={}",
+                overtimeMinutes, overtimePay, staff.getId(), booking.getId());
     }
 }

@@ -73,7 +73,7 @@ public class MuaProfileEntity extends BaseEntity {
 
     @Column(name = "rating_avg", precision = 3, scale = 2)
     @Builder.Default
-    private BigDecimal ratingAvg = new BigDecimal("5.00");
+    private BigDecimal ratingAvg = null;
 
     @Column(name = "total_completed_jobs", nullable = false)
     @Builder.Default
@@ -114,6 +114,35 @@ public class MuaProfileEntity extends BaseEntity {
     @Column(name = "is_surge_enabled", nullable = false)
     @Builder.Default
     private Boolean isSurgeEnabled = true;
+
+    @Column(name = "bayesian_rating", nullable = false, precision = 3, scale = 2)
+    @Builder.Default
+    private BigDecimal bayesianRating = new BigDecimal("4.60");
+
+    @Column(name = "rolling_rating", nullable = false, precision = 3, scale = 2)
+    @Builder.Default
+    private BigDecimal rollingRating = new BigDecimal("5.00");
+
+    @Column(name = "acceptance_rate", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal acceptanceRate = new BigDecimal("100.00");
+
+    @Column(name = "rank_score", nullable = false, precision = 6, scale = 2)
+    @Builder.Default
+    private BigDecimal rankScore = new BigDecimal("50.00");
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "badge_tier", nullable = false, length = 30)
+    @Builder.Default
+    private BadgeTier badgeTier = BadgeTier.STANDARD;
+
+    @Column(name = "is_emergency_locked", nullable = false)
+    @Builder.Default
+    private Boolean isEmergencyLocked = false;
+
+    @Column(name = "commission_rate", nullable = false, precision = 4, scale = 2)
+    @Builder.Default
+    private BigDecimal commissionRate = new BigDecimal("0.20");
 }
 
 

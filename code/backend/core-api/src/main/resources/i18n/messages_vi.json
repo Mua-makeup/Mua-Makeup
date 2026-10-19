@@ -112,7 +112,8 @@
     "invalid_decision": "Quyết định không hợp lệ. Chỉ chấp nhận APPROVE hoặc REJECT.",
     "staff_not_active": "Nhân viên chưa kích hoạt hoặc không thể xếp ca.",
     "shift_time_invalid": "Thời gian kết thúc ca làm phải sau thời gian bắt đầu.",
-    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ trong ngày.",
+    "shift_time_must_be_fixed_preset": "Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00 - 12:00), Ca chiều (13:00 - 17:00), Ca tối (18:00 - 21:30) hoặc Cả ngày (08:00 - 17:00).",
+    "shift_time_overlapped": "Ca làm việc bị trùng giờ với ca khác của thợ vào {0}.",
     "staff_busy_slot_conflict": "Thợ {0} đã đăng ký lịch bận cá nhân từ {1} đến {2} (Lý do: {3}). Không thể xếp ca vào khung giờ này!",
     "shift_created_success": "Tạo ca làm việc thành công!",
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
@@ -123,6 +124,28 @@
     "cert_review_success": "Xử lý phê duyệt chứng chỉ nhân viên thành công.",
     "cert_delete_success": "Xóa chứng chỉ thành công.",
     "cannot_delete_verified_platform_cert": "Không thể xóa chứng chỉ đã được Ban Quản Trị Sàn phê duyệt.",
+    "leave_requests_fetched": "Lấy danh sách đơn xin nghỉ thành công.",
+    "leave_pending_count_fetched": "Lấy số lượng đơn chờ duyệt thành công.",
+    "leave_request_approved_success": "Phê duyệt đơn xin nghỉ ca thành công! Ca làm việc tương ứng đã được xóa khỏi lịch.",
+    "leave_request_rejected_success": "Đã từ chối đơn xin nghỉ ca. Ca làm việc vẫn được giữ nguyên.",
+    "leave_request_submitted_success": "Gửi đơn xin nghỉ ca thành công! Đang chờ Studio phê duyệt.",
+    "my_leave_requests_fetched": "Lấy danh sách đơn xin nghỉ của bạn thành công.",
+    "leave_request_cancelled_success": "Hủy đơn xin nghỉ ca thành công.",
+    "leave_request_already_pending": "Bạn đã có một đơn xin nghỉ đang chờ duyệt vào khung giờ này.",
+    "leave_request_not_found": "Không tìm thấy đơn xin nghỉ ca.",
+    "leave_request_not_owner": "Bạn không có quyền thao tác trên đơn xin nghỉ này.",
+    "leave_request_cannot_cancel_reviewed": "Chỉ có thể hủy đơn xin nghỉ khi đang ở trạng thái Chờ duyệt.",
+    "leave_request_not_in_agency": "Đơn xin nghỉ này không thuộc Studio của bạn.",
+    "leave_request_already_reviewed": "Đơn xin nghỉ này đã được xử lý trước đó.",
+    "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
+    "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
+    "dispute_resolved_success": "Giải quyết khiếu nại thành công.",
+    "portfolio_create_success": "Tạo tác phẩm mẫu Studio thành công!",
+    "portfolio_update_success": "Cập nhật tác phẩm mẫu Studio thành công!",
+    "portfolio_delete_success": "Xóa tác phẩm mẫu Studio thành công!",
+    "portfolio_get_success": "Lấy chi tiết tác phẩm mẫu Studio thành công.",
+    "portfolios_list_success": "Lấy danh sách tác phẩm mẫu Studio thành công.",
+    "portfolio_files_empty": "Vui lòng chọn ít nhất một tệp ảnh để tải lên.",
     "review": {
       "decision_required": "Quyết định phê duyệt là bắt buộc.",
       "decision_invalid": "Quyết định phê duyệt không hợp lệ. Chỉ chấp nhận VERIFIED hoặc REJECTED."
@@ -174,6 +197,8 @@
     "deposit_status_retrieved": "Lấy trạng thái cọc thành công.",
     "deposit_deprecated": "Endpoint xác nhận cọc trực tiếp đã bị vô hiệu hóa. Vui lòng tạo yêu cầu thanh toán qua deposit-intents.",
     "deposit_not_paid": "Không thể bắt đầu di chuyển: Khách hàng chưa hoàn tất thanh toán cọc.",
+    "assistant_not_confirmed": "Thợ phụ chưa bấm xác nhận đơn, chưa thể bắt đầu di chuyển.",
+    "assistant_cannot_transition_state": "Thợ phụ chỉ được phép tiếp nhận đơn và báo bận. Tiến độ ca làm do Thợ chính cập nhật.",
     "confirm_scheduled_success": "Chuyên viên xác nhận nhận ca hẹn trước thành công!",
     "reject_scheduled_success": "Từ chối tiếp nhận ca hẹn trước thành công.",
     "cancel_requested_success": "Hủy ca hẹn thành công. Tiền cọc đã được hoàn về Ví của bạn.",
@@ -256,6 +281,8 @@
   "ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY": "Thợ make-up đã xác nhận và bắt đầu di chuyển, quý khách không thể hủy ca lúc này.",
   "ERR_CANNOT_CANCEL_AFTER_DEPOSIT": "Đơn khẩn cấp đã thanh toán cọc thành công, quý khách không thể tự hủy lúc này.",
   "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
+  "ERR_ASSISTANT_NOT_CONFIRMED": "Thợ phụ chưa bấm xác nhận đơn, chưa thể bắt đầu di chuyển.",
+  "ERR_ASSISTANT_CANNOT_TRANSITION_STATE": "Thợ phụ chỉ được phép tiếp nhận đơn và báo bận. Không có quyền cập nhật tiến độ ca làm hoặc hoàn thành đơn.",
   "ERR_BOOKING_ALREADY_TAKEN": "Đơn hàng đã được thợ khác tiếp nhận trước.",
   "ERR_LOCK_ACQUISITION_TIMEOUT": "Hết thời gian chờ giành khóa phân tán đơn hàng.",
   "ERR_OPTIMISTIC_LOCK_CONFLICT": "Xung đột cập nhật phiên bản đơn hàng.",
@@ -404,6 +431,7 @@
   "dispute": {
     "not_in_disputed_state": "Đơn hàng không nằm ở trạng thái tranh chấp (DISPUTED).",
     "invalid_resolution_type": "Loại phán quyết không hợp lệ. Phải là APPROVE_REFUND_CUSTOMER hoặc REJECT_AND_PAYOUT_MUA.",
+    "split_not_allowed_for_completed_booking": "Khiếu nại sau khi kết thúc ca chỉ cho phép hoàn tiền 100% cho khách hoặc bác bỏ khiếu nại bảo lưu tiền thợ, không áp dụng hòa giải chia đôi.",
     "resolution_required": "Quyết định phân xử không được để trống.",
     "note_required": "Ghi chú phân xử của Admin không được để trống."
   },
@@ -444,6 +472,7 @@
   },
   "calendar": {
     "slot_blocked_success": "Khóa khung giờ bận cá nhân thành công!",
+    "busy_time_must_be_fixed_preset": "Chỉ được đăng ký lịch bận trong 4 ca cố định: Ca sáng (08:00 - 12:00), Ca chiều (13:00 - 17:00), Ca tối (18:00 - 21:30) hoặc Cả ngày (08:00 - 17:00).",
     "slot_unblocked_success": "Mở lại khung giờ làm việc thành công!",
     "slots_fetch_success": "Lấy danh sách khung giờ khả dụng thành công.",
     "days_fetch_success": "Lấy tổng quan lịch 30 ngày thành công.",
@@ -488,7 +517,8 @@
     "proceed_solo_success": "Xác nhận để thợ đảm nhiệm toàn bộ đơn hàng thành công.",
     "cannot_proceed_solo_no_active_staff": "Đơn hàng hiện không còn thợ nào đang hoạt động để làm một mình. Vui lòng chọn thợ thay thế hoặc từ chối báo bận.",
     "emergency_proof_required_critical": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
-    "assignment_confirm_success": "Xác nhận nhận ca điều phối thành công!"
+    "assignment_confirm_success": "Xác nhận nhận ca điều phối thành công!",
+    "assignment_decline_success": "Đã từ chối nhận ca và hoàn trả về Studio để tìm thợ khác."
   },
   "emergency": {
     "reason": {
@@ -537,7 +567,15 @@
     "staff_app_approved_title": "Chào Mừng Gia Nhập {0}!",
     "staff_app_approved_content": "Chúc mừng bạn đã được Studio {0} phê duyệt gia nhập với tỷ lệ hoa hồng {1}.",
     "staff_app_rejected_title": "Kết Quả Đơn Xin Gia Nhập {0}",
-    "staff_app_rejected_content": "Studio {0} đã từ chối đơn gia nhập của bạn. Ghi chú: {2}"
+    "staff_app_rejected_content": "Studio {0} đã từ chối đơn gia nhập của bạn. Ghi chú: {2}",
+    "emergency_review_approved_title": "Studio Đã Duyệt Báo Bận #{0}",
+    "emergency_review_approved_content": "Studio {0} đã chấp thuận đơn báo bận của bạn cho đơn #{1}. Bạn được miễn nhiệm ca làm này. Ghi chú: {2}",
+    "emergency_review_rejected_title": "Studio Từ Chối Đơn Báo Bận #{0}",
+    "emergency_review_rejected_content": "Studio {0} đã từ chối đơn báo bận cho đơn #{1}. Bạn được khôi phục về ca làm việc. Ghi chú: {2}",
+    "solo_promotion_offer_title": "Đề Xuất Đảm Nhiệm Thợ Chính Đơn #{0}",
+    "solo_promotion_offer_content": "Studio {0} đề xuất bạn đảm nhiệm vai trò Thợ chính cho đơn #{1} với tỷ lệ hoa hồng mới {2}. Vui lòng xác nhận bạn có đồng ý làm hay không!",
+    "staff_dispatched_title": "Phân Công Ca Làm Mới #{0}",
+    "staff_dispatched_content": "{0} đã phân công bạn vào ca làm #{1} với vai trò {2} (Hoa hồng {3}). Vui lòng kiểm tra và xác nhận nhận việc!"
   },
   "ERR_PAYMENT_GATEWAY_NOT_FOUND": "Không tìm thấy cổng thanh toán yêu cầu.",
   "ERR_PAYMENT_GATEWAY_DISABLED": "Cổng thanh toán này hiện đang tạm ngưng hoạt động.",
@@ -599,7 +637,11 @@
     "assignment_confirm_success": "Xác nhận nhận ca thành công.",
     "update_commissions_success": "Cập nhật phân chia hoa hồng cho các thợ thành công.",
     "no_active_staff_to_update_commission": "Không tìm thấy thợ nào đang hoạt động trong ca này để cập nhật hoa hồng.",
-    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng."
+    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng.",
+    "staff_unqualified": "Thợ được chọn không đủ điều kiện thực hiện ca này.",
+    "primary_required": "Vui lòng chọn thợ chính cho đơn hàng.",
+    "max_assistants_exceeded": "Số lượng thợ phụ vượt quá giới hạn tối đa (2 thợ phụ).",
+    "staff_reported_busy": "Thợ đã báo bận ca này, không thể phân công lại."
   },
   "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn.",
@@ -610,6 +652,40 @@
     "status_ok": "Lấy trạng thái biên nhận tiền mặt thành công.",
     "not_found": "Không tìm thấy biên nhận tiền mặt của đơn hàng.",
     "worker_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt.",
-    "freelancer_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt."
+    "freelancer_not_assigned": "Bạn không được phân công thực hiện đơn hàng này nên không thể xác nhận tiền mặt.",
+    "only_primary_worker_allowed": "Chỉ có thợ chính mới có quyền xác nhận hoặc từ chối thu tiền mặt.",
+    "worker_declined": "Đã thông báo tới khách hàng là bạn chưa nhận được tiền mặt."
+  },
+  "ERR_LEAVE_REQUEST_NOT_FOUND": "Không tìm thấy đơn xin nghỉ ca trên hệ thống.",
+  "ERR_DUPLICATE_LEAVE_REQUEST": "Đơn xin nghỉ ca cho khung giờ này đã tồn tại và đang chờ duyệt.",
+  "ERR_INVALID_LEAVE_ACTION": "Thao tác trên đơn xin nghỉ không hợp lệ.",
+  "dispute": {
+    "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",
+    "resolution_accepted": "Đã chấp nhận kết quả giải quyết khiếu nại.",
+    "not_in_disputed_state": "Đơn hàng không ở trạng thái khiếu nại."
+  },
+  "review": {
+    "booking_id_required": "Mã đơn hàng không được để trống.",
+    "rating_required": "Vui lòng chọn số sao đánh giá (1 - 5 sao).",
+    "rating_min": "Đánh giá tối thiểu là 1 sao.",
+    "rating_max": "Đánh giá tối đa là 5 sao.",
+    "comment_too_long": "Nhận xét không được vượt quá 2000 ký tự.",
+    "unauthorized": "Bạn không có quyền đánh giá đơn hàng này.",
+    "booking_not_completed": "Chỉ có thể đánh giá sau khi đơn hàng đã hoàn thành dịch vụ.",
+    "already_reviewed": "Đơn hàng này đã được đánh giá trước đó.",
+    "mua_not_found": "Không tìm thấy thông tin chuyên viên trang điểm của đơn hàng.",
+    "submit_success": "Gửi đánh giá thành công! Cảm ơn phản hồi của bạn.",
+    "get_success": "Lấy thông tin đánh giá thành công.",
+    "list_success": "Lấy danh sách đánh giá thành công.",
+    "summary_success": "Lấy tóm tắt điểm số và danh hiệu thành công.",
+    "auto_review_comment": "Đơn hàng hoàn tất đạt chuẩn (Hệ thống tự động ghi nhận 5★ sau 72 giờ).",
+    "auto_review_notif_title": "Đơn hàng được ghi nhận 5★ tự động",
+    "auto_review_notif_content": "Khách hàng không khiếu nại sau 72 giờ hoàn tất. Hệ thống đã tự động ghi nhận đánh giá 5★ cho ca làm #{0}.",
+    "booking_not_paid_out": "Chỉ có thể đánh giá sau khi đơn hàng đã hoàn tất và thanh toán toàn bộ chi phí.",
+    "not_found": "Không tìm thấy thông tin đánh giá.",
+    "update_success": "Cập nhật đánh giá thành công! Cảm ơn bạn.",
+    "edit_expired": "Đã quá thời hạn 7 ngày cho phép chỉnh sửa đánh giá.",
+    "upload_images_success": "Tải ảnh đánh giá lên thành công.",
+    "missing_files": "Vui lòng chọn ít nhất một hình ảnh để tải lên."
   }
 }

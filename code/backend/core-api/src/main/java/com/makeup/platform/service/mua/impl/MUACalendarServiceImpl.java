@@ -9,6 +9,7 @@ import com.makeup.platform.dto.response.mua.MUACalendarSlotRes;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffShiftEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.catalog.SurchargeEntity;
 import com.makeup.platform.entity.catalog.SurchargeType;
 import com.makeup.platform.entity.mua.CalendarSlotType;
@@ -27,6 +28,7 @@ import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.mua.MUACalendarService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,8 +40,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -64,6 +68,28 @@ public class MUACalendarServiceImpl implements MUACalendarService {
     private static final int DEFAULT_BUFFER_MINUTES = 30;
     private static final int MIN_GAP_MINUTES = 30;
 
+    private static final List<LocalTime[]> VALID_BUSY_SLOT_WINDOWS = List.of(
+            new LocalTime[]{LocalTime.of(8, 0), LocalTime.of(12, 0)},
+            new LocalTime[]{LocalTime.of(13, 0), LocalTime.of(17, 0)},
+            new LocalTime[]{LocalTime.of(18, 0), LocalTime.of(21, 30)},
+            new LocalTime[]{LocalTime.of(8, 0), LocalTime.of(17, 0)}
+    );
+
+    private void validateBusySlotPreset(LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            return;
+        }
+        boolean isValidSlot = VALID_BUSY_SLOT_WINDOWS.stream()
+                .anyMatch(w -> w[0].equals(startTime) && w[1].equals(endTime));
+        if (!isValidSlot) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_INVALID_SHIFT_TIME,
+                    "calendar.busy_time_must_be_fixed_preset",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<CalendarDayOverviewRes> getCalendarDaysOverview(Long muaId, LocalDate startDate, Integer days, Integer durationMinutes) {
@@ -85,6 +111,11 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         Optional<AgencyStaffEntity> activeStaffOpt = agencyStaffRepository.findActiveStaffByMuaId(muaId);
         boolean isStudioStaff = activeStaffOpt.isPresent();
         Long staffId = isStudioStaff ? activeStaffOpt.get().getId() : null;
+
+        // Tải trước toàn bộ ca trực của thợ 1 lần duy nhất để tránh N+1 query trong vòng lặp ngày
+        List<AgencyStaffShiftEntity> allStaffShifts = isStudioStaff
+                ? agencyStaffShiftRepository.findAllActiveByStaffIdWithStaff(staffId)
+                : Collections.emptyList();
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
@@ -121,7 +152,10 @@ public class MUACalendarServiceImpl implements MUACalendarService {
             List<AgencyStaffShiftEntity> staffShifts = Collections.emptyList();
             if (isStudioStaff) {
                 int dayOfWeek = (dow == 7) ? 1 : dow + 1;
-                staffShifts = agencyStaffShiftRepository.findActiveShiftsForStaffOnDate(staffId, date, dayOfWeek);
+                staffShifts = allStaffShifts.stream()
+                        .filter(s -> (s.getWorkDate() != null && s.getWorkDate().isEqual(date))
+                                || (s.getWorkDate() == null && Boolean.TRUE.equals(s.getIsRecurring()) && Objects.equals(s.getDayOfWeek(), dayOfWeek)))
+                        .toList();
                 if (staffShifts.isEmpty()) {
                     result.add(CalendarDayOverviewRes.builder()
                             .date(date)
@@ -223,6 +257,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         String dayOfWeekStr = date.getDayOfWeek().name();
         Optional<SurchargeEntity> earlySurchargeOpt = surchargeRepository.findByMuaIdAndSurchargeTypeAndIsActiveTrue(muaId, SurchargeType.EARLY_MORNING);
         BigDecimal earlySurchargeAmount = earlySurchargeOpt.map(SurchargeEntity::getAmount).orElse(BigDecimal.ZERO);
+        List<SurgePricingRuleEntity> allActiveSurgeRules = surgePricingRuleRepository.findByIsActiveTrue();
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
@@ -320,8 +355,15 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                 }
             }
 
-            // 3. Tra cứu quy tắc phụ trội cao điểm (Surge) & Phụ phí sớm
-            List<SurgePricingRuleEntity> matchingSurgeRules = surgePricingRuleRepository.findMatchingRules(currentStart, dayOfWeekStr, "ALL");
+            // 3. Tra cứu quy tắc phụ trội cao điểm (Surge) & Phụ phí sớm trong bộ nhớ RAM
+            LocalTime loopStart = currentStart;
+            List<SurgePricingRuleEntity> matchingSurgeRules = allActiveSurgeRules.stream()
+                    .filter(r -> "ALL".equals(r.getZoneCode()))
+                    .filter(r -> r.getStartTime() == null || r.getEndTime() == null
+                            || (!loopStart.isBefore(r.getStartTime()) && !loopStart.isAfter(r.getEndTime())))
+                    .filter(r -> r.getApplicableDaysOfWeek() == null || r.getApplicableDaysOfWeek().contains(dayOfWeekStr))
+                    .sorted(Comparator.comparing(SurgePricingRuleEntity::getSurgeMultiplier).reversed())
+                    .toList();
             boolean hasSurge = !matchingSurgeRules.isEmpty();
             String surgeRuleName = hasSurge ? matchingSurgeRules.get(0).getRuleName() : null;
             BigDecimal surgeMultiplier = hasSurge ? matchingSurgeRules.get(0).getSurgeMultiplier() : BigDecimal.ONE;
@@ -458,6 +500,8 @@ public class MUACalendarServiceImpl implements MUACalendarService {
     @Override
     @Transactional
     public MUACalendarSlotRes blockPersonalSlot(Long muaId, BlockCalendarSlotReq req) {
+        validateBusySlotPreset(req.getStartTime(), req.getEndTime());
+
         MuaProfileEntity muaProfile = muaProfileRepository.findById(muaId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND, "mua.profile_not_found"));
 
@@ -598,9 +642,31 @@ public class MUACalendarServiceImpl implements MUACalendarService {
         muaCalendarRepository.deleteByBookingIdAndMuaId(bookingId, muaId);
         muaCalendarRepository.flush();
 
-        com.makeup.platform.entity.mua.CalendarSlotType slotType = (reason != null && reason.contains("ASSIGNED_"))
-                ? com.makeup.platform.entity.mua.CalendarSlotType.AGENCY_ASSIGNED
-                : com.makeup.platform.entity.mua.CalendarSlotType.BOOKING;
+        List<MUACalendarEntity> overlappingSlots = muaCalendarRepository.findOverlappingSlots(muaId, startAt, endAt);
+        if (overlappingSlots != null && !overlappingSlots.isEmpty()) {
+            for (MUACalendarEntity exSlot : overlappingSlots) {
+                boolean isBookingSlot = exSlot.getBooking() != null && exSlot.getBooking().getId().equals(bookingId);
+                boolean isEmergencySlot = exSlot.getReason() != null && exSlot.getReason().contains("EMERGENCY");
+                boolean isInactiveBooking = exSlot.getBooking() != null && (
+                        exSlot.getBooking().getStatus() == BookingStatus.COMPLETED
+                        || exSlot.getBooking().getStatus() == BookingStatus.PAID_OUT
+                        || exSlot.getBooking().getStatus() == BookingStatus.CANCELLED
+                        || exSlot.getBooking().getStatus() == BookingStatus.CANCELLED_EXPIRED
+                        || exSlot.getBooking().getStatus() == BookingStatus.PENDING_DEPOSIT
+                        || exSlot.getBooking().getStatus() == BookingStatus.DISPUTE_REFUNDED
+                );
+                boolean isUnlocked = Boolean.FALSE.equals(exSlot.getIsLocked());
+
+                if (isBookingSlot || isEmergencySlot || isInactiveBooking || isUnlocked || exSlot.getBooking() == null) {
+                    muaCalendarRepository.delete(exSlot);
+                }
+            }
+            muaCalendarRepository.flush();
+        }
+
+        CalendarSlotType slotType = (reason != null && reason.contains("ASSIGNED_"))
+                ? CalendarSlotType.AGENCY_ASSIGNED
+                : CalendarSlotType.BOOKING;
 
         MUACalendarEntity calendarSlot = MUACalendarEntity.builder()
                 .mua(muaProfile)
@@ -641,7 +707,8 @@ public class MUACalendarServiceImpl implements MUACalendarService {
 
         if (!slots.isEmpty()) {
             for (MUACalendarEntity slot : slots) {
-                slot.setBooking(null);
+                // Keep the booking reference so deleteByBookingIdAndMuaId can identify it,
+                // but mark it as PERSONAL_BLOCKED with emergency reason so it blocks other assignments
                 slot.setSlotType(CalendarSlotType.PERSONAL_BLOCKED);
                 slot.setIsLocked(true);
                 slot.setReason(reasonText);
@@ -663,7 +730,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                     List<MUACalendarEntity> overlapping = muaCalendarRepository.findOverlappingSlots(muaId, startTs, endTs);
                     if (!overlapping.isEmpty()) {
                         for (MUACalendarEntity exSlot : overlapping) {
-                            exSlot.setBooking(null);
+                            exSlot.setBooking(b);
                             exSlot.setSlotType(CalendarSlotType.PERSONAL_BLOCKED);
                             exSlot.setIsLocked(true);
                             exSlot.setReason(reasonText);
@@ -673,7 +740,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                     } else {
                         MUACalendarEntity slot = MUACalendarEntity.builder()
                                 .mua(mua)
-                                .booking(null)
+                                .booking(b)
                                 .slotType(CalendarSlotType.PERSONAL_BLOCKED)
                                 .bookingDate(bookingDate)
                                 .startAt(startTs)

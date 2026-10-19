@@ -1134,7 +1134,18 @@ export default function OrderTrackingActivityScreen() {
                       style={styles.otherDetailBtn}
                       activeOpacity={0.8}
                       onPress={() => {
-                        if (isMUA) {
+                        const isTerminal = [
+                          'PAID_OUT',
+                          'COMPLETED',
+                          'CANCELLED',
+                          'CANCELLED_EXPIRED',
+                          'DISPUTED',
+                          'DISPUTE_REFUNDED',
+                          'DISPUTE_COMPENSATED',
+                        ].includes(b.status);
+                        if (isTerminal) {
+                          router.push(`/booking/history-detail/${b.id}` as any);
+                        } else if (isMUA) {
                           router.push(`/job-execution/${b.id}` as any);
                         } else {
                           router.push(`/booking/detail/${b.id}` as any);

@@ -8,6 +8,7 @@ import com.makeup.platform.dto.response.agency.WeeklyShiftMatrixRes;
 import com.makeup.platform.service.agency.AgencyShiftService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,8 +19,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -52,8 +55,8 @@ public class AgencyShiftController extends BaseController {
     @PreAuthorize("hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<WeeklyShiftMatrixRes>> getWeeklyShiftMatrix(
             @AuthenticationPrincipal Long userId,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         WeeklyShiftMatrixRes res = agencyShiftService.getWeeklyShiftMatrix(userId, startDate, endDate);
         return ok(res, "agency.shift_matrix_get_success");
     }
@@ -62,8 +65,10 @@ public class AgencyShiftController extends BaseController {
     @PreAuthorize("hasRole('AGENCY_ADMIN') or hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<List<ShiftDetailRes>>> getStaffShifts(
             @AuthenticationPrincipal Long userId,
-            @PathVariable Long staffId) {
-        List<ShiftDetailRes> res = agencyShiftService.getStaffShifts(userId, staffId);
+            @PathVariable Long staffId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        List<ShiftDetailRes> res = agencyShiftService.getStaffShifts(userId, staffId, startDate, endDate);
         return ok(res, "agency.shift_staff_get_success");
     }
 

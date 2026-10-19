@@ -22,7 +22,13 @@ export function formatDate(date) {
 export function formatDateTime(date, includeSeconds = false) {
   if (!date) return '';
   try {
-    const d = new Date(date);
+    let d;
+    if (typeof date === 'string') {
+      const trimmed = date.trim();
+      d = new Date(trimmed);
+    } else {
+      d = new Date(date);
+    }
     if (isNaN(d.getTime())) return String(date);
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');

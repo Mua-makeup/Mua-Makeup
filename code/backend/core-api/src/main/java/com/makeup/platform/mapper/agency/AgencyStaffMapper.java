@@ -38,7 +38,7 @@ public class AgencyStaffMapper {
             muaId = mua.getId();
             muaCode = mua.getMuaCode();
             experienceYears = mua.getExperienceYears();
-            ratingAvg = mua.getRatingAvg();
+            ratingAvg = (mua.getTotalReviews() != null && mua.getTotalReviews() > 0) ? mua.getRatingAvg() : null;
             if (mua.getUser() != null) {
                 fullName = mua.getUser().getFullName();
                 email = mua.getUser().getEmail();
@@ -103,7 +103,7 @@ public class AgencyStaffMapper {
             muaCode = mua.getMuaCode();
             bio = mua.getBio();
             experienceYears = mua.getExperienceYears();
-            ratingAvg = mua.getRatingAvg();
+            ratingAvg = (mua.getTotalReviews() != null && mua.getTotalReviews() > 0) ? mua.getRatingAvg() : null;
             isOnline = mua.getIsOnline();
             isBusy = mua.getIsBusy();
             totalCompletedJobs = mua.getTotalCompletedJobs();

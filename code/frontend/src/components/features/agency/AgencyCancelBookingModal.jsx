@@ -49,7 +49,14 @@ export const AgencyCancelBookingModal = ({ isOpen, onClose, booking, onSuccess }
 
     try {
       const bookingId = booking.bookingId || booking.id;
-      await agencyService.cancelBooking(bookingId, trimmedReason);
+      try {
+        await agencyService.rejectDispatchBooking(bookingId, {
+          rejectionReason: trimmedReason,
+          rejectionNote: trimmedReason,
+        });
+      } catch {
+        await agencyService.cancelBooking(bookingId, trimmedReason);
+      }
       if (onSuccess) {
         onSuccess(trimmedReason);
       }

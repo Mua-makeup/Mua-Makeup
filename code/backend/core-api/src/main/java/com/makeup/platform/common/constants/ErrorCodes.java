@@ -100,6 +100,7 @@ public final class ErrorCodes {
     public static final String ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY = "ERR_CANNOT_CANCEL_WHILE_ON_THE_WAY";
     public static final String ERR_CANNOT_CANCEL_AFTER_DEPOSIT = "ERR_CANNOT_CANCEL_AFTER_DEPOSIT";
     public static final String ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL = "ERR_EMERGENCY_PROOF_REQUIRED_CRITICAL";
+    public static final String ERR_ASSISTANT_NOT_CONFIRMED = "ERR_ASSISTANT_NOT_CONFIRMED";
     public static final String ERR_BOOKING_ALREADY_TAKEN = "ERR_BOOKING_ALREADY_TAKEN";
     public static final String ERR_LOCK_ACQUISITION_TIMEOUT = "ERR_LOCK_ACQUISITION_TIMEOUT";
     public static final String ERR_OPTIMISTIC_LOCK_CONFLICT = "ERR_OPTIMISTIC_LOCK_CONFLICT";
@@ -139,6 +140,7 @@ public final class ErrorCodes {
     public static final String ERR_ASSIGNMENT_NOT_FOUND = "ERR_ASSIGNMENT_NOT_FOUND";
     public static final String ERR_EMERGENCY_REPORT_NOT_FOUND = "ERR_EMERGENCY_REPORT_NOT_FOUND";
     public static final String ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS = "ERR_CANNOT_DISPATCH_IN_CURRENT_STATUS";
+    public static final String ERR_ASSISTANT_CANNOT_TRANSITION_STATE = "ERR_ASSISTANT_CANNOT_TRANSITION_STATE";
 
     // Phân hệ Xác thực 2FA OTP & Rate Limiting
     public static final String ERR_RATE_LIMIT_EXCEEDED = "ERR_RATE_LIMIT_EXCEEDED";
@@ -177,6 +179,14 @@ public final class ErrorCodes {
 
     // Phân hệ Trợ lý AI CSKH (AI Support & RAG)
     public static final String ERR_SUPPORT_SESSION_NOT_FOUND = "ERR_SUPPORT_SESSION_NOT_FOUND";
+
+    // Phân hệ Đánh giá & Phản hồi (Reviews)
+    public static final String ERR_REVIEW_NOT_FOUND = "ERR_REVIEW_NOT_FOUND";
+
+    // Phân hệ Đơn xin nghỉ ca của Thợ Studio (Staff Leave Requests)
+    public static final String ERR_LEAVE_REQUEST_NOT_FOUND = "ERR_LEAVE_REQUEST_NOT_FOUND";
+    public static final String ERR_DUPLICATE_LEAVE_REQUEST = "ERR_DUPLICATE_LEAVE_REQUEST";
+    public static final String ERR_INVALID_LEAVE_ACTION = "ERR_INVALID_LEAVE_ACTION";
 }
 
 

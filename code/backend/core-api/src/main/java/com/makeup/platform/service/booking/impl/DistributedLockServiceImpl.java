@@ -20,6 +20,7 @@ import com.makeup.platform.service.customer.InstantDispatchLeaseService;
 import com.makeup.platform.service.booking.DistributedLockService;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
+import com.makeup.platform.service.mua.MuaReputationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -51,6 +52,7 @@ public class DistributedLockServiceImpl implements DistributedLockService {
     private final ApplicationEventPublisher eventPublisher;
     private final StringRedisTemplate stringRedisTemplate;
     private final InstantDispatchLeaseService dispatchLeaseService;
+    private final MuaReputationService muaReputationService;
 
     @Override
     public BookingAcceptanceRes acceptBookingWithLock(Long bookingId, Long userId) {
@@ -216,6 +218,15 @@ public class DistributedLockServiceImpl implements DistributedLockService {
                 stringRedisTemplate.delete(InstantBookingKeys.meta(bookingId));
                 stringRedisTemplate.delete(InstantBookingKeys.meta(bookingId) + ":total");
                 dispatchLeaseService.release(bookingId, String.valueOf(muaProfile.getId()));
+
+                // Ghi nhận MUA đã nhận đơn và cập nhật lại acceptance_rate / rank_score
+                muaReputationService.recordOfferAndRecalculate(
+                        muaProfile.getId(),
+                        bookingId,
+                        "INSTANT",
+                        "ACCEPTED",
+                        "Chuyên viên đã tiếp nhận đơn khẩn cấp thành công qua Redlock"
+                );
 
                 log.info("[Redlock] Booking id={} successfully accepted by muaId={}", bookingId, muaProfile.getId());
                 return bookingMapper.toAcceptanceRes(savedBooking);

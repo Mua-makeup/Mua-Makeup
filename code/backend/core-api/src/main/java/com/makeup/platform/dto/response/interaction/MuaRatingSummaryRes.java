@@ -1,0 +1,40 @@
+package com.makeup.platform.dto.response.interaction;
+
+import com.makeup.platform.entity.mua.BadgeTier;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class MuaRatingSummaryRes {
+    private Long muaId;
+    private BigDecimal ratingAvg;
+    private BigDecimal bayesianRating;
+    private BigDecimal rollingRating;
+    private Integer totalReviews;
+    private Integer totalCompletedJobs;
+    private BigDecimal acceptanceRate;
+    private BigDecimal rankScore;
+    private BadgeTier badgeTier;
+    private Boolean isEmergencyLocked;
+
+    // Phân bố số lượng đánh giá cho các bộ lọc Shopee
+    private Long countWithImages;
+    private Long count5Star;
+    private Long count4Star;
+    private Long count3Star;
+    private Long count2Star;
+    private Long count1Star;
+
+    // Phân loại danh mục dịch vụ theo chuẩn Shopee
+    private List<CategoryReviewCountRes> categoryBreakdown;
+}

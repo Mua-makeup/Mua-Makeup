@@ -633,10 +633,17 @@ export default function BookingsScreen() {
   };
 
   const handleReview = (booking: CustomerBookingItem) => {
-    Alert.alert(
-      'Đánh Giá Dịch Vụ ⭐',
-      `Gửi lời cảm ơn và đánh giá chuyên viên MUA cho đơn ${booking.bookingCode}.`
-    );
+    router.push({
+      pathname: `/booking/history-detail/${booking.id}`,
+      params: { openReview: 'true' },
+    } as any);
+  };
+
+  const handleDispute = (booking: CustomerBookingItem) => {
+    router.push({
+      pathname: `/booking/history-detail/${booking.id}`,
+      params: { openDispute: 'true' },
+    } as any);
   };
 
   const handleRebook = () => {
@@ -779,6 +786,7 @@ export default function BookingsScreen() {
                 onTrackPress={handleTrack}
                 onReviewPress={handleReview}
                 onRebookPress={handleRebook}
+                onDisputePress={handleDispute}
               />
             )
           }

@@ -4,5 +4,6 @@ public enum OvertimeReviewAction {
     DEDUCT_BY_RULE,
     WAIVE_PENALTY,
     CUSTOM_PENALTY,
-    CHARGE_CUSTOMER
+    CHARGE_CUSTOMER,
+    APPROVE_ALLOWANCE
 }

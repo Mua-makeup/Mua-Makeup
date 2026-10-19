@@ -210,7 +210,8 @@ export function FloatingAiAssistantBubble() {
     pathname.includes('support-chat') ||
     pathname.includes('(auth)') ||
     pathname.includes('login') ||
-    pathname.includes('register')
+    pathname.includes('register') ||
+    pathname.includes('join')
   ) {
     return null;
   }

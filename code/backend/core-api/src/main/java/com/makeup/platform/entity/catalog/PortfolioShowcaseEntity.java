@@ -1,6 +1,7 @@
 package com.makeup.platform.entity.catalog;
 
 import com.makeup.platform.common.base.BaseEntity;
+import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -34,8 +35,12 @@ import java.util.List;
 public class PortfolioShowcaseEntity extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "mua_id", nullable = false)
+    @JoinColumn(name = "mua_id")
     private MuaProfileEntity mua;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "agency_id")
+    private AgencyProfileEntity agency;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "package_id")
@@ -79,5 +84,9 @@ public class PortfolioShowcaseEntity extends BaseEntity {
 
     public Long getMuaId() {
         return mua != null ? mua.getId() : null;
+    }
+
+    public Long getAgencyId() {
+        return agency != null ? agency.getId() : null;
     }
 }

@@ -4,11 +4,17 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.response.mua.AvailableTimeSlotRes;
 import com.makeup.platform.dto.response.mua.CalendarDayOverviewRes;
+import com.makeup.platform.entity.agency.AgencyStaffEntity;
+import com.makeup.platform.entity.agency.AgencyStaffShiftEntity;
+import com.makeup.platform.entity.mua.MUACalendarEntity;
+import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.pricing.SurgePricingRuleEntity;
 import com.makeup.platform.repository.AgencyProfileRepository;
+import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.AgencyStaffShiftRepository;
+import com.makeup.platform.repository.mua.MUACalendarRepository;
 import com.makeup.platform.repository.pricing.SurgePricingRuleRepository;
 import com.makeup.platform.service.agency.AgencyCalendarService;
-import com.makeup.platform.service.agency.AgencyStaffCapacityService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -18,8 +24,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -28,9 +41,12 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
 
     private static final LocalTime WORK_DAY_START = LocalTime.of(7, 0);
     private static final LocalTime WORK_DAY_END = LocalTime.of(22, 0);
+    private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
     private final AgencyProfileRepository agencyProfileRepository;
-    private final AgencyStaffCapacityService agencyStaffCapacityService;
+    private final AgencyStaffRepository agencyStaffRepository;
+    private final AgencyStaffShiftRepository agencyStaffShiftRepository;
+    private final MUACalendarRepository muaCalendarRepository;
     private final SurgePricingRuleRepository surgePricingRuleRepository;
 
     @Override
@@ -43,10 +59,51 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
         int scanDays = (days != null && days > 0) ? Math.min(days, 90) : 30;
         int duration = (durationMinutes != null && durationMinutes > 0) ? durationMinutes : 60;
         LocalDate start = (startDate != null) ? startDate : LocalDate.now();
+        LocalDate end = start.plusDays(scanDays - 1);
 
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
         LocalTime minBookingTime = now.plusHours(1); // Quy tắc đặt hẹn trước ít nhất 1 tiếng
+
+        // 1. Tải toàn bộ nhân sự đang hoạt động của Studio (1 query)
+        List<AgencyStaffEntity> activeStaffList = agencyStaffRepository.findByAgencyIdAndIsActiveTrue(agencyId);
+        if (activeStaffList.isEmpty()) {
+            List<CalendarDayOverviewRes> emptyResult = new ArrayList<>(scanDays);
+            for (int i = 0; i < scanDays; i++) {
+                LocalDate d = start.plusDays(i);
+                emptyResult.add(CalendarDayOverviewRes.builder()
+                        .date(d)
+                        .dayOfWeek(formatDayOfWeek(d))
+                        .isFullyBooked(true)
+                        .availableSlotsCount(0)
+                        .build());
+            }
+            return emptyResult;
+        }
+
+        // 2. Tải trước toàn bộ ca trực trong khoảng ngày (1 query)
+        List<AgencyStaffShiftEntity> allShifts = agencyStaffShiftRepository.findAllActiveByAgencyIdAndWeekRange(agencyId, start, end);
+        Map<Long, List<AgencyStaffShiftEntity>> shiftsByStaffId = allShifts.stream()
+                .filter(s -> s.getStaff() != null)
+                .collect(Collectors.groupingBy(s -> s.getStaff().getId()));
+
+        // 3. Tải trước toàn bộ lịch bận của tất cả chuyên viên trong khoảng ngày (1 query)
+        List<Long> muaIds = activeStaffList.stream()
+                .map(AgencyStaffEntity::getMua)
+                .filter(Objects::nonNull)
+                .map(MuaProfileEntity::getId)
+                .toList();
+
+        List<MUACalendarEntity> allBusySlots = muaIds.isEmpty()
+                ? Collections.emptyList()
+                : muaCalendarRepository.findActiveSlotsByMuaIdsAndDateBetween(muaIds, start, end);
+
+        Map<Long, Map<LocalDate, List<MUACalendarEntity>>> busySlotsByMuaAndDate = allBusySlots.stream()
+                .filter(b -> b.getMua() != null)
+                .collect(Collectors.groupingBy(
+                        b -> b.getMua().getId(),
+                        Collectors.groupingBy(MUACalendarEntity::getBookingDate)
+                ));
 
         List<CalendarDayOverviewRes> result = new ArrayList<>(scanDays);
 
@@ -54,17 +111,7 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
             LocalDate date = start.plusDays(i);
             boolean isPastDate = date.isBefore(today);
             boolean isToday = date.isEqual(today);
-
-            int dow = date.getDayOfWeek().getValue();
-            String dayOfWeekText = switch (dow) {
-                case 1 -> "Thứ 2";
-                case 2 -> "Thứ 3";
-                case 3 -> "Thứ 4";
-                case 4 -> "Thứ 5";
-                case 5 -> "Thứ 6";
-                case 6 -> "Thứ 7";
-                default -> "Chủ Nhật";
-            };
+            String dayOfWeekText = formatDayOfWeek(date);
 
             if (isPastDate) {
                 result.add(CalendarDayOverviewRes.builder()
@@ -75,6 +122,9 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
                         .build());
                 continue;
             }
+
+            int javaDow = date.getDayOfWeek().getValue();
+            int dayOfWeek = (javaDow == 7) ? 1 : javaDow + 1; // 1: Chủ Nhật, 2: Thứ 2, ..., 7: Thứ 7
 
             int availableCount = 0;
             LocalTime currentStart = WORK_DAY_START;
@@ -90,7 +140,43 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
                     continue;
                 }
 
-                boolean hasStaff = agencyStaffCapacityService.hasAvailableStaffForAgency(agencyId, date, currentStart, currentEnd);
+                OffsetDateTime windowStart = date.atTime(currentStart).atOffset(VIETNAM_OFFSET);
+                OffsetDateTime windowEnd = date.atTime(currentEnd).atOffset(VIETNAM_OFFSET);
+
+                // Kiểm tra in-memory xem có bất kỳ thợ nào rảnh trong khung giờ này không
+                boolean hasStaff = false;
+                for (AgencyStaffEntity staff : activeStaffList) {
+                    List<AgencyStaffShiftEntity> staffShifts = shiftsByStaffId.getOrDefault(staff.getId(), Collections.emptyList());
+
+                    LocalTime slotStart = currentStart;
+                    boolean insideShift = staffShifts.stream().anyMatch(shift -> {
+                        boolean matchDate = (shift.getWorkDate() != null && shift.getWorkDate().isEqual(date))
+                                || (shift.getWorkDate() == null && Boolean.TRUE.equals(shift.getIsRecurring()) && Objects.equals(shift.getDayOfWeek(), dayOfWeek));
+                        return matchDate && !slotStart.isBefore(shift.getStartTime()) && slotStart.isBefore(shift.getEndTime());
+                    });
+
+                    if (!insideShift) {
+                        continue;
+                    }
+
+                    if (staff.getMua() != null) {
+                        List<MUACalendarEntity> staffDayBusy = busySlotsByMuaAndDate
+                                .getOrDefault(staff.getMua().getId(), Collections.emptyMap())
+                                .getOrDefault(date, Collections.emptyList());
+
+                        boolean conflict = staffDayBusy.stream().anyMatch(busy ->
+                                isOverlapping(windowStart, windowEnd, busy.getStartAt(), busy.getEndAt()));
+
+                        if (!conflict) {
+                            hasStaff = true;
+                            break;
+                        }
+                    } else {
+                        hasStaff = true;
+                        break;
+                    }
+                }
+
                 if (hasStaff) {
                     availableCount++;
                 }
@@ -122,11 +208,38 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
         List<AvailableTimeSlotRes.TimeSlotItemRes> slotItems = new ArrayList<>();
 
         String dayOfWeekStr = date.getDayOfWeek().name();
+        int javaDow = date.getDayOfWeek().getValue();
+        int dayOfWeek = (javaDow == 7) ? 1 : javaDow + 1; // 1: Chủ Nhật, 2: Thứ 2, ..., 7: Thứ 7
+
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
         LocalTime minBookingTime = now.plusHours(1); // Quy tắc đặt hẹn trước ít nhất 1 tiếng
         boolean isToday = date.isEqual(today);
         boolean isPastDate = date.isBefore(today);
+
+        // 1. Tải trước toàn bộ thợ, ca trực và lịch bận cho ngày này (3 queries duy nhất)
+        List<AgencyStaffEntity> activeStaffList = agencyStaffRepository.findByAgencyIdAndIsActiveTrue(agencyId);
+        List<AgencyStaffShiftEntity> allShifts = agencyStaffShiftRepository.findAllActiveByAgencyIdAndWeekRange(agencyId, date, date);
+        Map<Long, List<AgencyStaffShiftEntity>> shiftsByStaffId = allShifts.stream()
+                .filter(s -> s.getStaff() != null)
+                .collect(Collectors.groupingBy(s -> s.getStaff().getId()));
+
+        List<Long> muaIds = activeStaffList.stream()
+                .map(AgencyStaffEntity::getMua)
+                .filter(Objects::nonNull)
+                .map(MuaProfileEntity::getId)
+                .toList();
+
+        List<MUACalendarEntity> allBusySlots = muaIds.isEmpty()
+                ? Collections.emptyList()
+                : muaCalendarRepository.findActiveSlotsByMuaIdsAndDate(muaIds, date);
+
+        Map<Long, List<MUACalendarEntity>> busySlotsByMua = allBusySlots.stream()
+                .filter(b -> b.getMua() != null)
+                .collect(Collectors.groupingBy(b -> b.getMua().getId()));
+
+        // 2. Tải trước toàn bộ quy tắc Surge (1 query)
+        List<SurgePricingRuleEntity> allActiveSurgeRules = surgePricingRuleRepository.findByIsActiveTrue();
 
         LocalTime currentStart = WORK_DAY_START;
 
@@ -158,11 +271,49 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
                 continue;
             }
 
-            // 1. Kiểm tra công suất: Có bất kỳ thợ nào của Studio còn rảnh trong ca trực không?
-            boolean hasStaff = agencyStaffCapacityService.hasAvailableStaffForAgency(agencyId, date, currentStart, currentEnd);
+            OffsetDateTime windowStart = date.atTime(currentStart).atOffset(VIETNAM_OFFSET);
+            OffsetDateTime windowEnd = date.atTime(currentEnd).atOffset(VIETNAM_OFFSET);
 
-            // 2. Tra cứu quy tắc phụ trội hoặc ưu đãi
-            List<SurgePricingRuleEntity> matchingSurgeRules = surgePricingRuleRepository.findMatchingRules(currentStart, dayOfWeekStr, "ALL");
+            // 1. Kiểm tra công suất in-memory
+            boolean hasStaff = false;
+            for (AgencyStaffEntity staff : activeStaffList) {
+                List<AgencyStaffShiftEntity> staffShifts = shiftsByStaffId.getOrDefault(staff.getId(), Collections.emptyList());
+
+                LocalTime slotStart = currentStart;
+                boolean insideShift = staffShifts.stream().anyMatch(shift -> {
+                    boolean matchDate = (shift.getWorkDate() != null && shift.getWorkDate().isEqual(date))
+                            || (shift.getWorkDate() == null && Boolean.TRUE.equals(shift.getIsRecurring()) && Objects.equals(shift.getDayOfWeek(), dayOfWeek));
+                    return matchDate && !slotStart.isBefore(shift.getStartTime()) && slotStart.isBefore(shift.getEndTime());
+                });
+
+                if (!insideShift) {
+                    continue;
+                }
+
+                if (staff.getMua() != null) {
+                    List<MUACalendarEntity> staffBusy = busySlotsByMua.getOrDefault(staff.getMua().getId(), Collections.emptyList());
+                    boolean conflict = staffBusy.stream().anyMatch(busy ->
+                            isOverlapping(windowStart, windowEnd, busy.getStartAt(), busy.getEndAt()));
+                    if (!conflict) {
+                        hasStaff = true;
+                        break;
+                    }
+                } else {
+                    hasStaff = true;
+                    break;
+                }
+            }
+
+            // 2. Tra cứu quy tắc phụ trội hoặc ưu đãi in-memory
+            LocalTime loopStart = currentStart;
+            List<SurgePricingRuleEntity> matchingSurgeRules = allActiveSurgeRules.stream()
+                    .filter(r -> "ALL".equals(r.getZoneCode()))
+                    .filter(r -> r.getStartTime() == null || r.getEndTime() == null
+                            || (!loopStart.isBefore(r.getStartTime()) && !loopStart.isAfter(r.getEndTime())))
+                    .filter(r -> r.getApplicableDaysOfWeek() == null || r.getApplicableDaysOfWeek().contains(dayOfWeekStr))
+                    .sorted(Comparator.comparing(SurgePricingRuleEntity::getSurgeMultiplier).reversed())
+                    .toList();
+
             boolean hasSurge = !matchingSurgeRules.isEmpty();
             String surgeRuleName = hasSurge ? matchingSurgeRules.get(0).getRuleName() : null;
             BigDecimal surgeMultiplier = hasSurge ? matchingSurgeRules.get(0).getSurgeMultiplier() : BigDecimal.ONE;
@@ -197,4 +348,22 @@ public class AgencyCalendarServiceImpl implements AgencyCalendarService {
                 .slots(slotItems)
                 .build();
     }
+
+    private boolean isOverlapping(OffsetDateTime start1, OffsetDateTime end1, OffsetDateTime start2, OffsetDateTime end2) {
+        return start1.isBefore(end2) && end1.isAfter(start2);
+    }
+
+    private String formatDayOfWeek(LocalDate date) {
+        int dow = date.getDayOfWeek().getValue();
+        return switch (dow) {
+            case 1 -> "Thứ 2";
+            case 2 -> "Thứ 3";
+            case 3 -> "Thứ 4";
+            case 4 -> "Thứ 5";
+            case 5 -> "Thứ 6";
+            case 6 -> "Thứ 7";
+            default -> "Chủ Nhật";
+        };
+    }
 }
+

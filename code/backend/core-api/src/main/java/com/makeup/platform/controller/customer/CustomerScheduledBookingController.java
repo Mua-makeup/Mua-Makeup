@@ -87,4 +87,24 @@ public class CustomerScheduledBookingController extends BaseController {
         scheduledBookingService.cancelRequestedBookingByCustomer(bookingId, customerId, reason);
         return ok(null, "booking.cancel_requested_success");
     }
+
+    @PostMapping("/{bookingId}/escalate-dispute")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Void>> escalateDispute(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long customerId = SecurityContextUtils.getCurrentUserId();
+        String reason = body != null ? body.get("reason") : null;
+        scheduledBookingService.escalateDisputeToAdmin(bookingId, customerId, reason);
+        return ok(null, "dispute.escalate_success");
+    }
+
+    @PostMapping("/{bookingId}/accept-studio-dispute-resolution")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Void>> acceptStudioDisputeResolution(
+            @PathVariable Long bookingId) {
+        Long customerId = SecurityContextUtils.getCurrentUserId();
+        scheduledBookingService.acceptStudioDisputeResolution(bookingId, customerId);
+        return ok(null, "dispute.resolution_accepted");
+    }
 }

@@ -68,6 +68,13 @@ public class BookingStatusDetailRes {
     private Boolean isDirectBooking;
     private List<CandidatePackageRes> availablePackages;
     private LocalDateTime updatedAt;
+    private LocalDateTime completedAt;
+
+    // Thông tin phụ cấp làm thêm giờ (Overtime)
+    private Integer overtimeMinutes;
+    private BigDecimal overtimePay;
+    private String overtimeRuleName;
+    private String overtimePolicyType;
 
     // Phân hệ Studio Agency & Đội ngũ thợ phụ trách
     private String bookingPartner;

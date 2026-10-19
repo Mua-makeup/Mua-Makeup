@@ -1,6 +1,6 @@
-import { Platform } from 'react-native';
 import { apiClient } from './api';
 import { BookingStatusType } from './booking.service';
+import { createImageFormData } from '@/utils/form-data';
 
 export interface FreelancerBookingItem {
   id: number;
@@ -22,6 +22,17 @@ export interface FreelancerBookingItem {
   earningsAmount: number;
   note?: string;
   completionPhotoUrl?: string;
+  isConfirmedByStaff?: boolean;
+  assignmentRole?: string;
+  assignmentStatus?: string;
+  commissionRate?: number;
+  commissionNote?: string;
+  soloPendingConfirmation?: boolean;
+  soloCommissionRate?: number;
+  bookingPartner?: string;
+  agencyId?: number;
+  agencyName?: string;
+  agencyLogoUrl?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -39,6 +50,13 @@ export interface BookingAcceptanceRes {
     phoneNumber: string;
   };
   acceptedAt?: string;
+}
+
+export interface TransitionBookingStatePayload {
+  targetStatus: BookingStatusType;
+  reason?: string;
+  completionPhotoUrl?: string;
+  emergencyProofUrl?: string;
 }
 
 export interface BookingStateTransitionRes {
@@ -150,85 +168,58 @@ export const freelancerBookingService = {
   },
 
   /**
-   * Chuyển trạng thái ca làm việc tuần tự (ON_THE_WAY -> ARRIVED -> IN_PROGRESS -> COMPLETED)
+   * Chuyển trạng thái ca làm việc tuần tự (hỗ trợ cả dạng object payload lẫn positional params)
    */
   async transitionBookingState(
     bookingId: number,
-    targetStatus: BookingStatusType,
+    targetOrPayload: BookingStatusType | TransitionBookingStatePayload,
     reason?: string,
     completionPhotoUrl?: string,
     emergencyProofUrl?: string
   ): Promise<BookingStateTransitionRes> {
-    const response = await apiClient.post(`/bookings/${bookingId}/transition`, {
-      targetStatus,
-      reason,
-      completionPhotoUrl,
-      emergencyProofUrl,
-    });
-    return response.data.data;
+    const payload: TransitionBookingStatePayload = typeof targetOrPayload === 'string'
+      ? { targetStatus: targetOrPayload, reason, completionPhotoUrl, emergencyProofUrl }
+      : targetOrPayload;
+
+    const response = await apiClient.post(`/bookings/${bookingId}/transition`, payload);
+    return response.data?.data;
+  },
+
+  /**
+   * Tải ảnh minh chứng hoặc nghiệm thu cho đơn đặt lịch
+   */
+  async uploadBookingProof(
+    bookingId: number,
+    imageUri: string,
+    proofType: 'completion-photo' | 'dispute-proof' = 'completion-photo'
+  ): Promise<BookingCompletionPhotoRes> {
+    const formData = await createImageFormData(
+      imageUri,
+      'file',
+      proofType === 'completion-photo' ? `proof_${Date.now()}.jpg` : `dispute_proof_${Date.now()}.jpg`
+    );
+
+    const response = await apiClient.post(`/bookings/${bookingId}/${proofType}`, formData);
+    const data = response.data?.data;
+    const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;
+    return {
+      ...data,
+      completionPhotoUrl: finalPhotoUrl,
+      photoUrl: finalPhotoUrl,
+    };
   },
 
   /**
    * Tải ảnh nghiệm thu sản phẩm make-up khuôn mặt khách hàng lên hệ thống
    */
   async uploadCompletionPhoto(bookingId: number, imageUri: string): Promise<BookingCompletionPhotoRes> {
-    const formData = new FormData();
-    const filename = imageUri.split('/').pop() || `proof_${Date.now()}.jpg`;
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    if (Platform.OS === 'web') {
-      const fetchRes = await fetch(imageUri);
-      const blob = await fetchRes.blob();
-      formData.append('file', blob, filename);
-    } else {
-      formData.append('file', {
-        uri: imageUri,
-        name: filename,
-        type,
-      } as any);
-    }
-
-    const response = await apiClient.post(`/bookings/${bookingId}/completion-photo`, formData);
-
-    const data = response.data?.data;
-    const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;
-    return {
-      ...data,
-      completionPhotoUrl: finalPhotoUrl,
-      photoUrl: finalPhotoUrl,
-    };
+    return this.uploadBookingProof(bookingId, imageUri, 'completion-photo');
   },
 
   /**
-   * Tải ảnh minh chứng sự cố / khách vắng mặt lên hệ thống (áp dụng cho mọi trạng thái trước hoàn thành)
+   * Tải ảnh minh chứng sự cố / khách vắng mặt lên hệ thống
    */
   async uploadDisputeProof(bookingId: number, imageUri: string): Promise<BookingCompletionPhotoRes> {
-    const formData = new FormData();
-    const filename = imageUri.split('/').pop() || `dispute_proof_${Date.now()}.jpg`;
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    if (Platform.OS === 'web') {
-      const fetchRes = await fetch(imageUri);
-      const blob = await fetchRes.blob();
-      formData.append('file', blob, filename);
-    } else {
-      formData.append('file', {
-        uri: imageUri,
-        name: filename,
-        type,
-      } as any);
-    }
-
-    const response = await apiClient.post(`/bookings/${bookingId}/dispute-proof`, formData);
-
-    const data = response.data?.data;
-    const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;
-    return {
-      ...data,
-      completionPhotoUrl: finalPhotoUrl,
-      photoUrl: finalPhotoUrl,
-    };
+    return this.uploadBookingProof(bookingId, imageUri, 'dispute-proof');
   },
 };

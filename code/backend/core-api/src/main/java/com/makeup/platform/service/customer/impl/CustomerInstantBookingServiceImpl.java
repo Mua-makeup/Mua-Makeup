@@ -50,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.service.mua.MuaReputationService;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -95,6 +96,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final BookingDepositRepository bookingDepositRepository;
     private final ObjectMapper objectMapper;
     private final MUACalendarService muaCalendarService;
+    private final MuaReputationService muaReputationService;
 
     @Override
     @Transactional
@@ -172,6 +174,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         double effectiveRadiusKm = (req.getRadiusKm() != null && req.getRadiusKm() > 0) ? req.getRadiusKm() : 10.0;
         // 2. Query potential online MUAs in Redis GEO sorted by distance ASC
         List<Long> candidateMuaIds = findAvailableCandidates(req);
+
+        // Giữ nguyên logic test: Giới hạn tối đa 2 thợ ứng viên trong hàng đợi điều phối khẩn cấp
+        if (candidateMuaIds.size() > 2) {
+            candidateMuaIds = new ArrayList<>(candidateMuaIds.subList(0, 2));
+        }
 
         // BẮT BUỘC: Nếu không có thợ nào online trong bán kính quét -> Báo lỗi ngay cho khách hàng, không tạo đơn rác
         if (candidateMuaIds.isEmpty()) {
@@ -436,6 +443,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         if (currentMuaIdStr != null && currentMuaIdStr.equals(String.valueOf(muaId))) {
             log.info("[SequentialDispatch] MUA id={} manually skipped bookingId={}", muaId, bookingId);
+
+            // Ghi nhận MUA đã bấm bỏ qua đơn khẩn cấp và tính lại acceptance_rate / rank_score
+            muaReputationService.recordOfferAndRecalculate(
+                    muaId,
+                    bookingId,
+                    "INSTANT",
+                    "SKIPPED",
+                    "Chuyên viên chủ động bấm bỏ qua đơn khẩn cấp"
+            );
+
             String targetedMuaStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(bookingId) + ":target_mua");
             if (targetedMuaStr != null && !targetedMuaStr.isEmpty()) {
                 log.info("[SequentialDispatch] Targeted MUA id={} rejected bookingId={}, cancelling immediately without cascading", muaId, bookingId);
@@ -636,7 +653,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             return false;
         }
         String current = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
-        return String.valueOf(expectedMuaId).equals(current) && dispatchNextCandidate(bookingId);
+        if (String.valueOf(expectedMuaId).equals(current)) {
+            // Ghi nhận MUA để trôi hết thời gian chờ 30s mà không nhận và tính lại acceptance_rate / rank_score
+            muaReputationService.recordOfferAndRecalculate(
+                    expectedMuaId,
+                    bookingId,
+                    "INSTANT",
+                    "EXPIRED",
+                    "Hết thời gian đếm ngược nhận đơn khẩn cấp mà chuyên viên không phản hồi"
+            );
+            return dispatchNextCandidate(bookingId);
+        }
+        return false;
     }
 
     @Override
@@ -1258,9 +1286,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 double muaMaxRadius = mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0;
                 boolean withinMuaRadius = (distToCustomer != null && distToCustomer <= muaMaxRadius);
 
+                boolean locked = Boolean.TRUE.equals(mua.getIsEmergencyLocked());
+
                 if (freelance && verified && Boolean.TRUE.equals(mua.getIsOnline())
-                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && withinMuaRadius) {
+                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && !locked && withinMuaRadius) {
                     candidateMuaIds.add(id);
+                } else if (locked) {
+                    log.info("[CandidateFilter] Excluded MUA id={} due to emergency lock (rating below threshold)", id);
                 } else if (!withinMuaRadius) {
                     log.info("[CandidateFilter] Excluded MUA id={} because distance ({}km) exceeds MUA's maxServiceRadiusKm ({:.0f}km)",
                             id, distToCustomer != null ? String.format("%.2f", distToCustomer) : "unknown", muaMaxRadius);
@@ -1274,6 +1306,24 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 candidateMuaIds.retainAll(qualifiedMuaIds);
                 log.info("[CandidateFilter] Filtered by masterCategoryId={}, styleId={}: {} qualified MUAs",
                         req.getMasterCategoryId(), req.getStyleId(), candidateMuaIds.size());
+            }
+
+            // Sắp xếp phân tầng ưu tiên (Tiered Priority): Thợ có điểm Rank Score (kết hợp cả ca hoàn thành và rating) cao hơn đứng trước
+            if (candidateMuaIds.size() > 1) {
+                final Map<Long, MuaProfileEntity> finalProfiles = profiles;
+                candidateMuaIds.sort((id1, id2) -> {
+                    MuaProfileEntity m1 = finalProfiles.get(id1);
+                    MuaProfileEntity m2 = finalProfiles.get(id2);
+
+                    BigDecimal s1 = (m1 != null && m1.getRankScore() != null) ? m1.getRankScore() : BigDecimal.valueOf(50.0);
+                    BigDecimal s2 = (m2 != null && m2.getRankScore() != null) ? m2.getRankScore() : BigDecimal.valueOf(50.0);
+                    int cmp = s2.compareTo(s1);
+                    if (cmp != 0) return cmp;
+
+                    BigDecimal r1 = (m1 != null && m1.getBayesianRating() != null) ? m1.getBayesianRating() : BigDecimal.valueOf(4.60);
+                    BigDecimal r2 = (m2 != null && m2.getBayesianRating() != null) ? m2.getBayesianRating() : BigDecimal.valueOf(4.60);
+                    return r2.compareTo(r1);
+                });
             }
 
         } catch (RuntimeException ex) {

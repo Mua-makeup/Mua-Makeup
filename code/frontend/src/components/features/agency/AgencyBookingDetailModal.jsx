@@ -64,6 +64,21 @@ export const AgencyBookingDetailModal = ({
     }
   }, [currentBooking, isOpen]);
 
+  useEffect(() => {
+    const handleReload = () => {
+      const bookingId = currentBooking?.bookingId || currentBooking?.id;
+      if (bookingId && isOpen) {
+        loadHistory(bookingId);
+      }
+    };
+    window.addEventListener('agency:dispatch-alert', handleReload);
+    window.addEventListener('agency:emergency-dispatch', handleReload);
+    return () => {
+      window.removeEventListener('agency:dispatch-alert', handleReload);
+      window.removeEventListener('agency:emergency-dispatch', handleReload);
+    };
+  }, [currentBooking, isOpen]);
+
   if (!booking) return null;
 
   const formatCurrency = (val) => {
@@ -194,11 +209,18 @@ export const AgencyBookingDetailModal = ({
     CANCELLED: { variant: 'danger', label: t('status_cancelled') },
     CANCELLED_EXPIRED: { variant: 'inactive', label: t('status_cancelled_expired') },
     DISPUTED: { variant: 'rejected', label: t('status_disputed') },
+    DISPUTE_REFUNDED: { variant: 'inactive', label: t('status_dispute_refunded') },
+    DISPUTE_COMPENSATED: { variant: 'success', label: t('status_dispute_compensated') },
+    REFUNDED: { variant: 'inactive', label: t('status_refunded') },
+    EMERGENCY_REASSIGNMENT: { variant: 'danger', label: t('status_emergency_reassignment') },
     PENDING: { variant: 'pending', label: t('status_pending') },
   };
 
   const getStatusBadge = (status) => {
-    const s = statusMap[status] || { variant: 'default', label: status || '—' };
+    const s = statusMap[status] || {
+      variant: 'default',
+      label: status ? status.replace(/_/g, ' ') : '—',
+    };
     return <Badge variant={s.variant}>{s.label}</Badge>;
   };
 
@@ -426,13 +448,48 @@ export const AgencyBookingDetailModal = ({
 
                 // 2. Identify assistant MUAs
                 const assistantList = staffList.filter(
-                  (s) => s.role === 'ASSISTANT_MUA' && s.status === 'ACTIVE'
+                  (s) => s.role === 'ASSISTANT_MUA' && s.status !== 'REPLACED' && s.status !== 'EMERGENCY_CANCELLED'
                 );
+
+                // 3. Identify staff who reported emergency busy
+                const allAssigned = currentBooking?.assignedStaff || booking?.assignedStaff || [];
+                const emergencyStaffList = allAssigned.filter(
+                  (s) =>
+                    (s.status === 'EMERGENCY_CANCELLED' || (s.status === 'REPLACED' && Boolean(s.cancellationReason)) || Boolean(s.cancellationReason)) &&
+                    s.staffId !== primaryStaff?.staffId &&
+                    !assistantList.some((a) => a.staffId === s.staffId)
+                );
+
+                const getStaffStatusBadge = (staff, isPrimary) => {
+                  if (staff?.status === 'EMERGENCY_CANCELLED') {
+                    return (
+                      <span className="inline-flex items-center text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/60">
+                        {t('dispatch_staff_status_emergency')}
+                      </span>
+                    );
+                  }
+                  const isConfirmed = staff
+                    ? (Boolean(staff.isConfirmedByStaff) || Boolean(staff.confirmedAt))
+                    : (currentBooking?.bookingStatus !== 'AGENCY_ASSIGNED' && currentBooking?.status !== 'AGENCY_ASSIGNED');
+                  if (isConfirmed) {
+                    return (
+                      <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60">
+                        {t('dispatch_staff_status_confirmed')}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="inline-flex items-center text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/60">
+                      {t('dispatch_staff_status_pending')}
+                    </span>
+                  );
+                };
 
                 const hasPrimary = primaryStaff || fallbackPrimaryName;
                 const hasAssistants = assistantList.length > 0;
+                const hasEmergency = emergencyStaffList.length > 0;
 
-                if (!hasPrimary && !hasAssistants) {
+                if (!hasPrimary && !hasAssistants && !hasEmergency) {
                   return (
                     <div className="flex items-center gap-2 text-slate-400 italic text-xs pt-1">
                       <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -463,11 +520,7 @@ export const AgencyBookingDetailModal = ({
                             <Badge variant="gold" size="sm">
                               {t('dispatch_badge_primary')}
                             </Badge>
-                            {primaryStaff.status === 'EMERGENCY_CANCELLED' && (
-                              <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 px-1 py-0.5 rounded border border-red-200 dark:border-red-900/40">
-                                Báo bận
-                              </span>
-                            )}
+                            {getStaffStatusBadge(primaryStaff, true)}
                           </div>
                         </div>
                       ) : fallbackPrimaryName ? (
@@ -481,9 +534,12 @@ export const AgencyBookingDetailModal = ({
                               </span>
                             )}
                           </div>
-                          <Badge variant="gold" size="sm">
-                            {t('dispatch_badge_primary')}
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="gold" size="sm">
+                              {t('dispatch_badge_primary')}
+                            </Badge>
+                            {getStaffStatusBadge(null, true)}
+                          </div>
                         </div>
                       ) : null}
 
@@ -502,9 +558,38 @@ export const AgencyBookingDetailModal = ({
                               </span>
                             )}
                           </div>
-                          <Badge variant="purple" size="sm">
-                            {t('dispatch_badge_assistant')}
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="purple" size="sm">
+                              {t('dispatch_badge_assistant')}
+                            </Badge>
+                            {getStaffStatusBadge(assistant, false)}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Emergency Busy MUA(s) */}
+                      {emergencyStaffList.map((emergencyStaff) => (
+                        <div
+                          key={`busy-${emergencyStaff.id || emergencyStaff.staffId}`}
+                          className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40"
+                        >
+                          <div className="flex items-center gap-1.5 text-slate-900 dark:text-white">
+                            <User className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">{emergencyStaff.staffName}</span>
+                            {emergencyStaff.staffPhone && (
+                              <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                                ({emergencyStaff.staffPhone})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="rose" size="sm">
+                              {emergencyStaff.role === 'PRIMARY_MUA' ? t('dispatch_badge_primary') : t('dispatch_badge_assistant')}
+                            </Badge>
+                            <span className="inline-flex items-center text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/60">
+                              {t('dispatch_staff_status_emergency')}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>

@@ -749,6 +749,8 @@ export const StaffDetailPage = () => {
                   <div className="grid grid-cols-1 gap-2.5 max-h-80 overflow-y-auto pr-1">
                     {allPackages.map((pkg) => {
                       const isChecked = selectedPackageIds.includes(Number(pkg.id));
+                      const isAvailable = pkg.isAvailable !== false && pkg.status !== 'INACTIVE';
+                      const duration = pkg.durationMinutes ?? pkg.estimatedDurationMinutes;
                       return (
                         <div
                           key={pkg.id}
@@ -759,9 +761,9 @@ export const StaffDetailPage = () => {
                               : 'bg-slate-50/50 border-slate-200 dark:bg-slate-850 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             <div
-                              className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-all ${
+                              className={`w-5 h-5 rounded-lg flex items-center justify-center border transition-all shrink-0 ${
                                 isChecked
                                   ? 'bg-emerald-600 border-emerald-600 text-white'
                                   : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
@@ -769,16 +771,18 @@ export const StaffDetailPage = () => {
                             >
                               {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                             </div>
-                            <div>
-                              <span className="text-xs font-bold block">{pkg.name}</span>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold block truncate text-slate-900 dark:text-white">
+                                {pkg.packageName || pkg.name || ''}
+                              </span>
                               <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                                {pkg.durationMinutes ? `${pkg.durationMinutes} phút • ` : ''}
-                                {formatCurrency(pkg.basePrice || pkg.price || 0)}
+                                {duration ? `${duration} ${t('unit_minutes') || 'phút'} • ` : ''}
+                                {formatCurrency(pkg.price ?? pkg.basePrice ?? 0)}
                               </span>
                             </div>
                           </div>
-                          <Badge variant={pkg.status === 'ACTIVE' ? 'active' : 'default'} size="sm">
-                            {pkg.status === 'ACTIVE' ? t('status_active') : pkg.status}
+                          <Badge variant={isAvailable ? 'active' : 'inactive'} size="sm">
+                            {isAvailable ? t('status_active') : (t('status_paused') || 'Tạm dừng')}
                           </Badge>
                         </div>
                       );
