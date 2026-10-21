@@ -312,7 +312,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
             </label>
             {editingItem && (
               <span className="text-[11px] text-slate-400">
-                {mainFile ? 'Đã chọn ảnh thay thế' : 'Nhấp vào ảnh để thay đổi'}
+                {mainFile ? t('agency_portfolio_new_replacement_selected') : t('agency_portfolio_click_to_change_main')}
               </span>
             )}
           </div>
@@ -333,7 +333,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
                 className="w-full h-full object-contain"
               />
               <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/60 text-white backdrop-blur-md">
-                {mainFile ? 'Ảnh mới chọn' : 'Ảnh chính hiện tại'}
+                {mainFile ? t('agency_portfolio_newly_selected_photo') : t('agency_portfolio_current_main_photo')}
               </div>
               <button
                 type="button"
@@ -341,7 +341,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
                 className="absolute inset-0 bg-black/50 text-white font-medium text-xs flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-xs"
               >
                 <RefreshCw className="w-4 h-4" />
-                <span>Thay đổi ảnh chính</span>
+                <span>{t('agency_portfolio_change_main_photo')}</span>
               </button>
             </div>
           ) : (
@@ -369,10 +369,10 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              {t('agency_portfolio_field_additional_images')} (Góc nghiêng, cận cảnh, Before-After)
+              {t('agency_portfolio_field_additional_images')} {t('agency_portfolio_additional_images_hint')}
             </label>
             <span className="text-[11px] text-slate-400">
-              {totalAdditionalCount}/5 ảnh
+              {totalAdditionalCount}/5 {t('photos_unit')}
             </span>
           </div>
 
@@ -412,7 +412,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
               >
                 <img src={preview} alt={`New sub ${idx}`} className="w-full h-full object-cover" />
                 <span className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] font-semibold text-center py-0.5">
-                  Mới
+                  {t('badge_new')}
                 </span>
                 <button
                   type="button"
@@ -434,7 +434,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
                 title="Tải thêm ảnh phụ"
               >
                 <Plus className="w-5 h-5 mb-0.5" />
-                <span className="text-[10px] font-medium">Thêm ảnh</span>
+                <span className="text-[10px] font-medium">{t('agency_portfolio_add_sub_photo')}</span>
               </button>
             )}
           </div>
@@ -453,7 +453,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
                 {t('agency_portfolio_field_featured')}
               </p>
               <p className="text-[11px] text-slate-400">
-                Tác phẩm tiêu biểu sẽ được ưu tiên hiển thị đầu tiên trên App khách hàng
+                {t('agency_portfolio_field_featured_hint')}
               </p>
             </div>
           </div>

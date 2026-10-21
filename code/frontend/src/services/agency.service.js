@@ -144,8 +144,12 @@ export const agencyService = {
     apiClient.patch(`/agencies/my-agency/portfolios/${id}/visibility`, { isVisible }),
   deletePortfolio: (id) => apiClient.delete(`/agencies/my-agency/portfolios/${id}`),
 
+  // Ví Doanh Thu & Sổ Cái Studio
+  getAgencyWallet: () => apiClient.get('/agency/wallet'),
+
   // Trung tâm Đánh giá & Phản hồi Khách hàng (Reviews)
   getAgencyReviews: (params) => apiClient.get('/agency/reviews', { params }),
+  getAgencyReviewOverview: () => apiClient.get('/agency/reviews/overview'),
   getAgencyReviewSummary: () => apiClient.get('/agency/reviews/summary'),
   replyToReview: (reviewId, replyContent) =>
     apiClient.post(`/agency/reviews/${reviewId}/reply`, { replyContent }),

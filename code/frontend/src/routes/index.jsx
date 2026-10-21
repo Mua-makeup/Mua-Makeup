@@ -38,6 +38,7 @@ import { AgencyDisputesPage } from '../pages/Agency/AgencyDisputesPage';
 import { AgencyPortfolioPage } from '../pages/Agency/AgencyPortfolioPage';
 import { AgencyReviewsPage } from '../pages/Agency/AgencyReviewsPage';
 import { StaffLeaderboardPage } from '../pages/Agency/StaffLeaderboardPage';
+import { AgencyWalletPage } from '../pages/Agency/AgencyWalletPage';
 
 export const AppRoutes = () => {
   return (
@@ -93,6 +94,7 @@ export const AppRoutes = () => {
           <Route path="staff" element={<StaffManagementPage />} />
           <Route path="staff/:staffId" element={<StaffDetailPage />} />
           <Route path="shifts" element={<ShiftSchedulePage />} />
+          <Route path="wallet" element={<AgencyWalletPage />} />
           <Route path="reviews" element={<AgencyReviewsPage />} />
           <Route path="staff-leaderboard" element={<StaffLeaderboardPage />} />
           <Route path="disputes" element={<AgencyDisputesPage />} />

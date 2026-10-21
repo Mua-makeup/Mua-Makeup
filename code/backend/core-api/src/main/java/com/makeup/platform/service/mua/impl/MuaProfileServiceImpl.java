@@ -382,6 +382,29 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                         .build());
             }
         }
+        result.sort((a, b) -> {
+            boolean aPending = "PENDING".equalsIgnoreCase(a.getStatus());
+            boolean bPending = "PENDING".equalsIgnoreCase(b.getStatus());
+            if (aPending != bPending) {
+                return aPending ? -1 : 1;
+            }
+
+            if (a.getUploadedAt() != null && b.getUploadedAt() != null) {
+                int cmp = b.getUploadedAt().compareTo(a.getUploadedAt());
+                if (cmp != 0) {
+                    return cmp;
+                }
+            } else if (a.getUploadedAt() != null) {
+                return -1;
+            } else if (b.getUploadedAt() != null) {
+                return 1;
+            }
+
+            if (a.getMuaId() != null && b.getMuaId() != null) {
+                return b.getMuaId().compareTo(a.getMuaId());
+            }
+            return 0;
+        });
 
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), result.size());

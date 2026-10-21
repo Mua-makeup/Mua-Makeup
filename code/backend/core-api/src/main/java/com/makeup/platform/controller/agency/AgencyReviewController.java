@@ -3,10 +3,12 @@ package com.makeup.platform.controller.agency;
 import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.common.base.PageResponse;
+import com.makeup.platform.common.utils.SecurityContextUtils;
 import com.makeup.platform.dto.request.agency.AgencyReplyReviewReq;
 import com.makeup.platform.dto.response.agency.AgencyReviewItemRes;
+import com.makeup.platform.dto.response.agency.AgencyReviewOverviewRes;
+import com.makeup.platform.dto.response.agency.AgencyReviewRes;
 import com.makeup.platform.dto.response.agency.AgencyReviewSummaryRes;
-import com.makeup.platform.common.utils.SecurityContextUtils;
 import com.makeup.platform.service.agency.AgencyReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +16,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +37,19 @@ public class AgencyReviewController extends BaseController {
     private final AgencyReviewService agencyReviewService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<PageResponse<AgencyReviewItemRes>>> getAgencyReviews(
+    public ResponseEntity<ApiResponse<PageResponse<AgencyReviewRes>>> getAgencyReviews(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        Long ownerUserId = userId != null ? userId : SecurityContextUtils.getCurrentUserId();
+        PageResponse<AgencyReviewRes> res = agencyReviewService.getAgencyReviews(ownerUserId, rating, keyword, pageable);
+        return ok(res, "agency.reviews_fetch_success");
+    }
+
+    @GetMapping("/filtered")
+    public ResponseEntity<ApiResponse<PageResponse<AgencyReviewItemRes>>> getAgencyReviewsFiltered(
             @RequestParam(required = false) Long staffId,
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) Boolean hasReply,
@@ -44,6 +60,15 @@ public class AgencyReviewController extends BaseController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<AgencyReviewItemRes> res = agencyReviewService.getAgencyReviews(ownerUserId, staffId, rating, hasReply, pageable);
         return ok(PageResponse.from(res), "review.fetch_success");
+    }
+
+    @GetMapping("/overview")
+    public ResponseEntity<ApiResponse<AgencyReviewOverviewRes>> getAgencyReviewOverview(
+            @AuthenticationPrincipal Long userId
+    ) {
+        Long ownerUserId = userId != null ? userId : SecurityContextUtils.getCurrentUserId();
+        AgencyReviewOverviewRes res = agencyReviewService.getAgencyReviewOverview(ownerUserId);
+        return ok(res, "agency.review_overview_success");
     }
 
     @GetMapping("/summary")

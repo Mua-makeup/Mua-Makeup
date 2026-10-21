@@ -17,6 +17,8 @@ import {
   Image,
   MessageSquareQuote,
   Trophy,
+  Wallet,
+  Star,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -110,6 +112,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/agency/shifts',
       label: t('nav_agency_shifts'),
       icon: CalendarDays,
+    },
+    {
+      to: '/agency/wallet',
+      label: t('nav_agency_wallet') || 'Ví Doanh Thu',
+      icon: Wallet,
     },
     {
       to: '/agency/reviews',

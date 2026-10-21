@@ -82,14 +82,36 @@ export const MuaVerificationPage = () => {
   }, [statusFilter]);
 
   const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return certList;
-    const q = searchQuery.trim().toLowerCase();
-    return certList.filter(
-      (item) =>
-        item.muaName?.toLowerCase().includes(q) ||
-        item.phoneNumber?.includes(q) ||
-        item.certName?.toLowerCase().includes(q)
-    );
+    let list = certList;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = certList.filter(
+        (item) =>
+          item.muaName?.toLowerCase().includes(q) ||
+          item.phoneNumber?.includes(q) ||
+          item.certName?.toLowerCase().includes(q)
+      );
+    }
+
+    return [...list].sort((a, b) => {
+      // 1. Trạng thái PENDING ("Chờ Duyệt") ưu tiên hiển thị lên trên đầu tiên
+      const aPending = a.status === 'PENDING' || a.isVerified === false || !a.isVerified;
+      const bPending = b.status === 'PENDING' || b.isVerified === false || !b.isVerified;
+      const aIsPendingActual = a.status === 'PENDING';
+      const bIsPendingActual = b.status === 'PENDING';
+      if (aIsPendingActual !== bIsPendingActual) {
+        return aIsPendingActual ? -1 : 1;
+      }
+
+      // 2. Thời gian nộp mới nhất lên đầu (uploadedAt DESC)
+      const timeA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+      const timeB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+
+      return (b.muaId || 0) - (a.muaId || 0);
+    });
   }, [certList, searchQuery]);
 
   const handleVerifySuccess = ({ isVerified, message }) => {

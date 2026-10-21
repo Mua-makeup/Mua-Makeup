@@ -531,9 +531,13 @@ export default function BookingHistoryDetailScreen() {
   });
 
   // Xác định vai trò của thợ trong ca làm (Thợ chính vs Thợ phụ)
-  const myStaffRecord = (bookingDetail.assignedStaff || []).find(
-    (s: any) => s.staffId === userInfo?.id || s.staffPhone === userInfo?.phoneNumber || s.staffName === userInfo?.fullName
-  );
+  const myStaffRecord = (bookingDetail.assignedStaff || []).find((s: any) => {
+    if (userInfo?.id && (s.userId === userInfo.id || s.staffId === userInfo.id)) return true;
+    if ((userInfo as any)?.muaId && (s.muaId === (userInfo as any).muaId || s.staffId === (userInfo as any).muaId)) return true;
+    if (userInfo?.phoneNumber && s.staffPhone && s.staffPhone.replace(/\D/g, '') === userInfo.phoneNumber.replace(/\D/g, '')) return true;
+    if (userInfo?.fullName && s.staffName === userInfo.fullName) return true;
+    return false;
+  });
   const isAssistantRole = isStudioBooking && myStaffRecord?.role === 'ASSISTANT_MUA';
   const canCollectCash = isWorkstationRole && !isAssistantRole;
 
@@ -1632,7 +1636,7 @@ export default function BookingHistoryDetailScreen() {
             }
           }
 
-          const canSubmitCounterDispute = !isDual && (
+          const canSubmitCounterDispute = !isDual && !isAssistantRole && (
             (isWorkstationRole && !isMuaReport) ||
             (!isWorkstationRole && isMuaReport)
           );
@@ -1808,7 +1812,7 @@ export default function BookingHistoryDetailScreen() {
               )}
 
               {/* Nút gửi lời khai / minh chứng đối chất nếu bên này chưa gửi */}
-              {canSubmitCounterDispute && (
+              {canSubmitCounterDispute ? (
                 <TouchableOpacity
                   style={{
                     marginTop: 12,
@@ -1839,7 +1843,27 @@ export default function BookingHistoryDetailScreen() {
                       : 'Gửi Yêu Cầu Khiếu Nại Của Bạn'}
                   </Text>
                 </TouchableOpacity>
-              )}
+              ) : isWorkstationRole && isAssistantRole && !isDual && !isMuaReport ? (
+                <View
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: '#F8FAFC',
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <Ionicons name="information-circle-outline" size={18} color="#64748B" />
+                  <Text style={{ flex: 1, fontSize: 12, color: '#475569', lineHeight: 17 }}>
+                    Vai trò Thợ Phụ: Chỉ Thợ Chính phụ trách ca mới có thẩm quyền gửi lời khai giải trình cho Ban Quản Trị.
+                  </Text>
+                </View>
+              ) : null}
 
               {/* Nút mở Modal xem chi tiết hồ sơ đối soát 2 bên */}
               <TouchableOpacity
@@ -2573,7 +2597,7 @@ export default function BookingHistoryDetailScreen() {
           )}
 
           {/* KHOẢN CÒN LẠI 70% */}
-          {isCancelled || isDisputeCompensated || isDisputeRefunded ? (
+          {isCancelled || isDisputeCompensated || isDisputeRefunded || (isDisputed && !isPostCompletion) ? (
             <View style={[styles.remainingBillBox, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
               <View style={styles.escrowBillLeft}>
                 <Text style={[styles.remainingBillTitle, { color: '#64748B' }]}>
@@ -2584,7 +2608,9 @@ export default function BookingHistoryDetailScreen() {
                     ? 'Ca không diễn ra — Miễn thanh toán khoản còn lại 70%'
                     : isDisputeRefunded
                       ? 'Đã giải quyết khiếu nại — Miễn thanh toán khoản còn lại 70%'
-                      : 'Đơn đã hủy — Miễn thanh toán khoản còn lại'}
+                      : (isDisputed && !isPostCompletion)
+                        ? 'Đang khiếu nại ca chưa diễn ra — Miễn thanh toán khoản còn lại 70%'
+                        : 'Đơn đã hủy — Miễn thanh toán khoản còn lại'}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -2598,29 +2624,89 @@ export default function BookingHistoryDetailScreen() {
               </View>
             </View>
           ) : (
-            <View style={[styles.remainingBillBox, isPaidOut ? styles.remainingPaidBox : styles.remainingUnpaidBox]}>
+            <View
+              style={[
+                styles.remainingBillBox,
+                isPaidOut || (isDisputed && isPostCompletion)
+                  ? styles.remainingPaidBox
+                  : styles.remainingUnpaidBox,
+              ]}
+            >
               <View style={styles.escrowBillLeft}>
-                <Text style={[styles.remainingBillTitle, { color: isPaidOut ? '#065F46' : '#9A3412' }]}>
+                <Text
+                  style={[
+                    styles.remainingBillTitle,
+                    {
+                      color:
+                        isPaidOut || (isDisputed && isPostCompletion)
+                          ? '#065F46'
+                          : '#9A3412',
+                    },
+                  ]}
+                >
                   Khoản Còn Lại (70%):
                 </Text>
                 <Text style={styles.remainingBillSub}>
                   {isPaidOut
                     ? 'Đã thanh toán và quyết toán hoàn tất'
-                    : 'Cần thanh toán trực tiếp hoặc qua cổng online'}
+                    : isDisputed && isPostCompletion
+                      ? 'Đã thanh toán tại ca • Đang phong tỏa tạm giữ chờ phán quyết'
+                      : 'Cần thanh toán trực tiếp hoặc qua cổng online'}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.remainingBillAmount, { color: isPaidOut ? '#059669' : '#DC2626' }]}>
+                <Text
+                  style={[
+                    styles.remainingBillAmount,
+                    {
+                      color:
+                        isPaidOut || (isDisputed && isPostCompletion)
+                          ? '#059669'
+                          : '#DC2626',
+                    },
+                  ]}
+                >
                   {formatPrice(remainingAmount)}
                 </Text>
-                <View style={[styles.remainingTag, isPaidOut ? styles.remainingTagPaid : styles.remainingTagUnpaid]}>
+                <View
+                  style={[
+                    styles.remainingTag,
+                    isPaidOut || (isDisputed && isPostCompletion)
+                      ? styles.remainingTagPaid
+                      : styles.remainingTagUnpaid,
+                  ]}
+                >
                   <Ionicons
-                    name={isPaidOut ? 'checkmark-circle' : 'time-outline'}
+                    name={
+                      isPaidOut
+                        ? 'checkmark-circle'
+                        : isDisputed
+                          ? 'shield-checkmark'
+                          : 'time-outline'
+                    }
                     size={11}
-                    color={isPaidOut ? '#059669' : '#DC2626'}
+                    color={
+                      isPaidOut || (isDisputed && isPostCompletion)
+                        ? '#059669'
+                        : '#DC2626'
+                    }
                   />
-                  <Text style={[styles.remainingTagText, { color: isPaidOut ? '#059669' : '#DC2626' }]}>
-                    {isPaidOut ? 'Đã Quyết Toán' : 'Chưa Quyết Toán'}
+                  <Text
+                    style={[
+                      styles.remainingTagText,
+                      {
+                        color:
+                          isPaidOut || (isDisputed && isPostCompletion)
+                            ? '#059669'
+                            : '#DC2626',
+                      },
+                    ]}
+                  >
+                    {isPaidOut
+                      ? 'Đã Quyết Toán'
+                      : isDisputed && isPostCompletion
+                        ? 'Đã Trả (Tạm Giữ)'
+                        : 'Chưa Quyết Toán'}
                   </Text>
                 </View>
               </View>
@@ -2636,9 +2722,43 @@ export default function BookingHistoryDetailScreen() {
                   Minh bạch dòng tiền giữa Khách hàng, Chuyên viên và Nền tảng
                 </Text>
               </View>
-              <View style={[styles.paymentStatusBadge, { backgroundColor: isPaidOut ? '#D1FAE5' : (isCompleted ? '#FEF3C7' : '#F1F5F9') }]}>
-                <Text style={[styles.paymentStatusBadgeText, { color: isPaidOut ? '#065F46' : (isCompleted ? '#92400E' : '#475569') }]}>
-                  {isPaidOut ? 'Đã Quyết Toán' : (isCompleted ? 'Chờ Thu 70%' : 'Đang Xử Lý')}
+              <View
+                style={[
+                  styles.paymentStatusBadge,
+                  {
+                    backgroundColor: isDisputed
+                      ? '#FEF3C7'
+                      : isPaidOut
+                        ? '#D1FAE5'
+                        : isCompleted
+                          ? '#FEF3C7'
+                          : '#F1F5F9',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.paymentStatusBadgeText,
+                    {
+                      color: isDisputed
+                        ? '#B45309'
+                        : isPaidOut
+                          ? '#065F46'
+                          : isCompleted
+                            ? '#92400E'
+                            : '#475569',
+                    },
+                  ]}
+                >
+                  {isDisputed
+                    ? isPostCompletion
+                      ? 'Tạm Giữ Khiếu Nại'
+                      : 'Tranh Chấp Cọc'
+                    : isPaidOut
+                      ? 'Đã Quyết Toán'
+                      : isCompleted
+                        ? 'Chờ Thu 70%'
+                        : 'Đang Xử Lý'}
                 </Text>
               </View>
             </View>
@@ -2665,24 +2785,57 @@ export default function BookingHistoryDetailScreen() {
             {/* Đợt 2: Khoản Còn Lại 70% */}
             <View style={styles.paymentStageRow}>
               <View style={styles.paymentStageLeft}>
-                <View style={isPaidOut ? styles.paymentStageDotSuccess : styles.paymentStageDotPending} />
+                <View
+                  style={
+                    isPaidOut || (isDisputed && isPostCompletion)
+                      ? styles.paymentStageDotSuccess
+                      : isDisputed && !isPostCompletion
+                        ? { width: 10, height: 10, borderRadius: 5, backgroundColor: '#94A3B8' }
+                        : styles.paymentStageDotPending
+                  }
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.paymentStageTitle}>Đợt 2: Quyết Toán Còn Lại (70%)</Text>
                   <Text style={styles.paymentStageMethod}>
                     {isPaidOut
-                      ? (isCashPaidConfirmed
+                      ? isCashPaidConfirmed
                         ? 'Tiền mặt trực tiếp (Thợ chính đã thu đủ tại ca)'
-                        : 'Thanh toán trực tuyến (MoMo / VNPay / Chuyển khoản)')
-                      : 'Thu tiền mặt trực tiếp hoặc quét mã online'}
+                        : 'Thanh toán trực tuyến (MoMo / VNPay / Chuyển khoản)'
+                      : isDisputed && isPostCompletion
+                        ? 'Đã thanh toán tại ca • Đang phong tỏa tạm giữ chờ phán quyết'
+                        : isDisputed && !isPostCompletion
+                          ? 'Miễn thu (Ca làm chưa hoàn tất do phát sinh sự cố)'
+                          : 'Thu tiền mặt trực tiếp hoặc quét mã online'}
                   </Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.paymentStageAmount, !isPaidOut && { color: '#E11D48' }]}>
-                  {formatPrice(remainingAmount)}
+                <Text
+                  style={[
+                    styles.paymentStageAmount,
+                    isDisputed && !isPostCompletion
+                      ? { color: '#64748B' }
+                      : !(isPaidOut || (isDisputed && isPostCompletion)) && { color: '#E11D48' },
+                  ]}
+                >
+                  {formatPrice(isDisputed && !isPostCompletion ? 0 : remainingAmount)}
                 </Text>
-                <Text style={isPaidOut ? styles.paymentStageStatusTextSuccess : styles.paymentStageStatusTextPending}>
-                  {isPaidOut ? '✓ Đã quyết toán' : 'Chờ thanh toán'}
+                <Text
+                  style={
+                    isPaidOut || (isDisputed && isPostCompletion)
+                      ? styles.paymentStageStatusTextSuccess
+                      : isDisputed && !isPostCompletion
+                        ? { fontSize: 10.5, fontWeight: '700', color: '#64748B', marginTop: 2 }
+                        : styles.paymentStageStatusTextPending
+                  }
+                >
+                  {isPaidOut
+                    ? '✓ Đã quyết toán'
+                    : isDisputed && isPostCompletion
+                      ? '✓ Đã thanh toán (Tạm giữ)'
+                      : isDisputed && !isPostCompletion
+                        ? 'Miễn thu'
+                        : 'Chờ thanh toán'}
                 </Text>
               </View>
             </View>
@@ -2695,9 +2848,11 @@ export default function BookingHistoryDetailScreen() {
               </View>
               <View style={styles.paymentSummaryNotice}>
                 <Text style={styles.paymentSummaryNoticeText}>
-                  {isPaidOut
-                    ? 'Hợp đồng đã hoàn tất thanh toán. Tiền cọc và thu nhập đã được giải ngân minh bạch vào Ví.'
-                    : 'Hệ thống bảo vệ quyền lợi song phương qua quy trình nghiệm thu và biên nhận điện tử.'}
+                  {isDisputed && isPostCompletion
+                    ? 'Hợp đồng đã hoàn tất thanh toán 100% tại ca. Do đang trong quá trình khiếu nại, số tiền này đang được phong tỏa an toàn để bảo vệ quyền lợi hai bên chờ phân xử.'
+                    : isPaidOut
+                      ? 'Hợp đồng đã hoàn tất thanh toán. Tiền cọc và thu nhập đã được giải ngân minh bạch vào Ví.'
+                      : 'Hệ thống bảo vệ quyền lợi song phương qua quy trình nghiệm thu và biên nhận điện tử.'}
                 </Text>
               </View>
             </View>
@@ -2825,7 +2980,9 @@ export default function BookingHistoryDetailScreen() {
                         <Text style={[styles.muaWalletStatusText, { color: isPaidOut ? '#059669' : '#D97706' }]}>
                           {isPaidOut
                             ? `Studio ${bookingDetail.agencyName || ''} đã hoàn tất quyết toán và giải ngân khoản thu nhập ${formatPrice(totalStaffIncome)} vào Ví thợ của bạn.`
-                            : 'Hoa hồng và phụ cấp sẽ được Studio tự động giải ngân vào Ví của bạn ngay khi ca hẹn quyết toán xong.'}
+                            : isDisputed
+                              ? `Ca làm đang có hồ sơ khiếu nại. Khoản thu nhập ${formatPrice(totalStaffIncome)} đang tạm thời phong tỏa an toàn trong hệ thống chờ phân xử.`
+                              : 'Hoa hồng và phụ cấp sẽ được Studio tự động giải ngân vào Ví của bạn ngay khi ca hẹn quyết toán xong.'}
                         </Text>
                       </View>
                     </>
@@ -2858,7 +3015,9 @@ export default function BookingHistoryDetailScreen() {
                     <Text style={[styles.muaWalletStatusText, { color: isPaidOut ? '#059669' : '#D97706' }]}>
                       {isPaidOut
                         ? 'Thu nhập đã được cộng thành công vào Ví Thợ khả dụng của bạn.'
-                        : 'Khoản cọc 30% bảo lưu trong Escrow, sẽ giải ngân cùng 70% ngay khi quyết toán xong.'}
+                        : isDisputed
+                          ? 'Đơn hẹn đang có khiếu nại. Thu nhập tạm thời phong tỏa an toàn trong Escrow chờ giải quyết.'
+                          : 'Khoản cọc 30% bảo lưu trong Escrow, sẽ giải ngân cùng 70% ngay khi quyết toán xong.'}
                     </Text>
                   </View>
                 </>
@@ -2962,10 +3121,7 @@ export default function BookingHistoryDetailScreen() {
                         return (
                           <TouchableOpacity
                             key={idx}
-                            style={[
-                              styles.reviewPhotoCard,
-                              displayImages.length === 1 && { width: '50%', flex: 0 },
-                            ]}
+                            style={displayImages.length === 1 ? styles.reviewPhotoCardSingle : styles.reviewPhotoCard}
                             onPress={() => {
                               setPreviewPhotoList(uniqueImages);
                               setPreviewPhotoIndex(idx);
@@ -3193,7 +3349,8 @@ export default function BookingHistoryDetailScreen() {
         bookingStatus={bookingDetail?.status}
         disputeOrigin={bookingDetail?.disputeOrigin}
         counterpartyName={isWorkstationRole ? bookingDetail?.customerName : bookingDetail?.muaName}
-        autoOpenForm={isDisputeDossierAutoOpen}
+        isAssistantRole={isAssistantRole}
+        autoOpenForm={isDisputeDossierAutoOpen && !isAssistantRole}
         onDisputeSuccess={() => loadData(true)}
       />
 
@@ -4359,6 +4516,17 @@ const styles = StyleSheet.create({
   },
   reviewPhotoCard: {
     flex: 1,
+    height: 140,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    position: 'relative',
+  },
+  reviewPhotoCardSingle: {
+    width: '48%',
+    maxWidth: '48%',
     height: 140,
     borderRadius: 10,
     overflow: 'hidden',
