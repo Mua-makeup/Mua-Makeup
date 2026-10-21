@@ -705,7 +705,15 @@ public class NotificationServiceImpl implements NotificationService {
                             .isRead(false)
                             .build();
 
-                    notificationRepository.save(entity);
+                    NotificationEntity savedAdminNotif = notificationRepository.save(entity);
+
+                    // Gửi thông báo WebSocket P2P realtime cho Admin trên Web
+                    try {
+                        long unreadCount = notificationRepository.countByUserIdAndIsReadFalseAndIsDeletedFalse(admin.getId());
+                        userWebSocketNotificationService.sendNotificationToUser(admin.getId(), savedAdminNotif, unreadCount);
+                    } catch (Exception wsEx) {
+                        log.warn("[WebSocket] Failed to push dispute notification to admin {}: {}", admin.getId(), wsEx.getMessage());
+                    }
 
                     // Gửi Email cảnh báo khiếu nại tới Admin
                     if (StringUtils.hasText(admin.getEmail())) {
@@ -727,6 +735,30 @@ public class NotificationServiceImpl implements NotificationService {
                             log.error("[EmailService] Failed to send dispute alert email to admin {}: {}", admin.getEmail(), ex.getMessage());
                         }
                     }
+                }
+
+                // Broadcast realtime tới kênh /topic/admin/notifications cho Admin Web
+                try {
+                    Map<String, Object> adminWsPayload = new HashMap<>(metadata);
+                    adminWsPayload.put("type", "BOOKING_DISPUTE");
+                    adminWsPayload.put("bookingId", booking.getId());
+                    adminWsPayload.put("bookingCode", booking.getBookingCode());
+                    adminWsPayload.put("customerName", customerName);
+                    adminWsPayload.put("customerPhone", customerPhone);
+                    adminWsPayload.put("muaName", muaName);
+                    adminWsPayload.put("muaPhone", muaPhone);
+                    adminWsPayload.put("reason", reason);
+                    adminWsPayload.put("proofUrl", booking.getEmergencyProofUrl());
+                    adminWsPayload.put("depositAmount", booking.getDepositAmount());
+                    adminWsPayload.put("totalAmount", booking.getTotalAmount());
+                    adminWsPayload.put("bookingPartner", booking.getBookingPartner() != null ? booking.getBookingPartner().name() : null);
+                    adminWsPayload.put("agencyId", booking.getAgency() != null ? booking.getAgency().getId() : null);
+                    adminWsPayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/admin/notifications", adminWsPayload);
+                    log.info("[WebSocket] Broadcast dispute notification to /topic/admin/notifications for bookingCode={}", booking.getBookingCode());
+                } catch (Exception wsEx) {
+                    log.error("[WebSocket] Failed to broadcast dispute to /topic/admin/notifications: {}", wsEx.getMessage());
                 }
             }
         }
@@ -839,9 +871,13 @@ public class NotificationServiceImpl implements NotificationService {
                 String staffDisplayName = (staffUser != null && staffUser.getFullName() != null)
                         ? staffUser.getFullName()
                         : "Nhân viên";
-                String agencyNoticeTitle = "Khiếu Nại Đơn Của Nhân Viên: #" + booking.getBookingCode();
-                String agencyNoticeContent = "Khách hàng đã gửi khiếu nại ca làm việc của nhân viên " + staffDisplayName + " (Đơn #" + booking.getBookingCode() + "). Vui lòng theo dõi giải trình của nhân viên và phán quyết từ Ban Quản Trị.";
-                createInAppNotification(
+                String agencyNoticeTitle = isEscalatedToAdmin
+                        ? "Giải Trình Ca Khiếu Nại (Chờ Admin Phân Xử): #" + booking.getBookingCode()
+                        : "Khiếu Nại Đơn Của Nhân Viên: #" + booking.getBookingCode();
+                String agencyNoticeContent = isEscalatedToAdmin
+                        ? "Nhân viên " + staffDisplayName + " đã gửi lời khai giải trình cho đơn #" + booking.getBookingCode() + ". Vụ việc đã leo thang lên Ban Quản Trị Sàn phân xử tối hậu."
+                        : "Khách hàng đã gửi khiếu nại ca làm việc của nhân viên " + staffDisplayName + " (Đơn #" + booking.getBookingCode() + "). Vui lòng theo dõi giải trình của nhân viên.";
+                NotificationEntity savedAgencyNotif = createInAppNotification(
                         agencyOwner.getId(),
                         agency.getId(),
                         booking.getId(),
@@ -850,6 +886,29 @@ public class NotificationServiceImpl implements NotificationService {
                         agencyNoticeContent,
                         metadata
                 );
+
+                // Broadcast realtime STOMP WebSocket tới Agency Web (AgencyRealtimeNotifier)
+                try {
+                    Map<String, Object> agencyWsPayload = new HashMap<>(metadata);
+                    agencyWsPayload.put("id", savedAgencyNotif != null ? savedAgencyNotif.getId() : ("dispute_" + System.currentTimeMillis()));
+                    agencyWsPayload.put("type", "AGENCY_STAFF_DISPUTED");
+                    agencyWsPayload.put("title", agencyNoticeTitle);
+                    agencyWsPayload.put("content", agencyNoticeContent);
+                    agencyWsPayload.put("bookingId", booking.getId());
+                    agencyWsPayload.put("bookingCode", booking.getBookingCode());
+                    agencyWsPayload.put("customerName", customerName);
+                    agencyWsPayload.put("staffName", staffDisplayName);
+                    agencyWsPayload.put("agencyId", agency.getId());
+                    agencyWsPayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/agency/" + agency.getId() + "/dispatch-alerts", agencyWsPayload);
+                    messagingTemplate.convertAndSend("/topic/agency/" + agency.getId() + "/notifications", agencyWsPayload);
+                    messagingTemplate.convertAndSend("/topic/agency-notifications/" + agency.getId(), agencyWsPayload);
+                    messagingTemplate.convertAndSend("/topic/agency/dispatch-alerts", agencyWsPayload);
+                    log.info("[WebSocket] Broadcast dispute notification to agency topics for agencyId={}, bookingCode={}", agency.getId(), booking.getBookingCode());
+                } catch (Exception e) {
+                    log.error("[WebSocket] Failed to broadcast dispute to agency: {}", e.getMessage());
+                }
 
                 // Gửi Email cảnh báo tới Chủ Studio
                 if (StringUtils.hasText(agencyOwner.getEmail())) {

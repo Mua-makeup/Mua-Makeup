@@ -10,6 +10,8 @@ import {
   Percent,
   Loader2,
   UserX,
+  Star,
+  Sparkles,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
@@ -893,12 +895,30 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {(() => {
-                    const displayedStaff = (matrixData?.staffList || []).filter((staff) => {
-                      const qualified = isStaffQualified(staff);
-                      if (filterTab === 'qualified') return qualified;
-                      if (filterTab === 'unqualified') return !qualified;
-                      return true;
-                    });
+                    const displayedStaff = (matrixData?.staffList || [])
+                      .filter((staff) => {
+                        const qualified = isStaffQualified(staff);
+                        if (filterTab === 'qualified') return qualified;
+                        if (filterTab === 'unqualified') return !qualified;
+                        return true;
+                      })
+                      .sort((a, b) => {
+                        const aQualified = isStaffQualified(a) ? 1 : 0;
+                        const bQualified = isStaffQualified(b) ? 1 : 0;
+                        if (aQualified !== bQualified) return bQualified - aQualified;
+
+                        const aServed = a.hasServedThisCustomer ? 1 : 0;
+                        const bServed = b.hasServedThisCustomer ? 1 : 0;
+                        if (aServed !== bServed) return bServed - aServed;
+
+                        const aRating = a.ratingAvg ? Number(a.ratingAvg) : 5.0;
+                        const bRating = b.ratingAvg ? Number(b.ratingAvg) : 5.0;
+                        if (aRating !== bRating) return bRating - aRating;
+
+                        const aJobs = a.totalCompletedJobs || 0;
+                        const bJobs = b.totalCompletedJobs || 0;
+                        return bJobs - aJobs;
+                      });
 
                     if (displayedStaff.length === 0) {
                       return (
@@ -937,20 +957,46 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                                 <img
                                   src={staff.staffAvatarUrl}
                                   alt={staff.staffName}
-                                  className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                                  className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                                 />
                               ) : (
-                                <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300 shrink-0">
                                   {staff.staffName?.charAt(0) || 'M'}
                                 </div>
                               )}
                               <div>
-                                <p className="font-semibold text-slate-900 dark:text-slate-200 line-clamp-1">
-                                  {staff.staffName}
-                                </p>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                                  {staff.staffPhone}
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="font-semibold text-slate-900 dark:text-slate-200 line-clamp-1">
+                                    {staff.staffName}
+                                  </p>
+                                  {staff.hasServedThisCustomer && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700 shadow-2xs">
+                                      <Sparkles className="w-2.5 h-2.5 fill-amber-400 text-amber-500 shrink-0" />
+                                      {t('dispatch_badge_served_customer')}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                                  <span className="font-mono text-[10px]">{staff.staffPhone}</span>
+                                  <span>•</span>
+                                  <span className="inline-flex items-center gap-0.5 font-bold text-amber-600 dark:text-amber-400">
+                                    <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                                    {staff.ratingAvg ? Number(staff.ratingAvg).toFixed(1) : '5.0'}
+                                  </span>
+                                  {staff.totalReviews > 0 && (
+                                    <span className="text-slate-400 text-[10px]">
+                                      ({staff.totalReviews} {t('reviews_count') || 'đánh giá'})
+                                    </span>
+                                  )}
+                                  {staff.totalCompletedJobs > 0 && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="text-slate-500 dark:text-slate-400 text-[10px]">
+                                        {staff.totalCompletedJobs} {t('unit_jobs') || 'ca'}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>

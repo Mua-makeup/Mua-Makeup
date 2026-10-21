@@ -91,7 +91,7 @@ export const ReviewModal: React.FC<Props> = ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         quality: 0.8,
         selectionLimit: MAX_IMAGES - images.length,

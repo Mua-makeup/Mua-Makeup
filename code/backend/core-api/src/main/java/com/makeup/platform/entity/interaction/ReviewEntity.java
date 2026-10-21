@@ -22,6 +22,7 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -84,6 +85,12 @@ public class ReviewEntity extends BaseEntity {
 
     @Column(name = "admin_note", columnDefinition = "TEXT")
     private String adminNote;
+
+    @Column(name = "agency_reply", columnDefinition = "TEXT")
+    private String agencyReply;
+
+    @Column(name = "agency_replied_at")
+    private OffsetDateTime agencyRepliedAt;
 
     @Column(name = "is_deleted", nullable = false)
     @Builder.Default

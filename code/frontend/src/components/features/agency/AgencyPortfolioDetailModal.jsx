@@ -14,17 +14,17 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
     const list = [];
     const coverUrl = item.imageUrl || item.thumbnailUrl;
     if (coverUrl) {
-      list.push({ url: coverUrl, label: 'Ảnh bìa chính' });
+      list.push({ url: coverUrl, label: t('agency_portfolio_cover_photo') });
     }
     if (Array.isArray(item.additionalImages)) {
       item.additionalImages.forEach((img, idx) => {
         if (img) {
-          list.push({ url: img, label: `Ảnh đi kèm #${idx + 1}` });
+          list.push({ url: img, label: `${t('agency_portfolio_sub_photo')} #${idx + 1}` });
         }
       });
     }
     return list;
-  }, [item]);
+  }, [item, t]);
 
   useEffect(() => {
     if (isOpen) {
@@ -50,15 +50,15 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={item.title || 'Chi tiết tác phẩm'}
-      subtitle={item.packageName ? `Gói: ${item.packageName}` : 'Bộ sưu tập mẫu'}
+      title={item.title || t('agency_portfolio_detail_title')}
+      subtitle={item.packageName ? `${t('package_prefix')}: ${item.packageName}` : t('showcase_portfolio_label')}
       size="3xl"
       footer={
         <div className="w-full flex items-center justify-between">
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {allImages.length > 1
-              ? `Hiển thị ${allImages.length} hình ảnh (1 ảnh chính + ${allImages.length - 1} ảnh đi kèm)`
-              : '1 hình ảnh'}
+              ? t('agency_portfolio_images_count_summary', { total: allImages.length, count: allImages.length - 1 })
+              : t('agency_portfolio_single_image')}
           </div>
           <div className="flex items-center gap-2">
             {onEdit && (
@@ -72,11 +72,11 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
                 className="flex items-center gap-1.5"
               >
                 <Edit2 className="w-3.5 h-3.5" />
-                <span>{t('edit') || 'Chỉnh sửa'}</span>
+                <span>{t('edit')}</span>
               </Button>
             )}
             <Button variant="secondary" size="sm" onClick={onClose}>
-              {t('close') || 'Đóng'}
+              {t('close')}
             </Button>
           </div>
         </div>
@@ -114,7 +114,7 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
                 type="button"
                 onClick={handlePrev}
                 className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-all opacity-80 group-hover:opacity-100 backdrop-blur-sm"
-                title="Ảnh trước"
+                title={t('prev_image')}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -122,7 +122,7 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
                 type="button"
                 onClick={handleNext}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-all opacity-80 group-hover:opacity-100 backdrop-blur-sm"
-                title="Ảnh tiếp theo"
+                title={t('next_image')}
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -153,7 +153,7 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
                   />
                   {idx === 0 && (
                     <span className="absolute bottom-0 inset-x-0 bg-rose-600/90 text-white text-[9px] font-medium py-0.5 text-center leading-none">
-                      Chính
+                      {t('agency_portfolio_main_badge')}
                     </span>
                   )}
                 </button>
@@ -169,7 +169,7 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
               {item.isFeatured && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500 text-white shadow-sm">
                   <Star className="w-3 h-3 fill-white" />
-                  Ghim tiêu biểu
+                  {t('agency_portfolio_featured_badge')}
                 </span>
               )}
               <span
@@ -181,11 +181,11 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
               >
                 {item.isVisible ? (
                   <>
-                    <Eye className="w-3 h-3" /> Hiển thị với khách hàng
+                    <Eye className="w-3 h-3" /> {t('agency_portfolio_visible_to_customers')}
                   </>
                 ) : (
                   <>
-                    <EyeOff className="w-3 h-3" /> Đang ẩn
+                    <EyeOff className="w-3 h-3" /> {t('agency_portfolio_hidden_from_customers')}
                   </>
                 )}
               </span>
@@ -203,12 +203,12 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {item.packageName && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900">
-                Gói: {item.packageName}
+                {t('package_prefix')}: {item.packageName}
               </span>
             )}
             {item.styleName && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                Phong cách: {item.styleName}
+                {t('style_prefix')}: {item.styleName}
               </span>
             )}
           </div>
@@ -217,7 +217,7 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
           {item.description ? (
             <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
               <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-                Mô tả chi tiết:
+                {t('detailed_description_label')}
               </div>
               <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-line">
                 {item.description}
@@ -225,7 +225,7 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
             </div>
           ) : (
             <p className="text-xs italic text-slate-400 pt-1">
-              (Chưa có mô tả chi tiết cho tác phẩm này)
+              {t('agency_portfolio_no_desc')}
             </p>
           )}
         </div>

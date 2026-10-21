@@ -374,9 +374,6 @@ export default function JoinStudioScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Banner Giới thiệu */}
           <View style={styles.heroIntroCard}>
-            <View style={styles.heroIconCircle}>
-              <Ionicons name="sparkles" size={26} color="#BE123C" />
-            </View>
             <Text style={styles.heroIntroTitle}>Hợp Tác Cùng Studio Làm Đẹp</Text>
             <Text style={styles.heroIntroSub}>
               Gia nhập đội ngũ Studio uy tín để nhận thêm các ca làm tiệc cưới, sự kiện lớn và bảo đảm thu nhập ổn định.

@@ -1,5 +1,7 @@
 package com.makeup.platform.repository.custom.projection;
 
+import java.math.BigDecimal;
+
 public interface StaffMatrixProjection {
 
     Long getStaffId();
@@ -11,6 +13,14 @@ public interface StaffMatrixProjection {
     String getStaffPhone();
 
     String getStaffAvatarUrl();
+
+    BigDecimal getRatingAvg();
+
+    Integer getTotalReviews();
+
+    Integer getTotalCompletedJobs();
+
+    Boolean getHasServedThisCustomer();
 
     Boolean getHasShift();
 
