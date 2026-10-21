@@ -82,6 +82,7 @@
     "invitation_cancel_success": "Invitation cancelled successfully.",
     "invitation_accept_success": "Successfully joined Studio.",
     "staff_list_success": "Staff list retrieved successfully.",
+    "staff_leaderboard_success": "Staff leaderboard retrieved successfully.",
     "staff_detail_success": "Staff detail retrieved successfully.",
     "staff_review_success": "Staff application reviewed successfully.",
     "staff_review_approved": "Staff application approved successfully!",
@@ -681,6 +682,11 @@
     "update_success": "Review updated successfully! Thank you for your feedback.",
     "edit_expired": "The 7-day review editing period has expired.",
     "upload_images_success": "Review images uploaded successfully.",
-    "missing_files": "Please select at least one image to upload."
+    "missing_files": "Please select at least one image to upload.",
+    "fetch_success": "Retrieved reviews successfully.",
+    "reply_success": "Replied to customer review successfully.",
+    "reply_not_blank": "Reply content cannot be blank.",
+    "reply_max_length": "Reply content cannot exceed 1000 characters.",
+    "agency_unauthorized": "You are not authorized to reply to this review."
   }
 }

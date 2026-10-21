@@ -15,6 +15,8 @@ import {
   MapPin,
   AlertTriangle,
   Image,
+  MessageSquareQuote,
+  Trophy,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -108,6 +110,16 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/agency/shifts',
       label: t('nav_agency_shifts'),
       icon: CalendarDays,
+    },
+    {
+      to: '/agency/reviews',
+      label: t('nav_agency_reviews'),
+      icon: MessageSquareQuote,
+    },
+    {
+      to: '/agency/staff-leaderboard',
+      label: t('nav_agency_staff_leaderboard'),
+      icon: Trophy,
     },
     {
       to: '/agency/disputes',

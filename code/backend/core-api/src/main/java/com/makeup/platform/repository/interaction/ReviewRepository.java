@@ -1,5 +1,6 @@
 package com.makeup.platform.repository.interaction;
 
+import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.interaction.ReviewEntity;
 import com.makeup.platform.entity.interaction.ReviewStatus;
 import org.springframework.data.domain.Page;
@@ -153,4 +154,52 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
               AND r.is_deleted = false
             """, nativeQuery = true)
     Double getAgencySystemOverallAverageRating();
+
+    @Query("""
+            SELECT r FROM ReviewEntity r
+            JOIN FETCH r.booking b
+            JOIN FETCH r.customer c
+            JOIN FETCH r.mua m
+            JOIN FETCH m.user mu
+            LEFT JOIN FETCH b.servicePackage sp
+            WHERE r.agency.id = :agencyId
+              AND r.status = 'APPROVED'
+              AND r.isDeleted = false
+              AND (:staffId IS NULL OR EXISTS (
+                    SELECT 1 FROM AgencyStaffEntity s
+                    WHERE s.id = :staffId AND s.mua.id = r.mua.id
+              ))
+              AND (:rating IS NULL OR r.rating = :rating)
+              AND (
+                    :hasReply IS NULL 
+                    OR (:hasReply = true AND r.agencyReply IS NOT NULL)
+                    OR (:hasReply = false AND r.agencyReply IS NULL)
+              )
+            ORDER BY r.createdAt DESC
+            """)
+    Page<ReviewEntity> findAgencyReviewsWithFilters(
+            @Param("agencyId") Long agencyId,
+            @Param("staffId") Long staffId,
+            @Param("rating") Integer rating,
+            @Param("hasReply") Boolean hasReply,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT COUNT(r) FROM ReviewEntity r
+            WHERE r.agency.id = :agencyId
+              AND r.status = 'APPROVED'
+              AND r.isDeleted = false
+              AND r.agencyReply IS NULL
+            """)
+    long countPendingReplyByAgencyId(@Param("agencyId") Long agencyId);
+
+    @Query("""
+            SELECT r.rating, COUNT(r) FROM ReviewEntity r
+            WHERE r.agency.id = :agencyId
+              AND r.status = 'APPROVED'
+              AND r.isDeleted = false
+            GROUP BY r.rating
+            """)
+    List<Object[]> countRatingsGroupedByAgencyId(@Param("agencyId") Long agencyId);
 }

@@ -143,5 +143,15 @@ export const agencyService = {
   togglePortfolioVisibility: (id, isVisible) =>
     apiClient.patch(`/agencies/my-agency/portfolios/${id}/visibility`, { isVisible }),
   deletePortfolio: (id) => apiClient.delete(`/agencies/my-agency/portfolios/${id}`),
+
+  // Trung tâm Đánh giá & Phản hồi Khách hàng (Reviews)
+  getAgencyReviews: (params) => apiClient.get('/agency/reviews', { params }),
+  getAgencyReviewSummary: () => apiClient.get('/agency/reviews/summary'),
+  replyToReview: (reviewId, replyContent) =>
+    apiClient.post(`/agency/reviews/${reviewId}/reply`, { replyContent }),
+
+  // Bảng Xếp Hạng & CSAT Hiệu Suất Thợ Make-up
+  getStaffLeaderboard: (period = 'ALL_TIME') =>
+    apiClient.get('/agency/staff/leaderboard', { params: { period } }),
 };
 

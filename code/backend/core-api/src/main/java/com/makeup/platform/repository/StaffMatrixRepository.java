@@ -22,6 +22,18 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
             u.full_name AS staffName,
             u.phone_number AS staffPhone,
             u.avatar_url AS staffAvatarUrl,
+            mp.rating_avg AS ratingAvg,
+            COALESCE(mp.total_reviews, 0) AS totalReviews,
+            COALESCE(mp.total_completed_jobs, 0) AS totalCompletedJobs,
+            EXISTS (
+                SELECT 1 FROM booking_schema.bookings b_cust
+                JOIN booking_schema.booking_staff_assignments bsa_cust ON bsa_cust.booking_id = b_cust.id
+                WHERE bsa_cust.staff_id = s.id
+                  AND bsa_cust.status = 'ACTIVE'
+                  AND b_cust.customer_id = (SELECT b_curr.customer_id FROM booking_schema.bookings b_curr WHERE b_curr.id = :bookingId)
+                  AND b_cust.id != :bookingId
+                  AND b_cust.status IN ('COMPLETED', 'PAID_OUT')
+            ) AS hasServedThisCustomer,
             EXISTS (
                 SELECT 1 FROM agency_schema.agency_staff_shifts sh
                 WHERE sh.staff_id = s.id 
@@ -199,6 +211,17 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                       AND bsa_canc.status = 'EMERGENCY_CANCELLED'
                 )
             ) DESC,
+            EXISTS (
+                SELECT 1 FROM booking_schema.bookings b_cust
+                JOIN booking_schema.booking_staff_assignments bsa_cust ON bsa_cust.booking_id = b_cust.id
+                WHERE bsa_cust.staff_id = s.id
+                  AND bsa_cust.status = 'ACTIVE'
+                  AND b_cust.customer_id = (SELECT b_curr.customer_id FROM booking_schema.bookings b_curr WHERE b_curr.id = :bookingId)
+                  AND b_cust.id != :bookingId
+                  AND b_cust.status IN ('COMPLETED', 'PAID_OUT')
+            ) DESC,
+            COALESCE(mp.rating_avg, 5.0) DESC,
+            COALESCE(mp.total_completed_jobs, 0) DESC,
             u.full_name ASC
     """, nativeQuery = true)
     List<StaffMatrixProjection> getStaffAvailabilityMatrix(
