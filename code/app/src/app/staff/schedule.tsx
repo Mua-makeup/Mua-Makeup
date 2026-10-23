@@ -20,6 +20,8 @@ import { getTodayVN } from '@/utils/date';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { websocketService } from '@/services/websocket.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getBottomNavPadding } from '@/utils/responsive';
 
 const DAY_NAMES: Record<number, string> = {
   1: 'Chủ Nhật',
@@ -143,6 +145,7 @@ export interface WeekDayInfo {
 }
 
 export default function StaffScheduleScreen() {
+  const insets = useSafeAreaInsets();
   const { userInfo } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'SHIFTS' | 'BUSY'>('SHIFTS');
   const [currentWeekBase, setCurrentWeekBase] = useState<Date>(new Date());
@@ -736,7 +739,7 @@ export default function StaffScheduleScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#991B1B']} />}
       >

@@ -273,8 +273,22 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
       }
 
-      // 5. Tự động refresh Bàn làm việc (Workstation) nếu là thông báo liên quan đến đơn hàng / điều phối
+      // 5. Tự động refresh Bàn làm việc (Workstation) & Cập nhật Vai trò người dùng (Auth) khi có sự kiện
       if (
+        incomingItem.type === 'STAFF_APPLICATION_APPROVED' ||
+        incomingItem.type === 'STAFF_APPLICATION_REJECTED'
+      ) {
+        try {
+          const { useAuthStore } = require('@/store/auth.store');
+          const { useWorkstationStore } = require('@/store/workstation.store');
+          // Cập nhật vai trò tức thì sang ROLE_AGENCY_STAFF và làm mới giao diện Bàn làm việc
+          useAuthStore.getState().refreshCurrentUser().then(() => {
+            useWorkstationStore.getState().fetchWorkstationData();
+          });
+        } catch (authErr) {
+          console.warn('[NotificationStore] Lỗi cập nhật trạng thái gia nhập Studio:', authErr);
+        }
+      } else if (
         incomingItem.bookingId ||
         incomingItem.type === 'AGENCY_ASSIGNED' ||
         incomingItem.type === 'DISPATCH_STATUS_UPDATED' ||

@@ -11,7 +11,8 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getBottomNavPadding } from '@/utils/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -55,6 +56,7 @@ interface HistoryModalTarget {
 }
 
 export default function OrderTrackingActivityScreen() {
+  const insets = useSafeAreaInsets();
   const { userInfo, isAuthenticated } = useAuthStore();
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA') || userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
 
@@ -113,7 +115,14 @@ export default function OrderTrackingActivityScreen() {
           artistName: b.customerName,
           note: b.note,
         } as any));
-        setOtherBookings(mappedOthers);
+        // Khử trùng lặp theo ID đơn hàng
+        const uniqueOthersMap = new Map<number, CustomerBookingItem>();
+        mappedOthers.forEach((b) => {
+          if (b && b.id) {
+            uniqueOthersMap.set(Number(b.id), b);
+          }
+        });
+        setOtherBookings(Array.from(uniqueOthersMap.values()));
       } else {
         // Luồng của Khách hàng
         const [activeData, allBookings] = await Promise.all([
@@ -128,7 +137,14 @@ export default function OrderTrackingActivityScreen() {
         const others = (allBookings || []).filter(
           (b) => activeId === null || Number(b.id) !== activeId
         );
-        setOtherBookings(others);
+        // Khử trùng lặp theo ID đơn hàng
+        const uniqueOthersMap = new Map<number, CustomerBookingItem>();
+        others.forEach((b) => {
+          if (b && b.id) {
+            uniqueOthersMap.set(Number(b.id), b);
+          }
+        });
+        setOtherBookings(Array.from(uniqueOthersMap.values()));
       }
     } catch (error) {
       console.error('[OrderTracking] Failed to fetch active tracking data:', error);
@@ -1084,8 +1100,8 @@ export default function OrderTrackingActivityScreen() {
                 </View>
               </View>
 
-              {displayOtherBookings.map((b) => (
-                <View key={b.id} style={styles.otherCard}>
+              {displayOtherBookings.map((b, index) => (
+                <View key={`other-booking-${b.id}-${index}`} style={styles.otherCard}>
                   <View style={styles.otherCardHeader}>
                     <Text style={styles.otherCode}>#{b.bookingCode || b.id}</Text>
                     <View
@@ -1208,8 +1224,8 @@ export default function OrderTrackingActivityScreen() {
             </View>
           ) : null}
 
-          {/* Khoảng trống đáy đủ lớn để đơn cuối không bị AppBottomNavBar che mất */}
-          <View style={{ height: 110 }} />
+          {/* Khoảng trống đáy tự động co giãn theo safe area để đơn cuối không bị AppBottomNavBar che mất */}
+          <View style={{ height: getBottomNavPadding(insets.bottom) }} />
         </ScrollView>
       )}
 
@@ -1282,7 +1298,7 @@ export default function OrderTrackingActivityScreen() {
               {modalLogs.map((logItem, index) => {
                 const isLast = index === modalLogs.length - 1;
                 return (
-                  <View key={logItem.id || index} style={styles.timelineRow}>
+                  <View key={`timeline-${logItem.id || 'log'}-${index}`} style={styles.timelineRow}>
                     {/* Cột trục Timeline */}
                     <View style={styles.timelineAxis}>
                       <View

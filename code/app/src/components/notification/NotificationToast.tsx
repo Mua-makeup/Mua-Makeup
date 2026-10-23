@@ -93,6 +93,11 @@ export const NotificationToast: React.FC = () => {
     const bookingId = activeToast.bookingId || activeToast.metadata?.bookingId;
     handleDismiss();
 
+    if (activeToast.type === 'STAFF_APPLICATION_APPROVED') {
+      router.push('/profile/staff-profile' as any);
+      return;
+    }
+
     if (bookingId) {
       const isMua = userInfo?.roles?.some(
         (r) => r === 'ROLE_FREELANCE_MUA' || r === 'ROLE_AGENCY_STAFF'

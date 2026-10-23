@@ -16,6 +16,7 @@ interface Props {
   onReviewPress?: (booking: CustomerBookingItem) => void;
   onRebookPress?: (booking: CustomerBookingItem) => void;
   onDisputePress?: (booking: CustomerBookingItem) => void;
+  onPayFinalPress?: (booking: CustomerBookingItem) => void;
 }
 
 export const BookingHistoryCard: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const BookingHistoryCard: React.FC<Props> = ({
   onReviewPress,
   onRebookPress,
   onDisputePress,
+  onPayFinalPress,
 }) => {
   const isStudioBooking =
     booking.bookingPartner === 'AGENCY_DISPATCH' ||
@@ -164,16 +166,20 @@ export const BookingHistoryCard: React.FC<Props> = ({
               {booking.packageName}
             </Text>
 
-            {(booking.packageName || booking.styleName) ? (
-              <View style={styles.variationRow}>
-                <Text style={styles.variationLabel}>Phân loại: </Text>
-                <Text style={styles.variationValue} numberOfLines={1}>
-                  {[booking.packageName, booking.styleName ? `Tone ${booking.styleName}` : null]
-                    .filter(Boolean)
-                    .join(' • ')}
-                </Text>
-              </View>
-            ) : null}
+            {booking.styleName ? (() => {
+              const rawStyle = booking.styleName.trim();
+              const isTone = rawStyle.toLowerCase().startsWith('tone');
+              const label = isTone ? 'Tone: ' : 'Phong cách: ';
+              const val = isTone ? rawStyle.replace(/^tone\s+/i, '') : rawStyle;
+              return (
+                <View style={styles.variationRow}>
+                  <Text style={styles.variationValue} numberOfLines={2}>
+                    <Text style={styles.variationLabel}>{label}</Text>
+                    {val}
+                  </Text>
+                </View>
+              );
+            })() : null}
 
             {isStudioBooking ? (
               <>
@@ -212,9 +218,9 @@ export const BookingHistoryCard: React.FC<Props> = ({
               <Text style={styles.detailText}>{formatBookingTime(booking.bookingTime)}</Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Ionicons name="location-outline" size={13} color="#64748B" />
-              <Text style={styles.detailText} numberOfLines={1}>
+            <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
+              <Ionicons name="location-outline" size={13} color="#64748B" style={{ marginTop: 1 }} />
+              <Text style={[styles.detailText, { flex: 1 }]} numberOfLines={2}>
                 {booking.destinationAddress || 'Trang điểm tại nhà'}
               </Text>
             </View>
@@ -329,7 +335,13 @@ export const BookingHistoryCard: React.FC<Props> = ({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.depositActionBtn}
-              onPress={() => onPress(booking)}
+              onPress={() => {
+                if (onPayFinalPress) {
+                  onPayFinalPress(booking);
+                } else {
+                  router.push(`/booking/history-detail/${booking.id}` as any);
+                }
+              }}
               activeOpacity={0.7}
             >
               <Ionicons name="card-outline" size={14} color="#FFFFFF" />
@@ -348,13 +360,32 @@ export const BookingHistoryCard: React.FC<Props> = ({
               <Ionicons name="alert-circle-outline" size={14} color="#EA580C" />
               <Text style={styles.disputeActionText}>Khiếu Nại</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.reviewActionBtn}
-              onPress={() => onReviewPress && onReviewPress(booking)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.reviewActionText}>Đánh Giá</Text>
-            </TouchableOpacity>
+            {(() => {
+              const completionTime = booking.updatedAt || booking.bookingTime;
+              const isWithin7Days = (() => {
+                if (!completionTime) return true;
+                const diffMs = Date.now() - new Date(completionTime).getTime();
+                return diffMs <= 7 * 24 * 60 * 60 * 1000;
+              })();
+
+              if (!isWithin7Days) {
+                return (
+                  <View style={styles.expiredReviewTag}>
+                    <Text style={styles.expiredReviewTagText}>Quá hạn đánh giá</Text>
+                  </View>
+                );
+              }
+
+              return (
+                <TouchableOpacity
+                  style={styles.reviewActionBtn}
+                  onPress={() => onReviewPress && onReviewPress(booking)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.reviewActionText}>Đánh Giá</Text>
+                </TouchableOpacity>
+              );
+            })()}
             <TouchableOpacity
               style={styles.rebookActionBtn}
               onPress={() => onRebookPress && onRebookPress(booking)}
@@ -611,6 +642,8 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 10,
   },
@@ -698,6 +731,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#D97706',
     fontWeight: '700',
+  },
+  expiredReviewTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  expiredReviewTagText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   rebookActionBtn: {
     flexDirection: 'row',

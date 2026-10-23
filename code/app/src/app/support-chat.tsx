@@ -22,9 +22,12 @@ import { BrandColors } from '@/constants/theme';
 
 const QUICK_PROMPTS = [
   '⚡ Đặt lịch khẩn cấp 30s',
+  '⭐ Đánh giá & Chấm sao dịch vụ',
+  '🏆 Bảng xếp hạng (BXH) & Huy hiệu thợ',
+  '🏢 Cách gia nhập Studio làm đẹp',
+  '💳 Thanh toán 2 đợt (30% cọc & 70%)',
   '💰 Chính sách tiền cọc Escrow',
   '🔄 Quy định hủy & hoàn tiền',
-  '⚠️ Quy trình khiếu nại dịch vụ',
   '💄 Các phong cách make-up hot',
 ];
 
@@ -38,7 +41,7 @@ export default function SupportChatScreen() {
     {
       role: 'ASSISTANT',
       content:
-        'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup. Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn trước, đặt ca khẩn cấp 30s, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
+        'Dạ em chào anh/chị! Em là Trợ lý AI chuyên trách của Mua-Makeup. Em có thể hỗ trợ giải đáp mọi thắc mắc về cách sử dụng app, đặt lịch hẹn, đặt ca khẩn cấp 30s, đánh giá dịch vụ, bảng xếp hạng thợ, gia nhập Studio, biểu phí và chính sách cọc hoàn tiền ạ. Anh/chị cần em hỗ trợ gì hôm nay ạ?',
       createdAt: new Date().toISOString(),
     },
   ]);

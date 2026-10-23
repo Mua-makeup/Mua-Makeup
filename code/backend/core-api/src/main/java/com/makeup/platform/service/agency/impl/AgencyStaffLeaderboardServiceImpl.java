@@ -64,19 +64,21 @@ public class AgencyStaffLeaderboardServiceImpl implements AgencyStaffLeaderboard
         int currentRank = 1;
 
         for (StaffLeaderboardProjection p : projections) {
-            BigDecimal ratingAvgBd = p.getRatingAvg() != null ? p.getRatingAvg() : BigDecimal.valueOf(5.0);
-            double avgRating = ratingAvgBd.setScale(1, RoundingMode.HALF_UP).doubleValue();
             int totalReviews = p.getTotalReviews() != null ? p.getTotalReviews() : 0;
             int fiveStarCount = p.getFiveStarCount() != null ? p.getFiveStarCount() : 0;
             int completedJobs = p.getTotalCompletedJobs() != null ? p.getTotalCompletedJobs() : 0;
+
+            Double avgRating = (totalReviews > 0 && p.getRatingAvg() != null)
+                    ? p.getRatingAvg().setScale(1, RoundingMode.HALF_UP).doubleValue()
+                    : null;
 
             double fiveStarRate = totalReviews > 0
                     ? BigDecimal.valueOf((double) fiveStarCount / totalReviews * 100)
                     .setScale(1, RoundingMode.HALF_UP)
                     .doubleValue()
-                    : (completedJobs > 0 ? 100.0 : 0.0);
+                    : 0.0;
 
-            if (totalReviews > 0) {
+            if (avgRating != null) {
                 totalRatingSum += avgRating;
                 ratingCount++;
             }
@@ -84,22 +86,25 @@ public class AgencyStaffLeaderboardServiceImpl implements AgencyStaffLeaderboard
             String badge;
             String badgeLabel;
 
-            if (currentRank == 1 && (totalReviews > 0 || completedJobs > 0)) {
+            if (completedJobs == 0 && totalReviews == 0) {
+                badge = "NEW_ARTIST";
+                badgeLabel = "leaderboard_badge_new";
+            } else if (currentRank == 1) {
                 badge = "CHAMPION";
                 badgeLabel = "leaderboard_rank_gold";
-            } else if (currentRank == 2 && (totalReviews > 0 || completedJobs > 0)) {
+            } else if (currentRank == 2) {
                 badge = "RUNNER_UP_1";
                 badgeLabel = "leaderboard_rank_silver";
-            } else if (currentRank == 3 && (totalReviews > 0 || completedJobs > 0)) {
+            } else if (currentRank == 3) {
                 badge = "RUNNER_UP_2";
                 badgeLabel = "leaderboard_rank_bronze";
-            } else if (totalReviews >= 3 && avgRating >= 4.8) {
+            } else if (totalReviews >= 3 && avgRating != null && avgRating >= 4.8) {
                 badge = "SUPER_STAR";
                 badgeLabel = "leaderboard_badge_super_star";
-            } else if (totalReviews >= 3 && avgRating >= 4.0) {
+            } else if (totalReviews >= 3 && avgRating != null && avgRating >= 4.0) {
                 badge = "RELIABLE";
                 badgeLabel = "leaderboard_badge_reliable";
-            } else if (totalReviews >= 3 && avgRating < 4.0) {
+            } else if (totalReviews >= 3 && avgRating != null && avgRating < 4.0) {
                 badge = "NEED_IMPROVEMENT";
                 badgeLabel = "leaderboard_badge_need_improvement";
             } else {

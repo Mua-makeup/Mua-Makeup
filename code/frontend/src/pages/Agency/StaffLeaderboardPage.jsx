@@ -70,43 +70,43 @@ export const StaffLeaderboardPage = () => {
       case 'CHAMPION':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-            👑 {t(labelKey) || 'Quán Quân'}
+            {t(labelKey) || 'Quán Quân'}
           </span>
         );
       case 'RUNNER_UP_1':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700">
-            🥈 {t(labelKey) || 'Á Quân 1'}
+            {t(labelKey) || 'Á Quân 1'}
           </span>
         );
       case 'RUNNER_UP_2':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-            🥉 {t(labelKey) || 'Á Quân 2'}
+            {t(labelKey) || 'Á Quân 2'}
           </span>
         );
       case 'SUPER_STAR':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-            {t(labelKey) || '🌟 Ngôi Sao Studio'}
+            {t(labelKey) || 'Ngôi Sao Studio'}
           </span>
         );
       case 'RELIABLE':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-            {t(labelKey) || '💎 Chắc Tay & Ổn Định'}
+            {t(labelKey) || 'Chắc Tay & Ổn Định'}
           </span>
         );
       case 'NEED_IMPROVEMENT':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300 border border-rose-300 dark:border-rose-700">
-            {t(labelKey) || '⚠️ Cần Cải Thiện'}
+            {t(labelKey) || 'Cần Cải Thiện'}
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-            {t(labelKey) || '🌱 Thợ Mới'}
+            {t(labelKey) || 'Thợ Mới'}
           </span>
         );
     }
@@ -228,9 +228,9 @@ export const StaffLeaderboardPage = () => {
                   <span className="text-[11px] font-mono text-slate-400">
                     {top2.staffCode}
                   </span>
-                  <div className="mt-2 flex items-center justify-center gap-1 text-amber-500 font-bold text-sm">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                    <span>{top2.averageRating.toFixed(1)}</span>
+                  <div className={`mt-2 flex items-center justify-center gap-1 font-bold text-sm ${top2.averageRating != null && top2.totalReviews > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                    <Star className={`w-4 h-4 ${top2.averageRating != null && top2.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                    <span>{top2.averageRating != null && top2.totalReviews > 0 ? top2.averageRating.toFixed(1) : 'N/A'}</span>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex justify-around">
                     <span>{top2.completedJobs} {t('leaderboard_jobs_unit')}</span>
@@ -268,7 +268,7 @@ export const StaffLeaderboardPage = () => {
 
                 <div className="w-full p-5 rounded-2xl bg-gradient-to-b from-amber-50/60 to-white dark:from-amber-950/20 dark:to-slate-800/90 border-2 border-amber-300/80 dark:border-amber-600/60 text-center shadow-md">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                    👑 {t('leaderboard_rank_gold')}
+                    {t('leaderboard_rank_gold')}
                   </span>
                   <h3 className="font-extrabold text-base text-slate-900 dark:text-white truncate mt-0.5">
                     {top1.fullName}
@@ -276,9 +276,9 @@ export const StaffLeaderboardPage = () => {
                   <span className="text-[11px] font-mono text-slate-400">
                     {top1.staffCode}
                   </span>
-                  <div className="mt-2.5 flex items-center justify-center gap-1.5 text-amber-500 font-black text-base">
-                    <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-                    <span>{top1.averageRating.toFixed(1)}</span>
+                  <div className={`mt-2.5 flex items-center justify-center gap-1.5 font-black text-base ${top1.averageRating != null && top1.totalReviews > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                    <Star className={`w-5 h-5 ${top1.averageRating != null && top1.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                    <span>{top1.averageRating != null && top1.totalReviews > 0 ? top1.averageRating.toFixed(1) : 'N/A'}</span>
                   </div>
                   <div className="mt-2.5 pt-2.5 border-t border-amber-200/60 dark:border-amber-800/60 text-xs text-slate-600 dark:text-slate-300 flex justify-around font-medium">
                     <span>
@@ -322,9 +322,9 @@ export const StaffLeaderboardPage = () => {
                   <span className="text-[11px] font-mono text-slate-400">
                     {top3.staffCode}
                   </span>
-                  <div className="mt-2 flex items-center justify-center gap-1 text-amber-500 font-bold text-sm">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                    <span>{top3.averageRating.toFixed(1)}</span>
+                  <div className={`mt-2 flex items-center justify-center gap-1 font-bold text-sm ${top3.averageRating != null && top3.totalReviews > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
+                    <Star className={`w-4 h-4 ${top3.averageRating != null && top3.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                    <span>{top3.averageRating != null && top3.totalReviews > 0 ? top3.averageRating.toFixed(1) : 'N/A'}</span>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex justify-around">
                     <span>{top3.completedJobs} {t('leaderboard_jobs_unit')}</span>
@@ -366,7 +366,7 @@ export const StaffLeaderboardPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold text-xs">
                   <th className="py-3 px-4 w-14 text-center">{t('leaderboard_col_rank')}</th>
                   <th className="py-3 px-4">{t('leaderboard_col_staff')}</th>
                   <th className="py-3 px-4">{t('leaderboard_col_rating')}</th>
@@ -431,9 +431,9 @@ export const StaffLeaderboardPage = () => {
 
                     {/* Avg Rating */}
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1 font-bold text-slate-900 dark:text-white">
-                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        <span>{item.averageRating.toFixed(1)}</span>
+                      <div className={`flex items-center gap-1 font-bold ${item.averageRating != null && item.totalReviews > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
+                        <Star className={`w-4 h-4 ${item.averageRating != null && item.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                        <span>{item.averageRating != null && item.totalReviews > 0 ? item.averageRating.toFixed(1) : 'N/A'}</span>
                       </div>
                     </td>
 

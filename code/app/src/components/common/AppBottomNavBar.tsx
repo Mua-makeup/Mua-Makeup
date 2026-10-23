@@ -8,6 +8,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { useAccountModalStore } from '@/store/account-modal.store';
 import { useNotificationStore } from '@/store/notification.store';
 
+import { isSmallDevice } from '@/utils/responsive';
+
 export type BottomNavTab = 'home' | 'explore' | 'appointments' | 'tracking' | 'messages' | 'account';
 
 interface AppBottomNavBarProps {
@@ -107,7 +109,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
               ? 'home'
               : 'home-outline'
           }
-          size={22}
+          size={isSmallDevice ? 20 : 22}
           color={activeTab === 'home' ? BrandColors.primary : BrandColors.slateMuted}
         />
         <Text
@@ -115,6 +117,8 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             styles.bottomNavLabel,
             activeTab === 'home' && styles.bottomNavLabelActive,
           ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {isMUA || isAgencyStaff ? 'Bàn Làm Việc' : 'Trang Chủ'}
         </Text>
@@ -140,7 +144,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
               ? 'compass'
               : 'compass-outline'
           }
-          size={22}
+          size={isSmallDevice ? 20 : 22}
           color={activeTab === 'explore' ? BrandColors.primary : BrandColors.slateMuted}
         />
         <Text
@@ -148,6 +152,8 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             styles.bottomNavLabel,
             activeTab === 'explore' && styles.bottomNavLabelActive,
           ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {isMUA ? 'Gói Dịch Vụ' : isAgencyStaff ? 'Ca Studio' : 'Khám Phá'}
         </Text>
@@ -161,7 +167,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
       >
         <Ionicons
           name={activeTab === 'appointments' ? 'calendar' : 'calendar-outline'}
-          size={22}
+          size={isSmallDevice ? 20 : 22}
           color={activeTab === 'appointments' ? BrandColors.primary : BrandColors.slateMuted}
         />
         <Text
@@ -169,6 +175,8 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             styles.bottomNavLabel,
             activeTab === 'appointments' && styles.bottomNavLabelActive,
           ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           Lịch Hẹn
         </Text>
@@ -183,7 +191,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
         <View style={styles.iconContainer}>
           <Ionicons
             name={activeTab === 'tracking' ? 'time' : 'time-outline'}
-            size={22}
+            size={isSmallDevice ? 20 : 22}
             color={activeTab === 'tracking' ? BrandColors.primary : BrandColors.slateMuted}
           />
           {unreadCount > 0 ? (
@@ -199,6 +207,8 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             styles.bottomNavLabel,
             activeTab === 'tracking' && styles.bottomNavLabelActive,
           ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           Theo Dõi
         </Text>
@@ -218,7 +228,7 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
               ? 'person'
               : 'person-outline'
           }
-          size={22}
+          size={isSmallDevice ? 20 : 22}
           color={
             activeTab === 'account' || isAuthenticated
               ? BrandColors.primary
@@ -230,6 +240,8 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             styles.bottomNavLabel,
             (activeTab === 'account' || isAuthenticated) && styles.bottomNavLabelActive,
           ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
           Tài Khoản
         </Text>
@@ -261,9 +273,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 2,
   },
   bottomNavLabel: {
-    fontSize: 11,
+    fontSize: isSmallDevice ? 10 : 11,
     color: BrandColors.slateMuted,
     marginTop: 2,
     fontWeight: '500',

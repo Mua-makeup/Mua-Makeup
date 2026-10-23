@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { getBottomNavPadding } from '@/utils/responsive';
 import { useAuthStore } from '@/store/auth.store';
 import { useLocationStore } from '@/store/location.store';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
@@ -313,7 +314,7 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 70 + (insets.bottom > 0 ? insets.bottom : 16) },
+          { paddingBottom: getBottomNavPadding(insets.bottom) },
         ]}
         showsVerticalScrollIndicator={false}>
 

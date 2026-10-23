@@ -1,4 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { ImageViewerModal } from '@/components/common/ImageViewerModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -16,7 +17,7 @@ import {
   Pressable,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -37,6 +38,7 @@ import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { useAuthStore } from '@/store/auth.store';
 
 export default function CustomerBookingDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
 
@@ -560,9 +562,25 @@ export default function CustomerBookingDetailScreen() {
     Boolean(bookingDetail.agencyId) ||
     Boolean(bookingDetail.agencyName);
 
-  const allAssignedStaff = (bookingDetail.assignedStaff || []).filter(
+  const rawAssignedStaff = (bookingDetail.assignedStaff || []).filter(
     (s) => s.status !== 'REPLACED' || Boolean(s.cancellationReason) || (s.status as string) === 'EMERGENCY_CANCELLED'
   );
+
+  // Khử trùng lặp thợ phân công (tránh hiển thị cùng 1 thợ nhiều lần nếu có bản ghi gán trùng hoặc SQL join)
+  const staffMap = new Map<string, StaffAssignmentItem>();
+  for (const s of rawAssignedStaff) {
+    const key = String(s.staffId || s.id);
+    if (!staffMap.has(key)) {
+      staffMap.set(key, s);
+    } else {
+      const existing = staffMap.get(key)!;
+      // Ưu tiên bản ghi có trạng thái ACTIVE hoặc đã xác nhận hơn
+      if (existing.status !== 'ACTIVE' && s.status === 'ACTIVE') {
+        staffMap.set(key, s);
+      }
+    }
+  }
+  const allAssignedStaff = Array.from(staffMap.values());
 
   const confirmedStaffList = allAssignedStaff.filter(
     (s) =>
@@ -661,7 +679,7 @@ export default function CustomerBookingDetailScreen() {
     : defaultPackageSteps;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       {/* HEADER TOP BAR */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -692,7 +710,7 @@ export default function CustomerBookingDetailScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -1387,7 +1405,7 @@ export default function CustomerBookingDetailScreen() {
 
                       return (
                         <View
-                          key={`staff-${staff.id || sIdx}`}
+                          key={`staff-${staff.id || staff.staffId}-${sIdx}`}
                           style={[
                             styles.staffItemCard,
                             isPrimary && !isEmergency && styles.staffItemPrimaryCard,
@@ -2133,35 +2151,13 @@ export default function CustomerBookingDetailScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL PHÓNG TO ẢNH NGHIỆM THU */}
-      <Modal
+      {/* MODAL PHÓNG TO ẢNH NGHIỆM THU (CHẠM NGOÀI HOẶC VUỐT XUỐNG ĐỂ TẮT) */}
+      <ImageViewerModal
         visible={isPhotoModalVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setIsPhotoModalVisible(false)}
-      >
-        <Pressable
-          style={styles.photoModalFullscreen}
-
-          onPress={() => setIsPhotoModalVisible(false)}
-        >
-
-
-
-
-
-
-
-          {bookingDetail.completionPhotoUrl && (
-            <Image
-              source={{ uri: bookingDetail.completionPhotoUrl }}
-              style={styles.photoModalImage}
-              contentFit="contain"
-            />
-          )}
-        </Pressable>
-      </Modal>
+        images={bookingDetail?.completionPhotoUrl ? [bookingDetail.completionPhotoUrl] : []}
+        title="Ảnh nghiệm thu ca làm"
+        onClose={() => setIsPhotoModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -79,7 +79,11 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
             u.phone_number AS phone,
             u.avatar_url AS avatarUrl,
             s.joined_at AS joinedAt,
-            COALESCE(sub_rev.rating_avg, mp.rating_avg, 5.0) AS ratingAvg,
+            CASE 
+                WHEN sub_rev.total_reviews > 0 THEN sub_rev.rating_avg
+                WHEN mp.total_reviews > 0 THEN mp.rating_avg
+                ELSE NULL 
+            END AS ratingAvg,
             COALESCE(sub_rev.total_reviews, 0) AS totalReviews,
             COALESCE(sub_rev.five_star_count, 0) AS fiveStarCount,
             COALESCE(sub_bk.total_completed_jobs, 0) AS totalCompletedJobs
@@ -115,10 +119,16 @@ public interface AgencyStaffRepository extends JpaRepository<AgencyStaffEntity, 
           AND s.is_active = true
           AND s.status = 'ACTIVE'
         ORDER BY 
-            COALESCE(sub_rev.rating_avg, mp.rating_avg, 5.0) DESC,
-            COALESCE(sub_rev.five_star_count, 0) DESC,
+            CASE WHEN (COALESCE(sub_bk.total_completed_jobs, 0) > 0 OR COALESCE(sub_rev.total_reviews, 0) > 0) THEN 1 ELSE 0 END DESC,
             COALESCE(sub_bk.total_completed_jobs, 0) DESC,
-            COALESCE(sub_rev.total_reviews, 0) DESC
+            CASE 
+                WHEN sub_rev.total_reviews > 0 THEN sub_rev.rating_avg
+                WHEN mp.total_reviews > 0 THEN mp.rating_avg
+                ELSE 0.0 
+            END DESC,
+            COALESCE(sub_rev.five_star_count, 0) DESC,
+            COALESCE(sub_rev.total_reviews, 0) DESC,
+            s.joined_at ASC
         """, nativeQuery = true)
     List<StaffLeaderboardProjection> findStaffLeaderboard(
             @Param("agencyId") Long agencyId,

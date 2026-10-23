@@ -676,7 +676,6 @@ export const AgencyReviewsPage = () => {
                     <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
                       <div className="flex items-center justify-between text-[11px]">
                         <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-semibold">
-                          <Sparkles className="w-3.5 h-3.5" />
                           <span>{t('reviews_agency_replied_badge') || 'Studio đã phản hồi'}</span>
                         </div>
                         <button
@@ -704,7 +703,7 @@ export const AgencyReviewsPage = () => {
                   ) : (
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                        ⏳ {t('reviews_filter_pending_reply') || 'Chưa có phản hồi từ Studio'}
+                        {t('reviews_filter_pending_reply') || 'Chưa có phản hồi từ Studio'}
                       </span>
                       <Button
                         size="sm"

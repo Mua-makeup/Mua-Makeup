@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { UserAvatar } from '@/components/common/UserAvatar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getBottomNavPadding } from '@/utils/responsive';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { useExploreStore } from '@/store/explore.store';
@@ -49,6 +50,7 @@ const getDistanceKm = (
 };
 
 export default function ExploreScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string; search?: string }>();
   const [providerTab, setProviderTab] = useState<'FREELANCE' | 'STUDIO'>(
     params.tab === 'STUDIO' ? 'STUDIO' : 'FREELANCE'
@@ -730,7 +732,7 @@ export default function ExploreScreen() {
             data={filteredMuas}
             keyExtractor={(item) => `mua-${item.muaId}`}
             renderItem={renderMuaItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -768,7 +770,7 @@ export default function ExploreScreen() {
           data={filteredStudios}
           keyExtractor={(item) => `agency-${item.id}`}
           renderItem={renderStudioItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

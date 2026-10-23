@@ -589,6 +589,19 @@ export default function MuaReviewsScreen() {
                   </View>
                 );
               })()}
+
+              {/* Phản hồi từ Studio */}
+              {item.agencyReply ? (
+                <View style={styles.agencyReplyBox}>
+                  <View style={styles.agencyReplyHeaderRow}>
+                    <Text style={styles.agencyReplyTitle}>Phản hồi từ Studio</Text>
+                    {item.agencyRepliedAt ? (
+                      <Text style={styles.agencyReplyDate}>{formatDate(item.agencyRepliedAt)}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.agencyReplyContent}>{item.agencyReply}</Text>
+                </View>
+              ) : null}
             </View>
           );
         }}
@@ -1147,6 +1160,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
+  },
+  agencyReplyBox: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#FFF1F2',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#E11D48',
+  },
+  agencyReplyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  agencyReplyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9F1239',
+  },
+  agencyReplyDate: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    marginLeft: 'auto',
+  },
+  agencyReplyContent: {
+    fontSize: 12,
+    color: '#334155',
+    lineHeight: 17,
+    fontStyle: 'italic',
   },
   reviewPhotoMoreText: {
     color: '#FFFFFF',

@@ -36,7 +36,10 @@ export const StaffCommissionSplitMatrix = ({
       return sum + Math.round((totalAmount * rate) / 100);
     }, 0);
 
-  const estimatedStudioNet = totalAmount - totalStaffCommission;
+  // Phí hoa hồng nền tảng (Platform Commission Rate: 20%)
+  const platformFeeRate = 0.20;
+  const platformFee = Math.round(totalAmount * platformFeeRate);
+  const estimatedStudioNet = totalAmount - platformFee - totalStaffCommission;
 
   const currentStatus = booking.bookingStatus || booking.status;
   const canEdit = !['CANCELLED', 'CANCELLED_EXPIRED', 'REFUNDED'].includes(currentStatus);
@@ -201,7 +204,7 @@ export const StaffCommissionSplitMatrix = ({
       )}
 
       {/* Summary Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-amber-200/60 dark:border-amber-900/40">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-amber-200/60 dark:border-amber-900/40">
         <div>
           <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
             {t('col_total_amount')}
@@ -212,11 +215,20 @@ export const StaffCommissionSplitMatrix = ({
         </div>
 
         <div>
+          <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+            Phí Sàn (20%)
+          </div>
+          <div className="text-base font-bold text-slate-500 mt-0.5">
+            -{formatCurrency(platformFee)}
+          </div>
+        </div>
+
+        <div>
           <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1">
             <span>{t('total_staff_commission') || 'Tổng hoa hồng nhân sự'}</span>
           </div>
           <div className="text-base font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-            {formatCurrency(totalStaffCommission)}
+            -{formatCurrency(totalStaffCommission)}
           </div>
         </div>
 
