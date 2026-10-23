@@ -242,6 +242,15 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
     try {
       const all = await bookingService.getMyBookings();
 
+      // Loại bỏ trùng lặp đơn hàng theo id
+      const uniqueMap = new Map<number, CustomerBookingItem>();
+      all.forEach((item) => {
+        if (item?.id) {
+          uniqueMap.set(item.id, item);
+        }
+      });
+      const uniqueAll = Array.from(uniqueMap.values());
+
       const upcoming: CustomerBookingItem[] = [];
       const history: CustomerBookingItem[] = [];
 
@@ -256,7 +265,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
         'IN_PROGRESS',
       ];
 
-      for (const item of all) {
+      for (const item of uniqueAll) {
         if (upcomingStatuses.includes(item.status)) {
           upcoming.push(item);
         } else {

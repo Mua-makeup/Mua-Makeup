@@ -1,4 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { ImageViewerModal } from '@/components/common/ImageViewerModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -522,13 +523,22 @@ export default function BookingHistoryDetailScreen() {
     bookingDetail.bookingPartner === 'AGENCY_DISPATCH' ||
     Boolean(bookingDetail.agencyId || bookingDetail.agencyName);
 
-  const activeStaffList = (bookingDetail.assignedStaff || []).filter((s) => {
+  const rawActiveStaffList = (bookingDetail.assignedStaff || []).filter((s) => {
     if (s.status === 'DECLINED' || s.status === 'REPLACED') return false;
     if (!isWorkstationRole) {
       return Boolean(s.isConfirmedByStaff === true || s.confirmedAt || s.status === 'CONFIRMED');
     }
     return s.status === 'ACTIVE' || s.status === 'CONFIRMED';
   });
+
+  const activeStaffMap = new Map<string, any>();
+  for (const s of rawActiveStaffList) {
+    const key = String(s.staffId || s.id);
+    if (!activeStaffMap.has(key)) {
+      activeStaffMap.set(key, s);
+    }
+  }
+  const activeStaffList = Array.from(activeStaffMap.values());
 
   // Xác định vai trò của thợ trong ca làm (Thợ chính vs Thợ phụ)
   const myStaffRecord = (bookingDetail.assignedStaff || []).find((s: any) => {
@@ -2084,7 +2094,7 @@ export default function BookingHistoryDetailScreen() {
                   const commAmt = staff.commissionAmount != null ? staff.commissionAmount : Math.round(totalAmount * (commRate > 1 ? commRate / 100 : commRate));
 
                   return (
-                    <View key={staff.id || idx} style={[styles.staffCardLuxury, isMe && styles.staffCardLuxuryMe]}>
+                    <View key={`staff-${staff.id || staff.staffId || idx}-${idx}`} style={[styles.staffCardLuxury, isMe && styles.staffCardLuxuryMe]}>
                       <View style={styles.staffCardLuxuryTop}>
                         <UserAvatar
                           uri={staff.staffAvatarUrl}
@@ -3259,76 +3269,16 @@ export default function BookingHistoryDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU HOẶC MINH CHỨNG / REVIEW */}
-      <Modal
+      {/* MODAL XEM PHÓNG TO ẢNH NGHIỆM THU HOẶC MINH CHỨNG / REVIEW (CHẠM NGOÀI HOẶC VUỐT XUỐNG ĐỂ TẮT) */}
+      <ImageViewerModal
         visible={isPhotoModalVisible}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => {
+        images={previewPhotoList}
+        initialIndex={previewPhotoIndex}
+        onClose={() => {
           setIsPhotoModalVisible(false);
           setPreviewPhotoList([]);
         }}
-      >
-        <View style={styles.photoModalFullscreen}>
-          {/* Header với nút đóng và số trang */}
-          <SafeAreaView style={styles.photoModalHeader}>
-            <TouchableOpacity
-              style={styles.photoModalCloseBtn}
-              onPress={() => {
-                setIsPhotoModalVisible(false);
-                setPreviewPhotoList([]);
-              }}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="close" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            {previewPhotoList.length > 1 && (
-              <View style={styles.photoModalCounterBadge}>
-                <Text style={styles.photoModalCounterText}>
-                  Ảnh {previewPhotoIndex + 1} / {previewPhotoList.length}
-                </Text>
-              </View>
-            )}
-
-            <View style={{ width: 40 }} />
-          </SafeAreaView>
-
-          {/* Vùng xem ảnh kèm 2 mũi tên điều hướng < > */}
-          <View style={styles.photoModalViewerArea}>
-            {previewPhotoList[previewPhotoIndex] && (
-              <Image
-                source={{ uri: previewPhotoList[previewPhotoIndex] }}
-                style={styles.photoModalImage}
-                contentFit="contain"
-              />
-            )}
-
-            {/* Mũi tên lùi < */}
-            {previewPhotoIndex > 0 && (
-              <TouchableOpacity
-                style={[styles.photoModalNavBtn, styles.photoModalNavPrev]}
-                onPress={() => setPreviewPhotoIndex((i) => i - 1)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
-
-            {/* Mũi tên tiến > */}
-            {previewPhotoIndex < previewPhotoList.length - 1 && (
-              <TouchableOpacity
-                style={[styles.photoModalNavBtn, styles.photoModalNavNext]}
-                onPress={() => setPreviewPhotoIndex((i) => i + 1)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="chevron-forward" size={26} color="#FFFFFF" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
+      />
 
       {/* MODAL XEM CHI TIẾT HỒ SƠ KHIẾU NẠI & MINH CHỨNG HAI BÊN (TÍCH HỢP INLINE FORM ĐỐI CHẤT) */}
       <DisputeDossierModal

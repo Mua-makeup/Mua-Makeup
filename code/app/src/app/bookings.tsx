@@ -217,6 +217,16 @@ export default function BookingsScreen() {
 
     try {
       const all = await freelancerBookingService.getMyAssignedBookings();
+
+      // Loại bỏ trùng lặp đơn hàng theo id
+      const uniqueMap = new Map<number, FreelancerBookingItem>();
+      all.forEach((item) => {
+        if (item?.id) {
+          uniqueMap.set(item.id, item);
+        }
+      });
+      const uniqueAll = Array.from(uniqueMap.values());
+
       const upcoming: FreelancerBookingItem[] = [];
       const history: FreelancerBookingItem[] = [];
 
@@ -230,7 +240,7 @@ export default function BookingsScreen() {
         'IN_PROGRESS',
       ];
 
-      for (const item of all) {
+      for (const item of uniqueAll) {
         if (upcomingStatuses.includes(item.status)) {
           upcoming.push(item);
         } else {
@@ -462,10 +472,18 @@ export default function BookingsScreen() {
   const totalFilteredCount = filteredAndSortedList.length;
 
   const displayList = useMemo(() => {
-    if (activeTab !== 'HISTORY') {
-      return filteredAndSortedList;
-    }
-    return filteredAndSortedList.slice(0, displayLimit);
+    const list = activeTab !== 'HISTORY'
+      ? filteredAndSortedList
+      : filteredAndSortedList.slice(0, displayLimit);
+
+    // Đảm bảo danh sách render không có phần tử trùng id gây lỗi key trong FlatList
+    const uniqueMap = new Map<number, any>();
+    list.forEach((item: any) => {
+      if (item?.id && !uniqueMap.has(item.id)) {
+        uniqueMap.set(item.id, item);
+      }
+    });
+    return Array.from(uniqueMap.values());
   }, [filteredAndSortedList, displayLimit, activeTab]);
 
   // Tự động reset về 10 đơn mỗi khi thay đổi từ khóa tìm kiếm, bộ lọc hoặc tab
@@ -772,7 +790,7 @@ export default function BookingsScreen() {
       ) : (
         <FlatList
           data={displayList as any[]}
-          keyExtractor={(item) => `booking-${item.id}`}
+          keyExtractor={(item, index) => (item?.id ? `booking-${item.id}` : `booking-idx-${index}`)}
           renderItem={({ item }) =>
             isWorkstationRole ? (
               <TodayBookingCard
@@ -787,6 +805,7 @@ export default function BookingsScreen() {
                 onReviewPress={handleReview}
                 onRebookPress={handleRebook}
                 onDisputePress={handleDispute}
+                onPayFinalPress={(b) => router.push(`/booking/history-detail/${b.id}` as any)}
               />
             )
           }

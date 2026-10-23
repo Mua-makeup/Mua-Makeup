@@ -220,7 +220,7 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
           <div className="hidden md:block overflow-x-auto bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
             <table className="w-full min-w-[720px] text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold uppercase tracking-wider">
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs">
                   <th className="py-3 px-4">Thợ Make-up</th>
                   <th className="py-3 px-4">Ngày xin nghỉ</th>
                   <th className="py-3 px-4">Ca / Khung giờ</th>

@@ -106,8 +106,10 @@ export const EditStaffCommissionSplitModal = ({
     });
   };
 
+  const platformFeeRate = 0.20;
+  const platformFee = Math.round(totalAmount * platformFeeRate);
   const totalCommissions = items.reduce((acc, curr) => acc + (Number(curr.commissionAmount) || 0), 0);
-  const studioNet = totalAmount - totalCommissions;
+  const studioNet = totalAmount - platformFee - totalCommissions;
 
   const formatCurrency = (val) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
@@ -254,7 +256,7 @@ export const EditStaffCommissionSplitModal = ({
 
           {/* Financial Summary */}
           <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 text-xs">
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
               <div>
                 <span className="text-slate-500 block text-[11px] mb-0.5">{t('col_total_amount')}</span>
                 <span className="font-bold text-slate-900 dark:text-white">
@@ -262,9 +264,15 @@ export const EditStaffCommissionSplitModal = ({
                 </span>
               </div>
               <div>
+                <span className="text-slate-500 block text-[11px] mb-0.5">Phí Sàn (20%)</span>
+                <span className="font-bold text-slate-500">
+                  -{formatCurrency(platformFee)}
+                </span>
+              </div>
+              <div>
                 <span className="text-slate-500 block text-[11px] mb-0.5">{t('total_staff_commission')}</span>
                 <span className="font-bold text-amber-600 dark:text-amber-400">
-                  {formatCurrency(totalCommissions)}
+                  -{formatCurrency(totalCommissions)}
                 </span>
               </div>
               <div>

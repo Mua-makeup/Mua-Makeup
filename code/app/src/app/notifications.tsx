@@ -115,10 +115,14 @@ export default function NotificationsScreen() {
     }
 
     // 3. Deep link cho kết quả duyệt chứng chỉ hoặc đơn gia nhập Studio
+    if (item.type === 'STAFF_APPLICATION_APPROVED') {
+      router.push('/profile/staff-profile' as any);
+      return;
+    }
+
     if (
       item.type === 'CERTIFICATE_APPROVED' ||
       item.type === 'CERTIFICATE_REJECTED' ||
-      item.type === 'STAFF_APPLICATION_APPROVED' ||
       item.type === 'STAFF_APPLICATION_REJECTED'
     ) {
       router.push('/profile/mua-profile' as any);

@@ -177,7 +177,7 @@ export const AgencyWalletPage = () => {
         {/* Card 1: Số dư khả dụng */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('stat_available_balance') || 'Số Dư Khả Dụng'}
             </span>
             <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -195,7 +195,7 @@ export const AgencyWalletPage = () => {
         {/* Card 2: Cọc Escrow đang giữ */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('stat_pending_escrow') || 'Cọc Đang Giữ (Escrow)'}
             </span>
             <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -213,7 +213,7 @@ export const AgencyWalletPage = () => {
         {/* Card 3: Thu hồi do khiếu nại */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('stat_total_clawback') || 'Thu Hồi Do Khiếu Nại'}
             </span>
             <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
@@ -231,7 +231,7 @@ export const AgencyWalletPage = () => {
         {/* Card 4: Phụ cấp tăng ca đã chi */}
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('stat_total_overtime') || 'Phụ Cấp Tăng Ca Đã Chi'}
             </span>
             <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
@@ -349,7 +349,7 @@ export const AgencyWalletPage = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className="py-3.5 px-4 sm:px-6">{t('col_tx_time') || 'Thời Gian'}</th>
                   <th className="py-3.5 px-4">{t('col_tx_ref') || 'Mã Đơn / Bút Toán'}</th>

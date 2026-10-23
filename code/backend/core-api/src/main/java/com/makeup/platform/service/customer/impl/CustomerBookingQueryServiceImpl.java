@@ -20,9 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,6 +48,12 @@ public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryServ
     @Transactional(readOnly = true)
     public List<CustomerBookingItemRes> getMyBookings(Long customerId, String statusGroup) {
         List<BookingEntity> bookings = bookingRepository.findCustomerBookings(customerId);
+
+        Map<Long, BookingEntity> uniqueBookings = new LinkedHashMap<>();
+        for (BookingEntity b : bookings) {
+            uniqueBookings.putIfAbsent(b.getId(), b);
+        }
+        bookings = new ArrayList<>(uniqueBookings.values());
 
         if (statusGroup != null && !statusGroup.isBlank() && !"ALL".equalsIgnoreCase(statusGroup)) {
             if ("UPCOMING".equalsIgnoreCase(statusGroup)) {

@@ -65,6 +65,7 @@ import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.context.ApplicationEventPublisher;
@@ -1028,7 +1029,18 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             List<BookingStaffAssignmentEntity> assignments = bookingStaffAssignmentRepository
                     .findAllWithStaffAndUserByBookingId(booking.getId());
             if (assignments != null && !assignments.isEmpty()) {
-                assignedStaff = bookingStaffAssignmentMapper.toDetailResList(assignments);
+                Map<Long, BookingStaffAssignmentEntity> uniqueStaffMap = new LinkedHashMap<>();
+                for (BookingStaffAssignmentEntity a : assignments) {
+                    if (a != null && a.getStaff() != null && a.getStaff().getId() != null) {
+                        Long staffId = a.getStaff().getId();
+                        if (!uniqueStaffMap.containsKey(staffId)) {
+                            uniqueStaffMap.put(staffId, a);
+                        } else if (a.getStatus() == AssignmentStatus.ACTIVE && uniqueStaffMap.get(staffId).getStatus() != AssignmentStatus.ACTIVE) {
+                            uniqueStaffMap.put(staffId, a);
+                        }
+                    }
+                }
+                assignedStaff = bookingStaffAssignmentMapper.toDetailResList(new ArrayList<>(uniqueStaffMap.values()));
             }
         } catch (Exception e) {
             log.warn("[StateMachine] Unable to fetch staff assignments for bookingId={}: {}", booking.getId(), e.getMessage());

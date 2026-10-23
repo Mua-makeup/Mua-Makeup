@@ -366,7 +366,7 @@ export const StaffLeaderboardPage = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold text-xs">
                   <th className="py-3 px-4 w-14 text-center">{t('leaderboard_col_rank')}</th>
                   <th className="py-3 px-4">{t('leaderboard_col_staff')}</th>
                   <th className="py-3 px-4">{t('leaderboard_col_rating')}</th>

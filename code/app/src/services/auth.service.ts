@@ -1,4 +1,5 @@
-import { apiClient } from './api';
+import axios from 'axios';
+import { apiClient, BASE_URL } from './api';
 
 export interface MuaRegisterDetails {
   bio?: string;
@@ -102,6 +103,23 @@ export const authService = {
    */
   async updateLanguage(language: 'vi' | 'en'): Promise<UserInfo> {
     const response = await apiClient.put<ApiResponse<UserInfo>>('/auth/language', { language });
+    return response.data.data;
+  },
+
+  /**
+   * Cấp lại Access Token mới và cập nhật vai trò người dùng tức thì
+   */
+  async refreshToken(refreshToken: string, accessToken?: string | null): Promise<AuthRes> {
+    const response = await axios.post<ApiResponse<AuthRes>>(
+      `${BASE_URL}/auth/refresh-token`,
+      { refreshToken },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: accessToken ? `Bearer ${accessToken}` : undefined,
+        },
+      }
+    );
     return response.data.data;
   },
 };

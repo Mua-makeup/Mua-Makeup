@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { reviewService, ReviewItem, MuaRatingSummary } from '@/services/review.service';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { ImageViewerModal } from '@/components/common/ImageViewerModal';
 
 interface MuaReviewsModalProps {
   visible: boolean;
@@ -41,6 +42,9 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
 
   const fetchReviewData = useCallback(async () => {
     if (!muaId) return;
@@ -299,12 +303,21 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
                         style={styles.imagesRow}
                       >
                         {rev.imageUrls.map((img, idx) => (
-                          <Image
+                          <TouchableOpacity
                             key={idx}
-                            source={{ uri: img }}
-                            style={styles.reviewImage}
-                            resizeMode="cover"
-                          />
+                            onPress={() => {
+                              setViewerImages(rev.imageUrls || []);
+                              setViewerIndex(idx);
+                              setIsViewerOpen(true);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Image
+                              source={{ uri: img }}
+                              style={styles.reviewImage}
+                              resizeMode="cover"
+                            />
+                          </TouchableOpacity>
                         ))}
                       </ScrollView>
                     ) : null}
@@ -356,6 +369,13 @@ export const MuaReviewsModal: React.FC<MuaReviewsModalProps> = ({
               ) : null}
             </ScrollView>
           )}
+
+      <ImageViewerModal
+        visible={isViewerOpen}
+        images={viewerImages}
+        initialIndex={viewerIndex}
+        onClose={() => setIsViewerOpen(false)}
+      />
     </DismissibleModal>
   );
 };

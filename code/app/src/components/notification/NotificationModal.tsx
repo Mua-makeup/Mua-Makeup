@@ -77,7 +77,13 @@ export const NotificationModal: React.FC = () => {
       markAsRead(item.id);
     }
 
-    // 2. Deep link tới đơn hàng nếu có
+    // 2. Deep link tới đơn hàng hoặc hồ sơ nhân sự
+    if (item.type === 'STAFF_APPLICATION_APPROVED') {
+      closeModal();
+      router.push('/profile/staff-profile' as any);
+      return;
+    }
+
     const bookingId = item.bookingId || item.metadata?.bookingId;
     if (bookingId) {
       closeModal();

@@ -16,6 +16,7 @@ interface Props {
   onReviewPress?: (booking: CustomerBookingItem) => void;
   onRebookPress?: (booking: CustomerBookingItem) => void;
   onDisputePress?: (booking: CustomerBookingItem) => void;
+  onPayFinalPress?: (booking: CustomerBookingItem) => void;
 }
 
 export const BookingHistoryCard: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const BookingHistoryCard: React.FC<Props> = ({
   onReviewPress,
   onRebookPress,
   onDisputePress,
+  onPayFinalPress,
 }) => {
   const isStudioBooking =
     booking.bookingPartner === 'AGENCY_DISPATCH' ||
@@ -329,7 +331,13 @@ export const BookingHistoryCard: React.FC<Props> = ({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.depositActionBtn}
-              onPress={() => onPress(booking)}
+              onPress={() => {
+                if (onPayFinalPress) {
+                  onPayFinalPress(booking);
+                } else {
+                  router.push(`/booking/history-detail/${booking.id}` as any);
+                }
+              }}
               activeOpacity={0.7}
             >
               <Ionicons name="card-outline" size={14} color="#FFFFFF" />
