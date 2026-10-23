@@ -25,6 +25,10 @@ const BUBBLE_SIZE = 54;
 
 const QUICK_PROMPTS = [
   'Đặt lịch khẩn cấp 30s',
+  'Đánh giá & Chấm sao',
+  'Bảng xếp hạng thợ (BXH)',
+  'Gia nhập Studio',
+  'Thanh toán 2 đợt (30/70)',
   'Chính sách tiền cọc',
   'Quy định hoàn tiền',
   'Quy trình khiếu nại',
@@ -43,7 +47,7 @@ export function FloatingAiAssistantBubble() {
     {
       role: 'ASSISTANT',
       content:
-        'Xin chào! Tôi có thể hỗ trợ gì cho bạn về cách sử dụng ứng dụng, đặt lịch hẹn, chính sách tiền cọc và hoàn tiền?',
+        'Xin chào! Tôi có thể hỗ trợ gì cho bạn về cách sử dụng app, đặt lịch hẹn, đánh giá dịch vụ, bảng xếp hạng thợ, gia nhập Studio và chính sách thanh toán cọc?',
       createdAt: new Date().toISOString(),
     },
   ]);
@@ -60,7 +64,7 @@ export function FloatingAiAssistantBubble() {
       {
         role: 'ASSISTANT',
         content:
-          'Xin chào! Tôi có thể hỗ trợ gì cho bạn về cách sử dụng ứng dụng, đặt lịch hẹn, chính sách tiền cọc và hoàn tiền?',
+          'Xin chào! Tôi có thể hỗ trợ gì cho bạn về cách sử dụng app, đặt lịch hẹn, đánh giá dịch vụ, bảng xếp hạng thợ, gia nhập Studio và chính sách thanh toán cọc?',
         createdAt: new Date().toISOString(),
       },
     ]);

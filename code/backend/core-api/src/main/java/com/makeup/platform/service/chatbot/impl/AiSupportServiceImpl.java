@@ -13,6 +13,7 @@ import com.makeup.platform.entity.interaction.AiChatSessionEntity;
 import com.makeup.platform.entity.interaction.AiKnowledgeDocumentEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.mapper.interaction.AiSupportMapper;
+import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.CustomerSavedAddressRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
@@ -21,6 +22,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.makeup.platform.repository.interaction.AiChatMessageRepository;
 import com.makeup.platform.repository.interaction.AiChatSessionRepository;
+import com.makeup.platform.repository.interaction.ReviewRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.chatbot.AiSupportService;
 import com.makeup.platform.service.chatbot.GeminiClientService;
@@ -60,6 +62,8 @@ public class AiSupportServiceImpl implements AiSupportService {
     private final AiSupportMapper supportMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+    private final ReviewRepository reviewRepository;
+    private final AgencyStaffRepository agencyStaffRepository;
 
     private static final String CHAT_RECENT_KEY_PREFIX = "ai:chat:session:";
     private static final String CHAT_RECENT_KEY_SUFFIX = ":recent";
@@ -73,6 +77,13 @@ public class AiSupportServiceImpl implements AiSupportService {
             1. PHẠM VI TRẢ LỜI DUY NHẤT:
                - Bạn giải đáp các thắc mắc về nền tảng Mua-Makeup: Hướng dẫn sử dụng app, cách tìm kiếm thợ trang điểm (MUA), cách xem Portfolio.
                  + Quy trình Đặt lịch hẹn trước (Scheduled Booking) và Đặt lịch khẩn cấp 30 giây (Instant Emergency Booking).
+                 + Quy trình Thanh toán 2 đợt: Đặt cọc 30% khi xác nhận lịch (tiền cọc giữ trong Quỹ Ký Quỹ Escrow an toàn, đơn Studio thì Studio ký quỹ cọc) và Thanh toán nốt 70% còn lại sau khi thợ hoàn tất make-up. Giải ngân tự động qua Sổ cái kép vào Ví Studio và hoa hồng cho Thợ.
+                 + Hệ thống Đánh giá & Nhận xét (Reviews & Ratings): Khách hàng chấm sao (1-5 sao), viết nhận xét chi tiết và tải ảnh chụp thực tế sau khi ca hoàn thành; modal xem ảnh phóng to full màn hình; thợ và Studio có thể phản hồi đánh giá; phân cấp thợ chính chịu chất lượng và thợ phụ được bảo vệ điểm.
+                 + Bảng xếp hạng (Leaderboard / BXH) & Gamification Huy hiệu: Xếp hạng thợ toàn sàn theo RankScore (Ca hoàn thành 45%, Điểm sao chuẩn Bayes 25%, Online sẵn sàng 30%), hệ thống Huy hiệu thợ (GOLD_TOP_PRO, SILVER, STANDARD), Bảng xếp hạng nhân sự nội bộ Studio (Staff Leaderboard theo doanh thu, ca hoàn thành, đánh giá 5 sao).
+                 + Cơ chế Gia nhập Studio & Chuyển đổi vai trò linh hoạt: Thợ quét mã QR tuyển dụng hoặc nhập mã mời của Studio để nộp đơn (/join); Studio duyệt thì hệ thống tự động nâng cấp vai trò sang Thợ Studio (ROLE_AGENCY_STAFF) tức thời qua WebSocket realtime mà không cần đăng nhập lại; Bàn làm việc thợ studio, xem lịch ca trực (/staff/schedule), xin nghỉ phép, báo cáo tăng ca.
+                 + Bảng giá Động (Dynamic Pricing) & Đồng bộ Hóa đơn Xem trước: Miễn phí di chuyển dưới 5km theo Goong Maps, phụ phí giờ cao điểm / sáng sớm rước dâu, ưu đãi Giờ Vàng giảm 10% buổi trưa (13:00 - 15:00), hóa đơn xem trước và giá tạo đơn khớp 100%.
+                 + Theo dõi vị trí thợ di chuyển thời gian thực (Live GPS Tracking qua WebSocket STOMP).
+                 + Chứng chỉ hành nghề: Thợ bắt buộc phải tải lên chứng chỉ nghề nghiệp và được Ban Quản Trị phê duyệt mới có thể bật trực tuyến nhận đơn.
                  + Chính sách Tiền cọc Escrow, nạp tiền vào ví, thanh toán qua MoMo, VNPay.
                  + Quy định Hủy lịch hẹn và Điều kiện hoàn tiền cọc (hoàn 100% trước 24h, trừ cọc trong 24h, phạt thợ khi thợ hủy).
                  + Quy trình Khiếu nại (Dispute), giải quyết tranh chấp chất lượng dịch vụ.
@@ -379,6 +390,7 @@ public class AiSupportServiceImpl implements AiSupportService {
                         ? b.getMua().getUser().getFullName()
                         : ((b.getAgency() != null && b.getAgency().getAgencyName() != null) ? b.getAgency().getAgencyName() : "Hệ thống đang điều phối");
 
+                boolean hasReviewed = reviewRepository.existsByBookingId(b.getId());
                 sb.append("  + Đơn ").append(i + 1).append(": Mã đơn [").append(b.getBookingCode() != null ? b.getBookingCode() : "N/A").append("]")
                   .append(" | Trạng thái: [").append(b.getStatus() != null ? b.getStatus().name() : "N/A").append("]")
                   .append(" | Gói: [").append(packageName).append("]")
@@ -390,6 +402,7 @@ public class AiSupportServiceImpl implements AiSupportService {
                   .append(" | Người thực hiện: [").append(muaName).append("]")
                   .append(" | Tổng tiền: [").append(b.getTotalAmount() != null ? b.getTotalAmount().toPlainString() : "0").append(" VNĐ]")
                   .append(" | Tiền cọc: [").append(b.getDepositAmount() != null ? b.getDepositAmount().toPlainString() : "0").append(" VNĐ]")
+                  .append(" | Đánh giá: [").append(hasReviewed ? "Đã đánh giá" : "Chưa đánh giá").append("]")
                   .append(" | Địa chỉ: [").append(b.getDestinationAddress() != null ? b.getDestinationAddress() : "Tại nhà khách").append("]\n");
             }
         } else {
@@ -402,6 +415,11 @@ public class AiSupportServiceImpl implements AiSupportService {
                 sb.append("- THÔNG TIN HỒ SƠ THỢ TRANG ĐIỂM (MUA):\n");
                 sb.append("  + Mã thợ: ").append(mua.getMuaCode() != null ? mua.getMuaCode() : "N/A").append("\n");
                 sb.append("  + Kinh nghiệm: ").append(mua.getExperienceYears() != null ? mua.getExperienceYears() : 1).append(" năm\n");
+                sb.append("  + Đánh giá trung bình: ").append(mua.getRatingAvg() != null ? mua.getRatingAvg().toPlainString() + "★" : "Chưa có đánh giá").append("\n");
+                sb.append("  + Tổng lượt đánh giá: ").append(mua.getTotalReviews() != null ? mua.getTotalReviews() : 0).append(" lượt\n");
+                sb.append("  + Tổng ca hoàn thành: ").append(mua.getTotalCompletedJobs() != null ? mua.getTotalCompletedJobs() : 0).append(" ca\n");
+                sb.append("  + Huy hiệu Gamification: ").append(mua.getBadgeTier() != null ? mua.getBadgeTier().name() : "STANDARD").append("\n");
+                sb.append("  + Điểm xếp hạng BXH (RankScore): ").append(mua.getRankScore() != null ? mua.getRankScore().toPlainString() : "0").append("\n");
                 sb.append("  + Bán kính nhận khách tối đa: ").append(mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().toPlainString() : "15").append(" km\n");
                 sb.append("  + Trạng thái trực tuyến: ").append(Boolean.TRUE.equals(mua.getIsOnline()) ? "Đang Online (Sẵn sàng nhận ca)" : "Offline").append("\n");
                 sb.append("  + Trạng thái làm việc: ").append(Boolean.TRUE.equals(mua.getIsBusy()) ? "Đang bận làm ca" : "Đang rảnh").append("\n");
@@ -423,6 +441,19 @@ public class AiSupportServiceImpl implements AiSupportService {
             });
         } catch (Exception ex) {
             log.debug("Unable to load MUA profile for user {}: {}", userId, ex.getMessage());
+        }
+
+        // 5. Nếu người dùng là Nhân sự Studio (Agency Staff)
+        try {
+            agencyStaffRepository.findActiveStaffByUserId(userId).ifPresent(staff -> {
+                sb.append("- THÔNG TIN NHÂN SỰ STUDIO (AGENCY STAFF):\n");
+                sb.append("  + Thuộc Studio: ").append(staff.getAgency() != null ? staff.getAgency().getAgencyName() : "N/A").append("\n");
+                sb.append("  + Tỷ lệ hoa hồng thỏa thuận: ").append(staff.getAgreedCommissionRate() != null ? staff.getAgreedCommissionRate().toPlainString() + "%" : "Theo quy định").append("\n");
+                sb.append("  + Trạng thái nhân sự: ").append(staff.getStatus() != null ? staff.getStatus() : "ACTIVE").append("\n");
+                sb.append("  + Quản lý lịch ca trực tại: Lịch Làm Việc (/staff/schedule)\n");
+            });
+        } catch (Exception ex) {
+            log.debug("Unable to load Agency Staff info for user {}: {}", userId, ex.getMessage());
         }
 
         return sb.toString();
