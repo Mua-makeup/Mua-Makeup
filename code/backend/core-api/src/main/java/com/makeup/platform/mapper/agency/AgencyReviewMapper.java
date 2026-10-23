@@ -192,6 +192,8 @@ public class AgencyReviewMapper {
                 .imageUrls(imageUrls)
                 .completionPhotoUrl(completionPhotoUrl)
                 .status(review.getStatus() != null ? review.getStatus().name() : "APPROVED")
+                .agencyReply(review.getAgencyReply())
+                .agencyRepliedAt(review.getAgencyRepliedAt())
                 .createdAt(review.getCreatedAt())
                 .build();
     }

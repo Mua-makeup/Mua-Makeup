@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotificationStore } from '@/store/notification.store';
@@ -20,6 +20,7 @@ import { BrandColors } from '@/constants/theme';
 import { useUndoStore } from '@/store/undo.store';
 
 export default function NotificationsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     notifications,
@@ -399,6 +400,7 @@ export default function NotificationsScreen() {
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 24 },
             notifications.length === 0 && styles.listContentEmpty,
           ]}
           refreshControl={

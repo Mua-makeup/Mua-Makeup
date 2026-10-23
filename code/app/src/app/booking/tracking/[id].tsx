@@ -14,7 +14,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -50,6 +50,7 @@ const REVIEW_TAGS = [
 ];
 
 export default function BookingLiveTrackingScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
 
@@ -753,7 +754,7 @@ export default function BookingLiveTrackingScreen() {
           </View>
 
           {/* BOTTOM MUA PROFILE DRAWER */}
-          <View style={styles.bottomDrawer}>
+          <View style={[styles.bottomDrawer, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
             <View style={styles.drawerHandle} />
 
             {(isWaitingCancelConfirm || bookingDetail?.isCancelRequested) && (
@@ -842,7 +843,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 2. MÀN HÌNH GIAO DIỆN KHI THỢ ĐÃ ĐẾN NƠI (ARRIVED) - KHÔNG HIỂN THỊ MAP   */}
       {/* ========================================================================= */}
       {status === 'ARRIVED' && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* BANNER THÔNG BÁO ĐÃ ĐẾN */}
           <View style={styles.arrivedBannerCard}>
             <View style={styles.arrivedIconPulse}>
@@ -934,7 +935,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 3. MÀN HÌNH GIAO DIỆN KHI ĐANG TRANG ĐIỂM (IN_PROGRESS) - KHÔNG HIỂN THỊ MAP */}
       {/* ========================================================================= */}
       {status === 'IN_PROGRESS' && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* THẺ ĐỒNG HỒ LIVE ĐANG MAKE-UP */}
           <View style={styles.liveTimerCard}>
             <View style={styles.timerBadgeHeader}>
@@ -1016,7 +1017,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 4. MÀN HÌNH GIAO DIỆN HOÀN TẤT & ĐÁNH GIÁ (COMPLETED) - KHÔNG HIỂN THỊ MAP  */}
       {/* ========================================================================= */}
       {(status === 'COMPLETED' || status === 'PAID_OUT') && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* BANNER CHÚC MỪNG HOÀN THÀNH */}
           <View style={styles.completedCelebrationCard}>
             <View style={styles.celebrationIconBox}>

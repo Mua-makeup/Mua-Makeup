@@ -11,7 +11,8 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getBottomNavPadding } from '@/utils/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -55,6 +56,7 @@ interface HistoryModalTarget {
 }
 
 export default function OrderTrackingActivityScreen() {
+  const insets = useSafeAreaInsets();
   const { userInfo, isAuthenticated } = useAuthStore();
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA') || userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
 
@@ -1222,8 +1224,8 @@ export default function OrderTrackingActivityScreen() {
             </View>
           ) : null}
 
-          {/* Khoảng trống đáy đủ lớn để đơn cuối không bị AppBottomNavBar che mất */}
-          <View style={{ height: 110 }} />
+          {/* Khoảng trống đáy tự động co giãn theo safe area để đơn cuối không bị AppBottomNavBar che mất */}
+          <View style={{ height: getBottomNavPadding(insets.bottom) }} />
         </ScrollView>
       )}
 

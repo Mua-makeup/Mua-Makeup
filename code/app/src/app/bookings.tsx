@@ -15,10 +15,11 @@ import {
   Easing,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { getBottomNavPadding } from '@/utils/responsive';
 import { useAuthStore } from '@/store/auth.store';
 import { useBookingStore } from '@/store/booking.store';
 import { useWorkstationStore } from '@/store/workstation.store';
@@ -138,6 +139,7 @@ const HISTORY_STATUS_FILTERS: StatusFilterConfig[] = [
 
 
 export default function BookingsScreen() {
+  const insets = useSafeAreaInsets();
   const { userInfo, isAuthenticated } = useAuthStore();
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
@@ -809,7 +811,7 @@ export default function BookingsScreen() {
               />
             )
           }
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
           showsVerticalScrollIndicator={false}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.25}

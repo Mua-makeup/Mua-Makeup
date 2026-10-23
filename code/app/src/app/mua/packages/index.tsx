@@ -16,6 +16,7 @@ import { BrandColors } from '@/constants/theme';
 import { packageService, PackageSummary } from '@/services/package.service';
 import { PackageCard } from '@/components/mua/packages/PackageCard';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
+import { getBottomNavPadding } from '@/utils/responsive';
 import { parseApiError } from '@/utils/error';
 import { useUndoStore } from '@/store/undo.store';
 
@@ -152,7 +153,7 @@ export default function MuaPackagesScreen() {
         <FlatList
           data={packages}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

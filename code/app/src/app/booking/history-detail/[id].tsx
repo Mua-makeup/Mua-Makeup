@@ -15,7 +15,7 @@ import {
   Modal,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -119,6 +119,7 @@ function formatScheduleOrCompletionTime(
 }
 
 export default function BookingHistoryDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id, openDispute, openReview } = useLocalSearchParams<{
     id: string;
     openDispute?: string;
@@ -244,11 +245,20 @@ export default function BookingHistoryDetailScreen() {
         !existingReview &&
         !hasAutoOpenedReviewRef.current
       ) {
-        hasAutoOpenedReviewRef.current = true;
-        const timer = setTimeout(() => {
-          setIsReviewModalVisible(true);
-        }, 600);
-        return () => clearTimeout(timer);
+        const completionTime = bookingDetail?.completedAt || bookingDetail?.updatedAt;
+        const isWithin7Days = (() => {
+          if (!completionTime) return true;
+          const diffMs = Date.now() - new Date(completionTime).getTime();
+          return diffMs <= 7 * 24 * 60 * 60 * 1000;
+        })();
+
+        if (isWithin7Days) {
+          hasAutoOpenedReviewRef.current = true;
+          const timer = setTimeout(() => {
+            setIsReviewModalVisible(true);
+          }, 600);
+          return () => clearTimeout(timer);
+        }
       }
     }
   }, [bookingDetail?.status, isReviewLoaded, openDispute, openReview, existingReview, isWorkstationRole]);
@@ -886,7 +896,7 @@ export default function BookingHistoryDetailScreen() {
   const isScheduled = bookingDetail.bookingType === 'SCHEDULED' || bookingDetail.bookingCode?.startsWith('BK-SCHED');
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       {/* HEADER TOP BAR */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -913,7 +923,7 @@ export default function BookingHistoryDetailScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={() => loadData(true)} colors={[BrandColors.primary]} />
@@ -981,16 +991,20 @@ export default function BookingHistoryDetailScreen() {
                 <Text style={styles.scheduledHeroServiceValue} numberOfLines={2}>
                   {bookingDetail.packageName || 'Dịch vụ trang điểm'}
                 </Text>
-                {(bookingDetail.packageName || bookingDetail.styleName) ? (
-                  <View style={styles.variationRow}>
-                    <Text style={styles.variationLabel}>Phân loại: </Text>
-                    <Text style={styles.variationValue} numberOfLines={1}>
-                      {[bookingDetail.packageName, bookingDetail.styleName ? `Tone ${bookingDetail.styleName}` : null]
-                        .filter(Boolean)
-                        .join(' • ')}
-                    </Text>
-                  </View>
-                ) : null}
+                {bookingDetail.styleName ? (() => {
+                  const rawStyle = bookingDetail.styleName.trim();
+                  const isTone = rawStyle.toLowerCase().startsWith('tone');
+                  const label = isTone ? 'Tone: ' : 'Phong cách: ';
+                  const val = isTone ? rawStyle.replace(/^tone\s+/i, '') : rawStyle;
+                  return (
+                    <View style={styles.variationRow}>
+                      <Text style={styles.variationValue} numberOfLines={2}>
+                        <Text style={styles.variationLabel}>{label}</Text>
+                        {val}
+                      </Text>
+                    </View>
+                  );
+                })() : null}
                 {bookingDetail.estimatedDurationMinutes ? (
                   <View style={styles.scheduledDurationPill}>
                     <Ionicons name="time-outline" size={11} color="#64748B" />
@@ -2072,9 +2086,9 @@ export default function BookingHistoryDetailScreen() {
         {/* 2. NẾU LÀ ĐƠN STUDIO: CARD ĐỘI NGŨ NHÂN VIÊN CA LÀM (BẮT BUỘC RÕ RÀNG THEO YÊU CẦU USER) */}
         {isStudioBooking && (
           <View style={styles.card}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text style={styles.cardSectionTitle}>Đội Ngũ Nhân Viên Ca Làm</Text>
-              <View style={styles.staffCountBadge}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              <Text style={[styles.cardSectionTitle, { marginBottom: 0, flexShrink: 1 }]}>Đội Ngũ Nhân Viên Ca Làm</Text>
+              <View style={[styles.staffCountBadge, { flexShrink: 0 }]}>
                 <Text style={styles.staffCountBadgeText}>
                   {activeStaffList.length > 0 ? `${activeStaffList.length} Chuyên Viên` : 'Đang Phân Bổ'}
                 </Text>
@@ -3039,23 +3053,23 @@ export default function BookingHistoryDetailScreen() {
         {/* KHỐI ĐÁNH GIÁ DỊCH VỤ CỦA ĐƠN HÀNG (HIỂN THỊ CHO CẢ THỢ VÀ KHÁCH) */}
         {(isPaidOut || existingReview) && (
           <View style={styles.card}>
-            <View style={styles.reviewCardHeaderRow}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={[styles.reviewCardHeaderRow, { flexWrap: 'wrap', gap: 8 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
                 <Ionicons name="star" size={18} color="#F59E0B" />
-                <Text style={styles.cardSectionTitle}>Đánh Giá Của Khách Hàng</Text>
+                <Text style={[styles.cardSectionTitle, { marginBottom: 0 }]}>Đánh Giá Của Khách Hàng</Text>
               </View>
               {existingReview && !isWorkstationRole && (() => {
-                const isWithin7Days = (() => {
+                const isWithin48Hours = (() => {
                   if (!existingReview.createdAt) return true;
                   const diffMs = Date.now() - new Date(existingReview.createdAt).getTime();
-                  return diffMs <= 7 * 24 * 60 * 60 * 1000;
+                  return diffMs <= 48 * 60 * 60 * 1000;
                 })();
 
-                if (!isWithin7Days) {
+                if (!isWithin48Hours) {
                   return (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <View style={styles.reviewNoticePill}>
                       <Ionicons name="time-outline" size={12} color="#94A3B8" />
-                      <Text style={{ fontSize: 11.5, color: '#94A3B8' }}>Hết hạn sửa (sau 7 ngày)</Text>
+                      <Text style={styles.reviewNoticePillText}>Hết hạn sửa (sau 48h)</Text>
                     </View>
                   );
                 }
@@ -3157,6 +3171,21 @@ export default function BookingHistoryDetailScreen() {
                     </View>
                   );
                 })()}
+
+                {/* 5. Phản hồi chính thức từ Studio / Agency */}
+                {existingReview.agencyReply ? (
+                  <View style={styles.agencyReplyBox}>
+                    <View style={styles.agencyReplyHeaderRow}>
+                      <Text style={styles.agencyReplyTitle}>Phản hồi từ Studio</Text>
+                      {existingReview.agencyRepliedAt && (
+                        <Text style={styles.agencyReplyDate}>
+                          {formatReviewDate(existingReview.agencyRepliedAt)}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.agencyReplyContent}>{existingReview.agencyReply}</Text>
+                  </View>
+                ) : null}
               </View>
             ) : (
               <View style={styles.emptyReviewBox}>
@@ -3166,16 +3195,35 @@ export default function BookingHistoryDetailScreen() {
                     ? 'Khách hàng chưa để lại đánh giá cho ca làm việc này.'
                     : 'Bạn chưa để lại đánh giá cho chuyên viên. Hãy chia sẻ cảm nhận để giúp thợ hoàn thiện hơn!'}
                 </Text>
-                {!isWorkstationRole && isNormalPaidOut && (
-                  <TouchableOpacity
-                    style={styles.leaveReviewBtn}
-                    onPress={() => setIsReviewModalVisible(true)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="star" size={14} color="#FFFFFF" />
-                    <Text style={styles.leaveReviewBtnText}>Đánh Giá Dịch Vụ Ngay</Text>
-                  </TouchableOpacity>
-                )}
+                {!isWorkstationRole && isNormalPaidOut && (() => {
+                  const isWithin7Days = (() => {
+                    const completionTime = bookingDetail?.completedAt || bookingDetail?.updatedAt;
+                    if (!completionTime) return true;
+                    const diffMs = Date.now() - new Date(completionTime).getTime();
+                    return diffMs <= 7 * 24 * 60 * 60 * 1000;
+                  })();
+
+                  if (!isWithin7Days) {
+                    return (
+                      <View style={styles.reviewExpiredBanner}>
+                        <Text style={styles.reviewExpiredBannerText}>
+                          Quá hạn đánh giá đơn này (sau 7 ngày hoàn tất đơn)
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  return (
+                    <TouchableOpacity
+                      style={styles.leaveReviewBtn}
+                      onPress={() => setIsReviewModalVisible(true)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="star" size={14} color="#FFFFFF" />
+                      <Text style={styles.leaveReviewBtnText}>Đánh Giá Dịch Vụ Ngay</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
             )}
           </View>
@@ -4110,6 +4158,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#334155',
     fontWeight: '600',
+    lineHeight: 15,
+    flexShrink: 1,
   },
   muaWalletStatusBox: {
     flexDirection: 'row',
@@ -4306,7 +4356,7 @@ const styles = StyleSheet.create({
     borderColor: '#E0F2FE',
   },
   scheduledHeroTimeCol: {
-    flex: 1.35,
+    flex: 1,
     minWidth: 0,
   },
   scheduledHeroTimeLabel: {
@@ -4336,7 +4386,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   scheduledHeroServiceCol: {
-    flex: 1,
+    flex: 1.15,
     minWidth: 0,
   },
   scheduledHeroServiceLabel: {
@@ -4366,7 +4416,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 12,
+  },
+  reviewNoticePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignSelf: 'flex-start',
+  },
+  reviewNoticePillText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
   },
   editReviewSmallBtn: {
     flexDirection: 'row',
@@ -4502,6 +4571,36 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  agencyReplyBox: {
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: '#FFF1F2',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#E11D48',
+  },
+  agencyReplyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  agencyReplyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9F1239',
+  },
+  agencyReplyDate: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginLeft: 'auto',
+  },
+  agencyReplyContent: {
+    fontSize: 12.5,
+    color: '#334155',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
   emptyReviewBox: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -4524,6 +4623,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     marginTop: 6,
+  },
+  reviewExpiredBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  reviewExpiredBannerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748B',
   },
   leaveReviewBtnText: {
     fontSize: 13,

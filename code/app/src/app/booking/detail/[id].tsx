@@ -17,7 +17,7 @@ import {
   Pressable,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -38,6 +38,7 @@ import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { useAuthStore } from '@/store/auth.store';
 
 export default function CustomerBookingDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
 
@@ -678,7 +679,7 @@ export default function CustomerBookingDetailScreen() {
     : defaultPackageSteps;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       {/* HEADER TOP BAR */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -709,7 +710,7 @@ export default function CustomerBookingDetailScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

@@ -14,9 +14,11 @@ import {
   Keyboard,
   Alert,
 } from 'react-native';
-import { usePathname } from 'expo-router';
+import { usePathname, useSegments } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getBottomNavHeight } from '@/utils/responsive';
 import { supportService, AiChatMessage } from '@/services/support.service';
 import { parseApiError } from '@/utils/error';
 import { useAuthStore } from '@/store/auth.store';
@@ -35,7 +37,9 @@ const QUICK_PROMPTS = [
 ];
 
 export function FloatingAiAssistantBubble() {
+  const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const segments = useSegments();
   const { width, height } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
   const { isAuthenticated, userInfo } = useAuthStore();
@@ -208,15 +212,50 @@ export function FloatingAiAssistantBubble() {
     );
   };
 
-  // Không hiển thị khi ở màn hình auth
-  if (
+  // CHỈ hiển thị quả cầu AI ở các màn hình trang chủ / tab chính; TỰ ĐỘNG ẨN trên toàn bộ màn hình chi tiết, thanh toán, hồ sơ, hóa đơn
+  const p = (pathname || '').toLowerCase();
+  const segs = Array.isArray(segments) ? segments : [];
+  const segStr = segs.join('/').toLowerCase();
+
+  const isExcluded =
     !pathname ||
-    pathname.includes('support-chat') ||
-    pathname.includes('(auth)') ||
-    pathname.includes('login') ||
-    pathname.includes('register') ||
-    pathname.includes('join')
-  ) {
+    p.includes('history-detail') ||
+    p.includes('booking/detail') ||
+    p.includes('booking/deposit') ||
+    p.includes('booking/tracking') ||
+    p.includes('booking/instant-matched') ||
+    p.includes('job-execution') ||
+    p.includes('support-chat') ||
+    p.includes('(auth)') ||
+    p.includes('login') ||
+    p.includes('register') ||
+    p.includes('join') ||
+    p.includes('profile') ||
+    p.includes('modal') ||
+    p.includes('review') ||
+    segs.some((s) =>
+      [
+        'history-detail',
+        'job-execution',
+        'detail',
+        'deposit',
+        'tracking',
+        'instant-matched',
+        '(auth)',
+        'login',
+        'register',
+        'join',
+        'support-chat',
+        'profile',
+      ].includes(String(s).toLowerCase())
+    ) ||
+    segStr.includes('history-detail') ||
+    segStr.includes('booking/detail') ||
+    segStr.includes('booking/deposit') ||
+    segStr.includes('job-execution') ||
+    segs.length > 1; // Bất kỳ màn hình con lồng sâu (nested stack / sub-screen) đều ẩn để không che nút hành động
+
+  if (isExcluded) {
     return null;
   }
 
@@ -225,12 +264,11 @@ export function FloatingAiAssistantBubble() {
     keyboardHeight > 0
       ? Math.min(height - keyboardHeight - 90, 390)
       : Math.min(height * 0.65, 480);
+  const defaultBottom = getBottomNavHeight(insets.bottom) + 16;
   const currentBottom =
     keyboardHeight > 0
       ? keyboardHeight + 12
-      : Platform.OS === 'ios'
-      ? 95
-      : 80;
+      : defaultBottom;
 
   return (
     <>
@@ -385,6 +423,7 @@ export function FloatingAiAssistantBubble() {
           style={[
             styles.bubbleContainer,
             {
+              bottom: defaultBottom,
               transform: pan.getTranslateTransform(),
             },
           ]}

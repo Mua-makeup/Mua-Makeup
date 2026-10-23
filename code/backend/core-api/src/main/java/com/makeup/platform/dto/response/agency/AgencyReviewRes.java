@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,6 +46,8 @@ public class AgencyReviewRes {
 
     private String completionPhotoUrl;
     private String status;
+    private String agencyReply;
+    private OffsetDateTime agencyRepliedAt;
     private LocalDateTime createdAt;
 
     @Getter
