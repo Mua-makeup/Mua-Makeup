@@ -475,7 +475,7 @@ export const AgencyReviewsPage = () => {
                     {rev.customerAvatar ? (
                       <img
                         src={rev.customerAvatar}
-                        alt={rev.customerName || 'Customer'}
+                        alt={rev.customerName || t('customer_label')}
                         className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
                       />
                     ) : (
@@ -653,7 +653,7 @@ export const AgencyReviewsPage = () => {
                           >
                             <img
                               src={rev.completionPhotoUrl}
-                              alt="Staff completion proof"
+                              alt={t('agency_reviews_completion_photo')}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                               loading="lazy"
                             />

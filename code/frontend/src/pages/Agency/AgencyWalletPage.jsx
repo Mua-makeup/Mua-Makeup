@@ -81,41 +81,41 @@ export const AgencyWalletPage = () => {
     const ref = item.referenceType || '';
     if (ref === 'BOOKING_SETTLEMENT') {
       return {
-        label: 'Quyết Toán Ca Hẹn',
+        label: t('tx_settlement') || 'Quyết Toán Ca Hẹn',
         bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800',
         icon: ArrowUpRight,
       };
     }
     if (ref === 'BOOKING_CLAWBACK') {
       return {
-        label: 'Thu Hồi Do Khiếu Nại',
+        label: t('tx_clawback') || 'Thu Hồi Do Khiếu Nại',
         bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800',
         icon: AlertTriangle,
       };
     }
     if (ref === 'OVERTIME_PAYMENT') {
       return {
-        label: 'Chi Phụ Cấp Tăng Ca',
+        label: t('tx_overtime') || 'Chi Phụ Cấp Tăng Ca',
         bg: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800',
         icon: Clock,
       };
     }
     if (ref === 'BOOKING_COMPENSATION') {
       return {
-        label: 'Bồi Thường Hủy Cọc',
+        label: t('tx_compensation') || 'Bồi Thường Hủy Cọc',
         bg: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-800',
         icon: ShieldCheck,
       };
     }
     if (ref === 'WITHDRAWAL') {
       return {
-        label: 'Rút Tiền Về Ngân Hàng',
+        label: t('tx_withdrawal') || 'Rút Tiền Về Ngân Hàng',
         bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800',
         icon: ArrowDownLeft,
       };
     }
     return {
-      label: item.entryType === 'CREDIT' ? 'Tiền Vào' : 'Tiền Ra',
+      label: item.entryType === 'CREDIT' ? (t('tx_credit') || 'Tiền Vào') : (t('tx_debit') || 'Tiền Ra'),
       bg: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800',
       icon: Layers,
     };
@@ -151,7 +151,7 @@ export const AgencyWalletPage = () => {
             className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Đang đồng bộ...' : 'Làm mới'}
+            {isRefreshing ? (t('syncing') || 'Đang đồng bộ...') : (t('reload') || 'Làm mới')}
           </Button>
         </div>
       </div>
@@ -167,7 +167,7 @@ export const AgencyWalletPage = () => {
             onClick={() => fetchWallet()}
             className="underline text-xs font-semibold hover:text-rose-900 ml-4 shrink-0"
           >
-            Thử lại
+            {t('retry') || 'Thử lại'}
           </button>
         </div>
       )}
@@ -188,7 +188,7 @@ export const AgencyWalletPage = () => {
             {isLoading ? '...' : formatVND(walletData?.availableBalance)}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Số dư khả dụng trong ví của Chủ Studio
+            {t('stat_available_balance_desc') || 'Số dư khả dụng trong ví của Chủ Studio'}
           </p>
         </div>
 
@@ -206,7 +206,7 @@ export const AgencyWalletPage = () => {
             {isLoading ? '...' : formatVND(walletData?.pendingEscrowAmount)}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Các ca hẹn đang thực hiện, chờ nghiệm thu
+            {t('stat_pending_escrow_desc') || 'Các ca hẹn đang thực hiện, chờ nghiệm thu'}
           </p>
         </div>
 
@@ -224,7 +224,7 @@ export const AgencyWalletPage = () => {
             {isLoading ? '...' : formatVND(walletData?.totalClawback)}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Tổng tiền đã hoàn trả cho khách qua khiếu nại
+            {t('stat_total_clawback_desc') || 'Tổng tiền đã hoàn trả cho khách qua khiếu nại'}
           </p>
         </div>
 
@@ -242,7 +242,7 @@ export const AgencyWalletPage = () => {
             {isLoading ? '...' : formatVND(walletData?.totalOvertimePaid)}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Tổng chi trả thêm giờ cho nhân viên Studio
+            {t('stat_total_overtime_desc') || 'Tổng chi trả thêm giờ cho nhân viên Studio'}
           </p>
         </div>
       </div>
@@ -256,7 +256,7 @@ export const AgencyWalletPage = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo mã đơn (MK-...), nội dung..."
+            placeholder={t('wallet_search_placeholder') || 'Tìm theo mã đơn (MK-...), nội dung...'}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-900 dark:text-slate-100"
           />
         </div>
@@ -301,7 +301,7 @@ export const AgencyWalletPage = () => {
                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100'
             }`}
           >
-            Khiếu Nại
+            {t('filter_clawback_tx') || 'Khiếu Nại'}
           </button>
           <button
             onClick={() => setTypeFilter('OVERTIME')}
@@ -311,7 +311,7 @@ export const AgencyWalletPage = () => {
                 : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 hover:bg-purple-100'
             }`}
           >
-            Tăng Ca
+            {t('filter_overtime_tx') || 'Tăng Ca'}
           </button>
         </div>
       </div>
@@ -332,7 +332,7 @@ export const AgencyWalletPage = () => {
         {isLoading ? (
           <div className="p-12 text-center text-slate-400">
             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-emerald-500" />
-            <p className="text-sm font-semibold">Đang tải lịch sử giao dịch sổ cái...</p>
+            <p className="text-sm font-semibold">{t('wallet_ledger_loading') || 'Đang tải lịch sử giao dịch sổ cái...'}</p>
           </div>
         ) : filteredTransactions.length === 0 ? (
           <div className="p-12 text-center">
@@ -340,10 +340,10 @@ export const AgencyWalletPage = () => {
               <Layers className="w-7 h-7" />
             </div>
             <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-              Chưa có giao dịch biến động nào
+              {t('wallet_ledger_empty_title') || 'Chưa có giao dịch biến động nào'}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-              Khi Studio quyết toán đơn hàng, phát sinh thu hồi khiếu nại hoặc chi trả tăng ca, lịch sử sẽ tự động ghi sổ tại đây.
+              {t('wallet_ledger_empty_desc') || 'Khi Studio quyết toán đơn hàng, phát sinh thu hồi khiếu nại hoặc chi trả tăng ca, lịch sử sẽ tự động ghi sổ tại đây.'}
             </p>
           </div>
         ) : (
@@ -409,7 +409,7 @@ export const AgencyWalletPage = () => {
 
                       {/* Diễn giải */}
                       <td className="py-3.5 px-4 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                        {tx.description || 'Giao dịch biến động số dư hệ thống'}
+                        {tx.description || t('tx_default_desc') || 'Giao dịch biến động số dư hệ thống'}
                       </td>
 
                       {/* Biến động */}

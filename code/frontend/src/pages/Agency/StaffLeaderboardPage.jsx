@@ -233,7 +233,7 @@ export const StaffLeaderboardPage = () => {
                     <span>{top2.averageRating.toFixed(1)}</span>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex justify-around">
-                    <span>{top2.completedJobs} ca</span>
+                    <span>{top2.completedJobs} {t('leaderboard_jobs_unit')}</span>
                     <span>•</span>
                     <span>{top2.fiveStarRate.toFixed(0)}% 5★</span>
                   </div>
@@ -282,7 +282,7 @@ export const StaffLeaderboardPage = () => {
                   </div>
                   <div className="mt-2.5 pt-2.5 border-t border-amber-200/60 dark:border-amber-800/60 text-xs text-slate-600 dark:text-slate-300 flex justify-around font-medium">
                     <span>
-                      <strong className="text-slate-900 dark:text-white font-bold">{top1.completedJobs}</strong> ca make
+                      <strong className="text-slate-900 dark:text-white font-bold">{top1.completedJobs}</strong> {t('leaderboard_jobs_unit')}
                     </span>
                     <span>•</span>
                     <span>
@@ -327,7 +327,7 @@ export const StaffLeaderboardPage = () => {
                     <span>{top3.averageRating.toFixed(1)}</span>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex justify-around">
-                    <span>{top3.completedJobs} ca</span>
+                    <span>{top3.completedJobs} {t('leaderboard_jobs_unit')}</span>
                     <span>•</span>
                     <span>{top3.fiveStarRate.toFixed(0)}% 5★</span>
                   </div>
@@ -346,17 +346,17 @@ export const StaffLeaderboardPage = () => {
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-rose-500" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              Bảng Tổng Hợp Điểm Số & CSAT Theo Thợ ({data.items.length} nhân sự)
+              {t('leaderboard_summary_table_title', { count: data.items.length })}
             </h2>
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            Điểm Studio TB: <strong className="text-amber-500 font-bold">{data.agencyAverageRating.toFixed(1)} / 5.0</strong>
+            {t('leaderboard_agency_avg_score')}: <strong className="text-amber-500 font-bold">{data.agencyAverageRating.toFixed(1)} / 5.0</strong>
           </div>
         </div>
 
         {isLoading ? (
           <div className="p-8 text-center text-xs text-slate-400 animate-pulse">
-            Đang tải dữ liệu bảng xếp hạng...
+            {t('leaderboard_loading')}
           </div>
         ) : data.items.length === 0 ? (
           <div className="py-12 text-center text-xs text-slate-400">
@@ -374,7 +374,7 @@ export const StaffLeaderboardPage = () => {
                   <th className="py-3 px-4 text-center">{t('leaderboard_col_completed_jobs')}</th>
                   <th className="py-3 px-4 text-center">{t('leaderboard_col_total_reviews')}</th>
                   <th className="py-3 px-4">{t('leaderboard_col_status')}</th>
-                  <th className="py-3 px-4 text-right">Chi Tiết</th>
+                  <th className="py-3 px-4 text-right">{t('leaderboard_col_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -477,7 +477,7 @@ export const StaffLeaderboardPage = () => {
                         variant="ghost"
                         onClick={() => navigate(`/agency/staff/${item.staffId}`)}
                         className="p-1.5 h-auto text-slate-500 hover:text-rose-600 dark:hover:text-rose-400"
-                        title="Xem hồ sơ thợ"
+                        title={t('leaderboard_view_staff_profile')}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
