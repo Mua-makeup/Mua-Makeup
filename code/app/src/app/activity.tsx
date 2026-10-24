@@ -30,6 +30,7 @@ import {
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
 import { formatDateTimeVN, formatDateVN } from '@/utils/date';
+import { BookingCardSkeleton } from '@/components/base/Skeleton';
 
 // Các trạng thái kết thúc/hoàn thiện không còn được xem là đơn đang hoạt động
 const TERMINATED_STATUSES = [
@@ -789,10 +790,7 @@ export default function OrderTrackingActivityScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải hoạt động đơn hàng...</Text>
-        </View>
+        <BookingCardSkeleton count={2} style={{ padding: 16 }} />
       ) : (
         <ScrollView
           style={styles.scrollContent}

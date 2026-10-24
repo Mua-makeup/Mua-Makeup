@@ -28,6 +28,7 @@ import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { ExploreFilterModal } from '@/components/customer/ExploreFilterModal';
 import { StudioServicesModal } from '@/components/customer/StudioServicesModal';
 import { calculateMuaRankScore } from '@/utils/ranking';
+import { ExploreSkeleton } from '@/components/base/Skeleton';
 
 const getDistanceKm = (
   lat1?: number | null,
@@ -72,6 +73,23 @@ export default function ExploreScreen() {
   const [selectedStudioForModal, setSelectedStudioForModal] =
     useState<AgencyPublicProfile | null>(null);
   const [isStudioModalVisible, setIsStudioModalVisible] = useState(false);
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
+
+  const handleTabChange = (newTab: 'FREELANCE' | 'STUDIO') => {
+    if (newTab !== providerTab) {
+      Haptics.selectionAsync();
+      setIsTabSwitching(true);
+      setProviderTab(newTab);
+      if (newTab === 'STUDIO' && studios.length === 0) {
+        fetchStudios();
+      } else if (newTab === 'FREELANCE' && muaList.length === 0) {
+        fetchMuas();
+      }
+      setTimeout(() => {
+        setIsTabSwitching(false);
+      }, 350);
+    }
+  };
 
   // Store quản lý bộ lọc
   const {
@@ -600,10 +618,7 @@ export default function ExploreScreen() {
         <View style={styles.segmentSwitchBox}>
           <TouchableOpacity
             style={[styles.segmentBtn, providerTab === 'FREELANCE' && styles.segmentBtnActive]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setProviderTab('FREELANCE');
-            }}
+            onPress={() => handleTabChange('FREELANCE')}
             activeOpacity={0.8}
           >
             <Text
@@ -633,10 +648,7 @@ export default function ExploreScreen() {
 
           <TouchableOpacity
             style={[styles.segmentBtn, providerTab === 'STUDIO' && styles.segmentBtnActive]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setProviderTab('STUDIO');
-            }}
+            onPress={() => handleTabChange('STUDIO')}
             activeOpacity={0.8}
           >
             <Text
@@ -722,11 +734,8 @@ export default function ExploreScreen() {
 
       {/* 4. NỘI DUNG CHÍNH THEO TAB */}
       {providerTab === 'FREELANCE' ? (
-        isLoadingMuas && muaList.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={BrandColors.primary} />
-            <Text style={styles.loadingText}>Đang tải danh sách chuyên viên make-up tự do...</Text>
-          </View>
+        (isLoadingMuas && muaList.length === 0) || isTabSwitching ? (
+          <ExploreSkeleton count={4} style={styles.listContent} />
         ) : (
           <FlatList
             data={filteredMuas}
@@ -760,11 +769,8 @@ export default function ExploreScreen() {
             }
           />
         )
-      ) : isLoadingStudios && studios.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải danh sách Studio & Viện Áo Cưới...</Text>
-        </View>
+      ) : (isLoadingStudios && studios.length === 0) || isTabSwitching ? (
+        <ExploreSkeleton count={4} style={styles.listContent} />
       ) : (
         <FlatList
           data={filteredStudios}

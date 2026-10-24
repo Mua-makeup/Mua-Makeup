@@ -42,6 +42,7 @@ import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { useNotificationStore } from '@/store/notification.store';
 import * as Haptics from 'expo-haptics';
+import { Skeleton, SkeletonCircle, BookingCardSkeleton } from '@/components/base/Skeleton';
 
 const getCategoryIcon = (categoryName?: string): keyof typeof Ionicons.glyphMap => {
   if (!categoryName) return 'grid-outline';
@@ -89,6 +90,7 @@ export default function HomeScreen() {
     featuredMuas,
     featuredStudios,
     fetchExploreData,
+    isLoading: isHomeLoading,
   } = useHomeStore();
   const [selectedStudioForModal, setSelectedStudioForModal] = useState<AgencyPublicProfile | null>(null);
   const [isStudioModalVisible, setIsStudioModalVisible] = useState(false);
@@ -462,7 +464,9 @@ export default function HomeScreen() {
             </View>
 
             {/* Danh sách ca hôm nay */}
-            {todayBookings.length > 0 ? (
+            {isWorkstationLoading && todayBookings.length === 0 ? (
+              <BookingCardSkeleton count={2} />
+            ) : todayBookings.length > 0 ? (
               todayBookings.map((b) =>
                 isAgencyStaff ? (
                   <DispatchedBookingCard key={b.id} booking={b} onRefresh={fetchWorkstationData} />
@@ -713,35 +717,44 @@ export default function HomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoriesScroll}
               >
-                {categories.map((cat) => {
-                  const iconName = getCategoryIcon(cat.categoryName);
-                  return (
-                    <TouchableOpacity
-                      key={`cat-${cat.id}`}
-                      style={styles.categoryItem}
-                      activeOpacity={0.75}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        router.push({
-                          pathname: '/explore',
-                          params: { categoryId: cat.id.toString() },
-                        });
-                      }}
-                    >
-                      <View style={styles.categoryIconCircle}>
-                        <Ionicons name={iconName} size={20} color={BrandColors.primary} />
-                      </View>
-                      <Text style={styles.categoryNameText} numberOfLines={1}>
-                        {cat.categoryName}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {categories.length > 0 ? (
+                  categories.map((cat) => {
+                    const iconName = getCategoryIcon(cat.categoryName);
+                    return (
+                      <TouchableOpacity
+                        key={`cat-${cat.id}`}
+                        style={styles.categoryItem}
+                        activeOpacity={0.75}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          router.push({
+                            pathname: '/explore',
+                            params: { categoryId: cat.id.toString() },
+                          });
+                        }}
+                      >
+                        <View style={styles.categoryIconCircle}>
+                          <Ionicons name={iconName} size={20} color={BrandColors.primary} />
+                        </View>
+                        <Text style={styles.categoryNameText} numberOfLines={1}>
+                          {cat.categoryName}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : isHomeLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <View key={i} style={[styles.categoryItem, { alignItems: 'center' }]}>
+                      <SkeletonCircle size={52} />
+                      <Skeleton width={48} height={10} borderRadius={3} style={{ marginTop: 6 }} />
+                    </View>
+                  ))
+                ) : null}
               </ScrollView>
             </View>
 
             {/* 2. CHUYÊN VIÊN TRANG ĐIỂM NỔI BẬT (CHO KHÁCH THAM KHẢO) */}
-            {featuredMuas.length > 0 && (
+            {featuredMuas.length > 0 ? (
               <View style={styles.sectionBlock}>
                 <View style={styles.sectionHeaderRow}>
                   <View style={{ flex: 1 }}>
@@ -825,10 +838,35 @@ export default function HomeScreen() {
                   })}
                 </ScrollView>
               </View>
-            )}
+            ) : isHomeLoading ? (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <Skeleton width={180} height={18} borderRadius={4} />
+                  <Skeleton width={60} height={14} borderRadius={4} />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.muaCardsScroll}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <View key={i} style={[styles.featuredMuaCard, { padding: 14 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <SkeletonCircle size={48} style={{ marginRight: 10 }} />
+                        <View style={{ flex: 1 }}>
+                          <Skeleton width="80%" height={15} borderRadius={4} style={{ marginBottom: 6 }} />
+                          <Skeleton width="55%" height={12} borderRadius={3} style={{ marginBottom: 6 }} />
+                          <Skeleton width="40%" height={11} borderRadius={3} />
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Skeleton width={60} height={16} borderRadius={4} />
+                        <Skeleton width={80} height={26} borderRadius={13} />
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
 
             {/* 3. STUDIO & VIỆN ÁO CƯỚI ĐỐI TÁC */}
-            {featuredStudios.length > 0 && (
+            {featuredStudios.length > 0 ? (
               <View style={styles.sectionBlock}>
                 <View style={styles.sectionHeaderRow}>
                   <View style={{ flex: 1 }}>
@@ -897,7 +935,28 @@ export default function HomeScreen() {
                   ))}
                 </ScrollView>
               </View>
-            )}
+            ) : isHomeLoading ? (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <Skeleton width={160} height={18} borderRadius={4} />
+                  <Skeleton width={60} height={14} borderRadius={4} />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.studioCardsScroll}>
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <View key={i} style={[styles.featuredStudioCard, { padding: 14 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <Skeleton width={44} height={44} borderRadius={10} style={{ marginRight: 10 }} />
+                        <View style={{ flex: 1 }}>
+                          <Skeleton width="80%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                          <Skeleton width="60%" height={11} borderRadius={3} />
+                        </View>
+                      </View>
+                      <Skeleton width="100%" height={30} borderRadius={8} />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
 
             <View style={styles.bookingModesSection}>
               <View style={styles.bookingModesHeader}>

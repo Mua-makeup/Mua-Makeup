@@ -20,6 +20,7 @@ import { BrandColors } from '@/constants/theme';
 import { staffProfileService, AgencyStaffProfile, StaffCertificate } from '@/services/staff-profile.service';
 import { parseApiError } from '@/utils/error';
 import { ImageViewerModal } from '@/components/common/ImageViewerModal';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 export default function StaffWorkProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
@@ -194,10 +195,7 @@ export default function StaffWorkProfileScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải hồ sơ nhân sự Studio...</Text>
-        </View>
+        <DetailScreenSkeleton />
       ) : errorMessage ? (
         <View style={styles.centerBox}>
           <Ionicons name="business-outline" size={40} color={BrandColors.slateMuted} />

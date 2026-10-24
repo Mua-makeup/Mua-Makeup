@@ -21,6 +21,7 @@ import { agencyService } from '../../../services/agency.service';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { overtimeRuleSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { TableSkeleton } from '../../base/Skeleton';
 
 export const OvertimeConfigCard = () => {
   const { t } = useI18nStore();
@@ -461,10 +462,17 @@ export const OvertimeConfigCard = () => {
         {/* Bảng Danh sách Quy tắc đã lưu */}
         <div>
           {isLoading ? (
-            <div className="flex items-center justify-center py-10 text-slate-400 text-xs gap-2">
-              <Clock className="w-4 h-4 animate-spin text-rose-500" />
-              <span>{t('loading')}</span>
-            </div>
+            <TableSkeleton
+              columns={[
+                { header: t('overtime_rule_name') },
+                { header: t('overtime_threshold_label') },
+                { header: t('overtime_penalty_label') },
+                { header: t('status') },
+                { header: t('col_actions'), align: 'right' },
+              ]}
+              rows={4}
+              hasPagination={false}
+            />
           ) : rules.length === 0 ? (
             <div className="p-8 bg-slate-50/70 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-700/60 rounded-2xl text-center space-y-3">
               <p className="text-xs text-slate-400 italic">

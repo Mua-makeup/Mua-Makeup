@@ -36,6 +36,7 @@ import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
 import { CancelBookingModal } from '@/components/booking/CancelBookingModal';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { useAuthStore } from '@/store/auth.store';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
 
 export default function CustomerBookingDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -504,10 +505,18 @@ export default function CustomerBookingDetailScreen() {
   if (isLoading && !bookingDetail) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải chi tiết ca làm đẹp...</Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi Tiết Lịch Hẹn</Text>
+          <View style={{ width: 40 }} />
         </View>
+        <BookingDetailSkeleton />
       </SafeAreaView>
     );
   }

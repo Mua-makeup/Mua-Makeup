@@ -31,6 +31,7 @@ import { websocketService } from '@/services/websocket.service';
 import { BookingProgressStepper } from '@/components/booking/BookingProgressStepper';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
 import { computeHybridEta } from '@/utils/date';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
 
 const CUSTOMER_CANCEL_REASONS = [
   'Bận việc đột xuất / Không thể tiếp tục',
@@ -677,9 +678,21 @@ export default function BookingLiveTrackingScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang kết nối tín hiệu vệ tinh...</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleBox}>
+            <Text style={styles.headerTitle}>Theo Dõi Tiến Trình</Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+        <BookingDetailSkeleton />
       </SafeAreaView>
     );
   }

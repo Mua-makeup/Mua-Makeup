@@ -23,6 +23,7 @@ import { Toast } from '../../components/base/Toast';
 import { AgencyReviewReplyModal } from '../../components/features/agency/AgencyReviewReplyModal';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 import { formatDate } from '../../utils/formatters';
+import { Skeleton, CardSkeleton } from '../../components/base/Skeleton';
 
 export const AgencyReviewsPage = () => {
   const { t } = useI18nStore();
@@ -228,28 +229,38 @@ export const AgencyReviewsPage = () => {
           <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">
             {t('agency_reviews_avg_score')}
           </span>
-          <div className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white flex items-baseline gap-1">
-            <span>{overview.averageRating.toFixed(1)}</span>
-            <span className="text-lg font-normal text-slate-400">/ 5.0</span>
-          </div>
+          {isOverviewLoading ? (
+            <div className="flex flex-col items-center py-2 space-y-2">
+              <Skeleton className="h-10 w-28 rounded-xl" />
+              <Skeleton className="h-4 w-32 rounded" />
+              <Skeleton className="h-3 w-40 rounded" />
+            </div>
+          ) : (
+            <>
+              <div className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white flex items-baseline gap-1">
+                <span>{overview.averageRating.toFixed(1)}</span>
+                <span className="text-lg font-normal text-slate-400">/ 5.0</span>
+              </div>
 
-          <div className="flex items-center gap-1 my-2">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <Star
-                key={s}
-                size={18}
-                className={
-                  s <= Math.round(overview.averageRating)
-                    ? 'text-amber-500 fill-amber-500'
-                    : 'text-slate-300 dark:text-slate-700'
-                }
-              />
-            ))}
-          </div>
+              <div className="flex items-center gap-1 my-2">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star
+                    key={s}
+                    size={18}
+                    className={
+                      s <= Math.round(overview.averageRating)
+                        ? 'text-amber-500 fill-amber-500'
+                        : 'text-slate-300 dark:text-slate-700'
+                    }
+                  />
+                ))}
+              </div>
 
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            {t('agency_reviews_based_on', { count: overview.totalReviews })}
-          </p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                {t('agency_reviews_based_on', { count: overview.totalReviews })}
+              </p>
+            </>
+          )}
         </div>
 
         {/* Rating Distribution Histogram */}
@@ -377,20 +388,7 @@ export const AgencyReviewsPage = () => {
 
       {/* Review Cards List */}
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((n) => (
-            <div
-              key={n}
-              className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 animate-pulse space-y-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded" />
-                <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800 rounded" />
-              </div>
-              <div className="h-16 bg-slate-100 dark:bg-slate-800/60 rounded" />
-            </div>
-          ))}
-        </div>
+        <CardSkeleton count={pageInfo.size || 3} />
       ) : apiError ? (
         <div className="p-8 text-center bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-2xl text-rose-700 dark:text-rose-300 text-xs">
           <p>{apiError}</p>

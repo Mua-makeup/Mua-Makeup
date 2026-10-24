@@ -19,6 +19,7 @@ import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { getBottomNavPadding } from '@/utils/responsive';
 import { parseApiError } from '@/utils/error';
 import { useUndoStore } from '@/store/undo.store';
+import { CardSkeleton } from '@/components/base/Skeleton';
 
 export default function MuaPackagesScreen() {
   const insets = useSafeAreaInsets();
@@ -145,10 +146,7 @@ export default function MuaPackagesScreen() {
 
       {/* Main Content */}
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải danh sách gói...</Text>
-        </View>
+        <CardSkeleton count={3} lines={2} hasAvatar={false} style={styles.listContent} />
       ) : (
         <FlatList
           data={packages}

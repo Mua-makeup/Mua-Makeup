@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { NotificationItem } from '@/services/notification.service';
 import { BrandColors } from '@/constants/theme';
 import { useUndoStore } from '@/store/undo.store';
+import { NotificationSkeleton } from '@/components/base/Skeleton';
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
@@ -389,10 +390,7 @@ export default function NotificationsScreen() {
 
       {/* Main Content Area */}
       {isLoading && notifications.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải thông báo từ hệ thống...</Text>
-        </View>
+        <NotificationSkeleton count={6} />
       ) : (
         <FlatList
           data={notifications}

@@ -40,6 +40,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { getTodayVN, formatDateVN, formatTimeVN } from '@/utils/date';
 import { soundManager } from '@/utils/sound';
+import { JobExecutionSkeleton } from '@/components/base/Skeleton';
 
 function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth radius in meters
@@ -1310,12 +1311,7 @@ export default function JobExecutionScreen() {
   };
 
   if (isLoading) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#E11D48" />
-        <Text style={styles.loadingText}>Đang nạp thông tin ca làm...</Text>
-      </SafeAreaView>
-    );
+    return <JobExecutionSkeleton />;
   }
 
   const isDisputeMode = currentStatus === 'ARRIVED' || currentStatus === 'IN_PROGRESS';
@@ -1339,6 +1335,24 @@ export default function JobExecutionScreen() {
     currentStatus !== 'DISPUTED' &&
     currentStatus !== 'DISPUTE_REFUNDED' &&
     currentStatus !== 'DISPUTE_COMPENSATED';
+
+  if (isLoading && !booking) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={navigateBackToWorkstation}>
+            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.headerTitle}>Chi Tiết Ca Làm Việc</Text>
+            <Text style={styles.headerSubtitle}>Đang đồng bộ tiến trình...</Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+        <JobExecutionSkeleton />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

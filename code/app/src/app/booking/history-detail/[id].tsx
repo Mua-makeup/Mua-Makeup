@@ -32,6 +32,7 @@ import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { websocketService } from '@/services/websocket.service';
 import { ReviewModal } from '@/components/customer/ReviewModal';
 import { reviewService, ReviewItem } from '@/services/review.service';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HISTORY_REVIEW_PHOTO_SIZE = Math.floor((SCREEN_WIDTH - 64 - 8) / 2);
@@ -440,10 +441,14 @@ export default function BookingHistoryDetailScreen() {
   if (isLoading && !bookingDetail) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải hóa đơn & chi tiết lịch sử...</Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi Tiết Đơn Hàng</Text>
+          <View style={{ width: 40 }} />
         </View>
+        <BookingDetailSkeleton />
       </SafeAreaView>
     );
   }

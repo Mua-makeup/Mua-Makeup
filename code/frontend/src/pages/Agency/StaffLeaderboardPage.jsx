@@ -19,6 +19,7 @@ import { agencyService } from '../../services/agency.service';
 import { Button } from '../../components/base/Button';
 import { useI18nStore } from '../../store/useI18nStore';
 import { parseApiError } from '../../utils/error';
+import { Skeleton, SkeletonCircle, TableSkeleton } from '../../components/base/Skeleton';
 
 export const StaffLeaderboardPage = () => {
   const { t } = useI18nStore();
@@ -186,14 +187,48 @@ export const StaffLeaderboardPage = () => {
       )}
 
       {/* Top 3 Bục Vinh Danh (The Podium) */}
-      {!isLoading && data.items.length > 0 && (
+      {isLoading ? (
+        <div className="relative pt-6 pb-6 px-4 rounded-3xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="text-center mb-6">
+            <Skeleton className="h-6 w-44 rounded-full mx-auto" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end max-w-4xl mx-auto">
+            {/* Rank 2 Skeleton */}
+            <div className="order-2 md:order-1 flex flex-col items-center space-y-3">
+              <SkeletonCircle size="w-16 h-16" />
+              <div className="w-full p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-center space-y-2">
+                <Skeleton className="h-4 w-28 rounded mx-auto" />
+                <Skeleton className="h-3 w-16 rounded mx-auto" />
+                <Skeleton className="h-4 w-20 rounded mx-auto" />
+              </div>
+            </div>
+            {/* Rank 1 Skeleton */}
+            <div className="order-1 md:order-2 flex flex-col items-center space-y-3">
+              <SkeletonCircle size="w-20 h-20" />
+              <div className="w-full p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center space-y-2 shadow-sm">
+                <Skeleton className="h-5 w-32 rounded mx-auto" />
+                <Skeleton className="h-3.5 w-20 rounded mx-auto" />
+                <Skeleton className="h-5 w-24 rounded mx-auto" />
+              </div>
+            </div>
+            {/* Rank 3 Skeleton */}
+            <div className="order-3 flex flex-col items-center space-y-3">
+              <SkeletonCircle size="w-16 h-16" />
+              <div className="w-full p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-center space-y-2">
+                <Skeleton className="h-4 w-28 rounded mx-auto" />
+                <Skeleton className="h-3 w-16 rounded mx-auto" />
+                <Skeleton className="h-4 w-20 rounded mx-auto" />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : data.items.length > 0 && (
         <div className="relative pt-6 pb-2 px-4 rounded-3xl bg-gradient-to-b from-slate-50 to-white dark:from-slate-900/80 dark:to-slate-900 border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
           {/* Background Ambient Glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-amber-500/10 dark:bg-amber-500/5 blur-3xl pointer-events-none rounded-full" />
 
-          <div className="text-center mb-6">
+          <div className="text-center mb-12">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               {t('leaderboard_top_badge')}
             </span>
           </div>
@@ -355,9 +390,20 @@ export const StaffLeaderboardPage = () => {
         </div>
 
         {isLoading ? (
-          <div className="p-8 text-center text-xs text-slate-400 animate-pulse">
-            {t('leaderboard_loading')}
-          </div>
+          <TableSkeleton
+            columns={[
+              { header: t('leaderboard_col_rank'), align: 'center' },
+              { header: t('leaderboard_col_staff') },
+              { header: t('leaderboard_col_rating') },
+              { header: t('leaderboard_col_five_star_rate') },
+              { header: t('leaderboard_col_completed_jobs'), align: 'center' },
+              { header: t('leaderboard_col_total_reviews'), align: 'center' },
+              { header: t('leaderboard_col_status') },
+              { header: t('leaderboard_col_actions'), align: 'right' },
+            ]}
+            rows={5}
+            hasPagination={false}
+          />
         ) : data.items.length === 0 ? (
           <div className="py-12 text-center text-xs text-slate-400">
             {t('leaderboard_empty')}

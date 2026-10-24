@@ -21,6 +21,7 @@ import { CategoryPickerModal } from '@/components/mua/packages/CategoryPickerMod
 import { StyleChipSelector } from '@/components/mua/packages/StyleChipSelector';
 import { createPackageSchema } from '@/schemas/package-builder.schema';
 import { parseApiError } from '@/utils/error';
+import { Skeleton } from '@/components/base/Skeleton';
 
 const PACKAGE_PRICE_PRESETS = [
   350000, 500000, 800000, 1000000, 1500000, 2000000, 3000000,
@@ -190,9 +191,15 @@ export default function EditPackageScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang nạp dữ liệu gói...</Text>
+        <View style={{ padding: 16 }}>
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 16 }}>
+            <Skeleton width={120} height={14} borderRadius={4} style={{ marginBottom: 12 }} />
+            <Skeleton width="100%" height={48} borderRadius={10} style={{ marginBottom: 16 }} />
+            <Skeleton width={100} height={14} borderRadius={4} style={{ marginBottom: 12 }} />
+            <Skeleton width="100%" height={80} borderRadius={10} style={{ marginBottom: 16 }} />
+            <Skeleton width={80} height={14} borderRadius={4} style={{ marginBottom: 12 }} />
+            <Skeleton width="100%" height={48} borderRadius={10} />
+          </View>
         </View>
       ) : (
         <KeyboardAvoidingView

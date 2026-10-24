@@ -16,6 +16,7 @@ import {
 import { agencyService } from '../../services/agency.service';
 import { Button } from '../../components/base/Button';
 import { useI18nStore } from '../../store/useI18nStore';
+import { StatsGridSkeleton, TableSkeleton } from '../../components/base/Skeleton';
 
 export const AgencyWalletPage = () => {
   const { t } = useI18nStore();
@@ -173,79 +174,83 @@ export const AgencyWalletPage = () => {
       )}
 
       {/* STATS CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Số dư khả dụng */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_available_balance') || 'Số Dư Khả Dụng'}
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <Wallet className="w-4 h-4" />
+      {isLoading ? (
+        <StatsGridSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Số dư khả dụng */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_available_balance') || 'Số Dư Khả Dụng'}
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <Wallet className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
+              {formatVND(walletData?.availableBalance)}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              {t('stat_available_balance_desc') || 'Số dư khả dụng trong ví của Chủ Studio'}
+            </p>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
-            {isLoading ? '...' : formatVND(walletData?.availableBalance)}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            {t('stat_available_balance_desc') || 'Số dư khả dụng trong ví của Chủ Studio'}
-          </p>
-        </div>
 
-        {/* Card 2: Cọc Escrow đang giữ */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_pending_escrow') || 'Cọc Đang Giữ (Escrow)'}
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+          {/* Card 2: Cọc Escrow đang giữ */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_pending_escrow') || 'Cọc Đang Giữ (Escrow)'}
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400 tracking-tight">
+              {formatVND(walletData?.pendingEscrowAmount)}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              {t('stat_pending_escrow_desc') || 'Các ca hẹn đang thực hiện, chờ nghiệm thu'}
+            </p>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400 tracking-tight">
-            {isLoading ? '...' : formatVND(walletData?.pendingEscrowAmount)}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            {t('stat_pending_escrow_desc') || 'Các ca hẹn đang thực hiện, chờ nghiệm thu'}
-          </p>
-        </div>
 
-        {/* Card 3: Thu hồi do khiếu nại */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_total_clawback') || 'Thu Hồi Do Khiếu Nại'}
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
+          {/* Card 3: Thu hồi do khiếu nại */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_total_clawback') || 'Thu Hồi Do Khiếu Nại'}
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-rose-600 dark:text-rose-400 tracking-tight">
+              {formatVND(walletData?.totalClawback)}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              {t('stat_total_clawback_desc') || 'Tổng tiền đã hoàn trả cho khách qua khiếu nại'}
+            </p>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-rose-600 dark:text-rose-400 tracking-tight">
-            {isLoading ? '...' : formatVND(walletData?.totalClawback)}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            {t('stat_total_clawback_desc') || 'Tổng tiền đã hoàn trả cho khách qua khiếu nại'}
-          </p>
-        </div>
 
-        {/* Card 4: Phụ cấp tăng ca đã chi */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_total_overtime') || 'Phụ Cấp Tăng Ca Đã Chi'}
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
+          {/* Card 4: Phụ cấp tăng ca đã chi */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_total_overtime') || 'Phụ Cấp Tăng Ca Đã Chi'}
+              </span>
+              <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
             </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-purple-600 dark:text-purple-400 tracking-tight">
+              {formatVND(walletData?.totalOvertimePaid)}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              {t('stat_total_overtime_desc') || 'Tổng chi trả thêm giờ cho nhân viên Studio'}
+            </p>
           </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-purple-600 dark:text-purple-400 tracking-tight">
-            {isLoading ? '...' : formatVND(walletData?.totalOvertimePaid)}
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            {t('stat_total_overtime_desc') || 'Tổng chi trả thêm giờ cho nhân viên Studio'}
-          </p>
         </div>
-      </div>
+      )}
 
       {/* FILTER & SEARCH BAR */}
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
@@ -330,10 +335,18 @@ export const AgencyWalletPage = () => {
         </div>
 
         {isLoading ? (
-          <div className="p-12 text-center text-slate-400">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-emerald-500" />
-            <p className="text-sm font-semibold">{t('wallet_ledger_loading') || 'Đang tải lịch sử giao dịch sổ cái...'}</p>
-          </div>
+          <TableSkeleton
+            columns={[
+              { header: t('col_tx_time') || 'Thời Gian' },
+              { header: t('col_tx_ref') || 'Mã Đơn / Bút Toán' },
+              { header: t('col_tx_type') || 'Nghiệp Vụ' },
+              { header: t('col_tx_desc') || 'Diễn Giải' },
+              { header: t('col_tx_amount') || 'Biến Động', align: 'right' },
+              { header: t('col_tx_balance_after') || 'Số Dư Sau GD', align: 'right' },
+            ]}
+            rows={5}
+            hasPagination={false}
+          />
         ) : filteredTransactions.length === 0 ? (
           <div className="p-12 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-3">

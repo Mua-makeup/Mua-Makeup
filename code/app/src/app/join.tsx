@@ -28,6 +28,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { parseApiError } from '@/utils/error';
 import { scanFromURLAsync } from 'expo-camera';
 import { QrScannerView } from '@/components/common/QrScannerModal';
+import { CardSkeleton } from '@/components/base/Skeleton';
 
 export default function JoinStudioScreen() {
   const { code } = useLocalSearchParams<{ code?: string }>();
@@ -303,9 +304,8 @@ export default function JoinStudioScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang kiểm tra hồ sơ liên kết...</Text>
+        <View style={{ padding: 16 }}>
+          <CardSkeleton count={2} />
         </View>
       ) : staffProfile?.status === 'PENDING' ? (
         /* TRƯỜNG HỢP 2: ĐÃ GỬI ĐƠN VÀ ĐANG CHỜ DUYỆT (PENDING) */
