@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { reviewService, ReviewItem, MuaRatingSummary } from '@/services/review.service';
 import { BrandColors } from '@/constants/theme';
+import { ReviewListSkeleton } from '@/components/base/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const REVIEW_PHOTO_SIZE = Math.floor((SCREEN_WIDTH - 28 - 8) / 2);
@@ -479,10 +480,7 @@ export default function MuaReviewsScreen() {
 
             {/* Loading Indicator for Filter Switching */}
             {isLoadingList && (
-              <View style={styles.listLoadingBox}>
-                <ActivityIndicator size="small" color={BrandColors.primary} />
-                <Text style={styles.listLoadingText}>Đang tải đánh giá phù hợp...</Text>
-              </View>
+              <ReviewListSkeleton count={3} />
             )}
           </>
         }

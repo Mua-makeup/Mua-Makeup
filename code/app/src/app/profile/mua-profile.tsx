@@ -28,6 +28,7 @@ import { useAuthStore } from '@/store/auth.store';
 
 import { useUndoStore } from '@/store/undo.store';
 import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 export default function MuaWorkProfileScreen() {
   const { userInfo } = useAuthStore();
@@ -413,10 +414,7 @@ export default function MuaWorkProfileScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải thông tin chuyên môn...</Text>
-        </View>
+        <DetailScreenSkeleton />
       ) : loadError ? (
         <View style={styles.centerLoading}>
           <Text style={styles.loadingText}>{loadError}</Text>

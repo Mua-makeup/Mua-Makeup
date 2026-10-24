@@ -20,6 +20,7 @@ import { Toast } from '../../components/base/Toast';
 import { useI18nStore } from '../../store/useI18nStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
+import { StatsGridSkeleton } from '../../components/base/Skeleton';
 
 export const AdminDashboardPage = () => {
   const { t } = useI18nStore();
@@ -30,6 +31,7 @@ export const AdminDashboardPage = () => {
   const [agencies, setAgencies] = useState([]);
   const [agencyTotalCount, setAgencyTotalCount] = useState(0);
   const [apiError, setApiError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedCert, setSelectedCert] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
 
@@ -38,6 +40,7 @@ export const AdminDashboardPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       setApiError('');
       try {
         const [catRes, styleRes, certRes, agencyRes] = await Promise.all([
@@ -64,6 +67,8 @@ export const AdminDashboardPage = () => {
         setAgencyTotalCount(aTotal);
       } catch (err) {
         setApiError(err.message || t('error_api_connection'));
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchData();
@@ -155,85 +160,89 @@ export const AdminDashboardPage = () => {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Chứng chỉ chờ duyệt */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('kpi_pending_certs')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{pendingCount}</p>
-            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              <span>{t('status_pending')}</span>
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900">
-            <Award className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Card 2: Studio hoạt động */}
-        <Link to="/admin/agencies" className="block group">
-          <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-all group-hover:border-indigo-400 dark:group-hover:border-indigo-600">
+      {isLoading ? (
+        <StatsGridSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Chứng chỉ chờ duyệt */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                {t('kpi_active_studios')}
+                {t('kpi_pending_certs')}
+              </p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{pendingCount}</p>
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{t('status_pending')}</span>
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900">
+              <Award className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* Card 2: Studio hoạt động */}
+          <Link to="/admin/agencies" className="block group">
+            <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-all group-hover:border-indigo-400 dark:group-hover:border-indigo-600">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {t('kpi_active_studios')}
+                </p>
+                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                  {agencyTotalCount}
+                </p>
+                <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
+                  <span>{agencies.filter((a) => a.isVerified).length} {t('status_verified')}</span>
+                  <span>•</span>
+                  <span className="group-hover:underline">{t('view_all')} →</span>
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900 group-hover:scale-110 transition-transform">
+                <Building2 className="w-6 h-6" />
+              </div>
+            </div>
+          </Link>
+
+          {/* Card 3: Danh mục & Phong cách */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('kpi_taxonomy')}
               </p>
               <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-                {agencyTotalCount}
-              </p>
-              <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
-                <span>{agencies.filter((a) => a.isVerified).length} {t('status_verified')}</span>
-                <span>•</span>
-                <span className="group-hover:underline">{t('view_all')} →</span>
+                {categories.length} / {styles.length}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900 group-hover:scale-110 transition-transform">
-              <Building2 className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900">
+              <Layers className="w-6 h-6" />
             </div>
           </div>
-        </Link>
 
-        {/* Card 3: Danh mục & Phong cách */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('kpi_taxonomy')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {categories.length} / {styles.length}
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900">
-            <Layers className="w-6 h-6" />
-          </div>
-        </div>
-
-        {/* Card 4: Trạng thái Hệ thống Core API */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('kpi_system_health')}
-            </p>
-            <p
-              className={`mt-1 text-lg font-bold flex items-center gap-1.5 ${
-                apiError ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'
-              }`}
-            >
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  apiError ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'
+          {/* Card 4: Trạng thái Hệ thống Core API */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('kpi_system_health')}
+              </p>
+              <p
+                className={`mt-1 text-lg font-bold flex items-center gap-1.5 ${
+                  apiError ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400'
                 }`}
-              ></span>
-              {apiError ? t('system_offline') : t('system_online')}
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-900">
-            <Activity className="w-6 h-6" />
+              >
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    apiError ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'
+                  }`}
+                ></span>
+                {apiError ? t('system_offline') : t('system_online')}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-900">
+              <Activity className="w-6 h-6" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Queue Bằng cấp cần thẩm định */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
@@ -317,7 +326,7 @@ export const AdminDashboardPage = () => {
             },
           ]}
           data={pendingMuas.slice(certPage * certPageSize, (certPage + 1) * certPageSize)}
-          isLoading={false}
+          isLoading={isLoading}
           emptyMessage={t('admin_cert_queue_empty')}
           pagination={{
             page: certPage,

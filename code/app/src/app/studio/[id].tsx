@@ -31,6 +31,7 @@ import { PackageIncludedSteps } from '@/components/customer/PackageIncludedSteps
 import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
 import { StudioReviewSection } from '@/components/customer/StudioReviewSection';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -364,9 +365,8 @@ export default function StudioProfileScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang tải hồ sơ cơ sở Studio & các gói dịch vụ...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <DetailScreenSkeleton />
       </SafeAreaView>
     );
   }

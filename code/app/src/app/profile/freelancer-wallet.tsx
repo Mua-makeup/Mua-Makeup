@@ -22,6 +22,7 @@ import {
   TransactionDetailModal,
   TransactionDetailData,
 } from '@/components/common/TransactionDetailModal';
+import { WalletSkeleton } from '@/components/base/Skeleton';
 
 function formatVnd(val?: number): string {
   if (!val && val !== 0) return '0 đ';
@@ -149,10 +150,7 @@ export default function FreelancerWalletScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải ví chuyên gia...</Text>
-        </View>
+        <WalletSkeleton />
       </SafeAreaView>
     );
   }

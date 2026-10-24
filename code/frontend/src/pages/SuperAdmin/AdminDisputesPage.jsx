@@ -27,7 +27,7 @@ import { Textarea } from '../../components/base/Textarea';
 import { Toast } from '../../components/base/Toast';
 import { getSavedPageSize } from '../../utils/pagination.util';
 import { formatDate } from '../../utils/formatters';
-
+import { StatsGridSkeleton } from '../../components/base/Skeleton';
 
 export const AdminDisputesPage = () => {
   const { t } = useI18nStore();
@@ -644,67 +644,71 @@ export const AdminDisputesPage = () => {
       </div>
 
       {/* KPI Overview Cards (Solid, Clean, No Blinking) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Pending Disputes */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_pending_disputes') || 'Khiếu Nại Đang Chờ'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
+      {isStatsLoading ? (
+        <StatsGridSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Pending Disputes */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_pending_disputes') || 'Khiếu Nại Đang Chờ'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-rose-600 dark:text-rose-400">
+              {stats.pendingDisputes || 0}
             </div>
           </div>
-          <div className="mt-2 text-2xl font-black text-rose-600 dark:text-rose-400">
-            {stats.pendingDisputes || 0}
-          </div>
-        </div>
 
-        {/* Card 2: Refunded Disputes */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_refunded_disputes') || 'Đã Chấp Thuận Hoàn Cọc'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
+          {/* Card 2: Refunded Disputes */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_refunded_disputes') || 'Đã Chấp Thuận Hoàn Cọc'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">
+              {stats.refundedDisputes || 0}
             </div>
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {stats.refundedDisputes || 0}
-          </div>
-        </div>
 
-        {/* Card 3: Rejected / Paid Out Disputes */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_rejected_disputes') || 'Đã Bác Bỏ / Quyết Toán'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
-              <XCircle className="w-4 h-4" />
+          {/* Card 3: Rejected / Paid Out Disputes */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_rejected_disputes') || 'Đã Bác Bỏ / Quyết Toán'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
+                <XCircle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-indigo-600 dark:text-indigo-400">
+              {stats.rejectedDisputes || 0}
             </div>
           </div>
-          <div className="mt-2 text-2xl font-black text-indigo-600 dark:text-indigo-400">
-            {stats.rejectedDisputes || 0}
-          </div>
-        </div>
 
-        {/* Card 4: Total Disputed Deposit Amount */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_disputed_deposit_amount') || 'Tổng Tiền Cọc Tranh Chấp'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
+          {/* Card 4: Total Disputed Deposit Amount */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_disputed_deposit_amount') || 'Tổng Tiền Cọc Tranh Chấp'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
+                <DollarSign className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-xl font-black text-amber-600 dark:text-amber-400">
+              {formatCurrency(stats.totalDisputedDepositAmount)}
             </div>
           </div>
-          <div className="mt-2 text-xl font-black text-amber-600 dark:text-amber-400">
-            {formatCurrency(stats.totalDisputedDepositAmount)}
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Error Notice */}
       {apiError && (

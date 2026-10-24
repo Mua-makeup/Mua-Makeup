@@ -413,13 +413,15 @@ export const AgencyDisputesPage = () => {
             <DataTable
               columns={columns}
               data={sortedDisputes}
-              loading={isLoading}
-              page={pageInfo.page}
-              pageSize={pageInfo.size}
-              totalElements={pageInfo.totalElements}
-              totalPages={pageInfo.totalPages}
-              onPageChange={(newPage) => fetchDisputes(newPage)}
-              onPageSizeChange={(newSize) => fetchDisputes(0, newSize)}
+              isLoading={isLoading}
+              pagination={{
+                page: pageInfo.page,
+                size: pageInfo.size,
+                totalElements: pageInfo.totalElements,
+                totalPages: pageInfo.totalPages,
+                onPageChange: (newPage1Indexed) => fetchDisputes(newPage1Indexed - 1, pageInfo.size),
+                onPageSizeChange: (newSize) => fetchDisputes(0, newSize),
+              }}
               emptyMessage={t('agency_disputes_empty')}
             />
           </div>

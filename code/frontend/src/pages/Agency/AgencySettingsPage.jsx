@@ -15,6 +15,7 @@ import { LocationMapPicker } from '../../components/features/agency/LocationMapP
 import { AgencyStudioDetailModal } from '../../components/features/agency/AgencyStudioDetailModal';
 import { agencyService } from '../../services/agency.service';
 import { useI18nStore } from '../../store/useI18nStore';
+import { SettingsSkeleton } from '../../components/base/Skeleton';
 
 export const AgencySettingsPage = () => {
   const { t } = useI18nStore();
@@ -155,12 +156,7 @@ export const AgencySettingsPage = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
-        <Loader2 className="w-8 h-8 animate-spin text-rose-500" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">{t('loading')}</p>
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (

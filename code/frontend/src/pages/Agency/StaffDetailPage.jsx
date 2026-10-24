@@ -32,6 +32,7 @@ import { agencyService } from '../../services/agency.service';
 import { superAdminService } from '../../services/super-admin.service';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
+import { DetailLayoutSkeleton } from '../../components/base/Skeleton';
 
 export const StaffDetailPage = () => {
   const { staffId } = useParams();
@@ -243,12 +244,7 @@ export const StaffDetailPage = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Loader2 className="w-10 h-10 animate-spin text-rose-500" />
-        <p className="text-sm text-slate-500 font-medium">{t('loading')}</p>
-      </div>
-    );
+    return <DetailLayoutSkeleton />;
   }
 
   if (pageError || !detail) {

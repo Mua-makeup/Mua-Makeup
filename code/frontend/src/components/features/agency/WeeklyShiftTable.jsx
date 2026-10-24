@@ -29,6 +29,7 @@ import { SHIFT_DAYS } from '../../../constants/agency.constant';
 import { useShiftConflict } from '../../../hooks/useShiftConflict';
 import { shiftSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { WeeklyShiftSkeleton } from '../../base/Skeleton';
 
 // Định nghĩa 3 buổi trong ngày
 const SHIFT_PERIODS = [
@@ -722,6 +723,8 @@ export const WeeklyShiftTable = () => {
           onRefresh={loadData}
           isLoading={isLoading}
         />
+      ) : isLoading ? (
+        <WeeklyShiftSkeleton />
       ) : (
         <>
           {/* KPI Stats & Quick Filter Header */}

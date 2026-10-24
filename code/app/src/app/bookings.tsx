@@ -35,6 +35,7 @@ import { BookingHistoryCard } from '@/components/booking/BookingHistoryCard';
 import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
 import { CancelBookingModal } from '@/components/booking/CancelBookingModal';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
+import { BookingCardSkeleton } from '@/components/base/Skeleton';
 
 export type SortOption =
   | 'CREATED_DESC'
@@ -162,6 +163,7 @@ export default function BookingsScreen() {
   const [freelancerHistory, setFreelancerHistory] = useState<FreelancerBookingItem[]>([]);
   const [isLoadingFreelancer, setIsLoadingFreelancer] = useState(false);
   const [isRefreshingFreelancer, setIsRefreshingFreelancer] = useState(false);
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
 
   const [selectedBookingToCancel, setSelectedBookingToCancel] = useState<CustomerBookingItem | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -521,10 +523,16 @@ export default function BookingsScreen() {
   };
 
   const handleTabChange = (newTab: 'UPCOMING' | 'HISTORY') => {
-    setActiveTab(newTab);
-    setSelectedStatus('ALL');
-    setSelectedTimeframe('ALL');
-    setDisplayLimit(PAGE_CHUNK_SIZE);
+    if (newTab !== activeTab) {
+      setIsTabSwitching(true);
+      setActiveTab(newTab);
+      setSelectedStatus('ALL');
+      setSelectedTimeframe('ALL');
+      setDisplayLimit(PAGE_CHUNK_SIZE);
+      setTimeout(() => {
+        setIsTabSwitching(false);
+      }, 350);
+    }
   };
 
   const handleResetFilters = () => {
@@ -780,15 +788,8 @@ export default function BookingsScreen() {
       </View>
 
       {/* DANH SÁCH ĐƠN HÀNG */}
-      {isLoading && rawList.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>
-            {isWorkstationRole
-              ? 'Đang tải danh sách ca làm việc...'
-              : 'Đang tải danh sách lịch hẹn...'}
-          </Text>
-        </View>
+      {(isLoading && rawList.length === 0) || isTabSwitching ? (
+        <BookingCardSkeleton count={3} style={styles.listContent} />
       ) : (
         <FlatList
           data={displayList as any[]}

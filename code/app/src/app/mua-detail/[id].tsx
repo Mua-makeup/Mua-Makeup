@@ -21,6 +21,7 @@ import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
 import { MuaReviewPreviewSection } from '@/components/customer/MuaReviewPreviewSection';
 import { PortfolioShowcase } from '@/services/mua-profile.service';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 export default function MuaDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -119,9 +120,8 @@ export default function MuaDetailScreen() {
 
   if (isLoading && !muaProfile) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang tải hồ sơ & các dịch vụ của thợ...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <DetailScreenSkeleton />
       </SafeAreaView>
     );
   }
@@ -228,11 +228,7 @@ export default function MuaDetailScreen() {
           <TouchableOpacity
             style={[styles.bookingBtn, styles.editProfileBtn]}
             onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace('/profile/mua-profile');
-              }
+              router.push('/profile/mua-profile');
             }}
             activeOpacity={0.88}
           >

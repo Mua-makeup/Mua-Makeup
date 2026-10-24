@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { reviewService, ReviewItem } from '@/services/review.service';
 import { BrandColors } from '@/constants/theme';
+import { ReviewListSkeleton } from '@/components/base/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const REVIEW_PHOTO_SIZE = Math.floor((SCREEN_WIDTH - 28 - 8) / 2);
@@ -439,9 +440,7 @@ export default function StudioReviewsScreen() {
             </View>
 
             {isLoadingList && (
-              <View style={styles.listLoadingBox}>
-                <ActivityIndicator size="small" color={BrandColors.primary} />
-              </View>
+              <ReviewListSkeleton count={3} />
             )}
           </>
         }
