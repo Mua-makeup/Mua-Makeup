@@ -12,26 +12,40 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-and-push:
+    name: build-and-push
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
-      - name: 1. Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: 2. Set up Docker Buildx
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Cấp quyền thực thi cho TẤT CẢ gradlew
+        run: |
+          find . -name "gradlew" -exec chmod +x {} +
+
+      - name: Chạy Unit Tests & Build file .jar
+        run: |
+          cd code/backend/core-api
+          ./gradlew test bootJar --no-daemon
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 3. Log in to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: 4. Build and push Backend Docker Image to Docker Hub
+      - name: Build và Push Docker Images lên Docker Hub
         uses: docker/build-push-action@v6
         with:
           context: ./code/backend/core-api
@@ -41,7 +55,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 5. Deploy to VPS via SSH
+  deploy-to-vps:
+    name: deploy-to-vps
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -52,7 +72,7 @@ jobs:
             mkdir -p ~/mua-makeup
             cd ~/mua-makeup
 
-            # Login Docker Hub on VPS to pull private/public image
+            # Đăng nhập Docker Hub trên VPS để kéo image
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
             export BACKEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/makeup-backend:latest

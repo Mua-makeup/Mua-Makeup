@@ -1,5 +1,8 @@
 .gradle
+<<<<<<< HEAD
+=======
 build
+>>>>>>> 07ecd7b7bc6ab567466b93b58fb14902df8c74f1
 .idea
 *.log
 .env
