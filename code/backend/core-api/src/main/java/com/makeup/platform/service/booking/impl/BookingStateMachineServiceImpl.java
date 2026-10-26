@@ -920,7 +920,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 long elapsed = Duration.between(startedAt, LocalDateTime.now(ZoneOffset.UTC)).getSeconds();
                 if (elapsed < 0) {
                     // startedAt was already in local Vietnam time (UTC+7)
-                    elapsed = Duration.between(startedAt, LocalDateTime.now(VIETNAM_OFFSET).toLocalDateTime()).getSeconds();
+                    elapsed = Duration.between(startedAt, LocalDateTime.now(VIETNAM_OFFSET)).getSeconds();
                 }
                 inProgressElapsedSeconds = (int) Math.max(0, elapsed);
             } else {
