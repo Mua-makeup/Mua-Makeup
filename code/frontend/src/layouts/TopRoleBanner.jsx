@@ -21,6 +21,7 @@ import { Button } from '../components/base/Button';
 import { authService } from '../services/auth.service';
 import { agencyService } from '../services/agency.service';
 import { changePasswordSchema } from '../schemas/auth.schema';
+import { parseApiError } from '../utils/error';
 import { useI18nStore } from '../store/useI18nStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { NotificationDropdown } from '../components/features/notification/NotificationDropdown';
@@ -46,6 +47,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -117,6 +119,7 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess('');
+    setFieldErrors({});
 
     const validation = changePasswordSchema.safeParse({
       oldPassword,
@@ -125,13 +128,23 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
     });
 
     if (!validation.success) {
+      const errMap = {};
+      validation.error.errors.forEach((err) => {
+        const field = err.path[0];
+        if (field) errMap[field] = err.message;
+      });
+      setFieldErrors(errMap);
       setPasswordError(validation.error.errors[0]?.message || t('invalid_data'));
       return;
     }
 
     setIsLoading(true);
     try {
-      await authService.changePassword({ oldPassword, newPassword });
+      await authService.changePassword({
+        currentPassword: oldPassword,
+        newPassword,
+        confirmPassword,
+      });
       setPasswordSuccess(t('save_success'));
       setTimeout(() => {
         setIsPasswordModalOpen(false);
@@ -139,9 +152,18 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
         setNewPassword('');
         setConfirmPassword('');
         setPasswordSuccess('');
+        setFieldErrors({});
       }, 1500);
     } catch (err) {
-      setPasswordError(err.message || t('error_general'));
+      const parsed = parseApiError(err);
+      setPasswordError(parsed.message || t('error_general'));
+      if (parsed.fieldErrors && Object.keys(parsed.fieldErrors).length > 0) {
+        const mappedErrors = { ...parsed.fieldErrors };
+        if (mappedErrors.currentPassword) {
+          mappedErrors.oldPassword = mappedErrors.currentPassword;
+        }
+        setFieldErrors(mappedErrors);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -372,7 +394,13 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             type="password"
             required
             value={oldPassword}
-            onChange={(e) => setOldPassword(e.target.value)}
+            onChange={(e) => {
+              setOldPassword(e.target.value);
+              if (fieldErrors.oldPassword || fieldErrors.currentPassword) {
+                setFieldErrors((prev) => ({ ...prev, oldPassword: null, currentPassword: null }));
+              }
+            }}
+            error={fieldErrors.oldPassword || fieldErrors.currentPassword}
             placeholder="••••••••"
           />
           <Input
@@ -380,7 +408,13 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             type="password"
             required
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            onChange={(e) => {
+              setNewPassword(e.target.value);
+              if (fieldErrors.newPassword) {
+                setFieldErrors((prev) => ({ ...prev, newPassword: null }));
+              }
+            }}
+            error={fieldErrors.newPassword}
             placeholder={t('pwd_min_chars_hint')}
           />
           <Input
@@ -388,7 +422,13 @@ export const TopRoleBanner = ({ onToggleMobileSidebar, isMobileSidebarOpen }) =>
             type="password"
             required
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              if (fieldErrors.confirmPassword) {
+                setFieldErrors((prev) => ({ ...prev, confirmPassword: null }));
+              }
+            }}
+            error={fieldErrors.confirmPassword}
             placeholder={t('pwd_reenter_hint')}
           />
           <div className="pt-3 grid grid-cols-3 gap-3">

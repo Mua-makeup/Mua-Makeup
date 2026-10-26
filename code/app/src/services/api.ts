@@ -37,10 +37,79 @@ const getDevApiBaseUrl = () => {
   return `http://${DEFAULT_DEV_HOST}:8080/api/v1`;
 };
 
+export const PROD_BASE_URL = 'https://mua-makeup.duckdns.org/api/v1';
+
+let cachedActiveBaseUrl: string | null = null;
+let probePromise: Promise<string> | null = null;
+
+/**
+ * Tự động kiểm tra xem Spring Boot Local có đang chạy không:
+ * - Nếu Spring Boot Local đang chạy -> Dùng Local IP
+ * - Nếu Spring Boot Local KHÔNG chạy -> Tự động Fallback về VPS DuckDNS
+ */
+export const getActiveBaseUrl = async (): Promise<string> => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  if (!__DEV__) {
+    return PROD_BASE_URL;
+  }
+
+  if (cachedActiveBaseUrl) {
+    return cachedActiveBaseUrl;
+  }
+
+  if (probePromise) {
+    return probePromise;
+  }
+
+  probePromise = (async () => {
+    const localUrl = getDevApiBaseUrl();
+    const probeUrl = `${localUrl.replace(/\/api\/v1\/?$/, '')}/actuator/health`;
+
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1200);
+
+      const res = await fetch(probeUrl, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (res.status >= 200 && res.status < 500) {
+        console.log(`Spring Boot LOCAL đang hoạt động: ${localUrl}`);
+        cachedActiveBaseUrl = localUrl;
+        BASE_URL = localUrl;
+        apiClient.defaults.baseURL = localUrl;
+        return localUrl;
+      }
+    } catch {
+      // Local server không phản hồi
+    }
+
+    console.log(`Không thấy Spring Boot Local. Tự động chuyển kết nối tới VPS: ${PROD_BASE_URL}`);
+    cachedActiveBaseUrl = PROD_BASE_URL;
+    BASE_URL = PROD_BASE_URL;
+    apiClient.defaults.baseURL = PROD_BASE_URL;
+    return PROD_BASE_URL;
+  })();
+
+  try {
+    return await probePromise;
+  } finally {
+    probePromise = null;
+  }
+};
+
 // Cấu hình URL kết nối máy tính qua Wi-Fi khi dev hoặc domain production
-export const BASE_URL = __DEV__
-  ? getDevApiBaseUrl()
-  : 'https://api.makeup-platform.com/api/v1';
+export let BASE_URL = __DEV__ ? getDevApiBaseUrl() : PROD_BASE_URL;
+
+// Tự động kiểm tra ngay khi nạp ứng dụng
+if (__DEV__) {
+  getActiveBaseUrl().catch(() => {});
+}
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -71,10 +140,15 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 /**
- * Request Interceptor: Tự động đính kèm Bearer Token từ SecureStore
+ * Request Interceptor: Tự động đính kèm Bearer Token và đồng bộ dynamic baseURL
  */
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    // Đảm bảo trước khi gửi request, baseURL được đồng bộ với backend còn sống
+    const activeUrl = await getActiveBaseUrl();
+    config.baseURL = activeUrl;
+    BASE_URL = activeUrl;
+
     const token = await getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;

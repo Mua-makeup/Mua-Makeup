@@ -37,10 +37,10 @@ export const LandingWorkflowSteps = () => {
   ];
 
   return (
-    <section id="workflow" className="py-16 sm:py-24 border-t border-slate-200/80 dark:border-slate-800">
+    <section id="workflow" className="py-12 sm:py-24 border-t border-slate-200/80 dark:border-slate-800">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs mb-3">
             <span>{t('landing_steps_badge')}</span>
           </div>
@@ -53,11 +53,11 @@ export const LandingWorkflowSteps = () => {
         </div>
 
         {/* 4 Steps Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {steps.map((step, idx) => (
             <div
               key={idx}
-              className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between relative"
+              className="p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between relative"
             >
               <div>
                 <div className="flex items-center justify-between mb-4">
