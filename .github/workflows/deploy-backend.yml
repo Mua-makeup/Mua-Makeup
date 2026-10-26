@@ -31,7 +31,7 @@ jobs:
         run: |
           find . -name "gradlew" -exec chmod +x {} +
 
-      - name: Build file .jar từng service con
+      - name: Build file .jar 
         run: |
           cd code/backend/core-api
           ./gradlew bootJar -x test --no-daemon
