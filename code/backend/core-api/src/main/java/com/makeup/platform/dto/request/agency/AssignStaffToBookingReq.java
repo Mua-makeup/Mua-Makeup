@@ -23,4 +23,6 @@ public class AssignStaffToBookingReq {
 
     @Size(max = 500, message = "{dispatch.notes.too_long}")
     private String dispatchNotes;
+
+    private List<StaffCommissionSplitItem> commissionSplits;
 }

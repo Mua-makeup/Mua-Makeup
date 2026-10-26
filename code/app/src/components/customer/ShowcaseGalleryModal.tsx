@@ -5,10 +5,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Dimensions,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
@@ -19,6 +19,7 @@ interface Props {
   visible: boolean;
   showcases: PortfolioShowcase[];
   initialIndex?: number;
+  initialAngleIndex?: number;
   onClose: () => void;
 }
 
@@ -28,15 +29,17 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
   visible,
   showcases,
   initialIndex = 0,
+  initialAngleIndex = 0,
   onClose,
 }) => {
+  const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [selectedAngleIndex, setSelectedAngleIndex] = useState(0);
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState(initialAngleIndex);
 
   useEffect(() => {
     setCurrentIndex(initialIndex);
-    setSelectedAngleIndex(0);
-  }, [initialIndex, visible]);
+    setSelectedAngleIndex(initialAngleIndex || 0);
+  }, [initialIndex, initialAngleIndex, visible]);
 
   if (!visible || showcases.length === 0) return null;
 
@@ -54,34 +57,60 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
     currentPhoto.thumbnailUrl ||
     'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&auto=format&fit=crop&q=80';
 
+  // Kiểm tra khả năng lùi / tiến ảnh
+  const hasPrev = selectedAngleIndex > 0 || currentIndex > 0;
+  const hasNext =
+    selectedAngleIndex < anglePhotos.length - 1 || currentIndex < showcases.length - 1;
+
   const handlePrev = () => {
+    // Nếu đang ở góc > 0, lùi về góc trước của tác phẩm này
+    if (selectedAngleIndex > 0) {
+      setSelectedAngleIndex((a) => a - 1);
+      return;
+    }
+    // Nếu đang ở góc 0 và có tác phẩm trước đó, lùi về tác phẩm trước ở góc cuối cùng
     if (currentIndex > 0) {
+      const prevShowcase = showcases[currentIndex - 1];
+      const prevAngles = [
+        prevShowcase.imageUrl,
+        ...(prevShowcase.additionalImages || []),
+      ].filter(Boolean);
       setCurrentIndex((i) => i - 1);
-      setSelectedAngleIndex(0);
+      setSelectedAngleIndex(Math.max(0, prevAngles.length - 1));
     }
   };
 
   const handleNext = () => {
+    // Nếu còn góc tiếp theo trong tác phẩm hiện tại
+    if (selectedAngleIndex < anglePhotos.length - 1) {
+      setSelectedAngleIndex((a) => a + 1);
+      return;
+    }
+    // Nếu đã xem hết góc của tác phẩm hiện tại và còn tác phẩm tiếp theo
     if (currentIndex < showcases.length - 1) {
       setCurrentIndex((i) => i + 1);
       setSelectedAngleIndex(0);
     }
   };
 
+  // Tiêu đề số thứ tự hiển thị thông minh
+  const counterLabel =
+    showcases.length === 1 && anglePhotos.length > 1
+      ? `Ảnh ${selectedAngleIndex + 1} / ${anglePhotos.length}`
+      : `Tác phẩm ${currentIndex + 1} / ${showcases.length}`;
+
   return (
     <DismissibleModal visible={visible} onClose={onClose} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
       <View style={styles.backdrop}>
-        <SafeAreaView style={styles.safeArea}>
+        <View style={styles.safeArea}>
           {/* HEADER BAR */}
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.7}>
               <Ionicons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
 
             <View style={styles.counterBox}>
-              <Text style={styles.counterText}>
-                Tác phẩm {currentIndex + 1} / {showcases.length}
-              </Text>
+              <Text style={styles.counterText}>{counterLabel}</Text>
             </View>
 
             <View style={styles.actionRow}>
@@ -95,8 +124,8 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
           <View style={styles.viewerContainer}>
             <PhotoZoomViewer imageUrl={activePhotoUrl} />
 
-            {/* Nút điều hướng Trái / Phải giữa các tác phẩm */}
-            {currentIndex > 0 && (
+            {/* Nút điều hướng Trái / Phải giữa các ảnh & tác phẩm */}
+            {hasPrev && (
               <TouchableOpacity
                 style={[styles.navBtn, styles.navPrev]}
                 onPress={handlePrev}
@@ -106,7 +135,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
               </TouchableOpacity>
             )}
 
-            {currentIndex < showcases.length - 1 && (
+            {hasNext && (
               <TouchableOpacity
                 style={[styles.navBtn, styles.navNext]}
                 onPress={handleNext}
@@ -118,7 +147,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
           </View>
 
           {/* FOOTER INFO & THUMBNAILS */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.captionArea}>
               <View style={styles.badgeRow}>
                 {currentPhoto.styleName && (
@@ -211,7 +240,7 @@ export const ShowcaseGalleryModal: React.FC<Props> = ({
               </ScrollView>
             )}
           </View>
-        </SafeAreaView>
+        </View>
       </View>
     </DismissibleModal>
   );
@@ -291,10 +320,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
     paddingTop: 12,
   },
   captionArea: {

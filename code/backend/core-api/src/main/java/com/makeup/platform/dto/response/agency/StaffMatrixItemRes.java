@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -18,6 +19,13 @@ public class StaffMatrixItemRes {
     private String staffName;
     private String staffPhone;
     private String staffAvatarUrl;
+
+    // Quality, rating & customer history
+    private BigDecimal ratingAvg;
+    private Integer totalReviews;
+    private Integer totalCompletedJobs;
+    @JsonProperty("hasServedThisCustomer")
+    private boolean hasServedThisCustomer;
 
     // 4-way qualification flags
     private boolean hasShift;
@@ -32,8 +40,19 @@ public class StaffMatrixItemRes {
     @JsonProperty("isFullyQualified")
     private boolean isFullyQualified;
     private String disqualificationReason;
+    private String cancellationReason;
 
     // Current assignment if already assigned
-    private String currentRole; // PRIMARY_MUA, ASSISTANT_MUA, or null
+    private String currentRole;
+    private BigDecimal commissionRate;
+    private BigDecimal commissionAmount;
+    private String commissionNote;
     private Double distanceMeters;
+
+    // Overtime compensation attributes
+    @JsonProperty("isOvertime")
+    private boolean isOvertime;
+    private Integer overtimeMinutes;
+    private BigDecimal overtimePay;
+    private String overtimeRuleName;
 }

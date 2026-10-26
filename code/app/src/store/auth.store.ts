@@ -4,6 +4,8 @@ import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/util
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { websocketService } from '@/services/websocket.service';
+import { registerForPushNotificationsAsync } from '@/services/push-notification.service';
+import { useNotificationStore } from '@/store/notification.store';
 
 interface AuthState {
   accessToken: string | null;
@@ -70,12 +72,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await authService.login(credentials);
+
+      // Nếu tài khoản Admin / Agency yêu cầu xác thực 2FA
+      if ((res as any).requires2fa) {
+        throw new Error(
+          'Tài khoản Quản trị viên yêu cầu xác thực 2FA. Vui lòng đăng nhập tại Cổng Quản Trị Web Portal trên máy tính!'
+        );
+      }
+
       const roles = res.userInfo?.roles || [];
       const isAdminRole = roles.includes('ROLE_SUPER_ADMIN') || roles.includes('ROLE_AGENCY_ADMIN');
       if (isAdminRole) {
         throw new Error(
           'Tài khoản Quản trị viên không hỗ trợ trên ứng dụng di động. Vui lòng đăng nhập tại Cổng Quản Trị Web Portal trên máy tính!'
         );
+      }
+
+      if (!res.accessToken || !res.refreshToken) {
+        throw new Error('Đăng nhập thất bại: Máy chủ không trả về mã token hợp lệ.');
       }
 
       await saveTokens(res.accessToken, res.refreshToken);
@@ -85,6 +99,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         userInfo: res.userInfo,
         isAuthenticated: true,
       });
+
+      // Đăng ký push token lên server
+      registerForPushNotificationsAsync();
+
+      // Kích hoạt notification store & websocket listener cho phiên đăng nhập mới
+      const loggedInUserId = res.userInfo?.id;
+      useNotificationStore.getState().cleanWebSocketListener(loggedInUserId);
+      useNotificationStore.getState().fetchUnreadCount();
+      useNotificationStore.getState().initWebSocketListener(loggedInUserId);
     } finally {
       set({ isLoading: false });
     }
@@ -103,10 +126,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   /**
-   * Tải lại thông tin User
+   * Tải lại thông tin User và cấp lại Token mới nhất nếu có cập nhật vai trò (VD: Studio duyệt thợ)
    */
   refreshCurrentUser: async () => {
     try {
+      const currentRefreshToken = await getRefreshToken();
+      const currentAccessToken = await getAccessToken();
+
+      if (currentRefreshToken) {
+        try {
+          const res = await authService.refreshToken(currentRefreshToken, currentAccessToken);
+          if (res?.accessToken && res?.refreshToken) {
+            await saveTokens(res.accessToken, res.refreshToken);
+            set({
+              accessToken: res.accessToken,
+              refreshToken: res.refreshToken,
+              userInfo: res.userInfo,
+            });
+            return;
+          }
+        } catch (refreshErr) {
+          console.warn('[authStore] Lỗi refresh token mới, thử lấy hồ sơ trực tiếp:', refreshErr);
+        }
+      }
+
       const user = await authService.getCurrentUser();
       set({ userInfo: user });
     } catch (e) {
@@ -128,6 +171,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // 1. Ngắt WebSocket HOÀN TOÀN: Xóa sạch registeredHandlers + deactivate client
       //    Ngăn WebSocket tự reconnect và re-subscribe topic thợ cũ sau khi đổi tài khoản
       websocketService.disconnectAll();
+
+      // 2. Dọn dẹp Notification listener & state
+      useNotificationStore.getState().cleanWebSocketListener();
+      useNotificationStore.setState({
+        notifications: [],
+        unreadCount: 0,
+        isSubscribed: false,
+        subscribedUserId: null,
+        activeToast: null,
+      });
 
       // Reset toàn bộ workstation state để tránh lộ dữ liệu thợ sang tài khoản khác
       useWorkstationStore.setState({

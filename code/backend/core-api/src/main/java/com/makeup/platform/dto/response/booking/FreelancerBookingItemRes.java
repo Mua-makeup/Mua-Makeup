@@ -21,6 +21,7 @@ public class FreelancerBookingItemRes {
     private String bookingType;
     private String customerName;
     private String customerPhone;
+    private String customerAvatar;
     private String packageName;
     private String packageCoverUrl;
     private String destinationAddress;
@@ -33,6 +34,17 @@ public class FreelancerBookingItemRes {
     private BigDecimal earningsAmount;
     private String note;
     private String completionPhotoUrl;
+    private Boolean isConfirmedByStaff;
+    private String assignmentRole;
+    private String assignmentStatus;
+    private BigDecimal commissionRate;
+    private String commissionNote;
+    private Boolean soloPendingConfirmation;
+    private BigDecimal soloCommissionRate;
+    private String bookingPartner;
+    private Long agencyId;
+    private String agencyName;
+    private String agencyLogoUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

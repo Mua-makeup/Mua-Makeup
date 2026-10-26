@@ -17,6 +17,7 @@ interface Props {
   isCalculating: boolean;
   voucherCode: string;
   onApplyVoucher: (code: string) => void;
+  basePriceFallback?: number;
 }
 
 export const InvoiceSummaryCard: React.FC<Props> = ({
@@ -24,13 +25,14 @@ export const InvoiceSummaryCard: React.FC<Props> = ({
   isCalculating,
   voucherCode,
   onApplyVoucher,
+  basePriceFallback,
 }) => {
   const [inputCode, setInputCode] = useState(voucherCode);
 
   const formatPrice = (price?: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price || 0);
 
-  const basePrice = invoicePreview?.packageInfo?.basePrice || 650000;
+  const basePrice = invoicePreview?.packageInfo?.basePrice || basePriceFallback || 0;
   const addOns = invoicePreview?.addOns || [];
   const distanceFee = invoicePreview?.distanceInfo?.distanceFee || 0;
   const isSurge = invoicePreview?.surgePricing?.isSurgeApplied;
@@ -38,8 +40,8 @@ export const InvoiceSummaryCard: React.FC<Props> = ({
   const discountAmount = invoicePreview?.discount?.discountAmount || 0;
 
   const totalAmount = invoicePreview?.financialSummary?.totalAmount || basePrice;
-  const depositAmount = invoicePreview?.financialSummary?.depositRequiredAmount || totalAmount * 0.3;
-  const remainingAmount = invoicePreview?.financialSummary?.remainingPayableAmount || totalAmount - depositAmount;
+  const depositAmount = invoicePreview?.financialSummary?.depositRequiredAmount || (totalAmount > 0 ? Math.round(totalAmount * 0.3) : 0);
+  const remainingAmount = invoicePreview?.financialSummary?.remainingPayableAmount || Math.max(0, totalAmount - depositAmount);
 
   return (
     <View style={styles.container}>
@@ -88,7 +90,7 @@ export const InvoiceSummaryCard: React.FC<Props> = ({
         {isSurge && surgeAmount > 0 && (
           <View style={styles.row}>
             <View style={styles.surgeTagRow}>
-              <Ionicons name="flash" size={12} color="#D97706" />
+              <Ionicons name="time-outline" size={12} color="#D97706" />
               <Text style={styles.surgeLabel}>
                 {invoicePreview?.surgePricing?.surgeReason || 'Phụ phí giờ cao điểm sáng sớm'}
               </Text>

@@ -3,9 +3,11 @@ import * as Haptics from 'expo-haptics';
 import { FreelancerBookingItem, ScheduledOfferItem, freelancerBookingService } from '@/services/freelancer-booking.service';
 import { telemetryService } from '@/services/telemetry.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
+import { staffProfileService } from '@/services/staff-profile.service';
 import { websocketService } from '@/services/websocket.service';
 import { soundManager } from '@/utils/sound';
 import { getTodayVN } from '@/utils/date';
+import { useAuthStore } from '@/store/auth.store';
 
 const shownFinalPaymentNotices = new Set<number>();
 const shownDepositNotices = new Set<number>();
@@ -63,7 +65,7 @@ export interface DepositConfirmedNotice {
 
 export interface WorkstationStats {
   completedToday: number;
-  ratingAverage: number;
+  ratingAverage: number | null;
   totalReviews: number;
   dailyEarnings: number;
 }
@@ -145,7 +147,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
   selectedFilter: 'ALL',
   stats: {
     completedToday: 0,
-    ratingAverage: 5.0,
+    ratingAverage: null,
     totalReviews: 0,
     dailyEarnings: 0,
   },
@@ -165,8 +167,36 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       set({ isLoading: true });
       const todayStr = getTodayVN();
 
+      const authUser = useAuthStore.getState().userInfo;
+      const isStaff = authUser?.roles?.includes('ROLE_AGENCY_STAFF');
+
+      // Tách biệt gọi profile theo vai trò: Thợ Studio gọi getMyStaffProfile, Freelancer MUA gọi getMyProfile
+      const fetchProfilePromise = isStaff
+        ? staffProfileService
+            .getMyStaffProfile()
+            .then((staffRes) => {
+              if (!staffRes) return null;
+              return {
+                id: staffRes.id,
+                muaId: staffRes.muaId || staffRes.id,
+                fullName: staffRes.fullName,
+                phoneNumber: staffRes.phoneNumber,
+                avatarUrl: staffRes.avatarUrl,
+                agencyName: staffRes.agencyName,
+                ratingAverage: (staffRes.totalReviews && staffRes.totalReviews > 0) ? staffRes.ratingAvg : null,
+                totalReviews: staffRes.totalReviews || 0,
+                experienceYears: 0,
+                styles: staffRes.assignedStyles?.map((s) => s.styleName) || [],
+                certificates: staffRes.certificates || [],
+                status: staffRes.status,
+                isActive: staffRes.isActive,
+              } as unknown as MuaPublicProfile;
+            })
+            .catch(() => null)
+        : muaProfileService.getMyProfile().catch(() => null);
+
       const [profile, bookings] = await Promise.all([
-        muaProfileService.getMyProfile().catch(() => null),
+        fetchProfilePromise,
         freelancerBookingService.getMyAssignedBookings(todayStr, get().selectedFilter),
       ]);
 
@@ -177,8 +207,16 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       const paidOut = bookings.filter((b) => b.status === 'PAID_OUT');
       const earnings = paidOut.reduce((acc, b) => acc + (b.earningsAmount || 0), 0);
 
-      const currentOnline = get().isOnline;
+      const currentFilter = get().selectedFilter;
+      const displayBookings = bookings.filter((b) => {
+        if (b.assignmentStatus === 'REPLACED') return false;
+        if (b.status === 'CANCELLED' || b.status === 'CANCELLED_EXPIRED') {
+          return currentFilter === 'COMPLETED';
+        }
+        return true;
+      });
 
+      const currentOnline = get().isOnline;
       const effectiveMuaId = profile?.muaId || (profile as any)?.id;
 
       set({
@@ -186,10 +224,10 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
         // Giữ nguyên giá trị isOnline trong store, không đọc từ backend để thợ
         // luôn bắt đầu ở trạng thái "Đang Tạm Nghỉ" khi vừa đăng nhập vào
         isOnline: currentOnline,
-        todayBookings: bookings,
+        todayBookings: displayBookings,
         stats: {
           completedToday: completed.length,
-          ratingAverage: profile?.ratingAverage || 5.0,
+          ratingAverage: (profile?.totalReviews && profile.totalReviews > 0) ? (profile.ratingAverage ?? null) : null,
           totalReviews: profile?.totalReviews || 0,
           dailyEarnings: earnings,
         },
@@ -225,17 +263,27 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           } else if (
             payload?.type === 'NEW_SCHEDULED_OFFER' ||
             payload?.bookingType === 'SCHEDULED' ||
-            payload?.bookingType === 'APPOINTMENT'
+            payload?.bookingType === 'APPOINTMENT' ||
+            String(payload?.bookingCode || '').startsWith('BK-SCHED')
           ) {
-            get().triggerScheduledOffer(payload, false);
-            get().checkPendingScheduledOffers(false);
+            // Không tự động bật popup cho đơn đặt trước theo yêu cầu của thợ
+            get().fetchWorkstationData();
           } else {
-            get().triggerInstantOffer(payload);
+            if (!String(payload?.bookingCode || '').startsWith('BK-SCHED')) {
+              get().triggerInstantOffer(payload);
+            }
           }
         });
 
         // 2. Kênh dự phòng tương thích ngược (Topic cũ)
         websocketService.subscribe(`/topic/mua-offer/${effectiveMuaId}`, (offerPayload) => {
+          if (
+            offerPayload?.type === 'NEW_SCHEDULED_OFFER' ||
+            offerPayload?.bookingType === 'SCHEDULED' ||
+            String(offerPayload?.bookingCode || '').startsWith('BK-SCHED')
+          ) {
+            return;
+          }
           console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
           get().triggerInstantOffer(offerPayload);
         });
@@ -262,6 +310,12 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           console.log('[WorkstationStore] Nhận thông báo ca hẹn trước mới qua STOMP:', offerPayload);
           get().triggerScheduledOffer(offerPayload, false);
           get().checkPendingScheduledOffers(false);
+        });
+
+        // Đăng ký nhận tin điều phối từ Studio (Agency Dispatch)
+        websocketService.subscribe(`/topic/mua-dispatch/${effectiveMuaId}`, (dispatchPayload) => {
+          console.log('[WorkstationStore] Nhận thông báo Studio phân công ca làm mới qua STOMP:', dispatchPayload);
+          get().fetchWorkstationData();
         });
 
         websocketService.subscribe(`/topic/mua-scheduled-revoked/${effectiveMuaId}`, (revokePayload) => {
@@ -359,21 +413,36 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
                 get().dismissScheduledOffer();
               }
             } else if (
-              payload?.type === 'NEW_SCHEDULED_OFFER' ||
-              payload?.bookingType === 'SCHEDULED' ||
-              payload?.bookingType === 'APPOINTMENT'
-            ) {
-              get().triggerScheduledOffer(payload, false);
-              get().checkPendingScheduledOffers(false);
-            } else {
+            payload?.type === 'NEW_SCHEDULED_OFFER' ||
+            payload?.bookingType === 'SCHEDULED' ||
+            payload?.bookingType === 'APPOINTMENT' ||
+            String(payload?.bookingCode || '').startsWith('BK-SCHED')
+          ) {
+            // Không tự động bật popup cho đơn đặt trước theo yêu cầu của thợ
+            get().fetchWorkstationData();
+          } else {
+            if (!String(payload?.bookingCode || '').startsWith('BK-SCHED')) {
               get().triggerInstantOffer(payload);
             }
+          }
           });
 
           websocketService.subscribe(`/topic/mua-offer/${effectiveMuaId}`, (offerPayload) => {
-            console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
-            get().triggerInstantOffer(offerPayload);
-          });
+          if (
+            offerPayload?.type === 'NEW_SCHEDULED_OFFER' ||
+            offerPayload?.bookingType === 'SCHEDULED' ||
+            String(offerPayload?.bookingCode || '').startsWith('BK-SCHED')
+          ) {
+            return;
+          }
+          console.log('[WorkstationStore] Nhận đơn khẩn cấp từ WebSocket:', offerPayload);
+          get().triggerInstantOffer(offerPayload);
+        });
+
+        websocketService.subscribe(`/topic/mua-dispatch/${effectiveMuaId}`, (dispatchPayload) => {
+          console.log('[WorkstationStore] Nhận thông báo Studio phân công ca làm mới qua STOMP:', dispatchPayload);
+          get().fetchWorkstationData();
+        });
 
           websocketService.subscribe(`/topic/mua-offer-revoked/${effectiveMuaId}`, (revokePayload) => {
             console.log('[WorkstationStore] Đơn khẩn cấp đã bị thu hồi/chuyển tiếp:', revokePayload);
@@ -614,10 +683,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       // 1. Khi THỢ ĐĂNG NHẬP hoặc VÀO LẠI APP (Foreground):
       // Ưu tiên hiển thị modal với ca hẹn còn hạn đầu tiên
       if (isAppResumeOrLogin) {
-        // Nếu modal chưa mở hoặc đang hiển thị ca khác
-        const firstOffer = validOffers[0];
-        console.log('[WorkstationStore] Vào lại app / Đăng nhập: Mở modal ca hẹn trước #', firstOffer.bookingId);
-        get().triggerScheduledOffer(firstOffer, false);
+        // Không tự động bật popup cho đơn đặt trước
         return;
       }
 
@@ -659,12 +725,14 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       if (shownFinalPaymentNotices.has(notice.bookingId) || shownDepositNotices.has(notice.bookingId)) return;
       shownDepositNotices.add(notice.bookingId);
     }
-    soundManager.playJobAlertSound();
+    soundManager.stopJobAlertSound();
+    soundManager.playMatchSuccessSound();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     set({ depositNotice: notice, isDepositModalVisible: true });
   },
 
   dismissDepositNotice: () => {
+    soundManager.stopJobAlertSound();
     set({ isDepositModalVisible: false, depositNotice: null });
   },
 }));

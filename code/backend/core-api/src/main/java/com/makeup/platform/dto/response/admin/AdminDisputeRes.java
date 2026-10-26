@@ -46,6 +46,8 @@ public class AdminDisputeRes {
     private String emergencyProofUrl;
     private OffsetDateTime emergencyReportedAt;
     private String cancellationReason;
+    private String disputeOrigin;
+    private Boolean isEscalatedFromStudio;
 
     // Financials
     private BigDecimal serviceSubtotal;

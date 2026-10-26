@@ -14,6 +14,11 @@ import {
   TrendingUp,
   MapPin,
   AlertTriangle,
+  Image,
+  MessageSquareQuote,
+  Trophy,
+  Wallet,
+  Star,
   X,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -89,6 +94,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       icon: Package,
     },
     {
+      to: '/agency/portfolio',
+      label: t('nav_agency_portfolio'),
+      icon: Image,
+    },
+    {
       to: '/agency/surcharges',
       label: t('nav_agency_surcharges'),
       icon: Clock,
@@ -102,6 +112,26 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/agency/shifts',
       label: t('nav_agency_shifts'),
       icon: CalendarDays,
+    },
+    {
+      to: '/agency/wallet',
+      label: t('nav_agency_wallet') || 'Ví Doanh Thu',
+      icon: Wallet,
+    },
+    {
+      to: '/agency/reviews',
+      label: t('nav_agency_reviews'),
+      icon: MessageSquareQuote,
+    },
+    {
+      to: '/agency/staff-leaderboard',
+      label: t('nav_agency_staff_leaderboard'),
+      icon: Trophy,
+    },
+    {
+      to: '/agency/disputes',
+      label: t('nav_agency_disputes') || 'Khiếu nại',
+      icon: AlertTriangle,
     },
   ];
 

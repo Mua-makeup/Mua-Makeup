@@ -175,7 +175,7 @@ export default function RegisterScreen() {
           {/* Role Tip Badge */}
           <View style={styles.roleTipCard}>
             <Ionicons
-              name={selectedRole === 'CUSTOMER' ? 'heart' : 'sparkles'}
+              name={selectedRole === 'CUSTOMER' ? 'person-outline' : 'brush-outline'}
               size={18}
               color={BrandColors.primary}
             />

@@ -54,7 +54,7 @@ export const MultiAnglePhotoStrip: React.FC<MultiAnglePhotoStripProps> = ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         selectionLimit: maxPhotos - imageUris.length,
         quality: 0.8,
@@ -106,7 +106,6 @@ export const MultiAnglePhotoStrip: React.FC<MultiAnglePhotoStripProps> = ({
         <Text style={styles.label}>
           Ảnh Góc Chụp Chi Tiết ({imageUris.length}/{maxPhotos})
         </Text>
-        <Text style={styles.sublabel}>Nghiêng 45°, Cận mắt, Lớp nền, Kiểu tóc</Text>
       </View>
 
       <ScrollView

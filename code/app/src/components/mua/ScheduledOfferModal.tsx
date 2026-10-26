@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useAuthStore } from '@/store/auth.store';
 import { BrandColors } from '@/constants/theme';
@@ -216,7 +217,7 @@ export const ScheduledOfferModal: React.FC = () => {
           <View style={styles.headerTopRow}>
             <View style={styles.badgeRow}>
               <View style={styles.newBadge}>
-                <Ionicons name="sparkles" size={12} color="#FFFFFF" />
+                <Ionicons name="calendar-outline" size={12} color="#FFFFFF" />
                 <Text style={styles.newBadgeText}>LỊCH HẸN TRANG ĐIỂM MỚI</Text>
               </View>
               <View style={styles.escrowBadge}>
@@ -232,14 +233,14 @@ export const ScheduledOfferModal: React.FC = () => {
             </View>
 
             {/* Nút X Đóng Nhanh (Để Sau) */}
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={handleLater}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close" size={18} color="#94A3B8" />
-            </TouchableOpacity>
+
+
+
+
+
+
+
+
           </View>
 
           <Text style={[styles.headerTitle, isSmallScreen && { fontSize: 17 }]}>
@@ -279,14 +280,10 @@ export const ScheduledOfferModal: React.FC = () => {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Thông Tin Khách Hàng</Text>
             <View style={styles.customerRow}>
-              <Image
-                source={{
-                  uri:
-                    activeScheduledOffer.customerAvatar ||
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-                }}
-                style={styles.customerAvatar}
-                contentFit="cover"
+              <UserAvatar
+                uri={activeScheduledOffer.customerAvatar}
+                name={activeScheduledOffer.customerName}
+                size={48}
               />
               <View style={styles.customerInfoCol}>
                 <Text style={styles.customerName} numberOfLines={1}>
@@ -306,7 +303,6 @@ export const ScheduledOfferModal: React.FC = () => {
             <Text style={styles.sectionTitle}>Chi Tiết Lịch Hẹn</Text>
 
             <View style={styles.infoRow}>
-              <Ionicons name="sparkles" size={15} color={BrandColors.primary} />
               <Text style={styles.infoLabel}>Gói dịch vụ:</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
                 {activeScheduledOffer.packageName || 'Make-up chuyên nghiệp'}
@@ -315,7 +311,6 @@ export const ScheduledOfferModal: React.FC = () => {
 
             {activeScheduledOffer.styleName ? (
               <View style={styles.infoRow}>
-                <Ionicons name="color-wand-outline" size={15} color="#7C3AED" />
                 <Text style={styles.infoLabel}>Phong cách:</Text>
                 <Text style={styles.infoValue} numberOfLines={1}>
                   {activeScheduledOffer.styleName}
@@ -327,7 +322,7 @@ export const ScheduledOfferModal: React.FC = () => {
               <Ionicons name="calendar-outline" size={15} color={BrandColors.primary} />
               <Text style={styles.infoLabel}>Giờ hẹn:</Text>
               <Text style={[styles.infoValue, { fontWeight: '700', color: BrandColors.primary }]}>
-                {activeScheduledOffer.startTime || '--:--'} - {formatDateVN(activeScheduledOffer.bookingDate)}
+                {activeScheduledOffer.startTime || '--:--'} {formatDateVN(activeScheduledOffer.bookingDate)}
               </Text>
             </View>
 

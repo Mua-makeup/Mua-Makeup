@@ -64,6 +64,10 @@ public class ServicePackageEntity extends BaseEntity {
     @Builder.Default
     private Boolean isAvailable = true;
 
+    @Column(name = "is_deleted", nullable = false)
+    @Builder.Default
+    private Boolean isDeleted = false;
+
     @OneToMany(mappedBy = "servicePackage", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stepOrder ASC")
     @Builder.Default

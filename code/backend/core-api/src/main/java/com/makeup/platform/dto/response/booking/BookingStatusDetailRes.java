@@ -1,5 +1,7 @@
 package com.makeup.platform.dto.response.booking;
 
+import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
+import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,6 +33,7 @@ public class BookingStatusDetailRes {
     private String customerName;
     private String customerPhone;
     private String customerAvatar;
+    private Long packageId;
     private String packageName;
     private String styleName;
     private String bookingType;
@@ -38,6 +41,9 @@ public class BookingStatusDetailRes {
     private LocalTime startTime;
     private Integer estimatedDurationMinutes;
     private List<String> packageItems;
+    private List<String> componentItems;
+    private List<String> addonItems;
+    private List<PackageItemRes> availableAddons;
     private BigDecimal rating;
     private BigDecimal totalAmount;
     private BigDecimal depositAmount;
@@ -48,6 +54,9 @@ public class BookingStatusDetailRes {
     private BigDecimal earningsAmount;
     private String completionPhotoUrl;
     private String cancellationReason;
+    private String emergencyProofUrl;
+    private String emergencyReason;
+    private OffsetDateTime emergencyReportedAt;
     private Boolean isDepositPaid;
     private Integer depositTimeoutSeconds;
     private OffsetDateTime confirmDeadline;
@@ -55,5 +64,26 @@ public class BookingStatusDetailRes {
     private Integer inProgressElapsedSeconds;
     private Boolean isCancelRequested;
     private String cancelRequestedReason;
+    private String disputeOrigin;
+    private Boolean isDirectBooking;
+    private List<CandidatePackageRes> availablePackages;
     private LocalDateTime updatedAt;
+    private LocalDateTime completedAt;
+
+    // Thông tin phụ cấp làm thêm giờ (Overtime)
+    private Integer overtimeMinutes;
+    private BigDecimal overtimePay;
+    private String overtimeRuleName;
+    private String overtimePolicyType;
+
+    // Phân hệ Studio Agency & Đội ngũ thợ phụ trách
+    private String bookingPartner;
+    private Long agencyId;
+    private String agencyCode;
+    private String agencyName;
+    private String agencyLogoUrl;
+    private String agencyPhone;
+    private String agencyAddress;
+    @Builder.Default
+    private List<StaffAssignmentDetailRes> assignedStaff = List.of();
 }

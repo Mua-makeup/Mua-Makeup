@@ -16,6 +16,8 @@ import java.util.List;
 @Builder
 public class ConfirmDepositReq {
 
+    private Long packageId;
+
     private List<String> addOnNames;
 
     private BigDecimal addOnTotal;

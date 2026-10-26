@@ -32,6 +32,7 @@ import { customerAddressService, CustomerAddressItem } from '@/services/customer
 import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
 import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
 import { showGlobalPopup } from '@/store/popup.store';
+import { useAuthStore } from '@/store/auth.store';
 
 interface Props {
   visible: boolean;
@@ -64,6 +65,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   const [isLocating, setIsLocating] = useState(false);
   const [addressNote, setAddressNote] = useState('');
   const [isSavedAddressModalVisible, setIsSavedAddressModalVisible] = useState(false);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<number | undefined>(undefined);
 
   // Gợi ý địa điểm Goong Maps Autocomplete
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -167,6 +169,11 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   // Nạp danh mục và phong cách thật từ DB khi mở modal
   useEffect(() => {
     if (visible) {
+      if (!useAuthStore.getState().isAuthenticated) {
+        onClose();
+        router.push('/(auth)/login');
+        return;
+      }
       loadTaxonomy();
     }
   }, [visible]);
@@ -220,8 +227,45 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   }, [visible]);
 
   const loadInitialAddressAndProviders = async () => {
+    // 1. Ưu tiên hàng đầu cho Đặt khẩn cấp: Tọa độ GPS thời gian thực của thiết bị
+    if (storeLat && storeLng) {
+      const cur = { latitude: storeLat, longitude: storeLng };
+      setCoords(cur);
+      if (currentAddress && currentAddress !== 'Đang xác định vị trí...' && currentAddress !== 'Chưa cấp quyền vị trí') {
+        setAddress(currentAddress);
+      }
+      fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
+      return;
+    }
+
+    // 2. Nếu store chưa có tọa độ, thử quét GPS thiết bị ngay lập tức
     try {
-      // 1. Thử lấy địa chỉ mặc định từ Sổ địa chỉ khách hàng
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status === 'granted') {
+        let loc = null;
+        try {
+          loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        } catch {
+          loc = await Location.getLastKnownPositionAsync();
+        }
+
+        if (loc?.coords) {
+          const cur = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setCoords(cur);
+          const geoRes = await mapsService.reverseGeocode(cur.latitude, cur.longitude).catch(() => null);
+          if (geoRes?.formattedAddress) {
+            setAddress(geoRes.formattedAddress);
+          }
+          fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
+          return;
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi, tiếp tục fallback
+    }
+
+    // 3. Fallback: Sổ địa chỉ đã lưu của khách hàng (chỉ khi thiết bị không thể bật GPS)
+    try {
       const savedAddresses = await customerAddressService.getSavedAddresses();
       if (Array.isArray(savedAddresses) && savedAddresses.length > 0) {
         const defaultAddr = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
@@ -234,21 +278,10 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
         }
       }
     } catch {
-      // Bỏ qua lỗi, tiếp tục fallback GPS
+      // Bỏ qua lỗi
     }
 
-    // 2. Fallback sang GPS thiết bị
-    if (currentAddress && currentAddress !== 'Đang xác định vị trí...' && currentAddress !== 'Chưa cấp quyền vị trí') {
-      setAddress(currentAddress);
-    }
-
-    if (storeLat && storeLng) {
-      const cur = { latitude: storeLat, longitude: storeLng };
-      setCoords(cur);
-      fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
-    } else {
-      refreshLocation();
-    }
+    refreshLocation();
   };
 
   const refreshLocation = async () => {
@@ -282,7 +315,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
           if (geoRes?.formattedAddress) {
             setAddress(geoRes.formattedAddress);
           }
-          await fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius);
+          await fetchNearbyProviders(cur.latitude, cur.longitude, searchRadius, selectedCategory?.id);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       } else {
@@ -358,6 +391,13 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   const handleStartScan = async () => {
     if (isSubmittingScan) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (!useAuthStore.getState().isAuthenticated) {
+      onClose();
+      router.push('/(auth)/login');
+      return;
+    }
+
     setTimeoutMessage(null);
 
     // Kiểm tra nếu danh sách thợ rỗng trước khi gửi đơn
@@ -662,8 +702,10 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   return (
     <DismissibleModal visible={visible} onClose={handleCancel} overlayStyle={styles.overlay} contentStyle={styles.modalCard} overlays={<><SavedAddressModal
         visible={isSavedAddressModalVisible}
+        selectedAddressId={selectedSavedAddressId}
         onClose={() => setIsSavedAddressModalVisible(false)}
         onSelectAddress={(selected) => {
+          setSelectedSavedAddressId(selected.id);
           setAddress(selected.addressLine);
           const newCoords = { latitude: selected.latitude, longitude: selected.longitude };
           setCoords(newCoords);
@@ -683,14 +725,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   </View>
                   <Text style={styles.modalTitle}>Tìm Thợ Khẩn Cấp (30-45p)</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.closeBtn}
-                  onPress={handleCancel}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color="#64748B" />
-                </TouchableOpacity>
+
               </View>
             </View>
 
@@ -728,6 +763,31 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   );
                 })}
               </View>
+            </View>
+
+            {/* VỊ TRÍ ĐIỂM ĐÓN / TÂM QUÉT RADAR */}
+            <View style={styles.pickupLocationBanner}>
+              <View style={styles.pickupLocationLeft}>
+                <Ionicons name="location" size={14} color="#E11D48" />
+                <Text style={styles.pickupLocationText} numberOfLines={1}>
+                  Tâm quét: {address || currentAddress || 'Vị trí hiện tại'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.refreshGpsBtn}
+                onPress={refreshLocation}
+                disabled={isLocating}
+                activeOpacity={0.75}
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color="#BE123C" />
+                ) : (
+                  <>
+                    <Ionicons name="locate" size={12} color="#BE123C" />
+                    <Text style={styles.refreshGpsText}>Lấy lại GPS</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* GỢI Ý MỞ RỘNG BÁN KÍNH KHI 0 THỢ */}
@@ -785,7 +845,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Text style={styles.targetedTag}>ƯU TIÊN ĐẶT THỢ</Text>
-                      <Ionicons name="flash" size={11} color="#BE185D" />
                     </View>
                     <Text style={styles.targetedName} numberOfLines={1}>{currentTargetMua.fullName}</Text>
                     <Text style={styles.targetedMeta}>
@@ -817,7 +876,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                       ? 'heart'
                       : cat.categoryCode?.includes('DAILY')
                       ? 'sunny'
-                      : 'sparkles';
+                      : 'brush-outline';
                     return (
                       <TouchableOpacity
                         key={cat.id}
@@ -825,13 +884,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                         onPress={() => handleSelectCategory(cat)}
                         activeOpacity={0.75}
                       >
-                        <View style={[styles.pkgIconBox, isSelected && styles.pkgIconBoxSelected]}>
-                          <Ionicons
-                            name={iconName as any}
-                            size={18}
-                            color={isSelected ? '#FFFFFF' : '#64748B'}
-                          />
-                        </View>
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.pkgTitle, isSelected && styles.pkgTitleSelected]}>
                             {cat.categoryName}
@@ -866,7 +918,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.stylePillText, selectedStyle === null && styles.stylePillTextSelected]}>
-                    🎨 Bất kỳ
+                    Bất kỳ
                   </Text>
                 </TouchableOpacity>
                 {stylesList.map((st) => {
@@ -899,7 +951,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                     }}
                     activeOpacity={0.75}
                   >
-                    <Ionicons name="bookmarks" size={13} color="#7C3AED" />
+                    <Ionicons name="bookmarks-outline" size={13} color="#475569" />
                     <Text style={styles.addressBookBtnText}>Sổ địa chỉ</Text>
                   </TouchableOpacity>
 
@@ -985,7 +1037,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name={currentTargetMua ? "flash" : "radio-outline"} size={18} color="#FFFFFF" />
+                    <Ionicons name={currentTargetMua ? "paper-plane-outline" : "radio-outline"} size={17} color="#FFFFFF" />
                     <Text style={styles.startScanBtnText}>
                       {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
                     </Text>
@@ -1021,7 +1073,6 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
               {/* CARD TÓM TẮT ĐƠN HÀNG */}
               <View style={styles.scanSummaryCard}>
                 <View style={styles.scanSummaryRow}>
-                  <Ionicons name="sparkles" size={14} color={BrandColors.primary} />
                   <Text style={styles.scanSummaryLabel}>Dịch vụ:</Text>
                   <Text style={styles.scanSummaryVal}>{selectedCategory?.categoryName || 'Trang điểm'}</Text>
                 </View>
@@ -1481,9 +1532,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1491,7 +1542,7 @@ const styles = StyleSheet.create({
   addressBookBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#334155',
   },
   detectBtn: {
     flexDirection: 'row',
@@ -1911,5 +1962,45 @@ const styles = StyleSheet.create({
   targetedCloseBtn: {
     padding: 4,
     marginLeft: 4,
+  },
+  pickupLocationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  pickupLocationLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    marginRight: 8,
+  },
+  pickupLocationText: {
+    fontSize: 11,
+    color: '#BE123C',
+    fontWeight: '600',
+    flex: 1,
+  },
+  refreshGpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFE4E6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  refreshGpsText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#BE123C',
   },
 });

@@ -62,6 +62,10 @@ export const agencyService = {
     apiClient.put(`/agencies/staff/${staffId}/status`, data),
   updateStaffCommission: (staffId, data) =>
     apiClient.put(`/agencies/staff/${staffId}/commission`, data),
+  reviewStaffCertificate: (staffId, certName, data) =>
+    apiClient.put(`/agencies/staff/${staffId}/certificates/review`, data, {
+      params: { certName },
+    }),
   removeStaff: (staffId) => apiClient.delete(`/agencies/staff/${staffId}`),
 
   // Phân quyền Style & Gói dịch vụ cho thợ
@@ -84,6 +88,14 @@ export const agencyService = {
   getWeeklyShiftMatrix: (params) => apiClient.get('/agencies/shifts/matrix', { params }),
   deleteShift: (shiftId) => apiClient.delete(`/agencies/shifts/${shiftId}`),
 
+  // Đơn Xin Nghỉ Ca / Lịch Bận Của Thợ Studio
+  getAgencyLeaveRequests: (params) => apiClient.get('/agencies/leave-requests', { params }),
+  getPendingLeaveRequestsCount: () => apiClient.get('/agencies/leave-requests/pending-count'),
+  reviewLeaveRequest: (requestId, data) => apiClient.put(`/agencies/leave-requests/${requestId}/review`, data),
+  submitLeaveRequest: (data) => apiClient.post('/agencies/staff/leave-requests', data),
+  getMyLeaveRequests: () => apiClient.get('/agencies/staff/leave-requests'),
+  cancelMyLeaveRequest: (requestId) => apiClient.delete(`/agencies/staff/leave-requests/${requestId}`),
+
   // Studio Bookings Management
   getBookings: (params) => apiClient.get('/agency/bookings', { params }),
   getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),
@@ -105,5 +117,45 @@ export const agencyService = {
   reviewEmergencyReport: (bookingId, staffId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/emergency-approval/${staffId}`, data),
   proceedSolo: (bookingId, data) => apiClient.post(`/agency/dispatch/bookings/${bookingId}/proceed-solo`, data),
   confirmAssignment: (assignmentId) => apiClient.post(`/agency/dispatch/assignments/${assignmentId}/confirm`),
+  updateStaffCommissions: (bookingId, data) =>
+    apiClient.put(`/agency/dispatch/bookings/${bookingId}/staff-commissions`, data),
+
+  // Khiếu nại & Sự cố Studio
+  getDisputes: (params) => apiClient.get('/agency/disputes', { params }),
+  getDisputeDetail: (bookingId) => apiClient.get(`/agency/disputes/${bookingId}`),
+  resolveDispute: (bookingId, data) => apiClient.post(`/agency/disputes/${bookingId}/resolve`, data),
+
+  // Bộ Sưu Tập Tác Phẩm Studio (Portfolio Showcases)
+  getMyPortfolios: (params) => apiClient.get('/agencies/my-agency/portfolios', { params }),
+  getPortfolioDetail: (id) => apiClient.get(`/agencies/my-agency/portfolios/${id}`),
+  createPortfolio: (formData) =>
+    apiClient.post('/agencies/my-agency/portfolios', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  updatePortfolio: (id, data) => {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    return apiClient.put(`/agencies/my-agency/portfolios/${id}`, data, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
+  },
+  togglePortfolioFeatured: (id, isFeatured) =>
+    apiClient.patch(`/agencies/my-agency/portfolios/${id}/featured`, { isFeatured }),
+  togglePortfolioVisibility: (id, isVisible) =>
+    apiClient.patch(`/agencies/my-agency/portfolios/${id}/visibility`, { isVisible }),
+  deletePortfolio: (id) => apiClient.delete(`/agencies/my-agency/portfolios/${id}`),
+
+  // Ví Doanh Thu & Sổ Cái Studio
+  getAgencyWallet: () => apiClient.get('/agency/wallet'),
+
+  // Trung tâm Đánh giá & Phản hồi Khách hàng (Reviews)
+  getAgencyReviews: (params) => apiClient.get('/agency/reviews', { params }),
+  getAgencyReviewOverview: () => apiClient.get('/agency/reviews/overview'),
+  getAgencyReviewSummary: () => apiClient.get('/agency/reviews/summary'),
+  replyToReview: (reviewId, replyContent) =>
+    apiClient.post(`/agency/reviews/${reviewId}/reply`, { replyContent }),
+
+  // Bảng Xếp Hạng & CSAT Hiệu Suất Thợ Make-up
+  getStaffLeaderboard: (period = 'ALL_TIME') =>
+    apiClient.get('/agency/staff/leaderboard', { params: { period } }),
 };
 

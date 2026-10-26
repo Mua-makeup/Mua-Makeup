@@ -22,9 +22,15 @@ public interface MUACalendarService {
 
     boolean isSlotAvailableWithBuffer(Long muaId, OffsetDateTime startAt, OffsetDateTime endAt, int bufferMinutes);
 
+    boolean isSlotAvailableWithBufferExcludingBooking(Long muaId, OffsetDateTime startAt, OffsetDateTime endAt, int bufferMinutes, Long excludeBookingId);
+
     void lockSlotForBooking(Long muaId, Long bookingId, LocalDate bookingDate, OffsetDateTime startAt, OffsetDateTime endAt, String reason);
 
     void releaseSlotByBookingId(Long bookingId);
 
     void releaseSlotByBookingIdAndMuaId(Long bookingId, Long muaId);
+
+    void convertSlotToEmergencyBlocked(Long bookingId, Long muaId, String emergencyReason);
+
+    List<MUACalendarSlotRes> getMyBlockedSlots(Long muaId, LocalDate fromDate);
 }

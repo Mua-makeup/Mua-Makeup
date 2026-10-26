@@ -77,9 +77,10 @@ public class CustomerInstantBookingController extends BaseController {
             @PathVariable Long bookingId,
             @RequestBody(required = false) ConfirmDepositReq req) {
         Long customerId = SecurityContextUtils.getCurrentUserId();
+        Long packageId = req != null ? req.getPackageId() : null;
         List<String> addOnNames = req != null ? req.getAddOnNames() : null;
         BigDecimal addOnTotal = req != null ? req.getAddOnTotal() : null;
-        customerInstantBookingService.confirmDeposit(bookingId, customerId, addOnNames, addOnTotal);
+        customerInstantBookingService.confirmDeposit(bookingId, customerId, packageId, addOnNames, addOnTotal);
         return ok(null, "booking.deposit_success");
     }
 }

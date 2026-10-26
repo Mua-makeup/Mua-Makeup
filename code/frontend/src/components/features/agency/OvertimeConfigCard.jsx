@@ -3,14 +3,14 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  FileText,
   AlertCircle,
   Plus,
   Edit2,
   Trash2,
-  Badge,
+  Eye,
 } from 'lucide-react';
 import { Button } from '../../base/Button';
+import { Badge } from '../../base/Badge';
 import { Input } from '../../base/Input';
 import { Select } from '../../base/Select';
 import { Modal } from '../../base/Modal';
@@ -21,6 +21,7 @@ import { agencyService } from '../../../services/agency.service';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { overtimeRuleSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { TableSkeleton } from '../../base/Skeleton';
 
 export const OvertimeConfigCard = () => {
   const { t } = useI18nStore();
@@ -32,6 +33,7 @@ export const OvertimeConfigCard = () => {
   const [ruleName, setRuleName] = useState('Quy chế làm thêm giờ tiêu chuẩn');
   const [minOvertimeMinutes, setMinOvertimeMinutes] = useState(15);
   const [maxOvertimeMinutes, setMaxOvertimeMinutes] = useState(240);
+  const [policyType, setPolicyType] = useState('ALLOWANCE');
   const [penaltyType, setPenaltyType] = useState('FIXED_AMOUNT');
   const [penaltyValue, setPenaltyValue] = useState(50000);
   const [isActive, setIsActive] = useState(true);
@@ -44,6 +46,7 @@ export const OvertimeConfigCard = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [reviewAction, setReviewAction] = useState('APPROVED');
   const [reviewNote, setReviewNote] = useState('');
+  const [customAllowance, setCustomAllowance] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // Delete Rule State
@@ -60,9 +63,15 @@ export const OvertimeConfigCard = () => {
   const [modalError, setModalError] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
 
+  const policyTypeOptions = [
+    { value: 'ALLOWANCE', label: t('overtime_policy_allowance') || 'Phụ cấp tăng ca (Cộng thù lao thợ)' },
+    { value: 'PENALTY', label: t('overtime_policy_penalty') || 'Chế tài vi phạm (Khấu trừ phạt thợ)' },
+  ];
+
   const penaltyTypeOptions = [
     { value: 'FIXED_AMOUNT', label: t('overtime_penalty_type_fixed') },
     { value: 'PERCENT_COMMISSION', label: t('overtime_penalty_type_percent') },
+    { value: 'PER_MINUTE', label: t('overtime_penalty_type_per_minute') || 'Theo phút tăng ca (VNĐ/phút)' },
     { value: 'WARNING_ONLY', label: t('overtime_penalty_type_warning') },
   ];
 
@@ -71,6 +80,7 @@ export const OvertimeConfigCard = () => {
     setRuleName(rule.ruleName || '');
     setMinOvertimeMinutes(rule.minOvertimeMinutes ?? 15);
     setMaxOvertimeMinutes(rule.maxOvertimeMinutes ?? '');
+    setPolicyType(rule.policyType || 'ALLOWANCE');
     setPenaltyType(rule.penaltyType || 'FIXED_AMOUNT');
     setPenaltyValue(rule.penaltyValue !== undefined ? Number(rule.penaltyValue) : 0);
     setIsActive(rule.isActive ?? true);
@@ -110,6 +120,7 @@ export const OvertimeConfigCard = () => {
     setRuleName('');
     setMinOvertimeMinutes(15);
     setMaxOvertimeMinutes('');
+    setPolicyType('ALLOWANCE');
     setPenaltyType('FIXED_AMOUNT');
     setPenaltyValue(50000);
     setIsActive(true);
@@ -202,6 +213,7 @@ export const OvertimeConfigCard = () => {
           ? Number(maxOvertimeMinutes)
           : null,
       penaltyType,
+      policyType: penaltyType === 'WARNING_ONLY' ? 'WARNING' : policyType,
       penaltyValue: penaltyType === 'WARNING_ONLY' ? 0 : Number(penaltyValue),
       isActive: Boolean(isActive),
     };
@@ -288,6 +300,15 @@ export const OvertimeConfigCard = () => {
     setSelectedReport(report);
     setReviewAction(action);
     setReviewNote('');
+    if (action === 'APPROVE_ALLOWANCE') {
+      if (report.penaltyType === 'FIXED_AMOUNT' && report.penaltyValue) {
+        setCustomAllowance(String(report.penaltyValue));
+      } else {
+        setCustomAllowance('');
+      }
+    } else {
+      setCustomAllowance('');
+    }
     setIsReviewModalOpen(true);
   };
 
@@ -296,12 +317,15 @@ export const OvertimeConfigCard = () => {
     setIsSaving(true);
     try {
       await agencyService.reviewOvertimeReport(selectedReport.id, {
-        status: reviewAction,
-        reviewNote: reviewNote.trim() || undefined,
+        action: reviewAction,
+        customPenaltyAmount: (reviewAction === 'APPROVE_ALLOWANCE' && customAllowance) ? Number(customAllowance) : undefined,
+        adminNotes: reviewNote.trim() || undefined,
       });
       setIsReviewModalOpen(false);
       setToastMessage({
-        text: t('update_success'),
+        text: reviewAction === 'APPROVE_ALLOWANCE'
+          ? 'Đã duyệt thưởng tăng ca và trích chuyển tiền vào ví thợ thành công!'
+          : (t('update_success') || 'Đã xét duyệt báo cáo tăng ca thành công!'),
         type: 'success',
       });
       await loadData();
@@ -317,22 +341,55 @@ export const OvertimeConfigCard = () => {
   };
 
   const renderPenaltyDisplay = (rule) => {
+    const isAllowance = rule.policyType === 'ALLOWANCE';
+
     if (rule.penaltyType === 'PERCENT_COMMISSION') {
+      if (isAllowance) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 font-mono shadow-2xs">
+            +{rule.penaltyValue}% {t('col_staff_commission') || 'Hoa hồng thợ'}
+          </span>
+        );
+      }
       return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 shadow-2xs">
-          -{rule.penaltyValue}% {t('col_staff_commission')}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 shadow-2xs font-mono">
+          -{rule.penaltyValue}% {t('col_staff_commission') || 'Hoa hồng thợ'}
         </span>
       );
     }
+
     if (rule.penaltyType === 'FIXED_AMOUNT') {
+      if (isAllowance) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 font-mono shadow-2xs">
+            +{formatCurrency(rule.penaltyValue)}
+          </span>
+        );
+      }
       return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 shadow-2xs">
-          {formatCurrency(rule.penaltyValue)}
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 shadow-2xs font-mono">
+          -{formatCurrency(rule.penaltyValue)}
         </span>
       );
     }
+
+    if (rule.penaltyType === 'PER_MINUTE') {
+      if (isAllowance) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 font-mono shadow-2xs">
+            +{formatCurrency(rule.penaltyValue)}/phút
+          </span>
+        );
+      }
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 shadow-2xs font-mono">
+          -{formatCurrency(rule.penaltyValue)}/phút
+        </span>
+      );
+    }
+
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800 shadow-2xs">
+      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shadow-2xs">
         {t('overtime_penalty_type_warning')}
       </span>
     );
@@ -376,23 +433,18 @@ export const OvertimeConfigCard = () => {
       {/* Card Danh Sách Quy Tắc Tăng Ca */}
       <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50 shadow-2xs">
-              <Clock className="w-5 h-5" />
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {t('overtime_rules')}
+              </h3>
+              <Badge variant="neutral">
+                {rules.length} {t('items')}
+              </Badge>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {t('overtime_rules')}
-                </h3>
-                <Badge variant="neutral">
-                  {rules.length} {t('items')}
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {t('overtime_sub')}
-              </p>
-            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {t('overtime_sub')}
+            </p>
           </div>
 
           <Button
@@ -410,10 +462,17 @@ export const OvertimeConfigCard = () => {
         {/* Bảng Danh sách Quy tắc đã lưu */}
         <div>
           {isLoading ? (
-            <div className="flex items-center justify-center py-10 text-slate-400 text-xs gap-2">
-              <Clock className="w-4 h-4 animate-spin text-rose-500" />
-              <span>{t('loading')}</span>
-            </div>
+            <TableSkeleton
+              columns={[
+                { header: t('overtime_rule_name') },
+                { header: t('overtime_threshold_label') },
+                { header: t('overtime_penalty_label') },
+                { header: t('status') },
+                { header: t('col_actions'), align: 'right' },
+              ]}
+              rows={4}
+              hasPagination={false}
+            />
           ) : rules.length === 0 ? (
             <div className="p-8 bg-slate-50/70 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-700/60 rounded-2xl text-center space-y-3">
               <p className="text-xs text-slate-400 italic">
@@ -459,11 +518,8 @@ export const OvertimeConfigCard = () => {
                       {/* Cột Ngưỡng Quá Giờ Thiết Kế Tối Ưu & Đẹp Mắt */}
                       <td className="px-5 py-3.5">
                         <div className="flex flex-col gap-1">
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50/90 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-900/50 w-fit shadow-2xs">
-                            <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                            <span className="font-mono font-bold">
-                              ≥ {r.minOvertimeMinutes} {t('unit_minutes')}
-                            </span>
+                          <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50/90 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-900/50 w-fit shadow-2xs font-mono">
+                            ≥ {r.minOvertimeMinutes} {t('unit_minutes')}
                           </div>
                           <div className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
                             <span className="font-medium text-slate-500 dark:text-slate-400">
@@ -533,20 +589,13 @@ export const OvertimeConfigCard = () => {
         onClose={handleCloseForm}
         maxWidth="max-w-xl"
         title={
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50 shadow-2xs">
-              <Clock className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900 dark:text-white text-base">
-                  {editingRuleId ? t('overtime_form_title_edit') : t('overtime_form_title_create')}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">
-                {t('overtime_modal_sub')}
-              </p>
-            </div>
+          <div>
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">
+              {editingRuleId ? t('overtime_form_title_edit') : t('overtime_form_title_create')}
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">
+              {t('overtime_modal_sub')}
+            </p>
           </div>
         }
         footer={
@@ -627,7 +676,17 @@ export const OvertimeConfigCard = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Hình thức chế tài */}
+            {/* Loại chính sách */}
+            <Select
+              label={t('overtime_policy_type') || 'Loại Chính Sách'}
+              required
+              options={policyTypeOptions}
+              value={policyType}
+              onChange={(e) => setPolicyType(e.target.value)}
+              disabled={penaltyType === 'WARNING_ONLY'}
+            />
+
+            {/* Hình thức áp dụng */}
             <Select
               label={t('overtime_penalty_type')}
               required
@@ -641,28 +700,34 @@ export const OvertimeConfigCard = () => {
               }}
               error={fieldErrors.penaltyType}
             />
+          </div>
 
-            {/* Mức phạt / Trừ hoa hồng */}
+          <div>
+            {/* Mức phụ cấp / phạt */}
             <Input
               label={
                 penaltyType === 'PERCENT_COMMISSION'
-                  ? `${t('overtime_penalty_value')} (%)`
-                  : `${t('overtime_penalty_value')} (VNĐ)`
+                  ? `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp cộng thêm' : 'Mức phạt khấu trừ'} (%)`
+                  : penaltyType === 'PER_MINUTE'
+                  ? `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp tính theo mỗi phút' : 'Mức phạt khấu trừ theo mỗi phút'} (VNĐ/phút)`
+                  : `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp cộng thêm' : 'Mức phạt khấu trừ'} (VNĐ)`
               }
               type="number"
               min="0"
               max={penaltyType === 'PERCENT_COMMISSION' ? '100' : undefined}
-              step={penaltyType === 'PERCENT_COMMISSION' ? '1' : '10000'}
+              step={penaltyType === 'PERCENT_COMMISSION' ? '1' : penaltyType === 'PER_MINUTE' ? '500' : '10000'}
               disabled={penaltyType === 'WARNING_ONLY'}
               required={penaltyType !== 'WARNING_ONLY'}
               value={penaltyValue}
               onChange={(e) => setPenaltyValue(e.target.value)}
               helperText={
                 penaltyType === 'PERCENT_COMMISSION'
-                  ? t('overtime_penalty_value_helper_percent')
+                  ? (policyType === 'ALLOWANCE' ? 'Tỷ lệ % hoa hồng được cộng thêm cho thợ' : 'Tỷ lệ % hoa hồng bị khấu trừ của thợ')
+                  : penaltyType === 'PER_MINUTE'
+                  ? (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)' : 'Số tiền phạt khấu trừ cho mỗi phút vi phạm (VNĐ/phút)')
                   : penaltyType === 'WARNING_ONLY'
                   ? t('overtime_penalty_type_warning')
-                  : t('overtime_penalty_value_helper_fixed')
+                  : (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho thợ (VNĐ)' : 'Số tiền phạt khấu trừ thợ (VNĐ)')
               }
               error={fieldErrors.penaltyValue}
             />
@@ -719,44 +784,77 @@ export const OvertimeConfigCard = () => {
                     </td>
                     <td className="px-5 py-3.5 text-xs">
                       <span className="font-bold text-slate-900 dark:text-white block">
-                        +{r.actualOvertimeMinutes} {t('unit_minutes')}
+                        +{r.overtimeMinutes ?? r.actualOvertimeMinutes ?? 0} {t('unit_minutes') || 'phút'}
                       </span>
                       <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                        {formatCurrency(r.calculatedAmount)}
+                        {formatCurrency(r.penaltyAmountApplied || r.customerSurchargeAmount || 0)}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-xs max-w-xs">
-                      <p className="text-slate-600 dark:text-slate-400 truncate" title={r.reason}>
-                        {r.reason || '—'}
+                      <p className="text-slate-700 dark:text-slate-300 font-medium" title={r.explanationText || r.reason}>
+                        {r.explanationText || r.reason || '—'}
                       </p>
+                      {r.proofImageUrl ? (
+                        <a
+                          href={r.proofImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                        >
+                          <Eye className="w-3 h-3" /> Xem ảnh đối chứng
+                        </a>
+                      ) : null}
                     </td>
                     <td className="px-5 py-3.5">
-                      {r.status === 'PENDING' && <Badge variant="pending">{t('status_pending')}</Badge>}
-                      {r.status === 'APPROVED' && <Badge variant="active">{t('status_verified')}</Badge>}
-                      {r.status === 'REJECTED' && <Badge variant="rejected">{t('status_rejected')}</Badge>}
+                      {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING') && (
+                        <Badge variant="pending">{t('status_pending') || 'Chờ Duyệt'}</Badge>
+                      )}
+                      {(r.status === 'APPROVED_WAIVED' || r.status === 'APPROVED') && (
+                        <Badge variant="active">{t('status_verified') || 'Đã Miễn Trừ / Duyệt'}</Badge>
+                      )}
+                      {r.status === 'PENALIZED' && (
+                        <Badge variant="rejected">Đã Phạt Thợ</Badge>
+                      )}
+                      {r.status === 'CHARGED_CUSTOMER' && (
+                        <Badge variant="info">Thu Phụ Phí Khách</Badge>
+                      )}
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      {r.status === 'PENDING' ? (
+                      {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING') ? (
                         <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={CheckCircle2}
-                            onClick={() => openReview(r, 'APPROVED')}
-                          >
-                            {t('action_approve')}
-                          </Button>
+                          {r.policyType !== 'PENALTY' ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={CheckCircle2}
+                              onClick={() => openReview(r, 'APPROVE_ALLOWANCE')}
+                              className="!bg-emerald-600 hover:!bg-emerald-700 text-white shadow-2xs font-medium"
+                            >
+                              Duyệt Thưởng Tăng Ca
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={CheckCircle2}
+                              onClick={() => openReview(r, 'WAIVE_PENALTY')}
+                            >
+                              Duyệt Miễn Trừ
+                            </Button>
+                          )}
                           <Button
                             variant="danger"
                             size="sm"
                             icon={XCircle}
-                            onClick={() => openReview(r, 'REJECTED')}
+                            onClick={() => openReview(r, 'DEDUCT_BY_RULE')}
                           >
-                            {t('action_reject')}
+                            Phạt / Từ Chối
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">—</span>
+                        <span className="text-xs text-slate-400 italic">
+                          {r.adminNotes ? `Ghi chú: ${r.adminNotes}` : '—'}
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -772,12 +870,13 @@ export const OvertimeConfigCard = () => {
         isOpen={isReviewModalOpen}
         onClose={() => setIsReviewModalOpen(false)}
         title={
-          <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-            <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            <span>
-              {reviewAction === 'APPROVED' ? t('action_approve') : t('action_reject')}
-            </span>
-          </div>
+          <span className="font-bold text-slate-900 dark:text-white text-base">
+            {reviewAction === 'APPROVE_ALLOWANCE'
+              ? 'Xác Nhận Duyệt Thưởng Tăng Ca Cho Thợ'
+              : reviewAction === 'WAIVE_PENALTY'
+              ? 'Xác Nhận Duyệt Miễn Trừ Tăng Ca'
+              : 'Xác Nhận Chế Tài / Phạt Tăng Ca'}
+          </span>
         }
         maxWidth="max-w-md"
         footer={
@@ -790,11 +889,16 @@ export const OvertimeConfigCard = () => {
               {t('cancel')}
             </Button>
             <Button
-              variant={reviewAction === 'APPROVED' ? 'primary' : 'danger'}
+              variant={reviewAction === 'DEDUCT_BY_RULE' ? 'danger' : 'primary'}
               onClick={handleConfirmReview}
               isLoading={isSaving}
+              className={reviewAction === 'APPROVE_ALLOWANCE' ? '!bg-emerald-600 hover:!bg-emerald-700 text-white' : undefined}
             >
-              {reviewAction === 'APPROVED' ? t('action_approve') : t('action_reject')}
+              {reviewAction === 'APPROVE_ALLOWANCE'
+                ? 'Duyệt & Chuyển Tiền Vào Ví'
+                : reviewAction === 'WAIVE_PENALTY'
+                ? 'Xác Nhận Duyệt'
+                : 'Áp Dụng Chế Tài'}
             </Button>
           </>
         }
@@ -805,14 +909,50 @@ export const OvertimeConfigCard = () => {
               {t('staff_label')} <strong className="text-slate-900 dark:text-white">{selectedReport?.staffName}</strong> • {t('booking_label')}: <strong className="text-slate-900 dark:text-white">#{selectedReport?.bookingId}</strong>
             </p>
             <p className="text-slate-700 dark:text-slate-300">
-              {t('overtime_incurred_label')}: <strong className="text-slate-900 dark:text-white">+{selectedReport?.actualOvertimeMinutes} {t('unit_minutes')}</strong> ({formatCurrency(selectedReport?.calculatedAmount)})
+              {t('overtime_incurred_label')}: <strong className="text-slate-900 dark:text-white">+{selectedReport?.overtimeMinutes ?? selectedReport?.actualOvertimeMinutes} {t('unit_minutes') || 'phút'}</strong>
+              {selectedReport?.ruleName && (
+                <span className="ml-1 text-slate-500">({selectedReport.ruleName})</span>
+              )}
             </p>
-            <p className="text-slate-500 dark:text-slate-400 italic mt-1">"{selectedReport?.reason}"</p>
+            <p className="text-slate-500 dark:text-slate-400 italic mt-1">"{selectedReport?.explanationText || selectedReport?.reason}"</p>
+            {selectedReport?.proofImageUrl && (
+              <div className="pt-2">
+                <span className="font-semibold block text-slate-700 dark:text-slate-300 mb-1">Ảnh đối chứng từ thợ:</span>
+                <img
+                  src={selectedReport.proofImageUrl}
+                  alt="Ảnh đối chứng"
+                  className="max-h-40 rounded-lg border border-slate-200 dark:border-slate-700 object-cover"
+                />
+              </div>
+            )}
           </div>
+
+          {reviewAction === 'APPROVE_ALLOWANCE' && (
+            <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                <span>Trợ cấp tăng ca cho thợ:</span>
+                {selectedReport?.penaltyType === 'PERCENT_COMMISSION' && selectedReport?.penaltyValue && (
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400">
+                    +{selectedReport.penaltyValue}% theo quy chế
+                  </span>
+                )}
+              </div>
+              <Input
+                label="Số tiền trợ cấp thưởng tăng ca (VND)"
+                type="number"
+                placeholder={selectedReport?.penaltyType === 'FIXED_AMOUNT' ? String(selectedReport?.penaltyValue || 0) : 'Nhập số tiền hoặc để tự động'}
+                value={customAllowance}
+                onChange={(e) => setCustomAllowance(e.target.value)}
+              />
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed italic">
+                * Khi bấm duyệt, số tiền này sẽ được trích từ ví Studio / doanh thu đơn chuyển trực tiếp vào ví của thợ và gửi thông báo cho thợ.
+              </p>
+            </div>
+          )}
 
           <Textarea
             label={t('overtime_review_agency_notes')}
-            placeholder={t('overtime_review_agency_notes_placeholder')}
+            placeholder={t('overtime_review_agency_notes_placeholder') || 'Nhập lý do hoặc căn cứ xét duyệt...'}
             value={reviewNote}
             onChange={(e) => setReviewNote(e.target.value)}
             rows={3}

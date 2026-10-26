@@ -1,6 +1,7 @@
 package com.makeup.platform.dto.request.agency;
 
 import com.makeup.platform.entity.agency.OvertimePenaltyType;
+import com.makeup.platform.entity.agency.OvertimePolicyType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -33,6 +34,9 @@ public class ConfigureOvertimeRuleReq {
 
     @NotNull(message = "{validation.penalty_type_required}")
     private OvertimePenaltyType penaltyType;
+
+    @Builder.Default
+    private OvertimePolicyType policyType = OvertimePolicyType.ALLOWANCE;
 
     @NotNull(message = "{validation.penalty_value_required}")
     @DecimalMin(value = "0.00", message = "{validation.penalty_value_min}")

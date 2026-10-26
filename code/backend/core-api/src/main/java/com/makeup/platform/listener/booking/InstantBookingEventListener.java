@@ -48,8 +48,10 @@ public class InstantBookingEventListener {
                 matchedPayload.put("muaName", mua.getUser().getFullName());
                 matchedPayload.put("muaPhone", mua.getUser().getPhoneNumber());
                 matchedPayload.put("rating", mua.getRatingAvg());
-                matchedPayload.put("muaAvatar", (mua.getPortfolioImages() != null && !mua.getPortfolioImages().isEmpty())
-                        ? mua.getPortfolioImages().get(0) : null);
+                matchedPayload.put("muaAvatar", (mua.getUser().getAvatarUrl() != null && !mua.getUser().getAvatarUrl().isBlank())
+                        ? mua.getUser().getAvatarUrl()
+                        : ((mua.getPortfolioImages() != null && !mua.getPortfolioImages().isEmpty())
+                                ? mua.getPortfolioImages().get(0) : null));
             }
             if (booking != null) {
                 matchedPayload.put("bookingCode", booking.getBookingCode());
@@ -108,6 +110,16 @@ public class InstantBookingEventListener {
 
             messagingTemplate.convertAndSend("/topic/booking-status/" + event.getBookingId(), payload);
             messagingTemplate.convertAndSend("/topic/booking-matched/" + event.getBookingId(), payload);
+            if (event.getBookingId() != null) {
+                bookingRepository.findById(event.getBookingId()).ifPresent(b -> {
+                    if (b.getCustomer() != null) {
+                        messagingTemplate.convertAndSend("/topic/customer-bookings/" + b.getCustomer().getId(), payload);
+                    }
+                    if (b.getMua() != null) {
+                        messagingTemplate.convertAndSend("/topic/mua-bookings/" + b.getMua().getId(), payload);
+                    }
+                });
+            }
             log.info("[WebSocket] Broadcasted status update for bookingId={} to /topic/booking-status/{}",
                     event.getBookingId(), event.getBookingId());
 

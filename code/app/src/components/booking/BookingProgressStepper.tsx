@@ -37,7 +37,7 @@ const STEPS: StepItem[] = [
   {
     key: 'IN_PROGRESS',
     title: 'Trang Điểm',
-    icon: 'sparkles',
+    icon: 'brush',
     activeColor: '#E11D48',
     activeBg: '#FFE4E6',
   },

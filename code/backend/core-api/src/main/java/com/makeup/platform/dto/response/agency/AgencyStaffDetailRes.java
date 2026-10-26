@@ -18,7 +18,11 @@ public class AgencyStaffDetailRes {
 
     private Long id;
     private Long agencyId;
+    private String agencyCode;
     private String agencyName;
+    private String agencyPhone;
+    private String agencyAddress;
+    private String agencyLogoUrl;
     private Long muaId;
     private String muaCode;
     private String fullName;
@@ -38,6 +42,7 @@ public class AgencyStaffDetailRes {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<AssignedStyleRes> assignedStyles;
+    private List<AssignedPackageRes> assignedPackages;
     private List<MuaCertificateItem> certificates;
     private List<String> portfolioImages;
     private Integer totalCompletedJobs;

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { apiClient } from './api';
 import { ApiResponse } from './auth.service';
 
@@ -6,6 +7,31 @@ export interface AssignedStyle {
   styleCode: string;
   styleName: string;
   isQualified?: boolean;
+}
+
+export interface AssignedPackage {
+  packageId: number;
+  packageName: string;
+  categoryName?: string;
+  price?: number;
+  proficiencyLevel?: 'PRIMARY_MUA' | 'ASSISTANT_MUA' | 'APPRENTICE';
+  isQualified?: boolean;
+}
+
+export interface StaffCertificate {
+  certName: string;
+  imageUrl: string;
+  isVerified?: boolean;
+  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  notes?: string;
+  uploadedAt?: string;
+  scope?: 'PLATFORM' | 'AGENCY';
+  verifierType?: 'SUPER_ADMIN' | 'AGENCY_ADMIN';
+  verifierName?: string;
+  agencyId?: number;
+  agencyName?: string;
+  verifiedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface AgencyStaffProfile {
@@ -23,9 +49,30 @@ export interface AgencyStaffProfile {
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'LEFT';
   isActive: boolean;
   agreedCommissionRate?: number;
-  note?: string;
   joinedAt?: string;
+  ratingAvg?: number | null;
+  totalReviews?: number;
+  totalCompletedJobs?: number;
   assignedStyles?: AssignedStyle[];
+  assignedPackages?: AssignedPackage[];
+  certificates?: StaffCertificate[];
+  note?: string;
+}
+
+export interface PublicAgencyInvitation {
+  inviteCode: string;
+  agencyId: number;
+  agencyCode?: string;
+  agencyName: string;
+  logoUrl?: string;
+  hotline?: string;
+  addressStreet?: string;
+  district?: string;
+  city?: string;
+  proposedCommissionRate?: number;
+  note?: string;
+  expiresAt?: string;
+  isExpired?: boolean;
 }
 
 export const staffProfileService = {
@@ -34,4 +81,48 @@ export const staffProfileService = {
     const res = await apiClient.get<ApiResponse<AgencyStaffProfile>>('/agencies/staff/me');
     return res.data.data;
   },
+
+  /** Lấy thông tin công khai của Studio theo mã mời (Invite Code) */
+  async getPublicInvitationInfo(inviteCode: string): Promise<PublicAgencyInvitation> {
+    const res = await apiClient.get<ApiResponse<PublicAgencyInvitation>>(
+      `/agencies/invitations/${encodeURIComponent(inviteCode.trim())}/public`
+    );
+    return res.data.data;
+  },
+
+  /** Thợ MUA nộp đơn xin gia nhập Studio theo mã mời */
+  async acceptInvitation(inviteCode: string): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>('/agencies/invitations/accept', {
+      inviteCode: inviteCode.trim(),
+    });
+    return res.data.data;
+  },
+
+  /** Lấy danh sách các gói dịch vụ Studio phân công cho thợ */
+  async getMyAssignedPackages(): Promise<AssignedPackage[]> {
+    const res = await apiClient.get<ApiResponse<{ staffId: number; staffName?: string; assignedPackages: AssignedPackage[] }>>('/agencies/staff/me/packages');
+    return res.data.data?.assignedPackages || [];
+  },
+
+  /** Thợ Studio nộp chứng chỉ nghề nghiệp lên Studio */
+  async uploadStaffCertificate(formData: FormData): Promise<StaffCertificate> {
+    const config: { headers?: Record<string, string> } = {};
+    if (Platform.OS !== 'web') {
+      config.headers = { 'Content-Type': 'multipart/form-data' };
+    }
+    const res = await apiClient.post<ApiResponse<StaffCertificate>>(
+      '/agencies/staff/me/certificates',
+      formData,
+      config
+    );
+    return res.data.data;
+  },
+
+  /** Thợ Studio xóa chứng chỉ nghề nghiệp */
+  async deleteStaffCertificate(certName: string): Promise<void> {
+    await apiClient.delete('/agencies/staff/me/certificates', {
+      params: { certName },
+    });
+  },
 };
+

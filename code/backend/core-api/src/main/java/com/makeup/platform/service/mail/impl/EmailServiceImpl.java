@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
@@ -821,4 +823,3348 @@ public class EmailServiceImpl implements EmailService {
                 adminPortalUrl
         );
     }
+
+    @Override
+    @Async
+    public void sendCertificateVerificationResultEmail(
+            String toEmail,
+            String muaName,
+            String certName,
+            boolean isVerified,
+            String notes
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send certificate result email: recipient email missing");
+            return;
+        }
+
+        String subject = isVerified
+                ? "[" + BRAND_NAME + "] 🎉 Chúc Mừng! Chứng Chỉ Của Bạn Đã Được Phê Duyệt"
+                : "[" + BRAND_NAME + "] ⚠️ Thông Báo Kết Quả Xét Duyệt Chứng Chỉ";
+        String htmlContent = buildCertificateVerificationResultEmailHtml(muaName, certName, isVerified, notes);
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildCertificateVerificationResultEmailHtml(
+            String muaName,
+            String certName,
+            boolean isVerified,
+            String notes
+    ) {
+        String artistName = (muaName != null && !muaName.isBlank()) ? muaName : "Thợ trang điểm";
+        String certificateTitle = (certName != null && !certName.isBlank()) ? certName : "Chứng chỉ chuyên môn";
+        String noteText = (notes != null && !notes.isBlank()) ? notes : (isVerified ? "Hồ sơ chứng chỉ đạt chuẩn tiêu chí nền tảng." : "Hồ sơ chưa đạt tiêu chuẩn phê duyệt.");
+        String appUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/mua/workstation";
+
+        String headerGradient = isVerified
+                ? "linear-gradient(135deg, #064e3b 0%, #059669 100%)"
+                : "linear-gradient(135deg, #831843 0%, #991b1b 100%)";
+        String badgeText = isVerified ? "ĐÃ PHÊ DUYỆT (VERIFIED)" : "TỪ CHỐI (REJECTED)";
+        String badgeStyle = isVerified
+                ? "background-color: #dcfce7; color: #166534; border: 1px solid #86efac;"
+                : "background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;";
+        String headline = isVerified ? "Chứng Chỉ Đã Được Phê Duyệt!" : "Chứng Chỉ Chưa Được Phê Duyệt";
+        String instruction = isVerified
+                ? "Chúc mừng bạn! Hồ sơ chứng chỉ của bạn đã được Ban Quản Trị xác thực thành công. Bạn đã có thể kích hoạt tính năng nhận đơn trực tuyến và tiếp cận hàng ngàn khách hàng tiềm năng."
+                : "Rất tiếc, chứng chỉ của bạn chưa đáp ứng đủ tiêu chuẩn thẩm định của Ban Quản Trị. Vui lòng xem lý do bên dưới và tải lên lại chứng chỉ hợp lệ để được xét duyệt lại.";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>%s</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 35px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: %s; padding: 32px 30px; text-align: center;">
+                          <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); border-radius: 9999px; padding: 5px 16px; margin-bottom: 12px;">
+                            <span style="color: #ffffff; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;">
+                              XÉT DUYỆT HỒ SƠ CHỨNG CHỈ
+                            </span>
+                          </div>
+                          <h1 style="color: #ffffff; font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.3px;">
+                            %s
+                          </h1>
+                        </td>
+                      </tr>
+                      
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 32px 30px;">
+                          <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+                            Xin chào <strong>%s</strong>,
+                          </p>
+                          <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 24px 0;">
+                            %s
+                          </p>
+                          
+                          <!-- Details Table -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                            <tr style="background-color: #f8fafc;">
+                              <td colspan="2" style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 13px; color: #334155; text-transform: uppercase;">Chi Tiết Kết Quả</strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td width="35%%" style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Tên chứng chỉ:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #f1f5f9;">%s</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Trạng thái:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; border-bottom: 1px solid #f1f5f9;">
+                                <span style="display: inline-block; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 11px; %s">%s</span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b;">Ghi chú / Lý do:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #334155; font-style: italic;">"%s"</td>
+                            </tr>
+                          </table>
+                          
+                          <!-- CTA Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="background: linear-gradient(135deg, #e11d48 0%%, #be123c 100%%); color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 9999px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);">
+                                  Mở Ứng Dụng MUA Platform &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Trân trọng,<br>
+                            <strong>Ban Quản Trị MUA Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform. Vui lòng không trả lời thư này.
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                headline,
+                headerGradient,
+                headline,
+                artistName,
+                instruction,
+                certificateTitle,
+                badgeStyle,
+                badgeText,
+                noteText,
+                appUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendAgencyStaffApplicationEmail(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            String inviteCode
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send staff application email: agency owner email missing");
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] 👥 Có Đơn Xin Gia Nhập Studio Mới (" + staffName + ")";
+        String htmlContent = buildAgencyStaffApplicationEmailHtml(agencyOwnerName, agencyName, staffName, staffPhone, inviteCode);
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildAgencyStaffApplicationEmailHtml(
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            String inviteCode
+    ) {
+        String ownerName = (agencyOwnerName != null && !agencyOwnerName.isBlank()) ? agencyOwnerName : "Chủ Studio";
+        String studioName = (agencyName != null && !agencyName.isBlank()) ? agencyName : "Studio";
+        String muaName = (staffName != null && !staffName.isBlank()) ? staffName : "Thợ trang điểm";
+        String phone = (staffPhone != null && !staffPhone.isBlank()) ? staffPhone : "Chưa cập nhật";
+        String code = (inviteCode != null && !inviteCode.isBlank()) ? inviteCode : "N/A";
+        String staffManagementUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/agency/staff";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Có Đơn Xin Gia Nhập Studio Mới</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 35px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #1e1b4b 0%%, #4338ca 100%%); padding: 32px 30px; text-align: center;">
+                          <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.15); border-radius: 9999px; padding: 5px 16px; margin-bottom: 12px;">
+                            <span style="color: #c7d2fe; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;">
+                              QUẢN LÝ NHÂN SỰ STUDIO
+                            </span>
+                          </div>
+                          <h1 style="color: #ffffff; font-size: 22px; font-weight: 800; margin: 0;">
+                            Đơn Xin Gia Nhập Studio Mới
+                          </h1>
+                        </td>
+                      </tr>
+                      
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 32px 30px;">
+                          <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+                            Kính gửi <strong>%s</strong> (Chủ Studio %s),
+                          </p>
+                          <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 24px 0;">
+                            Hệ thống vừa tiếp nhận một đơn xin gia nhập Studio từ thợ trang điểm thông qua mã mời của bạn. Vui lòng xem xét thông tin và tiến hành phê duyệt:
+                          </p>
+                          
+                          <!-- Table -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                            <tr style="background-color: #f8fafc;">
+                              <td colspan="2" style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 13px; color: #334155; text-transform: uppercase;">Thông Tin Thợ Ứng Tuyển</strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td width="38%%" style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Họ và tên:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #f1f5f9;">%s</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Số điện thoại:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #f1f5f9;">%s</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Mã mời đã dùng:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #4338ca; font-weight: 700; font-family: monospace; border-bottom: 1px solid #f1f5f9;">%s</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b;">Trạng thái:</td>
+                              <td style="padding: 11px 18px; font-size: 13px;">
+                                <span style="background-color: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 11px;">⏳ Đang chờ Studio xét duyệt</span>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- CTA Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="background: linear-gradient(135deg, #4338ca 0%%, #3730a3 100%%); color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 9999px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);">
+                                  Vào Bảng Phê Duyệt Nhân Sự &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Trân trọng,<br>
+                            <strong>Hệ Thống MUA Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform. Vui lòng không trả lời thư này.
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                ownerName,
+                studioName,
+                muaName,
+                phone,
+                code,
+                staffManagementUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendStaffApplicationResultEmail(
+            String toEmail,
+            String staffName,
+            String agencyName,
+            boolean isApproved,
+            BigDecimal commissionRate,
+            String notes
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send staff application result email: recipient email missing");
+            return;
+        }
+
+        String subject = isApproved
+                ? "[" + BRAND_NAME + "] 🎊 Chúc Mừng! Đơn Gia Nhập Studio " + agencyName + " Đã Được Phê Duyệt"
+                : "[" + BRAND_NAME + "] ℹ️ Thông Báo Kết Quả Đơn Gia Nhập Studio " + agencyName;
+        String htmlContent = buildStaffApplicationResultEmailHtml(staffName, agencyName, isApproved, commissionRate, notes);
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildStaffApplicationResultEmailHtml(
+            String staffName,
+            String agencyName,
+            boolean isApproved,
+            BigDecimal commissionRate,
+            String notes
+    ) {
+        String muaName = (staffName != null && !staffName.isBlank()) ? staffName : "Thợ trang điểm";
+        String studioName = (agencyName != null && !agencyName.isBlank()) ? agencyName : "Studio";
+        String commissionText = commissionRate != null ? commissionRate.stripTrailingZeros().toPlainString() + "%" : "Theo thỏa thuận";
+        String noteText = (notes != null && !notes.isBlank()) ? notes : (isApproved ? "Đã được Studio chấp thuận tham gia đội ngũ." : "Studio đã từ chối đơn ứng tuyển.");
+        String workstationUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/mua/workstation";
+
+        String headerGradient = isApproved
+                ? "linear-gradient(135deg, #064e3b 0%, #047857 100%)"
+                : "linear-gradient(135deg, #334155 0%, #1e293b 100%)";
+        String headline = isApproved
+                ? "Chào Mừng Gia Nhập Studio " + studioName + "!"
+                : "Kết Quả Đơn Gia Nhập Studio " + studioName;
+        String badgeText = isApproved ? "CHÍNH THỨC GIA NHẬP (ACTIVE)" : "ĐÃ TỪ CHỐI (REJECTED)";
+        String badgeStyle = isApproved
+                ? "background-color: #dcfce7; color: #166534; border: 1px solid #86efac;"
+                : "background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;";
+        String instruction = isApproved
+                ? "Chúc mừng bạn đã chính thức trở thành thành viên của Studio <strong>" + studioName + "</strong>. Vai trò tài khoản của bạn đã được nâng cấp lên Nhân Viên Studio (Agency Staff). Hãy sẵn sàng tiếp nhận các ca làm việc hấp dẫn từ Studio!"
+                : "Rất tiếc, Studio <strong>" + studioName + "</strong> hiện tại chưa thể tiếp nhận đơn gia nhập của bạn. Bạn vẫn có thể tiếp tục hoạt động với tư cách Thợ Trang Điểm Tự Do (Freelance MUA).";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>%s</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 35px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: %s; padding: 32px 30px; text-align: center;">
+                          <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); border-radius: 9999px; padding: 5px 16px; margin-bottom: 12px;">
+                            <span style="color: #ffffff; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;">
+                              KẾT QUẢ ỨNG TUYỂN STUDIO
+                            </span>
+                          </div>
+                          <h1 style="color: #ffffff; font-size: 22px; font-weight: 800; margin: 0;">
+                            %s
+                          </h1>
+                        </td>
+                      </tr>
+                      
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 32px 30px;">
+                          <p style="font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+                            Xin chào <strong>%s</strong>,
+                          </p>
+                          <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 24px 0;">
+                            %s
+                          </p>
+                          
+                          <!-- Table -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                            <tr style="background-color: #f8fafc;">
+                              <td colspan="2" style="padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 13px; color: #334155; text-transform: uppercase;">Chi Tiết Kết Quả</strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td width="38%%" style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Studio:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #f1f5f9;">%s</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Trạng thái:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; border-bottom: 1px solid #f1f5f9;">
+                                <span style="display: inline-block; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 11px; %s">%s</span>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b; border-bottom: 1px solid #f1f5f9;">Tỷ lệ hoa hồng:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #047857; font-weight: 700; border-bottom: 1px solid #f1f5f9;">%s</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #64748b;">Ghi chú từ Studio:</td>
+                              <td style="padding: 11px 18px; font-size: 13px; color: #334155; font-style: italic;">"%s"</td>
+                            </tr>
+                          </table>
+                          
+                          <!-- CTA Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="background: linear-gradient(135deg, #e11d48 0%%, #be123c 100%%); color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 9999px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);">
+                                  Truy Cập Bàn Làm Việc (Workstation) &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Trân trọng,<br>
+                            <strong>Hệ Thống MUA Platform & %s</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 30px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform. Vui lòng không trả lời thư này.
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                headline,
+                headerGradient,
+                headline,
+                muaName,
+                instruction,
+                studioName,
+                badgeStyle,
+                badgeText,
+                commissionText,
+                noteText,
+                workstationUrl,
+                studioName
+        );
+    }
+
+    @Override
+    @Async
+    public void sendCustomerArtistOnTheWayEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String artistPhone,
+            String artistRating,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String startedAt
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send artist on the way email: recipient email missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] 🚗 Chuyên viên trang điểm đang di chuyển đến điểm hẹn - Đơn #" + bookingCode;
+        String htmlContent = buildCustomerArtistOnTheWayEmailHtml(
+                customerName, bookingCode, bookingType, artistName, artistPhone,
+                artistRating, packageName, styleName, destinationAddress, startedAt
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendCustomerBookingCompletedReceiptEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            BigDecimal totalAmount,
+            BigDecimal depositAmount,
+            BigDecimal finalAmount,
+            String paymentMethod,
+            String paymentCode,
+            String completedAt
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send receipt email: recipient email missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] ✨ Xác Nhận Thanh Toán & Biên Lai Đơn Hàng #" + bookingCode;
+        String htmlContent = buildCustomerBookingCompletedReceiptEmailHtml(
+                customerName, bookingCode, bookingType, artistName, packageName,
+                styleName, destinationAddress, totalAmount, depositAmount,
+                finalAmount, paymentMethod, paymentCode, completedAt
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendCustomerBookingCancelledOnTheWayEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String destinationAddress,
+            String cancellationReason,
+            BigDecimal refundAmount
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send cancellation email: recipient email missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] ⚠️ Thông Báo Hủy Đơn Hàng #" + bookingCode + " - Sự Cố Di Chuyển";
+        String htmlContent = buildCustomerBookingCancelledOnTheWayEmailHtml(
+                customerName, bookingCode, bookingType, artistName,
+                destinationAddress, cancellationReason, refundAmount
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildCustomerArtistOnTheWayEmailHtml(
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String artistPhone,
+            String artistRating,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String startedAt
+    ) {
+        String clientName = (customerName != null && !customerName.isBlank()) ? customerName : "Quý khách";
+        String muaName = (artistName != null && !artistName.isBlank()) ? artistName : "Chuyên viên trang điểm";
+        String phone = (artistPhone != null && !artistPhone.isBlank()) ? artistPhone : "Chưa cập nhật";
+        String rating = (artistRating != null && !artistRating.isBlank()) ? artistRating : "5.0";
+        String pkg = (packageName != null && !packageName.isBlank()) ? packageName : "Dịch vụ Make-up Khẩn cấp";
+        String style = (styleName != null && !styleName.isBlank()) ? styleName : "Tiêu chuẩn";
+        String address = (destinationAddress != null && !destinationAddress.isBlank()) ? destinationAddress : "Địa chỉ theo yêu cầu";
+        String timeStr = (startedAt != null && !startedAt.isBlank()) ? startedAt : "Ngay bây giờ";
+        String trackingUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/customer/bookings/" + bookingCode;
+
+        boolean isInstant = "REALTIME_INSTANT".equalsIgnoreCase(bookingType);
+        String typeBadgeText = isInstant ? "⚡ ĐƠN KHẨN CẤP (30-60 PHÚT)" : "📅 ĐẶT LỊCH HẸN TRANG ĐIỂM";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Chuyên Viên Đang Di Chuyển</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Luxury Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #4c0519 50%%, #881337 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(251, 191, 36, 0.4); margin-bottom: 12px;">
+                            <span style="color: #fbbf24; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM • INSTANT SERVICE
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
+                            CHUYÊN VIÊN ĐANG TRÊN ĐƯỜNG ĐẾN
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #cbd5e1; font-size: 13px; letter-spacing: 0.3px;">
+                            Quý khách vui lòng giữ liên lạc, chuyên viên sẽ gọi cho bạn khi đến nơi
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Main Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          
+                          <!-- Salutation -->
+                          <p style="margin: 0 0 8px 0; font-size: 16px; color: #1e293b; font-weight: 600;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            Chuyên viên trang điểm đã tiếp nhận ca và <strong>bắt đầu di chuyển</strong> đến địa chỉ hẹn của bạn. Xin vui lòng để ý chuông điện thoại để chuyên viên liên hệ ngay khi đến nơi.
+                          </p>
+                          
+                          <!-- Status Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td style="background: linear-gradient(135deg, #fff1f2 0%%, #ffe4e6 100%%); border: 1.5px dashed #f43f5e; border-radius: 14px; padding: 18px 22px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td align="left" style="vertical-align: middle;">
+                                      <span style="display: block; font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase; letter-spacing: 1px;">
+                                        MÃ ĐƠN HÀNG
+                                      </span>
+                                      <span style="display: block; font-size: 20px; font-weight: 900; color: #e11d48; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; letter-spacing: 1.2px; margin-top: 2px;">
+                                        #%s
+                                      </span>
+                                    </td>
+                                    <td align="right" style="vertical-align: middle;">
+                                      <span style="display: inline-block; background-color: #fecdd3; color: #9f1239; font-size: 11px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #fda4af;">
+                                        🚗 %s
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Artist Info Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  👩‍🎨 CHUYÊN VIÊN TRANG ĐIỂM PHỤ TRÁCH
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 18px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding-bottom: 10px;">
+                                      <span style="font-size: 13px; color: #64748b;">Họ và tên:</span><br>
+                                      <strong style="font-size: 16px; color: #0f172a;">%s</strong>
+                                      <span style="display: inline-block; margin-left: 8px; background-color: #fef3c7; color: #b45309; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">
+                                        ⭐ %s
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding-bottom: 10px;">
+                                      <span style="font-size: 13px; color: #64748b;">Số điện thoại liên hệ:</span><br>
+                                      <a href="tel:%s" style="font-size: 16px; color: #e11d48; font-weight: 800; text-decoration: none;">
+                                        📞 %s
+                                      </a>
+                                      <span style="font-size: 12px; color: #64748b; margin-left: 6px;">(Bấm để gọi trực tiếp)</span>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td>
+                                      <span style="font-size: 13px; color: #64748b;">Thời gian thợ xuất phát:</span><br>
+                                      <strong style="font-size: 14px; color: #334155;">⏱️ %s</strong>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Booking Details Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  📍 THÔNG TIN ĐIỂM HẸN & DỊCH VỤ
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 16px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding-bottom: 8px;">
+                                      <span style="font-size: 12px; color: #64748b;">Gói dịch vụ:</span><br>
+                                      <strong style="font-size: 14px; color: #0f172a;">%s</strong>
+                                      <span style="font-size: 13px; color: #64748b;"> &bull; Phong cách: </span>
+                                      <strong style="font-size: 13px; color: #e11d48;">%s</strong>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td>
+                                      <span style="font-size: 12px; color: #64748b;">Địa chỉ thực hiện:</span><br>
+                                      <strong style="font-size: 14px; color: #0f172a; line-height: 1.4;">%s</strong>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Preparation Tips -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border-radius: 12px; padding: 16px 18px; margin-bottom: 28px; border: 1px dashed #cbd5e1;">
+                            <tr>
+                              <td>
+                                <strong style="display: block; font-size: 12px; color: #334155; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                                  💡 LƯU Ý DÀNH CHO QUÝ KHÁCH:
+                                </strong>
+                                <p style="margin: 0 0 6px 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                                  ✓ Giữ điện thoại bên mình để không bỏ lỡ cuộc gọi khi chuyên viên đến nơi.
+                                </p>
+                                <p style="margin: 0 0 6px 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                                  ✓ Chuẩn bị sẵn không gian trang điểm có đủ ánh sáng và nguồn điện.
+                                </p>
+                                <p style="margin: 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                                  ✓ Làm sạch da mặt cơ bản trước để chuyên viên bắt đầu công việc nhanh nhất.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- CTA Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="background: linear-gradient(135deg, #e11d48 0%%, #be123c 100%%); color: #ffffff; text-decoration: none; padding: 14px 34px; border-radius: 9999px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35); letter-spacing: 0.3px;">
+                                  Mở Ứng Dụng & Theo Dõi Trực Tiếp &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Trân trọng cảm ơn,<br>
+                            <strong>Đội Ngũ Vận Hành MUA Makeup Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ khẩn cấp 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                clientName,
+                bookingCode,
+                typeBadgeText,
+                muaName,
+                rating,
+                phone,
+                phone,
+                timeStr,
+                pkg,
+                style,
+                address,
+                trackingUrl
+        );
+    }
+
+    private String buildCustomerBookingCompletedReceiptEmailHtml(
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            BigDecimal totalAmount,
+            BigDecimal depositAmount,
+            BigDecimal finalAmount,
+            String paymentMethod,
+            String paymentCode,
+            String completedAt
+    ) {
+        String clientName = (customerName != null && !customerName.isBlank()) ? customerName : "Quý khách";
+        String muaName = (artistName != null && !artistName.isBlank()) ? artistName : "Chuyên viên trang điểm";
+        String pkg = (packageName != null && !packageName.isBlank()) ? packageName : "Dịch vụ Make-up Khẩn cấp";
+        String style = (styleName != null && !styleName.isBlank()) ? styleName : "Tiêu chuẩn";
+        String address = (destinationAddress != null && !destinationAddress.isBlank()) ? destinationAddress : "Địa chỉ theo yêu cầu";
+        String method = (paymentMethod != null && !paymentMethod.isBlank()) ? paymentMethod : "Thanh toán Trực tuyến";
+        String pCode = (paymentCode != null && !paymentCode.isBlank()) ? paymentCode : ("REC-" + bookingCode);
+        String timeStr = (completedAt != null && !completedAt.isBlank()) ? completedAt : "Vừa hoàn tất";
+
+        NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+        String formattedTotal = totalAmount != null ? currencyFormatter.format(totalAmount) : "0 ₫";
+        String formattedDeposit = depositAmount != null ? currencyFormatter.format(depositAmount) : "0 ₫";
+        String formattedFinal = finalAmount != null ? currencyFormatter.format(finalAmount) : "0 ₫";
+
+        String reviewUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/customer/bookings/" + bookingCode + "/review";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Biên Lai & Xác Nhận Thanh Toán</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Emerald & Slate Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #064e3b 0%%, #0f172a 50%%, #881337 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(251, 191, 36, 0.4); margin-bottom: 12px;">
+                            <span style="color: #fbbf24; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM • BIÊN LAI ĐIỆN TỬ
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
+                            XÁC NHẬN THANH TOÁN THÀNH CÔNG
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #cbd5e1; font-size: 13px; letter-spacing: 0.3px;">
+                            Ca làm đẹp đã hoàn tất mỹ mãn - Cảm ơn Quý khách đã tin tưởng MUA Makeup
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Main Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          
+                          <!-- Salutation -->
+                          <p style="margin: 0 0 8px 0; font-size: 16px; color: #1e293b; font-weight: 600;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            MUA Makeup xin gửi lời cảm ơn chân thành đến Quý khách đã tin tưởng và sử dụng dịch vụ của chúng tôi! Ca làm đẹp của bạn đã hoàn thành xuất sắc và khoản thanh toán còn lại đã được xác nhận thành công.
+                          </p>
+                          
+                          <!-- Success Badge Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td style="background: linear-gradient(135deg, #f0fdf4 0%%, #dcfce7 100%%); border: 1.5px solid #22c55e; border-radius: 14px; padding: 18px 22px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td align="left" style="vertical-align: middle;">
+                                      <span style="display: block; font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 1px;">
+                                        MÃ ĐƠN HÀNG
+                                      </span>
+                                      <span style="display: block; font-size: 20px; font-weight: 900; color: #15803d; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; letter-spacing: 1.2px; margin-top: 2px;">
+                                        #%s
+                                      </span>
+                                    </td>
+                                    <td align="right" style="vertical-align: middle;">
+                                      <span style="display: inline-block; background-color: #bbf7d0; color: #14532d; font-size: 11px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #86efac;">
+                                        ✅ ĐÃ QUYẾT TOÁN 100%%
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Order Receipt Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  🧾 CHI TIẾT BIÊN LAI GIAO DỊCH
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 18px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding-bottom: 10px; width: 50%%;">
+                                      <span style="font-size: 12px; color: #64748b;">Mã giao dịch:</span><br>
+                                      <strong style="font-size: 13px; color: #0f172a; font-family: monospace;">%s</strong>
+                                    </td>
+                                    <td style="padding-bottom: 10px; width: 50%%;">
+                                      <span style="font-size: 12px; color: #64748b;">Thời gian hoàn tất:</span><br>
+                                      <strong style="font-size: 13px; color: #0f172a;">%s</strong>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding-bottom: 10px;">
+                                      <span style="font-size: 12px; color: #64748b;">Chuyên viên thực hiện:</span><br>
+                                      <strong style="font-size: 14px; color: #0f172a;">%s</strong>
+                                    </td>
+                                    <td style="padding-bottom: 10px;">
+                                      <span style="font-size: 12px; color: #64748b;">Phương thức thanh toán:</span><br>
+                                      <strong style="font-size: 13px; color: #0f172a;">%s</strong>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colspan="2" style="padding-bottom: 10px;">
+                                      <span style="font-size: 12px; color: #64748b;">Dịch vụ đã hoàn tất:</span><br>
+                                      <strong style="font-size: 14px; color: #0f172a;">%s</strong>
+                                      <span style="font-size: 13px; color: #64748b;"> &bull; Phong cách: </span>
+                                      <strong style="font-size: 13px; color: #e11d48;">%s</strong>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colspan="2">
+                                      <span style="font-size: 12px; color: #64748b;">Địa chỉ thực hiện:</span><br>
+                                      <strong style="font-size: 13px; color: #334155; line-height: 1.4;">%s</strong>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Payment Breakdown Table -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  💰 BẢNG KÊ CHI PHÍ THANH TOÁN
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 16px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding: 8px 0; font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">
+                                      Tổng chi phí dịch vụ:
+                                    </td>
+                                    <td align="right" style="padding: 8px 0; font-size: 15px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 8px 0; font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">
+                                      Tiền đặt cọc (Đã thanh toán trước):
+                                    </td>
+                                    <td align="right" style="padding: 8px 0; font-size: 15px; font-weight: 700; color: #16a34a; border-bottom: 1px solid #f1f5f9;">
+                                      -%s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 12px 0 6px 0; font-size: 15px; font-weight: 800; color: #0f172a;">
+                                      Số tiền thanh toán nốt:
+                                    </td>
+                                    <td align="right" style="padding: 12px 0 6px 0; font-size: 18px; font-weight: 900; color: #e11d48;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colspan="2" align="right" style="padding-top: 4px;">
+                                      <span style="font-size: 11px; color: #15803d; font-weight: 700;">
+                                        ✓ Đã thanh toán đầy đủ &bull; Trạng thái: Thành công
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Rating & Review CTA Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background: linear-gradient(135deg, #fff1f2 0%%, #ffe4e6 100%%); border-radius: 14px; padding: 22px 20px; margin-bottom: 28px; border: 1px solid #fecdd3; text-align: center;">
+                            <tr>
+                              <td>
+                                <span style="display: block; font-size: 24px; margin-bottom: 6px;">⭐ ⭐ ⭐ ⭐ ⭐</span>
+                                <strong style="display: block; font-size: 15px; color: #9f1239; margin-bottom: 6px;">
+                                  Đánh Giá Trải Nghiệm Dịch Vụ Của Bạn
+                                </strong>
+                                <p style="margin: 0 0 16px 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                                  Sự hài lòng của Quý khách là thước đo thành công của chúng tôi. Hãy dành 1 phút để đánh giá chất lượng phục vụ của chuyên viên nhé!
+                                </p>
+                                <a href="%s" style="background: linear-gradient(135deg, #e11d48 0%%, #be123c 100%%); color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 9999px; font-weight: 700; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);">
+                                  Đánh Giá Chuyên Viên Ngay &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Kính chúc Quý khách luôn rạng ngời & hạnh phúc,<br>
+                            <strong>Đội Ngũ MUA Makeup Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email biên lai tự động được phát hành từ MUA Makeup Platform.<br>
+                          Mọi thắc mắc về biên lai xin liên hệ hotline: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">billing@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                clientName,
+                bookingCode,
+                pCode,
+                timeStr,
+                muaName,
+                method,
+                pkg,
+                style,
+                address,
+                formattedTotal,
+                formattedDeposit,
+                formattedFinal,
+                reviewUrl
+        );
+    }
+
+    private String buildCustomerBookingCancelledOnTheWayEmailHtml(
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String destinationAddress,
+            String cancellationReason,
+            BigDecimal refundAmount
+    ) {
+        String clientName = (customerName != null && !customerName.isBlank()) ? customerName : "Quý khách";
+        String muaName = (artistName != null && !artistName.isBlank()) ? artistName : "Chuyên viên trang điểm";
+        String address = (destinationAddress != null && !destinationAddress.isBlank()) ? destinationAddress : "Địa chỉ theo yêu cầu";
+        String reason = (cancellationReason != null && !cancellationReason.isBlank()) ? cancellationReason : "Chuyên viên gặp sự cố bất khả kháng trên đường di chuyển";
+
+        NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+        String formattedRefund = (refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0)
+                ? currencyFormatter.format(refundAmount)
+                : "toàn bộ số tiền đặt cọc";
+
+        String rebookUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/customer/booking-instant";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thông Báo Hủy Đơn Hàng</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Crimson & Dark Slate Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #1e293b 0%%, #450a0a 50%%, #991b1b 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(254, 202, 202, 0.4); margin-bottom: 12px;">
+                            <span style="color: #fecaca; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM • THÔNG BÁO QUAN TRỌNG
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
+                            THÔNG BÁO HỦY ĐƠN ĐẶT LỊCH
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #fca5a5; font-size: 13px; letter-spacing: 0.3px;">
+                            Sự cố bất khả kháng trong quá trình chuyên viên đang di chuyển
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Main Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          
+                          <!-- Salutation -->
+                          <p style="margin: 0 0 8px 0; font-size: 16px; color: #1e293b; font-weight: 600;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            Chúng tôi vô cùng lấy làm tiếc phải thông báo rằng ca trang điểm khẩn cấp của Quý khách không thể tiếp tục thực hiện do chuyên viên gặp sự cố bất khả kháng trong quá trình đang di chuyển đến điểm hẹn.
+                          </p>
+                          
+                          <!-- Cancellation Alert Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td style="background: linear-gradient(135deg, #fef2f2 0%%, #fee2e2 100%%); border: 1.5px solid #ef4444; border-radius: 14px; padding: 18px 22px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td align="left" style="vertical-align: middle;">
+                                      <span style="display: block; font-size: 11px; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 1px;">
+                                        MÃ ĐƠN HÀNG
+                                      </span>
+                                      <span style="display: block; font-size: 20px; font-weight: 900; color: #dc2626; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; letter-spacing: 1.2px; margin-top: 2px;">
+                                        #%s
+                                      </span>
+                                    </td>
+                                    <td align="right" style="vertical-align: middle;">
+                                      <span style="display: inline-block; background-color: #fecaca; color: #991b1b; font-size: 11px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #f87171;">
+                                        🚫 ĐÃ HỦY ĐƠN
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Reason Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #fecaca; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #fef2f2; padding: 12px 18px; border-bottom: 1px solid #fecaca;">
+                                <strong style="font-size: 12px; color: #991b1b; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  📋 CHI TIẾT SỰ CỐ & LÝ DO HỦY
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 18px 20px;">
+                                <p style="margin: 0 0 10px 0; font-size: 14px; color: #7f1d1d; font-weight: 600; line-height: 1.5;">
+                                  Lý do: &ldquo;%s&rdquo;
+                                </p>
+                                <p style="margin: 0 0 6px 0; font-size: 13px; color: #64748b;">
+                                  Chuyên viên phụ trách: <strong style="color: #1e293b;">%s</strong>
+                                </p>
+                                <p style="margin: 0; font-size: 13px; color: #64748b;">
+                                  Địa điểm hẹn: <strong style="color: #1e293b;">%s</strong>
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Refund Assurance Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background: linear-gradient(135deg, #eff6ff 0%%, #dbeafe 100%%); border: 1.5px solid #3b82f6; border-radius: 14px; padding: 18px 20px; margin-bottom: 24px;">
+                            <tr>
+                              <td>
+                                <strong style="display: block; font-size: 13px; color: #1e40af; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                                  💰 CHÍNH SÁCH BẢO VỆ & HOÀN TIỀN CỌC TỰ ĐỘNG
+                                </strong>
+                                <p style="margin: 0; font-size: 13px; color: #1e3a8a; line-height: 1.6;">
+                                  Vì sự cố phát sinh ngoài ý muốn trong quá trình chuyên viên di chuyển, <strong>100%% tiền đặt cọc (%s)</strong> đã được hệ thống tự động hoàn trả lại số dư ví / tài khoản của Quý khách theo đúng chính sách bảo vệ khách hàng của MUA Platform.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Sincere Apology & Support -->
+                          <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            Ban quản trị MUA Makeup Platform chân thành gửi lời xin lỗi sâu sắc tới Quý khách vì sự bất tiện này đã ảnh hưởng đến kế hoạch của bạn. Quý khách có thể bấm nút bên dưới để hệ thống quét và kết nối ngay với một chuyên viên khác gần nhất.
+                          </p>
+                          
+                          <!-- CTA Buttons -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="background: linear-gradient(135deg, #e11d48 0%%, #be123c 100%%); color: #ffffff; text-decoration: none; padding: 14px 34px; border-radius: 9999px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35); letter-spacing: 0.3px;">
+                                  ⚡ Đặt Lại Chuyên Viên Khẩn Cấp Khác Ngay &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Thành thật xin lỗi và trân trọng,<br>
+                            <strong>Ban Quản Trị & Trung Tâm Điều Phối MUA Makeup</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ điều phối khẩn cấp 24/7: <strong style="color: #dc2626;">1900 8888 (Phím 1)</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                clientName,
+                bookingCode,
+                reason,
+                muaName,
+                address,
+                formattedRefund,
+                rebookUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendCustomerDepositSuccessfulEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String artistPhone,
+            String artistRating,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            BigDecimal totalAmount,
+            BigDecimal depositAmount,
+            BigDecimal remainingAmount,
+            String paymentMethod,
+            String paymentCode,
+            String paidAt
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send deposit successful email: recipient email missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] 💎 Đặt Cọc Thành Công & Xác Nhận Đơn Hàng #" + bookingCode;
+        String htmlContent = buildCustomerDepositSuccessfulEmailHtml(
+                customerName, bookingCode, bookingType, artistName, artistPhone,
+                artistRating, packageName, styleName, destinationAddress,
+                totalAmount, depositAmount, remainingAmount, paymentMethod,
+                paymentCode, paidAt
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildCustomerDepositSuccessfulEmailHtml(
+            String customerName,
+            String bookingCode,
+            String bookingType,
+            String artistName,
+            String artistPhone,
+            String artistRating,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            BigDecimal totalAmount,
+            BigDecimal depositAmount,
+            BigDecimal remainingAmount,
+            String paymentMethod,
+            String paymentCode,
+            String paidAt
+    ) {
+        String clientName = (customerName != null && !customerName.isBlank()) ? customerName : "Quý khách";
+        String muaName = (artistName != null && !artistName.isBlank()) ? artistName : "Chuyên viên trang điểm";
+        String phone = (artistPhone != null && !artistPhone.isBlank()) ? artistPhone : "Chưa cập nhật";
+        String rating = (artistRating != null && !artistRating.isBlank()) ? artistRating : "5.0";
+        String pkg = (packageName != null && !packageName.isBlank()) ? packageName : "Dịch vụ Make-up Khẩn cấp";
+        String style = (styleName != null && !styleName.isBlank()) ? styleName : "Tiêu chuẩn";
+        String address = (destinationAddress != null && !destinationAddress.isBlank()) ? destinationAddress : "Địa chỉ theo yêu cầu";
+        String method = (paymentMethod != null && !paymentMethod.isBlank()) ? paymentMethod : "Thanh toán Trực tuyến";
+        String pCode = (paymentCode != null && !paymentCode.isBlank()) ? paymentCode : ("DEP-" + bookingCode);
+        String timeStr = (paidAt != null && !paidAt.isBlank()) ? paidAt : "Vừa thanh toán";
+
+        NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+        String formattedTotal = totalAmount != null ? currencyFormatter.format(totalAmount) : "0 ₫";
+        String formattedDeposit = depositAmount != null ? currencyFormatter.format(depositAmount) : "0 ₫";
+        String formattedRemaining = remainingAmount != null ? currencyFormatter.format(remainingAmount) : "0 ₫";
+
+        boolean isInstant = "REALTIME_INSTANT".equalsIgnoreCase(bookingType);
+        String typeBadgeText = isInstant ? "⚡ ĐƠN KHẨN CẤP (30-60 PHÚT)" : "📅 ĐẶT LỊCH HẸN TRANG ĐIỂM";
+        String trackingUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/customer/bookings/" + bookingCode;
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Đặt Cọc Thành Công & Xác Nhận Đơn Hàng</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Indigo & Burgundy Luxury Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e1b4b 50%%, #881337 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(251, 191, 36, 0.4); margin-bottom: 12px;">
+                            <span style="color: #fbbf24; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM • BẢO CHỨNG ESCROW
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
+                            ĐẶT CỌC THÀNH CÔNG
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #cbd5e1; font-size: 13px; letter-spacing: 0.3px;">
+                            Cảm ơn Quý khách đã tin tưởng và sử dụng dịch vụ của chúng tôi!
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Main Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          
+                          <!-- Salutation -->
+                          <p style="margin: 0 0 8px 0; font-size: 16px; color: #1e293b; font-weight: 600;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            MUA Makeup xin chân thành cảm ơn Quý khách đã tin tưởng lựa chọn dịch vụ của chúng tôi! Hệ thống đã ghi nhận khoản thanh toán tiền cọc thành công cho đơn hàng <strong>#%s</strong> và quỹ bảo chứng đã được kích hoạt.
+                          </p>
+                          
+                          <!-- Status Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td style="background: linear-gradient(135deg, #f0fdf4 0%%, #dcfce7 100%%); border: 1.5px solid #22c55e; border-radius: 14px; padding: 18px 22px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td align="left" style="vertical-align: middle;">
+                                      <span style="display: block; font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 1px;">
+                                        MÃ ĐƠN HÀNG
+                                      </span>
+                                      <span style="display: block; font-size: 20px; font-weight: 900; color: #15803d; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; letter-spacing: 1.2px; margin-top: 2px;">
+                                        #%s
+                                      </span>
+                                    </td>
+                                    <td align="right" style="vertical-align: middle;">
+                                      <span style="display: inline-block; background-color: #bbf7d0; color: #14532d; font-size: 11px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #86efac;">
+                                        💎 ĐÃ ĐẶT CỌC THÀNH CÔNG
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Highlight Box: Artist moving in 15-30 minutes -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background: linear-gradient(135deg, #fff1f2 0%%, #ffe4e6 100%%); border: 1.5px dashed #f43f5e; border-radius: 14px; padding: 20px 22px; margin-bottom: 24px;">
+                            <tr>
+                              <td>
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="vertical-align: top; width: 36px;">
+                                      <span style="font-size: 28px; line-height: 1;">🚗</span>
+                                    </td>
+                                    <td style="vertical-align: top; padding-left: 10px;">
+                                      <strong style="display: block; font-size: 14px; color: #9f1239; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                                        TIẾN ĐỘ THỰC HIỆN & LỜI NHẮC QUAN TRỌNG:
+                                      </strong>
+                                      <p style="margin: 0 0 8px 0; font-size: 14px; color: #881337; line-height: 1.6; font-weight: 600;">
+                                        Chuyên viên trang điểm đang chuẩn bị bộ mỹ phẩm & dụng cụ chuyên dụng và sẽ <u>bắt đầu di chuyển sau 15 đến 30 phút nữa</u>.
+                                      </p>
+                                      <p style="margin: 0; font-size: 13px; color: #9f1239; line-height: 1.5;">
+                                        📞 <strong>Quý khách vui lòng giữ liên lạc và để ý điện thoại</strong>, chuyên viên sẽ gọi cho bạn trước khi xuất phát và ngay khi có mặt tại điểm hẹn!
+                                      </p>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Artist Info Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  👩‍🎨 CHUYÊN VIÊN TRANG ĐIỂM TIẾP NHẬN
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 18px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding-bottom: 10px;">
+                                      <span style="font-size: 13px; color: #64748b;">Họ và tên:</span><br>
+                                      <strong style="font-size: 16px; color: #0f172a;">%s</strong>
+                                      <span style="display: inline-block; margin-left: 8px; background-color: #fef3c7; color: #b45309; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">
+                                        ⭐ %s
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding-bottom: 10px;">
+                                      <span style="font-size: 13px; color: #64748b;">Số điện thoại chuyên viên:</span><br>
+                                      <a href="tel:%s" style="font-size: 16px; color: #e11d48; font-weight: 800; text-decoration: none;">
+                                        📞 %s
+                                      </a>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td>
+                                      <span style="font-size: 13px; color: #64748b;">Loại đơn dịch vụ:</span><br>
+                                      <strong style="font-size: 13px; color: #334155;">%s</strong>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Order Details Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  📍 THÔNG TIN ĐƠN HÀNG & ĐỊA ĐIỂM
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 16px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding-bottom: 8px;">
+                                      <span style="font-size: 12px; color: #64748b;">Gói dịch vụ:</span><br>
+                                      <strong style="font-size: 14px; color: #0f172a;">%s</strong>
+                                      <span style="font-size: 13px; color: #64748b;"> &bull; Phong cách: </span>
+                                      <strong style="font-size: 13px; color: #e11d48;">%s</strong>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td>
+                                      <span style="font-size: 12px; color: #64748b;">Địa chỉ thực hiện:</span><br>
+                                      <strong style="font-size: 14px; color: #0f172a; line-height: 1.4;">%s</strong>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Payment Summary Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  💰 THÔNG TIN THANH TOÁN TIỀN CỌC
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 16px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">
+                                      Mã giao dịch đặt cọc:
+                                    </td>
+                                    <td align="right" style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #0f172a; font-family: monospace; border-bottom: 1px solid #f1f5f9;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">
+                                      Thời gian thanh toán:
+                                    </td>
+                                    <td align="right" style="padding: 6px 0; font-size: 13px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">
+                                      Phương thức thanh toán:
+                                    </td>
+                                    <td align="right" style="padding: 6px 0; font-size: 13px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 14px; color: #475569; border-bottom: 1px solid #f1f5f9;">
+                                      Tổng chi phí dịch vụ:
+                                    </td>
+                                    <td align="right" style="padding: 6px 0; font-size: 14px; font-weight: 700; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 8px 0; font-size: 15px; font-weight: 800; color: #16a34a; border-bottom: 1px solid #f1f5f9;">
+                                      Số tiền đã đặt cọc:
+                                    </td>
+                                    <td align="right" style="padding: 8px 0; font-size: 17px; font-weight: 900; color: #16a34a; border-bottom: 1px solid #f1f5f9;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 8px 0 4px 0; font-size: 14px; color: #64748b;">
+                                      Số tiền còn lại (thanh toán khi xong ca):
+                                    </td>
+                                    <td align="right" style="padding: 8px 0 4px 0; font-size: 15px; font-weight: 800; color: #e11d48;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Preparation Tips -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border-radius: 12px; padding: 16px 18px; margin-bottom: 28px; border: 1px dashed #cbd5e1;">
+                            <tr>
+                              <td>
+                                <strong style="display: block; font-size: 12px; color: #334155; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                                  💡 CHUẨN BỊ TRƯỚC KHI CHUYÊN VIÊN ĐẾN:
+                                </strong>
+                                <p style="margin: 0 0 6px 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                                  ✓ Rửa mặt sạch sẽ và để da thông thoáng tự nhiên.
+                                </p>
+                                <p style="margin: 0 0 6px 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                                  ✓ Chuẩn bị sẵn một vị trí ngồi có gương và ánh sáng tốt gần ổ cắm điện.
+                                </p>
+                                <p style="margin: 0; font-size: 13px; color: #475569; line-height: 1.5;">
+                                  ✓ Để chuông điện thoại ở mức to để chuyên viên liên hệ khi đến nơi.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- CTA Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="background: linear-gradient(135deg, #e11d48 0%%, #be123c 100%%); color: #ffffff; text-decoration: none; padding: 14px 34px; border-radius: 9999px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35); letter-spacing: 0.3px;">
+                                  Xem Chi Tiết Đơn Hàng & Lộ Trình &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Cảm ơn Quý khách & chúc bạn có một trải nghiệm làm đẹp ưng ý nhất,<br>
+                            <strong>Đội Ngũ MUA Makeup Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ khách hàng 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                clientName,
+                bookingCode,
+                bookingCode,
+                muaName,
+                rating,
+                phone,
+                phone,
+                typeBadgeText,
+                pkg,
+                style,
+                address,
+                pCode,
+                timeStr,
+                method,
+                formattedTotal,
+                formattedDeposit,
+                formattedRemaining,
+                trackingUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendCustomerScheduledBookingConfirmedEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String artistName,
+            String artistPhone,
+            String artistRating,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            BigDecimal totalAmount,
+            BigDecimal depositAmount,
+            BigDecimal remainingAmount
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send scheduled booking confirmed email: recipient email missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] 📅 Xác Nhận Lịch Hẹn Thành Công - Chuyên Viên Đã Tiếp Nhận Đơn #" + bookingCode;
+        String htmlContent = buildCustomerScheduledBookingConfirmedEmailHtml(
+                customerName, bookingCode, artistName, artistPhone,
+                artistRating, packageName, styleName, destinationAddress,
+                bookingDate, startTime, totalAmount, depositAmount, remainingAmount
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildCustomerScheduledBookingConfirmedEmailHtml(
+            String customerName,
+            String bookingCode,
+            String artistName,
+            String artistPhone,
+            String artistRating,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            BigDecimal totalAmount,
+            BigDecimal depositAmount,
+            BigDecimal remainingAmount
+    ) {
+        String clientName = (customerName != null && !customerName.isBlank()) ? customerName : "Quý khách";
+        String muaName = (artistName != null && !artistName.isBlank()) ? artistName : "Chuyên viên trang điểm";
+        String phone = (artistPhone != null && !artistPhone.isBlank()) ? artistPhone : "Chưa cập nhật";
+        String rating = (artistRating != null && !artistRating.isBlank()) ? artistRating : "5.0";
+        String pkg = (packageName != null && !packageName.isBlank()) ? packageName : "Dịch vụ Đặt Lịch Hẹn";
+        String style = (styleName != null && !styleName.isBlank()) ? styleName : "Tiêu chuẩn";
+        String address = (destinationAddress != null && !destinationAddress.isBlank()) ? destinationAddress : "Địa chỉ theo yêu cầu";
+        String dateStr = (bookingDate != null && !bookingDate.isBlank()) ? bookingDate : "Theo lịch đã chọn";
+        String timeStr = (startTime != null && !startTime.isBlank()) ? startTime : "Theo giờ đã chọn";
+
+        NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+        String formattedTotal = totalAmount != null ? currencyFormatter.format(totalAmount) : "0 ₫";
+        String formattedDeposit = depositAmount != null ? currencyFormatter.format(depositAmount) : "0 ₫";
+        String formattedRemaining = remainingAmount != null ? currencyFormatter.format(remainingAmount) : "0 ₫";
+
+        String trackingUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000") + "/customer/bookings/" + bookingCode;
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Chuyên Viên Đã Tiếp Nhận Lịch Hẹn Trang Điểm</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Luxury Gold & Purple Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #2e1065 50%%, #831843 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(251, 191, 36, 0.4); margin-bottom: 12px;">
+                            <span style="color: #fbbf24; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM • ĐẶT LỊCH HẸN TRƯỚC
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">
+                            CHUYÊN VIÊN ĐÃ TIẾP NHẬN ĐƠN HÀNG
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #cbd5e1; font-size: 13px; letter-spacing: 0.3px;">
+                            Lịch hẹn của bạn đã được xác nhận sau khi hoàn tất tiền cọc thành công!
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Main Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          
+                          <!-- Salutation -->
+                          <p style="margin: 0 0 8px 0; font-size: 16px; color: #1e293b; font-weight: 600;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            MUA Makeup xin thông báo: Chuyên viên trang điểm đã chính thức <strong>tiếp nhận đơn đặt lịch hẹn trước #%s</strong> của bạn. Chuyên viên đã khóa lịch làm việc và cam kết có mặt đúng hẹn để đem đến cho bạn diện mạo lộng lẫy và hoàn hảo nhất.
+                          </p>
+                          
+                          <!-- Order Code Status Box -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td style="background: linear-gradient(135deg, #f0fdf4 0%%, #dcfce7 100%%); border: 1.5px solid #22c55e; border-radius: 14px; padding: 18px 22px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td align="left" style="vertical-align: middle;">
+                                      <span style="display: block; font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 1px;">
+                                        MÃ ĐƠN HÀNG
+                                      </span>
+                                      <span style="display: block; font-size: 20px; font-weight: 900; color: #15803d; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; letter-spacing: 1.2px; margin-top: 2px;">
+                                        #%s
+                                      </span>
+                                    </td>
+                                    <td align="right" style="vertical-align: middle;">
+                                      <span style="display: inline-block; background-color: #bbf7d0; color: #14532d; font-size: 11px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #86efac;">
+                                        ✅ ĐÃ TIẾP NHẬN CA HẸN
+                                      </span>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- SCHEDULE TIME HIGHLIGHT BOX (GOLDEN CARD) -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background: linear-gradient(135deg, #fffbeb 0%%, #fef3c7 100%%); border: 2px solid #f59e0b; border-radius: 16px; padding: 22px 24px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.12);">
+                            <tr>
+                              <td>
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td colspan="2" style="padding-bottom: 14px; border-bottom: 1px dashed #d97706;">
+                                      <span style="font-size: 12px; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 1px;">
+                                        📅 THỜI GIAN HẸN TRANG ĐIỂM XÁC NHẬN
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding-top: 14px; width: 50%%;">
+                                      <span style="display: block; font-size: 12px; color: #78350f; font-weight: 600;">
+                                        NGÀY PHỤC VỤ:
+                                      </span>
+                                      <strong style="display: block; font-size: 18px; color: #92400e; margin-top: 4px; font-weight: 800;">
+                                        %s
+                                      </strong>
+                                    </td>
+                                    <td style="padding-top: 14px; width: 50%%;">
+                                      <span style="display: block; font-size: 12px; color: #78350f; font-weight: 600;">
+                                        GIỜ BẮT ĐẦU:
+                                      </span>
+                                      <strong style="display: block; font-size: 18px; color: #b45309; margin-top: 4px; font-weight: 800;">
+                                        %s
+                                      </strong>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colspan="2" style="padding-top: 12px;">
+                                      <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5; font-style: italic;">
+                                        💡 <strong>Lời nhắc:</strong> Chuyên viên sẽ liên hệ với Quý khách trước 30-45 phút trước giờ hẹn để xác nhận lại lộ trình và chuẩn bị đồ nghề trang điểm phù hợp nhất.
+                                      </p>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Artist Info Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  👩‍🎨 CHUYÊN VIÊN TRANG ĐIỂM PHỤ TRÁCH
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 18px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding-bottom: 10px;">
+                                      <span style="font-size: 13px; color: #64748b;">Họ và tên chuyên viên:</span><br>
+                                      <strong style="font-size: 16px; color: #0f172a;">%s</strong>
+                                      <span style="display: inline-block; margin-left: 8px; background-color: #fef3c7; color: #b45309; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">
+                                        ⭐ %s
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td>
+                                      <span style="font-size: 13px; color: #64748b;">Số điện thoại chuyên viên:</span><br>
+                                      <a href="tel:%s" style="font-size: 16px; color: #e11d48; font-weight: 800; text-decoration: none;">
+                                        📞 %s
+                                      </a>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Order Details Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  📍 CHI TIẾT DỊCH VỤ & ĐỊA ĐIỂM HẸN
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 16px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                                      <span style="font-size: 13px; color: #64748b;">Gói dịch vụ:</span>
+                                      <div style="font-size: 14px; color: #0f172a; font-weight: 700; margin-top: 2px;">
+                                        %s
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                                      <span style="font-size: 13px; color: #64748b;">Phong cách yêu cầu:</span>
+                                      <div style="font-size: 14px; color: #0f172a; font-weight: 600; margin-top: 2px;">
+                                        %s
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 8px 0;">
+                                      <span style="font-size: 13px; color: #64748b;">Địa chỉ thực hiện trang điểm:</span>
+                                      <div style="font-size: 14px; color: #0f172a; font-weight: 600; margin-top: 2px; line-height: 1.5;">
+                                        %s
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- Financial Breakdown Table -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 28px; background-color: #ffffff;">
+                            <tr>
+                              <td style="background-color: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0;">
+                                <strong style="font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">
+                                  💳 CHI TIẾT TÀI CHÍNH & TIỀN CỌC
+                                </strong>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 16px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">Tổng giá trị dịch vụ:</td>
+                                    <td align="right" style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #15803d; font-weight: 600;">
+                                      Tiền cọc đã thanh toán (30%%):
+                                    </td>
+                                    <td align="right" style="padding: 6px 0; font-size: 15px; color: #15803d; font-weight: 800;">
+                                      - %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colspan="2" style="padding: 8px 0; border-bottom: 1.5px dashed #cbd5e1;"></td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 12px 0 4px 0; font-size: 14px; color: #0f172a; font-weight: 800;">
+                                      Số tiền còn lại cần thanh toán:
+                                    </td>
+                                    <td align="right" style="padding: 12px 0 4px 0; font-size: 18px; color: #e11d48; font-weight: 900;">
+                                      %s
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td colspan="2" style="font-size: 11px; color: #94a3b8; font-style: italic; padding-top: 4px;">
+                                      * Số tiền còn lại sẽ được thanh toán cho chuyên viên (bằng tiền mặt hoặc ví ứng dụng) sau khi hoàn tất dịch vụ.
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <!-- CTA Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="background: linear-gradient(135deg, #7c3aed 0%%, #4f46e5 100%%); color: #ffffff; text-decoration: none; padding: 14px 34px; border-radius: 9999px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); letter-spacing: 0.3px;">
+                                  Xem Chi Tiết Lịch Hẹn Trên Ứng Dụng &rarr;
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Cảm ơn Quý khách & chúc bạn luôn rạng rỡ và tự tin tỏa sáng,<br>
+                            <strong>Đội Ngũ MUA Makeup Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ khách hàng 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                clientName,
+                bookingCode,
+                bookingCode,
+                dateStr,
+                timeStr,
+                muaName,
+                rating,
+                phone,
+                phone,
+                pkg,
+                style,
+                address,
+                formattedTotal,
+                formattedDeposit,
+                formattedRemaining,
+                trackingUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendStaffDispatchNotificationEmail(
+            String toEmail,
+            String staffName,
+            String agencyName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            String assignmentRole
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send staff dispatch email: recipient email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] Thông Báo Phân Công Ca Làm Việc Mới - #" + bookingCode;
+        String htmlContent = buildStaffDispatchNotificationEmailHtml(
+                staffName, agencyName, bookingCode, customerName, customerPhone,
+                packageName, styleName, destinationAddress, bookingDate, startTime, assignmentRole
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildStaffDispatchNotificationEmailHtml(
+            String staffName,
+            String agencyName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String packageName,
+            String styleName,
+            String destinationAddress,
+            String bookingDate,
+            String startTime,
+            String assignmentRole
+    ) {
+        String name = (staffName != null && !staffName.isBlank()) ? staffName : "Chuyên viên";
+        String agency = (agencyName != null && !agencyName.isBlank()) ? agencyName : "Studio Đối tác";
+        String code = (bookingCode != null && !bookingCode.isBlank()) ? bookingCode : "N/A";
+        String client = (customerName != null && !customerName.isBlank()) ? customerName : "Khách hàng";
+        String phone = (customerPhone != null && !customerPhone.isBlank()) ? customerPhone : "Chưa cập nhật";
+        String pkg = (packageName != null && !packageName.isBlank()) ? packageName : "Dịch vụ trang điểm";
+        String style = (styleName != null && !styleName.isBlank()) ? styleName : "Tiêu chuẩn";
+        String address = (destinationAddress != null && !destinationAddress.isBlank()) ? destinationAddress : "Tại cơ sở Studio";
+        String dateStr = (bookingDate != null && !bookingDate.isBlank()) ? bookingDate : "Theo lịch hẹn";
+        String timeStr = (startTime != null && !startTime.isBlank()) ? startTime : "Theo giờ hẹn";
+        String role = (assignmentRole != null && !assignmentRole.isBlank()) ? assignmentRole : "Chuyên viên trang điểm";
+        String appUrl = (frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "http://localhost:3000");
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thông Báo Phân Công Ca Làm Việc</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e3a8a 50%%, #1d4ed8 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(147, 197, 253, 0.4); margin-bottom: 10px;">
+                            <span style="color: #93c5fd; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; STUDIO DISPATCH
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 21px; font-weight: 800; letter-spacing: 0.5px;">
+                            PHÂN CÔNG CA LÀM VIỆC MỚI
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #bfdbfe; font-size: 13px;">
+                            Điều phối từ Studio: <strong>%s</strong>
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #1e293b;">
+                            Xin chào <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            Studio <strong>%s</strong> vừa phân công bạn phụ trách ca làm đẹp cho đơn hàng <strong>#%s</strong> với vai trò <strong><span style="color: #1d4ed8; background-color: #dbeafe; padding: 2px 8px; border-radius: 6px;">%s</span></strong>.
+                          </p>
+
+                          <!-- Assignment Highlight Box -->
+                          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin-bottom: 24px;">
+                            <h3 style="margin: 0 0 14px 0; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                              THÔNG TIN CHI TIẾT CA HẸN
+                            </h3>
+                            <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="font-size: 13px; color: #334155;">
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b; width: 38%;">Mã ca hẹn:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #0f172a;">#%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Thời gian:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #0284c7;">%s ngày %s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Khách hàng:</td>
+                                <td style="padding: 6px 0; font-weight: 600;">%s &bull; <a href="tel:%s" style="color: #059669; text-decoration: none; font-weight: 700;">%s</a></td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Gói dịch vụ:</td>
+                                <td style="padding: 6px 0; font-weight: 600;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Phong cách:</td>
+                                <td style="padding: 6px 0; font-weight: 600;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Địa điểm:</td>
+                                <td style="padding: 6px 0; font-weight: 600; color: #e11d48;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; color: #64748b;">Vai trò đảm nhiệm:</td>
+                                <td style="padding: 6px 0; font-weight: 700; color: #1d4ed8;">%s</td>
+                              </tr>
+                            </table>
+                          </div>
+
+                          <!-- Notice Box -->
+                          <div style="background-color: #fefce8; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 18px; margin-bottom: 28px;">
+                            <p style="margin: 0; font-size: 13px; color: #854d0e; line-height: 1.5;">
+                              <strong>Yêu cầu tiếp nhận:</strong> Vui lòng mở ứng dụng và bấm <strong>XÁC NHẬN ĐƠN HÀNG</strong> trước giờ hẹn để studio và khách hàng nắm được lịch trình của bạn.
+                            </p>
+                          </div>
+
+                          <!-- Action Button -->
+                          <div style="text-align: center; margin-bottom: 28px;">
+                            <a href="%s" style="display: inline-block; background: linear-gradient(135deg, #1d4ed8 0%%, #2563eb 100%%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35);">
+                              MỞ ỨNG DỤNG TIẾP NHẬN CA
+                            </a>
+                          </div>
+
+                          <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                            Chúc bạn có một buổi làm đẹp thành công và nhận được đánh giá xuất sắc từ khách hàng!<br>
+                            <strong>Ban Quản Trị MUA Makeup Platform</strong>
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ chuyên viên 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                agency,
+                name,
+                agency,
+                code,
+                role,
+                code,
+                timeStr,
+                dateStr,
+                client,
+                phone,
+                phone,
+                pkg,
+                style,
+                address,
+                role,
+                appUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendAgencyStaffBlockedTimeNotification(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            LocalDate blockDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String reason
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send staff blocked time email: agency owner email missing");
+            return;
+        }
+
+        String subject = "[MUA Platform] Thông Báo: Nhân Viên " + staffName + " Báo Khóa Khung Giờ Bận Cá Nhân";
+        String htmlContent = buildStaffBlockedTimeNotificationHtml(
+                agencyOwnerName,
+                agencyName,
+                staffName,
+                staffPhone,
+                blockDate,
+                startTime,
+                endTime,
+                reason
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildStaffBlockedTimeNotificationHtml(
+            String ownerName,
+            String agency,
+            String staff,
+            String phone,
+            LocalDate date,
+            LocalTime start,
+            LocalTime end,
+            String reason
+    ) {
+        String owner = (ownerName != null && !ownerName.isBlank()) ? ownerName : "Quản Lý Studio";
+        String studioName = (agency != null && !agency.isBlank()) ? agency : "Studio";
+        String staffPhone = (phone != null && !phone.isBlank()) ? phone : "Chưa cập nhật";
+        String timeRange = (start != null ? start.toString().substring(0, 5) : "--:--") + " - " + (end != null ? end.toString().substring(0, 5) : "--:--");
+        String dateFormatted = date != null ? date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "--/--/----";
+        String busyReason = (reason != null && !reason.isBlank()) ? reason : "Bận việc cá nhân";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Thông Báo Nhân Viên Báo Bận</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                      
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #78350f 50%%, #b45309 100%%); padding: 36px 30px; text-align: center;">
+                          <div style="display: inline-block; padding: 6px 14px; border-radius: 9999px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(253, 230, 138, 0.4); margin-bottom: 10px;">
+                            <span style="color: #fde68a; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; QUẢN LÝ NHÂN SỰ
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 21px; font-weight: 800; letter-spacing: 0.5px;">
+                            THÔNG BÁO NHÂN VIÊN BÁO BẬN CÁ NHÂN
+                          </h1>
+                          <p style="margin: 8px 0 0 0; color: #fef3c7; font-size: 13px;">
+                            Studio: <strong>%s</strong>
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 36px 32px;">
+                          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #1e293b;">
+                            Kính gửi <strong>%s</strong> (Quản lý Studio %s),
+                          </p>
+                          <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                            Hệ thống ghi nhận nhân viên <strong>%s</strong> vừa đăng ký khóa khung giờ bận cá nhân trên ứng dụng. Chi tiết thời gian như sau:
+                          </p>
+
+                          <!-- Detail Card -->
+                          <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 24px; border-top: 1px solid #fef3c7; border-right: 1px solid #fef3c7; border-bottom: 1px solid #fef3c7;">
+                            <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; width: 140px; font-weight: 600;">Nhân viên:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #1e293b; font-weight: 750;">%s (%s)</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; font-weight: 600;">Ngày bận:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #1e293b; font-weight: 700;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; font-weight: 600;">Khung giờ bận:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #dc2626; font-weight: 800;">%s</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 6px 0; font-size: 13px; color: #92400e; font-weight: 600;">Lý do báo bận:</td>
+                                <td style="padding: 6px 0; font-size: 14px; color: #1e293b; font-style: italic;">"%s"</td>
+                              </tr>
+                            </table>
+                          </div>
+
+                          <div style="background-color: #f8fafc; border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+                            <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
+                              💡 <strong>Lưu ý:</strong> Hệ thống sẽ tự động khóa không nhận đơn đặt lịch cho nhân viên này trong khung giờ trên. Khi xếp ca trực hoặc điều phối đơn, Studio vui lòng tránh khung giờ này để đảm bảo tiến độ phục vụ.
+                            </p>
+                          </div>
+
+                          <div style="text-align: center; margin-top: 28px;">
+                            <a href="%s/agency/shifts" style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #0f172a 0%%, #1e293b 100%%); color: #ffffff; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);">
+                              Xem Ma Trận Lịch Trực Studio &rarr;
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ Studio 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                studioName,
+                owner,
+                studioName,
+                staff,
+                staff,
+                staffPhone,
+                dateFormatted,
+                timeRange,
+                busyReason,
+                frontendUrl
+        );
+    }
+
+    @Override
+    @Async
+    public void sendAgencyOvertimeReportNotification(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            Long bookingId,
+            Integer overtimeMinutes,
+            String reason
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send overtime report email: agency owner email missing");
+            return;
+        }
+
+        String subject = "[MUA Platform] Giải Trình Quá Giờ Mới Từ Thợ " + staffName + " - Đơn #" + bookingId;
+        String htmlContent = buildOvertimeReportNotificationHtml(
+                agencyOwnerName,
+                agencyName,
+                staffName,
+                staffPhone,
+                bookingId,
+                overtimeMinutes,
+                reason
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private String buildOvertimeReportNotificationHtml(
+            String ownerName,
+            String agency,
+            String staff,
+            String phone,
+            Long bookingId,
+            Integer overtimeMinutes,
+            String reason
+    ) {
+        String owner = (ownerName != null && !ownerName.isBlank()) ? ownerName : "Quản Lý Studio";
+        String studioName = (agency != null && !agency.isBlank()) ? agency : "Studio";
+        String staffPhone = (phone != null && !phone.isBlank()) ? phone : "Chưa cập nhật";
+        int minutes = overtimeMinutes != null ? overtimeMinutes : 0;
+        String explanation = (reason != null && !reason.isBlank()) ? reason : "Không có lý do chi tiết";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <title>Báo Cáo Tăng Ca Mới Từ Thợ</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 30px 15px;">
+                <tr>
+                  <td align="center">
+                    <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0;">
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e293b 100%%); padding: 32px 30px; text-align: center;">
+                          <h1 style="color: #ffffff; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: 0.5px;">%s</h1>
+                          <p style="color: #94a3b8; font-size: 13px; margin: 6px 0 0 0;">HỆ THỐNG QUẢN LÝ TĂNG CA STUDIO</p>
+                        </td>
+                      </tr>
+
+                      <!-- Warning Alert Bar -->
+                      <tr>
+                        <td style="background-color: #fef3c7; border-bottom: 2px solid #f59e0b; padding: 14px 30px; text-align: center;">
+                          <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 700;">
+                            BÁO CÁO GIẢI TRÌNH LÀM QUÁ GIỜ MỚI
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Content Body -->
+                      <tr>
+                        <td style="padding: 30px;">
+                          <p style="font-size: 15px; color: #334155; line-height: 1.6; margin: 0 0 16px 0;">
+                            Kính gửi <strong>%s</strong> (Quản lý <strong>%s</strong>),
+                          </p>
+                          <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 20px 0;">
+                            Chuyên viên trang điểm <strong>%s</strong> vừa nộp báo cáo giải trình làm thêm giờ cho ca phục vụ đơn <strong>#%s</strong>. Vui lòng kiểm tra và xét duyệt thù lao / chế tài theo quy chế Studio của bạn.
+                          </p>
+
+                          <!-- Detail Card -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 24px;">
+                            <tr>
+                              <td style="padding: 18px 20px;">
+                                <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                                  <tr>
+                                    <td width="38%%" style="padding: 6px 0; font-size: 13px; color: #64748b;">Chuyên viên:</td>
+                                    <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #0f172a;">%s (SĐT: %s)</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">Mã lịch hẹn:</td>
+                                    <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #2563eb;">#%s</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">Thời gian vượt:</td>
+                                    <td style="padding: 6px 0; font-size: 14px; font-weight: 800; color: #dc2626;">+%d phút</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #64748b; vertical-align: top;">Lý do giải trình:</td>
+                                    <td style="padding: 6px 0; font-size: 13px; color: #334155; font-style: italic; line-height: 1.5;">"%s"</td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- Action Button -->
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="margin-top: 10px;">
+                            <tr>
+                              <td align="center">
+                                <a href="%s/agency/staff-management?tab=overtime" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 32px; border-radius: 10px;">
+                                  Xem & Xét Duyệt Báo Cáo Trên Web
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 30px; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                          Email tự động được gửi từ hệ thống MUA Makeup Platform.<br>
+                          Hotline hỗ trợ Studio 24/7: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                studioName,
+                owner,
+                studioName,
+                staff,
+                bookingId,
+                staff,
+                staffPhone,
+                bookingId,
+                minutes,
+                explanation,
+                frontendUrl
+        );
+    }
+
+    // =========================================================================
+    // IMPLEMENTATION: DISPUTE & COMPLAINT EMAIL NOTIFICATIONS
+    // =========================================================================
+
+    @Override
+    @Async
+    public void sendAdminDisputeAlertEmail(
+            String toEmail,
+            String adminName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String workerName,
+            String workerPhone,
+            String disputeReason,
+            String disputeProofUrl,
+            BigDecimal depositAmount,
+            BigDecimal totalAmount
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send dispute alert to admin: email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] 🚨 Cảnh Báo Khiếu Nại Mới Cần Phân Xử: #" + bookingCode;
+        String htmlContent = buildAdminDisputeAlertHtml(
+                adminName, bookingCode, customerName, customerPhone,
+                workerName, workerPhone, disputeReason, disputeProofUrl,
+                depositAmount, totalAmount
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendCustomerDisputeReceivedEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String workerName,
+            String packageName,
+            String reason,
+            BigDecimal depositAmount
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send dispute received email: customer email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] Tiếp Nhận Khiếu Nại Đơn Hàng: #" + bookingCode;
+        String htmlContent = buildCustomerDisputeReceivedHtml(
+                customerName, bookingCode, workerName, packageName, reason, depositAmount
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendWorkerDisputeNoticeEmail(
+            String toEmail,
+            String workerName,
+            String bookingCode,
+            String customerName,
+            String reason,
+            Integer hoursToCounter
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send dispute notice: worker email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] ⚠️ Yêu Cầu Giải Trình Khiếu Nại Đơn: #" + bookingCode;
+        String htmlContent = buildWorkerDisputeNoticeHtml(
+                workerName, bookingCode, customerName, reason, hoursToCounter
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendAgencyDisputeNoticeEmail(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            String bookingCode,
+            String customerName,
+            String reason
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send dispute notice: agency email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] ⚠️ Ca Của Nhân Viên Bị Khiếu Nại: #" + bookingCode;
+        String htmlContent = buildAgencyDisputeNoticeHtml(
+                agencyOwnerName, agencyName, staffName, staffPhone, bookingCode, customerName, reason
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendCustomerDisputeResolutionEmail(
+            String toEmail,
+            String customerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal refundAmount
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send dispute resolution to customer: email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] Kết Quả Phân Xử Khiếu Nại Đơn Hàng: #" + bookingCode;
+        String htmlContent = buildCustomerDisputeResolutionHtml(
+                customerName, bookingCode, resolution, resolutionNote, refundAmount
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendWorkerDisputeResolutionEmail(
+            String toEmail,
+            String workerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal payoutAmount
+    ) {
+        sendWorkerDisputeResolutionEmail(toEmail, workerName, bookingCode, resolution, resolutionNote, payoutAmount, false);
+    }
+
+    @Override
+    @Async
+    public void sendWorkerDisputeResolutionEmail(
+            String toEmail,
+            String workerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal payoutAmount,
+            boolean isCompletedService
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send dispute resolution to worker: email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] Phán Quyết Khiếu Nại Đơn Hàng: #" + bookingCode;
+        String htmlContent = buildWorkerDisputeResolutionHtml(
+                workerName, bookingCode, resolution, resolutionNote, payoutAmount, isCompletedService
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    @Async
+    public void sendAgencyDisputeResolutionEmail(
+            String toEmail,
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote
+    ) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("[EmailService] Cannot send dispute resolution to agency: email is missing for booking {}", bookingCode);
+            return;
+        }
+
+        String subject = "[" + BRAND_NAME + "] Kết Quả Phân Xử Khiếu Nại Ca Làm Studio: #" + bookingCode;
+        String htmlContent = buildAgencyDisputeResolutionHtml(
+                agencyOwnerName, agencyName, staffName, bookingCode, resolution, resolutionNote
+        );
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    // =========================================================================
+    // HTML TEMPLATE BUILDERS FOR DISPUTE NOTIFICATIONS
+    // =========================================================================
+
+    private String formatVnd(BigDecimal amount) {
+        if (amount == null) return "0 ₫";
+        NumberFormat fmt = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("vi-VN"));
+        return fmt.format(amount);
+    }
+
+    private String buildAdminDisputeAlertHtml(
+            String adminName,
+            String bookingCode,
+            String customerName,
+            String customerPhone,
+            String workerName,
+            String workerPhone,
+            String disputeReason,
+            String disputeProofUrl,
+            BigDecimal depositAmount,
+            BigDecimal totalAmount
+    ) {
+        String admin = (adminName != null && !adminName.isBlank()) ? adminName : "Quản trị viên";
+        String proofSection = (disputeProofUrl != null && !disputeProofUrl.isBlank())
+                ? "<p style=\"margin: 8px 0 0 0; font-size: 12px; color: #64748b;\"><strong>Minh chứng hiện trường:</strong> Đã đính kèm ảnh/video trong hệ thống.</p>"
+                : "<p style=\"margin: 8px 0 0 0; font-size: 12px; color: #94a3b8; font-style: italic;\">Chưa có ảnh minh chứng tải kèm.</p>";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Cảnh Báo Khiếu Nại Mới</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 36px 12px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #450a0a 0%%, #881337 50%%, #9f1239 100%%); padding: 32px 28px; text-align: center;">
+                          <div style="display: inline-block; padding: 5px 12px; border-radius: 9999px; background: rgba(255,255,255,0.15); border: 1px solid rgba(254,205,211,0.4); margin-bottom: 8px;">
+                            <span style="color: #fecdd3; font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; TRUNG TÂM PHÂN XỬ
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 800; letter-spacing: 0.5px;">
+                            CẢNH BÁO KHIẾU NẠI MỚI CẦN PHÂN XỬ
+                          </h1>
+                          <p style="margin: 6px 0 0 0; color: #ffe4e6; font-size: 12px;">
+                            Đơn hàng #%s vừa phát sinh tranh chấp giữa khách hàng & chuyên viên
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 32px 28px;">
+                          <p style="margin: 0 0 14px 0; font-size: 14.5px; color: #1e293b;">
+                            Xin chào <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 20px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
+                            Hệ thống đã tự động đóng băng quỹ tiền cọc/đơn hàng và chuyển đơn vào trạng thái <strong>DISPUTED (Chờ Admin phân xử)</strong>. Dưới đây là thông tin đối soát:
+                          </p>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fff1f2; border: 1.5px dashed #f43f5e; border-radius: 12px; padding: 16px 20px; margin-bottom: 22px;">
+                            <tr>
+                              <td align="left">
+                                <span style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase; letter-spacing: 0.8px;">MÃ ĐƠN HÀNG</span>
+                                <span style="display: block; font-size: 19px; font-weight: 900; color: #e11d48; margin-top: 2px;">#%s</span>
+                              </td>
+                              <td align="right">
+                                <span style="display: inline-block; background-color: #fee2e2; color: #b91c1c; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 9999px; border: 1px solid #fca5a5;">
+                                  ⚖️ Cần phân xử
+                                </span>
+                              </td>
+                            </tr>
+                          </table>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 22px;">
+                            <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 12px 16px; font-size: 12.5px; font-weight: 700; color: #334155;">Khách hàng</td>
+                              <td style="padding: 12px 16px; font-size: 13px; color: #0f172a; font-weight: 600;">%s (%s)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0;">
+                              <td style="padding: 12px 16px; font-size: 12.5px; font-weight: 700; color: #334155;">Chuyên viên làm ca</td>
+                              <td style="padding: 12px 16px; font-size: 13px; color: #0f172a; font-weight: 600;">%s (%s)</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #e2e8f0; background-color: #f8fafc;">
+                              <td style="padding: 12px 16px; font-size: 12.5px; font-weight: 700; color: #334155;">Tiền cọc tạm giữ</td>
+                              <td style="padding: 12px 16px; font-size: 13px; color: #059669; font-weight: 800;">%s</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 12px 16px; font-size: 12.5px; font-weight: 700; color: #334155;">Tổng giá trị ca</td>
+                              <td style="padding: 12px 16px; font-size: 13px; color: #0f172a; font-weight: 800;">%s</td>
+                            </tr>
+                          </table>
+                          <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 14px 16px; margin-bottom: 24px;">
+                            <span style="font-size: 11.5px; font-weight: 800; color: #92400e; text-transform: uppercase;">LÝ DO BÁO CÁO SỰ CỐ / KHIẾU NẠI:</span>
+                            <p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.5; font-style: italic;">
+                              "%s"
+                            </p>
+                            %s
+                          </div>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td align="center">
+                                <a href="%s/admin/disputes" style="display: inline-block; background-color: #be123c; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 14px 28px; border-radius: 10px; box-shadow: 0 4px 12px rgba(190,18,60,0.3);">
+                                  Vào Admin Portal Phân Xử Đơn
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Email thông báo quản trị tự động &bull; Hệ thống MUA Makeup Platform
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                bookingCode,
+                admin,
+                bookingCode,
+                customerName != null ? customerName : "Khách hàng",
+                customerPhone != null ? customerPhone : "N/A",
+                workerName != null ? workerName : "Chuyên viên MUA",
+                workerPhone != null ? workerPhone : "N/A",
+                formatVnd(depositAmount),
+                formatVnd(totalAmount),
+                disputeReason != null ? disputeReason : "Chưa có mô tả cụ thể",
+                proofSection,
+                frontendUrl
+        );
+    }
+
+    private String buildCustomerDisputeReceivedHtml(
+            String customerName,
+            String bookingCode,
+            String workerName,
+            String packageName,
+            String reason,
+            BigDecimal depositAmount
+    ) {
+        String name = (customerName != null && !customerName.isBlank()) ? customerName : "Quý khách";
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Xác Nhận Tiếp Nhận Khiếu Nại</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 36px 12px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e1b4b 100%%); padding: 32px 28px; text-align: center;">
+                          <div style="display: inline-block; padding: 5px 12px; border-radius: 9999px; background: rgba(255,255,255,0.1); border: 1px solid rgba(251,191,36,0.3); margin-bottom: 8px;">
+                            <span style="color: #fbbf24; font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; BẢO VỆ KHÁCH HÀNG
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 800;">
+                            ĐÃ TIẾP NHẬN BÁO CÁO KHIẾU NẠI
+                          </h1>
+                          <p style="margin: 6px 0 0 0; color: #cbd5e1; font-size: 12px;">
+                            Đơn hàng #%s đang được Ban Quản Trị đối soát minh chứng
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 30px 28px;">
+                          <p style="margin: 0 0 14px 0; font-size: 14.5px; color: #1e293b;">
+                            Xin chào <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
+                            Chúng tôi đã ghi nhận báo cáo sự cố của bạn cho đơn hàng <strong>#%s</strong> (Gói: <em>%s</em>) với chuyên viên <strong>%s</strong>.
+                          </p>
+                          <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; border-radius: 6px; padding: 14px 16px; margin-bottom: 20px;">
+                            <strong style="color: #065f46; font-size: 12.5px;">🛡️ Cam kết bảo vệ quyền lợi tiền cọc (Escrow):</strong>
+                            <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #047857; line-height: 1.5;">
+                              Khoản thanh toán của bạn (<strong>%s</strong>) đã được hệ thống tạm khóa an toàn. Chuyên viên sẽ không thể rút số tiền này cho đến khi Ban Quản Trị xác minh xong.
+                            </p>
+                          </div>
+                          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 22px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">LÝ DO BẠN ĐÃ BÁO CÁO:</span>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #1e293b; font-style: italic;">
+                              "%s"
+                            </p>
+                          </div>
+                          <p style="margin: 0 0 24px 0; font-size: 13px; line-height: 1.6; color: #475569;">
+                            Ban Quản Trị đang thu thập lời khai đối chất từ chuyên viên và sẽ ra phán quyết trong vòng <strong>24 giờ</strong>. Kết quả và số tiền hoàn (nếu có) sẽ được thông báo ngay qua email và ứng dụng của bạn.
+                          </p>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td align="center">
+                                <a href="%s/booking/history" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 13px 26px; border-radius: 10px;">
+                                  Theo Dõi Tiến Trình Đơn Hàng
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Hotline hỗ trợ khách hàng: <strong style="color: #64748b;">1900 8888</strong> &bull; Email: <strong style="color: #64748b;">support@muamakeup.vn</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                bookingCode,
+                name,
+                bookingCode,
+                packageName != null ? packageName : "Dịch vụ trang điểm",
+                workerName != null ? workerName : "Chuyên viên trang điểm",
+                formatVnd(depositAmount),
+                reason != null ? reason : "Khiếu nại về chất lượng ca làm",
+                frontendUrl
+        );
+    }
+
+    private String buildWorkerDisputeNoticeHtml(
+            String workerName,
+            String bookingCode,
+            String customerName,
+            String reason,
+            Integer hoursToCounter
+    ) {
+        String name = (workerName != null && !workerName.isBlank()) ? workerName : "Chuyên viên";
+        int hours = (hoursToCounter != null && hoursToCounter > 0) ? hoursToCounter : 24;
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Yêu Cầu Giải Trình Đối Chất</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 36px 12px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #78350f 0%%, #b45309 100%%); padding: 32px 28px; text-align: center;">
+                          <div style="display: inline-block; padding: 5px 12px; border-radius: 9999px; background: rgba(255,255,255,0.15); border: 1px solid rgba(253,230,138,0.4); margin-bottom: 8px;">
+                            <span style="color: #fde68a; font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; ĐỐI SOÁT MINH CHỨNG
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 800;">
+                            YÊU CẦU GIẢI TRÌNH ĐỐI CHẤT
+                          </h1>
+                          <p style="margin: 6px 0 0 0; color: #fef3c7; font-size: 12px;">
+                            Đơn hàng #%s có khiếu nại từ khách hàng %s
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 30px 28px;">
+                          <p style="margin: 0 0 14px 0; font-size: 14.5px; color: #1e293b;">
+                            Chào <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
+                            Khách hàng <strong>%s</strong> đã gửi khiếu nại đối với ca làm việc <strong>#%s</strong> của bạn.
+                          </p>
+                          <div style="background-color: #fff1f2; border-left: 4px solid #f43f5e; border-radius: 6px; padding: 14px 16px; margin-bottom: 20px;">
+                            <span style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">LÝ DO KHIẾU NẠI TỪ KHÁCH HÀNG:</span>
+                            <p style="margin: 6px 0 0 0; font-size: 13px; color: #881337; line-height: 1.5; font-style: italic;">
+                              "%s"
+                            </p>
+                          </div>
+                          <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px 16px; margin-bottom: 22px;">
+                            <strong style="color: #92400e; font-size: 12.5px;">⏰ Quyền lợi đối chất trong vòng %d giờ:</strong>
+                            <p style="margin: 6px 0 0 0; font-size: 12.5px; color: #78350f; line-height: 1.5;">
+                              Để bảo vệ quyền lợi thù lao của mình, bạn vui lòng mở ngay ứng dụng MUA Makeup Platform, vào chi tiết ca làm việc để <strong>gửi lời khai giải trình và ảnh hiện trường</strong>.
+                              Nếu quá thời hạn trên mà bạn không gửi minh chứng, Ban Quản Trị sẽ căn cứ trên lời khai của khách hàng để đưa ra phán quyết hoàn cọc.
+                            </p>
+                          </div>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="display: inline-block; background-color: #b45309; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 13px 28px; border-radius: 10px; box-shadow: 0 4px 12px rgba(180,83,9,0.3);">
+                                  Mở Ứng Dụng Đối Chất Ngay
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Bộ phận hỗ trợ đối tác chuyên viên MUA: <strong style="color: #64748b;">1900 8888</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                bookingCode,
+                customerName != null ? customerName : "",
+                name,
+                customerName != null ? customerName : "Khách hàng",
+                bookingCode,
+                reason != null ? reason : "Khách hàng báo cáo sự cố ca làm",
+                hours,
+                frontendUrl
+        );
+    }
+
+    private String buildAgencyDisputeNoticeHtml(
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String staffPhone,
+            String bookingCode,
+            String customerName,
+            String reason
+    ) {
+        String owner = (agencyOwnerName != null && !agencyOwnerName.isBlank()) ? agencyOwnerName : "Chủ Studio";
+        String studio = (agencyName != null && !agencyName.isBlank()) ? agencyName : "Studio Đối tác";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Ca Của Nhân Viên Bị Khiếu Nại</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 36px 12px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #1e1b4b 0%%, #431407 100%%); padding: 32px 28px; text-align: center;">
+                          <div style="display: inline-block; padding: 5px 12px; border-radius: 9999px; background: rgba(255,255,255,0.1); border: 1px solid rgba(251,191,36,0.3); margin-bottom: 8px;">
+                            <span style="color: #fbbf24; font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; QUẢN TRỊ STUDIO
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 800;">
+                            CA LÀM NHÂN VIÊN GẶP KHIẾU NẠI
+                          </h1>
+                          <p style="margin: 6px 0 0 0; color: #fed7aa; font-size: 12px;">
+                            Đơn hàng #%s của Studio %s
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 30px 28px;">
+                          <p style="margin: 0 0 14px 0; font-size: 14.5px; color: #1e293b;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
+                            Nhân viên <strong>%s</strong> (SĐT: %s) thuộc Studio <strong>%s</strong> vừa nhận khiếu nại từ khách hàng <strong>%s</strong> tại đơn hàng <strong>#%s</strong>.
+                          </p>
+                          <div style="background-color: #fff1f2; border-left: 4px solid #e11d48; border-radius: 6px; padding: 14px 16px; margin-bottom: 20px;">
+                            <span style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">NỘI DUNG KHIẾU NẠI:</span>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #881337; font-style: italic;">
+                              "%s"
+                            </p>
+                          </div>
+                          <p style="margin: 0 0 22px 0; font-size: 13px; line-height: 1.6; color: #475569;">
+                            Hệ thống đã thông báo cho nhân viên mở ứng dụng gửi lời khai và ảnh nghiệm thu hiện trường. Quý Studio vui lòng nhắc nhở nhân viên phối hợp đối chất kịp thời để đảm bảo uy tín và quyền lợi thù lao của Studio.
+                          </p>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td align="center">
+                                <a href="%s/agency/dispatches" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 13px 26px; border-radius: 10px;">
+                                  Xem Ca Làm Trên Studio Dashboard
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Hỗ trợ điều phối Studio 24/7: <strong style="color: #64748b;">1900 8888</strong>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                bookingCode,
+                studio,
+                owner,
+                staffName != null ? staffName : "Nhân viên",
+                staffPhone != null ? staffPhone : "N/A",
+                studio,
+                customerName != null ? customerName : "Khách hàng",
+                bookingCode,
+                reason != null ? reason : "Báo cáo sự cố từ khách hàng",
+                frontendUrl
+        );
+    }
+
+    private String buildCustomerDisputeResolutionHtml(
+            String customerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal refundAmount
+    ) {
+        String name = (customerName != null && !customerName.isBlank()) ? customerName : "Quý khách";
+        boolean isApproved = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution);
+        boolean isSplit = "SPLIT_SETTLEMENT_50_50".equalsIgnoreCase(resolution) || "SPLIT_50_50".equalsIgnoreCase(resolution);
+
+        String resultBadge = isApproved
+                ? "<span style=\"display: inline-block; background-color: #d1fae5; color: #065f46; font-size: 11.5px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #a7f3d0;\">✅ Chấp Thuận Khiếu Nại (Hoàn Tiền 100%%)</span>"
+                : (isSplit
+                ? "<span style=\"display: inline-block; background-color: #fef3c7; color: #92400e; font-size: 11.5px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #fde68a;\">🤝 Hòa Giải 50/50</span>"
+                : "<span style=\"display: inline-block; background-color: #fee2e2; color: #991b1b; font-size: 11.5px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #fca5a5;\">❌ Từ Chối Khiếu Nại</span>");
+
+        String refundBox = (refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0)
+                ? """
+                  <div style="background-color: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; text-align: center;">
+                    <span style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">SỐ TIỀN HOÀN LẠI VÀO VÍ CỦA BẠN</span>
+                    <span style="display: block; font-size: 24px; font-weight: 900; color: #059669; margin-top: 4px;">%s</span>
+                    <span style="font-size: 11.5px; color: #047857;">Số tiền đã khả dụng trong ví của bạn trên ứng dụng.</span>
+                  </div>
+                  """.formatted(formatVnd(refundAmount))
+                : "";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Kết Quả Phân Xử Khiếu Nại</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 36px 12px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e1b4b 100%%); padding: 32px 28px; text-align: center;">
+                          <div style="display: inline-block; padding: 5px 12px; border-radius: 9999px; background: rgba(255,255,255,0.1); border: 1px solid rgba(251,191,36,0.3); margin-bottom: 8px;">
+                            <span style="color: #fbbf24; font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; PHÁN QUYẾT CHÍNH THỨC
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 800;">
+                            KẾT QUẢ PHÂN XỬ KHIẾU NẠI
+                          </h1>
+                          <p style="margin: 6px 0 0 0; color: #cbd5e1; font-size: 12px;">
+                            Đơn hàng #%s đã có quyết định chính thức từ Ban Quản Trị
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 30px 28px;">
+                          <p style="margin: 0 0 14px 0; font-size: 14.5px; color: #1e293b;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
+                            Ban Quản Trị MUA Makeup Platform đã hoàn tất đối soát lời khai và minh chứng giữa hai phía cho đơn hàng <strong>#%s</strong>.
+                          </p>
+                          <div style="text-align: center; margin-bottom: 20px;">
+                            %s
+                          </div>
+                          %s
+                          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 22px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">GHI CHÚ PHÁN QUYẾT TỪ BAN QUẢN TRỊ:</span>
+                            <p style="margin: 6px 0 0 0; font-size: 13px; color: #0f172a; line-height: 1.5;">
+                              "%s"
+                            </p>
+                          </div>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td align="center">
+                                <a href="%s/wallet" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 13px 26px; border-radius: 10px;">
+                                  Kiểm Tra Số Dư Ví Của Bạn
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          Mọi thắc mắc vui lòng liên hệ: <strong style="color: #64748b;">1900 8888</strong> &bull; support@muamakeup.vn
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                bookingCode,
+                name,
+                bookingCode,
+                resultBadge,
+                refundBox,
+                resolutionNote != null ? resolutionNote : "Ban Quản Trị đã đối soát căn cứ quy chế nền tảng",
+                frontendUrl
+        );
+    }
+
+    private String buildWorkerDisputeResolutionHtml(
+            String workerName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote,
+            BigDecimal payoutAmount,
+            boolean isCompletedService
+    ) {
+        String name = (workerName != null && !workerName.isBlank()) ? workerName : "Chuyên viên";
+        boolean isPayoutApproved = "REJECT_AND_PAYOUT_MUA".equalsIgnoreCase(resolution) || "APPROVE_COMPENSATION_MUA".equalsIgnoreCase(resolution);
+
+        String statusBadge = isPayoutApproved
+                ? (isCompletedService
+                        ? "<span style=\"display: inline-block; background-color: #d1fae5; color: #065f46; font-size: 11.5px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #a7f3d0;\">✅ Đã Duyệt Giải Trình & Bảo Lưu Thù Lao</span>"
+                        : "<span style=\"display: inline-block; background-color: #d1fae5; color: #065f46; font-size: 11.5px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #a7f3d0;\">✅ Đã Duyệt Giải Trình & Bồi Thường Tiền Cọc</span>")
+                : "<span style=\"display: inline-block; background-color: #fee2e2; color: #991b1b; font-size: 11.5px; font-weight: 800; padding: 6px 14px; border-radius: 9999px; border: 1px solid #fca5a5;\">⚠️ Chấp Thuận Khiếu Nại Của Khách Hàng</span>";
+
+        String payoutBox = "";
+        if (isPayoutApproved && payoutAmount != null && payoutAmount.compareTo(BigDecimal.ZERO) > 0) {
+            if (isCompletedService) {
+                payoutBox = """
+                  <div style="background-color: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; text-align: center;">
+                    <span style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">THÙ LAO CA LÀM ĐƯỢC BẢO LƯU TRỌN VẸN</span>
+                    <span style="display: block; font-size: 24px; font-weight: 900; color: #059669; margin-top: 4px;">%s</span>
+                    <span style="font-size: 11.5px; color: #047857;">Khiếu nại của khách đã bị bác bỏ. Bạn không bị trừ tiền, toàn bộ thù lao đã nhận sau ca làm việc được bảo lưu nguyên vẹn.</span>
+                  </div>
+                  """.formatted(formatVnd(payoutAmount));
+            } else {
+                payoutBox = """
+                  <div style="background-color: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; text-align: center;">
+                    <span style="font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase;">THÙ LAO / BỒI THƯỜNG ĐƯỢC GIẢI NGÂN</span>
+                    <span style="display: block; font-size: 24px; font-weight: 900; color: #059669; margin-top: 4px;">%s</span>
+                    <span style="font-size: 11.5px; color: #047857;">Số tiền bồi thường cọc đã được cộng vào Ví thu nhập của bạn.</span>
+                  </div>
+                  """.formatted(formatVnd(payoutAmount));
+            }
+        }
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Phán Quyết Khiếu Nại Ca Làm Việc</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 36px 12px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #312e81 100%%); padding: 32px 28px; text-align: center;">
+                          <div style="display: inline-block; padding: 5px 12px; border-radius: 9999px; background: rgba(255,255,255,0.1); border: 1px solid rgba(251,191,36,0.3); margin-bottom: 8px;">
+                            <span style="color: #fbbf24; font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; PHÁN QUYẾT KHIẾU NẠI
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 800;">
+                            KẾT QUẢ PHÂN XỬ ĐƠN HÀNG
+                          </h1>
+                          <p style="margin: 6px 0 0 0; color: #cbd5e1; font-size: 12px;">
+                            Đơn hàng #%s đã có quyết định chính thức từ Ban Quản Trị
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 30px 28px;">
+                          <p style="margin: 0 0 14px 0; font-size: 14.5px; color: #1e293b;">
+                            Chào <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
+                            Ban Quản Trị đã hoàn tất xem xét hồ sơ đối chất và đưa ra phán quyết cho đơn hàng <strong>#%s</strong> của bạn.
+                          </p>
+                          <div style="text-align: center; margin-bottom: 20px;">
+                            %s
+                          </div>
+                          %s
+                          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 22px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">GHI CHÚ TỪ BAN QUẢN TRỊ:</span>
+                            <p style="margin: 6px 0 0 0; font-size: 13px; color: #0f172a; line-height: 1.5;">
+                              "%s"
+                            </p>
+                          </div>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td align="center">
+                                <a href="%s" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 13px 26px; border-radius: 10px;">
+                                  Xem Chi Tiết Ví Thu Nhập
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          MUA Makeup Platform &bull; Hỗ trợ đối tác chuyên viên 24/7
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                bookingCode,
+                name,
+                bookingCode,
+                statusBadge,
+                payoutBox,
+                resolutionNote != null ? resolutionNote : "Căn cứ quy chế hoạt động và minh chứng cung cấp",
+                frontendUrl
+        );
+    }
+
+    private String buildAgencyDisputeResolutionHtml(
+            String agencyOwnerName,
+            String agencyName,
+            String staffName,
+            String bookingCode,
+            String resolution,
+            String resolutionNote
+    ) {
+        String owner = (agencyOwnerName != null && !agencyOwnerName.isBlank()) ? agencyOwnerName : "Chủ Studio";
+        String studio = (agencyName != null && !agencyName.isBlank()) ? agencyName : "Studio";
+        boolean isApprovedRefund = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution);
+
+        String resultText = isApprovedRefund
+                ? "Chấp thuận khiếu nại của khách hàng (Thu hồi thù lao hoàn khách)"
+                : "Duyệt giải trình của nhân viên (Bảo lưu thù lao cho Studio)";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Kết Quả Phân Xử Ca Làm Studio</title>
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+              <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 36px 12px;">
+                <tr>
+                  <td align="center">
+                    <table width="100%%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0f172a 0%%, #1e1b4b 100%%); padding: 32px 28px; text-align: center;">
+                          <div style="display: inline-block; padding: 5px 12px; border-radius: 9999px; background: rgba(255,255,255,0.1); border: 1px solid rgba(251,191,36,0.3); margin-bottom: 8px;">
+                            <span style="color: #fbbf24; font-size: 10.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">
+                              MUA MAKEUP PLATFORM &bull; THÔNG BÁO STUDIO
+                            </span>
+                          </div>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 19px; font-weight: 800;">
+                            KẾT QUẢ PHÂN XỬ CA LÀM
+                          </h1>
+                          <p style="margin: 6px 0 0 0; color: #cbd5e1; font-size: 12px;">
+                            Đơn hàng #%s của Studio %s
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 30px 28px;">
+                          <p style="margin: 0 0 14px 0; font-size: 14.5px; color: #1e293b;">
+                            Kính gửi <strong>%s</strong>,
+                          </p>
+                          <p style="margin: 0 0 18px 0; font-size: 13.5px; line-height: 1.6; color: #475569;">
+                            Ban Quản Trị đã có phán quyết chính thức cho ca làm việc <strong>#%s</strong> của nhân viên <strong>%s</strong> (Studio %s):
+                          </p>
+                          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">KẾT QUẢ PHÁN QUYẾT:</span>
+                            <p style="margin: 4px 0 8px 0; font-size: 13.5px; font-weight: 700; color: #0f172a;">
+                              %s
+                            </p>
+                            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">GHI CHÚ ADMIN:</span>
+                            <p style="margin: 4px 0 0 0; font-size: 13px; color: #334155; font-style: italic;">
+                              "%s"
+                            </p>
+                          </div>
+                          <table width="100%%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                              <td align="center">
+                                <a href="%s/agency/dashboard" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; font-size: 13.5px; font-weight: 700; padding: 13px 26px; border-radius: 10px;">
+                                  Xem Báo Cáo Trên Dashboard Studio
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8;">
+                          MUA Makeup Platform &bull; Hỗ trợ đối tác Studio 24/7
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(
+                bookingCode,
+                studio,
+                owner,
+                bookingCode,
+                staffName != null ? staffName : "Nhân viên",
+                studio,
+                resultText,
+                resolutionNote != null ? resolutionNote : "Đã đối soát minh chứng",
+                frontendUrl
+        );
+    }
 }
+

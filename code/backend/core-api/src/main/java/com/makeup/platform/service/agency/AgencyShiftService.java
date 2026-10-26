@@ -19,7 +19,7 @@ public interface AgencyShiftService {
 
     ShiftDetailRes updateShift(Long userId, Long shiftId, ConfigureShiftReq req);
 
-    List<ShiftDetailRes> getStaffShifts(Long userId, Long staffId);
+    List<ShiftDetailRes> getStaffShifts(Long userId, Long staffId, LocalDate startDate, LocalDate endDate);
 
     void deleteShift(Long userId, Long shiftId);
 }

@@ -8,10 +8,7 @@ import com.makeup.platform.dto.request.catalog.CreatePackageReq;
 import com.makeup.platform.dto.request.catalog.UpdatePackageReq;
 import com.makeup.platform.dto.response.catalog.PackageDetailRes;
 import com.makeup.platform.dto.response.catalog.PackageSummaryRes;
-import com.makeup.platform.entity.catalog.MakeupStyleEntity;
-import com.makeup.platform.entity.catalog.MasterCategoryEntity;
-import com.makeup.platform.entity.catalog.PackageItemEntity;
-import com.makeup.platform.entity.catalog.ServicePackageEntity;
+import com.makeup.platform.entity.catalog.*;
 import com.makeup.platform.mapper.catalog.ServicePackageMapper;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.MasterCategoryRepository;
@@ -29,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.makeup.platform.repository.catalog.PortfolioShowcaseRepository;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -146,7 +144,9 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Override
     public void deletePackage(Long userId, Long packageId) {
         ServicePackageEntity pkg = findPackageAndCheckOwnership(userId, packageId);
-        packageRepository.delete(pkg);
+        pkg.setIsDeleted(true);
+        pkg.setIsAvailable(false);
+        packageRepository.save(pkg);
     }
 
     @Override
@@ -155,7 +155,14 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "catalog.package_not_found", packageId));
-        return packageMapper.toDetailRes(pkg, getCoverImageUrl(pkg.getId()));
+        if (Boolean.TRUE.equals(pkg.getIsDeleted())) {
+            throw new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                    "catalog.package_not_found", packageId);
+        }
+
+        List<String> allImages = getAllImagesForPackage(pkg.getId());
+        String coverUrl = allImages.isEmpty() ? getCoverImageUrl(pkg.getId()) : allImages.get(0);
+        return packageMapper.toDetailRes(pkg, coverUrl, allImages);
     }
 
     @Override
@@ -163,6 +170,8 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     public List<PackageSummaryRes> listPackages(Long agencyId, Long muaId, Integer categoryId, Boolean availableOnly) {
         Specification<ServicePackageEntity> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            predicates.add(cb.isFalse(root.get("isDeleted")));
 
             if (agencyId != null) {
                 predicates.add(cb.equal(root.get("agency").get("id"), agencyId));
@@ -191,9 +200,9 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
         Page<ServicePackageEntity> page;
         if (owner.isAgency()) {
-            page = packageRepository.findByAgencyId(owner.getAgency().getId(), pageable);
+            page = packageRepository.findByAgencyIdAndIsDeletedFalse(owner.getAgency().getId(), pageable);
         } else {
-            page = packageRepository.findByMuaId(owner.getMua().getId(), pageable);
+            page = packageRepository.findByMuaIdAndIsDeletedFalse(owner.getMua().getId(), pageable);
         }
         // Lấy ảnh bìa (showcase đầu tiên) cho từng gói theo batch query
         Map<Long, String> coverMap = getCoverImageMap(page.getContent());
@@ -224,6 +233,30 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         return covers.isEmpty() ? null : covers.get(0);
     }
 
+    private List<String> getAllImagesForPackage(Long packageId) {
+        if (packageId == null) {
+            return Collections.emptyList();
+        }
+        List<PortfolioShowcaseEntity> showcases = portfolioShowcaseRepository.findAllByPackageId(packageId);
+        if (showcases == null || showcases.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> images = new ArrayList<>();
+        for (PortfolioShowcaseEntity sc : showcases) {
+            if (StringUtils.hasText(sc.getImageUrl()) && !images.contains(sc.getImageUrl())) {
+                images.add(sc.getImageUrl());
+            }
+            if (sc.getAdditionalImages() != null) {
+                for (String addImg : sc.getAdditionalImages()) {
+                    if (StringUtils.hasText(addImg) && !images.contains(addImg)) {
+                        images.add(addImg);
+                    }
+                }
+            }
+        }
+        return images;
+    }
+
     private Map<Long, String> getCoverImageMap(List<ServicePackageEntity> packages) {
         if (packages == null || packages.isEmpty()) {
             return Collections.emptyMap();
@@ -250,6 +283,11 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         ServicePackageEntity pkg = packageRepository.findById(packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "ERR_PACKAGE_NOT_FOUND", packageId));
+
+        if (Boolean.TRUE.equals(pkg.getIsDeleted())) {
+            throw new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                    "ERR_PACKAGE_NOT_FOUND", packageId);
+        }
 
         CatalogOwnerHelper.OwnerContext owner = ownerHelper.resolveOwner(userId);
 

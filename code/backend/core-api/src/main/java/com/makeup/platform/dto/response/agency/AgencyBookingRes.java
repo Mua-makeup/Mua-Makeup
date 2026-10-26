@@ -59,6 +59,7 @@ public class AgencyBookingRes {
     private String categoryName;
     @Builder.Default
     private List<PackageItemRes> packageItems = List.of();
+    private String selectedAddons;
     private LocalDateTime scheduledStartTime;
     private LocalDateTime scheduledEndTime;
 

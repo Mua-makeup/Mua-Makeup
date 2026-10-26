@@ -6,13 +6,18 @@ import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.response.notification.NotificationRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.agency.AgencyStaffEntity;
+import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.interaction.NotificationEntity;
 import com.makeup.platform.mapper.interaction.NotificationMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.interaction.NotificationRepository;
 import com.makeup.platform.service.interaction.NotificationService;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -29,9 +34,12 @@ import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.common.i18n.JsonMessageSource;
 import com.makeup.platform.service.mail.EmailService;
+import com.makeup.platform.service.interaction.UserWebSocketNotificationService;
+import com.makeup.platform.service.interaction.ExpoPushNotificationService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -50,6 +58,8 @@ public class NotificationServiceImpl implements NotificationService {
     private final SimpMessagingTemplate messagingTemplate;
     private final JsonMessageSource messageSource;
     private final EmailService emailService;
+    private final UserWebSocketNotificationService userWebSocketNotificationService;
+    private final ExpoPushNotificationService expoPushNotificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -65,9 +75,9 @@ public class NotificationServiceImpl implements NotificationService {
             String filterType = StringUtils.hasText(type) ? type.trim() : null;
             page = notificationRepository.findFilteredNotifications(userId, agencyId, isRead, filterType, pageable);
         } else if (agencyId != null) {
-            page = notificationRepository.findByAgencyIdOrderByCreatedAtDesc(agencyId, pageable);
+            page = notificationRepository.findByAgencyIdAndIsDeletedFalseOrderByCreatedAtDesc(agencyId, pageable);
         } else {
-            page = notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+            page = notificationRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, pageable);
         }
         return page.map(notificationMapper::toResponse);
     }
@@ -76,10 +86,10 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     public long getUnreadCount(Long userId, Long agencyId) {
         if (agencyId != null) {
-            return notificationRepository.countByAgencyIdAndIsReadFalse(agencyId);
+            return notificationRepository.countByAgencyIdAndIsReadFalseAndIsDeletedFalse(agencyId);
         }
         if (userId != null) {
-            return notificationRepository.countByUserIdAndIsReadFalse(userId);
+            return notificationRepository.countByUserIdAndIsReadFalseAndIsDeletedFalse(userId);
         }
         return 0;
     }
@@ -139,7 +149,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_NOTIFICATION_NOT_FOUND, "Thông báo không tồn tại"));
 
         validateNotificationOwnership(notification, currentUserId);
-        notificationRepository.delete(notification);
+        notification.setIsDeleted(true);
+        notificationRepository.save(notification);
     }
 
     @Override
@@ -280,6 +291,23 @@ public class NotificationServiceImpl implements NotificationService {
             log.error("[WebSocket] Failed to broadcast staff application notification for agencyId={}", agency.getId(), e);
         }
 
+        // Gửi email thông báo tới Chủ Studio (Agency Owner)
+        if (agency.getOwner() != null && StringUtils.hasText(agency.getOwner().getEmail())) {
+            try {
+                emailService.sendAgencyStaffApplicationEmail(
+                        agency.getOwner().getEmail(),
+                        agency.getOwner().getFullName(),
+                        agency.getAgencyName(),
+                        muaName,
+                        muaPhone != null ? muaPhone : "Chưa cập nhật",
+                        inviteCode
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send staff application email to agency owner {}: {}",
+                        agency.getOwner().getEmail(), ex.getMessage());
+            }
+        }
+
         return saved;
     }
 
@@ -386,6 +414,183 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
+    public void createCertificateVerificationResultNotification(
+            MuaProfileEntity mua,
+            String certName,
+            boolean isVerified,
+            String notes
+    ) {
+        if (mua == null || mua.getUser() == null) {
+            return;
+        }
+
+        UserEntity muaUser = mua.getUser();
+        Locale locale = StringUtils.hasText(muaUser.getLanguage())
+                ? Locale.forLanguageTag(muaUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String titleKey = isVerified ? "notification.cert_approved_title" : "notification.cert_rejected_title";
+        String contentKey = isVerified ? "notification.cert_approved_content" : "notification.cert_rejected_content";
+
+        String defaultTitle = isVerified
+                ? "Chứng Chỉ Của Bạn Đã Được Phê Duyệt!"
+                : "Chứng Chỉ Chưa Được Phê Duyệt";
+        String defaultContent = isVerified
+                ? "Chúc mừng! Chứng chỉ '" + certName + "' của bạn đã được Ban Quản Trị phê duyệt. Bạn đã có thể kích hoạt tính năng nhận ca trực tuyến."
+                : "Chứng chỉ '" + certName + "' của bạn chưa được phê duyệt. Lý do: " + (StringUtils.hasText(notes) ? notes : "Hồ sơ chưa đạt tiêu chuẩn");
+
+        String title = messageSource.getLocalizedMessage(titleKey, null, defaultTitle, locale);
+        String content = messageSource.getLocalizedMessage(
+                contentKey,
+                new Object[]{certName, notes != null ? notes : ""},
+                defaultContent,
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("muaId", mua.getId());
+        metadata.put("certName", certName);
+        metadata.put("isVerified", isVerified);
+        metadata.put("status", isVerified ? "VERIFIED" : "REJECTED");
+        metadata.put("notes", notes);
+        metadata.put("verifiedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(muaUser)
+                .type(isVerified ? "CERTIFICATE_APPROVED" : "CERTIFICATE_REJECTED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created certificate verification result notification ID={} for muaUserId={}",
+                saved.getId(), muaUser.getId());
+
+        // 1. Gửi WebSocket realtime P2P đích danh (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(muaUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(muaUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Email thông báo tới Thợ MUA
+        if (StringUtils.hasText(muaUser.getEmail())) {
+            try {
+                emailService.sendCertificateVerificationResultEmail(
+                        muaUser.getEmail(),
+                        muaUser.getFullName(),
+                        certName,
+                        isVerified,
+                        notes
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send certificate result email to {}: {}", muaUser.getEmail(), ex.getMessage());
+            }
+        }
+
+        // 3. Gửi Remote Push Notification tới Màn hình khóa khi thợ tắt app / rời app
+        if (StringUtils.hasText(muaUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    muaUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createStaffApplicationResultNotification(
+            AgencyProfileEntity agency,
+            MuaProfileEntity mua,
+            boolean isApproved,
+            BigDecimal commissionRate,
+            String notes
+    ) {
+        if (mua == null || mua.getUser() == null || agency == null) {
+            return;
+        }
+
+        UserEntity muaUser = mua.getUser();
+        Locale locale = StringUtils.hasText(muaUser.getLanguage())
+                ? Locale.forLanguageTag(muaUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = agency.getAgencyName() != null ? agency.getAgencyName() : "Studio";
+        String titleKey = isApproved ? "notification.staff_app_approved_title" : "notification.staff_app_rejected_title";
+        String contentKey = isApproved ? "notification.staff_app_approved_content" : "notification.staff_app_rejected_content";
+
+        String defaultTitle = isApproved
+                ? "Chào Mừng Gia Nhập " + agencyName + "!"
+                : "Kết Quả Đơn Xin Gia Nhập " + agencyName;
+        String commissionStr = commissionRate != null ? commissionRate.stripTrailingZeros().toPlainString() + "%" : "";
+        String defaultContent = isApproved
+                ? "Chúc mừng bạn đã được Studio " + agencyName + " phê duyệt gia nhập với tỷ lệ hoa hồng " + commissionStr + "."
+                : "Studio " + agencyName + " đã từ chối đơn gia nhập của bạn. Ghi chú: " + (StringUtils.hasText(notes) ? notes : "Chưa đáp ứng yêu cầu");
+
+        String title = messageSource.getLocalizedMessage(titleKey, new Object[]{agencyName}, defaultTitle, locale);
+        String content = messageSource.getLocalizedMessage(
+                contentKey,
+                new Object[]{agencyName, commissionStr, notes != null ? notes : ""},
+                defaultContent,
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("agencyId", agency.getId());
+        metadata.put("agencyName", agencyName);
+        metadata.put("muaId", mua.getId());
+        metadata.put("isApproved", isApproved);
+        metadata.put("commissionRate", commissionRate);
+        metadata.put("notes", notes);
+        metadata.put("reviewedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(muaUser)
+                .type(isApproved ? "STAFF_APPLICATION_APPROVED" : "STAFF_APPLICATION_REJECTED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created staff application result notification ID={} for muaUserId={}",
+                saved.getId(), muaUser.getId());
+
+        // 1. Gửi WebSocket realtime P2P đích danh (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(muaUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(muaUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Email thông báo tới Thợ MUA
+        if (StringUtils.hasText(muaUser.getEmail())) {
+            try {
+                emailService.sendStaffApplicationResultEmail(
+                        muaUser.getEmail(),
+                        muaUser.getFullName(),
+                        agencyName,
+                        isApproved,
+                        commissionRate,
+                        notes
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send staff application result email to {}: {}", muaUser.getEmail(), ex.getMessage());
+            }
+        }
+
+        // 3. Gửi Remote Push Notification tới Màn hình khóa khi thợ tắt app / rời app
+        if (StringUtils.hasText(muaUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    muaUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
     public NotificationEntity createEmergencyNotification(EmergencyReassignmentRequestedEvent event) {
         AgencyProfileEntity agency = null;
         if (event.getAgencyId() != null) {
@@ -441,4 +646,923 @@ public class NotificationServiceImpl implements NotificationService {
         log.info("[Notification] Created emergency in-app notification ID={} for agencyId={}", saved.getId(), event.getAgencyId());
         return saved;
     }
+
+    @Override
+    @Transactional
+    public void createDisputeNotification(BookingEntity booking) {
+        if (booking == null) {
+            return;
+        }
+
+        String customerName = booking.getCustomer() != null ? booking.getCustomer().getFullName() : "Khách hàng";
+        String customerPhone = booking.getCustomer() != null ? booking.getCustomer().getPhoneNumber() : "";
+        String muaName = (booking.getMua() != null && booking.getMua().getUser() != null)
+                ? booking.getMua().getUser().getFullName()
+                : "Chuyên viên make-up";
+        String muaPhone = (booking.getMua() != null && booking.getMua().getUser() != null)
+                ? booking.getMua().getUser().getPhoneNumber()
+                : "";
+        String reason = StringUtils.hasText(booking.getEmergencyReason())
+                ? booking.getEmergencyReason()
+                : "Báo cáo sự cố từ khách hàng/thợ";
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", booking.getBookingCode());
+        metadata.put("customerName", customerName);
+        metadata.put("customerPhone", customerPhone);
+        metadata.put("muaName", muaName);
+        metadata.put("muaPhone", muaPhone);
+        metadata.put("reason", reason);
+        metadata.put("proofUrl", booking.getEmergencyProofUrl());
+        metadata.put("depositAmount", booking.getDepositAmount());
+        metadata.put("totalAmount", booking.getTotalAmount());
+        metadata.put("reportedAt", LocalDateTime.now().toString());
+        metadata.put("bookingPartner", booking.getBookingPartner() != null ? booking.getBookingPartner().name() : null);
+        metadata.put("agencyId", booking.getAgency() != null ? booking.getAgency().getId() : null);
+        metadata.put("agencyName", booking.getAgency() != null ? booking.getAgency().getAgencyName() : null);
+
+        boolean isFreelancerDirect = booking.getBookingPartner() == BookingPartner.FREELANCER_DIRECT || booking.getAgency() == null;
+        boolean isEscalatedToAdmin = (booking.getCancellationReason() != null && booking.getCancellationReason().contains("[LEO_THANG_ADMIN]"))
+                || (booking.getEmergencyReason() != null && booking.getEmergencyReason().contains("[LEO_THANG_ADMIN]"));
+        boolean shouldNotifyAdmin = isFreelancerDirect || isEscalatedToAdmin;
+
+        // 1. Gửi thông báo & Email tới Ban Quản Trị Hệ Thống (Super Admins) CHỈ KHI là đơn Thợ Tự Do hoặc đã leo thang lên Admin
+        if (shouldNotifyAdmin) {
+            List<UserEntity> superAdmins = userRepository.findAllByRoleName(SecurityConstants.ROLE_SUPER_ADMIN);
+            if (superAdmins != null && !superAdmins.isEmpty()) {
+                for (UserEntity admin : superAdmins) {
+                    String title = "Báo Cáo Khiếu Nại: #" + booking.getBookingCode();
+                    String content = "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ". Cần Ban Quản Trị xem xét phân xử.";
+
+                    NotificationEntity entity = NotificationEntity.builder()
+                            .user(admin)
+                            .booking(booking)
+                            .type("BOOKING_DISPUTE")
+                            .title(title)
+                            .content(content)
+                            .metadata(metadata)
+                            .isRead(false)
+                            .build();
+
+                    NotificationEntity savedAdminNotif = notificationRepository.save(entity);
+
+                    // Gửi thông báo WebSocket P2P realtime cho Admin trên Web
+                    try {
+                        long unreadCount = notificationRepository.countByUserIdAndIsReadFalseAndIsDeletedFalse(admin.getId());
+                        userWebSocketNotificationService.sendNotificationToUser(admin.getId(), savedAdminNotif, unreadCount);
+                    } catch (Exception wsEx) {
+                        log.warn("[WebSocket] Failed to push dispute notification to admin {}: {}", admin.getId(), wsEx.getMessage());
+                    }
+
+                    // Gửi Email cảnh báo khiếu nại tới Admin
+                    if (StringUtils.hasText(admin.getEmail())) {
+                        try {
+                            emailService.sendAdminDisputeAlertEmail(
+                                    admin.getEmail(),
+                                    admin.getFullName(),
+                                    booking.getBookingCode(),
+                                    customerName,
+                                    customerPhone,
+                                    muaName,
+                                    muaPhone,
+                                    reason,
+                                    booking.getEmergencyProofUrl(),
+                                    booking.getDepositAmount(),
+                                    booking.getTotalAmount()
+                            );
+                        } catch (Exception ex) {
+                            log.error("[EmailService] Failed to send dispute alert email to admin {}: {}", admin.getEmail(), ex.getMessage());
+                        }
+                    }
+                }
+
+                // Broadcast realtime tới kênh /topic/admin/notifications cho Admin Web
+                try {
+                    Map<String, Object> adminWsPayload = new HashMap<>(metadata);
+                    adminWsPayload.put("type", "BOOKING_DISPUTE");
+                    adminWsPayload.put("bookingId", booking.getId());
+                    adminWsPayload.put("bookingCode", booking.getBookingCode());
+                    adminWsPayload.put("customerName", customerName);
+                    adminWsPayload.put("customerPhone", customerPhone);
+                    adminWsPayload.put("muaName", muaName);
+                    adminWsPayload.put("muaPhone", muaPhone);
+                    adminWsPayload.put("reason", reason);
+                    adminWsPayload.put("proofUrl", booking.getEmergencyProofUrl());
+                    adminWsPayload.put("depositAmount", booking.getDepositAmount());
+                    adminWsPayload.put("totalAmount", booking.getTotalAmount());
+                    adminWsPayload.put("bookingPartner", booking.getBookingPartner() != null ? booking.getBookingPartner().name() : null);
+                    adminWsPayload.put("agencyId", booking.getAgency() != null ? booking.getAgency().getId() : null);
+                    adminWsPayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/admin/notifications", adminWsPayload);
+                    log.info("[WebSocket] Broadcast dispute notification to /topic/admin/notifications for bookingCode={}", booking.getBookingCode());
+                } catch (Exception wsEx) {
+                    log.error("[WebSocket] Failed to broadcast dispute to /topic/admin/notifications: {}", wsEx.getMessage());
+                }
+            }
+        }
+
+        // 2. Gửi Email xác nhận tiếp nhận khiếu nại tới Khách hàng
+        if (booking.getCustomer() != null && StringUtils.hasText(booking.getCustomer().getEmail())) {
+            try {
+                String packageName = (booking.getServicePackage() != null && StringUtils.hasText(booking.getServicePackage().getPackageName()))
+                        ? booking.getServicePackage().getPackageName()
+                        : "Gói dịch vụ make-up";
+
+                emailService.sendCustomerDisputeReceivedEmail(
+                        booking.getCustomer().getEmail(),
+                        customerName,
+                        booking.getBookingCode(),
+                        muaName,
+                        packageName,
+                        reason,
+                        booking.getDepositAmount()
+                );
+            } catch (Exception ex) {
+                log.error("[EmailService] Failed to send dispute received email to customer {}: {}", booking.getCustomer().getEmail(), ex.getMessage());
+            }
+        }
+
+        boolean muaHasSubmitted = reason != null && (reason.contains("[Chuyên viên MUA]") || reason.contains("[Thợ MUA]"));
+
+        // 3. Gửi thông báo & Email tới Thợ Freelance MUA (nếu có) kèm quyền giải trình (chỉ khi thợ chưa giải trình)
+        if (!muaHasSubmitted && booking.getMua() != null && booking.getMua().getUser() != null) {
+            UserEntity muaUser = booking.getMua().getUser();
+            String muaNoticeTitle = "Khách Hàng Khiếu Nại Ca Làm Việc #" + booking.getBookingCode();
+            String muaNoticeContent = "Khách hàng đã gửi khiếu nại ca #" + booking.getBookingCode() + " (Lý do: " + reason + "). Bạn có quyền gửi lời khai giải trình và ảnh minh chứng tại chi tiết ca làm việc.";
+            createInAppNotification(
+                    muaUser.getId(),
+                    null,
+                    booking.getId(),
+                    "BOOKING_DISPUTE_NOTICE",
+                    muaNoticeTitle,
+                    muaNoticeContent,
+                    metadata
+            );
+
+            // Gửi Email yêu cầu thợ gửi giải trình đối chất
+            if (StringUtils.hasText(muaUser.getEmail())) {
+                try {
+                    emailService.sendWorkerDisputeNoticeEmail(
+                            muaUser.getEmail(),
+                            muaUser.getFullName(),
+                            booking.getBookingCode(),
+                            customerName,
+                            reason,
+                            24
+                    );
+                } catch (Exception ex) {
+                    log.error("[EmailService] Failed to send dispute notice email to worker {}: {}", muaUser.getEmail(), ex.getMessage());
+                }
+            }
+        }
+
+        // 4. Nếu là đơn của Studio / Agency: Gửi thông báo tới Nhân viên Agency VÀ Chủ Studio (Agency Admin)
+        if (booking.getAgency() != null) {
+            AgencyProfileEntity agency = booking.getAgency();
+
+            // 4a. Gửi cho nhân viên làm ca (Staff) nếu có (chỉ khi thợ chưa giải trình)
+            UserEntity staffUser = (booking.getMua() != null && booking.getMua().getUser() != null)
+                    ? booking.getMua().getUser()
+                    : null;
+            if (staffUser == null && booking.getStaffAssignments() != null) {
+                for (var assignment : booking.getStaffAssignments()) {
+                    if (assignment.getStaff() != null && assignment.getStaff().getMua() != null && assignment.getStaff().getMua().getUser() != null) {
+                        staffUser = assignment.getStaff().getMua().getUser();
+                        break;
+                    }
+                }
+            }
+
+            if (!muaHasSubmitted && staffUser != null) {
+                String staffNoticeTitle = "Khách Hàng Khiếu Nại Ca Làm Việc #" + booking.getBookingCode();
+                String staffNoticeContent = "Khách hàng đã gửi khiếu nại ca #" + booking.getBookingCode() + " (Lý do: " + reason + "). Bạn có quyền gửi lời khai giải trình và ảnh minh chứng tại chi tiết ca làm việc.";
+                createInAppNotification(
+                        staffUser.getId(),
+                        agency.getId(),
+                        booking.getId(),
+                        "BOOKING_DISPUTE_NOTICE",
+                        staffNoticeTitle,
+                        staffNoticeContent,
+                        metadata
+                );
+
+                // Gửi Email yêu cầu nhân viên giải trình
+                if (StringUtils.hasText(staffUser.getEmail())) {
+                    try {
+                        emailService.sendWorkerDisputeNoticeEmail(
+                                staffUser.getEmail(),
+                                staffUser.getFullName(),
+                                booking.getBookingCode(),
+                                customerName,
+                                reason,
+                                24
+                        );
+                    } catch (Exception ex) {
+                        log.error("[EmailService] Failed to send dispute notice email to staff {}: {}", staffUser.getEmail(), ex.getMessage());
+                    }
+                }
+            }
+
+            // 4b. Gửi cho Chủ Studio (Agency Owner / Admin)
+            if (agency.getOwner() != null) {
+                UserEntity agencyOwner = agency.getOwner();
+                String staffDisplayName = (staffUser != null && staffUser.getFullName() != null)
+                        ? staffUser.getFullName()
+                        : "Nhân viên";
+                String agencyNoticeTitle = isEscalatedToAdmin
+                        ? "Giải Trình Ca Khiếu Nại (Chờ Admin Phân Xử): #" + booking.getBookingCode()
+                        : "Khiếu Nại Đơn Của Nhân Viên: #" + booking.getBookingCode();
+                String agencyNoticeContent = isEscalatedToAdmin
+                        ? "Nhân viên " + staffDisplayName + " đã gửi lời khai giải trình cho đơn #" + booking.getBookingCode() + ". Vụ việc đã leo thang lên Ban Quản Trị Sàn phân xử tối hậu."
+                        : "Khách hàng đã gửi khiếu nại ca làm việc của nhân viên " + staffDisplayName + " (Đơn #" + booking.getBookingCode() + "). Vui lòng theo dõi giải trình của nhân viên.";
+                NotificationEntity savedAgencyNotif = createInAppNotification(
+                        agencyOwner.getId(),
+                        agency.getId(),
+                        booking.getId(),
+                        "AGENCY_STAFF_DISPUTED",
+                        agencyNoticeTitle,
+                        agencyNoticeContent,
+                        metadata
+                );
+
+                // Broadcast realtime STOMP WebSocket tới Agency Web (AgencyRealtimeNotifier)
+                try {
+                    Map<String, Object> agencyWsPayload = new HashMap<>(metadata);
+                    agencyWsPayload.put("id", savedAgencyNotif != null ? savedAgencyNotif.getId() : ("dispute_" + System.currentTimeMillis()));
+                    agencyWsPayload.put("type", "AGENCY_STAFF_DISPUTED");
+                    agencyWsPayload.put("title", agencyNoticeTitle);
+                    agencyWsPayload.put("content", agencyNoticeContent);
+                    agencyWsPayload.put("bookingId", booking.getId());
+                    agencyWsPayload.put("bookingCode", booking.getBookingCode());
+                    agencyWsPayload.put("customerName", customerName);
+                    agencyWsPayload.put("staffName", staffDisplayName);
+                    agencyWsPayload.put("agencyId", agency.getId());
+                    agencyWsPayload.put("timestamp", System.currentTimeMillis());
+
+                    messagingTemplate.convertAndSend("/topic/agency/" + agency.getId() + "/dispatch-alerts", agencyWsPayload);
+                    messagingTemplate.convertAndSend("/topic/agency/" + agency.getId() + "/notifications", agencyWsPayload);
+                    messagingTemplate.convertAndSend("/topic/agency-notifications/" + agency.getId(), agencyWsPayload);
+                    messagingTemplate.convertAndSend("/topic/agency/dispatch-alerts", agencyWsPayload);
+                    log.info("[WebSocket] Broadcast dispute notification to agency topics for agencyId={}, bookingCode={}", agency.getId(), booking.getBookingCode());
+                } catch (Exception e) {
+                    log.error("[WebSocket] Failed to broadcast dispute to agency: {}", e.getMessage());
+                }
+
+                // Gửi Email cảnh báo tới Chủ Studio
+                if (StringUtils.hasText(agencyOwner.getEmail())) {
+                    try {
+                        emailService.sendAgencyDisputeNoticeEmail(
+                                agencyOwner.getEmail(),
+                                agencyOwner.getFullName(),
+                                agency.getAgencyName(),
+                                staffDisplayName,
+                                staffUser != null ? staffUser.getPhoneNumber() : "",
+                                booking.getBookingCode(),
+                                customerName,
+                                reason
+                        );
+                    } catch (Exception ex) {
+                        log.error("[EmailService] Failed to send dispute notice email to agency owner {}: {}", agencyOwner.getEmail(), ex.getMessage());
+                    }
+                }
+            }
+        }
+
+        // 5. Broadcast realtime qua STOMP WebSocket tới Ban Quản Trị & Topic trạng thái đơn
+        try {
+            Map<String, Object> payload = new HashMap<>(metadata);
+            payload.put("type", "BOOKING_DISPUTE");
+            payload.put("id", "dispute-" + booking.getId() + "-" + System.currentTimeMillis());
+            payload.put("title", "Báo Cáo Khiếu Nại: #" + booking.getBookingCode());
+            payload.put("content", "Đơn #" + booking.getBookingCode() + " có khiếu nại sự cố: " + reason + ".");
+            payload.put("timestamp", System.currentTimeMillis());
+
+            if (shouldNotifyAdmin) {
+                messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
+                messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
+            }
+            messagingTemplate.convertAndSend("/topic/booking-status/" + booking.getId(), payload);
+
+            if (booking.getAgency() != null) {
+                messagingTemplate.convertAndSend("/topic/agency-notifications/" + booking.getAgency().getId(), payload);
+            }
+            log.info("[WebSocket] Sent dispute notification (shouldNotifyAdmin={}) for bookingId={}", shouldNotifyAdmin, booking.getId());
+        } catch (Exception e) {
+            log.error("[WebSocket] Failed to broadcast dispute notification: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createStaffBlockedTimeNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            LocalDate blockDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String reason
+    ) {
+        if (agency == null || staff == null) return;
+
+        UserEntity owner = agency.getOwner();
+        UserEntity staffUser = (staff.getMua() != null) ? staff.getMua().getUser() : null;
+        String staffName = (staffUser != null && staffUser.getFullName() != null) ? staffUser.getFullName() : "Nhân viên";
+        String staffPhone = (staffUser != null && staffUser.getPhoneNumber() != null) ? staffUser.getPhoneNumber() : "Chưa cập nhật";
+
+        String timeStr = startTime.toString().substring(0, 5) + " - " + endTime.toString().substring(0, 5);
+        String dateStr = blockDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String title = "Nhân Viên Báo Bận Lịch Cá Nhân";
+        String content = "Nhân viên " + staffName + " vừa đăng ký khóa khung giờ bận ngày " + dateStr + " (" + timeStr + "). Lý do: " + (reason != null ? reason : "Bận việc cá nhân");
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("staffId", staff.getId());
+        metadata.put("staffName", staffName);
+        metadata.put("blockDate", blockDate.toString());
+        metadata.put("startTime", startTime.toString());
+        metadata.put("endTime", endTime.toString());
+        metadata.put("reason", reason);
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .agency(agency)
+                .user(owner)
+                .type("STAFF_BLOCKED_TIME")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+
+        // Gửi WebSocket realtime cho Agency
+        try {
+            Map<String, Object> payload = new HashMap<>(metadata);
+            payload.put("id", saved.getId());
+            payload.put("type", "STAFF_BLOCKED_TIME");
+            payload.put("title", saved.getTitle());
+            payload.put("content", saved.getContent());
+            payload.put("agencyId", agency.getId());
+            payload.put("timestamp", System.currentTimeMillis());
+
+            messagingTemplate.convertAndSend("/topic/agency-notifications/" + agency.getId(), payload);
+            if (owner != null) {
+                messagingTemplate.convertAndSendToUser(
+                        String.valueOf(owner.getId()),
+                        "/queue/notifications",
+                        payload
+                );
+            }
+        } catch (Exception e) {
+            log.warn("[Notification] Lỗi broadcast WebSocket cho ca bận: {}", e.getMessage());
+        }
+
+        // Gửi Email thông báo cho Agency Owner
+        if (owner != null && owner.getEmail() != null) {
+            try {
+                log.info("[Notification] Đang gửi email thông báo nhân viên báo bận tới chủ Studio: {}", owner.getEmail());
+                emailService.sendAgencyStaffBlockedTimeNotification(
+                        owner.getEmail(),
+                        owner.getFullName(),
+                        agency.getAgencyName(),
+                        staffName,
+                        staffPhone,
+                        blockDate,
+                        startTime,
+                        endTime,
+                        reason
+                );
+            } catch (Exception ex) {
+                log.error("[Notification] Lỗi gửi email thông báo nhân viên báo bận: {}", ex.getMessage());
+            }
+        } else {
+            log.warn("[Notification] Không thể gửi email: Chủ Studio hoặc email chủ Studio bị thiếu cho agency id={}", agency.getId());
+        }
+    }
+
+    @Override
+    @Transactional
+    public NotificationEntity createInAppNotification(
+            Long userId,
+            Long agencyId,
+            Long bookingId,
+            String type,
+            String title,
+            String content,
+            Map<String, Object> metadata
+    ) {
+        UserEntity user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId).orElse(null);
+        }
+
+        AgencyProfileEntity agency = null;
+        if (agencyId != null) {
+            agency = agencyProfileRepository.findById(agencyId).orElse(null);
+        }
+
+        BookingEntity booking = null;
+        if (bookingId != null) {
+            booking = bookingRepository.findById(bookingId).orElse(null);
+        }
+
+        if (user == null && agency != null) {
+            user = agency.getOwner();
+        }
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(user)
+                .agency(agency)
+                .booking(booking)
+                .type(type != null ? type : "GENERAL")
+                .title(title)
+                .content(content)
+                .metadata(metadata != null ? new HashMap<>(metadata) : new HashMap<>())
+                .isRead(false)
+                .isDeleted(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created generic in-app notification ID={}, type={} for userId={}, agencyId={}",
+                saved.getId(), type, userId, agencyId);
+
+        // 1. Gửi WebSocket realtime P2P đích danh và Push Notification tới User
+        if (user != null) {
+            long unreadCount = notificationRepository.countByUserIdAndIsReadFalseAndIsDeletedFalse(user.getId());
+            userWebSocketNotificationService.sendNotificationToUser(user.getId(), saved, unreadCount);
+
+            if (StringUtils.hasText(user.getPushToken())) {
+                try {
+                    expoPushNotificationService.sendPushNotification(
+                            user.getPushToken(),
+                            title,
+                            content,
+                            saved.getMetadata()
+                    );
+                } catch (Exception e) {
+                    log.error("[PushNotification] Failed to send push notification to userId={}: {}", user.getId(), e.getMessage());
+                }
+            }
+        }
+
+        // 2. Broadcast realtime qua STOMP WebSocket cho Agency (nếu có)
+        if (agency != null) {
+            try {
+                Map<String, Object> payload = new HashMap<>(saved.getMetadata() != null ? saved.getMetadata() : Map.of());
+                payload.put("id", saved.getId());
+                payload.put("type", saved.getType());
+                payload.put("title", saved.getTitle());
+                payload.put("content", saved.getContent());
+                payload.put("agencyId", agency.getId());
+                payload.put("timestamp", System.currentTimeMillis());
+
+                messagingTemplate.convertAndSend("/topic/agency-notifications/" + agency.getId(), payload);
+            } catch (Exception e) {
+                log.warn("[WebSocket] Lỗi broadcast WebSocket cho agency id={}: {}", agency.getId(), e.getMessage());
+            }
+        }
+
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public void createEmergencyReviewResultNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            boolean isApproved,
+            String adminReviewNote
+    ) {
+        if (staff == null || staff.getMua() == null || staff.getMua().getUser() == null || booking == null) {
+            return;
+        }
+
+        UserEntity staffUser = staff.getMua().getUser();
+        Locale locale = StringUtils.hasText(staffUser.getLanguage())
+                ? Locale.forLanguageTag(staffUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = (agency != null && agency.getAgencyName() != null) ? agency.getAgencyName() : "Studio";
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+
+        String titleKey = isApproved ? "notification.emergency_review_approved_title" : "notification.emergency_review_rejected_title";
+        String contentKey = isApproved ? "notification.emergency_review_approved_content" : "notification.emergency_review_rejected_content";
+
+        String defaultTitle = isApproved
+                ? "Studio Đã Duyệt Báo Bận #" + bookingCode
+                : "Studio Từ Chối Đơn Báo Bận #" + bookingCode;
+
+        String noteStr = StringUtils.hasText(adminReviewNote) ? adminReviewNote : (isApproved ? "Chấp thuận" : "Vui lòng hoàn thành ca trực");
+        String defaultContent = isApproved
+                ? "Studio " + agencyName + " đã chấp thuận đơn báo bận của bạn cho đơn #" + bookingCode + ". Bạn được miễn nhiệm ca làm này. Ghi chú: " + noteStr
+                : "Studio " + agencyName + " đã từ chối đơn báo bận cho đơn #" + bookingCode + ". Bạn được khôi phục về ca làm việc. Ghi chú: " + noteStr;
+
+        String title = messageSource.getLocalizedMessage(titleKey, new Object[]{bookingCode}, defaultTitle, locale);
+        String content = messageSource.getLocalizedMessage(
+                contentKey,
+                new Object[]{agencyName, bookingCode, noteStr},
+                defaultContent,
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", bookingCode);
+        metadata.put("agencyId", agency != null ? agency.getId() : null);
+        metadata.put("agencyName", agencyName);
+        metadata.put("staffId", staff.getId());
+        metadata.put("isApproved", isApproved);
+        metadata.put("adminReviewNote", adminReviewNote);
+        metadata.put("reviewedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(staffUser)
+                .booking(booking)
+                .agency(agency)
+                .type(isApproved ? "EMERGENCY_REPORT_APPROVED" : "EMERGENCY_REPORT_REJECTED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created emergency review result notification ID={} for staffUserId={}, isApproved={}",
+                saved.getId(), staffUser.getId(), isApproved);
+
+        // 1. Gửi WebSocket STOMP P2P đích danh cho Thợ (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Remote Push Notification
+        if (StringUtils.hasText(staffUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    staffUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createSoloPromotionOfferNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            BigDecimal newCommissionRate,
+            String resolutionNote
+    ) {
+        if (staff == null || staff.getMua() == null || staff.getMua().getUser() == null || booking == null) {
+            return;
+        }
+
+        UserEntity staffUser = staff.getMua().getUser();
+        Locale locale = StringUtils.hasText(staffUser.getLanguage())
+                ? Locale.forLanguageTag(staffUser.getLanguage())
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = (agency != null && agency.getAgencyName() != null) ? agency.getAgencyName() : "Studio";
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+        String rateStr = newCommissionRate != null ? newCommissionRate.stripTrailingZeros().toPlainString() + "%" : "Toàn bộ";
+
+        String title = messageSource.getLocalizedMessage(
+                "notification.solo_promotion_offer_title",
+                new Object[]{bookingCode},
+                "Đề Xuất Đảm Nhiệm Thợ Chính Đơn #" + bookingCode,
+                locale
+        );
+        String content = messageSource.getLocalizedMessage(
+                "notification.solo_promotion_offer_content",
+                new Object[]{agencyName, bookingCode, rateStr},
+                "Studio " + agencyName + " đề xuất bạn đảm nhiệm vai trò Thợ chính cho đơn #" + bookingCode + " với tỷ lệ hoa hồng mới " + rateStr + ". Vui lòng xác nhận bạn có đồng ý làm hay không!",
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", bookingCode);
+        metadata.put("agencyId", agency != null ? agency.getId() : null);
+        metadata.put("agencyName", agencyName);
+        metadata.put("staffId", staff.getId());
+        metadata.put("newCommissionRate", newCommissionRate);
+        metadata.put("resolutionNote", resolutionNote);
+        metadata.put("proposedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(staffUser)
+                .booking(booking)
+                .agency(agency)
+                .type("SOLO_PROMOTION_OFFERED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created solo promotion offer notification ID={} for staffUserId={}, rate={}",
+                saved.getId(), staffUser.getId(), newCommissionRate);
+
+        // 1. Gửi WebSocket STOMP P2P đích danh cho Thợ (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Remote Push Notification
+        if (StringUtils.hasText(staffUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    staffUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createStaffDispatchedNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            BookingEntity booking,
+            String roleName,
+            BigDecimal commissionRate
+    ) {
+        if (staff == null || staff.getMua() == null || staff.getMua().getUser() == null || booking == null) {
+            return;
+        }
+
+        UserEntity staffUser = staff.getMua().getUser();
+        Locale locale = "en".equalsIgnoreCase(staffUser.getLanguage())
+                ? Locale.ENGLISH
+                : Locale.forLanguageTag("vi");
+
+        String agencyName = (agency != null && agency.getAgencyName() != null) ? agency.getAgencyName() : "Studio";
+        String bookingCode = booking.getBookingCode() != null ? booking.getBookingCode() : String.valueOf(booking.getId());
+        String rateStr = commissionRate != null ? commissionRate.stripTrailingZeros().toPlainString() + "%" : "tiêu chuẩn";
+        String friendlyRole = "PRIMARY_MUA".equalsIgnoreCase(roleName) ? "Thợ chính" : "Thợ phụ (Trợ lý)";
+
+        String title = messageSource.getLocalizedMessage(
+                "notification.staff_dispatched_title",
+                new Object[]{bookingCode},
+                "Phân Công Ca Làm Mới #" + bookingCode,
+                locale
+        );
+        String content = messageSource.getLocalizedMessage(
+                "notification.staff_dispatched_content",
+                new Object[]{agencyName, bookingCode, friendlyRole, rateStr},
+                agencyName + " đã phân công bạn vào ca làm #" + bookingCode + " với vai trò " + friendlyRole + " (Hoa hồng " + rateStr + "). Vui lòng vào xác nhận nhận việc!",
+                locale
+        );
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", bookingCode);
+        metadata.put("agencyId", agency != null ? agency.getId() : null);
+        metadata.put("agencyName", agencyName);
+        metadata.put("staffId", staff.getId());
+        metadata.put("role", roleName);
+        metadata.put("commissionRate", commissionRate);
+        metadata.put("assignedAt", LocalDateTime.now().toString());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(staffUser)
+                .booking(booking)
+                .agency(agency)
+                .type("AGENCY_ASSIGNED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created staff dispatched notification ID={} for staffUserId={}, role={}",
+                saved.getId(), staffUser.getId(), roleName);
+
+        // 1. Gửi WebSocket STOMP P2P đích danh cho Thợ (/user/queue/notifications)
+        long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+        userWebSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+
+        // 2. Gửi Remote Push Notification
+        if (StringUtils.hasText(staffUser.getPushToken())) {
+            expoPushNotificationService.sendPushNotification(
+                    staffUser.getPushToken(),
+                    title,
+                    content,
+                    metadata
+            );
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createOvertimeReportSubmittedNotification(
+            AgencyProfileEntity agency,
+            AgencyStaffEntity staff,
+            AgencyStaffOvertimeReportEntity report
+    ) {
+        if (agency == null || agency.getOwner() == null || staff == null || report == null) {
+            return;
+        }
+
+        UserEntity agencyOwner = agency.getOwner();
+        UserEntity staffUser = (staff.getMua() != null) ? staff.getMua().getUser() : null;
+        String staffName = staffUser != null ? staffUser.getFullName() : "Nhân viên Studio";
+        String staffPhone = staffUser != null ? staffUser.getPhoneNumber() : "Chưa cập nhật";
+        int minutes = report.getOvertimeMinutes() != null ? report.getOvertimeMinutes() : 0;
+        String reason = report.getExplanationText() != null ? report.getExplanationText() : "";
+
+        BookingEntity booking = null;
+        if (report.getBookingId() != null) {
+            booking = bookingRepository.findById(report.getBookingId()).orElse(null);
+        }
+
+        String title = "Báo Cáo Tăng Ca Mới Từ Thợ " + staffName;
+        String content = "Thợ " + staffName + " vừa nộp giải trình làm quá giờ (+" + minutes + " phút) cho đơn #" + report.getBookingId()
+                + (StringUtils.hasText(reason) ? ". Lý do: \"" + reason + "\"" : "") + ". Vui lòng kiểm tra và xét duyệt.";
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("reportId", report.getId());
+        metadata.put("bookingId", report.getBookingId());
+        metadata.put("staffId", staff.getId());
+        metadata.put("staffName", staffName);
+        metadata.put("overtimeMinutes", minutes);
+        metadata.put("reasonType", report.getReasonType() != null ? report.getReasonType().name() : null);
+        metadata.put("explanationText", reason);
+        metadata.put("proofImageUrl", report.getProofImageUrl());
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(agencyOwner)
+                .agency(agency)
+                .booking(booking)
+                .type("AGENCY_OVERTIME_REPORT_SUBMITTED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created overtime report notification ID={} for agencyOwnerId={}, staffId={}",
+                saved.getId(), agencyOwner.getId(), staff.getId());
+
+        // 1. Gửi WebSocket STOMP P2P cho Agency Owner (/user/queue/notifications)
+        try {
+            long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(agencyOwner.getId());
+            userWebSocketNotificationService.sendNotificationToUser(agencyOwner.getId(), saved, unreadCount);
+        } catch (Exception wsEx) {
+            log.warn("[Notification] Could not push websocket to agency owner: {}", wsEx.getMessage());
+        }
+
+        // 2. Gửi Email thông báo trực tiếp tới Agency Owner
+        try {
+            emailService.sendAgencyOvertimeReportNotification(
+                    agencyOwner.getEmail(),
+                    agencyOwner.getFullName(),
+                    agency.getAgencyName(),
+                    staffName,
+                    staffPhone,
+                    report.getBookingId(),
+                    minutes,
+                    reason
+            );
+        } catch (Exception emailEx) {
+            log.warn("[Notification] Could not send overtime report email to {}: {}", agencyOwner.getEmail(), emailEx.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void createOvertimeApprovedNotification(
+            UserEntity staffUser,
+            AgencyProfileEntity agency,
+            String bookingCode,
+            Integer overtimeMinutes,
+            BigDecimal allowanceAmount
+    ) {
+        if (staffUser == null) {
+            return;
+        }
+
+        String agencyName = (agency != null && agency.getAgencyName() != null) ? agency.getAgencyName() : "Studio";
+        int minutes = overtimeMinutes != null ? overtimeMinutes : 0;
+        long amountLong = allowanceAmount != null ? allowanceAmount.longValue() : 0L;
+        String amountFormatted = String.format("%,d đ", amountLong);
+
+        String title = "Duyệt Thưởng Tăng Ca";
+        String content = "Studio " + agencyName + " đã duyệt giải trình tăng ca đơn #" + bookingCode
+                + " (+" + minutes + " phút). Bạn được cộng " + amountFormatted + " vào ví!";
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("bookingCode", bookingCode);
+        metadata.put("overtimeMinutes", minutes);
+        metadata.put("allowanceAmount", allowanceAmount);
+        metadata.put("type", "STAFF_OVERTIME_APPROVED");
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(staffUser)
+                .agency(agency)
+                .type("STAFF_OVERTIME_APPROVED")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created overtime approved notification ID={} for staffUserId={}", saved.getId(), staffUser.getId());
+
+        // 1. Gửi WebSocket STOMP P2P cho Thợ (/user/queue/notifications)
+        try {
+            long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(staffUser.getId());
+            userWebSocketNotificationService.sendNotificationToUser(staffUser.getId(), saved, unreadCount);
+        } catch (Exception wsEx) {
+            log.warn("[Notification] Could not push websocket to staff: {}", wsEx.getMessage());
+        }
+
+        // 2. Gửi Remote Push Notification nếu có pushToken
+        if (StringUtils.hasText(staffUser.getPushToken())) {
+            try {
+                expoPushNotificationService.sendPushNotification(
+                        staffUser.getPushToken(),
+                        title,
+                        content,
+                        metadata
+                );
+            } catch (Exception pushEx) {
+                log.warn("[Notification] Could not send push notification to staff: {}", pushEx.getMessage());
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendNotification(Long userId, String title, String content, String type, Long bookingId) {
+        if (userId == null) {
+            return;
+        }
+
+        UserEntity user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            log.warn("[Notification] User with id {} not found, skipping notification", userId);
+            return;
+        }
+
+        BookingEntity booking = null;
+        if (bookingId != null) {
+            booking = bookingRepository.findById(bookingId).orElse(null);
+        }
+
+        Map<String, Object> metadata = new HashMap<>();
+        if (bookingId != null) {
+            metadata.put("bookingId", bookingId);
+        }
+        if (booking != null && booking.getBookingCode() != null) {
+            metadata.put("bookingCode", booking.getBookingCode());
+        }
+        if (StringUtils.hasText(type)) {
+            metadata.put("type", type);
+        }
+
+        NotificationEntity entity = NotificationEntity.builder()
+                .user(user)
+                .booking(booking)
+                .agency(booking != null ? booking.getAgency() : null)
+                .type(StringUtils.hasText(type) ? type : "GENERAL")
+                .title(title)
+                .content(content)
+                .metadata(metadata)
+                .isRead(false)
+                .build();
+
+        NotificationEntity saved = notificationRepository.save(entity);
+        log.info("[Notification] Created generic notification ID={} for userId={}, type={}", saved.getId(), userId, type);
+
+        // 1. Gửi WebSocket STOMP P2P (/user/queue/notifications)
+        try {
+            long unreadCount = notificationRepository.countByUserIdAndIsReadFalse(userId);
+            userWebSocketNotificationService.sendNotificationToUser(userId, saved, unreadCount);
+        } catch (Exception wsEx) {
+            log.warn("[Notification] Could not push websocket to user {}: {}", userId, wsEx.getMessage());
+        }
+
+        // 2. Gửi Remote Push Notification qua Expo nếu có pushToken
+        if (StringUtils.hasText(user.getPushToken())) {
+            try {
+                expoPushNotificationService.sendPushNotification(
+                        user.getPushToken(),
+                        title,
+                        content,
+                        metadata
+                );
+            } catch (Exception pushEx) {
+                log.warn("[Notification] Could not send push notification to user {}: {}", userId, pushEx.getMessage());
+            }
+        }
+    }
 }
+

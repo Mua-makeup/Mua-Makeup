@@ -9,20 +9,20 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, Long> {
 
-    /**
-     * Kiểm tra xem thợ đã có ca làm hoặc slot bận giao thoa với cửa sổ thời gian yêu cầu hay không.
-     * Sử dụng toán tử && của PostgreSQL trên kiểu tstzrange để xử lý hoàn hảo ca vắt qua ngày (Midnight Crossing).
-     */
+   
     @Query(value = """
         SELECT COUNT(c.id) > 0 FROM mua_schema.mua_calendars c
+        LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
         WHERE c.mua_id = :muaId
           AND c.is_locked = TRUE
-          AND tstzrange(c.start_at, c.end_at) && tstzrange(:windowStart, :windowEnd)
+          AND (c.booking_id IS NULL OR (b.status != 'CANCELLED' AND b.status != 'CANCELLED_EXPIRED' AND b.status != 'PENDING_DEPOSIT' AND b.status != 'COMPLETED' AND b.status != 'PAID_OUT' AND b.status != 'DISPUTE_REFUNDED'))
+          AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:windowStart AS TIMESTAMPTZ), CAST(:windowEnd AS TIMESTAMPTZ), '[)')
     """, nativeQuery = true)
     boolean existsOverlappingSlot(
         @Param("muaId") Long muaId,
@@ -30,17 +30,115 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
         @Param("windowEnd") OffsetDateTime windowEnd
     );
 
-    @Query("SELECT c FROM MUACalendarEntity c WHERE c.mua.id = :muaId AND c.isLocked = true ORDER BY c.startAt ASC")
+    @Query(value = """
+        SELECT COUNT(c.id) > 0 FROM mua_schema.mua_calendars c
+        LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
+        WHERE c.mua_id = :muaId
+          AND c.is_locked = TRUE
+          AND (c.booking_id IS NULL OR (:excludeBookingId IS NULL OR c.booking_id != :excludeBookingId))
+          AND (c.booking_id IS NULL OR (b.status != 'CANCELLED' AND b.status != 'CANCELLED_EXPIRED' AND b.status != 'PENDING_DEPOSIT' AND b.status != 'COMPLETED' AND b.status != 'PAID_OUT' AND b.status != 'DISPUTE_REFUNDED'))
+          AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:windowStart AS TIMESTAMPTZ), CAST(:windowEnd AS TIMESTAMPTZ), '[)')
+    """, nativeQuery = true)
+    boolean existsOverlappingSlotExcludingBooking(
+        @Param("muaId") Long muaId,
+        @Param("windowStart") OffsetDateTime windowStart,
+        @Param("windowEnd") OffsetDateTime windowEnd,
+        @Param("excludeBookingId") Long excludeBookingId
+    );
+
+    @Query("""
+        SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
+        WHERE c.mua.id = :muaId 
+          AND c.isLocked = true 
+          AND (b IS NULL OR b.status NOT IN (
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
+        ORDER BY c.startAt ASC
+    """)
     List<MUACalendarEntity> findActiveSlotsByMuaId(@Param("muaId") Long muaId);
 
-    @Query("SELECT c FROM MUACalendarEntity c WHERE c.mua.id = :muaId AND c.bookingDate = :date AND c.isLocked = true ORDER BY c.startAt ASC")
+    @Query("""
+        SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
+        WHERE c.mua.id = :muaId 
+          AND c.bookingDate = :date 
+          AND c.isLocked = true 
+          AND (b IS NULL OR b.status NOT IN (
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
+        ORDER BY c.startAt ASC
+    """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdAndDate(@Param("muaId") Long muaId, @Param("date") LocalDate date);
 
-    @Query("SELECT c FROM MUACalendarEntity c WHERE c.mua.id = :muaId AND c.bookingDate BETWEEN :startDate AND :endDate AND c.isLocked = true ORDER BY c.startAt ASC")
+    @Query("""
+        SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
+        WHERE c.mua.id = :muaId 
+          AND c.bookingDate BETWEEN :startDate AND :endDate 
+          AND c.isLocked = true 
+          AND (b IS NULL OR b.status NOT IN (
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
+        ORDER BY c.startAt ASC
+    """)
     List<MUACalendarEntity> findActiveSlotsByMuaIdAndDateBetween(
         @Param("muaId") Long muaId,
         @Param("startDate") LocalDate startDate,
         @Param("endDate") LocalDate endDate
+    );
+
+    @Query("""
+        SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
+        WHERE c.mua.id IN :muaIds 
+          AND c.bookingDate BETWEEN :startDate AND :endDate 
+          AND c.isLocked = true 
+          AND (b IS NULL OR b.status NOT IN (
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
+        ORDER BY c.startAt ASC
+    """)
+    List<MUACalendarEntity> findActiveSlotsByMuaIdsAndDateBetween(
+        @Param("muaIds") Collection<Long> muaIds,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    @Query("""
+        SELECT c FROM MUACalendarEntity c 
+        LEFT JOIN c.booking b 
+        WHERE c.mua.id IN :muaIds 
+          AND c.bookingDate = :date 
+          AND c.isLocked = true 
+          AND (b IS NULL OR b.status NOT IN (
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED,
+               com.makeup.platform.entity.booking.BookingStatus.CANCELLED_EXPIRED,
+               com.makeup.platform.entity.booking.BookingStatus.PENDING_DEPOSIT,
+               com.makeup.platform.entity.booking.BookingStatus.COMPLETED,
+               com.makeup.platform.entity.booking.BookingStatus.PAID_OUT,
+               com.makeup.platform.entity.booking.BookingStatus.DISPUTE_REFUNDED))
+        ORDER BY c.startAt ASC
+    """)
+    List<MUACalendarEntity> findActiveSlotsByMuaIdsAndDate(
+        @Param("muaIds") Collection<Long> muaIds,
+        @Param("date") LocalDate date
     );
 
     /**
@@ -56,4 +154,31 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
     @Modifying
     @Query("DELETE FROM MUACalendarEntity c WHERE c.booking.id = :bookingId AND c.mua.id = :muaId")
     void deleteByBookingIdAndMuaId(@Param("bookingId") Long bookingId, @Param("muaId") Long muaId);
+
+    @Query("SELECT c FROM MUACalendarEntity c WHERE c.booking.id = :bookingId AND c.mua.id = :muaId")
+    List<MUACalendarEntity> findByBookingIdAndMuaId(@Param("bookingId") Long bookingId, @Param("muaId") Long muaId);
+
+    @Query("""
+        SELECT c FROM MUACalendarEntity c 
+        WHERE c.mua.id = :muaId 
+          AND c.booking IS NULL 
+          AND c.isLocked = true 
+          AND c.bookingDate >= :fromDate 
+        ORDER BY c.bookingDate ASC, c.startAt ASC
+    """)
+    List<MUACalendarEntity> findPersonalBlockedSlotsFromDate(
+        @Param("muaId") Long muaId,
+        @Param("fromDate") LocalDate fromDate
+    );
+
+    @Query(value = """
+        SELECT c.* FROM mua_schema.mua_calendars c
+        WHERE c.mua_id = :muaId
+          AND tstzrange(c.start_at, c.end_at) && tstzrange(:windowStart, :windowEnd)
+    """, nativeQuery = true)
+    List<MUACalendarEntity> findOverlappingSlots(
+        @Param("muaId") Long muaId,
+        @Param("windowStart") OffsetDateTime windowStart,
+        @Param("windowEnd") OffsetDateTime windowEnd
+    );
 }

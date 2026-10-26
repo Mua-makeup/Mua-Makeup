@@ -21,6 +21,7 @@ import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
@@ -49,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.service.mua.MuaReputationService;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -80,6 +82,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
     private final ServicePackageRepository servicePackageRepository;
+    private final PackageItemRepository packageItemRepository;
     private final MakeupStyleRepository makeupStyleRepository;
     private final SurgePricingService surgePricingService;
     private final BookingAuditService bookingAuditService;
@@ -93,6 +96,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final BookingDepositRepository bookingDepositRepository;
     private final ObjectMapper objectMapper;
     private final MUACalendarService muaCalendarService;
+    private final MuaReputationService muaReputationService;
 
     @Override
     @Transactional
@@ -129,6 +133,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         if (req.getPackageId() != null) {
             var packageOpt = servicePackageRepository.findById(req.getPackageId());
             if (packageOpt.isPresent() && packageOpt.get().getPrice() != null) {
+                if (Boolean.FALSE.equals(packageOpt.get().getIsAvailable())) {
+                    throw new CustomBusinessException(
+                            ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE,
+                            "catalog.package_not_available",
+                            HttpStatus.BAD_REQUEST
+                    );
+                }
                 basePrice = packageOpt.get().getPrice();
             }
         } else if (req.getTargetMuaId() != null && req.getMasterCategoryId() != null) {
@@ -164,6 +175,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         // 2. Query potential online MUAs in Redis GEO sorted by distance ASC
         List<Long> candidateMuaIds = findAvailableCandidates(req);
 
+        // Giữ nguyên logic test: Giới hạn tối đa 2 thợ ứng viên trong hàng đợi điều phối khẩn cấp
+        if (candidateMuaIds.size() > 2) {
+            candidateMuaIds = new ArrayList<>(candidateMuaIds.subList(0, 2));
+        }
+
         // BẮT BUỘC: Nếu không có thợ nào online trong bán kính quét -> Báo lỗi ngay cho khách hàng, không tạo đơn rác
         if (candidateMuaIds.isEmpty()) {
             log.warn("[InstantBooking] No online available MUA found within {}km for customer id={}", effectiveRadiusKm, customerId);
@@ -198,6 +214,10 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 .version(0L)
                 .build();
 
+        if (req.getPackageId() != null) {
+            servicePackageRepository.findById(req.getPackageId()).ifPresent(booking::setServicePackage);
+        }
+
         if (req.getStyleId() != null) {
             makeupStyleRepository.findById(req.getStyleId()).ifPresent(booking::setStyle);
         }
@@ -210,6 +230,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         stringRedisTemplate.opsForValue().set(InstantBookingKeys.meta(savedBooking.getId()) + ":total", String.valueOf(potentialCount), DISPATCH_STATE_TTL);
         if (req.getTargetMuaId() != null) {
             stringRedisTemplate.opsForValue().set(InstantBookingKeys.meta(savedBooking.getId()) + ":target_mua", String.valueOf(req.getTargetMuaId()), DISPATCH_STATE_TTL);
+        }
+        if (req.getPackageId() != null) {
+            stringRedisTemplate.opsForValue().set(InstantBookingKeys.meta(savedBooking.getId()) + ":target_package", String.valueOf(req.getPackageId()), DISPATCH_STATE_TTL);
         }
 
         // 5. Record Audit log
@@ -420,6 +443,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         if (currentMuaIdStr != null && currentMuaIdStr.equals(String.valueOf(muaId))) {
             log.info("[SequentialDispatch] MUA id={} manually skipped bookingId={}", muaId, bookingId);
+
+            // Ghi nhận MUA đã bấm bỏ qua đơn khẩn cấp và tính lại acceptance_rate / rank_score
+            muaReputationService.recordOfferAndRecalculate(
+                    muaId,
+                    bookingId,
+                    "INSTANT",
+                    "SKIPPED",
+                    "Chuyên viên chủ động bấm bỏ qua đơn khẩn cấp"
+            );
+
             String targetedMuaStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(bookingId) + ":target_mua");
             if (targetedMuaStr != null && !targetedMuaStr.isEmpty()) {
                 log.info("[SequentialDispatch] Targeted MUA id={} rejected bookingId={}, cancelling immediately without cascading", muaId, bookingId);
@@ -620,7 +653,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             return false;
         }
         String current = stringRedisTemplate.opsForValue().get(InstantBookingKeys.current(bookingId));
-        return String.valueOf(expectedMuaId).equals(current) && dispatchNextCandidate(bookingId);
+        if (String.valueOf(expectedMuaId).equals(current)) {
+            // Ghi nhận MUA để trôi hết thời gian chờ 30s mà không nhận và tính lại acceptance_rate / rank_score
+            muaReputationService.recordOfferAndRecalculate(
+                    expectedMuaId,
+                    bookingId,
+                    "INSTANT",
+                    "EXPIRED",
+                    "Hết thời gian đếm ngược nhận đơn khẩn cấp mà chuyên viên không phản hồi"
+            );
+            return dispatchNextCandidate(bookingId);
+        }
+        return false;
     }
 
     @Override
@@ -824,9 +868,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
     @Override
     @Transactional
-    public boolean confirmDeposit(Long bookingId, Long customerUserId, List<String> addOnNames, BigDecimal addOnTotal) {
-        log.info("[ConfirmDeposit] Customer userId={} confirming deposit for bookingId={}, addOns={}, addOnTotal={}",
-                customerUserId, bookingId, addOnNames, addOnTotal);
+    public boolean confirmDeposit(Long bookingId, Long customerUserId, Long packageId, List<String> addOnNames, BigDecimal addOnTotal) {
+        log.info("[ConfirmDeposit] Customer userId={} confirming deposit for bookingId={}, packageId={}, addOns={}, addOnTotal={}",
+                customerUserId, bookingId, packageId, addOnNames, addOnTotal);
         BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
                         "booking.not_found", HttpStatus.NOT_FOUND));
@@ -843,13 +887,64 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     "booking.invalid_status", HttpStatus.BAD_REQUEST);
         }
 
+        // Cập nhật gói dịch vụ nếu khách hàng chọn gói khác của MUA
+        if (packageId != null && (booking.getServicePackage() == null || !packageId.equals(booking.getServicePackage().getId()))) {
+            ServicePackageEntity selectedPkg = servicePackageRepository.findById(packageId)
+                    .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
+                            "catalog.package_not_found", HttpStatus.NOT_FOUND));
+            if (booking.getMua() != null && selectedPkg.getMua() != null
+                    && !selectedPkg.getMua().getId().equals(booking.getMua().getId())) {
+                throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                        "booking.package_does_not_belong_to_mua", HttpStatus.BAD_REQUEST);
+            }
+            booking.setServicePackage(selectedPkg);
+            booking.setDurationMinutes(selectedPkg.getEstimatedDurationMinutes());
+            booking.setServiceSubtotal(selectedPkg.getPrice());
+        }
+
+        BigDecimal basePrice = booking.getServicePackage() != null ? booking.getServicePackage().getPrice()
+                : (booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO);
         BigDecimal extra = (addOnTotal != null && addOnTotal.compareTo(BigDecimal.ZERO) > 0)
                 ? addOnTotal : BigDecimal.ZERO;
-        if (extra.compareTo(BigDecimal.ZERO) > 0) {
-            booking.setServiceSubtotal((booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO).add(extra));
-            booking.setTotalAmount(booking.getTotalAmount().add(extra));
-            BigDecimal extraDeposit = extra.multiply(DEPOSIT_RATE).setScale(2, RoundingMode.HALF_UP);
-            booking.setDepositAmount(booking.getDepositAmount().add(extraDeposit));
+        booking.setServiceSubtotal(basePrice.add(extra));
+
+        BigDecimal surchargeFee = booking.getSurchargeFee() != null ? booking.getSurchargeFee() : BigDecimal.ZERO;
+        BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
+        BigDecimal total = basePrice.add(extra).add(surchargeFee).add(distanceFee);
+        booking.setTotalAmount(total);
+
+        BigDecimal depositAmount = total.multiply(DEPOSIT_RATE).setScale(2, RoundingMode.HALF_UP);
+        booking.setDepositAmount(depositAmount);
+
+        if (addOnNames != null && !addOnNames.isEmpty()) {
+            booking.setSelectedAddons(String.join(",,,", addOnNames));
+            try {
+                if (stringRedisTemplate != null) {
+                    stringRedisTemplate.opsForValue().set("booking:selected_addons:" + bookingId, String.join(",,,", addOnNames));
+                }
+            } catch (Exception ignored) {}
+
+            // Tự động tính toán cộng thêm thời gian từ các add-on đã chọn
+            if (booking.getServicePackage() != null) {
+                int baseDuration = (booking.getServicePackage().getEstimatedDurationMinutes() != null && booking.getServicePackage().getEstimatedDurationMinutes() > 0)
+                        ? booking.getServicePackage().getEstimatedDurationMinutes() : 60;
+                List<PackageItemEntity> packageAddons = packageItemRepository
+                        .findByServicePackageIdAndIsDeletedFalseOrderByStepOrderAsc(booking.getServicePackage().getId());
+                int extraMinutes = packageAddons.stream()
+                        .filter(item -> addOnNames.contains(item.getItemName()))
+                        .mapToInt(item -> item.getDurationMinutes() != null ? item.getDurationMinutes() : 0)
+                        .sum();
+                booking.setDurationMinutes(baseDuration + extraMinutes);
+                log.info("[ConfirmDeposit] Updated instant booking ID {} durationMinutes: {} (base: {}, addons: +{})",
+                        bookingId, baseDuration + extraMinutes, baseDuration, extraMinutes);
+            }
+        } else {
+            booking.setSelectedAddons(null);
+            try {
+                if (stringRedisTemplate != null) {
+                    stringRedisTemplate.delete("booking:selected_addons:" + bookingId);
+                }
+            } catch (Exception ignored) {}
         }
 
         BookingEntity savedBooking = bookingRepository.save(booking);
@@ -878,11 +973,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             }
         } catch (Exception ignored) {}
 
-        BigDecimal finalServiceSubtotal = savedBooking.getServiceSubtotal() != null ? savedBooking.getServiceSubtotal() : BigDecimal.ZERO;
-        BigDecimal platformFee = finalServiceSubtotal.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal distanceFee = savedBooking.getDistanceFee() != null ? savedBooking.getDistanceFee() : BigDecimal.ZERO;
-        BigDecimal surchargeFee = savedBooking.getSurchargeFee() != null ? savedBooking.getSurchargeFee() : BigDecimal.ZERO;
-        BigDecimal earningsAmount = finalServiceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+        BigDecimal totalBookingAmount = savedBooking.getTotalAmount() != null ? savedBooking.getTotalAmount() : (savedBooking.getServiceSubtotal() != null ? savedBooking.getServiceSubtotal() : BigDecimal.ZERO);
+        BigDecimal platformFee = totalBookingAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal earningsAmount = totalBookingAmount.subtract(platformFee);
 
         // Bắn WebSocket thông báo thợ đã được khách chốt dịch vụ thêm & đang chờ cọc
         if (savedBooking.getMua() != null) {
@@ -890,13 +983,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             confirmPayload.put("type", "CUSTOMER_CONFIRMED_ADDONS");
             confirmPayload.put("bookingId", bookingId);
             confirmPayload.put("bookingCode", savedBooking.getBookingCode());
+            confirmPayload.put("packageId", savedBooking.getServicePackage() != null ? savedBooking.getServicePackage().getId() : null);
+            confirmPayload.put("packageName", savedBooking.getServicePackage() != null ? savedBooking.getServicePackage().getPackageName() : null);
             confirmPayload.put("addOnNames", addOnNames != null ? addOnNames : List.of());
             confirmPayload.put("addOnTotal", extra);
+            confirmPayload.put("serviceSubtotal", savedBooking.getServiceSubtotal());
             confirmPayload.put("totalAmount", savedBooking.getTotalAmount());
             confirmPayload.put("depositAmount", savedBooking.getDepositAmount());
             confirmPayload.put("platformFee", platformFee);
             confirmPayload.put("earningsAmount", earningsAmount);
-            confirmPayload.put("message", "Khách hàng đã chốt dịch vụ thêm và đang tiến hành thanh toán cọc 30%.");
+            confirmPayload.put("message", "Khách hàng đã chọn gói dịch vụ & tiện ích, đang tiến hành đặt cọc 30%.");
             confirmPayload.put("timestamp", System.currentTimeMillis());
 
             messagePublisher.send("/topic/booking-customer-addons/" + savedBooking.getMua().getId(), confirmPayload);
@@ -974,7 +1070,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         BigDecimal earnings = basePrice.subtract(platformFee).add(emergencyFee);
         BigDecimal total = basePrice.add(emergencyFee);
         String serviceName = "Trang Điểm Khẩn Cấp";
-        int durationMinutes = 60;
+        int durationMinutes = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
+                ? booking.getDurationMinutes() : 60;
         List<String> styleNames = new ArrayList<>();
         List<String> packageItems = new ArrayList<>();
 
@@ -1006,7 +1103,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 if (pkg.getPackageName() != null) {
                     serviceName = pkg.getPackageName();
                 }
-                if (pkg.getEstimatedDurationMinutes() != null) {
+                if ((booking.getDurationMinutes() == null || booking.getDurationMinutes() <= 0) && pkg.getEstimatedDurationMinutes() != null) {
                     durationMinutes = pkg.getEstimatedDurationMinutes();
                 }
                 if (pkg.getStyles() != null) {
@@ -1015,9 +1112,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 if (pkg.getPackageItems() != null) {
                     packageItems = pkg.getPackageItems().stream().map(PackageItemEntity::getItemName).toList();
                 }
-                platformFee = basePrice.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
-                earnings = basePrice.subtract(platformFee).add(emergencyFee);
                 total = basePrice.add(emergencyFee);
+                platformFee = total.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+                earnings = total.subtract(platformFee);
             }
         }
 
@@ -1189,9 +1286,13 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 double muaMaxRadius = mua.getMaxServiceRadiusKm() != null ? mua.getMaxServiceRadiusKm().doubleValue() : 15.0;
                 boolean withinMuaRadius = (distToCustomer != null && distToCustomer <= muaMaxRadius);
 
+                boolean locked = Boolean.TRUE.equals(mua.getIsEmergencyLocked());
+
                 if (freelance && verified && Boolean.TRUE.equals(mua.getIsOnline())
-                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && withinMuaRadius) {
+                        && !Boolean.TRUE.equals(mua.getIsBusy()) && !leased && !locked && withinMuaRadius) {
                     candidateMuaIds.add(id);
+                } else if (locked) {
+                    log.info("[CandidateFilter] Excluded MUA id={} due to emergency lock (rating below threshold)", id);
                 } else if (!withinMuaRadius) {
                     log.info("[CandidateFilter] Excluded MUA id={} because distance ({}km) exceeds MUA's maxServiceRadiusKm ({:.0f}km)",
                             id, distToCustomer != null ? String.format("%.2f", distToCustomer) : "unknown", muaMaxRadius);
@@ -1205,6 +1306,24 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 candidateMuaIds.retainAll(qualifiedMuaIds);
                 log.info("[CandidateFilter] Filtered by masterCategoryId={}, styleId={}: {} qualified MUAs",
                         req.getMasterCategoryId(), req.getStyleId(), candidateMuaIds.size());
+            }
+
+            // Sắp xếp phân tầng ưu tiên (Tiered Priority): Thợ có điểm Rank Score (kết hợp cả ca hoàn thành và rating) cao hơn đứng trước
+            if (candidateMuaIds.size() > 1) {
+                final Map<Long, MuaProfileEntity> finalProfiles = profiles;
+                candidateMuaIds.sort((id1, id2) -> {
+                    MuaProfileEntity m1 = finalProfiles.get(id1);
+                    MuaProfileEntity m2 = finalProfiles.get(id2);
+
+                    BigDecimal s1 = (m1 != null && m1.getRankScore() != null) ? m1.getRankScore() : BigDecimal.valueOf(50.0);
+                    BigDecimal s2 = (m2 != null && m2.getRankScore() != null) ? m2.getRankScore() : BigDecimal.valueOf(50.0);
+                    int cmp = s2.compareTo(s1);
+                    if (cmp != 0) return cmp;
+
+                    BigDecimal r1 = (m1 != null && m1.getBayesianRating() != null) ? m1.getBayesianRating() : BigDecimal.valueOf(4.60);
+                    BigDecimal r2 = (m2 != null && m2.getBayesianRating() != null) ? m2.getBayesianRating() : BigDecimal.valueOf(4.60);
+                    return r2.compareTo(r1);
+                });
             }
 
         } catch (RuntimeException ex) {

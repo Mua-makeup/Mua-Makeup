@@ -1,6 +1,7 @@
 import { apiClient } from './api';
 import { CreateBookingFormValues } from '@/schemas/booking-create.schema';
 import { CreateInstantBookingPayload } from '@/schemas/instant-booking.schema';
+import { createImageFormData } from '@/utils/form-data';
 
 export type BookingStatusType =
   | 'PENDING_DEPOSIT'
@@ -15,8 +16,11 @@ export type BookingStatusType =
   | 'PAID_OUT'
   | 'CANCELLED'
   | 'CANCELLED_EXPIRED'
+  | 'CANCELLED_BY_CUSTOMER'
   | 'EXPIRED'
-  | 'DISPUTED';
+  | 'DISPUTED'
+  | 'DISPUTE_REFUNDED'
+  | 'DISPUTE_COMPENSATED';
 
 export interface ScheduledBookingCreatedRes {
   bookingId?: number;
@@ -98,6 +102,8 @@ export interface CustomerBookingItem {
   muaPhoneNumber?: string;
   packageName: string;
   packageCoverUrl?: string;
+  styleId?: number;
+  styleName?: string;
   bookingTime: string;
   destinationAddress: string;
   destinationLatitude?: number;
@@ -109,8 +115,16 @@ export interface CustomerBookingItem {
   addOnNames?: string[];
   note?: string;
   isDepositPaid?: boolean;
+  cancellationReason?: string;
+  isDepositRefunded?: boolean;
   createdAt: string;
   updatedAt?: string;
+  bookingPartner?: string;
+  agencyId?: number;
+  agencyName?: string;
+  agencyLogoUrl?: string;
+  staffName?: string;
+  assistantNames?: string[];
 }
 
 export interface BookingStatusDetailRes {
@@ -137,14 +151,29 @@ export interface BookingStatusDetailRes {
   depositAmount?: number;
   platformFee?: number;
   earningsAmount?: number;
+  styleId?: number;
   styleName?: string;
   packageName?: string;
+  packagePrice?: number;
   bookingType?: string;
   bookingDate?: string;
   startTime?: string;
+  packageId?: number;
   packageItems?: string[];
+  componentItems?: string[];
+  addonItems?: string[];
+  availableAddons?: Array<{
+    id: number;
+    itemName: string;
+    itemPrice?: number;
+    durationMinutes?: number;
+    itemType?: string;
+  }>;
   estimatedDurationMinutes?: number;
   emergencyProofUrl?: string;
+  emergencyReason?: string;
+  emergencyReportedAt?: string;
+  disputeOrigin?: 'CUSTOMER' | 'MUA' | 'DUAL' | string;
   completionPhotoUrl?: string;
   isDepositPaid?: boolean;
   depositTimeoutSeconds?: number;
@@ -154,7 +183,61 @@ export interface BookingStatusDetailRes {
   cancellationReason?: string;
   isCancelRequested?: boolean;
   cancelRequestedReason?: string;
+  isDirectBooking?: boolean;
+  availablePackages?: CandidatePackageRes[];
+  bookingPartner?: 'AGENCY' | 'FREELANCER' | string;
+  agencyId?: number;
+  agencyCode?: string;
+  agencyName?: string;
+  agencyLogoUrl?: string;
+  agencyPhone?: string;
+  agencyAddress?: string;
+  assignedStaff?: StaffAssignmentItem[];
   updatedAt: string;
+  completedAt?: string;
+  overtimeMinutes?: number;
+  overtimePay?: number;
+  overtimeRuleName?: string;
+  overtimePolicyType?: string;
+  soloPendingConfirmation?: boolean;
+  soloCommissionRate?: number;
+}
+
+export interface StaffAssignmentItem {
+  id: number;
+  staffId?: number;
+  staffName?: string;
+  staffPhone?: string;
+  staffAvatarUrl?: string;
+  role: 'PRIMARY_MUA' | 'ASSISTANT_MUA' | string;
+  status: 'ACTIVE' | 'EMERGENCY_CANCELLED' | 'REPLACED' | string;
+  assignedAt?: string;
+  confirmedAt?: string;
+  isConfirmedByStaff?: boolean;
+  cancellationReason?: string;
+  proofDocumentUrl?: string;
+  commissionRate?: number;
+  commissionAmount?: number;
+  commissionNote?: string;
+  overtimePay?: number;
+  overtimeMinutes?: number;
+}
+
+export interface CandidatePackageRes {
+  id: number;
+  packageName: string;
+  description?: string;
+  price: number;
+  estimatedDurationMinutes?: number;
+  items?: string[];
+  categoryName?: string;
+  availableAddons?: Array<{
+    id: number;
+    itemName: string;
+    itemPrice?: number;
+    durationMinutes?: number;
+    itemType?: string;
+  }>;
 }
 
 export interface LiveTrackingRes {
@@ -175,7 +258,14 @@ export const bookingService = {
    * Tạo đơn đặt lịch theo hẹn thông thường
    */
   async createScheduledBooking(payload: CreateBookingFormValues): Promise<ScheduledBookingCreatedRes & { id: number; bookingId: number }> {
-    const response = await apiClient.post('/customer/bookings', payload);
+    const isAgency = payload.providerType === 'AGENCY';
+    const body = {
+      ...payload,
+      bookingPartner: isAgency ? 'AGENCY_DISPATCH' : 'FREELANCER_DIRECT',
+      agencyId: isAgency ? payload.providerId : undefined,
+      muaId: !isAgency ? payload.providerId : undefined,
+    };
+    const response = await apiClient.post('/customer/bookings', body);
     const data = response.data?.data || {};
     const bookingId = Number(data.booking_id || data.bookingId || data.id || 0);
     return {
@@ -297,7 +387,7 @@ export const bookingService = {
    */
   async confirmDeposit(
     bookingId: number,
-    payload?: { addOnNames?: string[]; addOnTotal?: number }
+    payload?: { packageId?: number; addOnNames?: string[]; addOnTotal?: number }
   ): Promise<void> {
     await apiClient.post(`/customer/bookings/${bookingId}/confirm-deposit`, payload || {});
   },
@@ -312,7 +402,129 @@ export const bookingService = {
       emergencyProofUrl,
     });
   },
+
+  /**
+   * Khách hàng leo thang khiếu nại lên Super Admin sau khi Studio từ chối hoàn cọc (Mô hình C)
+   */
+  async escalateDispute(bookingId: number, reason?: string): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/escalate-dispute`, { reason });
+  },
+
+  /**
+   * Khách hàng chấp nhận kết quả xử lý từ chối của Studio, đóng khiếu nại (Mô hình C)
+   */
+  async acceptStudioResolution(bookingId: number): Promise<void> {
+    await apiClient.post(`/customer/bookings/${bookingId}/accept-studio-dispute-resolution`);
+  },
+
+  /**
+   * Lấy đơn hàng đang hoạt động kèm toàn bộ timeline lịch sử chi tiết (Realtime Backend PostgreSQL)
+   */
+  async getActiveTrackingBooking(): Promise<CustomerActiveTrackingData | null> {
+    try {
+      const response = await apiClient.get('/customer/bookings/active-tracking');
+      return response.data?.data || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Lấy lịch sử biến động chi tiết của một đơn hàng bất kỳ
+   */
+  async getBookingHistoryLogs(bookingId: number): Promise<BookingHistoryLogItem[]> {
+    try {
+      const response = await apiClient.get(`/bookings/${bookingId}/history`);
+      return response.data?.data?.historyLogs || [];
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Chuyển đổi trạng thái đơn đặt lịch (CANCELLED, DISPUTED...)
+   */
+  async transitionBookingState(
+    bookingId: number,
+    targetOrPayload: BookingStatusType | {
+      targetStatus: BookingStatusType;
+      reason?: string;
+      emergencyProofUrl?: string;
+    },
+    reason?: string,
+    emergencyProofUrl?: string
+  ): Promise<any> {
+    const payload = typeof targetOrPayload === 'string'
+      ? { targetStatus: targetOrPayload, reason, emergencyProofUrl }
+      : targetOrPayload;
+    const response = await apiClient.post(`/bookings/${bookingId}/transition`, payload);
+    return response.data?.data;
+  },
+
+  /**
+   * Tải ảnh minh chứng khiếu nại (khách hàng hoặc thợ)
+   */
+  async uploadDisputeProof(
+    bookingId: number,
+    imageUri: string
+  ): Promise<{ completionPhotoUrl?: string; photoUrl?: string; thumbnailUrl?: string }> {
+    const formData = await createImageFormData(imageUri, 'file', `dispute_proof_${Date.now()}.jpg`);
+    const response = await apiClient.post(`/bookings/${bookingId}/dispute-proof`, formData);
+    const data = response.data?.data;
+    const finalPhotoUrl = data?.completionPhotoUrl || data?.photoUrl;
+    return {
+      ...data,
+      completionPhotoUrl: finalPhotoUrl,
+      photoUrl: finalPhotoUrl,
+    };
+  },
 };
+
+export interface BookingHistoryLogItem {
+  id: number;
+  fromStatus?: string;
+  toStatus: string;
+  actionTitle?: string;
+  changedByUserId?: number;
+  changedBy?: string;
+  artistName?: string;
+  artistPhone?: string;
+  originAddress?: string;
+  destinationAddress?: string;
+  note?: string;
+  formattedTime?: string;
+  createdAt: string;
+}
+
+export interface CustomerActiveTrackingData {
+  bookingId: number;
+  bookingCode: string;
+  currentStatus: BookingStatusType;
+  bookingType: string;
+  destinationAddress: string;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
+  bookingDate?: string;
+  startTime?: string;
+  customerId?: number;
+  customerName?: string;
+  customerPhone?: string;
+  customerAvatar?: string;
+  muaId?: number;
+  muaName?: string;
+  muaPhone?: string;
+  muaAvatar?: string;
+  muaRating?: number;
+  agencyName?: string;
+  agencyAddress?: string;
+  packageName?: string;
+  styleName?: string;
+  totalAmount?: number;
+  depositAmount?: number;
+  remainingAmount?: number;
+  isDepositPaid?: boolean;
+  historyLogs?: BookingHistoryLogItem[];
+}
 
 export interface RecentAddressItem {
   address: string;
@@ -321,3 +533,4 @@ export interface RecentAddressItem {
   lastUsedAt?: string;
   orderCount?: number;
 }
+

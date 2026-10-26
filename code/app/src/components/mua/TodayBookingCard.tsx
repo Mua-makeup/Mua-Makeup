@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { FreelancerBookingItem, freelancerBookingService } from '@/services/freelancer-booking.service';
@@ -10,29 +11,48 @@ import { useWorkstationStore } from '@/store/workstation.store';
 
 interface Props {
   booking: FreelancerBookingItem;
+  onRefresh?: () => void;
 }
 
-export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
+export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
   const { pendingScheduledOffers, triggerScheduledOffer, fetchWorkstationData } = useWorkstationStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getStatusBadge = (status: BookingStatusType) => {
     switch (status) {
+      case 'PENDING_DEPOSIT':
+        return { label: 'Chờ Đặt Cọc', bg: '#FEF3C7', text: '#D97706', icon: 'card-outline' };
       case 'REQUESTED':
         return { label: 'Chờ Tiếp Nhận', bg: '#FFF1F2', text: '#E11D48', icon: 'hourglass-outline' };
+      case 'PENDING_AGENCY_DISPATCH':
+        return { label: 'Chờ Điều Phối', bg: '#FEF3C7', text: '#D97706', icon: 'sync-outline' };
+      case 'AGENCY_ASSIGNED':
+        return { label: 'Studio Chỉ Định', bg: '#E0F2FE', text: '#0284C7', icon: 'business-outline' };
       case 'ACCEPTED':
         return { label: 'Đã Tiếp Nhận', bg: '#EFF6FF', text: '#2563EB', icon: 'checkmark-circle' };
       case 'ON_THE_WAY':
         return { label: 'Đang Di Chuyển', bg: '#FEF3C7', text: '#B45309', icon: 'navigate' };
       case 'ARRIVED':
-        return { label: 'Đã Đến Nơi', bg: '#F3E8FF', text: '#7E22CE', icon: 'location' };
+        return { label: 'Đã Đến Nơi', bg: '#F1F5F9', text: '#334155', icon: 'location' };
       case 'IN_PROGRESS':
-        return { label: 'Đang Trang Điểm', bg: '#FFF1F2', text: '#E11D48', icon: 'sparkles' };
+        return { label: 'Đang Trang Điểm', bg: '#FFF1F2', text: '#E11D48', icon: 'brush' };
       case 'COMPLETED':
       case 'PAID_OUT':
         return { label: 'Đã Hoàn Thành', bg: '#ECFDF5', text: '#059669', icon: 'ribbon' };
       case 'CANCELLED':
         return { label: 'Đã Hủy', bg: '#F1F5F9', text: '#64748B', icon: 'close-circle' };
+      case 'CANCELLED_EXPIRED':
+        return { label: 'Hết Hạn Cọc', bg: '#F1F5F9', text: '#64748B', icon: 'close-circle' };
+      case 'DISPUTED':
+        return { label: 'Đang Khiếu Nại', bg: '#FFEDD5', text: '#EA580C', icon: 'alert-circle' };
+      case 'DISPUTE_REFUNDED': {
+        const isPost = Boolean((booking as any)?.completionPhotoUrl || (booking as any)?.completedAt || (booking as any)?.cancellationReason?.toLowerCase().includes('sau ca') || (booking as any)?.cancellationReason?.toLowerCase().includes('tổng tiền đơn'));
+        return { label: isPost ? 'Đã Hoàn Tiền Đơn' : 'Đã Hoàn Cọc Khách', bg: '#FEF3C7', text: '#B45309', icon: 'shield-checkmark' };
+      }
+      case 'DISPUTE_COMPENSATED': {
+        const isPost = Boolean((booking as any)?.completionPhotoUrl || (booking as any)?.completedAt || (booking as any)?.cancellationReason?.toLowerCase().includes('sau ca') || (booking as any)?.cancellationReason?.toLowerCase().includes('bác bỏ'));
+        return { label: isPost ? 'Bảo Lưu Thù Lao' : 'Bồi Thường Cho Thợ', bg: '#ECFDF5', text: '#059669', icon: 'shield-checkmark' };
+      }
       default:
         return { label: status, bg: '#F8FAFC', text: '#64748B', icon: 'help-circle' };
     }
@@ -61,7 +81,15 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
   };
 
   const handleEnterJob = () => {
-    const isTerminalStatus = ['COMPLETED', 'PAID_OUT', 'CANCELLED', 'CANCELLED_EXPIRED', 'DISPUTED'].includes(booking.status);
+    const isTerminalStatus = [
+      'COMPLETED',
+      'PAID_OUT',
+      'CANCELLED',
+      'CANCELLED_EXPIRED',
+      'DISPUTED',
+      'DISPUTE_REFUNDED',
+      'DISPUTE_COMPENSATED',
+    ].includes(booking.status);
     if (isTerminalStatus) {
       router.push({
         pathname: '/booking/history-detail/[id]',
@@ -76,30 +104,28 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
   };
 
   // Tiếp nhận ca hẹn đang chờ (REQUESTED)
-  const handleAcceptRequested = async () => {
+  const handleAcceptRequested = () => {
     if (isSubmitting) return;
-    const matchingOffer = pendingScheduledOffers?.find((o) => o.bookingId === booking.id);
-    if (matchingOffer) {
-      triggerScheduledOffer(matchingOffer);
-      return;
-    }
 
     Alert.alert(
       'Tiếp Nhận Ca Hẹn',
-      `Bạn có muốn tiếp nhận ca hẹn #${booking.bookingCode} của khách ${booking.customerName}?`,
+      `Bạn có muốn tiếp nhận ca hẹn #${booking.bookingCode} của khách ${booking.customerName || 'khách hàng'}?`,
       [
         { text: 'Để Sau', style: 'cancel' },
         {
-          text: 'Tiếp Nhận',
+          text: 'Tiếp Nhận Ca',
           onPress: async () => {
             try {
               setIsSubmitting(true);
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               await freelancerBookingService.confirmScheduledBooking(booking.id);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Tiếp Nhận Thành Công 🎉', `Đã tiếp nhận ca hẹn #${booking.bookingCode} thành công. Ca làm việc đã được đưa vào lịch trình của bạn.`);
               await fetchWorkstationData();
-              Alert.alert('Thành Công', `Đã tiếp nhận ca hẹn #${booking.bookingCode}.`);
+              if (onRefresh) await onRefresh();
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.response?.data?.message || err.message);
+              const msg = err?.response?.data?.message || err?.message || 'Không thể tiếp nhận ca hẹn.';
+              Alert.alert('Lỗi Tiếp Nhận', msg);
             } finally {
               setIsSubmitting(false);
             }
@@ -115,9 +141,9 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Từ Chối Ca Hẹn',
-      `Bạn có chắc muốn từ chối ca hẹn #${booking.bookingCode}? Tiền cọc sẽ hoàn lại 100% cho khách hàng.`,
+      `Bạn có chắc muốn từ chối ca hẹn #${booking.bookingCode}? Toàn bộ 100% tiền cọc sẽ được hoàn lại cho khách hàng.`,
       [
-        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        { text: 'Hủy', style: 'cancel' },
         {
           text: 'Từ Chối',
           style: 'destructive',
@@ -125,9 +151,13 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
             try {
               setIsSubmitting(true);
               await freelancerBookingService.rejectScheduledBooking(booking.id, 'Thợ bận lịch không thể nhận');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Đã Từ Chối Ca', `Bạn đã từ chối ca hẹn #${booking.bookingCode}. Toàn bộ 100% tiền cọc đã được hệ thống hoàn về ví của khách hàng.`);
               await fetchWorkstationData();
+              if (onRefresh) await onRefresh();
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.response?.data?.message || err.message);
+              const msg = err?.response?.data?.message || err?.message || 'Không thể từ chối ca hẹn.';
+              Alert.alert('Lỗi Từ Chối', msg);
             } finally {
               setIsSubmitting(false);
             }
@@ -143,59 +173,115 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
 
   const isRequested = booking.status === 'REQUESTED';
 
+  const isStudioOrder =
+    booking.bookingPartner === 'AGENCY_DISPATCH' ||
+    booking.bookingPartner === 'AGENCY' ||
+    Boolean(booking.agencyId || booking.agencyName);
+
   return (
     <View style={[styles.card, isRequested && styles.cardRequested]}>
-      {/* Header: Mã đơn + Thời gian + Status badge */}
-      <View style={styles.cardHeader}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.bookingCode}>{booking.bookingCode}</Text>
-          <View style={styles.timeTag}>
-            <Ionicons name="time-outline" size={13} color="#64748B" />
-            <Text style={styles.timeText}>
-              {formatBookingSchedule(booking.bookingDate, booking.startTime)}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={handleEnterJob}
+      >
+        {/* Header: Loại đơn + Mã đơn + Thời gian + Status badge */}
+        <View style={styles.cardHeader}>
+          <View style={styles.headerLeft}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+              <View style={isStudioOrder ? styles.typeBadgeStudio : styles.typeBadgeFreelance}>
+                <Text style={isStudioOrder ? styles.typeBadgeStudioText : styles.typeBadgeFreelanceText}>
+                  {isStudioOrder ? 'STUDIO' : 'TỰ DO'}
+                </Text>
+              </View>
+              <Text style={styles.bookingCode}>{booking.bookingCode}</Text>
+            </View>
+            <View style={styles.timeTag}>
+              <Ionicons name="time-outline" size={13} color="#64748B" />
+              <Text style={styles.timeText}>
+                {formatBookingSchedule(booking.bookingDate, booking.startTime)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </View>
+        </View>
+
+        {/* Package & Customer info */}
+        <View style={styles.mainInfo}>
+          <Text style={styles.packageName} numberOfLines={1}>
+            {booking.packageName}
+          </Text>
+
+          {(booking as any).styleName ? (() => {
+            const rawStyle = String((booking as any).styleName).trim();
+            const isTone = rawStyle.toLowerCase().startsWith('tone');
+            const label = isTone ? 'Tone: ' : 'Phong cách: ';
+            const val = isTone ? rawStyle.replace(/^tone\s+/i, '') : rawStyle;
+            return (
+              <View style={styles.variationRow}>
+                <Text style={styles.variationValue} numberOfLines={2}>
+                  <Text style={styles.variationLabel}>{label}</Text>
+                  {val}
+                </Text>
+              </View>
+            );
+          })() : null}
+
+          {isStudioOrder && (
+            <View style={styles.agencyNoticeRow}>
+              <Text style={styles.agencyNoticeText} numberOfLines={1}>
+                Studio: <Text style={{ fontWeight: '700' }}>{booking.agencyName || 'Đại lý phân công'}</Text>
+                {booking.assignmentRole ? ` • ${booking.assignmentRole === 'PRIMARY_MUA' ? 'Thợ chính' : 'Thợ phụ'}` : ''}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.customerRow}>
+            <View style={styles.customerBlock}>
+              <UserAvatar uri={booking.customerAvatar} name={booking.customerName} size={22} style={{ marginRight: 6 }} />
+              <Text style={styles.customerName}>{booking.customerName}</Text>
+            </View>
+
+            {booking.customerPhone ? (
+              <TouchableOpacity style={styles.callBtn} onPress={handleCallCustomer}>
+                <Ionicons name="call" size={13} color="#059669" />
+                <Text style={styles.callText}>Gọi khách</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {/* Destination Address */}
+          <View style={styles.addressRow}>
+            <Ionicons name="location-sharp" size={15} color="#E11D48" style={styles.addressIcon} />
+            <Text style={styles.addressText} numberOfLines={2}>
+              {booking.destinationAddress || 'Trang điểm tại studio / địa điểm thỏa thuận'}
+            </Text>
+          </View>
+
+          {/* Phương thức thanh toán đồng bộ */}
+          <View style={styles.paymentMethodCardRow}>
+            <Text style={[styles.paymentMethodCardText, booking.status === 'PAID_OUT' && { color: '#065F46' }]}>
+              {booking.status === 'PAID_OUT'
+                ? 'PTTT: Cọc Escrow • Đã quyết toán 100% (Tiền mặt/Online)'
+                : (booking.status === 'COMPLETED'
+                    ? 'PTTT: Đã cọc Escrow • Chờ thu 70% (Tiền mặt/Online)'
+                    : 'PTTT: Cọc Escrow bảo chứng trực tuyến')}
             </Text>
           </View>
         </View>
-
-        <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-          <Ionicons name={badge.icon as any} size={12} color={badge.text} />
-          <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
-        </View>
-      </View>
-
-      {/* Package & Customer info */}
-      <View style={styles.mainInfo}>
-        <Text style={styles.packageName} numberOfLines={2}>
-          {booking.packageName}
-        </Text>
-
-        <View style={styles.customerRow}>
-          <View style={styles.customerBlock}>
-            <Ionicons name="person-outline" size={14} color="#64748B" />
-            <Text style={styles.customerName}>{booking.customerName}</Text>
-          </View>
-
-          {booking.customerPhone ? (
-            <TouchableOpacity style={styles.callBtn} onPress={handleCallCustomer}>
-              <Ionicons name="call" size={13} color="#059669" />
-              <Text style={styles.callText}>Gọi khách</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {/* Destination Address */}
-        <View style={styles.addressRow}>
-          <Ionicons name="location-sharp" size={15} color="#E11D48" style={styles.addressIcon} />
-          <Text style={styles.addressText} numberOfLines={2}>
-            {booking.destinationAddress || 'Trang điểm tại studio / địa điểm thỏa thuận'}
-          </Text>
-        </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Financials & Actions */}
       <View style={styles.footerRow}>
         <View style={styles.earningsBox}>
-          <Text style={styles.earningsLabel}>Thu nhập thợ (80%):</Text>
+          <Text style={styles.earningsLabel}>
+            {isStudioOrder ? 'Thu nhập hoa hồng:' : 'Thu nhập thợ (80%):'}
+          </Text>
           <Text style={styles.earningsValue}>{formatVnd(booking.earningsAmount)}</Text>
         </View>
 
@@ -204,23 +290,35 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
             /* Đơn chưa tiếp nhận: CHỈ hiện nút Từ Chối và Tiếp Nhận Ca (KHÔNG hiện Vào ca hay Dẫn đường) */
             <>
               <TouchableOpacity
-                style={styles.rejectCardBtn}
+                style={[styles.rejectCardBtn, isSubmitting && { opacity: 0.6 }]}
                 onPress={handleRejectRequested}
                 disabled={isSubmitting}
                 activeOpacity={0.75}
               >
-                <Ionicons name="close-circle-outline" size={14} color="#E11D48" />
-                <Text style={styles.rejectCardBtnText}>Từ chối</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#E11D48" />
+                ) : (
+                  <>
+                    <Ionicons name="close-circle-outline" size={14} color="#E11D48" />
+                    <Text style={styles.rejectCardBtnText}>Từ chối</Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.acceptCardBtn}
+                style={[styles.acceptCardBtn, isSubmitting && { opacity: 0.6 }]}
                 onPress={handleAcceptRequested}
                 disabled={isSubmitting}
                 activeOpacity={0.85}
               >
-                <Ionicons name="checkmark-circle-outline" size={15} color="#FFFFFF" />
-                <Text style={styles.acceptCardBtnText}>Tiếp nhận ca</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={15} color="#FFFFFF" />
+                    <Text style={styles.acceptCardBtnText}>Tiếp nhận ca</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </>
           ) : booking.status === 'ACCEPTED' ? (
@@ -244,7 +342,7 @@ export const TodayBookingCard: React.FC<Props> = ({ booking }) => {
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.executeBtn} onPress={handleEnterJob}>
-                <Ionicons name="flash" size={14} color="#FFFFFF" />
+                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
                 <Text style={styles.executeBtnText}>Tiến trình</Text>
               </TouchableOpacity>
             </>
@@ -331,7 +429,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+    marginBottom: 4,
+  },
+  variationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  variationLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  variationValue: {
+    fontSize: 11,
+    color: '#334155',
+    fontWeight: '600',
   },
   customerRow: {
     flexDirection: 'row',
@@ -487,5 +608,69 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  typeBadgeStudio: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  typeBadgeStudioText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#4338CA',
+    letterSpacing: 0.2,
+  },
+  typeBadgeFreelance: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  typeBadgeFreelanceText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.2,
+  },
+  agencyNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  agencyNoticeText: {
+    fontSize: 11,
+    color: '#4338CA',
+    flex: 1,
+  },
+  paymentMethodCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignSelf: 'flex-start',
+  },
+  paymentMethodCardText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#475569',
   },
 });

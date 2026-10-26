@@ -2,38 +2,50 @@ import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { useI18nStore } from '../../store/useI18nStore';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
+import { TableSkeleton } from './Skeleton';
 
 export const DataTable = ({
-  columns,
+  columns = [],
   data = [],
   isLoading = false,
+  loading = false,
   emptyMessage,
   pagination,
+  page,
+  pageSize: propPageSize,
+  totalElements,
+  totalPages: propTotalPages,
+  onPageChange,
+  onPageSizeChange,
   onRowClick,
 }) => {
   const { t } = useI18nStore();
   const [sizeDropdownOpen, setSizeDropdownOpen] = useState(false);
   const effectiveEmptyMessage = emptyMessage || t('dt_no_data');
+  const isTableLoading = isLoading || loading;
 
-  if (isLoading) {
+  const mergedPagination =
+    pagination ||
+    (totalElements !== undefined || page !== undefined
+      ? {
+          page,
+          size: propPageSize,
+          pageSize: propPageSize,
+          totalElements,
+          totalPages: propTotalPages,
+          onPageChange,
+          onPageSizeChange,
+        }
+      : null);
+
+  if (isTableLoading) {
     return (
-      <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex gap-4 animate-pulse">
-          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4"></div>
-          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4"></div>
-          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4"></div>
-        </div>
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="p-4 flex gap-4 animate-pulse">
-              <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-1/3"></div>
-              <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-1/4"></div>
-              <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-1/6"></div>
-              <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-1/5"></div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <TableSkeleton
+        columns={columns}
+        rows={mergedPagination?.size || mergedPagination?.pageSize || 6}
+        hasPagination={Boolean(mergedPagination)}
+        className="min-h-[45vh] sm:min-h-[55vh] lg:min-h-[65vh]"
+      />
     );
   }
 
@@ -50,11 +62,11 @@ export const DataTable = ({
     );
   }
 
-  const curPage = pagination?.currentPage ?? (pagination?.page !== undefined ? pagination.page + 1 : 1);
-  const pageSize = pagination?.pageSize ?? pagination?.size ?? getSavedPageSize(10);
-  const totalItems = pagination?.totalElements ?? pagination?.total_elements ?? pagination?.totalItems ?? data.length;
+  const curPage = mergedPagination?.currentPage ?? (mergedPagination?.page !== undefined ? mergedPagination.page + 1 : 1);
+  const pageSize = mergedPagination?.pageSize ?? mergedPagination?.size ?? getSavedPageSize(10);
+  const totalItems = mergedPagination?.totalElements ?? mergedPagination?.total_elements ?? mergedPagination?.totalItems ?? data.length;
   const calculatedPages = Math.ceil(totalItems / pageSize) || 1;
-  const totalPages = Math.max(pagination?.totalPages ?? pagination?.total_pages ?? calculatedPages, calculatedPages, 1);
+  const totalPages = Math.max(mergedPagination?.totalPages ?? mergedPagination?.total_pages ?? calculatedPages, calculatedPages, 1);
 
   const getPageNumbers = () => {
     const pages = [];

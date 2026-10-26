@@ -17,35 +17,42 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { getBottomNavPadding } from '@/utils/responsive';
 import { useAuthStore } from '@/store/auth.store';
 import { useLocationStore } from '@/store/location.store';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { InstantRadarModal } from '@/components/booking/InstantRadarModal';
 import { DirectMuaBookingModal } from '@/components/booking/DirectMuaBookingModal';
 import { OnlineMuaListModal } from '@/components/booking/OnlineMuaListModal';
+import { StudioServicesModal } from '@/components/customer/StudioServicesModal';
 import { NearbyProviderRes } from '@/services/telemetry.service';
 import { WorkstationHeader } from '@/components/mua/WorkstationHeader';
 import { WorkstationStatCards } from '@/components/mua/WorkstationStatCards';
 import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
+import { DispatchedBookingCard } from '@/components/staff/DispatchedBookingCard';
 import { CountdownAcceptModal } from '@/components/mua/CountdownAcceptModal';
 import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { hasSeenOnboarding } from '@/utils/storage';
 import { useAccountModalStore } from '@/store/account-modal.store';
+import { useHomeStore } from '@/store/home.store';
 import { taxonomyService, MasterCategory } from '@/services/taxonomy.service';
 import { muaProfileService, MuaPublicProfile } from '@/services/mua-profile.service';
 import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { useNotificationStore } from '@/store/notification.store';
 import * as Haptics from 'expo-haptics';
+import { Skeleton, SkeletonCircle, BookingCardSkeleton } from '@/components/base/Skeleton';
 
 const getCategoryIcon = (categoryName?: string): keyof typeof Ionicons.glyphMap => {
-  if (!categoryName) return 'sparkles';
+  if (!categoryName) return 'grid-outline';
   const name = categoryName.toLowerCase();
   if (name.includes('cô dâu') || name.includes('cưới')) return 'heart';
   if (name.includes('tiệc') || name.includes('party')) return 'wine';
   if (name.includes('kỷ yếu') || name.includes('học')) return 'school';
-  if (name.includes('douyin') || name.includes('trend')) return 'color-wand';
+  if (name.includes('douyin') || name.includes('trend')) return 'flame';
   if (name.includes('daily') || name.includes('chơi') || name.includes('nhẹ')) return 'sunny';
-  return 'sparkles';
+  return 'grid-outline';
 };
 
 const getDistanceKm = (
@@ -78,10 +85,27 @@ export default function HomeScreen() {
   
   const [isReadyToWork, setIsReadyToWork] = useState(true);
 
+  const {
+    categories,
+    featuredMuas,
+    featuredStudios,
+    fetchExploreData,
+    isLoading: isHomeLoading,
+  } = useHomeStore();
+  const [selectedStudioForModal, setSelectedStudioForModal] = useState<AgencyPublicProfile | null>(null);
+  const [isStudioModalVisible, setIsStudioModalVisible] = useState(false);
+
+  useEffect(() => {
+    // Tải dữ liệu khám phá và giữ trong store bộ nhớ đệm
+    fetchExploreData();
+  }, [fetchExploreData]);
+
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+  const isFreelanceMUA = isMUA && !isAgencyStaff;
   const isCustomer = userInfo?.roles?.includes('ROLE_CUSTOMER') || (!isMUA && !isAgencyStaff);
   const isWorkstationRole = (isMUA || isAgencyStaff) && isAuthenticated;
+
 
   const {
     profile: workstationProfile,
@@ -93,6 +117,8 @@ export default function HomeScreen() {
     pendingScheduledOffers,
     triggerScheduledOffer,
   } = useWorkstationStore();
+
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   useEffect(() => {
     // Chỉ hiển thị hướng dẫn Onboarding khi người dùng mở ứng dụng lần đầu
@@ -133,11 +159,6 @@ export default function HomeScreen() {
     }, [isAuthenticated, isWorkstationRole, isCustomer])
   );
 
-  // Xác định đơn hàng active nổi bật của khách hàng theo thứ tự ưu tiên nghiệp vụ:
-  // 1. Chuyến đi / Đang làm việc: ON_THE_WAY, ARRIVED, IN_PROGRESS
-  // 2. Chờ khách đặt cọc 30%: PENDING_DEPOSIT
-  // 3. Đã đặt cọc Escrow 30% chờ thợ nhận: REQUESTED
-  // 4. Thợ đã tiếp nhận ca: ACCEPTED
   const activeCustomerTrip =
     upcomingBookings.find((b) => ['ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)) ||
     upcomingBookings.find((b) => b.status === 'PENDING_DEPOSIT') ||
@@ -154,6 +175,10 @@ export default function HomeScreen() {
   const [selectedTargetMua, setSelectedTargetMua] = useState<NearbyProviderRes | null>(null);
   const [isDirectModalVisible, setIsDirectModalVisible] = useState(false);
   const [directTargetMua, setDirectTargetMua] = useState<NearbyProviderRes | null>(null);
+  const [directTargetLocation, setDirectTargetLocation] = useState<{
+    address?: string;
+    coords?: { latitude: number; longitude: number } | null;
+  } | null>(null);
 
   const handleBookingPress = (muaId: number) => {
     router.push({
@@ -165,43 +190,47 @@ export default function HomeScreen() {
   // Nút 1: Đặt thợ khẩn cấp ngẫu nhiên gần nhất (Luồng Radar chuẩn)
   const handleRandomEmergencyBooking = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
     setSelectedTargetMua(null);
     setIsRadarModalVisible(true);
   };
 
-  // Nút 2: Mở danh sách thợ đang online quanh vị trí của khách
+  // Nút 2: Mở danh sách thợ đang online quanh vị trí của khách (cho phép khách tham khảo thoải mái)
   const handleOpenOnlineList = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsOnlineListModalVisible(true);
   };
 
-  // Khi chọn "Đặt Ngay" trên một thợ online cụ thể -> Mở Modal Đích Danh riêng biệt
-  const handleSelectOnlineMua = (mua: NearbyProviderRes) => {
+  // Khi chọn "Đặt Ngay" trên một thợ online cụ thể -> Nếu chưa login thì chuyển sang trang login
+  const handleSelectOnlineMua = (
+    mua: NearbyProviderRes,
+    location?: { address?: string; coords?: { latitude: number; longitude: number } | null }
+  ) => {
+    if (!isAuthenticated) {
+      setIsOnlineListModalVisible(false);
+      router.push('/(auth)/login');
+      return;
+    }
     setIsOnlineListModalVisible(false);
     setDirectTargetMua(mua);
+    setDirectTargetLocation(location || null);
     setIsDirectModalVisible(true);
   };
 
-  // Fallback từ modal online sang quét tự động ngẫu nhiên
+  // Fallback từ modal online sang quét tự động ngẫu nhiên -> Nếu chưa login thì chuyển sang trang login
   const handleFallbackRandomScan = () => {
     setIsOnlineListModalVisible(false);
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
     setSelectedTargetMua(null);
     setIsRadarModalVisible(true);
   };
 
-  const handleLogout = async () => {
-    Alert.alert('Đăng Xuất', 'Bạn có chắc chắn muốn đăng xuất tài khoản?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đăng Xuất',
-        style: 'destructive',
-        onPress: async () => {
-          useAccountModalStore.getState().closeAccountModal();
-          await logout();
-        },
-      },
-    ]);
-  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -212,28 +241,53 @@ export default function HomeScreen() {
           activeOpacity={0.7}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (isMUA) router.push('/profile/mua-profile');
-            else fetchCurrentLocation();
+            if (isFreelanceMUA) {
+              router.push('/profile/mua-profile');
+            } else if (isAgencyStaff) {
+              router.push('/profile/staff-profile');
+            } else {
+              fetchCurrentLocation(true);
+            }
           }}
         >
           <Ionicons name="location" size={18} color={BrandColors.primary} />
           <View style={styles.locationCol}>
             <Text style={styles.locationSmall}>
-              {isMUA ? 'Địa điểm nhận ca' : 'Vị trí hiện tại của bạn'}
+              {isFreelanceMUA
+                ? 'Địa điểm nhận ca'
+                : isAgencyStaff
+                  ? 'Cơ sở Studio trực thuộc'
+                  : 'Vị trí hiện tại của bạn'}
             </Text>
             <View style={styles.locationRow}>
               <Text style={styles.locationText} numberOfLines={1}>
-                {isMUA ? (workstationProfile?.baseAddressText || 'Thiết lập địa điểm nhận ca') : (isLocating ? 'Đang định vị GPS...' : currentAddress)}
+                {isFreelanceMUA
+                  ? (workstationProfile?.baseAddressText || 'Thiết lập địa điểm nhận ca')
+                  : isAgencyStaff
+                    ? ((workstationProfile as any)?.agencyName || 'Cơ sở Studio trực thuộc')
+                    : (isLocating ? 'Đang định vị GPS...' : currentAddress)}
+
               </Text>
               <Ionicons name="chevron-down" size={14} color={BrandColors.slateHeading} />
             </View>
           </View>
         </TouchableOpacity>
 
+
         <View style={styles.headerRightActions}>
-          <TouchableOpacity style={styles.iconCircleButton} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.iconCircleButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/notifications')}
+          >
             <Ionicons name="notifications-outline" size={20} color={BrandColors.slateHeading} />
-            <View style={styles.badgeDot} />
+            {unreadCount > 0 ? (
+              <View style={styles.badgeCountPill}>
+                <Text style={styles.badgeCountText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
 
           {isAuthenticated ? (
@@ -241,11 +295,11 @@ export default function HomeScreen() {
               style={styles.avatarButton}
               onPress={() => useAccountModalStore.getState().openAccountModal()}
               activeOpacity={0.8}>
-              <View style={styles.avatarBox}>
-                <Text style={styles.avatarText}>
-                  {userInfo?.fullName ? userInfo.fullName.charAt(0).toUpperCase() : 'U'}
-                </Text>
-              </View>
+              <UserAvatar
+                uri={userInfo?.avatarUrl}
+                name={userInfo?.fullName}
+                size={34}
+              />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -262,19 +316,14 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 70 + (insets.bottom > 0 ? insets.bottom : 16) },
+          { paddingBottom: getBottomNavPadding(insets.bottom) },
         ]}
         showsVerticalScrollIndicator={false}>
 
         {isWorkstationRole ? (
-          /* ========================================================================= */
-          /* MÀN HÌNH BÀN LÀM VIỆC DÀNH CHO THỢ MUA & AGENCY STAFF                     */
-          /* ========================================================================= */
           <View style={styles.workstationWrapper}>
-            {/* Header thông tin thợ & Công tắc Trực tuyến (GPS ON/OFF) */}
             <WorkstationHeader />
 
-            {/* 3 Thẻ thống kê: Ca hoàn thành, Đánh giá sao, Thu nhập ngày */}
             <WorkstationStatCards />
 
             {/* Phím tắt Hồ Sơ Nghề Nghiệp & Chứng Chỉ */}
@@ -282,7 +331,7 @@ export default function HomeScreen() {
               style={styles.profileShortcutBanner}
               activeOpacity={0.8}
               onPress={() => {
-                if (isMUA) {
+                if (isFreelanceMUA) {
                   router.push('/profile/mua-profile' as any);
                 } else {
                   router.push('/profile/staff-profile' as any);
@@ -291,17 +340,20 @@ export default function HomeScreen() {
             >
               <View style={styles.profileShortcutLeft}>
                 <View style={styles.profileShortcutIcon}>
-                  <Ionicons name={isMUA ? 'ribbon' : 'business'} size={16} color="#7C3AED" />
+                  <Ionicons name={isFreelanceMUA ? 'ribbon' : 'business'} size={16} color="#2563EB" />
                 </View>
-                <View>
-                  <Text style={styles.profileShortcutTitle}>
-                    {isMUA ? 'Hồ Sơ Nghề Nghiệp & Chứng Chỉ' : 'Hồ Sơ Nhân Sự Studio'}
+                <View style={styles.profileShortcutTextGroup}>
+                  <Text style={styles.profileShortcutTitle} numberOfLines={1}>
+                    {isFreelanceMUA ? 'Hồ Sơ Nghề Nghiệp & Chứng Chỉ' : 'Hồ Sơ Nhân Sự Studio'}
                   </Text>
-                  <Text style={styles.profileShortcutSub}>
-                    Cập nhật tiểu sử, số năm kinh nghiệm & chứng chỉ
+                  <Text style={styles.profileShortcutSub} numberOfLines={1} ellipsizeMode="tail">
+                    {isFreelanceMUA
+                      ? 'Cập nhật tiểu sử, số năm kinh nghiệm & chứng chỉ'
+                      : 'Xem cơ sở làm việc, hoa hồng & chứng chỉ Studio'}
                   </Text>
                 </View>
               </View>
+
               <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
 
@@ -322,7 +374,7 @@ export default function HomeScreen() {
                 }}
               >
                 <View style={styles.pendingRequestedIconBox}>
-                  <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                  <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -350,7 +402,7 @@ export default function HomeScreen() {
                 onPress={() => router.push(`/job-execution/${activeMuaJob.id}` as any)}
               >
                 <View style={styles.activeJobIconBox}>
-                  <Ionicons name="flash" size={20} color="#FFFFFF" />
+                  <Ionicons name="briefcase-outline" size={20} color="#FFFFFF" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -412,8 +464,16 @@ export default function HomeScreen() {
             </View>
 
             {/* Danh sách ca hôm nay */}
-            {todayBookings.length > 0 ? (
-              todayBookings.map((b) => <TodayBookingCard key={b.id} booking={b} />)
+            {isWorkstationLoading && todayBookings.length === 0 ? (
+              <BookingCardSkeleton count={2} />
+            ) : todayBookings.length > 0 ? (
+              todayBookings.map((b) =>
+                isAgencyStaff ? (
+                  <DispatchedBookingCard key={b.id} booking={b} onRefresh={fetchWorkstationData} />
+                ) : (
+                  <TodayBookingCard key={b.id} booking={b} />
+                )
+              )
             ) : (
               <View style={styles.workstationEmptyContainer}>
                 <View style={styles.workstationEmptyIconCircle}>
@@ -421,7 +481,9 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.workstationEmptyTitle}>Chưa Có Ca Làm Việc Hôm Nay</Text>
                 <Text style={styles.workstationEmptySubtext}>
-                  Hãy bật công tắc Trực tuyến để hệ thống tự động phát sóng GPS và điều phối đơn khẩn cấp và khách đặt hẹn đến bạn.
+                  {isAgencyStaff
+                    ? 'Hiện tại chưa có ca làm việc nào được phân công hôm nay. Hãy kiểm tra thời khóa biểu ca trực Studio của bạn.'
+                    : 'Hãy bật công tắc Trực tuyến để hệ thống tự động phát sóng GPS và điều phối đơn khẩn cấp và khách đặt hẹn đến bạn.'}
                 </Text>
               </View>
             )}
@@ -432,11 +494,11 @@ export default function HomeScreen() {
           /* ========================================================================= */
           <>
             {/* User Greeting Bar */}
-            {isAuthenticated && (
+            {isAuthenticated ? (
               <View style={styles.greetingBar}>
                 <View style={styles.greetingTextContainer}>
                   <Text style={styles.greetingTitle} numberOfLines={2}>
-                    {`Xin chào, ${userInfo?.fullName}! ✨`}
+                    {`Xin chào, ${userInfo?.fullName}!`}
                   </Text>
                   <Text style={styles.greetingSubtitle} numberOfLines={2}>
                     Hôm nay bạn muốn tỏa sáng theo phong cách nào?
@@ -445,6 +507,27 @@ export default function HomeScreen() {
                 <View style={[styles.roleBadge, styles.roleBadgeCustomer]}>
                   <Text style={styles.roleBadgeText}>Khách Hàng</Text>
                 </View>
+              </View>
+            ) : (
+              <View style={styles.guestGreetingBar}>
+                <View style={styles.guestGreetingContent}>
+                  <Text style={styles.guestGreetingTitle}>
+                    Khám Phá Dịch Vụ Make-up
+                  </Text>
+                  <Text style={styles.guestGreetingSub}>
+                    Tham khảo các chuyên viên tài năng, xem ảnh mẫu & bảng giá minh bạch
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.guestSearchBar}
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/explore')}
+                >
+                  <Ionicons name="search-outline" size={16} color="#64748B" />
+                  <Text style={styles.guestSearchPlaceholder}>
+                    Tìm kiếm thợ make-up, phong cách, studio...
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -470,8 +553,8 @@ export default function HomeScreen() {
                     activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
                     activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
                     activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { backgroundColor: '#059669' },
-                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#7C3AED' },
-                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#C026D3' },
+                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#0284C7' },
+                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#0D9488' },
                     activeCustomerTrip.status === 'IN_PROGRESS' && { backgroundColor: BrandColors.primary },
                   ]}
                 >
@@ -490,7 +573,7 @@ export default function HomeScreen() {
                         : activeCustomerTrip.status === 'ARRIVED'
                         ? 'location'
                         : activeCustomerTrip.status === 'IN_PROGRESS'
-                        ? 'sparkles'
+                        ? 'brush-outline'
                         : 'calendar'
                     }
                     size={20}
@@ -568,8 +651,8 @@ export default function HomeScreen() {
                     activeCustomerTrip.status === 'REQUESTED' && { backgroundColor: '#E11D48' },
                     activeCustomerTrip.status === 'ACCEPTED' && !activeCustomerTrip.isDepositPaid && { backgroundColor: '#D97706' },
                     activeCustomerTrip.status === 'ACCEPTED' && activeCustomerTrip.isDepositPaid && { backgroundColor: '#059669' },
-                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#7C3AED' },
-                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#C026D3' },
+                    activeCustomerTrip.status === 'ON_THE_WAY' && { backgroundColor: '#0284C7' },
+                    activeCustomerTrip.status === 'ARRIVED' && { backgroundColor: '#0D9488' },
                     activeCustomerTrip.status === 'IN_PROGRESS' && { backgroundColor: BrandColors.primary },
                   ]}
                 >
@@ -596,7 +679,6 @@ export default function HomeScreen() {
             <View style={styles.promoBanner}>
               <View style={styles.promoContent}>
                 <View style={styles.promoTag}>
-                  <Ionicons name="flame" size={12} color="#FFFFFF" />
                   <Text style={styles.promoTagText}>MÙA CƯỚI 2026</Text>
                 </View>
                 <Text style={styles.promoTitle}>Ưu Đãi 20% Gói Cô Dâu VIP</Text>
@@ -613,13 +695,272 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* ========================================================================= */}
-            {/* KHỐI PHÂN BIỆT 2 HÌNH THỨC ĐẶT LỊCH: CẤP TỐC 30S vs HẸN THEO NGÀY         */}
-            {/* ========================================================================= */}
+            {/* 1. DANH MỤC DỊCH VỤ TRANG ĐIỂM (CHO KHÁCH THAM QUAN) */}
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sectionTitle}>Danh Mục Dịch Vụ</Text>
+                  <Text style={styles.sectionSubtitle}>Khám phá các phong cách và dịch vụ trang điểm</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => router.push('/explore')}
+                  activeOpacity={0.7}
+                  style={styles.seeAllBtn}
+                >
+                  <Text style={styles.seeAllText}>Tất cả</Text>
+                  <Ionicons name="chevron-forward" size={13} color={BrandColors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesScroll}
+              >
+                {categories.length > 0 ? (
+                  categories.map((cat) => {
+                    const iconName = getCategoryIcon(cat.categoryName);
+                    return (
+                      <TouchableOpacity
+                        key={`cat-${cat.id}`}
+                        style={styles.categoryItem}
+                        activeOpacity={0.75}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          router.push({
+                            pathname: '/explore',
+                            params: { categoryId: cat.id.toString() },
+                          });
+                        }}
+                      >
+                        <View style={styles.categoryIconCircle}>
+                          <Ionicons name={iconName} size={20} color={BrandColors.primary} />
+                        </View>
+                        <Text style={styles.categoryNameText} numberOfLines={1}>
+                          {cat.categoryName}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : isHomeLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <View key={i} style={[styles.categoryItem, { alignItems: 'center' }]}>
+                      <SkeletonCircle size={52} />
+                      <Skeleton width={48} height={10} borderRadius={3} style={{ marginTop: 6 }} />
+                    </View>
+                  ))
+                ) : null}
+              </ScrollView>
+            </View>
+
+            {/* 2. CHUYÊN VIÊN TRANG ĐIỂM NỔI BẬT (CHO KHÁCH THAM KHẢO) */}
+            {featuredMuas.length > 0 ? (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>Chuyên Viên Make-Up Nổi Bật</Text>
+                    <Text style={styles.sectionSubtitle}>Hồ sơ thợ chuyên nghiệp, ảnh mẫu & đánh giá cao</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/explore', params: { tab: 'FREELANCE' } })}
+                    activeOpacity={0.7}
+                    style={styles.seeAllBtn}
+                  >
+                    <Text style={styles.seeAllText}>Xem thêm</Text>
+                    <Ionicons name="chevron-forward" size={13} color={BrandColors.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.muaCardsScroll}
+                >
+                  {featuredMuas.map((mua) => {
+                    const startingPriceStr = new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                    }).format(mua.startingPrice || 350000);
+                    const stylesText =
+                      mua.styles && mua.styles.length > 0
+                        ? mua.styles.map((s) => s.styleName).slice(0, 2).join(' • ')
+                        : 'Make-up chuyên nghiệp';
+
+                    return (
+                      <TouchableOpacity
+                        key={`featured-mua-${mua.muaId}`}
+                        style={styles.featuredMuaCard}
+                        activeOpacity={0.88}
+                        onPress={() => handleBookingPress(mua.muaId)}
+                      >
+                        <View style={styles.featuredMuaTop}>
+                          <UserAvatar uri={mua.avatarUrl} name={mua.fullName} size={48} />
+                          <View style={styles.featuredMuaInfo}>
+                            <View style={styles.featuredMuaNameRow}>
+                              <Text style={styles.featuredMuaName} numberOfLines={1}>
+                                {mua.fullName}
+                              </Text>
+                              <Ionicons name="checkmark-circle" size={14} color="#2563EB" />
+                            </View>
+                            <Text style={styles.featuredMuaStyles} numberOfLines={1}>
+                              {stylesText}
+                            </Text>
+                            <View style={styles.featuredMuaRatingRow}>
+                              <Ionicons name="star" size={12} color="#F59E0B" />
+                              <Text style={styles.featuredMuaRatingText}>
+                                {mua.ratingAverage != null ? Number(mua.ratingAverage).toFixed(1) : '5.0'}
+                              </Text>
+                              <Text style={styles.featuredMuaJobsText}>
+                                ({mua.totalCompletedJobs || 0} ca)
+                              </Text>
+                              {mua.isOnline && (
+                                <View style={styles.featuredOnlineBadge}>
+                                  <View style={styles.featuredOnlineDot} />
+                                  <Text style={styles.featuredOnlineText}>Online</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+
+                        <View style={styles.featuredMuaBottom}>
+                          <View>
+                            <Text style={styles.featuredPriceLabel}>Giá từ</Text>
+                            <Text style={styles.featuredPriceValue}>{startingPriceStr}</Text>
+                          </View>
+                          <View style={styles.viewProfileBtn}>
+                            <Text style={styles.viewProfileBtnText}>Xem Hồ Sơ</Text>
+                            <Ionicons name="arrow-forward" size={12} color={BrandColors.primary} />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : isHomeLoading ? (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <Skeleton width={180} height={18} borderRadius={4} />
+                  <Skeleton width={60} height={14} borderRadius={4} />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.muaCardsScroll}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <View key={i} style={[styles.featuredMuaCard, { padding: 14 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <SkeletonCircle size={48} style={{ marginRight: 10 }} />
+                        <View style={{ flex: 1 }}>
+                          <Skeleton width="80%" height={15} borderRadius={4} style={{ marginBottom: 6 }} />
+                          <Skeleton width="55%" height={12} borderRadius={3} style={{ marginBottom: 6 }} />
+                          <Skeleton width="40%" height={11} borderRadius={3} />
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Skeleton width={60} height={16} borderRadius={4} />
+                        <Skeleton width={80} height={26} borderRadius={13} />
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            {/* 3. STUDIO & VIỆN ÁO CƯỚI ĐỐI TÁC */}
+            {featuredStudios.length > 0 ? (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitle}>Studio & Viện Áo Cưới</Text>
+                    <Text style={styles.sectionSubtitle}>Cơ sở làm đẹp uy tín, trang thiết bị chuyên nghiệp</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/explore', params: { tab: 'STUDIO' } })}
+                    activeOpacity={0.7}
+                    style={styles.seeAllBtn}
+                  >
+                    <Text style={styles.seeAllText}>Xem thêm</Text>
+                    <Ionicons name="chevron-forward" size={13} color={BrandColors.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.studioCardsScroll}
+                >
+                  {featuredStudios.map((st) => (
+                    <TouchableOpacity
+                      key={`featured-studio-${st.id}`}
+                      style={styles.featuredStudioCard}
+                      activeOpacity={0.88}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push({
+                          pathname: '/studio/[id]',
+                          params: { id: st.id.toString() },
+                        });
+                      }}
+                    >
+                      <View style={styles.featuredStudioTop}>
+                        {st.logoUrl ? (
+                          <Image source={{ uri: st.logoUrl }} style={styles.featuredStudioLogo} />
+                        ) : (
+                          <View style={styles.featuredStudioLogoFallback}>
+                            <Ionicons name="business-outline" size={20} color={BrandColors.primary} />
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Text style={styles.featuredStudioName} numberOfLines={1}>
+                              {st.agencyName}
+                            </Text>
+                            <Ionicons name="checkmark-circle" size={13} color="#2563EB" />
+                          </View>
+                          <Text style={styles.featuredStudioAddress} numberOfLines={1}>
+                            {[st.district, st.city].filter(Boolean).join(', ') || 'Hà Nội'}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                            <Ionicons name="star" size={11} color="#F59E0B" />
+                            <Text style={styles.featuredStudioRating}>
+                              {st.ratingAvg != null && Number(st.ratingAvg) > 0 ? Number(st.ratingAvg).toFixed(1) : 'Mới'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                      <View style={styles.featuredStudioBtn}>
+                        <Text style={styles.featuredStudioBtnText}>Xem Dịch Vụ</Text>
+                        <Ionicons name="arrow-forward" size={12} color="#475569" />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : isHomeLoading ? (
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <Skeleton width={160} height={18} borderRadius={4} />
+                  <Skeleton width={60} height={14} borderRadius={4} />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.studioCardsScroll}>
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <View key={i} style={[styles.featuredStudioCard, { padding: 14 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <Skeleton width={44} height={44} borderRadius={10} style={{ marginRight: 10 }} />
+                        <View style={{ flex: 1 }}>
+                          <Skeleton width="80%" height={14} borderRadius={3} style={{ marginBottom: 4 }} />
+                          <Skeleton width="60%" height={11} borderRadius={3} />
+                        </View>
+                      </View>
+                      <Skeleton width="100%" height={30} borderRadius={8} />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
             <View style={styles.bookingModesSection}>
               <View style={styles.bookingModesHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
                   <Text style={styles.bookingModesSectionTitle}>Chọn Hình Thức Đặt Lịch</Text>
                 </View>
                 <Text style={styles.bookingModesSectionSub}>
@@ -633,12 +974,11 @@ export default function HomeScreen() {
                 <View style={styles.emergencyContent}>
                   <View style={styles.emergencyHeaderRow}>
                     <View style={styles.emergencyBadge}>
-                      <Ionicons name="flash" size={14} color="#FFFFFF" />
                       <Text style={styles.emergencyBadgeText}>1. ĐẶT CẤP TỐC (KHẨN CẤP)</Text>
                     </View>
                     <View style={styles.emergencyLiveTag}>
                       <View style={styles.emergencyPulseDot} />
-                      <Text style={styles.emergencyLiveText}>⚡ Có thợ ngay 15-30p</Text>
+                      <Text style={styles.emergencyLiveText}>Có thợ ngay 15-30p</Text>
                     </View>
                   </View>
 
@@ -671,7 +1011,7 @@ export default function HomeScreen() {
                       activeOpacity={0.85}
                     >
                       <View style={styles.btnIconCircle}>
-                        <Ionicons name="flash" size={13} color="#FFFFFF" />
+                        <Ionicons name="time-outline" size={14} color="#FFFFFF" />
                       </View>
                       <View style={styles.btnTextWrapper}>
                         <Text style={styles.randomBookingBtnText} numberOfLines={1}>
@@ -711,7 +1051,6 @@ export default function HomeScreen() {
               >
                 <View style={styles.scheduledHeaderRow}>
                   <View style={styles.scheduledBadge}>
-                    <Ionicons name="calendar" size={14} color="#7C3AED" />
                     <Text style={styles.scheduledBadgeText}>2. ĐẶT LỊCH THEO NGÀY (HẸN TRƯỚC)</Text>
                   </View>
                   <View style={styles.scheduledTag}>
@@ -726,15 +1065,12 @@ export default function HomeScreen() {
 
                 <View style={styles.scheduledChipsRow}>
                   <View style={styles.scheduledChip}>
-                    <Ionicons name="sparkles" size={12} color="#7C3AED" />
                     <Text style={styles.scheduledChipText}>Thợ MUA Tự Do</Text>
                   </View>
                   <View style={styles.scheduledChip}>
-                    <Ionicons name="business" size={12} color="#7C3AED" />
                     <Text style={styles.scheduledChipText}>Studio & Viện Cưới</Text>
                   </View>
                   <View style={styles.scheduledChip}>
-                    <Ionicons name="images-outline" size={12} color="#7C3AED" />
                     <Text style={styles.scheduledChipText}>Album thực tế</Text>
                   </View>
                 </View>
@@ -773,6 +1109,27 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
+
+            {/* THẺ MỜI ĐĂNG NHẬP / ĐĂNG KÝ CHO KHÁCH VÃNG LAI */}
+            {!isAuthenticated && (
+              <View style={styles.guestCtaCard}>
+                <View style={styles.guestCtaIconBox}>
+                  <Ionicons name="person-circle-outline" size={24} color={BrandColors.primary} />
+                </View>
+                <Text style={styles.guestCtaTitle}>Sẵn Sàng Cho Diện Mạo Tỏa Sáng?</Text>
+                <Text style={styles.guestCtaSub}>
+                  Đăng nhập để đặt lịch hẹn cùng chuyên viên bạn yêu thích, nhận tư vấn trực tiếp và bảo chứng an toàn 100% qua quỹ Escrow.
+                </Text>
+                <TouchableOpacity
+                  style={styles.guestCtaBtn}
+                  activeOpacity={0.88}
+                  onPress={() => router.push('/(auth)/login')}
+                >
+                  <Ionicons name="log-in-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.guestCtaBtnText}>Đăng Nhập Hoặc Đăng Ký</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
 
@@ -795,18 +1152,22 @@ export default function HomeScreen() {
       <DirectMuaBookingModal
         visible={isDirectModalVisible}
         targetMua={directTargetMua}
+        initialLocation={directTargetLocation}
         onClose={() => {
           setIsDirectModalVisible(false);
           setDirectTargetMua(null);
+          setDirectTargetLocation(null);
         }}
         onFallbackRandomScan={() => {
           setIsDirectModalVisible(false);
           setDirectTargetMua(null);
+          setDirectTargetLocation(null);
           setIsRadarModalVisible(true);
         }}
         onChooseAnotherMua={() => {
           setIsDirectModalVisible(false);
           setDirectTargetMua(null);
+          setDirectTargetLocation(null);
           setIsOnlineListModalVisible(true);
         }}
       />
@@ -817,6 +1178,17 @@ export default function HomeScreen() {
         onClose={() => setIsOnlineListModalVisible(false)}
         onSelectMua={handleSelectOnlineMua}
         onFallbackRandomScan={handleFallbackRandomScan}
+      />
+
+      {/* MODAL XEM DỊCH VỤ CỦA STUDIO */}
+      <StudioServicesModal
+        visible={isStudioModalVisible}
+        studio={selectedStudioForModal}
+        distanceKm={getDistanceKm(latitude, longitude, selectedStudioForModal?.latitude, selectedStudioForModal?.longitude)}
+        onClose={() => {
+          setIsStudioModalVisible(false);
+          setSelectedStudioForModal(null);
+        }}
       />
 
       {/* Bottom Navigation Bar */}
@@ -892,6 +1264,25 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: BrandColors.primary,
+  },
+  badgeCountPill: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 8.5,
+    backgroundColor: '#E11D48',
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  badgeCountText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    fontWeight: '800',
   },
   loginPillButton: {
     flexDirection: 'row',
@@ -993,36 +1384,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginTop: 10,
-    marginBottom: 6,
+    marginHorizontal: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 6,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   profileShortcutLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     flex: 1,
+    marginRight: 8,
   },
   profileShortcutIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F5F3FF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  profileShortcutTextGroup: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   profileShortcutTitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
   profileShortcutSub: {
-    fontSize: 10.5,
+    fontSize: 11,
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 15,
   },
   workstationSectionHeader: {
     flexDirection: 'row',
@@ -1327,14 +1725,14 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   scheduledCard: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#E2E8F0',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#7C3AED',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -1349,20 +1747,22 @@ const styles = StyleSheet.create({
   scheduledBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     gap: 4,
   },
   scheduledBadgeText: {
-    color: '#7C3AED',
+    color: '#334155',
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   scheduledTag: {
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -1370,17 +1770,17 @@ const styles = StyleSheet.create({
   scheduledTagText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#6D28D9',
+    color: '#475569',
   },
   scheduledTitle: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: '#1E1B4B',
+    color: '#0F172A',
     marginBottom: 4,
   },
   scheduledDesc: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#64748B',
     lineHeight: 17,
     marginBottom: 12,
   },
@@ -1392,9 +1792,9 @@ const styles = StyleSheet.create({
   scheduledChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1402,14 +1802,14 @@ const styles = StyleSheet.create({
   },
   scheduledChipText: {
     fontSize: 11,
-    color: '#6D28D9',
+    color: '#475569',
     fontWeight: '600',
   },
   scheduledActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#0F172A',
     paddingVertical: 11,
     borderRadius: 12,
     gap: 8,
@@ -1747,7 +2147,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1755,7 +2155,7 @@ const styles = StyleSheet.create({
   studioTypeBadgeText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#334155',
   },
   exploreStudioBtn: {
     flexDirection: 'row',
@@ -2249,5 +2649,310 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  guestGreetingBar: {
+    backgroundColor: '#FFF1F2',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+  },
+  guestGreetingContent: {
+    marginBottom: 10,
+  },
+  guestGreetingTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  guestGreetingSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  guestSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  guestSearchPlaceholder: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  sectionBlock: {
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 10,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingBottom: 2,
+  },
+  seeAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  categoriesScroll: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  categoryItem: {
+    alignItems: 'center',
+    width: 70,
+  },
+  categoryIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FFE4E6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  categoryNameText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  muaCardsScroll: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  featuredMuaCard: {
+    width: 250,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  featuredMuaTop: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  featuredMuaInfo: {
+    flex: 1,
+  },
+  featuredMuaNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  featuredMuaName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  featuredMuaStyles: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  featuredMuaRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  featuredMuaRatingText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  featuredMuaJobsText: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+  },
+  featuredOnlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    gap: 3,
+    marginLeft: 4,
+  },
+  featuredOnlineDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#16A34A',
+  },
+  featuredOnlineText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  featuredMuaBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  featuredPriceLabel: {
+    fontSize: 9.5,
+    color: '#94A3B8',
+  },
+  featuredPriceValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  viewProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 3,
+  },
+  viewProfileBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: BrandColors.primary,
+  },
+  studioCardsScroll: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  featuredStudioCard: {
+    width: 210,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  featuredStudioTop: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  featuredStudioLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+  },
+  featuredStudioLogoFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featuredStudioName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flexShrink: 1,
+  },
+  featuredStudioAddress: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  featuredStudioRating: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  featuredStudioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 4,
+  },
+  featuredStudioBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  guestCtaCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  guestCtaIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  guestCtaTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  guestCtaSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 16,
+    paddingHorizontal: 8,
+  },
+  guestCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BrandColors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
+    marginTop: 12,
+  },
+  guestCtaBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

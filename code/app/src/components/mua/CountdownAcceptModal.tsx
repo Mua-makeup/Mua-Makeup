@@ -109,7 +109,7 @@ export const CountdownAcceptModal: React.FC = () => {
     };
   }, [isAcceptModalVisible, activeOffer]);
 
-  if (!isAcceptModalVisible || !activeOffer || !isMuaOrStaff || isScheduledModalVisible) {
+  if (!isAcceptModalVisible || !activeOffer || !isMuaOrStaff || isScheduledModalVisible || (activeOffer as any).bookingType === 'SCHEDULED' || String(activeOffer.bookingCode || '').startsWith('BK-SCHED')) {
     return null;
   }
 
@@ -162,7 +162,7 @@ export const CountdownAcceptModal: React.FC = () => {
           {/* KHỐI 1: HEADER KHẨN CẤP & THỨ TỰ ƯU TIÊN WATERFALL */}
           <View style={styles.header}>
             <View style={styles.flashBadge}>
-              <Ionicons name="flash" size={13} color="#E11D48" />
+              <Ionicons name="timer-outline" size={14} color="#E11D48" />
               <Text style={styles.flashText}>CA KHẨN CẤP (30-45P CÓ MẶT)</Text>
             </View>
             <Text style={styles.codeText}>{activeOffer.bookingCode}</Text>
@@ -222,7 +222,6 @@ export const CountdownAcceptModal: React.FC = () => {
           {/* KHỐI 4: THÔNG TIN GÓI DỊCH VỤ, STYLE & BƯỚC KÈM THEO */}
           <View style={styles.serviceSection}>
             <View style={styles.serviceHeaderRow}>
-              <Ionicons name="sparkles" size={16} color="#E11D48" />
               <Text style={styles.serviceTitle} numberOfLines={1}>
                 {activeOffer.serviceName || 'Gói Dịch Vụ Make-up'}
               </Text>

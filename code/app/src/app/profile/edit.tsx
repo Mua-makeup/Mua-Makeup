@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -40,9 +41,8 @@ export default function UserProfileEditScreen() {
   const [gender, setGender] = useState<'FEMALE' | 'MALE' | 'OTHER'>(
     (userInfo?.gender as any) || 'FEMALE'
   );
-  const [avatarUri, setAvatarUri] = useState<string>(
-    userInfo?.avatarUrl ||
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+  const [avatarUri, setAvatarUri] = useState<string | null>(
+    userInfo?.avatarUrl || null
   );
 
   // Quản lý địa chỉ (Chỉ dành cho Khách hàng)
@@ -216,12 +216,14 @@ export default function UserProfileEditScreen() {
         {/* AVATAR SECTION */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarWrapper}>
-            <Image source={{ uri: avatarUri }} style={styles.avatar} contentFit="cover" />
-            {isUploadingAvatar && (
-              <View style={styles.avatarUploadingOverlay}>
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              </View>
-            )}
+            <View style={styles.avatarBorder}>
+              <UserAvatar uri={avatarUri} name={userInfo?.fullName} size={90} />
+              {isUploadingAvatar && (
+                <View style={styles.avatarUploadingOverlay}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                </View>
+              )}
+            </View>
             <TouchableOpacity
               style={styles.cameraBtn}
               onPress={handlePickAvatar}
@@ -486,10 +488,17 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 96,
     height: 96,
+  },
+  avatarBorder: {
+    width: 96,
+    height: 96,
     borderRadius: 48,
     borderWidth: 3,
     borderColor: BrandColors.primary,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   avatar: {
     width: '100%',
@@ -505,8 +514,8 @@ const styles = StyleSheet.create({
   },
   cameraBtn: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
+    right: -2,
+    bottom: -2,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -515,6 +524,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 3,
+    elevation: 3,
   },
   avatarHint: {
     fontSize: 12,

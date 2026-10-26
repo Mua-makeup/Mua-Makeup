@@ -318,6 +318,19 @@ public class MuaProfileServiceImpl implements MuaProfileService {
         }
         muaProfileRepository.save(mua);
 
+        // Bắn thông báo In-App + WebSocket P2P + Gửi Email thông báo tới Thợ MUA
+        try {
+            boolean isVerified = Boolean.TRUE.equals(req.getIsVerified());
+            notificationService.createCertificateVerificationResultNotification(
+                    mua,
+                    targetCert.getCertName(),
+                    isVerified,
+                    targetCert.getNotes()
+            );
+        } catch (Exception ex) {
+            log.error("Failed to dispatch certificate verification notification for muaId={}", muaId, ex);
+        }
+
         return muaProfileMapper.toCertificateRes(targetCert);
     }
 
@@ -369,6 +382,29 @@ public class MuaProfileServiceImpl implements MuaProfileService {
                         .build());
             }
         }
+        result.sort((a, b) -> {
+            boolean aPending = "PENDING".equalsIgnoreCase(a.getStatus());
+            boolean bPending = "PENDING".equalsIgnoreCase(b.getStatus());
+            if (aPending != bPending) {
+                return aPending ? -1 : 1;
+            }
+
+            if (a.getUploadedAt() != null && b.getUploadedAt() != null) {
+                int cmp = b.getUploadedAt().compareTo(a.getUploadedAt());
+                if (cmp != 0) {
+                    return cmp;
+                }
+            } else if (a.getUploadedAt() != null) {
+                return -1;
+            } else if (b.getUploadedAt() != null) {
+                return 1;
+            }
+
+            if (a.getMuaId() != null && b.getMuaId() != null) {
+                return b.getMuaId().compareTo(a.getMuaId());
+            }
+            return 0;
+        });
 
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), result.size());

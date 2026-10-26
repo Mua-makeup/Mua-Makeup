@@ -22,6 +22,18 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
             u.full_name AS staffName,
             u.phone_number AS staffPhone,
             u.avatar_url AS staffAvatarUrl,
+            mp.rating_avg AS ratingAvg,
+            COALESCE(mp.total_reviews, 0) AS totalReviews,
+            COALESCE(mp.total_completed_jobs, 0) AS totalCompletedJobs,
+            EXISTS (
+                SELECT 1 FROM booking_schema.bookings b_cust
+                JOIN booking_schema.booking_staff_assignments bsa_cust ON bsa_cust.booking_id = b_cust.id
+                WHERE bsa_cust.staff_id = s.id
+                  AND bsa_cust.status = 'ACTIVE'
+                  AND b_cust.customer_id = (SELECT b_curr.customer_id FROM booking_schema.bookings b_curr WHERE b_curr.id = :bookingId)
+                  AND b_cust.id != :bookingId
+                  AND b_cust.status IN ('COMPLETED', 'PAID_OUT')
+            ) AS hasServedThisCustomer,
             EXISTS (
                 SELECT 1 FROM agency_schema.agency_staff_shifts sh
                 WHERE sh.staff_id = s.id 
@@ -31,6 +43,25 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                   AND sh.end_time >= CAST(:endTime AS TIME)
                   AND sh.is_active = true
             ) AS hasShift,
+            EXISTS (
+                SELECT 1 FROM agency_schema.agency_staff_shifts sh
+                WHERE sh.staff_id = s.id 
+                  AND (sh.work_date = CAST(:bookingDate AS DATE) 
+                       OR (sh.work_date IS NULL AND sh.day_of_week = (EXTRACT(DOW FROM CAST(:bookingDate AS DATE)) + 1)))
+                  AND sh.start_time <= CAST(:startTime AS TIME)
+                  AND sh.is_active = true
+            ) AS hasOverlappingShift,
+            COALESCE((
+                SELECT GREATEST(0, CAST(EXTRACT(EPOCH FROM (CAST(:endTime AS TIME) - sh.end_time)) / 60 AS INTEGER))
+                FROM agency_schema.agency_staff_shifts sh
+                WHERE sh.staff_id = s.id 
+                  AND (sh.work_date = CAST(:bookingDate AS DATE) 
+                       OR (sh.work_date IS NULL AND sh.day_of_week = (EXTRACT(DOW FROM CAST(:bookingDate AS DATE)) + 1)))
+                  AND sh.start_time <= CAST(:startTime AS TIME)
+                  AND sh.is_active = true
+                ORDER BY sh.end_time DESC
+                LIMIT 1
+            ), 0) AS shiftOvertimeMinutes,
             EXISTS (
                 SELECT 1 FROM agency_schema.agency_staff_services ss
                 WHERE ss.staff_id = s.id 
@@ -48,17 +79,39 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
             END AS hasStyle,
             NOT EXISTS (
                 SELECT 1 FROM mua_schema.mua_calendars c
+                LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                 WHERE c.mua_id = s.mua_id 
                   AND c.is_locked = true
                   AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
+                  AND (b IS NULL OR b.status NOT IN (
+                      'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
+                      'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
+                  ))
                   AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
             ) AS hasCalendarFree,
             EXISTS (
                 SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
                 WHERE bsa_canc.staff_id = s.id 
                   AND bsa_canc.booking_id = :bookingId 
-                  AND bsa_canc.status = 'EMERGENCY_CANCELLED'
+                  AND (
+                      bsa_canc.status = 'EMERGENCY_CANCELLED'
+                      OR bsa_canc.cancellation_reason IS NOT NULL
+                      OR (bsa_canc.status = 'REPLACED' AND bsa_canc.replaced_by_staff_id IS NOT NULL)
+                  )
             ) AS hasReportedBusy,
+            (
+                SELECT bsa_canc.cancellation_reason 
+                FROM booking_schema.booking_staff_assignments bsa_canc
+                WHERE bsa_canc.staff_id = s.id 
+                  AND bsa_canc.booking_id = :bookingId 
+                  AND (
+                      bsa_canc.status = 'EMERGENCY_CANCELLED'
+                      OR bsa_canc.cancellation_reason IS NOT NULL
+                      OR (bsa_canc.status = 'REPLACED' AND bsa_canc.replaced_by_staff_id IS NOT NULL)
+                  )
+                ORDER BY bsa_canc.id DESC
+                LIMIT 1
+            ) AS cancellationReason,
             bsa.assignment_role AS currentRole
         FROM agency_schema.agency_staff s
         JOIN mua_schema.mua_profiles mp ON s.mua_id = mp.id
@@ -96,9 +149,14 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                 )
                 AND NOT EXISTS (
                     SELECT 1 FROM mua_schema.mua_calendars c
+                    LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                     WHERE c.mua_id = s.mua_id 
                       AND c.is_locked = true
                       AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
+                      AND (b IS NULL OR b.status NOT IN (
+                          'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
+                          'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
+                      ))
                       AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
                 )
                 AND NOT EXISTS (
@@ -108,6 +166,62 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                       AND bsa_canc.status = 'EMERGENCY_CANCELLED'
                 )
             ) DESC,
+            (
+                EXISTS (
+                    SELECT 1 FROM agency_schema.agency_staff_shifts sh
+                    WHERE sh.staff_id = s.id 
+                      AND (sh.work_date = CAST(:bookingDate AS DATE) 
+                           OR (sh.work_date IS NULL AND sh.day_of_week = (EXTRACT(DOW FROM CAST(:bookingDate AS DATE)) + 1)))
+                      AND sh.start_time <= CAST(:startTime AS TIME)
+                      AND sh.is_active = true
+                ) 
+                AND EXISTS (
+                    SELECT 1 FROM agency_schema.agency_staff_services ss
+                    WHERE ss.staff_id = s.id 
+                      AND ss.package_id = :packageId
+                      AND ss.is_qualified = true
+                )
+                AND (
+                    CASE 
+                        WHEN :styleId IS NULL THEN true
+                        ELSE EXISTS (
+                            SELECT 1 FROM agency_schema.agency_staff_styles st
+                            WHERE st.staff_id = s.id 
+                              AND st.style_id = :styleId
+                              AND st.is_qualified = true
+                        )
+                    END
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM mua_schema.mua_calendars c
+                    LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
+                    WHERE c.mua_id = s.mua_id 
+                      AND c.is_locked = true
+                      AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
+                      AND (b IS NULL OR b.status NOT IN (
+                          'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
+                          'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
+                      ))
+                      AND tstzrange(c.start_at, c.end_at, '[)') && tstzrange(CAST(:startTs AS TIMESTAMPTZ), CAST(:endTs AS TIMESTAMPTZ), '[)')
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
+                    WHERE bsa_canc.staff_id = s.id 
+                      AND bsa_canc.booking_id = :bookingId 
+                      AND bsa_canc.status = 'EMERGENCY_CANCELLED'
+                )
+            ) DESC,
+            EXISTS (
+                SELECT 1 FROM booking_schema.bookings b_cust
+                JOIN booking_schema.booking_staff_assignments bsa_cust ON bsa_cust.booking_id = b_cust.id
+                WHERE bsa_cust.staff_id = s.id
+                  AND bsa_cust.status = 'ACTIVE'
+                  AND b_cust.customer_id = (SELECT b_curr.customer_id FROM booking_schema.bookings b_curr WHERE b_curr.id = :bookingId)
+                  AND b_cust.id != :bookingId
+                  AND b_cust.status IN ('COMPLETED', 'PAID_OUT')
+            ) DESC,
+            COALESCE(mp.rating_avg, 5.0) DESC,
+            COALESCE(mp.total_completed_jobs, 0) DESC,
             u.full_name ASC
     """, nativeQuery = true)
     List<StaffMatrixProjection> getStaffAvailabilityMatrix(

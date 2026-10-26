@@ -37,7 +37,7 @@ export const useMuaDetailStore = create<MuaDetailState>((set, get) => ({
       // 1. Fetch thông tin thợ MUA và danh sách các gói dịch vụ
       const [profile, packageSummaries] = await Promise.all([
         muaProfileService.getPublicProfile(muaId),
-        packageService.listPackages({ muaId, availableOnly: true }),
+        packageService.listPackages({ muaId, availableOnly: false }),
       ]);
 
       // 2. Lấy chi tiết các gói để có items bước thực hiện
@@ -81,15 +81,11 @@ export const useMuaDetailStore = create<MuaDetailState>((set, get) => ({
         package_id: pkg.id,
       });
 
-      // Nếu thợ đã tải ảnh riêng theo gói -> hiển thị
-      // Nếu chưa có ảnh theo gói, fallback lấy toàn bộ ảnh featured hoặc gallery của thợ
-      let items = res.content || [];
-      if (items.length === 0) {
-        const allRes = await muaProfileService.getPublicPortfolios(profile.muaId, {
-          is_featured: true,
-        });
-        items = allRes.content || [];
-      }
+      // Lấy danh sách ảnh mẫu gắn đúng với gói dịch vụ này
+      // Nếu gói chưa có ảnh -> showcases rỗng để hiển thị Empty State rõ ràng
+      const items = (res.content || []).filter(
+        (it) => it.packageId !== undefined && it.packageId !== null && Number(it.packageId) === Number(pkg.id)
+      );
 
       set({ showcases: items });
     } catch (err) {

@@ -1,5 +1,7 @@
 package com.makeup.platform.repository.custom.projection;
 
+import java.math.BigDecimal;
+
 public interface StaffMatrixProjection {
 
     Long getStaffId();
@@ -12,6 +14,14 @@ public interface StaffMatrixProjection {
 
     String getStaffAvatarUrl();
 
+    BigDecimal getRatingAvg();
+
+    Integer getTotalReviews();
+
+    Integer getTotalCompletedJobs();
+
+    Boolean getHasServedThisCustomer();
+
     Boolean getHasShift();
 
     Boolean getHasPackage();
@@ -20,7 +30,13 @@ public interface StaffMatrixProjection {
 
     Boolean getHasCalendarFree();
 
+    Boolean getHasOverlappingShift();
+
+    Integer getShiftOvertimeMinutes();
+
     Boolean getHasReportedBusy();
+
+    String getCancellationReason();
 
     String getCurrentRole();
 }

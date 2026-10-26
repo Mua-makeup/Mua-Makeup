@@ -76,9 +76,10 @@ export const overtimeRuleSchema = z.object({
     .min(0, 'Giới hạn tối đa phải từ 0 trở lên')
     .optional()
     .nullable(),
-  penaltyType: z.enum(['FIXED_AMOUNT', 'PERCENT_COMMISSION', 'WARNING_ONLY'], {
+  penaltyType: z.enum(['FIXED_AMOUNT', 'PERCENT_COMMISSION', 'WARNING_ONLY', 'PER_MINUTE'], {
     required_error: 'Loại chế tài phạt không được để trống',
   }),
+  policyType: z.enum(['ALLOWANCE', 'PENALTY', 'WARNING']).default('ALLOWANCE').optional(),
   penaltyValue: z.coerce
     .number({ required_error: 'Mức phạt không được để trống' })
     .min(0, 'Mức phạt phải từ 0 trở lên'),
@@ -95,6 +96,13 @@ export const staffInvitationSchema = z.object({
   expireHours: z.number().int().min(1).max(168).default(72),
   note: z.string().optional(),
 });
+
+export const VALID_SHIFT_PRESETS = [
+  { startTime: '08:00', endTime: '12:00' },
+  { startTime: '13:00', endTime: '17:00' },
+  { startTime: '18:00', endTime: '21:30' },
+  { startTime: '08:00', endTime: '17:00' },
+];
 
 export const shiftSchema = z
   .object({
@@ -117,6 +125,17 @@ export const shiftSchema = z
     },
     {
       message: 'Giờ kết thúc phải sau giờ bắt đầu',
+      path: ['endTime'],
+    }
+  )
+  .refine(
+    (data) => {
+      const s = data.startTime.substring(0, 5);
+      const e = data.endTime.substring(0, 5);
+      return VALID_SHIFT_PRESETS.some((p) => p.startTime === s && p.endTime === e);
+    },
+    {
+      message: 'Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00-12:00), Ca chiều (13:00-17:00), Ca tối (18:00-21:30) hoặc Cả ngày (08:00-17:00)',
       path: ['endTime'],
     }
   );

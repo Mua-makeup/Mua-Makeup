@@ -7,6 +7,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -24,4 +27,43 @@ public class UpdatePortfolioReq {
     private Integer styleId;
 
     private Long packageId;
+
+    private MultipartFile imageFile;
+
+    private List<MultipartFile> additionalFiles;
+
+    private List<String> existingAdditionalImages;
+
+    // Aliases cho FormData snake_case
+    public void setImage_file(MultipartFile file) {
+        this.imageFile = file;
+    }
+
+    public void setFile(MultipartFile file) {
+        if (this.imageFile == null) {
+            this.imageFile = file;
+        }
+    }
+
+    public void setAdditional_files(List<MultipartFile> files) {
+        this.additionalFiles = files;
+    }
+
+    public void setFiles(List<MultipartFile> files) {
+        if (this.additionalFiles == null || this.additionalFiles.isEmpty()) {
+            this.additionalFiles = files;
+        }
+    }
+
+    public void setExisting_additional_images(List<String> images) {
+        this.existingAdditionalImages = images;
+    }
+
+    public void setPackage_id(Long packageId) {
+        this.packageId = packageId;
+    }
+
+    public void setStyle_id(Integer styleId) {
+        this.styleId = styleId;
+    }
 }

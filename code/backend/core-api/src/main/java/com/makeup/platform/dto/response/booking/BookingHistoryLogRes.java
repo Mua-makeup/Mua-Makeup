@@ -16,8 +16,14 @@ public class BookingHistoryLogRes {
     private Long id;
     private String fromStatus;
     private String toStatus;
+    private String actionTitle;
     private Long changedByUserId;
     private String changedBy;
+    private String artistName;
+    private String artistPhone;
+    private String originAddress;
+    private String destinationAddress;
     private String note;
+    private String formattedTime;
     private LocalDateTime createdAt;
 }

@@ -16,15 +16,26 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { telemetryService, NearbyProviderRes } from '@/services/telemetry.service';
 import { useLocationStore } from '@/store/location.store';
 import { GlobalPopupOverlay } from '@/components/common/GlobalPopupModal';
 import { showGlobalPopup } from '@/store/popup.store';
+import { AddressEditModal } from '@/components/booking/AddressEditModal';
+import { SavedAddressModal } from '@/components/customer/SavedAddressModal';
+import { LocationMapPickerModal } from '@/components/booking/LocationMapPickerModal';
+import { MuaReviewsModal } from '@/components/mua/MuaReviewsModal';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onSelectMua: (mua: NearbyProviderRes) => void;
+  onSelectMua: (
+    mua: NearbyProviderRes,
+    location?: {
+      address?: string;
+      coords?: { latitude: number; longitude: number } | null;
+    }
+  ) => void;
   onFallbackRandomScan: () => void;
 }
 
@@ -36,11 +47,17 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   onSelectMua,
   onFallbackRandomScan,
 }) => {
+  const [reviewTargetMua, setReviewTargetMua] = useState<{ id: number; name: string } | null>(null);
   const { latitude: storeLat, longitude: storeLng, currentAddress, fetchCurrentLocation } = useLocationStore();
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [providers, setProviders] = useState<NearbyProviderRes[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [customAddress, setCustomAddress] = useState<string>('');
+  const [customCoords, setCustomCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isAddressEditModalVisible, setIsAddressEditModalVisible] = useState(false);
+  const [isSavedAddressModalVisible, setIsSavedAddressModalVisible] = useState(false);
+  const [isMapModalVisible, setIsMapModalVisible] = useState(false);
 
   // Cử chỉ vuốt xuống (swipe down) để đóng modal
 
@@ -69,7 +86,12 @@ export const OnlineMuaListModal: React.FC<Props> = ({
     }
   }, [storeLat, storeLng]);
 
-  const loadOnlineProviders = async (radius: number, isPullRefresh: boolean = false) => {
+  const loadOnlineProviders = async (
+    radius: number,
+    isPullRefresh: boolean = false,
+    overrideLat?: number,
+    overrideLng?: number
+  ) => {
     const currentReqId = ++reqIdRef.current;
     if (isPullRefresh) {
       setIsRefreshing(true);
@@ -78,8 +100,8 @@ export const OnlineMuaListModal: React.FC<Props> = ({
     }
 
     try {
-      let lat = storeLat;
-      let lng = storeLng;
+      let lat = overrideLat ?? customCoords?.latitude ?? storeLat;
+      let lng = overrideLng ?? customCoords?.longitude ?? storeLng;
 
       if (lat == null || lng == null) {
         const state = useLocationStore.getState();
@@ -134,7 +156,12 @@ export const OnlineMuaListModal: React.FC<Props> = ({
 
   const handleBookNow = (item: NearbyProviderRes) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onSelectMua(item);
+    const activeAddress = customAddress || currentAddress || '';
+    const activeCoords = customCoords || (storeLat && storeLng ? { latitude: storeLat, longitude: storeLng } : null);
+    onSelectMua(item, {
+      address: activeAddress,
+      coords: activeCoords,
+    });
   };
 
   const getHaversineDistanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -152,11 +179,10 @@ export const OnlineMuaListModal: React.FC<Props> = ({
   };
 
   const getEffectiveDistance = (item: NearbyProviderRes): number | null => {
-    if (item.distanceKm != null && item.distanceKm > 0) {
-      return item.distanceKm;
-    }
-    if (storeLat && storeLng && item.fuzzedLatitude && item.fuzzedLongitude) {
-      return getHaversineDistanceKm(storeLat, storeLng, item.fuzzedLatitude, item.fuzzedLongitude);
+    const lat = customCoords?.latitude ?? storeLat;
+    const lng = customCoords?.longitude ?? storeLng;
+    if (lat && lng && item.fuzzedLatitude && item.fuzzedLongitude) {
+      return getHaversineDistanceKm(lat, lng, item.fuzzedLatitude, item.fuzzedLongitude);
     }
     return item.distanceKm ?? null;
   };
@@ -172,8 +198,65 @@ export const OnlineMuaListModal: React.FC<Props> = ({
     return amount.toLocaleString('vi-VN') + ' đ';
   };
 
+  const activeAddress = customAddress || currentAddress || 'Vị trí hiện tại của bạn';
+  const activeLat = customCoords?.latitude ?? storeLat ?? 21.0285;
+  const activeLng = customCoords?.longitude ?? storeLng ?? 105.8542;
+
   return (
-    <DismissibleModal visible={visible} onClose={onClose} overlayStyle={styles.overlay} contentStyle={styles.sheetContainer} overlays={<><GlobalPopupOverlay /></>}>
+    <DismissibleModal
+      visible={visible}
+      onClose={onClose}
+      overlayStyle={styles.overlay}
+      contentStyle={styles.sheetContainer}
+      overlays={
+        <>
+          <GlobalPopupOverlay />
+          <AddressEditModal
+            visible={isAddressEditModalVisible}
+            initialAddress={activeAddress}
+            initialLat={activeLat}
+            initialLng={activeLng}
+            onClose={() => setIsAddressEditModalVisible(false)}
+            onConfirm={(newAddress, newLat, newLng) => {
+              setIsAddressEditModalVisible(false);
+              setCustomAddress(newAddress);
+              setCustomCoords({ latitude: newLat, longitude: newLng });
+              loadOnlineProviders(radiusKm, false, newLat, newLng);
+            }}
+            onOpenSavedAddresses={() => {
+              setIsAddressEditModalVisible(false);
+              setIsSavedAddressModalVisible(true);
+            }}
+            onOpenMapPicker={() => {
+              setIsAddressEditModalVisible(false);
+              setIsMapModalVisible(true);
+            }}
+          />
+          <SavedAddressModal
+            visible={isSavedAddressModalVisible}
+            onClose={() => setIsSavedAddressModalVisible(false)}
+            onSelectAddress={(addr) => {
+              setIsSavedAddressModalVisible(false);
+              setCustomAddress(addr.addressLine);
+              setCustomCoords({ latitude: addr.latitude, longitude: addr.longitude });
+              loadOnlineProviders(radiusKm, false, addr.latitude, addr.longitude);
+            }}
+          />
+          <LocationMapPickerModal
+            visible={isMapModalVisible}
+            initialLat={activeLat}
+            initialLng={activeLng}
+            onClose={() => setIsMapModalVisible(false)}
+            onConfirm={(addr, lat, lng) => {
+              setIsMapModalVisible(false);
+              setCustomAddress(addr);
+              setCustomCoords({ latitude: lat, longitude: lng });
+              loadOnlineProviders(radiusKm, false, lat, lng);
+            }}
+          />
+        </>
+      }
+    >
           {/* Top drag area with handle bar (vuốt xuống để đóng) */}
           <View style={styles.dragArea}>
 
@@ -195,14 +278,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                 </Text>
               </View>
 
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={onClose}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={20} color="#64748B" />
-              </TouchableOpacity>
+
             </View>
           </View>
 
@@ -235,13 +311,26 @@ export const OnlineMuaListModal: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Location indicator */}
-          <View style={styles.locationBanner}>
-            <Ionicons name="location" size={14} color="#E11D48" />
-            <Text style={styles.locationBannerText} numberOfLines={1}>
-              Điểm đón: {currentAddress || 'Vị trí hiện tại của bạn'}
-            </Text>
-          </View>
+          {/* Location indicator - Bấm để thay đổi điểm đón */}
+          <TouchableOpacity
+            style={styles.locationBanner}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsAddressEditModalVisible(true);
+            }}
+            activeOpacity={0.75}
+          >
+            <View style={styles.locationBannerLeft}>
+              <Ionicons name="location" size={14} color="#E11D48" />
+              <Text style={styles.locationBannerText} numberOfLines={1}>
+                Điểm đón: {activeAddress}
+              </Text>
+            </View>
+            <View style={styles.changeAddressTag}>
+              <Text style={styles.changeAddressText}>Đổi điểm đón</Text>
+              <Ionicons name="chevron-forward" size={11} color="#BE123C" />
+            </View>
+          </TouchableOpacity>
 
           {/* Nội dung danh sách */}
           {isLoading && !isRefreshing ? (
@@ -274,7 +363,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                   onPress={onFallbackRandomScan}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="flash" size={15} color="#FFFFFF" />
+                  <Ionicons name="time-outline" size={15} color="#FFFFFF" />
                   <Text style={styles.fallbackBtnText}>Đặt Thợ Ngẫu Nhiên</Text>
                 </TouchableOpacity>
               </View>
@@ -297,15 +386,7 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                 <View style={styles.muaCard}>
                   {/* Left: Avatar with online pulse */}
                   <View style={styles.avatarWrapper}>
-                    {item.avatarUrl ? (
-                      <Image source={{ uri: item.avatarUrl }} style={styles.avatarImg} />
-                    ) : (
-                      <View style={styles.avatarPlaceholder}>
-                        <Text style={styles.avatarInitial}>
-                          {item.fullName ? item.fullName.charAt(0).toUpperCase() : 'M'}
-                        </Text>
-                      </View>
-                    )}
+                    <UserAvatar uri={item.avatarUrl} name={item.fullName} size={52} />
                     <View style={styles.pulseContainer}>
                       <View style={styles.pulseDot} />
                     </View>
@@ -322,12 +403,23 @@ export const OnlineMuaListModal: React.FC<Props> = ({
 
                     {/* Rating & Distance */}
                     <View style={styles.metaRow}>
-                      <View style={styles.ratingBadge}>
+                      <TouchableOpacity
+                        style={styles.ratingBadge}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          const id = item.providerId || (item as any).id || (item as any).muaId;
+                          if (id) {
+                            setReviewTargetMua({ id, name: item.fullName || 'Chuyên viên' });
+                          }
+                        }}
+                      >
                         <Ionicons name="star" size={11} color="#F59E0B" />
                         <Text style={styles.ratingText}>
-                          {item.ratingAvg ? Number(item.ratingAvg).toFixed(1) : '5.0'}
+                          {item.ratingAvg != null && Number(item.ratingAvg) > 0
+                            ? Number(item.ratingAvg).toFixed(1)
+                            : 'Mới'}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
 
                       <View style={styles.distanceBadge}>
                         <Ionicons name="navigate" size={11} color="#059669" />
@@ -367,14 +459,12 @@ export const OnlineMuaListModal: React.FC<Props> = ({
                     )}
                   </View>
 
-                  {/* Right: CTA button "Đặt Ngay ⚡" */}
                   <View style={styles.actionCol}>
                     <TouchableOpacity
                       style={styles.bookNowBtn}
                       onPress={() => handleBookNow(item)}
                       activeOpacity={0.85}
                     >
-                      <Ionicons name="flash" size={13} color="#FFFFFF" />
                       <Text style={styles.bookNowBtnText}>Đặt Ngay</Text>
                     </TouchableOpacity>
                   </View>
@@ -382,6 +472,16 @@ export const OnlineMuaListModal: React.FC<Props> = ({
               )}
             />
           )}
+
+          {reviewTargetMua ? (
+            <MuaReviewsModal
+              visible={!!reviewTargetMua}
+              onClose={() => setReviewTargetMua(null)}
+              muaId={reviewTargetMua.id}
+              muaName={reviewTargetMua.name}
+              isOwnerView={false}
+            />
+          ) : null}
         </DismissibleModal>
   );
 };
@@ -539,16 +639,40 @@ const styles = StyleSheet.create({
   locationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 7,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: '#FFF1F2',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#FFE4E6',
+  },
+  locationBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+    flex: 1,
+    marginRight: 8,
   },
   locationBannerText: {
     fontSize: 11,
     color: '#BE123C',
     fontWeight: '600',
     flex: 1,
+  },
+  changeAddressTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFE4E6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  changeAddressText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#BE123C',
   },
   loadingContainer: {
     paddingVertical: 60,

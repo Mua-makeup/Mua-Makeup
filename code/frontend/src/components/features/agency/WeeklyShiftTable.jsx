@@ -29,12 +29,13 @@ import { SHIFT_DAYS } from '../../../constants/agency.constant';
 import { useShiftConflict } from '../../../hooks/useShiftConflict';
 import { shiftSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { WeeklyShiftSkeleton } from '../../base/Skeleton';
 
 // Định nghĩa 3 buổi trong ngày
 const SHIFT_PERIODS = [
   {
     id: 'MORNING',
-    timeRange: '06:00 - 12:00',
+    timeRange: '08:00 - 12:00',
     icon: Sun,
     badgeBg: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60',
     accentBorder: 'border-l-amber-500',
@@ -44,7 +45,7 @@ const SHIFT_PERIODS = [
   },
   {
     id: 'AFTERNOON',
-    timeRange: '12:00 - 18:00',
+    timeRange: '13:00 - 17:00',
     icon: CloudSun,
     badgeBg: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60',
     accentBorder: 'border-l-rose-500',
@@ -54,7 +55,7 @@ const SHIFT_PERIODS = [
   },
   {
     id: 'EVENING',
-    timeRange: '18:00 - 23:00',
+    timeRange: '18:00 - 21:30',
     icon: Moon,
     badgeBg: 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60',
     accentBorder: 'border-l-indigo-500',
@@ -80,13 +81,13 @@ const isShiftInPeriod = (shift, periodId) => {
   const shiftEnd = parseMinutes(shift.endTime);
 
   let periodStart = 6 * 60; // 06:00
-  let periodEnd = 12 * 60; // 12:00
+  let periodEnd = 12 * 60 + 30; // 12:30
 
   if (periodId === 'AFTERNOON') {
-    periodStart = 12 * 60; // 12:00
-    periodEnd = 18 * 60; // 18:00
+    periodStart = 12 * 60 + 30; // 12:30
+    periodEnd = 17 * 60 + 30; // 17:30
   } else if (periodId === 'EVENING') {
-    periodStart = 18 * 60; // 18:00
+    periodStart = 17 * 60 + 30; // 17:30
     periodEnd = 24 * 60; // 24:00
   }
 
@@ -298,14 +299,16 @@ export const WeeklyShiftTable = () => {
     };
   }, [shifts]);
 
-  // Real-time Shift Conflict Hook
-  const { hasConflict, conflictMessage } = useShiftConflict(shifts, {
+  // Real-time Shift Conflict Hook (kiểm tra tất cả các ngày được chọn và hiển thị rõ ngày trùng)
+  const { hasConflict, conflictMessage, conflictingDayValues } = useShiftConflict(shifts, {
     id: editingShift?.id,
     staffId: Number(selectedStaffId),
+    days: selectedDays,
     dayOfWeek: Number(selectedDays[0] || 2),
     shiftName,
     startTime,
     endTime,
+    weekDays,
   });
 
   const getDayInfo = (dayKey) => {
@@ -390,6 +393,22 @@ export const WeeklyShiftTable = () => {
 
     const cleanStart = (startTime || '').trim();
     const cleanEnd = (endTime || '').trim();
+
+    // Ràng buộc nghiêm ngặt: Chỉ cho phép phân ca trong đúng 4 ca chuẩn
+    const validPresets = [
+      { start: '08:00', end: '12:00' },
+      { start: '13:00', end: '17:00' },
+      { start: '18:00', end: '21:30' },
+      { start: '08:00', end: '17:00' },
+    ];
+    const isPresetValid = validPresets.some(
+      (p) => p.start === cleanStart.substring(0, 5) && p.end === cleanEnd.substring(0, 5)
+    );
+    if (!isPresetValid) {
+      setFormError('Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00-12:00), Ca chiều (13:00-17:00), Ca tối (18:00-21:30) hoặc Cả ngày (08:00-17:00)');
+      return;
+    }
+
     const fmtStartTime = cleanStart.length === 5 ? `${cleanStart}:00` : cleanStart;
     const fmtEndTime = cleanEnd.length === 5 ? `${cleanEnd}:00` : cleanEnd;
 
@@ -490,14 +509,15 @@ export const WeeklyShiftTable = () => {
 
         const failed = results.filter((r) => r.status === 'rejected');
         if (failed.length > 0) {
-          const firstErr = failed[0].reason?.response?.data?.message || failed[0].reason?.message;
-          setFormError(firstErr || t('shift_save_error'));
+          const rawErr = failed[0].reason?.response?.data?.message || failed[0].reason?.message;
+          const displayErr = (rawErr && t(rawErr) && t(rawErr) !== rawErr) ? t(rawErr) : (rawErr || t('shift_save_error'));
+          setFormError(displayErr);
         }
       }
     } catch (err) {
-      setFormError(
-        err.response?.data?.message || err.message || t('shift_save_error')
-      );
+      const rawErr = err.response?.data?.message || err.message;
+      const displayErr = (rawErr && t(rawErr) && t(rawErr) !== rawErr) ? t(rawErr) : (rawErr || t('shift_save_error'));
+      setFormError(displayErr);
     } finally {
       setIsLoading(false);
     }
@@ -703,6 +723,8 @@ export const WeeklyShiftTable = () => {
           onRefresh={loadData}
           isLoading={isLoading}
         />
+      ) : isLoading ? (
+        <WeeklyShiftSkeleton />
       ) : (
         <>
           {/* KPI Stats & Quick Filter Header */}
@@ -1185,19 +1207,25 @@ export const WeeklyShiftTable = () => {
               {SHIFT_DAYS.map((d) => {
                 const dayInfo = getDayInfo(d.key);
                 const isSelected = selectedDays.includes(Number(d.value));
+                const isConflictDay = conflictingDayValues?.includes(Number(d.value));
                 return (
                   <button
                     key={d.value}
                     type="button"
                     onClick={() => handleToggleDay(Number(d.value))}
-                    className={`py-2 px-1 rounded-xl text-center border transition-all active:scale-95 cursor-pointer ${
-                      isSelected
+                    className={`py-2 px-1 rounded-xl text-center border transition-all active:scale-95 cursor-pointer relative ${
+                      isConflictDay
+                        ? 'bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border-rose-400 dark:border-rose-600 ring-2 ring-rose-500/50 font-bold'
+                        : isSelected
                         ? 'bg-rose-600 text-white border-rose-600 shadow-sm font-bold scale-[1.02] ring-2 ring-rose-500/30'
                         : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-rose-400 dark:hover:border-rose-500 hover:bg-rose-50/50 dark:hover:bg-rose-950/20 font-medium text-xs'
                     }`}
                   >
                     <div className="text-xs font-bold">{dayInfo.shortLabel}</div>
                     <div className="text-[9px] opacity-80 truncate">{dayInfo.label}</div>
+                    {isConflictDay && (
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-600 border border-white dark:border-slate-900" />
+                    )}
                   </button>
                 );
               })}
@@ -1295,7 +1323,7 @@ export const WeeklyShiftTable = () => {
             helperText={t('shift_name_readonly_hint')}
           />
 
-          {/* Khung giờ & thời lượng */}
+          {/* Khung giờ cố định theo ca đã chọn (Không cho nhập tự do giờ lẻ) */}
           <div>
             <div className="grid grid-cols-2 gap-3">
               <Input
@@ -1303,9 +1331,10 @@ export const WeeklyShiftTable = () => {
                 type="text"
                 placeholder="08:00"
                 required
+                readOnly
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                helperText="HH:mm"
+                className="bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed select-none text-slate-700 dark:text-slate-300 font-semibold font-mono"
+                helperText="Cố định theo ca"
               />
 
               <Input
@@ -1313,9 +1342,10 @@ export const WeeklyShiftTable = () => {
                 type="text"
                 placeholder="12:00"
                 required
+                readOnly
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                helperText="HH:mm"
+                className="bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed select-none text-slate-700 dark:text-slate-300 font-semibold font-mono"
+                helperText="Cố định theo ca"
               />
             </div>
 

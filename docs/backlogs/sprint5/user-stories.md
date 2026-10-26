@@ -1,35 +1,41 @@
-# Sprint 5 Backlog
+﻿# Sprint 5 — Nạp ví VNPay/MoMo, rút thủ công và đối soát
 
-## Phạm vi và thứ tự nghiệm thu
+Cập nhật 05/10/2026, dựa trên source, migration và test trong working tree hiện tại. Các checkbox là đầu việc chưa nghiệm thu, không phải khẳng định toàn bộ code còn trống.
 
-| Mốc | Issues | Đầu ra được nghiệm thu |
-| :--- | :--- | :--- |
-| 1. Kết nối cổng | `ISSUE-23.1` (Strategy và payment chung), `ISSUE-23.3`, `ISSUE-23.2` | VNPay và MoMo tạo checkout, xác thực kết quả qua IPN/truy vấn cổng, lưu trạng thái payment đúng một lần. Thêm adapter mới không sửa luồng chung. **Chưa coi là nạp ví thành công.** |
-| 2. Ví và nạp tiền | `ISSUE-22.1`–`ISSUE-22.4`, phần còn lại của `ISSUE-23.1` | Payment đã được cổng xác nhận được hạch toán đúng một lần vào ví, ledger và sao kê; có thể đối soát và retry khi ghi sổ lỗi. |
-| 3. Escrow | `ISSUE-22.5` | Giữ cọc, hoàn cọc hoặc tất toán booking theo nguồn tiền thực có; không giải ngân vượt số tiền đã thu. |
-| 4. Mở rộng | `ISSUE-23.4`, `ISSUE-24.1`–`ISSUE-24.4` | ZaloPay/VietQR sau khi xác nhận được cơ chế đối soát; tài khoản ngân hàng, yêu cầu rút và payout theo khả năng của đối tác. |
+## Phạm vi
 
-**Quy ước trạng thái:** `payment_transactions.status = SUCCESS` là cổng đã xác nhận thu tiền. Chỉ sau khi ghi sổ và cập nhật ví thành công mới được báo “nạp ví thành công”. Return URL của trình duyệt không thay thế IPN hoặc truy vấn trạng thái có xác thực từ cổng.
+- Hoàn thiện TOP_UP qua hai adapter VNPAY/MOMO hiện có: nhận tiền → cộng ví đúng một lần → lịch sử.
+- CUSTOMER/FREELANCE_MUA rút số dư khả dụng: giữ tiền → SUPER_ADMIN duyệt/chuyển khoản → đối soát.
+- Kiểm thử trùng/mất callback, timeout, cạnh tranh số dư, hoàn cọc về ví và hoàn khoản chưa áp dụng.
+- Bỏ `ISSUE-23.4` (VietQR/ZaloPay) khỏi Sprint 5. Không thêm provider hoặc API chi hộ tự động.
 
-**Test khi chưa có mobile:** VNPay sandbox có thể hoàn tất bằng trình duyệt với thẻ test; MoMo kiểm thử tạo checkout, chữ ký, callback và lỗi bằng test tích hợp. Giao dịch ví MoMo sandbox thật cần MoMo Test app/tài khoản test theo hướng dẫn đối tác. Với backend localhost, IPN cần URL HTTPS public qua tunnel; return URL frontend có thể là `http://localhost:3000/payments/return/vnpay` và `http://localhost:3000/payments/return/momo`. Đây là URL dự kiến, chưa phải route đã có.
+## Kế hoạch chính
 
-## User stories và tasks
+Đọc [kế hoạch triển khai theo code hiện tại](wallet_topup_manual_withdrawal_plan.md) để xem bằng chứng từng file, khoảng trống, migration/API đề xuất, state machine, phụ thuộc và ma trận kiểm thử.
 
-- [ ] [ISSUE-23.1] [Thanh toán đa phương thức và nạp tiền vào ví](user_story_payment_gateways_and_payout.md)
-  - [ ] Payment dùng chung: `PaymentGatewayStrategy` + Registry tự đăng ký adapter theo mã cổng; API liệt kê cổng đang bật cho frontend, intent, `PENDING`/`SUCCESS`/`FAILED`, return/IPN, tra cứu trạng thái, idempotency và đối soát. Không rẽ nhánh theo tên cổng trong service chung.
-  - [ ] [ISSUE-23.3] VNPay sandbox: checkout, thẻ test trên web, IPN GET và kiểm tra HMAC-SHA512.
-  - [ ] [ISSUE-23.2] MoMo sandbox: `captureWallet`, `payUrl`, IPN POST và kiểm tra HMAC-SHA256.
-  - [ ] Sau `ISSUE-22.1`–`ISSUE-22.4`: ghi sổ nạp ví đúng một lần cho payment `SUCCESS`, kể cả IPN trùng hoặc đến muộn.
-  - [ ] [ISSUE-23.4] ZaloPay/VietQR: adapter mới và cấu hình riêng; đặc tả cách xác thực tiền vào trước khi ghi ví. Không sửa service/controller chung hoặc adapter VNPay/MoMo.
-- [ ] [ISSUE-22.1] [Ví, sổ cái và Escrow](user_story_double_entry_ledger_and_escrow.md)
-  - [ ] [ISSUE-22.2] Ví với `balance`, `frozen_balance` và `wallet_holds` theo booking/yêu cầu rút; giữ/mở phong tỏa có kiểm tra số dư và chống lặp.
-  - [ ] [ISSUE-22.3] Ledger cho mọi khoản tiền thực chuyển giữa các ví/tài khoản đối ứng; đối soát với số dư.
-  - [ ] [ISSUE-22.4] Sao kê snapshot trước/sau cho mọi biến động ví, kể cả `FREEZE`/`UNFREEZE`.
-  - [ ] [ISSUE-22.5] Escrow theo booking: giữ cọc → hoàn cọc hoặc thu đủ phần còn lại → chia doanh thu và hoa hồng trong một transaction.
-- [ ] [ISSUE-24.1] Tài khoản ngân hàng và payout cho Thợ/Studio
-  - [ ] [ISSUE-24.2] Liên kết tài khoản ngân hàng; chỉ đánh dấu đã xác minh khi có bằng chứng xác minh.
-  - [ ] [ISSUE-24.3] Giữ tiền rút, xử lý payout và đối soát kết quả ngân hàng; không tự xác nhận thành công khi request timeout.
-  - [ ] [ISSUE-24.4] Dashboard duyệt/từ chối yêu cầu rút; hiển thị trạng thái thực tế.
+| Mốc | Đầu việc | Điều kiện nghiệm thu |
+| --- | --- | --- |
+| M1 — Nạp và lịch sử | W01–W04, phần mobile/test liên quan | GET ví không sửa tiền; TOP_UP được ghi đúng một lần; job phục hồi mất callback/posting lỗi |
+| M2 — Rút thủ công | W05–W07, phần mobile/test liên quan | Ngân hàng đã xác minh, hold đúng, claim chuyển duy nhất, đối soát trước SUCCESS |
+| M3 — Hoàn tiền và kiểm thử | W08, W10 và phần mobile còn lại | Refund/settlement/rút cạnh tranh vẫn nhất quán; regression đạt |
 
-Chi tiết tiêu chí nghiệm thu và thiết kế dữ liệu ở hai file story liên kết phía trên.
+## Danh sách công việc
 
+- [ ] S5-W01 / ISSUE-22.2, 22.5 — Tách mutation khỏi GET ví; sửa hold query/status; chuyển cập nhật frozen về deposit/settlement/refund.
+- [ ] S5-W02 / ISSUE-22.3–22.4 — WalletMutationService, snapshot ledger, history theo referenceType và phân trang.
+- [ ] S5-W03 / ISSUE-23.1–23.3 — TOP_UP intent idempotent, timeout checkout, giữ request gốc; sửa return đang xử lý/báo thành công từ URL.
+- [ ] S5-W04 / ISSUE-23.1 — Confirmation, TopUpPostingService và reconciliation dùng queryTransaction hiện có.
+- [ ] S5-W05 / ISSUE-24.2 — Tài khoản ngân hàng của chính user, xác minh thủ công, snapshot người nhận.
+- [ ] S5-W06 / ISSUE-24.3 — Yêu cầu rút, hold theo withdrawal, state machine và audit.
+- [ ] S5-W07 / ISSUE-24.4 — Web admin duyệt/claim/ghi chuyển/đối soát; hàng đợi payment lỗi.
+- [ ] S5-W08 / ISSUE-22.5 — Hoàn cọc đúng một lần; xử lý payment đã thu nhưng chưa áp dụng; không tự gọi refund gateway.
+- [ ] S5-W09 / ISSUE-23.1, 24.1 — Mobile nạp/ngân hàng/rút/lịch sử, khôi phục trạng thái khi quay lại app.
+- [ ] S5-W10 — Test concurrency trên PostgreSQL, crash/retry, phân quyền, hồi quy booking và nghiệm thu E2E.
+
+## Tài liệu chi tiết
+
+- [Kế hoạch chính và đối chiếu source](wallet_topup_manual_withdrawal_plan.md).
+- [User stories nạp và rút](user_story_payment_gateways_and_payout.md).
+- [Ví, ledger, hold và hoàn tiền](user_story_double_entry_ledger_and_escrow.md).
+
+Quy ước: payment SUCCESS là đã xác nhận thu; TOP_UP chỉ thành công với người dùng sau POSTED. APPROVED là đã duyệt rút; SUCCESS là đã đối soát chuyển tiền. UNKNOWN luôn giữ tiền chờ xác minh.

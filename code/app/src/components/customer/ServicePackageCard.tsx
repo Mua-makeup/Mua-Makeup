@@ -42,6 +42,12 @@ export const ServicePackageCard: React.FC<Props> = ({ item, onPress }) => {
             <Text style={styles.categoryText}>{item.categoryName}</Text>
           </View>
         )}
+        {item.isAvailable === false && (
+          <View style={styles.pausedBadge}>
+            <Ionicons name="eye-outline" size={11} color="#FFFFFF" />
+            <Text style={styles.pausedBadgeText}>Chỉ xem</Text>
+          </View>
+        )}
         <View style={styles.durationBadge}>
           <Ionicons name="time-outline" size={12} color="#FFFFFF" />
           <Text style={styles.durationText}>{duration} phút</Text>
@@ -131,6 +137,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '600',
+  },
+  pausedBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(71, 85, 105, 0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  pausedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   durationBadge: {
     position: 'absolute',

@@ -12,6 +12,8 @@ import com.makeup.platform.dto.response.auth.AuthRes;
 import com.makeup.platform.dto.response.auth.UserInfoRes;
 import com.makeup.platform.dto.response.auth.UserRegisterRes;
 
+import com.makeup.platform.dto.request.auth.UpdatePushTokenReq;
+
 public interface AuthService {
 
     UserRegisterRes register(RegisterReq req);
@@ -31,4 +33,6 @@ public interface AuthService {
     AuthRes verify2Fa(Verify2FaReq req);
 
     void resend2FaOtp(Resend2FaReq req);
+
+    void updatePushToken(Long userId, UpdatePushTokenReq req);
 }

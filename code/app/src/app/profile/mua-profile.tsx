@@ -1,4 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { ImageViewerModal } from '@/components/common/ImageViewerModal';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -23,10 +24,15 @@ import * as Location from 'expo-location';
 import { parseApiError } from '@/utils/error';
 import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 import { useWorkstationStore } from '@/store/workstation.store';
+import { useAuthStore } from '@/store/auth.store';
 
+import { useUndoStore } from '@/store/undo.store';
 import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 export default function MuaWorkProfileScreen() {
+  const { userInfo } = useAuthStore();
+  const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF') && !userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,8 +66,13 @@ export default function MuaWorkProfileScreen() {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
+    if (isAgencyStaff) {
+      router.replace('/profile/staff-profile');
+      return;
+    }
     void loadMuaProfile();
-  }, []));
+  }, [isAgencyStaff]));
+
 
   const loadMuaProfile = async () => {
     setIsLoading(true);
@@ -230,19 +241,40 @@ export default function MuaWorkProfileScreen() {
   };
 
   const handleDeletePortfolioImage = (imageUrl: string) => {
-    Alert.alert('Xóa Ảnh Tác Phẩm', 'Bạn có chắc chắn muốn xóa ảnh này khỏi bộ sưu tập?', [
+    const targetIndex = portfolioImages.indexOf(imageUrl);
+
+    Alert.alert('Xóa Ảnh Tác Phẩm', 'Bạn có chắc chắn muốn xóa ảnh này khỏi bộ sưu tập? Bạn có thể hoàn tác ngay sau khi xóa.', [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Xóa',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            const updated = await muaProfileService.deletePortfolioImage(imageUrl);
-            setPortfolioImages(updated);
-          } catch (delErr) {
-            const parsed = parseApiError(delErr);
-            Alert.alert('Lỗi xóa ảnh', parsed.message);
-          }
+        onPress: () => {
+          // Loại bỏ lạc quan khỏi UI ngay lập tức
+          setPortfolioImages((prev) => prev.filter((img) => img !== imageUrl));
+
+          // Kích hoạt Toast thông báo xóa thành công kèm nút Hoàn tác
+          useUndoStore.getState().showUndoToast({
+            message: 'Đã xóa ảnh tác phẩm khỏi bộ sưu tập',
+            onUndo: () => {
+              setPortfolioImages((prev) => {
+                const next = [...prev];
+                if (targetIndex >= 0) {
+                  next.splice(targetIndex, 0, imageUrl);
+                } else {
+                  next.push(imageUrl);
+                }
+                return next;
+              });
+            },
+            onCommit: async () => {
+              try {
+                await muaProfileService.deletePortfolioImage(imageUrl);
+              } catch (delErr) {
+                const parsed = parseApiError(delErr);
+                console.warn('[handleDeletePortfolioImage] Lỗi xóa ảnh backend:', parsed.message);
+              }
+            },
+          });
         },
       },
     ]);
@@ -325,8 +357,43 @@ export default function MuaWorkProfileScreen() {
   };
 
 
+  if (isAgencyStaff) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color={BrandColors.slateHeading} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Hồ Sơ Nhân Sự Studio</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerLoading}>
+          <Ionicons name="business-outline" size={48} color={BrandColors.primary} />
+          <Text style={[styles.loadingText, { fontWeight: '700', fontSize: 16, color: BrandColors.slateHeading, marginTop: 12 }]}>
+            Tài Khoản Nhân Viên Studio
+          </Text>
+          <Text style={[styles.loadingText, { textAlign: 'center', marginHorizontal: 24, marginTop: 4, lineHeight: 20 }]}>
+            Thông tin hoạt động, hoa hồng và chứng chỉ nghề nghiệp của bạn được quản lý tập trung tại Hồ Sơ Nhân Sự Studio.
+          </Text>
+          <TouchableOpacity
+            style={[styles.saveButton, { marginTop: 20, paddingHorizontal: 24 }]}
+            onPress={() => router.replace('/profile/staff-profile')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveButtonText}>Xem Hồ Sơ Studio</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -347,10 +414,7 @@ export default function MuaWorkProfileScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải thông tin chuyên môn...</Text>
-        </View>
+        <DetailScreenSkeleton />
       ) : loadError ? (
         <View style={styles.centerLoading}>
           <Text style={styles.loadingText}>{loadError}</Text>
@@ -374,45 +438,64 @@ export default function MuaWorkProfileScreen() {
               <View style={styles.globeIconBox}>
                 <Ionicons name="globe-outline" size={22} color={BrandColors.primary} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.publicPreviewTitle}>Xem Trang Cá Nhân Công Khai</Text>
-                <Text style={styles.publicPreviewSub}>Xem cách khách hàng nhìn thấy dịch vụ và ảnh của bạn</Text>
+                <Text style={styles.publicPreviewSub} numberOfLines={1}>
+                  Xem cách khách hàng nhìn thấy dịch vụ và ảnh của bạn
+                </Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
           </TouchableOpacity>
 
-          {/* CARD ĐỊNH DANH MUA */}
+          {/* CARD ĐỊNH DANH MUA SANG TRỌNG & RỘNG RÃI */}
           <View style={styles.muaStatCard}>
-            <View style={styles.muaStatRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Mã định danh</Text>
-                <Text style={styles.statValHighlight}>
-                  {profile?.muaCode ?? '—'}
+            <View style={styles.muaCodeBadgeRow}>
+              <View style={styles.muaCodeBadge}>
+                <Ionicons name="shield-checkmark" size={15} color={BrandColors.primary} />
+                <Text style={styles.muaCodeBadgeText}>
+                  {profile?.muaCode ?? 'MUA-PLATFORM'}
                 </Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={styles.proPill}>
+                <Text style={styles.proPillText}>Thợ Chuyên Nghiệp</Text>
+              </View>
+            </View>
+
+            <View style={styles.muaDivider} />
+
+            <View style={styles.muaStatRow}>
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Đánh giá</Text>
-                <Text style={styles.statVal}>
-                  ⭐ {profile?.totalReviews ? Number(profile.ratingAverage).toFixed(1) : 'Chưa có đánh giá'}
-                </Text>
+                <Text style={styles.statLabel}>Đánh giá thợ</Text>
+                <View style={styles.statValRow}>
+                  <Ionicons name="star" size={15} color="#F59E0B" />
+                  <Text style={styles.statVal}>
+                    {profile?.totalReviews ? Number(profile.ratingAverage).toFixed(1) : '5.0'}
+                  </Text>
+                  <Text style={styles.statSubText}>
+                    ({profile?.totalReviews || 0} ĐG)
+                  </Text>
+                </View>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBox}>
                 <Text style={styles.statLabel}>Đơn hoàn tất</Text>
-                <Text style={styles.statVal}>
-                  {profile?.totalCompletedJobs ?? '—'}
-                </Text>
+                <View style={styles.statValRow}>
+                  <Ionicons name="ribbon" size={15} color="#059669" />
+                  <Text style={[styles.statVal, { color: '#059669' }]}>
+                    {profile?.totalCompletedJobs ?? 0}
+                  </Text>
+                  <Text style={styles.statSubText}>ca làm</Text>
+                </View>
               </View>
             </View>
           </View>
 
-          {/* CARD CHUYÊN MÔN & TIỂU SỬ */}
+          {/* CARD CHUYÊN MÔN, TIỂU SỬ & KINH NGHIỆM */}
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
-              <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
-              <Text style={styles.formCardTitle}>Giới thiệu</Text>
+              <Ionicons name="document-text-outline" size={18} color={BrandColors.primary} />
+              <Text style={styles.formCardTitle}>Giới thiệu & Kinh nghiệm</Text>
             </View>
 
             {/* Tiểu sử */}
@@ -432,17 +515,29 @@ export default function MuaWorkProfileScreen() {
               </Text>
             </View>
 
-
+            {/* Kinh nghiệm làm nghề */}
+            <View style={{ marginTop: 4 }}>
+              <VerticalNumberPicker
+                label="Kinh nghiệm làm nghề" unit="năm" value={Number(experienceYears)} options={experienceOptions}
+                onChange={(value) => {
+                  setExperienceYears(String(value));
+                  setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
+                }}
+              />
+              {fieldErrors.experienceYears ? <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text> : null}
+            </View>
           </View>
 
+          {/* CARD KHU VỰC VÀ BÁN KÍNH NHẬN CA */}
           <View style={styles.formCard}>
             <View style={styles.cardHeaderRow}>
               <Ionicons name="location-outline" size={18} color={BrandColors.primary} />
-              <Text style={styles.formCardTitle}>Khu vực nhận ca</Text>
+              <Text style={styles.formCardTitle}>Khu vực & Bán kính nhận ca</Text>
             </View>
             <Text style={styles.sectionDescription}>
-              Hệ thống tìm khách trong bán kính tính từ địa điểm đã lưu bên dưới. GPS khi di chuyển không thay đổi khu vực này.
+              Hệ thống dùng địa điểm gốc này để tự động tính khoảng cách và phân bổ ca trang điểm phù hợp nhất trong bán kính phục vụ.
             </Text>
+
             {/* Địa chỉ cơ sở / Điểm xuất phát nhận ca */}
             <View style={styles.fieldGroup}>
               <View style={styles.addressLabelRow}>
@@ -486,32 +581,21 @@ export default function MuaWorkProfileScreen() {
                     Đã ghim: ({Number(baseAddressLat).toFixed(4)}, {Number(baseAddressLng).toFixed(4)})
                   </Text>
                 </View>
-              ) : (
-                <Text style={styles.helperText}>
-                  Địa chỉ gốc để hệ thống tính khoảng cách km và điều phối ca trang điểm phù hợp nhất.
-                </Text>
-              )}
+              ) : null}
             </View>
 
-            <View style={styles.numberPickersRow}>
+            {/* Bán kính nhận ca */}
+            <View style={{ marginTop: 4 }}>
               <VerticalNumberPicker
-                label="Kinh nghiệm" unit="năm" value={Number(experienceYears)} options={experienceOptions}
-                onChange={(value) => {
-                  setExperienceYears(String(value));
-                  setFieldErrors((prev) => ({ ...prev, experienceYears: '' }));
-                }}
-              />
-              <VerticalNumberPicker
-                label="Bán kính nhận ca" unit="km" value={Number(maxRadius)} options={radiusOptions}
+                label="Bán kính nhận ca tối đa" unit="km" value={Number(maxRadius)} options={radiusOptions}
                 onChange={(value) => {
                   setMaxRadius(String(value));
                   setFieldErrors((prev) => ({ ...prev, maxRadius: '' }));
                 }}
               />
+              {fieldErrors.maxRadius ? <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text> : null}
+              <Text style={styles.helperText}>Khoảng cách di chuyển xa nhất bạn có thể đến phục vụ khách hàng.</Text>
             </View>
-            {fieldErrors.experienceYears ? <Text style={styles.errorText}>{fieldErrors.experienceYears}</Text> : null}
-            {fieldErrors.maxRadius ? <Text style={styles.errorText}>{fieldErrors.maxRadius}</Text> : null}
-            <Text style={styles.helperText}>Vuốt lên / xuống để chọn. Bán kính tính từ điểm nhận ca.</Text>
           </View>
 
           {/* CARD CHỨNG CHỈ & BẰNG CẤP */}
@@ -673,23 +757,26 @@ export default function MuaWorkProfileScreen() {
       )}
 
       {/* FOOTER SAVE BUTTON */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
-          onPress={handleSaveMuaProfile}
-          disabled={isSubmitting || isLocatingAddress || isLoading || !!loadError || !profile}
-          activeOpacity={0.8}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="save-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      {!loadError && !!profile && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+            onPress={handleSaveMuaProfile}
+            disabled={isSubmitting || isLocatingAddress || isLoading || !profile}
+            activeOpacity={0.8}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="save-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
 
       {/* MODAL THÊM CHỨNG CHỈ (HỖ TRỢ CLICK RA NGOÀI & KÉO TRƯỢT XUỐNG ĐỂ ĐÓNG) */}
       <SwipeableBottomSheet
@@ -698,8 +785,14 @@ export default function MuaWorkProfileScreen() {
         onClose={() => setIsCertModalVisible(false)}
         title="Thêm Chứng Chỉ Nghề Nghiệp"
         subtitle="Tải lên bằng cấp để xác thực hồ sơ và kích hoạt nhận đơn trực tuyến"
+        avoidKeyboard={true}
       >
-        <View style={styles.certModalBody}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.certModalBody}
+          bounces={false}
+        >
           <Text style={styles.fieldLabel}>
             Tên Chứng Chỉ / Bằng Cấp <Text style={styles.required}>*</Text>
           </Text>
@@ -740,32 +833,16 @@ export default function MuaWorkProfileScreen() {
               <Text style={styles.submitCertBtnText}>Tải Lên Chứng Chỉ</Text>
             )}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </SwipeableBottomSheet>
 
-      {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
-      <DismissibleModal visible={!!previewImageUrl} onClose={() => setPreviewImageUrl(null)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
-        <TouchableOpacity
-          style={styles.imageViewerOverlay}
-          activeOpacity={1}
-          onPress={() => setPreviewImageUrl(null)}
-        >
-          <TouchableOpacity
-            style={styles.imageViewerCloseBtn}
-            onPress={() => setPreviewImageUrl(null)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          {previewImageUrl && (
-            <Image
-              source={{ uri: previewImageUrl }}
-              style={styles.imageViewerFull}
-              contentFit="contain"
-            />
-          )}
-        </TouchableOpacity>
-      </DismissibleModal>
+      {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHẠM NGOÀI HOẶC VUỐT XUỐNG ĐỂ TẮT) */}
+      <ImageViewerModal
+        visible={!!previewImageUrl}
+        images={previewImageUrl ? [previewImageUrl] : []}
+        title="Ảnh xem trước"
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -820,6 +897,7 @@ const styles = StyleSheet.create({
   bodyContent: {
     padding: 16,
     gap: 16,
+    paddingBottom: 90,
   },
   publicPreviewBanner: {
     flexDirection: 'row',
@@ -862,6 +940,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  muaCodeBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  muaCodeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  muaCodeBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: BrandColors.primary,
+    letterSpacing: 0.2,
+  },
+  proPill: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  proPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  muaDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 10,
+  },
   muaStatRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -873,19 +991,23 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 11,
     color: BrandColors.slateMuted,
+    marginBottom: 2,
   },
-  statValHighlight: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: BrandColors.primary,
-    marginTop: 3,
+  statValRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
   },
   statVal: {
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: BrandColors.slateHeading,
-    marginTop: 3,
+  },
+  statSubText: {
+    fontSize: 11,
+    color: BrandColors.slateMuted,
+    fontWeight: '500',
   },
   statDivider: {
     width: 1,
@@ -1161,6 +1283,7 @@ const styles = StyleSheet.create({
   },
   certModalBody: {
     gap: 8,
+    paddingBottom: 24,
   },
   certImageUploadBox: {
     height: 120,

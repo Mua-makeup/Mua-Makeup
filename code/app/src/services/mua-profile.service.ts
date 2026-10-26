@@ -23,8 +23,11 @@ export interface MuaCertificate {
 }
 
 export interface MuaPublicProfile {
+  id?: number;
   muaId: number;
   muaCode?: string;
+  agencyId?: number;
+  agencyName?: string;
   fullName: string;
   avatarUrl?: string;
   coverImageUrl?: string;
@@ -41,6 +44,11 @@ export interface MuaPublicProfile {
   isSurgeEnabled?: boolean;
   startingPrice?: number;
   isOnline?: boolean;
+  bayesianRating?: number;
+  rollingRating?: number;
+  badgeTier?: string;
+  rankScore?: number;
+  isEmergencyLocked?: boolean;
   certificates?: MuaCertificate[];
   styles?: MuaStyle[];
   updatedAt?: string;
@@ -49,6 +57,8 @@ export interface MuaPublicProfile {
 export interface PortfolioShowcase {
   id: number;
   muaId?: number;
+  agencyId?: number;
+  agencyName?: string;
   title: string;
   description?: string;
   imageUrl: string;

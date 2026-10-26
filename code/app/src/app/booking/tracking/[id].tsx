@@ -14,19 +14,24 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { BrandColors } from '@/constants/theme';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { useNotificationStore } from '@/store/notification.store';
 import { bookingService } from '@/services/booking.service';
 import { depositService } from '@/services/deposit.service';
+import { ReviewModal } from '@/components/customer/ReviewModal';
+import { reviewService, ReviewItem } from '@/services/review.service';
 import { telemetryService, LiveTrackingRes } from '@/services/telemetry.service';
 import { websocketService } from '@/services/websocket.service';
 import { BookingProgressStepper } from '@/components/booking/BookingProgressStepper';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
 import { computeHybridEta } from '@/utils/date';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
 
 const CUSTOMER_CANCEL_REASONS = [
   'Bận việc đột xuất / Không thể tiếp tục',
@@ -46,6 +51,7 @@ const REVIEW_TAGS = [
 ];
 
 export default function BookingLiveTrackingScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
 
@@ -77,7 +83,7 @@ export default function BookingLiveTrackingScreen() {
   // Status Transition Pop-up Modal State
   const [statusPopup, setStatusPopup] = useState<{
     visible: boolean;
-    type: 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED';
+    type: 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'COMPLETED_WAITING_PAYMENT' | 'PAID_OUT' | 'DISPUTED';
     title: string;
     message: string;
   } | null>(null);
@@ -92,6 +98,29 @@ export default function BookingLiveTrackingScreen() {
   const [selectedReviewTags, setSelectedReviewTags] = useState<string[]>(['Đúng giờ ⏱️', 'Make cực xinh 💖']);
   const [reviewComment, setReviewComment] = useState('');
   const [isReviewSubmitted, setIsReviewSubmitted] = useState(false);
+  const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
+  const [existingReview, setExistingReview] = useState<ReviewItem | null>(null);
+  const hasAutoOpenedReviewRef = useRef(false);
+
+  // Tự động kiểm tra và mở popup đánh giá thợ khi đơn hàng kết thúc & thanh toán xong (PAID_OUT)
+  useEffect(() => {
+    if (!bookingId) return;
+    if (status === 'PAID_OUT' || status === 'COMPLETED') {
+      reviewService.getReviewByBookingId(bookingId)
+        .then((rev) => {
+          if (rev) {
+            setExistingReview(rev);
+            setIsReviewSubmitted(true);
+            setRatingStars(rev.rating || 5);
+            setReviewComment(rev.comment || '');
+          } else if (status === 'PAID_OUT' && !hasAutoOpenedReviewRef.current) {
+            hasAutoOpenedReviewRef.current = true;
+            setIsReviewModalVisible(true);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [bookingId, status]);
 
   // Final Payment State for COMPLETED state (70% còn lại)
   const [isConfirmingCash, setIsConfirmingCash] = useState(false);
@@ -323,6 +352,48 @@ export default function BookingLiveTrackingScreen() {
               if (refreshed && isMounted) setBookingDetail(refreshed);
             }).catch(() => {});
 
+            // Kích hoạt Toast thông báo chữ nổi bật toàn cục trượt từ trên xuống
+            let toastTitle = 'Cập Nhật Đơn Hàng';
+            let toastContent = statusMsg?.message || `Lịch hẹn #${bookingDetail?.bookingCode || bookingId} vừa có cập nhật mới.`;
+            let toastType = 'NOTIFICATION';
+
+            if (nextStatus === 'ON_THE_WAY') {
+              toastTitle = 'Chuyên Viên Đang Di Chuyển';
+              toastContent = 'Chuyên viên make-up đang trên đường di chuyển đến điểm hẹn của bạn.';
+              toastType = 'BOOKING_ON_THE_WAY';
+            } else if (nextStatus === 'ARRIVED') {
+              toastTitle = 'Chuyên Viên Đã Đến Nơi';
+              toastContent = 'Chuyên viên make-up đã có mặt tại điểm hẹn của bạn. Vui lòng đón thợ!';
+              toastType = 'BOOKING_ARRIVED';
+            } else if (nextStatus === 'IN_PROGRESS') {
+              toastTitle = 'Đang Tiến Hành Make-Up';
+              toastContent = 'Chuyên viên đã chính thức bắt đầu buổi làm đẹp cho bạn.';
+              toastType = 'BOOKING_IN_PROGRESS';
+            } else if (nextStatus === 'COMPLETED') {
+              toastTitle = 'Buổi Make-Up Hoàn Tất';
+              toastContent = 'Dịch vụ trang điểm đã hoàn tất thành công. Vui lòng thanh toán phần còn lại!';
+              toastType = 'BOOKING_COMPLETED';
+            } else if (nextStatus === 'CANCELLED') {
+              toastTitle = 'Đơn Hàng Đã Bị Hủy';
+              toastContent = statusMsg?.message || 'Lịch hẹn trang điểm đã bị hủy.';
+              toastType = 'BOOKING_CANCELLED';
+            } else if (nextStatus === 'PAID_OUT' || statusMsg?.type === 'PAYMENT_COMPLETED') {
+              toastTitle = 'Thanh Toán Thành Công';
+              toastContent = 'Khoản thanh toán dịch vụ đã hoàn tất trọn vẹn.';
+              toastType = 'PAID_OUT';
+            }
+
+            useNotificationStore.getState().showToast({
+              id: Date.now(),
+              type: toastType,
+              title: toastTitle,
+              content: toastContent,
+              bookingId,
+              bookingCode: bookingDetail?.bookingCode,
+              isRead: false,
+              createdAt: new Date().toISOString(),
+            });
+
             if (nextStatus === 'CANCELLED') {
               setIsWaitingCancelConfirm(false);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -357,9 +428,18 @@ export default function BookingLiveTrackingScreen() {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               setStatusPopup({
                 visible: true,
-                type: 'COMPLETED',
+                type: 'COMPLETED_WAITING_PAYMENT',
                 title: '🎉 Buổi Make-up Đã Hoàn Tất!',
                 message: 'Chuyên viên đã hoàn tất make-up. Vui lòng thanh toán phần còn lại (70%) để hoàn tất hợp đồng dịch vụ!',
+              });
+            } else if (statusMsg?.type === 'WORKER_CASH_DECLINED') {
+              setIsCashPaidConfirmed(false);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              setStatusPopup({
+                visible: true,
+                type: 'DISPUTED',
+                title: '⚠️ Chưa Nhận Được Tiền Mặt',
+                message: statusMsg?.reason || 'Chuyên viên make-up báo chưa nhận được tiền mặt từ bạn. Vui lòng kiểm tra lại và trao tiền mặt trực tiếp cho chuyên viên hoặc đổi phương thức thanh toán.',
               });
             } else if (nextStatus === 'PAID_OUT' || statusMsg?.type === 'PAYMENT_COMPLETED') {
               setStatus('PAID_OUT');
@@ -367,9 +447,9 @@ export default function BookingLiveTrackingScreen() {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               setStatusPopup({
                 visible: true,
-                type: 'COMPLETED',
+                type: 'PAID_OUT',
                 title: '✨ Quyết Toán Thành Công!',
-                message: 'Khoản thanh toán dịch vụ đã hoàn tất thành công. Hãy đánh giá dịch vụ để ủng hộ chuyên viên nhé!',
+                message: 'Khoản thanh toán dịch vụ đã hoàn tất thành công. Hãy dành ít phút đánh giá dịch vụ để ủng hộ chuyên viên nhé!',
               });
             } else {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -565,14 +645,25 @@ export default function BookingLiveTrackingScreen() {
     }
   };
 
-  const handleSubmitReview = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIsReviewSubmitted(true);
-    Alert.alert(
-      'Cảm Ơn Đánh Giá Của Bạn! 💖',
-      'Phản hồi của bạn đã được ghi nhận và gửi đến chuyên viên để không ngừng nâng cao chất lượng dịch vụ.',
-      [{ text: 'Về Trang Chủ', onPress: () => router.replace('/') }]
-    );
+  const handleSubmitReview = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const fullComment = [selectedReviewTags.join(', '), reviewComment.trim()].filter(Boolean).join('\n');
+      await reviewService.submitReview({
+        bookingId,
+        rating: ratingStars,
+        comment: fullComment,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setIsReviewSubmitted(true);
+      Alert.alert(
+        'Cảm Ơn Đánh Giá Của Bạn! 💖',
+        'Phản hồi của bạn đã được ghi nhận và gửi đến chuyên viên để không ngừng nâng cao chất lượng dịch vụ.',
+        [{ text: 'Về Trang Chủ', onPress: () => router.replace('/') }]
+      );
+    } catch (e: any) {
+      Alert.alert('Không Thể Gửi Đánh Giá', e.response?.data?.message || e.message);
+    }
   };
 
   const formatSeconds = (sec: number) => {
@@ -587,17 +678,27 @@ export default function BookingLiveTrackingScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang kết nối tín hiệu vệ tinh...</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleBox}>
+            <Text style={styles.headerTitle}>Theo Dõi Tiến Trình</Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+        <BookingDetailSkeleton />
       </SafeAreaView>
     );
   }
 
   const muaName = bookingDetail?.muaName || 'Chuyên viên Make-up';
-  const muaAvatar =
-    bookingDetail?.muaAvatar ||
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80';
+  const muaAvatar = bookingDetail?.muaAvatar;
 
   const isMovingStage = status === 'ACCEPTED' || status === 'ON_THE_WAY';
 
@@ -666,7 +767,7 @@ export default function BookingLiveTrackingScreen() {
           </View>
 
           {/* BOTTOM MUA PROFILE DRAWER */}
-          <View style={styles.bottomDrawer}>
+          <View style={[styles.bottomDrawer, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
             <View style={styles.drawerHandle} />
 
             {(isWaitingCancelConfirm || bookingDetail?.isCancelRequested) && (
@@ -682,7 +783,7 @@ export default function BookingLiveTrackingScreen() {
             )}
 
             <View style={styles.muaProfileRow}>
-              <Image source={{ uri: muaAvatar }} style={styles.muaAvatar} />
+              <UserAvatar uri={muaAvatar} name={muaName} size={48} />
               <View style={{ flex: 1 }}>
                 <View style={styles.nameRow}>
                   <Text style={styles.muaNameText}>{muaName}</Text>
@@ -755,7 +856,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 2. MÀN HÌNH GIAO DIỆN KHI THỢ ĐÃ ĐẾN NƠI (ARRIVED) - KHÔNG HIỂN THỊ MAP   */}
       {/* ========================================================================= */}
       {status === 'ARRIVED' && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* BANNER THÔNG BÁO ĐÃ ĐẾN */}
           <View style={styles.arrivedBannerCard}>
             <View style={styles.arrivedIconPulse}>
@@ -771,7 +872,7 @@ export default function BookingLiveTrackingScreen() {
           <View style={styles.cardBox}>
             <Text style={styles.cardHeaderTitle}>Thông Tin Chuyên Viên</Text>
             <View style={styles.muaDetailRow}>
-              <Image source={{ uri: muaAvatar }} style={styles.muaAvatarLarge} />
+              <UserAvatar uri={muaAvatar} name={muaName} size={54} />
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={styles.muaNameLarge}>{muaName}</Text>
@@ -809,7 +910,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="flash" size={16} color="#2563EB" />
+                <Ionicons name="power-outline" size={16} color="#2563EB" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Ổ cắm điện sẵn sàng</Text>
@@ -819,7 +920,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="sparkles" size={16} color="#E11D48" />
+                <Ionicons name="water-outline" size={16} color="#0284C7" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Làm sạch da mặt cơ bản</Text>
@@ -847,7 +948,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 3. MÀN HÌNH GIAO DIỆN KHI ĐANG TRANG ĐIỂM (IN_PROGRESS) - KHÔNG HIỂN THỊ MAP */}
       {/* ========================================================================= */}
       {status === 'IN_PROGRESS' && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* THẺ ĐỒNG HỒ LIVE ĐANG MAKE-UP */}
           <View style={styles.liveTimerCard}>
             <View style={styles.timerBadgeHeader}>
@@ -898,7 +999,7 @@ export default function BookingLiveTrackingScreen() {
 
             <View style={styles.tipItem}>
               <View style={styles.tipBadge}>
-                <Ionicons name="eye" size={16} color="#8B5CF6" />
+                <Ionicons name="eye-outline" size={16} color="#0284C7" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tipTitle}>Nhắm mắt thư giãn</Text>
@@ -929,11 +1030,11 @@ export default function BookingLiveTrackingScreen() {
       {/* 4. MÀN HÌNH GIAO DIỆN HOÀN TẤT & ĐÁNH GIÁ (COMPLETED) - KHÔNG HIỂN THỊ MAP  */}
       {/* ========================================================================= */}
       {(status === 'COMPLETED' || status === 'PAID_OUT') && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* BANNER CHÚC MỪNG HOÀN THÀNH */}
           <View style={styles.completedCelebrationCard}>
             <View style={styles.celebrationIconBox}>
-              <Ionicons name="sparkles" size={32} color="#F59E0B" />
+              <Ionicons name="checkmark-circle" size={32} color="#059669" />
             </View>
             <Text style={styles.celebrationTitle}>Buổi Trang Điểm Đã Hoàn Tất!</Text>
             <Text style={styles.celebrationSub}>
@@ -1000,17 +1101,51 @@ export default function BookingLiveTrackingScreen() {
               </View>
             </View>
           ) : isCashPaidConfirmed ? (
-            <View style={[styles.cardBox, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A', borderWidth: 1 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name="time" size={28} color="#D97706" />
+            <View style={[styles.cardBox, { backgroundColor: '#FFFFFF', borderColor: '#FDE68A', borderWidth: 1.5, padding: 18 }]}>
+              {/* Top badge & action */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A' }}>
+                  <Ionicons name="time" size={13} color="#D97706" />
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#92400E' }}>CHỜ XÁC NHẬN TIỀN MẶT</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setIsCashPaidConfirmed(false)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 6 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="swap-horizontal" size={14} color="#64748B" />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B' }}>Đổi cách thanh toán</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#F59E0B' }}>
+                  <Ionicons name="hourglass" size={24} color="#D97706" />
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#92400E' }}>
-                    Đang Chờ Chuyên Viên Xác Nhận Tiền Mặt
+                  <Text style={{ fontSize: 16, fontWeight: '900', color: '#0F172A' }}>
+                    Đã Báo Thanh Toán Tiền Mặt
                   </Text>
-                  <Text style={{ fontSize: 13, color: '#B45309', marginTop: 2 }}>
-                    Bạn đã bấm báo gửi tiền mặt {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}. Vui lòng nhờ chuyên viên bấm xác nhận trên ứng dụng của họ để hoàn tất đơn.
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    Vui lòng trao tiền mặt trực tiếp cho chuyên viên
                   </Text>
                 </View>
+              </View>
+
+              {/* Hộp số tiền tiền mặt nổi bật */}
+              <View style={{ backgroundColor: '#F8FAFC', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '600' }}>Số tiền mặt cần thanh toán:</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900', color: '#E11D48' }}>
+                  {formatVnd(Math.max(0, (bookingDetail?.totalAmount || 0) - (bookingDetail?.depositAmount !== undefined && bookingDetail?.depositAmount !== null ? Number(bookingDetail.depositAmount) : (bookingDetail?.totalAmount || 0) * 0.3)))}
+                </Text>
+              </View>
+
+              {/* Hướng dẫn thợ bấm xác nhận */}
+              <View style={{ backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#FEF08A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="checkmark-circle" size={16} color="#D97706" />
+                <Text style={{ fontSize: 12, color: '#92400E', flex: 1, lineHeight: 16 }}>
+                  Chuyên viên sẽ bấm <Text style={{ fontWeight: '800' }}>"Đã Nhận Đủ"</Text> trên màn hình máy họ để hoàn tất đơn và xuất biên lai.
+                </Text>
               </View>
             </View>
           ) : (
@@ -1134,74 +1269,76 @@ export default function BookingLiveTrackingScreen() {
             </View>
           )}
 
-          {/* ĐÁNH GIÁ 5 SAO CHO CHUYÊN VIÊN */}
-          <View style={styles.cardBox}>
-            <Text style={styles.cardHeaderTitle}>Đánh Giá Chuyên Viên Make-up</Text>
-            <Text style={styles.ratingSubtitle}>Chuyên viên {muaName} phục vụ bạn thế nào?</Text>
+          {/* ĐÁNH GIÁ 5 SAO CHO CHUYÊN VIÊN - CHỈ HIỂN THỊ KHI ĐƠN ĐÃ QUYẾT TOÁN 100% (PAID_OUT) */}
+          {status === 'PAID_OUT' && (
+            <View style={styles.cardBox}>
+              <Text style={styles.cardHeaderTitle}>Đánh Giá Chuyên Viên Make-up</Text>
+              <Text style={styles.ratingSubtitle}>Chuyên viên {muaName} phục vụ bạn thế nào?</Text>
 
-            {/* Interactive 5 Stars */}
-            <View style={styles.starsRow}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setRatingStars(star);
-                  }}
-                  activeOpacity={0.7}
-                  style={styles.starTouch}
-                >
-                  <Ionicons
-                    name={star <= ratingStars ? 'star' : 'star-outline'}
-                    size={36}
-                    color={star <= ratingStars ? '#F59E0B' : '#CBD5E1'}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Tags đánh giá nhanh */}
-            <View style={styles.tagsContainer}>
-              {REVIEW_TAGS.map((tag) => {
-                const isSelected = selectedReviewTags.includes(tag);
-                return (
+              {/* Interactive 5 Stars */}
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
                   <TouchableOpacity
-                    key={tag}
-                    style={[styles.reviewTagChip, isSelected && styles.reviewTagChipSelected]}
-                    onPress={() => toggleReviewTag(tag)}
-                    activeOpacity={0.8}
+                    key={star}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setRatingStars(star);
+                    }}
+                    activeOpacity={0.7}
+                    style={styles.starTouch}
                   >
-                    <Text style={[styles.reviewTagText, isSelected && styles.reviewTagTextSelected]}>
-                      {tag}
-                    </Text>
+                    <Ionicons
+                      name={star <= ratingStars ? 'star' : 'star-outline'}
+                      size={36}
+                      color={star <= ratingStars ? '#F59E0B' : '#CBD5E1'}
+                    />
                   </TouchableOpacity>
-                );
-              })}
+                ))}
+              </View>
+
+              {/* Tags đánh giá nhanh */}
+              <View style={styles.tagsContainer}>
+                {REVIEW_TAGS.map((tag) => {
+                  const isSelected = selectedReviewTags.includes(tag);
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[styles.reviewTagChip, isSelected && styles.reviewTagChipSelected]}
+                      onPress={() => toggleReviewTag(tag)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.reviewTagText, isSelected && styles.reviewTagTextSelected]}>
+                        {tag}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Ô nhập nhận xét */}
+              <TextInput
+                style={styles.reviewInput}
+                placeholder="Chia sẻ thêm cảm nhận của bạn về chất lượng make-up, độ bền tone phấn..."
+                placeholderTextColor="#94A3B8"
+                value={reviewComment}
+                onChangeText={setReviewComment}
+                multiline
+                numberOfLines={3}
+              />
+
+              <TouchableOpacity
+                style={[styles.submitReviewBtn, isReviewSubmitted && styles.disabledBtn]}
+                onPress={handleSubmitReview}
+                disabled={isReviewSubmitted}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
+                <Text style={styles.submitReviewBtnText}>
+                  {isReviewSubmitted ? 'Đã Gửi Đánh Giá' : 'Gửi Đánh Giá Chuyên Viên'}
+                </Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Ô nhập nhận xét */}
-            <TextInput
-              style={styles.reviewInput}
-              placeholder="Chia sẻ thêm cảm nhận của bạn về chất lượng make-up, độ bền tone phấn..."
-              placeholderTextColor="#94A3B8"
-              value={reviewComment}
-              onChangeText={setReviewComment}
-              multiline
-              numberOfLines={3}
-            />
-
-            <TouchableOpacity
-              style={[styles.submitReviewBtn, isReviewSubmitted && styles.disabledBtn]}
-              onPress={handleSubmitReview}
-              disabled={isReviewSubmitted}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="paper-plane" size={18} color="#FFFFFF" />
-              <Text style={styles.submitReviewBtnText}>
-                {isReviewSubmitted ? 'Đã Gửi Đánh Giá' : 'Gửi Đánh Giá Chuyên Viên'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          )}
 
           {/* NÚT VỀ TRANG CHỦ */}
           <TouchableOpacity
@@ -1242,8 +1379,12 @@ export default function BookingLiveTrackingScreen() {
                   statusPopup?.type === 'ARRIVED'
                     ? 'location'
                     : statusPopup?.type === 'IN_PROGRESS'
-                    ? 'sparkles'
-                    : 'trophy'
+                    ? 'brush'
+                    : statusPopup?.type === 'PAID_OUT'
+                    ? 'star'
+                    : statusPopup?.type === 'COMPLETED_WAITING_PAYMENT'
+                    ? 'wallet'
+                    : 'checkmark-done-circle'
                 }
                 size={36}
                 color={
@@ -1271,7 +1412,15 @@ export default function BookingLiveTrackingScreen() {
                       : '#F59E0B',
                 },
               ]}
-              onPress={() => setStatusPopup(null)}
+              onPress={() => {
+                const isPaidOut = statusPopup?.type === 'PAID_OUT' || statusPopup?.type === 'COMPLETED';
+                setStatusPopup(null);
+                if (isPaidOut) {
+                  setTimeout(() => {
+                    setIsReviewModalVisible(true);
+                  }, 250);
+                }
+              }}
               activeOpacity={0.85}
             >
               <Text style={styles.popupActionBtnText}>
@@ -1279,7 +1428,9 @@ export default function BookingLiveTrackingScreen() {
                   ? 'Đón Thợ Ngay'
                   : statusPopup?.type === 'IN_PROGRESS'
                   ? 'Xem Tiến Trình'
-                  : 'Đánh Giá Ngay'}
+                  : statusPopup?.type === 'COMPLETED_WAITING_PAYMENT'
+                  ? 'Thanh Toán 70% Ngay'
+                  : '★ Đánh Giá Ngay'}
               </Text>
             </TouchableOpacity>
           </DismissibleModal>
@@ -1375,6 +1526,27 @@ export default function BookingLiveTrackingScreen() {
               </View>
             </ScrollView>
           </DismissibleModal>
+
+      {/* POPUP ĐÁNH GIÁ CHUYÊN VIÊN KHI KẾT THÚC ĐƠN HÀNG */}
+      <ReviewModal
+        visible={isReviewModalVisible}
+        bookingId={bookingId}
+        muaName={muaName}
+        initialData={existingReview}
+        onClose={() => setIsReviewModalVisible(false)}
+        onSuccess={() => {
+          setIsReviewModalVisible(false);
+          setIsReviewSubmitted(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          reviewService.getReviewByBookingId(bookingId).then((rev) => {
+            if (rev) {
+              setExistingReview(rev);
+              setRatingStars(rev.rating || 5);
+              setReviewComment(rev.comment || '');
+            }
+          }).catch(() => {});
+        }}
+      />
     </SafeAreaView>
   );
 }

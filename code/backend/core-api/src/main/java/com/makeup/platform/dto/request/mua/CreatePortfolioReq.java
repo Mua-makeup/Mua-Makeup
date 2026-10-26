@@ -34,4 +34,37 @@ public class CreatePortfolioReq {
     private MultipartFile imageFile;
 
     private List<MultipartFile> additionalFiles;
+
+    // Aliases cho FormData snake_case
+    public void setImage_file(MultipartFile file) {
+        this.imageFile = file;
+    }
+
+    public void setFile(MultipartFile file) {
+        if (this.imageFile == null) {
+            this.imageFile = file;
+        }
+    }
+
+    public void setAdditional_files(List<MultipartFile> files) {
+        this.additionalFiles = files;
+    }
+
+    public void setFiles(List<MultipartFile> files) {
+        if (this.additionalFiles == null || this.additionalFiles.isEmpty()) {
+            this.additionalFiles = files;
+        }
+    }
+
+    public void setPackage_id(Long packageId) {
+        this.packageId = packageId;
+    }
+
+    public void setStyle_id(Integer styleId) {
+        this.styleId = styleId;
+    }
+
+    public void setIs_featured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
 }

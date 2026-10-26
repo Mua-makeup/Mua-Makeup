@@ -40,6 +40,13 @@ public class MuaProfileMapper {
                 .status(status)
                 .notes(cert.getNotes())
                 .uploadedAt(cert.getUploadedAt())
+                .scope(cert.getScope() != null ? cert.getScope() : "PLATFORM")
+                .verifierType(cert.getVerifierType())
+                .verifierName(cert.getVerifierName())
+                .agencyId(cert.getAgencyId())
+                .agencyName(cert.getAgencyName())
+                .verifiedAt(cert.getVerifiedAt())
+                .rejectionReason(cert.getRejectionReason())
                 .build();
     }
 
@@ -65,6 +72,8 @@ public class MuaProfileMapper {
         String fullName = mua.getUser() != null ? mua.getUser().getFullName() : null;
         String avatarUrl = mua.getUser() != null ? mua.getUser().getAvatarUrl() : null;
 
+        BigDecimal effectiveRating = (mua.getTotalReviews() != null && mua.getTotalReviews() > 0) ? mua.getRatingAvg() : null;
+
         return MuaProfileRes.builder()
                 .muaId(mua.getId())
                 .muaCode(mua.getMuaCode())
@@ -73,7 +82,7 @@ public class MuaProfileMapper {
                 .bio(mua.getBio())
                 .experienceYears(mua.getExperienceYears())
                 .maxServiceRadiusKm(mua.getMaxServiceRadiusKm())
-                .ratingAverage(mua.getRatingAvg())
+                .ratingAverage(effectiveRating)
                 .totalReviews(mua.getTotalReviews())
                 .totalCompletedJobs(Math.toIntExact(bookingRepository.countByMuaIdAndStatusIn(mua.getId(), List.of(
                         BookingStatus.COMPLETED,
@@ -88,6 +97,11 @@ public class MuaProfileMapper {
                 .startingPrice(startingPrice)
                 .isOnline(mua.getIsOnline())
                 .availabilityStatus(mua.getAvailabilityStatus() != null ? mua.getAvailabilityStatus().name() : null)
+                .bayesianRating(mua.getBayesianRating())
+                .rollingRating(mua.getRollingRating())
+                .badgeTier(mua.getBadgeTier() != null ? mua.getBadgeTier().name() : null)
+                .rankScore(mua.getRankScore())
+                .isEmergencyLocked(mua.getIsEmergencyLocked())
                 .updatedAt(mua.getUpdatedAt())
                 .build();
     }

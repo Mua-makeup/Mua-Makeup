@@ -58,7 +58,7 @@ export const PackageIncludedSteps: React.FC<Props> = ({ selectedPackage }) => {
       >
         <View style={styles.titleWithIcon}>
           <View style={styles.iconCircle}>
-            <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
+            <Ionicons name="list-outline" size={16} color={BrandColors.primary} />
           </View>
           <View>
             <Text style={styles.sectionTitle}>Quy Trình & Các Bước Thực Hiện</Text>

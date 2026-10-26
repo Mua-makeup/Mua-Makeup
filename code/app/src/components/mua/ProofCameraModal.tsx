@@ -30,14 +30,17 @@ export const ProofCameraModal: React.FC<Props> = ({
 }) => {
   const [photoUri, setPhotoUri] = useState<string | null>(initialPhotoUrl || null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (visible) {
       setPhotoUri(initialPhotoUrl || null);
+      setUploadError(null);
     }
   }, [visible, initialPhotoUrl]);
 
   const handleCaptureCamera = async () => {
+    setUploadError(null);
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
@@ -46,7 +49,7 @@ export const ProofCameraModal: React.FC<Props> = ({
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.85,
@@ -54,6 +57,7 @@ export const ProofCameraModal: React.FC<Props> = ({
 
       if (!result.canceled && result.assets && result.assets[0]) {
         setPhotoUri(result.assets[0].uri);
+        setUploadError(null);
       }
     } catch (err: any) {
       console.warn('Lỗi mở camera:', err);
@@ -62,9 +66,10 @@ export const ProofCameraModal: React.FC<Props> = ({
   };
 
   const handlePickLibrary = async () => {
+    setUploadError(null);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.85,
@@ -72,6 +77,7 @@ export const ProofCameraModal: React.FC<Props> = ({
 
       if (!result.canceled && result.assets && result.assets[0]) {
         setPhotoUri(result.assets[0].uri);
+        setUploadError(null);
       }
     } catch (err: any) {
       console.warn('Lỗi chọn ảnh thư viện:', err);
@@ -79,8 +85,9 @@ export const ProofCameraModal: React.FC<Props> = ({
   };
 
   const handleUploadAndConfirm = async () => {
+    setUploadError(null);
     if (!photoUri) {
-      Alert.alert('Chưa có ảnh', 'Vui lòng chụp ảnh khuôn mặt khách hàng sau khi hoàn thiện make-up.');
+      setUploadError('Vui lòng chụp ảnh khuôn mặt khách hàng sau khi hoàn thiện make-up.');
       return;
     }
 
@@ -99,11 +106,11 @@ export const ProofCameraModal: React.FC<Props> = ({
         onSuccess(finalPhotoUrl);
         setPhotoUri(null);
       } else {
-        Alert.alert('Lỗi', 'Không nhận được đường dẫn ảnh nghiệm thu từ máy chủ.');
+        setUploadError('Không nhận được đường dẫn ảnh nghiệm thu từ máy chủ.');
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Lỗi khi tải ảnh nghiệm thu lên hệ thống.';
-      Alert.alert('Tải Ảnh Thất Bại', msg);
+      setUploadError(msg);
     } finally {
       setIsUploading(false);
     }
@@ -111,6 +118,7 @@ export const ProofCameraModal: React.FC<Props> = ({
 
   const handleReset = () => {
     setPhotoUri(null);
+    setUploadError(null);
   };
 
   return (
@@ -146,6 +154,13 @@ export const ProofCameraModal: React.FC<Props> = ({
               <Text style={styles.helperText}>
                 Ảnh nghiệm thu là căn cứ bắt buộc để hệ thống giải ngân tiền cọc và tích lũy KPI cho bạn.
               </Text>
+            </View>
+          )}
+
+          {uploadError && (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={16} color="#DC2626" />
+              <Text style={styles.errorText}>{uploadError}</Text>
             </View>
           )}
 
@@ -373,5 +388,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#64748B',
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    width: '100%',
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#DC2626',
+    flex: 1,
+    lineHeight: 17,
   },
 });

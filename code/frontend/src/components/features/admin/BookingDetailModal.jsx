@@ -344,7 +344,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
                 const fallbackPrimaryPhone = b.muaPhone || b.staffPhone;
 
                 const assistantList = staffList.filter(
-                  (s) => s.role === 'ASSISTANT_MUA' && (!s.status || s.status === 'ACTIVE')
+                  (s) => s.role === 'ASSISTANT_MUA' && s.status === 'ACTIVE'
                 );
 
                 const hasPrimary = primaryStaff || fallbackPrimaryName;
@@ -502,50 +502,74 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
               </div>
             </div>
 
-            {/* Package Items / Steps Breakdown */}
-            {b.packageItems && b.packageItems.length > 0 && (
-              <div className="pt-2">
-                <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
-                  {t('package_items_list') || 'Quy Trình & Chi Tiết Các Bước'} ({b.packageItems.length})
-                </p>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {b.packageItems.map((item, idx) => (
-                    <div
-                      key={item.id || idx}
-                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0">
-                          {item.stepOrder || idx + 1}
-                        </span>
-                        <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
-                          {item.itemName}
-                        </span>
-                        {item.itemType && (
-                          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
-                            {item.itemType}
+            {/* Package Items / Steps Breakdown - Chỉ hiển thị các dịch vụ khách đặt */}
+            {(() => {
+              const rawItems = b.packageItems || [];
+              if (rawItems.length === 0) return null;
+
+              const selectedAddonList = (() => {
+                if (Array.isArray(b.selectedAddons)) return b.selectedAddons.map((s) => String(s).trim().toLowerCase());
+                if (typeof b.selectedAddons === 'string' && b.selectedAddons.trim()) {
+                  return b.selectedAddons.split(',,,').map((s) => s.trim().toLowerCase()).filter(Boolean);
+                }
+                return [];
+              })();
+
+              const filteredItems = rawItems.filter((item) => {
+                if (!item) return false;
+                const isAddon = String(item.itemType).toUpperCase() === 'ADD_ON' || item.isRequired === false;
+                if (isAddon) {
+                  return selectedAddonList.includes(String(item.itemName || '').trim().toLowerCase());
+                }
+                return true;
+              });
+
+              if (filteredItems.length === 0) return null;
+
+              return (
+                <div className="pt-2">
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
+                    {t('package_items_list') || 'Quy Trình & Chi Tiết Các Bước'} ({filteredItems.length})
+                  </p>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {filteredItems.map((item, idx) => (
+                      <div
+                        key={item.id || idx}
+                        className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            {idx + 1}
                           </span>
-                        )}
+                          <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                            {item.itemName}
+                          </span>
+                          {item.itemType && (
+                            <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
+                              {item.itemType}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 text-slate-500 text-[11px]">
+                          {item.durationMinutes && (
+                            <span>{item.durationMinutes}p</span>
+                          )}
+                          {item.itemPrice && Number(item.itemPrice) > 0 ? (
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">
+                              +{Number(item.itemPrice).toLocaleString()} đ
+                            </span>
+                          ) : (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[10px]">
+                              {t('included') || 'Đã bao gồm'}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0 text-slate-500 text-[11px]">
-                        {item.durationMinutes && (
-                          <span>{item.durationMinutes}p</span>
-                        )}
-                        {item.itemPrice && Number(item.itemPrice) > 0 ? (
-                          <span className="font-semibold text-rose-600 dark:text-rose-400">
-                            +{Number(item.itemPrice).toLocaleString()} đ
-                          </span>
-                        ) : (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[10px]">
-                            {t('included') || 'Đã bao gồm'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Financial Breakdown */}

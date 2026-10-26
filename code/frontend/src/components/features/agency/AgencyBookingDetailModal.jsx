@@ -21,6 +21,8 @@ import { agencyService } from '../../../services/agency.service';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { formatDateTime, formatBookingDateTime } from '../../../utils/formatters';
 import { AgencyCancelBookingModal } from './AgencyCancelBookingModal';
+import { StaffCommissionSplitMatrix } from './StaffCommissionSplitMatrix';
+import { EditStaffCommissionSplitModal } from './EditStaffCommissionSplitModal';
 
 export const AgencyBookingDetailModal = ({
   isOpen,
@@ -33,6 +35,7 @@ export const AgencyBookingDetailModal = ({
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [isCommissionModalOpen, setIsCommissionModalOpen] = useState(false);
   const [currentBooking, setCurrentBooking] = useState(booking);
 
   useEffect(() => {
@@ -59,6 +62,21 @@ export const AgencyBookingDetailModal = ({
     if (bookingId && isOpen) {
       loadHistory(bookingId);
     }
+  }, [currentBooking, isOpen]);
+
+  useEffect(() => {
+    const handleReload = () => {
+      const bookingId = currentBooking?.bookingId || currentBooking?.id;
+      if (bookingId && isOpen) {
+        loadHistory(bookingId);
+      }
+    };
+    window.addEventListener('agency:dispatch-alert', handleReload);
+    window.addEventListener('agency:emergency-dispatch', handleReload);
+    return () => {
+      window.removeEventListener('agency:dispatch-alert', handleReload);
+      window.removeEventListener('agency:emergency-dispatch', handleReload);
+    };
   }, [currentBooking, isOpen]);
 
   if (!booking) return null;
@@ -191,11 +209,18 @@ export const AgencyBookingDetailModal = ({
     CANCELLED: { variant: 'danger', label: t('status_cancelled') },
     CANCELLED_EXPIRED: { variant: 'inactive', label: t('status_cancelled_expired') },
     DISPUTED: { variant: 'rejected', label: t('status_disputed') },
+    DISPUTE_REFUNDED: { variant: 'inactive', label: t('status_dispute_refunded') },
+    DISPUTE_COMPENSATED: { variant: 'success', label: t('status_dispute_compensated') },
+    REFUNDED: { variant: 'inactive', label: t('status_refunded') },
+    EMERGENCY_REASSIGNMENT: { variant: 'danger', label: t('status_emergency_reassignment') },
     PENDING: { variant: 'pending', label: t('status_pending') },
   };
 
   const getStatusBadge = (status) => {
-    const s = statusMap[status] || { variant: 'default', label: status || '—' };
+    const s = statusMap[status] || {
+      variant: 'default',
+      label: status ? status.replace(/_/g, ' ') : '—',
+    };
     return <Badge variant={s.variant}>{s.label}</Badge>;
   };
 
@@ -234,7 +259,7 @@ export const AgencyBookingDetailModal = ({
   return (
     <>
     <Modal
-      isOpen={isOpen}
+      isOpen={isOpen && !isCommissionModalOpen}
       onClose={onClose}
       title={
         <div className="flex items-center gap-3">
@@ -423,13 +448,48 @@ export const AgencyBookingDetailModal = ({
 
                 // 2. Identify assistant MUAs
                 const assistantList = staffList.filter(
-                  (s) => s.role === 'ASSISTANT_MUA' && (!s.status || s.status === 'ACTIVE')
+                  (s) => s.role === 'ASSISTANT_MUA' && s.status !== 'REPLACED' && s.status !== 'EMERGENCY_CANCELLED'
                 );
+
+                // 3. Identify staff who reported emergency busy
+                const allAssigned = currentBooking?.assignedStaff || booking?.assignedStaff || [];
+                const emergencyStaffList = allAssigned.filter(
+                  (s) =>
+                    (s.status === 'EMERGENCY_CANCELLED' || (s.status === 'REPLACED' && Boolean(s.cancellationReason)) || Boolean(s.cancellationReason)) &&
+                    s.staffId !== primaryStaff?.staffId &&
+                    !assistantList.some((a) => a.staffId === s.staffId)
+                );
+
+                const getStaffStatusBadge = (staff, isPrimary) => {
+                  if (staff?.status === 'EMERGENCY_CANCELLED') {
+                    return (
+                      <span className="inline-flex items-center text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/60">
+                        {t('dispatch_staff_status_emergency')}
+                      </span>
+                    );
+                  }
+                  const isConfirmed = staff
+                    ? (Boolean(staff.isConfirmedByStaff) || Boolean(staff.confirmedAt))
+                    : (currentBooking?.bookingStatus !== 'AGENCY_ASSIGNED' && currentBooking?.status !== 'AGENCY_ASSIGNED');
+                  if (isConfirmed) {
+                    return (
+                      <span className="inline-flex items-center text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/60">
+                        {t('dispatch_staff_status_confirmed')}
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="inline-flex items-center text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/60">
+                      {t('dispatch_staff_status_pending')}
+                    </span>
+                  );
+                };
 
                 const hasPrimary = primaryStaff || fallbackPrimaryName;
                 const hasAssistants = assistantList.length > 0;
+                const hasEmergency = emergencyStaffList.length > 0;
 
-                if (!hasPrimary && !hasAssistants) {
+                if (!hasPrimary && !hasAssistants && !hasEmergency) {
                   return (
                     <div className="flex items-center gap-2 text-slate-400 italic text-xs pt-1">
                       <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -460,11 +520,7 @@ export const AgencyBookingDetailModal = ({
                             <Badge variant="gold" size="sm">
                               {t('dispatch_badge_primary')}
                             </Badge>
-                            {primaryStaff.status === 'EMERGENCY_CANCELLED' && (
-                              <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 px-1 py-0.5 rounded border border-red-200 dark:border-red-900/40">
-                                Báo bận
-                              </span>
-                            )}
+                            {getStaffStatusBadge(primaryStaff, true)}
                           </div>
                         </div>
                       ) : fallbackPrimaryName ? (
@@ -478,9 +534,12 @@ export const AgencyBookingDetailModal = ({
                               </span>
                             )}
                           </div>
-                          <Badge variant="gold" size="sm">
-                            {t('dispatch_badge_primary')}
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="gold" size="sm">
+                              {t('dispatch_badge_primary')}
+                            </Badge>
+                            {getStaffStatusBadge(null, true)}
+                          </div>
                         </div>
                       ) : null}
 
@@ -499,9 +558,38 @@ export const AgencyBookingDetailModal = ({
                               </span>
                             )}
                           </div>
-                          <Badge variant="purple" size="sm">
-                            {t('dispatch_badge_assistant')}
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="purple" size="sm">
+                              {t('dispatch_badge_assistant')}
+                            </Badge>
+                            {getStaffStatusBadge(assistant, false)}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Emergency Busy MUA(s) */}
+                      {emergencyStaffList.map((emergencyStaff) => (
+                        <div
+                          key={`busy-${emergencyStaff.id || emergencyStaff.staffId}`}
+                          className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40"
+                        >
+                          <div className="flex items-center gap-1.5 text-slate-900 dark:text-white">
+                            <User className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">{emergencyStaff.staffName}</span>
+                            {emergencyStaff.staffPhone && (
+                              <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                                ({emergencyStaff.staffPhone})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="rose" size="sm">
+                              {emergencyStaff.role === 'PRIMARY_MUA' ? t('dispatch_badge_primary') : t('dispatch_badge_assistant')}
+                            </Badge>
+                            <span className="inline-flex items-center text-[10px] font-semibold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/60">
+                              {t('dispatch_staff_status_emergency')}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -552,87 +640,85 @@ export const AgencyBookingDetailModal = ({
             </div>
           </div>
 
-          {/* Package Items / Steps Breakdown */}
-          {booking.packageItems && booking.packageItems.length > 0 && (
-            <div className="pt-2">
-              <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
-                {t('package_items_list') || 'Quy Trình & Chi Tiết Các Bước'} ({booking.packageItems.length})
-              </p>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {booking.packageItems.map((item, idx) => (
-                  <div
-                    key={item.id || idx}
-                    className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0">
-                        {item.stepOrder || idx + 1}
-                      </span>
-                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
-                        {item.itemName}
-                      </span>
-                      {item.itemType && (
-                        <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
-                          {item.itemType}
+          {/* Package Items / Steps Breakdown - Chỉ hiển thị các dịch vụ khách đặt */}
+          {(() => {
+            const rawItems = booking.packageItems || [];
+            if (rawItems.length === 0) return null;
+
+            const selectedAddonList = (() => {
+              if (Array.isArray(booking.selectedAddons)) return booking.selectedAddons.map((s) => String(s).trim().toLowerCase());
+              if (typeof booking.selectedAddons === 'string' && booking.selectedAddons.trim()) {
+                return booking.selectedAddons.split(',,,').map((s) => s.trim().toLowerCase()).filter(Boolean);
+              }
+              return [];
+            })();
+
+            const filteredItems = rawItems.filter((item) => {
+              if (!item) return false;
+              const isAddon = String(item.itemType).toUpperCase() === 'ADD_ON' || item.isRequired === false;
+              if (isAddon) {
+                return selectedAddonList.includes(String(item.itemName || '').trim().toLowerCase());
+              }
+              return true;
+            });
+
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div className="pt-2">
+                <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-2">
+                  {t('package_items_list') || 'Quy Trình & Chi Tiết Các Bước'} ({filteredItems.length})
+                </p>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {filteredItems.map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-[10px] flex items-center justify-center shrink-0">
+                          {idx + 1}
                         </span>
-                      )}
+                        <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                          {item.itemName}
+                        </span>
+                        {item.itemType && (
+                          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
+                            {item.itemType}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0 text-slate-500 text-[11px]">
+                        {item.durationMinutes && (
+                          <span>{item.durationMinutes}p</span>
+                        )}
+                        {item.itemPrice && Number(item.itemPrice) > 0 ? (
+                          <span className="font-semibold text-rose-600 dark:text-rose-400">
+                            +{formatCurrency(item.itemPrice)}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[10px]">
+                            {t('included') || 'Đã bao gồm'}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0 text-slate-500 text-[11px]">
-                      {item.durationMinutes && (
-                        <span>{item.durationMinutes}p</span>
-                      )}
-                      {item.itemPrice && Number(item.itemPrice) > 0 ? (
-                        <span className="font-semibold text-rose-600 dark:text-rose-400">
-                          +{formatCurrency(item.itemPrice)}
-                        </span>
-                      ) : (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[10px]">
-                          {t('included') || 'Đã bao gồm'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
-        {/* Financial & Commission Breakdown */}
-        <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3">
-          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-xs uppercase tracking-wider">
-            <DollarSign className="w-4 h-4 text-amber-600" />
-            <span>{t('field_revenue_commission')}</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-            <div>
-              <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">{t('col_total_amount')}</div>
-              <div className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
-                {formatCurrency(booking.totalAmount)}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1">
-                <span>{t('col_staff_commission')}</span>
-                <span className="font-mono text-[10px] text-slate-500">
-                  ({booking.staffCommissionRate || 0}%)
-                </span>
-              </div>
-              <div className="text-base font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                {formatCurrency(booking.estimatedStaffCommission)}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">{t('col_studio_net')}</div>
-              <div className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                {formatCurrency(booking.estimatedStudioNet)}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Financial & Commission Breakdown Matrix */}
+        <StaffCommissionSplitMatrix
+          booking={currentBooking || booking}
+          onOpenEditModal={() => setIsCommissionModalOpen(true)}
+          onBookingUpdated={(updated) => {
+            setCurrentBooking(updated);
+            onBookingUpdated?.(updated);
+          }}
+        />
 
         {/* Notes or Cancellation Reason */}
         {booking.notes && (
@@ -763,6 +849,17 @@ export const AgencyBookingDetailModal = ({
       onClose={() => setCancelModalOpen(false)}
       booking={currentBooking}
       onSuccess={handleCancelSuccess}
+    />
+
+    <EditStaffCommissionSplitModal
+      isOpen={isCommissionModalOpen}
+      onClose={() => setIsCommissionModalOpen(false)}
+      booking={currentBooking || booking}
+      onSuccess={(updated) => {
+        setCurrentBooking(updated);
+        onBookingUpdated?.(updated);
+        setIsCommissionModalOpen(false);
+      }}
     />
     </>
   );

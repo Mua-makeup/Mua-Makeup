@@ -6,12 +6,12 @@ import com.makeup.platform.dto.request.agency.ProceedSoloReq;
 import com.makeup.platform.dto.request.agency.ReassignStaffReq;
 import com.makeup.platform.dto.request.agency.RejectDispatchBookingReq;
 import com.makeup.platform.dto.request.agency.ReportEmergencyBusyReq;
+import com.makeup.platform.dto.request.agency.UpdateStaffCommissionSplitReq;
 import com.makeup.platform.dto.response.agency.AgencyBookingRes;
 import com.makeup.platform.dto.response.agency.DispatchAssignmentRes;
 import com.makeup.platform.dto.response.agency.EmergencyApprovalRes;
 import com.makeup.platform.dto.response.agency.EmergencyReassignmentRes;
 import com.makeup.platform.dto.response.agency.StaffAvailabilityMatrixRes;
-
 import java.util.List;
 
 public interface AgencyDispatchService {
@@ -33,4 +33,10 @@ public interface AgencyDispatchService {
     EmergencyApprovalRes reviewEmergencyReport(Long ownerUserId, Long bookingId, Long staffId, ApproveEmergencyReportReq req);
 
     void confirmAssignment(Long muaUserId, Long assignmentId);
+
+    AgencyBookingRes updateStaffCommissions(Long ownerUserId, Long bookingId, UpdateStaffCommissionSplitReq req);
+
+    void confirmAssignmentByBooking(Long muaUserId, Long bookingId);
+
+    void declineAssignmentByBooking(Long muaUserId, Long bookingId, String reason);
 }

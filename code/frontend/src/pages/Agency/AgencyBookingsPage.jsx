@@ -148,8 +148,16 @@ export const AgencyBookingsPage = () => {
   }, [selectedStatus, searchQuery, pageInfo.size]);
 
   const isBookingTerminated = (b) => {
-    const st = b.bookingStatus || b.status;
-    return st === 'CANCELLED' || st === 'CANCELLED_EXPIRED' || st === 'COMPLETED' || st === 'REFUNDED';
+    const st = b?.bookingStatus || b?.status;
+    return (
+      st === 'CANCELLED' ||
+      st === 'CANCELLED_EXPIRED' ||
+      st === 'COMPLETED' ||
+      st === 'PAID_OUT' ||
+      st === 'REFUNDED' ||
+      st === 'DISPUTE_REFUNDED' ||
+      st === 'DISPUTE_COMPENSATED'
+    );
   };
 
   const hasEmergency = overviewStats.emergencyCount > 0 || selectedStatus === 'EMERGENCY_REASSIGNMENT';
@@ -223,9 +231,16 @@ export const AgencyBookingsPage = () => {
       CANCELLED: { variant: 'danger', label: t('status_cancelled') },
       CANCELLED_EXPIRED: { variant: 'inactive', label: t('status_cancelled_expired') },
       DISPUTED: { variant: 'rejected', label: t('status_disputed') },
+      DISPUTE_REFUNDED: { variant: 'inactive', label: t('status_dispute_refunded') },
+      DISPUTE_COMPENSATED: { variant: 'success', label: t('status_dispute_compensated') },
+      REFUNDED: { variant: 'inactive', label: t('status_refunded') },
+      EMERGENCY_REASSIGNMENT: { variant: 'danger', label: t('status_emergency_reassignment') },
       PENDING: { variant: 'pending', label: t('status_pending') },
     };
-    const s = statusMap[status] || { variant: 'default', label: status || '—' };
+    const s = statusMap[status] || {
+      variant: 'default',
+      label: status ? status.replace(/_/g, ' ') : '—',
+    };
     return <Badge variant={s.variant}>{s.label}</Badge>;
   };
 
@@ -291,23 +306,34 @@ export const AgencyBookingsPage = () => {
       header: t('col_assigned_staff'),
       accessor: 'staffName',
       render: (row) => {
-        const assistants = (row.assignedStaff || []).filter(
-          (s) => s.role === 'ASSISTANT_MUA' && (!s.status || s.status === 'ACTIVE')
-        );
-        return row.staffName ? (
-          <div className="space-y-0.5">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
-              {row.staffName}
-            </span>
-            {assistants.length > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800/60">
-                +{assistants.length} {t('dispatch_badge_assistant')}: {assistants.map((a) => a.staffName).join(', ')}
-              </span>
+        const staffList = (row.assignedStaff || []).filter((s) => s.status !== 'REPLACED');
+        const primaryStaff = staffList.find((s) => s.role === 'PRIMARY_MUA');
+        const assistants = staffList.filter((s) => s.role === 'ASSISTANT_MUA');
+        const primaryDisplayName = primaryStaff?.staffName || row.staffName;
+
+        if (!primaryDisplayName && assistants.length === 0) {
+          return <span className="text-xs text-slate-400 italic">{t('unassigned_staff')}</span>;
+        }
+
+        return (
+          <div className="space-y-1 py-0.5">
+            {primaryDisplayName && (
+              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                <span>{primaryDisplayName}</span>
+                <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-200 dark:border-amber-800/60">
+                  {t('dispatch_badge_primary')}
+                </span>
+              </div>
             )}
-            <span className="text-[11px] text-slate-400 block">{row.staffPhone || ''}</span>
+            {assistants.map((ast) => (
+              <div key={ast.id || ast.staffId} className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1.5 flex-wrap">
+                <span>• {ast.staffName}</span>
+                <span className="text-[10px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1 py-0.2 rounded border border-purple-200 dark:border-purple-800/60">
+                  {t('dispatch_badge_assistant')}
+                </span>
+              </div>
+            ))}
           </div>
-        ) : (
-          <span className="text-xs text-slate-400 italic">{t('unassigned_staff')}</span>
         );
       },
     },
@@ -337,7 +363,7 @@ export const AgencyBookingsPage = () => {
       align: 'right',
       render: (row) => {
         const st = row.bookingStatus || row.status;
-        const canCancel = st === 'PENDING_AGENCY_DISPATCH' || st === 'AGENCY_ASSIGNED';
+        const canCancel = !isBookingTerminated(row);
         const isEmergency = row.needsEmergencyReassignment && !isBookingTerminated(row);
 
         return (

@@ -45,4 +45,12 @@ public class AgencyStaffPackageController extends BaseController {
         StaffPackagesRes res = agencyStaffPackageService.getStaffPackages(userId, staffId);
         return ok(res, "agency.staff_packages_get_success");
     }
+
+    @GetMapping({"/agencies/staff/me/packages", "/staff/me/packages"})
+    @PreAuthorize("hasRole('AGENCY_STAFF') or hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<StaffPackagesRes>> getMyStaffPackages(
+            @AuthenticationPrincipal Long userId) {
+        StaffPackagesRes res = agencyStaffPackageService.getMyStaffPackages(userId);
+        return ok(res, "agency.staff_packages_get_success");
+    }
 }

@@ -1,5 +1,6 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
-import React, { useState, useEffect } from 'react';
+import { ImageViewerModal } from '@/components/common/ImageViewerModal';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,34 +15,39 @@ import {
   Platform,
   RefreshControl,
   Pressable,
+  Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { BrandColors } from '@/constants/theme';
 import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
-import { formatDateTimeVN } from '@/utils/date';
-
-const CANCEL_REASONS = [
-  'Bận việc đột xuất / Không thể tiếp tục',
-  'Thợ di chuyển quá chậm / Không liên lạc được',
-  'Đặt nhầm địa chỉ hoặc thời gian make-up',
-  'Thay đổi ý định / Muốn đặt lại sau',
-  'Lý do khác',
-];
+import { reviewService, ReviewItem } from '@/services/review.service';
+import { ReviewModal } from '@/components/customer/ReviewModal';
+import { useNotificationStore } from '@/store/notification.store';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
+import { CancelBookingModal } from '@/components/booking/CancelBookingModal';
+import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
+import { useAuthStore } from '@/store/auth.store';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
 
 export default function CustomerBookingDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [bookingDetail, setBookingDetail] = useState<BookingStatusDetailRes | null>(null);
+  const [isDisputeDossierOpen, setIsDisputeDossierOpen] = useState(false);
+  const [isDisputeDossierAutoOpen, setIsDisputeDossierAutoOpen] = useState(false);
   const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
   const [isConfirmingCash, setIsConfirmingCash] = useState(false);
   const [isPayingOnline, setIsPayingOnline] = useState(false);
@@ -51,6 +57,12 @@ export default function CustomerBookingDetailScreen() {
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Trọng tài leo thang Mô hình C
+  const [isEscalateModalVisible, setIsEscalateModalVisible] = useState(false);
+  const [escalateReason, setEscalateReason] = useState('');
+  const [isSubmittingEscalate, setIsSubmittingEscalate] = useState(false);
+  const [isSubmittingAccept, setIsSubmittingAccept] = useState(false);
 
   // Modal Phóng to ảnh nghiệm thu
   const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
@@ -82,6 +94,7 @@ export default function CustomerBookingDetailScreen() {
         return prev - 1;
       });
     }, 1000);
+
     return () => clearInterval(interval);
   }, [bookingDetail?.status, confirmSecondsRemaining]);
 
@@ -131,8 +144,16 @@ export default function CustomerBookingDetailScreen() {
 
     try {
       const data = await bookingService.getBookingStatus(bookingId);
-      if (data?.status === 'PAID_OUT' || data?.status === 'CANCELLED' || data?.status === 'CANCELLED_EXPIRED') {
-        router.replace(`/booking/history-detail/${bookingId}` as any);
+      if (
+        data?.status === 'PAID_OUT' ||
+        data?.status === 'CANCELLED' ||
+        data?.status === 'CANCELLED_EXPIRED' ||
+        data?.status === 'DISPUTED' ||
+        data?.status === 'DISPUTE_REFUNDED' ||
+        data?.status === 'DISPUTE_COMPENSATED'
+      ) {
+        const reviewParam = data?.status === 'PAID_OUT' ? '?openReview=true' : '';
+        router.replace(`/booking/history-detail/${bookingId}${reviewParam}` as any);
         return;
       }
       setBookingDetail(data);
@@ -179,17 +200,72 @@ export default function CustomerBookingDetailScreen() {
       const topic = `/topic/booking-status/${bookingId}`;
       websocketService.subscribe(topic, (msg: any) => {
         if (msg) {
+          if (msg.type === 'WORKER_CASH_DECLINED') {
+            setIsCashPaidConfirmed(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert(
+              'Chưa Nhận Được Tiền Mặt ⚠️',
+              msg.reason || 'Chuyên viên make-up báo chưa nhận được tiền mặt từ bạn. Vui lòng kiểm tra lại và trao tiền mặt trực tiếp cho chuyên viên hoặc đổi sang hình thức thanh toán khác.'
+            );
+            loadBookingData(true);
+            return;
+          }
+
+          const nextStatus = msg.currentStatus || msg.status;
           if (
-            msg.status === 'PAID_OUT' ||
+            nextStatus === 'PAID_OUT' ||
             msg.type === 'PAYMENT_COMPLETED' ||
             msg.isDepositPaid ||
-            msg.status === 'ACCEPTED'
+            nextStatus === 'ACCEPTED'
           ) {
+            setIsCashPaidConfirmed(false);
             try {
               WebBrowser.dismissBrowser();
             } catch {}
           }
           loadBookingData(true);
+
+          // Kích hoạt Toast thông báo chữ nổi bật
+          let toastTitle = 'Cập Nhật Đơn Hàng';
+          let toastContent = msg.message || `Lịch hẹn #${bookingDetail?.bookingCode || bookingId} vừa có cập nhật mới.`;
+          let toastType = 'NOTIFICATION';
+
+          if (nextStatus === 'ON_THE_WAY') {
+            toastTitle = 'Chuyên Viên Đang Di Chuyển';
+            toastContent = 'Chuyên viên make-up đang trên đường di chuyển đến điểm hẹn của bạn.';
+            toastType = 'BOOKING_ON_THE_WAY';
+          } else if (nextStatus === 'ARRIVED') {
+            toastTitle = 'Chuyên Viên Đã Đến Nơi';
+            toastContent = 'Chuyên viên make-up đã có mặt tại điểm hẹn của bạn. Vui lòng đón thợ!';
+            toastType = 'BOOKING_ARRIVED';
+          } else if (nextStatus === 'IN_PROGRESS') {
+            toastTitle = 'Đang Tiến Hành Make-Up';
+            toastContent = 'Chuyên viên đã chính thức bắt đầu buổi làm đẹp cho bạn.';
+            toastType = 'BOOKING_IN_PROGRESS';
+          } else if (nextStatus === 'COMPLETED') {
+            toastTitle = 'Buổi Make-Up Hoàn Tất';
+            toastContent = 'Dịch vụ trang điểm đã hoàn tất thành công. Vui lòng kiểm tra và thanh toán!';
+            toastType = 'BOOKING_COMPLETED';
+          } else if (nextStatus === 'CANCELLED') {
+            toastTitle = 'Đơn Hàng Đã Bị Hủy';
+            toastContent = msg.message || 'Lịch hẹn trang điểm đã bị hủy.';
+            toastType = 'BOOKING_CANCELLED';
+          } else if (nextStatus === 'PAID_OUT') {
+            toastTitle = 'Thanh Toán Thành Công';
+            toastContent = 'Khoản thanh toán dịch vụ đã hoàn tất trọn vẹn.';
+            toastType = 'PAID_OUT';
+          }
+
+          useNotificationStore.getState().showToast({
+            id: Date.now(),
+            type: toastType,
+            title: toastTitle,
+            content: toastContent,
+            bookingId,
+            bookingCode: bookingDetail?.bookingCode,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+          });
         }
       });
       return () => {
@@ -203,62 +279,151 @@ export default function CustomerBookingDetailScreen() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   };
 
-  const getStatusBadge = (status?: BookingStatusType) => {
+  const getStatusBadge = (status?: BookingStatusType, reason?: string) => {
     switch (status) {
       case 'PENDING_DEPOSIT':
         return { label: 'Chờ Đặt Cọc', color: '#D97706', bg: '#FEF3C7', icon: 'card-outline' };
       case 'REQUESTED':
         return { label: 'Chờ Chuyên Viên Tiếp Nhận', color: '#D97706', bg: '#FEF3C7', icon: 'hourglass-outline' };
       case 'PENDING_AGENCY_DISPATCH':
-        return { label: 'Đang Điều Thợ', color: '#D97706', bg: '#FEF3C7', icon: 'sync-outline' };
+        return { label: 'Chờ Studio Phân Công', color: '#D97706', bg: '#FEF3C7', icon: 'sync-outline' };
       case 'AGENCY_ASSIGNED':
       case 'ACCEPTED':
         return { label: 'Đã Nhận Đơn', color: '#2563EB', bg: '#DBEAFE', icon: 'checkmark-circle-outline' };
       case 'ON_THE_WAY':
-        return { label: 'Thợ Đang Tới', color: '#7C3AED', bg: '#EDE9FE', icon: 'bicycle-outline' };
+        return { label: 'Thợ Đang Tới', color: '#0284C7', bg: '#E0F2FE', icon: 'bicycle-outline' };
       case 'ARRIVED':
-        return { label: 'Thợ Đã Đến Nơi', color: '#C026D3', bg: '#FAE8FF', icon: 'location-outline' };
+        return { label: 'Thợ Đã Đến Nơi', color: '#0D9488', bg: '#CCFBF1', icon: 'location-outline' };
       case 'IN_PROGRESS':
-        return { label: 'Đang Trang Điểm', color: BrandColors.primary, bg: '#FFF1F2', icon: 'sparkles-outline' };
+        return { label: 'Đang Trang Điểm', color: BrandColors.primary, bg: '#FFF1F2', icon: 'brush-outline' };
       case 'COMPLETED':
       case 'PAID_OUT':
         return { label: 'Hoàn Thành', color: '#059669', bg: '#D1FAE5', icon: 'checkmark-done-circle-outline' };
       case 'CANCELLED':
       case 'EXPIRED':
         return { label: 'Đã Hủy', color: '#DC2626', bg: '#FEE2E2', icon: 'close-circle-outline' };
-      case 'DISPUTED':
+      case 'DISPUTED': {
+        if (reason?.includes('[STUDIO_TU_CHOI]')) {
+          return { label: 'Studio Từ Chối (Chờ Bạn)', color: '#EA580C', bg: '#FFEDD5', icon: 'alert-circle-outline' };
+        }
+        if (reason?.includes('[LEO_THANG_ADMIN]')) {
+          return { label: 'Chờ Sàn Phán Quyết', color: '#DC2626', bg: '#FEE2E2', icon: 'shield-half-outline' };
+        }
         return { label: 'Đang Khiếu Nại', color: '#EA580C', bg: '#FFEDD5', icon: 'alert-circle-outline' };
+      }
+      case 'DISPUTE_REFUNDED': {
+        const isPost = Boolean(bookingDetail?.completionPhotoUrl || bookingDetail?.completedAt || bookingDetail?.cancellationReason?.toLowerCase().includes('sau ca') || bookingDetail?.cancellationReason?.toLowerCase().includes('tổng tiền đơn'));
+        return { label: isPost ? 'Đã Hoàn 100% Tiền Đơn' : 'Đã Hoàn 100% Cọc', color: '#059669', bg: '#D1FAE5', icon: 'shield-checkmark-outline' };
+      }
+      case 'DISPUTE_COMPENSATED': {
+        if (reason?.includes('[KHACH_DONG_Y_KET_QUA]')) {
+          return { label: 'Đã Đồng Ý Kết Quả', color: '#2563EB', bg: '#DBEAFE', icon: 'checkmark-circle-outline' };
+        }
+        const isPost = Boolean(bookingDetail?.completionPhotoUrl || bookingDetail?.completedAt || bookingDetail?.cancellationReason?.toLowerCase().includes('sau ca') || bookingDetail?.cancellationReason?.toLowerCase().includes('bác bỏ khiếu nại'));
+        return { label: isPost ? 'Bác Bỏ Khiếu Nại' : 'Đã Phán Quyết Bồi Thường', color: '#4B5563', bg: '#F3F4F6', icon: 'shield-checkmark-outline' };
+      }
       default:
         return { label: status || 'Không rõ', color: '#64748B', bg: '#F1F5F9', icon: 'help-circle-outline' };
     }
   };
 
-  const handleCallMUA = () => {
-    Haptics.selectionAsync();
-    const phone = bookingDetail?.muaPhone || bookingDetail?.muaPhoneNumber;
-    if (phone) {
-      Linking.openURL(`tel:${phone}`);
-    } else {
-      Alert.alert('Liên Hệ', 'Số điện thoại của thợ: 0987.654.321');
+  const handleAcceptStudioResolution = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Chấp Nhận Kết Quả Từ Studio',
+      'Bạn có chắc chắn đồng ý với kết quả giải quyết của Studio và đóng khiếu nại này?',
+      [
+        { text: 'Suy Nghĩ Lại', style: 'cancel' },
+        {
+          text: 'Đồng Ý & Đóng Khiếu Nại',
+          onPress: async () => {
+            try {
+              setIsSubmittingAccept(true);
+              await bookingService.acceptStudioResolution(bookingId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Thành Công', 'Đã ghi nhận chấp nhận kết quả từ Studio.');
+              await loadBookingData(true);
+            } catch (err: any) {
+              Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể cập nhật.');
+            } finally {
+              setIsSubmittingAccept(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleConfirmEscalateToAdmin = async () => {
+    try {
+      setIsSubmittingEscalate(true);
+      await bookingService.escalateDispute(bookingId, escalateReason.trim() || undefined);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setIsEscalateModalVisible(false);
+      setEscalateReason('');
+      Alert.alert('Đã Chuyển Lên Sàn', 'Yêu cầu của bạn đã được chuyển lên Ban Quản Trị Sàn để làm trọng tài phân xử.');
+      await loadBookingData(true);
+    } catch (err: any) {
+      Alert.alert('Lỗi Chuyển Khiếu Nại', err?.response?.data?.message || err?.message || 'Không thể chuyển khiếu nại lên Admin.');
+    } finally {
+      setIsSubmittingEscalate(false);
     }
   };
 
-  const handleConfirmCancel = async () => {
-    if (!cancelReason.trim()) {
-      Alert.alert('Chưa chọn lý do', 'Vui lòng chọn hoặc nhập lý do hủy lịch.');
-      return;
+  const handleCallPhone = (phone?: string, name?: string) => {
+    Haptics.selectionAsync();
+    if (phone) {
+      Linking.openURL(`tel:${phone}`);
+    } else {
+      Alert.alert('Liên Hệ', `Số điện thoại của ${name || 'đối tác'}: 0987.654.321`);
     }
+  };
 
+  const handleCallMUA = () => {
+    handleCallPhone(bookingDetail?.muaPhone || bookingDetail?.muaPhoneNumber, bookingDetail?.muaName || 'Chuyên viên');
+  };
+
+  const handleConfirmCancel = async (
+    targetBookingId: number,
+    reason: string,
+    isLateCancel: boolean,
+    isDispute?: boolean,
+    emergencyProofUrl?: string
+  ) => {
     setIsCancelling(true);
     try {
-      await bookingService.cancelBooking(bookingId, cancelReason);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setIsCancelModalVisible(false);
-      Alert.alert('Đã Hủy Ca Hẹn', 'Yêu cầu hủy đơn trang điểm của bạn đã được ghi nhận thành công.');
+      if (isDispute) {
+        await bookingService.transitionBookingState(bookingId, 'DISPUTED', reason, emergencyProofUrl);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setIsCancelModalVisible(false);
+        setTimeout(() => {
+          Alert.alert(
+            'Đã Gửi Báo Cáo Khiếu Nại',
+            isAgencyBooking
+              ? 'Báo cáo khiếu nại kèm minh chứng đã được chuyển tới Studio phụ trách. Quản lý Studio sẽ kiểm tra và giải quyết hoàn cọc cho bạn.'
+              : 'Báo cáo khiếu nại kèm minh chứng của bạn đã được chuyển tới Ban Quản Trị. Admin sẽ xác minh sự việc và hoàn trả tiền cọc về Ví của bạn ngay sau khi phê duyệt.'
+          );
+        }, 350);
+      } else {
+        await bookingService.cancelBooking(bookingId, reason);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setIsCancelModalVisible(false);
+        setTimeout(() => {
+          Alert.alert(
+            isLateCancel ? 'Đã Hủy Ca (Bồi Thường Cho Thợ)' : 'Đã Hủy Ca Hẹn Thành Công',
+            isLateCancel
+              ? 'Lịch hẹn đã được hủy. Vì bạn hủy trong vòng 2 tiếng trước giờ hẹn, toàn bộ số tiền cọc đã được chuyển bồi thường cho chuyên viên make-up.'
+              : 'Yêu cầu hủy đơn hẹn của bạn đã hoàn tất thành công. 100% tiền cọc đã được hoàn trả về Ví của bạn.'
+          );
+        }, 350);
+      }
       loadBookingData(true);
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Không thể hủy đơn tại thời điểm này.';
-      Alert.alert('Lỗi Hủy Ca', msg);
+      setIsCancelModalVisible(false);
+      setTimeout(() => {
+        Alert.alert('Lỗi Thao Tác', msg);
+      }, 350);
     } finally {
       setIsCancelling(false);
     }
@@ -319,13 +484,39 @@ export default function CustomerBookingDetailScreen() {
     }
   };
 
+  const formatCancellationReason = (reason?: string | null) => {
+    if (!reason) return '';
+    return reason.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g, (match) => {
+      try {
+        const d = new Date(match);
+        if (isNaN(d.getTime())) return match;
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${hours}:${minutes} ${day}/${month}/${year}`;
+      } catch {
+        return match;
+      }
+    });
+  };
+
   if (isLoading && !bookingDetail) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải chi tiết ca làm đẹp...</Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi Tiết Lịch Hẹn</Text>
+          <View style={{ width: 40 }} />
         </View>
+        <BookingDetailSkeleton />
       </SafeAreaView>
     );
   }
@@ -371,11 +562,75 @@ export default function CustomerBookingDetailScreen() {
     );
   }
 
-  const badge = getStatusBadge(bookingDetail.status);
+  const badge = getStatusBadge(bookingDetail.status, bookingDetail.cancellationReason || bookingDetail.emergencyReason);
   const remainingAmount = Math.max(0, (bookingDetail.totalAmount || 0) - (bookingDetail.depositAmount || 0));
 
-  // Xác định bước tiến trình (0: Đặt đơn, 1: Thợ nhận, 2: Di chuyển, 3: Trang điểm, 4: Hoàn thành)
+  const isScheduled = bookingDetail.bookingType === 'SCHEDULED' || bookingDetail.bookingCode?.startsWith('BK-SCHED');
+  const isAgencyBooking =
+    bookingDetail.bookingPartner === 'AGENCY' ||
+    Boolean(bookingDetail.agencyId) ||
+    Boolean(bookingDetail.agencyName);
+
+  const rawAssignedStaff = (bookingDetail.assignedStaff || []).filter(
+    (s) => s.status !== 'REPLACED' || Boolean(s.cancellationReason) || (s.status as string) === 'EMERGENCY_CANCELLED'
+  );
+
+  // Khử trùng lặp thợ phân công (tránh hiển thị cùng 1 thợ nhiều lần nếu có bản ghi gán trùng hoặc SQL join)
+  const staffMap = new Map<string, StaffAssignmentItem>();
+  for (const s of rawAssignedStaff) {
+    const key = String(s.staffId || s.id);
+    if (!staffMap.has(key)) {
+      staffMap.set(key, s);
+    } else {
+      const existing = staffMap.get(key)!;
+      // Ưu tiên bản ghi có trạng thái ACTIVE hoặc đã xác nhận hơn
+      if (existing.status !== 'ACTIVE' && s.status === 'ACTIVE') {
+        staffMap.set(key, s);
+      }
+    }
+  }
+  const allAssignedStaff = Array.from(staffMap.values());
+
+  const confirmedStaffList = allAssignedStaff.filter(
+    (s) =>
+      (s.isConfirmedByStaff === true || Boolean(s.confirmedAt) || s.status === 'CONFIRMED') &&
+      s.status !== 'DECLINED' &&
+      s.status !== 'EMERGENCY_CANCELLED'
+  );
+
+  const emergencyCancelledStaff = allAssignedStaff.find(
+    (s) => s.status === 'EMERGENCY_CANCELLED' || (Boolean(s.cancellationReason) && s.isConfirmedByStaff === false)
+  );
+
+  const hasEmergencyCancelledStaff = Boolean(emergencyCancelledStaff);
+
+  const hasPendingStaff = allAssignedStaff.some(
+    (s) => s.status === 'ACTIVE' && (s.isConfirmedByStaff === false || !s.confirmedAt)
+  );
+
+  // Xác định bước tiến trình (Tách riêng cho Đặt Trước vs Đặt Gấp)
   const getStepIndex = (status: BookingStatusType) => {
+    if (isScheduled) {
+      switch (status) {
+        case 'PENDING_DEPOSIT':
+          return 0;
+        case 'REQUESTED':
+        case 'PENDING_AGENCY_DISPATCH':
+        case 'AGENCY_ASSIGNED':
+          return 1;
+        case 'ACCEPTED':
+          return 2;
+        case 'ON_THE_WAY':
+        case 'ARRIVED':
+        case 'IN_PROGRESS':
+          return 3;
+        case 'COMPLETED':
+        case 'PAID_OUT':
+          return 4;
+        default:
+          return -1;
+      }
+    }
     switch (status) {
       case 'REQUESTED':
       case 'PENDING_AGENCY_DISPATCH':
@@ -396,8 +651,29 @@ export default function CustomerBookingDetailScreen() {
     }
   };
 
+  const stepsList = isScheduled
+    ? [
+        { title: 'Đặt Cọc', icon: 'card-outline' },
+        { title: 'Tiếp Nhận', icon: 'hourglass-outline' },
+        { title: 'Đến Hẹn', icon: 'calendar-outline' },
+        { title: 'Make-up', icon: 'brush-outline' },
+        { title: 'Xong', icon: 'checkmark-done-outline' },
+      ]
+    : [
+        { title: 'Nhận Ca', icon: 'receipt-outline' },
+        { title: 'Chuẩn Bị', icon: 'bag-check-outline' },
+        { title: 'Di Chuyển', icon: 'bicycle-outline' },
+        { title: 'Make-up', icon: 'brush-outline' },
+        { title: 'Xong', icon: 'checkmark-done-outline' },
+      ];
+
   const currentStep = getStepIndex(bookingDetail.status);
   const isCancelled = bookingDetail.status === 'CANCELLED' || bookingDetail.status === 'EXPIRED';
+
+  const hasAssignedMua = Boolean(
+    bookingDetail.muaId ||
+    (bookingDetail.muaName && bookingDetail.muaName !== 'Chuyên Viên Make-up' && bookingDetail.muaName.trim().length > 0)
+  );
 
   const defaultPackageSteps = [
     'Tư vấn tone make-up phù hợp trang phục & khuôn mặt',
@@ -412,7 +688,7 @@ export default function CustomerBookingDetailScreen() {
     : defaultPackageSteps;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       {/* HEADER TOP BAR */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -443,7 +719,7 @@ export default function CustomerBookingDetailScreen() {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -453,27 +729,454 @@ export default function CustomerBookingDetailScreen() {
           />
         }
       >
-        {/* BANNER TRẠNG THÁI HIỆN TẠI */}
-        <View style={[styles.statusBanner, { backgroundColor: badge.bg, borderColor: badge.color + '33' }]}>
-          <View style={styles.statusBannerLeft}>
-            <View style={[styles.statusIconWrap, { backgroundColor: badge.color }]}>
-              <Ionicons name={badge.icon as any} size={20} color="#FFFFFF" />
+        {/* HERO CARD RIÊNG BIỆT DÀNH CHO ĐƠN ĐẶT LỊCH TRƯỚC */}
+        {isScheduled && (
+          <View style={styles.scheduledHeroCard}>
+            <View style={styles.scheduledHeroHeader}>
+              <View style={[styles.scheduledHeroBadge, isAgencyBooking && styles.agencyHeroBadge]}>
+                <Ionicons
+                  name={isAgencyBooking ? 'business-outline' : 'calendar-outline'}
+                  size={13}
+                  color={isAgencyBooking ? '#7E22CE' : '#2563EB'}
+                />
+                <Text style={[styles.scheduledHeroBadgeText, isAgencyBooking && styles.agencyHeroBadgeText]}>
+                  {isAgencyBooking ? 'ĐẶT QUA STUDIO' : 'LỊCH ĐẶT TRƯỚC'}
+                </Text>
+              </View>
+              <Text style={styles.scheduledHeroCode}>{bookingDetail.bookingCode}</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.statusBannerTitle, { color: badge.color }]}>{badge.label}</Text>
-              <Text style={styles.statusBannerDesc}>
-                {bookingDetail.status === 'PENDING_DEPOSIT' && 'Đơn hàng đang chờ thanh toán đặt cọc 30% để xác nhận giữ chỗ'}
-                {bookingDetail.status === 'ON_THE_WAY' && 'Chuyên viên MUA đang trên đường tới điểm hẹn'}
-                {bookingDetail.status === 'ARRIVED' && 'Chuyên viên đã đến điểm hẹn, sẵn sàng đồ nghề'}
-                {bookingDetail.status === 'IN_PROGRESS' && 'Đang trong quá trình thực hiện gói trang điểm'}
-                {bookingDetail.status === 'COMPLETED' && 'Ca trang điểm đã hoàn thành xuất sắc'}
-                {bookingDetail.status === 'ACCEPTED' && (bookingDetail.isDepositPaid ? 'Đã đặt cọc, chờ thợ khởi hành' : 'Vui lòng thanh toán cọc để giữ lịch thợ')}
-                {bookingDetail.status === 'REQUESTED' && 'Khoản cọc 30% đã được bảo chứng an toàn trong Quỹ Escrow. Đang chờ chuyên viên tiếp nhận ca hẹn.'}
-                {isCancelled && (bookingDetail.cancellationReason || 'Đơn đã hủy theo yêu cầu')}
-              </Text>
+
+            <View style={styles.scheduledHeroBody}>
+              <View style={styles.scheduledHeroTimeCol}>
+                <Text style={styles.scheduledHeroTimeLabel}>Thời Gian Hẹn</Text>
+                <Text style={styles.scheduledHeroTimeValue}>
+                  {bookingDetail.startTime ? formatTimeVN(bookingDetail.startTime) : '--:--'}
+                </Text>
+                <Text style={styles.scheduledHeroDateValue}>
+                  {bookingDetail.bookingDate ? formatDateVN(bookingDetail.bookingDate) : '--/--/----'}
+                </Text>
+              </View>
+
+              <View style={styles.scheduledHeroDivider} />
+
+              <View style={styles.scheduledHeroServiceCol}>
+                <Text style={styles.scheduledHeroServiceLabel}>Gói Dịch Vụ</Text>
+                <Text style={styles.scheduledHeroServiceValue} numberOfLines={2}>
+                  {bookingDetail.packageName || 'Dịch vụ trang điểm'}
+                </Text>
+                {bookingDetail.estimatedDurationMinutes ? (
+                  <View style={styles.scheduledDurationPill}>
+                    <Ionicons name="time-outline" size={11} color="#64748B" />
+                    <Text style={styles.scheduledDurationPillText}>
+                      {bookingDetail.estimatedDurationMinutes} phút
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           </View>
-        </View>
+        )}
+
+        {/* BANNER TRẠNG THÁI HIỆN TẠI (ẨN KHI Ở REQUESTED HOẶC PENDING_DEPOSIT ĐỂ TRÁNH TRÙNG LẶP CARD) */}
+        {bookingDetail.status !== 'REQUESTED' && bookingDetail.status !== 'PENDING_DEPOSIT' && (
+          <View style={[styles.statusBanner, { backgroundColor: badge.bg, borderColor: badge.color + '33' }]}>
+            <View style={styles.statusBannerLeft}>
+              <View style={[styles.statusIconWrap, { backgroundColor: badge.color }]}>
+                <Ionicons name={badge.icon as any} size={20} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.statusBannerTitle, { color: badge.color }]}>{badge.label}</Text>
+                <Text style={styles.statusBannerDesc}>
+                  {bookingDetail.status === 'ON_THE_WAY' && 'Chuyên viên MUA đang trên đường tới điểm hẹn'}
+                  {bookingDetail.status === 'ARRIVED' && 'Chuyên viên đã đến điểm hẹn, sẵn sàng đồ nghề'}
+                  {bookingDetail.status === 'IN_PROGRESS' && 'Đang trong quá trình thực hiện gói trang điểm'}
+                  {bookingDetail.status === 'COMPLETED' && 'Ca trang điểm đã hoàn thành xuất sắc'}
+                  {bookingDetail.status === 'ACCEPTED' && (bookingDetail.isDepositPaid ? 'Đã đặt cọc, chờ thợ khởi hành' : 'Vui lòng thanh toán cọc để giữ lịch thợ')}
+                  {bookingDetail.status === 'DISPUTED' && (
+                    (bookingDetail.cancellationReason || '').includes('[STUDIO_TU_CHOI]')
+                      ? 'Studio đã từ chối hoàn cọc (Chờ bạn phản hồi)'
+                      : (bookingDetail.cancellationReason || '').includes('[LEO_THANG_ADMIN]')
+                      ? 'Đang chờ Admin Sàn làm trọng tài phân xử'
+                      : (bookingDetail.emergencyReason || bookingDetail.cancellationReason || 'Đơn hàng đang trong quá trình khiếu nại')
+                  )}
+                  {bookingDetail.status === 'DISPUTE_REFUNDED' && (
+                    bookingDetail.cancellationReason || (
+                      (bookingDetail.completionPhotoUrl || bookingDetail.completedAt || bookingDetail.cancellationReason?.toLowerCase().includes('sau ca'))
+                        ? 'Đã duyệt khiếu nại: Hoàn 100% tiền đơn về Ví của bạn'
+                        : 'Đã duyệt khiếu nại: Hoàn 100% tiền cọc về Ví của bạn'
+                    )
+                  )}
+                  {bookingDetail.status === 'DISPUTE_COMPENSATED' && (
+                    (bookingDetail.cancellationReason || '').includes('[KHACH_DONG_Y_KET_QUA]')
+                      ? 'Đã giải quyết: Bạn đã chấp nhận kết quả từ Studio'
+                      : (bookingDetail.cancellationReason || (
+                          (bookingDetail.completionPhotoUrl || bookingDetail.completedAt || bookingDetail.cancellationReason?.toLowerCase().includes('sau ca'))
+                            ? 'Đã giải quyết: Bác bỏ khiếu nại, bảo lưu thù lao ca làm'
+                            : 'Đã duyệt phân xử: Tiền cọc dùng để bồi thường thiệt hại'
+                        ))
+                  )}
+                  {isCancelled && (bookingDetail.cancellationReason || 'Đơn đã hủy theo yêu cầu')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* BANNER ĐẶC THÙ KHI ĐƠN ĐANG KHIẾU NẠI (DISPUTED) */}
+        {bookingDetail.status === 'DISPUTED' && (() => {
+          const rawDisputeReason = (bookingDetail.emergencyReason || bookingDetail.cancellationReason || '').trim();
+          const rawDisputeProof = (bookingDetail.emergencyProofUrl || '').trim();
+          const proofUrls = rawDisputeProof ? rawDisputeProof.split('|').map((u) => u.trim()).filter(Boolean) : [];
+
+          const isStudioRejected = Boolean(
+            bookingDetail.cancellationReason?.includes('[STUDIO_TU_CHOI]') ||
+            bookingDetail.emergencyReason?.includes('[STUDIO_TU_CHOI]') ||
+            rawDisputeReason.includes('[STUDIO_TU_CHOI]')
+          );
+          const isEscalatedToAdmin = Boolean(
+            bookingDetail.cancellationReason?.includes('[LEO_THANG_ADMIN]') ||
+            bookingDetail.emergencyReason?.includes('[LEO_THANG_ADMIN]') ||
+            rawDisputeReason.includes('[LEO_THANG_ADMIN]')
+          );
+
+          const isPostCompletion = Boolean(
+            bookingDetail.status === 'COMPLETED' ||
+            bookingDetail.status === 'PAID_OUT' ||
+            bookingDetail.completionPhotoUrl ||
+            (bookingDetail.totalAmount && bookingDetail.depositAmount && Number(bookingDetail.totalAmount) > Number(bookingDetail.depositAmount) &&
+              !rawDisputeReason?.toLowerCase().includes('vắng mặt') &&
+              !rawDisputeReason?.toLowerCase().includes('không gặp khách'))
+          );
+
+          let studioRejectNote = '';
+          if (isStudioRejected) {
+            const fullReason = `${bookingDetail.cancellationReason || ''} ${bookingDetail.emergencyReason || ''}`;
+            const match = fullReason.match(/\[STUDIO_TU_CHOI\]:\s*([^\[]+)/);
+            if (match && match[1]) {
+              studioRejectNote = match[1].trim();
+            }
+          }
+
+          const isDual =
+            bookingDetail.disputeOrigin === 'DUAL' ||
+            (rawDisputeReason.includes('[Khách hàng]') && rawDisputeReason.includes('[Chuyên viên MUA]'));
+
+          const isMuaReport =
+            !isDual &&
+            (bookingDetail.disputeOrigin === 'MUA' ||
+              rawDisputeReason.includes('[Chuyên viên MUA]') ||
+              (!rawDisputeReason.includes('[Khách hàng]') &&
+                (rawDisputeReason.toLowerCase().includes('khách hàng') ||
+                  rawDisputeReason.toLowerCase().includes('với khách') ||
+                  rawDisputeReason.toLowerCase().includes('vắng mặt') ||
+                  rawDisputeReason.toLowerCase().includes('no-show'))));
+
+          let customerStatement = '';
+          let muaStatement = '';
+          let customerProofUrl: string | undefined;
+          let muaProofUrl: string | undefined;
+
+          if (isDual) {
+            const parts = rawDisputeReason.split('|');
+            parts.forEach((p) => {
+              const trimmed = p.trim();
+              if (trimmed.includes('[Khách hàng]')) {
+                customerStatement = trimmed.replace(/\[Khách hàng\]:?/, '').trim();
+              } else if (trimmed.includes('[Chuyên viên MUA]')) {
+                muaStatement = trimmed.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+              } else if (
+                trimmed.toLowerCase().includes('khách hàng') ||
+                trimmed.toLowerCase().includes('với khách') ||
+                trimmed.toLowerCase().includes('vắng mặt')
+              ) {
+                muaStatement = trimmed;
+              } else {
+                if (!muaStatement) muaStatement = trimmed;
+                else if (!customerStatement) customerStatement = trimmed;
+              }
+            });
+
+            const hasTaggedProofs = proofUrls.some((p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]'));
+            if (hasTaggedProofs) {
+              proofUrls.forEach((item) => {
+                if (item.includes('[Khách hàng]')) {
+                  customerProofUrl = item.replace(/\[Khách hàng\]:?/, '').trim();
+                } else if (item.includes('[Chuyên viên MUA]')) {
+                  muaProofUrl = item.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+                } else {
+                  if (!muaProofUrl) muaProofUrl = item;
+                  else if (!customerProofUrl) customerProofUrl = item;
+                }
+              });
+            } else {
+              if (rawDisputeReason.startsWith('[Khách hàng]')) {
+                customerProofUrl = proofUrls[0];
+                muaProofUrl = proofUrls[1];
+              } else {
+                muaProofUrl = proofUrls[0];
+                customerProofUrl = proofUrls[1];
+              }
+            }
+          }
+
+          let title = 'ĐƠN HÀNG ĐANG TRONG KHIẾU NẠI';
+          let subtitle = '';
+          let reporterBadge = '';
+          let reasonLabel = 'Lý do khiếu nại báo cáo:';
+          let statement = rawDisputeReason.replace(/\[.*?\]:?/g, '').trim();
+
+          if (isEscalatedToAdmin) {
+            title = 'ĐANG CHỜ ADMIN SÀN PHÁN QUYẾT';
+            subtitle = 'Vụ việc đã được chuyển lên Ban Quản Trị Sàn phân xử tối hậu. Tiền cọc được bảo lưu an toàn trong Escrow.';
+            reporterBadge = 'Admin Sàn Thụ Lý';
+          } else if (isStudioRejected) {
+            title = isPostCompletion ? 'STUDIO ĐÃ BÁC BỎ KHIẾU NẠI' : 'STUDIO ĐÃ TỪ CHỐI HOÀN CỌC';
+            subtitle = isPostCompletion
+              ? 'Studio phụ trách đã từ chối yêu cầu khiếu nại chất lượng dịch vụ của bạn. Bạn có thể chấp nhận giải quyết nội bộ hoặc khiếu nại lên Admin Sàn.'
+              : 'Studio phụ trách đã từ chối yêu cầu hoàn cọc của bạn. Bạn có thể chấp nhận giải quyết nội bộ hoặc khiếu nại lên Admin Sàn.';
+            reporterBadge = 'Studio Từ Chối';
+          } else if (isDual) {
+            title = 'TRANH CHẤP 2 CHIỀU ĐANG ĐỐI SOÁT';
+            subtitle = 'Cả bạn và chuyên viên đều đã nộp báo cáo tranh chấp. Ban Quản Trị đang tổng hợp minh chứng hai bên để đưa ra phán quyết công bằng.';
+            reporterBadge = 'Tranh Chấp 2 Chiều';
+            reasonLabel = 'Nội dung phản ánh hai bên:';
+          } else if (isMuaReport) {
+            title = 'CHUYÊN VIÊN MAKE-UP ĐÃ BÁO CÁO SỰ CỐ';
+            subtitle = 'Chuyên viên make-up đã gửi báo cáo sự cố (khách vắng mặt/không liên lạc được). Ban Quản Trị đang xác minh minh chứng từ hiện trường trong 24h.';
+            reporterBadge = 'Chuyên Viên Make-up Báo Cáo';
+            reasonLabel = 'Lý do chuyên viên báo cáo:';
+          } else {
+            title = 'YÊU CẦU KHIẾU NẠI TỪ BẠN (KHÁCH HÀNG)';
+            subtitle = 'Bạn đã gửi yêu cầu khiếu nại ca hẹn này. Ban Quản Trị đang xác minh phản ánh để bảo vệ quyền lợi và hoàn cọc cho bạn.';
+            reporterBadge = 'Khiếu Nại Của Bạn';
+            reasonLabel = 'Lý do bạn khiếu nại:';
+          }
+
+          return (
+            <View style={styles.customerDisputeBannerCard}>
+              <View style={styles.customerDisputeHeader}>
+                <View style={[styles.customerDisputeIconCircle, { backgroundColor: '#EA580C' }]}>
+                  <Ionicons name={isDual ? 'scale-outline' : 'shield-half-outline'} size={24} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
+                    <Text style={[styles.customerDisputeTitle, { color: '#C2410C', marginBottom: 0 }]}>{title}</Text>
+                    {reporterBadge ? (
+                      <View style={{ backgroundColor: isDual ? '#F3E8FF' : isMuaReport ? '#FEF3C7' : '#FCE7F3', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: isDual ? '#E9D5FF' : isMuaReport ? '#FDE68A' : '#FBCFE8' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: isDual ? '#7E22CE' : isMuaReport ? '#92400E' : '#9D174D' }}>
+                          {reporterBadge}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.customerDisputeSubtitle}>{subtitle}</Text>
+                </View>
+              </View>
+
+              {isDual ? (
+                <View style={{ gap: 8, marginTop: 10 }}>
+                  {/* Báo cáo Phía Chuyên Viên */}
+                  <View style={{ backgroundColor: '#FFFFFF', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#FED7AA' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#B45309' }}>Phía Chuyên Viên MUA</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#1E293B' }}>{bookingDetail.muaName || 'Chuyên viên'}</Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#334155', lineHeight: 18 }}>
+                      "{muaStatement || 'Chưa gửi lời khai riêng'}"
+                    </Text>
+                    {muaProofUrl ? (
+                      <View style={{ marginTop: 8 }}>
+                        <Image
+                          source={{ uri: muaProofUrl }}
+                          style={{ width: '100%', height: 140, borderRadius: 6, backgroundColor: '#F1F5F9' }}
+                          contentFit="cover"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Báo cáo Phía Khách Hàng */}
+                  <View style={{ backgroundColor: '#FFFFFF', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#DDD6FE' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <View style={{ backgroundColor: '#F3E8FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: '#7E22CE' }}>Phía Khách Hàng</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#1E293B' }}>{bookingDetail.customerName || 'Khách hàng'}</Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#334155', lineHeight: 18 }}>
+                      "{customerStatement || 'Chưa gửi lời khai riêng'}"
+                    </Text>
+                    {customerProofUrl ? (
+                      <View style={{ marginTop: 8 }}>
+                        <Image
+                          source={{ uri: customerProofUrl }}
+                          style={{ width: '100%', height: 140, borderRadius: 6, backgroundColor: '#F1F5F9' }}
+                          contentFit="cover"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              ) : (
+                <>
+                  {statement ? (
+                    <View style={styles.customerDisputeReasonBox}>
+                      <Text style={styles.customerDisputeReasonLabel}>{reasonLabel}</Text>
+                      <Text style={styles.customerDisputeReasonText}>"{statement}"</Text>
+                    </View>
+                  ) : null}
+
+                  {proofUrls.length > 0 && (
+                    <View style={styles.customerDisputeProofBox}>
+                      <Text style={styles.customerDisputeProofLabel}>
+                        Ảnh minh chứng đính kèm ({isMuaReport ? 'Phía Chuyên Viên MUA' : 'Phía Bạn'}):
+                      </Text>
+                      <Image
+                        source={{ uri: proofUrls[0].replace(/\[.*?\]:?/, '').trim() }}
+                        style={styles.customerDisputeProofImage}
+                        contentFit="cover"
+                      />
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* Box hành động của khách khi Studio từ chối hoàn cọc (Mô hình C) */}
+              {isStudioRejected && !isEscalatedToAdmin && (
+                <View style={{ marginTop: 12, backgroundColor: '#FFF7ED', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#FDBA74' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <Ionicons name="alert-circle" size={18} color="#C2410C" />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#9A3412' }}>
+                      {isPostCompletion ? 'Studio Đã Bác Bỏ Khiếu Nại' : 'Studio Đã Từ Chối Hoàn Cọc'}
+                    </Text>
+                  </View>
+                  {studioRejectNote ? (
+                    <Text style={{ fontSize: 12, color: '#7C2D12', marginTop: 2, lineHeight: 18 }}>
+                      Lý do từ chối: <Text style={{ fontWeight: '600' }}>"{studioRejectNote}"</Text>
+                    </Text>
+                  ) : null}
+                  <Text style={{ fontSize: 11, color: '#9A3412', marginTop: 4, fontStyle: 'italic' }}>
+                    {isPostCompletion
+                      ? 'Bạn có thể chấp nhận kết quả từ Studio hoặc khiếu nại lên Ban Quản Trị Sàn phân xử tối hậu.'
+                      : 'Bạn có thể chấp nhận giải quyết nội bộ hoặc chuyển vụ việc lên Admin Sàn phân xử tối hậu.'}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#FFFFFF',
+                        borderWidth: 1,
+                        borderColor: '#D1D5DB',
+                        paddingVertical: 10,
+                        paddingHorizontal: 8,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={handleAcceptStudioResolution}
+                      disabled={isSubmittingAccept}
+                    >
+                      {isSubmittingAccept ? (
+                        <ActivityIndicator size="small" color="#4B5563" />
+                      ) : (
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151' }}>
+                          Chấp Nhận Kết Quả
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#DC2626',
+                        paddingVertical: 10,
+                        paddingHorizontal: 8,
+                        borderRadius: 8,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onPress={() => setIsEscalateModalVisible(true)}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                        Khiếu Nại Lên Sàn
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Box thông báo nếu đã chuyển lên Admin Sàn */}
+              {isEscalatedToAdmin && (
+                <View style={{ marginTop: 12, backgroundColor: '#FEF2F2', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#FCA5A5' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Ionicons name="shield-checkmark" size={18} color="#DC2626" />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#991B1B' }}>
+                      Đang Chờ Admin Sàn Phán Quyết
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: '#7F1D1D', lineHeight: 16 }}>
+                    Hồ sơ đã được gửi lên Ban Quản Trị Sàn làm trọng tài phân xử độc lập. Tiền cọc được bảo lưu an toàn trong Quỹ Escrow.
+                  </Text>
+                </View>
+              )}
+
+              {/* Nút gửi lời khai / đối chất của Khách nếu MUA đã báo cáo trước */}
+              {isMuaReport && (
+                <TouchableOpacity
+                  style={{
+                    marginTop: 10,
+                    backgroundColor: '#DC2626',
+                    paddingVertical: 12,
+                    paddingHorizontal: 14,
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    shadowColor: '#DC2626',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }}
+                  onPress={() => {
+                    setIsDisputeDossierAutoOpen(true);
+                    setIsDisputeDossierOpen(true);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="create-outline" size={17} color="#FFFFFF" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                    Gửi Yêu Cầu Khiếu Nại Của Bạn
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={{
+                  ...styles.viewDisputeDossierBtn,
+                  marginTop: isMuaReport ? 8 : 12,
+                  backgroundColor: isMuaReport ? '#FFFFFF' : BrandColors.primary,
+                  borderWidth: isMuaReport ? 1 : 0,
+                  borderColor: '#FED7AA',
+                }}
+                onPress={() => {
+                  setIsDisputeDossierAutoOpen(false);
+                  setIsDisputeDossierOpen(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="document-text-outline" size={16} color={isMuaReport ? '#9A3412' : '#FFFFFF'} />
+                <Text style={{ ...styles.viewDisputeDossierBtnText, color: isMuaReport ? '#9A3412' : '#FFFFFF' }}>
+                  Xem Chi Tiết Yêu Cầu Khiếu Nại
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })()}
 
         {/* BANNER HÀNH ĐỘNG ĐẶT CỌC DÀNH CHO ĐƠN PENDING_DEPOSIT */}
         {bookingDetail.status === 'PENDING_DEPOSIT' && (
@@ -499,7 +1202,7 @@ export default function CustomerBookingDetailScreen() {
 
             <TouchableOpacity
               style={styles.pendingDepositCtaBtn}
-              onPress={() => router.push(`/booking/deposit/${bookingId}` as any)}
+              onPress={() => router.replace(`/booking/deposit/${bookingId}` as any)}
               activeOpacity={0.88}
             >
               <Ionicons name="card-outline" size={18} color="#FFFFFF" />
@@ -552,15 +1255,11 @@ export default function CustomerBookingDetailScreen() {
         {/* LỘ TRÌNH TIẾN ĐỘ THỰC HIỆN (STEPPER) */}
         {!isCancelled && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tiến Trình Thực Hiện</Text>
+            <Text style={styles.cardTitle}>
+              {isScheduled ? 'Tiến Trình Lịch Hẹn Đặt Trước' : 'Tiến Trình Thực Hiện'}
+            </Text>
             <View style={styles.stepperContainer}>
-              {[
-                { title: 'Nhận Ca', icon: 'receipt-outline' },
-                { title: 'Chuẩn Bị', icon: 'bag-check-outline' },
-                { title: 'Di Chuyển', icon: 'bicycle-outline' },
-                { title: 'Make-up', icon: 'sparkles-outline' },
-                { title: 'Xong', icon: 'checkmark-done-outline' },
-              ].map((step, idx) => {
+              {stepsList.map((step, idx) => {
                 const isPassed = currentStep > idx;
                 const isCurrent = currentStep === idx;
                 return (
@@ -601,71 +1300,362 @@ export default function CustomerBookingDetailScreen() {
           </View>
         )}
 
-        {/* THÔNG TIN CHUYÊN VIÊN TRANG ĐIỂM (MUA) */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
-          <View style={styles.muaCardBody}>
-            <Image
-              source={{
-                uri:
-                  bookingDetail.muaAvatar ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=400',
-              }}
-              style={styles.muaAvatar}
-              contentFit="cover"
-            />
-            <View style={styles.muaInfoCol}>
-              <View style={styles.muaNameRow}>
-                <Text style={styles.muaName} numberOfLines={1}>
-                  {bookingDetail.muaName || 'Chuyên viên đối tác'}
-                </Text>
-                <View style={styles.proBadge}>
-                  <Text style={styles.proBadgeText}>PRO MUA</Text>
+        {/* THÔNG TIN ĐƠN VỊ THỰC HIỆN: STUDIO CHUYÊN NGHIỆP VS THỢ TỰ DO */}
+        {isAgencyBooking ? (
+          <>
+            {/* 1. THẺ THÔNG TIN STUDIO ĐỐI TÁC */}
+            <View style={styles.agencyCard}>
+              <View style={styles.agencyBadgeHeader}>
+                <View style={styles.agencyTypeBadge}>
+                  <Ionicons name="business" size={13} color="#33b3eaff" />
+                  <Text style={styles.agencyTypeBadgeText}>Studio Chuyên Nghiệp</Text>
+                </View>
+                {bookingDetail.agencyCode ? (
+                  <Text style={styles.agencyCodeText}>{bookingDetail.agencyCode}</Text>
+                ) : null}
+              </View>
+
+              <View style={styles.agencyMainRow}>
+                <Image
+                  source={{
+                    uri:
+                      bookingDetail.agencyLogoUrl ||
+                      'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=300&q=80',
+                  }}
+                  style={styles.agencyLogoImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+                <View style={styles.agencyInfoCol}>
+                  <Text style={styles.agencyName} numberOfLines={2}>
+                    {bookingDetail.agencyName || 'Makeup & Beauty Studio'}
+                  </Text>
+                  <View style={styles.agencyHotlineRow}>
+                    <Ionicons name="call-outline" size={14} color="#7E22CE" />
+                    <Text style={styles.agencyHotlineText}>
+                      Hotline: {bookingDetail.agencyPhone || 'Đang cập nhật'}
+                    </Text>
+                  </View>
+                  {bookingDetail.agencyAddress ? (
+                    <View style={styles.agencyAddressRow}>
+                      <Ionicons name="location-outline" size={14} color="#64748B" />
+                      <Text style={styles.agencyAddressText} numberOfLines={2}>
+                        {bookingDetail.agencyAddress}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
-              <View style={styles.muaRatingRow}>
-                <Ionicons name="star" size={14} color="#F59E0B" />
-                <Text style={styles.muaRatingScore}>
-                  {bookingDetail.rating ? bookingDetail.rating.toFixed(1) : '5.0'}
-                </Text>
-                <Text style={styles.muaRatingCount}>(Đánh giá cao)</Text>
-              </View>
-              <Text style={styles.muaPhoneText}>
-                SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
-              </Text>
-            </View>
-          </View>
 
-          {/* NÚT TƯƠNG TÁC VỚI THỢ */}
-          <View style={styles.muaActionsRow}>
-            <TouchableOpacity
-              style={styles.callMuaBtn}
-              onPress={handleCallMUA}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="call" size={15} color="#FFFFFF" />
-              <Text style={styles.callMuaBtnText}>Gọi Cho Thợ</Text>
-            </TouchableOpacity>
-
-            {bookingDetail.muaId ? (
+              {/* NÚT LIÊN HỆ HOTLINE STUDIO */}
               <TouchableOpacity
-                style={styles.profileMuaBtn}
-                onPress={() => router.push(`/mua-detail/${bookingDetail.muaId}` as any)}
-                activeOpacity={0.8}
+                style={styles.callAgencyBtn}
+                onPress={() => handleCallPhone(bookingDetail.agencyPhone, bookingDetail.agencyName || 'Studio')}
+                activeOpacity={0.85}
               >
-                <Ionicons name="person-outline" size={15} color="#1E293B" />
-                <Text style={styles.profileMuaBtnText}>Xem Hồ Sơ</Text>
+                <Ionicons name="call" size={15} color="#FFFFFF" />
+                <Text style={styles.callAgencyBtnText}>Gọi Hotline Studio</Text>
               </TouchableOpacity>
-            ) : null}
-          </View>
-        </View>
+            </View>
+
+            {/* 2. THẺ ĐỘI NGŨ CHUYÊN VIÊN TRANG ĐIỂM (STUDIO STAFF TEAM) */}
+            <View style={styles.card}>
+              <View style={styles.teamHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>Đội Ngũ Chuyên Viên Phục Vụ</Text>
+                  <Text style={styles.teamSubtitle}>
+                    {hasEmergencyCancelledStaff
+                      ? 'Có chuyên viên đã báo bận đột xuất. Studio đang xử lý ca.'
+                      : confirmedStaffList.length > 0
+                      ? `${confirmedStaffList.length} chuyên viên đã tiếp nhận phục vụ ca làm`
+                      : 'Studio đang điều phối và chờ chuyên viên tiếp nhận ca'}
+                  </Text>
+                </View>
+                {hasEmergencyCancelledStaff ? (
+                  <View style={[styles.teamCountBadge, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+                    <Ionicons name="alert-circle" size={13} color="#B45309" />
+                    <Text style={[styles.teamCountText, { color: '#B45309' }]}>Thợ Báo Bận</Text>
+                  </View>
+                ) : confirmedStaffList.length > 0 ? (
+                  <View style={styles.teamCountBadge}>
+                    <Ionicons name="people" size={13} color="#2563EB" />
+                    <Text style={styles.teamCountText}>{confirmedStaffList.length} Thợ Đã Nhận</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.teamCountBadge, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+                    <Ionicons name="hourglass-outline" size={12} color="#D97706" />
+                    <Text style={[styles.teamCountText, { color: '#B45309' }]}>Chờ tiếp nhận</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Thông báo đề xuất Solo nếu có */}
+              {bookingDetail.soloPendingConfirmation && (
+                <View style={styles.soloNoticeBanner}>
+                  <Ionicons name="sparkles" size={16} color="#7C3AED" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.soloNoticeTitle}>Studio Đề Xuất Nhận Ca Solo</Text>
+                    <Text style={styles.soloNoticeDesc}>
+                      Do thợ chính {emergencyCancelledStaff?.staffName ? `(${emergencyCancelledStaff.staffName}) ` : ''}đã báo bận đột xuất, Studio đề xuất chuyên viên phụ tá tiếp nhận vai trò Thợ chính làm Solo và hưởng {bookingDetail.soloCommissionRate || 100}% hoa hồng.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {allAssignedStaff.length > 0 ? (
+                <View style={styles.staffListContainer}>
+                  {[...allAssignedStaff]
+                    .sort((a, b) => (a.role === 'PRIMARY_MUA' ? -1 : 1))
+                    .map((staff, sIdx) => {
+                      const isPrimary = staff.role === 'PRIMARY_MUA';
+                      const isEmergency = staff.status === 'EMERGENCY_CANCELLED' || (Boolean(staff.cancellationReason) && staff.isConfirmedByStaff === false);
+                      const isConfirmed = staff.isConfirmedByStaff === true || Boolean(staff.confirmedAt) || staff.status === 'CONFIRMED';
+                      const isDeclined = staff.status === 'DECLINED';
+
+                      return (
+                        <View
+                          key={`staff-${staff.id || staff.staffId}-${sIdx}`}
+                          style={[
+                            styles.staffItemCard,
+                            isPrimary && !isEmergency && styles.staffItemPrimaryCard,
+                            isEmergency && { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+                          ]}
+                        >
+                          <View style={styles.staffHeaderRow}>
+                            <View
+                              style={[
+                                styles.staffRolePill,
+                                isPrimary ? styles.staffRolePrimaryPill : styles.staffRoleAssistantPill,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.staffRolePillText,
+                                  isPrimary ? styles.staffRolePrimaryPillText : styles.staffRoleAssistantPillText,
+                                ]}
+                              >
+                                {isPrimary ? 'THỢ CHÍNH' : 'THỢ PHỤ'}
+                              </Text>
+                            </View>
+
+                            {isEmergency ? (
+                              <View style={styles.staffEmergencyBadge}>
+                                <Ionicons name="alert-circle" size={12} color="#B45309" />
+                                <Text style={styles.staffEmergencyText}>Đã Báo Bận Đột Xuất</Text>
+                              </View>
+                            ) : isConfirmed ? (
+                              <View style={styles.activeStaffDotRow}>
+                                <View style={styles.activeStaffDot} />
+                                <Text style={styles.activeStaffText}>Đã tiếp nhận ca</Text>
+                              </View>
+                            ) : isDeclined ? (
+                              <View style={styles.staffDeclinedBadge}>
+                                <Text style={styles.staffDeclinedText}>Đã từ chối</Text>
+                              </View>
+                            ) : (
+                              <View style={styles.staffPendingBadge}>
+                                <Ionicons name="hourglass-outline" size={11} color="#0284C7" />
+                                <Text style={styles.staffPendingText}>Chờ tiếp nhận</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <View style={styles.staffBodyRow}>
+                            <UserAvatar
+                              uri={staff.staffAvatarUrl}
+                              name={staff.staffName}
+                              size={50}
+                              style={{ marginRight: 12 }}
+                            />
+                            <View style={{ flex: 1, justifyContent: 'center' }}>
+                              <Text style={styles.staffNameText} numberOfLines={1}>
+                                {staff.staffName || 'Chuyên viên Make-up'}
+                              </Text>
+                              <Text style={styles.staffPhoneText}>
+                                SĐT: {staff.staffPhone || 'Đang cập nhật'}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              style={[
+                                styles.callStaffMiniBtn,
+                                isEmergency && { backgroundColor: '#94A3B8' },
+                              ]}
+                              onPress={() => handleCallPhone(staff.staffPhone, staff.staffName)}
+                              activeOpacity={0.8}
+                            >
+                              <Ionicons name="call" size={13} color="#FFFFFF" />
+                              <Text style={styles.callStaffMiniBtnText}>Gọi Thợ</Text>
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Dòng lý do báo bận nếu có */}
+                          {isEmergency && staff.cancellationReason ? (
+                            <View style={styles.emergencyReasonBox}>
+                              <Text style={styles.emergencyReasonText}>
+                                Lý do báo bận: "{staff.cancellationReason}"
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+
+                  {/* Thông báo cập nhật ê-kíp điều phối */}
+                  {hasEmergencyCancelledStaff ? (
+                    <View style={{ marginTop: 6, padding: 10, backgroundColor: '#FFFBEB', borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="information-circle" size={16} color="#D97706" />
+                      <Text style={{ fontSize: 12, color: '#92400E', flex: 1, lineHeight: 16 }}>
+                        Studio đang sắp xếp chuyên viên thay thế hoặc đề xuất thợ phụ làm solo để đảm bảo lịch hẹn của bạn.
+                      </Text>
+                    </View>
+                  ) : hasPendingStaff ? (
+                    <View style={{ marginTop: 6, padding: 10, backgroundColor: '#F0F9FF', borderRadius: 8, borderWidth: 1, borderColor: '#BAE6FD', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="information-circle" size={16} color="#0284C7" />
+                      <Text style={{ fontSize: 12, color: '#0369A1', flex: 1, lineHeight: 16 }}>
+                        Studio đang điều phối chuyên viên tiếp nhận ca làm của bạn.
+                      </Text>
+                    </View>
+                  ) : (allAssignedStaff.length > confirmedStaffList.length) ? (
+                    <View style={{ marginTop: 6, padding: 10, backgroundColor: '#FFFBEB', borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="information-circle" size={16} color="#D97706" />
+                      <Text style={{ fontSize: 12, color: '#92400E', flex: 1, lineHeight: 16 }}>
+                        Studio đang điều phối thêm chuyên viên cho ca làm của bạn.
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : (
+                /* Chưa có chuyên viên nào được phân công */
+                <View style={styles.pendingDispatchBox}>
+                  <View style={styles.pendingDispatchIconWrap}>
+                    <Ionicons name="hourglass-outline" size={24} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingDispatchTitle}>
+                      {hasEmergencyCancelledStaff ? 'Studio Đang Sắp Xếp Chuyên Viên' : 'Studio Đang Điều Phối Thợ'}
+                    </Text>
+                    <Text style={styles.pendingDispatchDesc}>
+                      {hasEmergencyCancelledStaff
+                        ? 'Chuyên viên trước đó đã báo bận đột xuất. Quản lý Studio đang nhanh chóng phân công chuyên viên mới thay thế để phục vụ bạn chu đáo!'
+                        : 'Studio đã lên lịch và đang gửi thông báo nhận ca tới chuyên viên. Thông tin chuyên viên sẽ hiển thị tại đây ngay sau khi thợ xác nhận tiếp nhận ca làm!'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </>
+        ) : (
+          /* GIAO DIỆN ĐẶT THỢ TỰ DO (FREELANCER MUA) */
+          <>
+            {isCancelled && !hasAssignedMua ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+                <View style={styles.noMuaNoticeBox}>
+                  <View style={styles.noMuaIconWrap}>
+                    <Ionicons name="person-remove-outline" size={22} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 6,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <Text style={[styles.noMuaTitle, { flexShrink: 1 }]}>Chưa có chuyên viên tiếp nhận</Text>
+                      <View style={styles.noMuaBadge}>
+                        <Text style={styles.noMuaBadgeText}>Chưa có thợ</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.noMuaDesc}>
+                      Đơn hàng bị hủy do không tìm thấy chuyên viên trang điểm khả dụng trong khu vực để nhận ca.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : !hasAssignedMua || bookingDetail.status === 'REQUESTED' || bookingDetail.status === 'AGENCY_ASSIGNED' ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+                <View style={styles.pendingDispatchBox}>
+                  <View style={styles.pendingDispatchIconWrap}>
+                    <Ionicons name="hourglass-outline" size={24} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pendingDispatchTitle}>Đang Chờ Chuyên Viên Tiếp Nhận</Text>
+                    <Text style={styles.pendingDispatchDesc}>
+                      Yêu cầu đặt lịch của bạn đang được gửi tới chuyên viên. Thông tin liên hệ chuyên viên sẽ hiển thị tại đây ngay khi thợ xác nhận tiếp nhận đơn!
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Chuyên Viên Trang Điểm</Text>
+                <View style={styles.muaCardBody}>
+                  <UserAvatar
+                    uri={bookingDetail.muaAvatar}
+                    name={bookingDetail.muaName}
+                    size={64}
+                    style={{ marginRight: 14 }}
+                  />
+                  <View style={styles.muaInfoCol}>
+                    <View style={styles.muaNameRow}>
+                      <Text style={styles.muaName} numberOfLines={1}>
+                        {bookingDetail.muaName || 'Chuyên viên đối tác'}
+                      </Text>
+                      <View style={styles.proBadge}>
+                        <Text style={styles.proBadgeText}>PRO MUA</Text>
+                      </View>
+                    </View>
+                    <View style={styles.muaRatingRow}>
+                      <Ionicons name="star" size={14} color="#F59E0B" />
+                      <Text style={styles.muaRatingScore}>
+                        {bookingDetail.rating ? bookingDetail.rating.toFixed(1) : '5.0'}
+                      </Text>
+                      <Text style={styles.muaRatingCount}>(Đánh giá cao)</Text>
+                    </View>
+                    <Text style={styles.muaPhoneText}>
+                      SĐT: {bookingDetail.muaPhone || bookingDetail.muaPhoneNumber || 'Đang cập nhật'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* NÚT TƯƠNG TÁC VỚI THỢ */}
+                <View style={styles.muaActionsRow}>
+                  <TouchableOpacity
+                    style={styles.callMuaBtn}
+                    onPress={handleCallMUA}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="call" size={15} color="#FFFFFF" />
+                    <Text style={styles.callMuaBtnText}>Gọi Cho Thợ</Text>
+                  </TouchableOpacity>
+
+                  {bookingDetail.muaId ? (
+                    <TouchableOpacity
+                      style={styles.profileMuaBtn}
+                      onPress={() => router.push(`/mua-detail/${bookingDetail.muaId}` as any)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="person-outline" size={15} color="#1E293B" />
+                      <Text style={styles.profileMuaBtnText}>Xem Hồ Sơ</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+            )}
+          </>
+        )}
 
         {/* THÔNG TIN GÓI DỊCH VỤ & CÁC BƯỚC */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Gói Dịch Vụ Trang Điểm</Text>
           <View style={styles.packageHeaderBox}>
             <View style={styles.packageIconBadge}>
-              <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+              <Ionicons name="brush-outline" size={18} color={BrandColors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.packageNameText}>
@@ -684,15 +1674,35 @@ export default function CustomerBookingDetailScreen() {
 
           <View style={styles.divider} />
 
-          <Text style={styles.stepsTitle}>Quy Trình & Chi Tiết Dịch Vụ:</Text>
+          <Text style={styles.stepsTitle}>Quy Trình & Hạng Mục Tiêu Chuẩn Trong Gói:</Text>
           <View style={styles.stepsList}>
-            {stepsToRender.map((step, idx) => (
+            {(bookingDetail.componentItems && bookingDetail.componentItems.length > 0 ? bookingDetail.componentItems : stepsToRender).map((step, idx) => (
               <View key={`step-item-${idx}`} style={styles.stepRow}>
                 <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                 <Text style={styles.stepItemText}>{step}</Text>
               </View>
             ))}
           </View>
+
+          {/* DỊCH VỤ & TIỆN ÍCH MUA THÊM (ADD-ON) - CHỈ HIỂN THỊ KHI KHÁCH ĐÃ CHỌN */}
+          {bookingDetail.addonItems && bookingDetail.addonItems.length > 0 && (
+            <View style={styles.addonWrap}>
+              <View style={styles.addonHeaderWrap}>
+                <Ionicons name="add-circle-outline" size={16} color="#0284C7" />
+                <Text style={styles.addonTitle}>Dịch vụ & Tiện ích mua thêm (Add-on):</Text>
+              </View>
+              <View style={styles.addonList}>
+                {bookingDetail.addonItems.map((item, idx) => (
+                  <View key={`addon-item-${idx}`} style={styles.addonRow}>
+                    <View style={styles.addonTagPill}>
+                      <Text style={styles.addonTagPillText}>Add-on</Text>
+                    </View>
+                    <Text style={styles.addonItemText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* THỜI GIAN & ĐỊA ĐIỂM HẸN */}
@@ -707,7 +1717,7 @@ export default function CustomerBookingDetailScreen() {
               <Text style={styles.infoLabel}>Thời gian phục vụ</Text>
               <Text style={styles.infoValue}>
                 {bookingDetail.bookingDate && bookingDetail.startTime
-                  ? `${bookingDetail.startTime} - Ngày ${bookingDetail.bookingDate}`
+                  ? `${formatTimeVN(bookingDetail.startTime)} ${formatDateVN(bookingDetail.bookingDate)}`
                   : formatDateTimeVN(bookingDetail.updatedAt)}
               </Text>
             </View>
@@ -808,7 +1818,7 @@ export default function CustomerBookingDetailScreen() {
                 <Text style={styles.cancelReasonTitle}>Lý Do Hủy Đơn</Text>
               </View>
               <Text style={styles.cancelReasonText}>
-                {bookingDetail.cancellationReason || 'Đơn đã hủy theo yêu cầu của khách hàng hoặc hết hạn xác nhận.'}
+                {formatCancellationReason(bookingDetail.cancellationReason) || 'Đơn đã hủy theo yêu cầu của khách hàng hoặc hết hạn xác nhận.'}
               </Text>
             </View>
 
@@ -882,20 +1892,75 @@ export default function CustomerBookingDetailScreen() {
         {(bookingDetail.status === 'COMPLETED' || bookingDetail.status === 'PAID_OUT') && (
           <View style={{ width: '100%', gap: 12 }}>
             {bookingDetail.status === 'PAID_OUT' ? (
-              <View style={styles.settledBadgeBar}>
-                <Ionicons name="checkmark-done-circle" size={24} color="#059669" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settledBadgeTitle}>Đơn Hàng Đã Quyết Toán & Hoàn Tất</Text>
-                  <Text style={styles.settledBadgeSubtitle}>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</Text>
+              (bookingDetail.cancellationReason && (
+                bookingDetail.cancellationReason.toLowerCase().includes('bồi thường') ||
+                bookingDetail.cancellationReason.toLowerCase().includes('từ chối') ||
+                bookingDetail.cancellationReason.toLowerCase().includes('khiếu nại') ||
+                bookingDetail.cancellationReason.toLowerCase().includes('vắng mặt')
+              )) || !bookingDetail.completionPhotoUrl ? (
+                <View style={[styles.settledBadgeBar, { backgroundColor: '#FFF1F2', borderColor: '#FECDD3' }]}>
+                  <Ionicons name="shield-half" size={24} color="#E11D48" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.settledBadgeTitle, { color: '#9F1239' }]}>Khiếu Nại Đã Được Xử Lý • Bồi Thường Cho Thợ</Text>
+                    <Text style={[styles.settledBadgeSubtitle, { color: '#BE123C' }]}>
+                      {bookingDetail.cancellationReason || 'Ban Quản Trị đã từ chối yêu cầu hoàn cọc và chuyển tiền cọc bồi thường cho thợ make-up theo chính sách dịch vụ.'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              ) : (
+                <View style={styles.settledBadgeBar}>
+                  <Ionicons name="checkmark-done-circle" size={24} color="#059669" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.settledBadgeTitle}>Đơn Hàng Đã Quyết Toán & Hoàn Tất</Text>
+                    <Text style={styles.settledBadgeSubtitle}>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!</Text>
+                  </View>
+                </View>
+              )
             ) : isCashPaidConfirmed ? (
-              <View style={styles.waitingCashConfirmBar}>
-                <Ionicons name="time-outline" size={24} color="#D97706" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.waitingCashConfirmTitle}>Đang Chờ Chuyên Viên Xác Nhận Tiền Mặt</Text>
-                  <Text style={styles.waitingCashConfirmSubtitle}>
-                    Bạn đã xác nhận trả {formatPrice(remainingAmount)} tiền mặt. Chuyên viên sẽ xác nhận sau khi nhận đủ tiền.
+              <View style={[styles.finalPaymentCard, { backgroundColor: '#FFFFFF', borderColor: '#FDE68A', borderWidth: 1.5, padding: 18, borderRadius: 20 }]}>
+                {/* Top badge & action */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A' }}>
+                    <Ionicons name="time" size={13} color="#D97706" />
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#92400E' }}>CHỜ XÁC NHẬN TIỀN MẶT</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setIsCashPaidConfirmed(false)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, paddingHorizontal: 6 }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="swap-horizontal" size={14} color="#64748B" />
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B' }}>Đổi cách thanh toán</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#F59E0B' }}>
+                    <Ionicons name="hourglass" size={24} color="#D97706" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '900', color: '#0F172A' }}>
+                      Đã Báo Thanh Toán Tiền Mặt
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                      Vui lòng trao tiền mặt trực tiếp cho chuyên viên
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Hộp số tiền tiền mặt nổi bật */}
+                <View style={{ backgroundColor: '#F8FAFC', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '600' }}>Số tiền mặt cần thanh toán:</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: '#E11D48' }}>
+                    {formatPrice(remainingAmount)}
+                  </Text>
+                </View>
+
+                {/* Hướng dẫn thợ bấm xác nhận */}
+                <View style={{ backgroundColor: '#FFFBEB', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#FEF08A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="checkmark-circle" size={16} color="#D97706" />
+                  <Text style={{ fontSize: 12, color: '#92400E', flex: 1, lineHeight: 16 }}>
+                    Chuyên viên sẽ bấm <Text style={{ fontWeight: '800' }}>"Đã Nhận Đủ"</Text> trên màn hình máy họ để hoàn tất đơn và xuất biên lai.
                   </Text>
                 </View>
               </View>
@@ -980,19 +2045,8 @@ export default function CustomerBookingDetailScreen() {
             ) : null}
 
             <TouchableOpacity
-              style={styles.reviewActionBtn}
-              onPress={() => {
-                Alert.alert('Đánh Giá Chuyên Viên ⭐', `Cảm ơn bạn đã sử dụng dịch vụ! Đơn ${bookingDetail.bookingCode} đã hoàn tất.`);
-              }}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="star" size={18} color="#FFFFFF" />
-              <Text style={styles.reviewActionBtnText}>Đánh Giá Chuyên Viên ⭐</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[styles.secondaryCancelBtn, { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }]}
-              onPress={() => router.push(`/booking/history-detail/${bookingId}` as any)}
+              onPress={() => router.push(`/booking/history-detail/${bookingId}?openReview=true` as any)}
               activeOpacity={0.85}
             >
               <Text style={[styles.secondaryCancelBtnText, { color: '#059669', fontWeight: '700' }]}>
@@ -1002,9 +2056,9 @@ export default function CustomerBookingDetailScreen() {
           </View>
         )}
 
-        {/* NÚT HỦY ĐƠN (NẾU CÒN Ở GIAI ĐOẠN ĐẶT HOẶC CHỜ CỌC) */}
-        {(bookingDetail.status === 'REQUESTED' ||
-          bookingDetail.status === 'PENDING_DEPOSIT' ||
+        {/* NÚT HỦY ĐƠN: Cho phép khi PENDING_DEPOSIT hoặc ACCEPTED (Đơn đặt trước có thể hủy trước 2 tiếng theo quy định) */}
+        {(bookingDetail.status === 'PENDING_DEPOSIT' ||
+          (bookingDetail.status === 'ACCEPTED' && bookingDetail.bookingType === 'SCHEDULED') ||
           (bookingDetail.status === 'ACCEPTED' && !bookingDetail.isDepositPaid)) && (
             <TouchableOpacity
               style={styles.secondaryCancelBtn}
@@ -1016,100 +2070,103 @@ export default function CustomerBookingDetailScreen() {
           )}
       </View>
 
-      {/* MODAL HỦY ĐƠN */}
-      <DismissibleModal visible={isCancelModalVisible} onClose={() => setIsCancelModalVisible(false)} dismissDisabled={isCancelling} overlayStyle={styles.modalOverlay} contentStyle={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="warning-outline" size={24} color="#DC2626" />
-              <Text style={styles.modalTitle}>Xác Nhận Hủy Lịch</Text>
-            </View>
-            <Text style={styles.modalSubtitle}>
-              Bạn có chắc chắn muốn hủy lịch hẹn làm đẹp này? Vui lòng chọn lý do để chúng tôi cải thiện dịch vụ:
+      {/* MODAL HỦY / KHIẾU NẠI ĐƠN */}
+      <CancelBookingModal
+        visible={isCancelModalVisible}
+        booking={bookingDetail}
+        onClose={() => setIsCancelModalVisible(false)}
+        onConfirmCancel={handleConfirmCancel}
+        isCancelling={isCancelling}
+      />
+
+      {/* MODAL XEM CHI TIẾT HỒ SƠ KHIẾU NẠI & MINH CHỨNG (TÍCH HỢP INLINE FORM ĐỐI CHẤT) */}
+      <DisputeDossierModal
+        visible={isDisputeDossierOpen}
+        onClose={() => {
+          setIsDisputeDossierOpen(false);
+          setIsDisputeDossierAutoOpen(false);
+        }}
+        bookingId={bookingId}
+        cancellationReason={bookingDetail?.cancellationReason}
+        emergencyReason={bookingDetail?.emergencyReason}
+        emergencyProofUrl={bookingDetail?.emergencyProofUrl}
+        reportedAt={bookingDetail?.emergencyReportedAt}
+        viewAsRole="CUSTOMER"
+        bookingCode={bookingDetail?.bookingCode}
+        depositAmount={bookingDetail?.depositAmount}
+        totalAmount={bookingDetail?.totalAmount}
+        bookingStatus={bookingDetail?.status}
+        disputeOrigin={bookingDetail?.disputeOrigin}
+        counterpartyName={isAgencyBooking ? (bookingDetail?.agencyName || 'Studio') : bookingDetail?.muaName}
+        isAgencyBooking={isAgencyBooking}
+        autoOpenForm={isDisputeDossierAutoOpen}
+        onDisputeSuccess={() => loadBookingData(true)}
+      />
+
+      {/* MODAL LEO THANG KHIẾU NẠI LÊN ADMIN SÀN (MÔ HÌNH C) */}
+      <Modal
+        visible={isEscalateModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsEscalateModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+        >
+          <View style={{ width: '100%', maxWidth: 360, backgroundColor: '#FFFFFF', borderRadius: 14, padding: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 6 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
+              Khiếu Nại Lên Admin Sàn
+            </Text>
+            <Text style={{ fontSize: 12, color: '#4B5563', marginBottom: 12, lineHeight: 17 }}>
+              Ban Quản Trị Sàn sẽ tiếp nhận hồ sơ, đối chiếu bằng chứng hai bên để phân xử tối hậu về tiền cọc.
             </Text>
 
-            <View style={styles.reasonsList}>
-              {CANCEL_REASONS.map((reason, idx) => (
-                <TouchableOpacity
-                  key={`cancel-r-${idx}`}
-                  style={[
-                    styles.reasonItem,
-                    cancelReason === reason && styles.reasonItemSelected,
-                  ]}
-                  onPress={() => setCancelReason(reason)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={cancelReason === reason ? 'radio-button-on' : 'radio-button-off'}
-                    size={18}
-                    color={cancelReason === reason ? BrandColors.primary : '#94A3B8'}
-                  />
-                  <Text
-                    style={[
-                      styles.reasonText,
-                      cancelReason === reason && styles.reasonTextSelected,
-                    ]}
-                  >
-                    {reason}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
             <TextInput
-              style={styles.customReasonInput}
-              placeholder="Nhập lý do chi tiết hơn nếu có..."
-              placeholderTextColor="#94A3B8"
-              value={cancelReason}
-              onChangeText={setCancelReason}
+              style={{ borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 10, fontSize: 13, minHeight: 70, textAlignVertical: 'top', color: '#111827', backgroundColor: '#F9FAFB' }}
+              placeholder="Nhập lý do chuyển khiếu nại lên Sàn (tùy chọn)..."
+              placeholderTextColor="#9CA3AF"
               multiline
+              numberOfLines={3}
+              value={escalateReason}
+              onChangeText={setEscalateReason}
             />
 
-            <View style={styles.modalActions}>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setIsCancelModalVisible(false)}
-                activeOpacity={0.7}
-                disabled={isCancelling}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center' }}
+                onPress={() => {
+                  setIsEscalateModalVisible(false);
+                  setEscalateReason('');
+                }}
+                disabled={isSubmittingEscalate}
               >
-                <Text style={styles.modalCancelText}>Đóng</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#4B5563' }}>Hủy</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
-                style={styles.modalConfirmBtn}
-                onPress={handleConfirmCancel}
-                activeOpacity={0.8}
-                disabled={isCancelling}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: '#DC2626', alignItems: 'center' }}
+                onPress={handleConfirmEscalateToAdmin}
+                disabled={isSubmittingEscalate}
               >
-                {isCancelling ? (
+                {isSubmittingEscalate ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Xác Nhận Hủy</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Gửi Lên Sàn</Text>
                 )}
               </TouchableOpacity>
             </View>
-          </DismissibleModal>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
-      {/* MODAL PHÓNG TO ẢNH NGHIỆM THU */}
-      <DismissibleModal visible={isPhotoModalVisible} onClose={() => setIsPhotoModalVisible(false)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
-        <TouchableOpacity
-          style={styles.photoModalOverlay}
-          activeOpacity={1}
-          onPress={() => setIsPhotoModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.photoModalCloseBtn}
-            onPress={() => setIsPhotoModalVisible(false)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-          {bookingDetail.completionPhotoUrl && (
-            <Image
-              source={{ uri: bookingDetail.completionPhotoUrl }}
-              style={styles.photoModalImage}
-              contentFit="contain"
-            />
-          )}
-        </TouchableOpacity>
-      </DismissibleModal>
+      {/* MODAL PHÓNG TO ẢNH NGHIỆM THU (CHẠM NGOÀI HOẶC VUỐT XUỐNG ĐỂ TẮT) */}
+      <ImageViewerModal
+        visible={isPhotoModalVisible}
+        images={bookingDetail?.completionPhotoUrl ? [bookingDetail.completionPhotoUrl] : []}
+        title="Ảnh nghiệm thu ca làm"
+        onClose={() => setIsPhotoModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -1261,6 +2318,45 @@ const styles = StyleSheet.create({
   stepLinePassed: {
     backgroundColor: BrandColors.primary,
   },
+  noMuaNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    gap: 12,
+  },
+  noMuaIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noMuaTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  noMuaBadge: {
+    backgroundColor: '#FDE68A',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  noMuaBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  noMuaDesc: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
+  },
   muaCardBody: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1409,6 +2505,52 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#475569',
     lineHeight: 18,
+  },
+  addonWrap: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#F5F3FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  addonHeaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  addonTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  addonList: {
+    gap: 6,
+  },
+  addonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addonTagPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  addonTagPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  addonItemText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '500',
   },
   infoRow: {
     flexDirection: 'row',
@@ -1736,9 +2878,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  photoModalOverlay: {
+  photoModalFullscreen: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1750,8 +2892,8 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   photoModalImage: {
-    width: '90%',
-    height: '75%',
+    width: '100%',
+    height: '100%',
   },
   refundCard: {
     backgroundColor: '#F0FDF4',
@@ -2068,5 +3210,531 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontSize: 14,
     fontWeight: '700',
+  },
+  scheduledHeroCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  scheduledHeroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  scheduledHeroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#7DD3FC',
+  },
+  scheduledHeroBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0284C7',
+    letterSpacing: 0.5,
+  },
+  scheduledHeroCode: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0369A1',
+  },
+  scheduledHeroBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+  },
+  scheduledHeroTimeCol: {
+    flex: 1,
+  },
+  scheduledHeroTimeLabel: {
+    fontSize: 11,
+    color: '#0284C7',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  scheduledHeroTimeValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0C4A6E',
+    marginTop: 2,
+  },
+  scheduledHeroDateValue: {
+    fontSize: 12,
+    color: '#0369A1',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  scheduledHeroDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 12,
+  },
+  scheduledHeroServiceCol: {
+    flex: 1.2,
+  },
+  scheduledHeroServiceLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  scheduledHeroServiceValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginTop: 2,
+  },
+  scheduledDurationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 4,
+  },
+  scheduledDurationPillText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  customerDisputeBannerCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    marginBottom: 16,
+    gap: 12,
+  },
+  customerDisputeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  customerDisputeIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFEDD5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  customerDisputeTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#9A3412',
+    letterSpacing: 0.2,
+  },
+  customerDisputeSubtitle: {
+    fontSize: 12,
+    color: '#C2410C',
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  customerDisputeReasonBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  customerDisputeReasonLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9A3412',
+    marginBottom: 2,
+  },
+  customerDisputeReasonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  customerDisputeProofBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  customerDisputeProofLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9A3412',
+    marginBottom: 8,
+  },
+  customerDisputeProofImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  viewDisputeDossierBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EA580C',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 6,
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  viewDisputeDossierBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  agencyHeroBadge: {
+    backgroundColor: '#F3E8FF',
+  },
+  agencyHeroBadgeText: {
+    color: '#248ddcff',
+  },
+  agencyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#F3E8FF',
+    shadowColor: '#2092e8ff',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  agencyBadgeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  agencyTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FAF5FF',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+  },
+  agencyTypeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2e85e2ff',
+    letterSpacing: 0.3,
+  },
+  agencyCodeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  agencyMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  agencyLogoImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  agencyInfoCol: {
+    flex: 1,
+    gap: 4,
+  },
+  agencyName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 22,
+  },
+  agencyHotlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  agencyHotlineText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2298ceff',
+  },
+  agencyAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+  agencyAddressText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+    flex: 1,
+  },
+  callAgencyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#338feaff',
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginTop: 14,
+    shadowColor: '#33cceaff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  callAgencyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  teamHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  teamSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  teamCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  teamCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  staffListContainer: {
+    gap: 10,
+  },
+  staffItemCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  staffItemPrimaryCard: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  staffHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  staffRolePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  staffRolePrimaryPill: {
+    backgroundColor: '#FEF3C7',
+  },
+  staffRoleAssistantPill: {
+    backgroundColor: '#DBEAFE',
+  },
+  staffRolePillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  staffRolePrimaryPillText: {
+    color: '#92400E',
+  },
+  staffRoleAssistantPillText: {
+    color: '#1E40AF',
+  },
+  activeStaffDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  activeStaffDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  activeStaffText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  staffBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  staffNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  staffPhoneText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  callStaffMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  callStaffMiniBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pendingDispatchBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    gap: 12,
+  },
+  pendingDispatchIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingDispatchTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  pendingDispatchDesc: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
+  },
+  staffEmergencyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  staffEmergencyText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  staffPendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  staffPendingText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  staffDeclinedBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  staffDeclinedText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  emergencyReasonBox: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+  },
+  emergencyReasonText: {
+    fontSize: 11,
+    color: '#92400E',
+    fontStyle: 'italic',
+  },
+  soloNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FAF5FF',
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+  },
+  soloNoticeTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#6D28D9',
+    marginBottom: 2,
+  },
+  soloNoticeDesc: {
+    fontSize: 11.5,
+    color: '#581C87',
+    lineHeight: 16,
   },
 });

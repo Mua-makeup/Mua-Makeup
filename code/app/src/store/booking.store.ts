@@ -1,4 +1,8 @@
 import { create } from 'zustand';
+import { Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { websocketService } from '@/services/websocket.service';
+import { useNotificationStore } from '@/store/notification.store';
 import {
   bookingService,
   CustomerBookingItem,
@@ -24,6 +28,7 @@ interface BookingStoreState {
   destinationAddress: string;
   destinationLatitude: number;
   destinationLongitude: number;
+  selectedStyleId: number | null;
   selectedAddOnIds: number[];
   note: string;
   voucherCode: string;
@@ -45,6 +50,7 @@ interface BookingStoreState {
   setPackageAndProvider: (packageId: number, providerId: number, providerType?: 'FREELANCER' | 'AGENCY') => void;
   setDate: (date: string) => void;
   setTimeSlot: (timeSlot: string) => void;
+  setStyleId: (styleId: number | null) => void;
   setDestination: (address: string, lat: number, lng: number) => void;
   toggleAddOn: (addonId: number) => void;
   setNote: (note: string) => void;
@@ -68,6 +74,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   destinationAddress: '',
   destinationLatitude: 0,
   destinationLongitude: 0,
+  selectedStyleId: null,
   selectedAddOnIds: [],
   note: '',
   voucherCode: '',
@@ -96,6 +103,10 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   setTimeSlot: (timeSlot) => {
     set({ selectedTimeSlot: timeSlot });
     get().fetchInvoicePreview();
+  },
+
+  setStyleId: (selectedStyleId) => {
+    set({ selectedStyleId });
   },
 
   setDestination: (address, lat, lng) => {
@@ -188,6 +199,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
       destinationAddress,
       destinationLatitude,
       destinationLongitude,
+      selectedStyleId,
       selectedAddOnIds,
       note,
       voucherCode,
@@ -210,6 +222,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
       destinationAddress: destinationAddress || 'Vị trí hiện tại của khách hàng',
       destinationLatitude,
       destinationLongitude,
+      styleId: selectedStyleId || undefined,
       addOnItemIds: selectedAddOnIds,
       note: note || undefined,
       voucherCode: voucherCode || undefined,
@@ -229,6 +242,15 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
     try {
       const all = await bookingService.getMyBookings();
 
+      // Loại bỏ trùng lặp đơn hàng theo id
+      const uniqueMap = new Map<number, CustomerBookingItem>();
+      all.forEach((item) => {
+        if (item?.id) {
+          uniqueMap.set(item.id, item);
+        }
+      });
+      const uniqueAll = Array.from(uniqueMap.values());
+
       const upcoming: CustomerBookingItem[] = [];
       const history: CustomerBookingItem[] = [];
 
@@ -243,7 +265,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
         'IN_PROGRESS',
       ];
 
-      for (const item of all) {
+      for (const item of uniqueAll) {
         if (upcomingStatuses.includes(item.status)) {
           upcoming.push(item);
         } else {
@@ -271,6 +293,72 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
         isLoadingBookings: false,
         isRefreshingBookings: false,
       });
+
+      // Tự động đăng ký lắng nghe cập nhật trạng thái đơn hàng realtime qua STOMP WebSocket
+      upcoming.forEach((b) => {
+        if (!b.id) return;
+        const topic = `/topic/booking-status/${b.id}`;
+        websocketService.subscribe(topic, (statusMsg: any) => {
+          console.log('[BookingStore] Nhận trạng thái đơn hàng realtime:', b.id, statusMsg);
+          const nextStatus = statusMsg?.currentStatus || statusMsg?.status;
+
+          // Cập nhật lại danh sách đơn hàng
+          get().fetchMyBookings(true);
+
+          // Rung phản hồi nhẹ nhàng trên điện thoại
+          if (Platform.OS !== 'web') {
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch {}
+          }
+
+          // Kích hoạt Toast thông báo chữ nổi bật toàn cục trượt từ trên xuống
+          let toastTitle = 'Cập Nhật Đơn Hàng';
+          let toastContent = statusMsg?.message || `Lịch hẹn #${b.bookingCode || b.id} vừa có cập nhật mới.`;
+          let toastType = 'NOTIFICATION';
+
+          if (nextStatus === 'ON_THE_WAY') {
+            toastTitle = 'Chuyên Viên Đang Di Chuyển';
+            toastContent = 'Chuyên viên make-up đang trên đường di chuyển đến điểm hẹn của bạn.';
+            toastType = 'BOOKING_ON_THE_WAY';
+          } else if (nextStatus === 'ARRIVED') {
+            toastTitle = 'Chuyên Viên Đã Đến Nơi';
+            toastContent = 'Chuyên viên make-up đã có mặt tại điểm hẹn của bạn. Vui lòng đón thợ!';
+            toastType = 'BOOKING_ARRIVED';
+          } else if (nextStatus === 'IN_PROGRESS') {
+            toastTitle = 'Đang Tiến Hành Make-Up';
+            toastContent = 'Chuyên viên đã chính thức bắt đầu buổi làm đẹp cho bạn.';
+            toastType = 'BOOKING_IN_PROGRESS';
+          } else if (nextStatus === 'COMPLETED') {
+            toastTitle = 'Buổi Make-Up Hoàn Tất';
+            toastContent = 'Dịch vụ trang điểm đã hoàn tất thành công. Vui lòng thanh toán phần còn lại!';
+            toastType = 'BOOKING_COMPLETED';
+          } else if (nextStatus === 'CANCELLED') {
+            toastTitle = 'Đơn Hàng Đã Bị Hủy';
+            toastContent = statusMsg?.message || 'Lịch hẹn trang điểm đã bị hủy.';
+            toastType = 'BOOKING_CANCELLED';
+          } else if (nextStatus === 'PAID_OUT') {
+            toastTitle = 'Thanh Toán Thành Công';
+            toastContent = 'Khoản thanh toán dịch vụ đã hoàn tất trọn vẹn.';
+            toastType = 'PAID_OUT';
+          } else if (nextStatus === 'ACCEPTED' || nextStatus === 'AGENCY_ASSIGNED') {
+            toastTitle = 'Đã Tiếp Nhận Đơn Hàng';
+            toastContent = statusMsg?.message || 'Chuyên viên make-up đã tiếp nhận lịch hẹn của bạn.';
+            toastType = 'BOOKING_ACCEPTED';
+          }
+
+          useNotificationStore.getState().showToast({
+            id: Date.now(),
+            type: toastType,
+            title: toastTitle,
+            content: toastContent,
+            bookingId: Number(b.id),
+            bookingCode: b.bookingCode,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+          });
+        });
+      });
     } catch {
       set({
         isLoadingBookings: false,
@@ -288,6 +376,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
     set({
       selectedDate: '',
       selectedTimeSlot: '',
+      selectedStyleId: null,
       selectedAddOnIds: [],
       note: '',
       voucherCode: '',

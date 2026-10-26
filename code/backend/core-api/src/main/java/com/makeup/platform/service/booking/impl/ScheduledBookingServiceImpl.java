@@ -2,13 +2,15 @@ package com.makeup.platform.service.booking.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.booking.BookingDepositExpiredEvent;
+import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.booking.CreateScheduledBookingReq;
-import com.makeup.platform.dto.request.catalog.CalculateSurchargeReq;
+import com.makeup.platform.dto.request.pricing.PreviewInvoiceReq;
 import com.makeup.platform.dto.response.booking.ScheduledBookingCreatedRes;
-import com.makeup.platform.dto.response.catalog.SurchargeCalculationRes;
+import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
 import com.makeup.platform.service.catalog.SurchargeService;
+import com.makeup.platform.service.pricing.DynamicPricingService;
 import com.makeup.platform.common.utils.BookingConfirmationTimeoutHelper;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.UserEntity;
@@ -16,14 +18,18 @@ import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.booking.BookingType;
+import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.entity.pricing.SurgePricingRuleEntity;
+import com.makeup.platform.repository.pricing.SurgePricingRuleRepository;
 import com.makeup.platform.mapper.booking.ScheduledBookingMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.UserRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.agency.AgencyStaffCapacityService;
@@ -31,6 +37,7 @@ import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.booking.BookingStateMachineService;
 import com.makeup.platform.service.booking.ScheduledBookingService;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.service.mua.MuaReputationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -40,15 +47,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import com.makeup.platform.dto.response.booking.ScheduledOfferRes;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -71,10 +82,14 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final BookingAuditService bookingAuditService;
     private final ScheduledBookingMapper scheduledBookingMapper;
     private final SurchargeService surchargeService;
+    private final SurgePricingRuleRepository surgePricingRuleRepository;
     private final RedissonClient redissonClient;
     private final ApplicationEventPublisher eventPublisher;
     private final BookingStateMachineService bookingStateMachineService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MakeupStyleRepository makeupStyleRepository;
+    private final MuaReputationService muaReputationService;
+    private final DynamicPricingService dynamicPricingService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final int DEFAULT_BUFFER_MINUTES = 30;
@@ -96,6 +111,14 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         ServicePackageEntity servicePackage = servicePackageRepository.findById(req.getPackageId())
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_FOUND, "catalog.package_not_found"));
 
+        if (Boolean.FALSE.equals(servicePackage.getIsAvailable())) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE,
+                    "catalog.package_not_available",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
         int baseDuration = (servicePackage.getEstimatedDurationMinutes() != null && servicePackage.getEstimatedDurationMinutes() > 0)
                 ? servicePackage.getEstimatedDurationMinutes()
                 : 90;
@@ -103,6 +126,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         BigDecimal addOnsTotal = BigDecimal.ZERO;
         int addOnsDuration = 0;
 
+        List<String> selectedAddonNames = new ArrayList<>();
         if (req.getAddOnItemIds() != null && !req.getAddOnItemIds().isEmpty()) {
             List<PackageItemEntity> addOns = packageItemRepository.findAllById(req.getAddOnItemIds());
             for (PackageItemEntity item : addOns) {
@@ -118,6 +142,9 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 }
                 if (item.getDurationMinutes() != null) {
                     addOnsDuration += item.getDurationMinutes();
+                }
+                if (item.getItemName() != null) {
+                    selectedAddonNames.add(item.getItemName());
                 }
             }
         }
@@ -172,26 +199,78 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 }
             }
 
-            // 6. Tính phụ phí từ CSDL qua SurchargeService
-            CalculateSurchargeReq surchargeReq = CalculateSurchargeReq.builder()
-                    .agencyId(req.getBookingPartner() == BookingPartner.AGENCY_DISPATCH ? req.getAgencyId() : null)
-                    .muaId(req.getBookingPartner() == BookingPartner.FREELANCER_DIRECT ? req.getMuaId() : null)
-                    .bookingTime(req.getBookingDate().atTime(req.getStartTime()))
-                    .distanceKm(BigDecimal.ZERO)
-                    .build();
+            // 6. Tính toán toàn bộ tài chính hóa đơn qua DynamicPricingService đồng bộ 100% với Invoice Preview
+            Long providerId = (req.getBookingPartner() == BookingPartner.AGENCY_DISPATCH)
+                    ? req.getAgencyId()
+                    : req.getMuaId();
+            String providerType = (req.getBookingPartner() == BookingPartner.AGENCY_DISPATCH)
+                    ? "AGENCY"
+                    : "FREELANCER";
 
-            SurchargeCalculationRes surchargeCalc = surchargeService.calculateSurcharges(surchargeReq);
-            BigDecimal surchargeFee = (surchargeCalc != null && surchargeCalc.getTotalSurcharge() != null)
-                    ? surchargeCalc.getTotalSurcharge()
-                    : BigDecimal.ZERO;
+            BigDecimal serviceSubtotal;
+            BigDecimal distanceFee = BigDecimal.ZERO;
+            BigDecimal surchargeFee = BigDecimal.ZERO;
+            BigDecimal surgeMultiplier = BigDecimal.ONE;
+            BigDecimal discountAmount = BigDecimal.ZERO;
+            BigDecimal totalAmount;
+            BigDecimal depositAmount;
 
-            BigDecimal basePrice = servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO;
-            BigDecimal serviceSubtotal = basePrice.add(addOnsTotal).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal totalAmount = serviceSubtotal.add(surchargeFee);
-            BigDecimal depositAmount = totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+            try {
+                PreviewInvoiceReq pricingReq = PreviewInvoiceReq.builder()
+                        .packageId(req.getPackageId())
+                        .addOnItemIds(req.getAddOnItemIds())
+                        .bookingTime(req.getBookingDate().atTime(req.getStartTime()))
+                        .customerLatitude(req.getDestinationLatitude())
+                        .customerLongitude(req.getDestinationLongitude())
+                        .providerType(providerType)
+                        .providerId(providerId)
+                        .voucherCode(req.getVoucherCode())
+                        .build();
+
+                InvoicePreviewRes invoice = dynamicPricingService.calculatePreviewInvoice(pricingReq);
+                if (invoice != null && invoice.getFinancialSummary() != null) {
+                    serviceSubtotal = invoice.getServiceSubtotal() != null
+                            ? invoice.getServiceSubtotal()
+                            : (servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO).add(addOnsTotal);
+                    distanceFee = (invoice.getDistanceInfo() != null && invoice.getDistanceInfo().getDistanceFee() != null)
+                            ? invoice.getDistanceInfo().getDistanceFee()
+                            : BigDecimal.ZERO;
+                    surchargeFee = invoice.getTotalSurchargesAmount() != null
+                            ? invoice.getTotalSurchargesAmount()
+                            : BigDecimal.ZERO;
+                    surgeMultiplier = (invoice.getSurgePricing() != null && invoice.getSurgePricing().getMultiplier() != null)
+                            ? invoice.getSurgePricing().getMultiplier()
+                            : BigDecimal.ONE;
+                    discountAmount = (invoice.getDiscount() != null && invoice.getDiscount().getDiscountAmount() != null)
+                            ? invoice.getDiscount().getDiscountAmount()
+                            : BigDecimal.ZERO;
+                    totalAmount = invoice.getFinancialSummary().getTotalAmount() != null
+                            ? invoice.getFinancialSummary().getTotalAmount()
+                            : serviceSubtotal.multiply(surgeMultiplier).add(surchargeFee).add(distanceFee).subtract(discountAmount);
+                    depositAmount = invoice.getFinancialSummary().getDepositRequiredAmount() != null
+                            ? invoice.getFinancialSummary().getDepositRequiredAmount()
+                            : totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+                } else {
+                    BigDecimal basePrice = servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO;
+                    serviceSubtotal = basePrice.add(addOnsTotal).setScale(2, RoundingMode.HALF_UP);
+                    totalAmount = serviceSubtotal.setScale(2, RoundingMode.HALF_UP);
+                    depositAmount = totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+                }
+            } catch (Exception e) {
+                log.warn("[ScheduledBooking] Không thể gọi calculatePreviewInvoice, fallback sang tính cục bộ: {}", e.getMessage());
+                BigDecimal basePrice = servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO;
+                serviceSubtotal = basePrice.add(addOnsTotal).setScale(2, RoundingMode.HALF_UP);
+                totalAmount = serviceSubtotal.setScale(2, RoundingMode.HALF_UP);
+                depositAmount = totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+            }
 
             String bookingCode = "BK-SCHED-" + (System.currentTimeMillis() % 10000000L);
             OffsetDateTime depositExpiredAt = OffsetDateTime.now(VIETNAM_OFFSET).plusMinutes(HOLD_DEPOSIT_MINUTES);
+
+            MakeupStyleEntity selectedStyle = null;
+            if (req.getStyleId() != null) {
+                selectedStyle = makeupStyleRepository.findById(req.getStyleId()).orElse(null);
+            }
 
             BookingEntity booking = BookingEntity.builder()
                     .bookingCode(bookingCode)
@@ -199,6 +278,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     .agency(agencyProfile)
                     .mua(muaProfile)
                     .servicePackage(servicePackage)
+                    .style(selectedStyle)
                     .bookingType(BookingType.SCHEDULED)
                     .bookingPartner(req.getBookingPartner())
                     .status(BookingStatus.PENDING_DEPOSIT)
@@ -208,36 +288,40 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     .bookingDate(req.getBookingDate())
                     .startTime(req.getStartTime())
                     .serviceSubtotal(serviceSubtotal)
-                    .distanceFee(BigDecimal.ZERO)
+                    .distanceFee(distanceFee)
                     .surchargeFee(surchargeFee)
-                    .surgeMultiplier(BigDecimal.ONE)
-                    .discountAmount(BigDecimal.ZERO)
+                    .surgeMultiplier(surgeMultiplier)
+                    .discountAmount(discountAmount)
                     .totalAmount(totalAmount)
                     .depositAmount(depositAmount)
+                    .durationMinutes(durationMinutes)
                     .depositExpiredAt(depositExpiredAt)
                     .reminder24hSent(false)
                     .reminder2hSent(false)
+                    .selectedAddons(!selectedAddonNames.isEmpty() ? String.join(",,,", selectedAddonNames) : null)
                     .build();
+
+            // Tự động dọn dẹp các đơn PENDING_DEPOSIT cũ của khách chưa thanh toán để không treo đơn
+            List<BookingEntity> pendingOldList = bookingRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+            for (BookingEntity oldB : pendingOldList) {
+                if (oldB.getStatus() == BookingStatus.PENDING_DEPOSIT && oldB.getBookingType() == BookingType.SCHEDULED) {
+                    oldB.setStatus(BookingStatus.CANCELLED);
+                    oldB.setCancellationReason("Khách hàng tạo đơn đặt lịch mới thay thế");
+                    bookingRepository.save(oldB);
+                    muaCalendarService.releaseSlotByBookingId(oldB.getId());
+                }
+            }
 
             BookingEntity savedBooking = bookingRepository.save(booking);
 
-            if (req.getBookingPartner() == BookingPartner.FREELANCER_DIRECT) {
-                muaCalendarService.lockSlotForBooking(
-                        req.getMuaId(),
-                        savedBooking.getId(),
-                        req.getBookingDate(),
-                        startAt,
-                        endAt,
-                        "HELD_" + bookingCode
-                );
-            }
+            // Ca hẹn CHƯA khóa trong mua_calendars ở bước này; CHỈ khóa khi khách hàng thanh toán cọc thành công!
 
             bookingAuditService.logTransition(
                     savedBooking.getId(),
                     null,
                     BookingStatus.PENDING_DEPOSIT,
                     customerId,
-                    "Tạo đơn đặt lịch hẹn trước, tạm giữ chỗ 15 phút để thanh toán cọc"
+                    "Tạo đơn đặt lịch hẹn trước, chuyển đến bước thanh toán tiền cọc"
             );
 
             Long targetAgencyId = (agencyProfile != null) ? agencyProfile.getId() : req.getAgencyId();
@@ -302,6 +386,34 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_PAYMENT_TIMEOUT, "booking.deposit_payment_timeout");
         }
 
+        // Khóa ca của thợ khi cọc thành công (tính thời gian gói + đệm 30p di chuyển)
+        if (booking.getMua() != null) {
+            OffsetDateTime startAt = booking.getBookingDate().atTime(booking.getStartTime()).atOffset(VIETNAM_OFFSET);
+            int duration = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
+                    ? booking.getDurationMinutes()
+                    : (booking.getServicePackage() != null && booking.getServicePackage().getEstimatedDurationMinutes() != null
+                            ? booking.getServicePackage().getEstimatedDurationMinutes()
+                            : 60);
+            OffsetDateTime endAt = startAt.plusMinutes(duration);
+
+            boolean isAvailable = muaCalendarService.isSlotAvailableWithBuffer(
+                    booking.getMua().getId(), startAt, endAt, DEFAULT_BUFFER_MINUTES);
+            if (!isAvailable) {
+                log.warn("[ScheduledBooking] Slot {} to {} with buffer is no longer available for MUA {}",
+                        startAt, endAt, booking.getMua().getId());
+                throw new CustomBusinessException(ErrorCodes.ERR_SLOT_ALREADY_BOOKED, "booking.slot_already_booked");
+            }
+
+            muaCalendarService.lockSlotForBooking(
+                    booking.getMua().getId(),
+                    booking.getId(),
+                    booking.getBookingDate(),
+                    startAt,
+                    endAt,
+                    "BOOKED_" + booking.getBookingCode()
+            );
+        }
+
         BookingStatus nextStatus;
         if (booking.getBookingPartner() == BookingPartner.AGENCY_DISPATCH) {
             nextStatus = BookingStatus.PENDING_AGENCY_DISPATCH;
@@ -333,7 +445,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     @Override
     @Transactional
     public void confirmScheduledBookingByMua(Long bookingId, Long muaUserId) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found"));
 
         if (booking.getMua() == null || booking.getMua().getUser() == null || !booking.getMua().getUser().getId().equals(muaUserId)) {
@@ -372,8 +484,35 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             payload.put("timestamp", System.currentTimeMillis());
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
             messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, payload);
+            if (booking.getCustomer() != null) {
+                messagingTemplate.convertAndSend("/topic/customer-bookings/" + booking.getCustomer().getId(), payload);
+            }
+            if (booking.getMua() != null) {
+                messagingTemplate.convertAndSend("/topic/mua-bookings/" + booking.getMua().getId(), payload);
+            }
         } catch (Exception ex) {
             log.warn("[ScheduledBooking] Failed to broadcast MUA_CONFIRMED_SCHEDULED_BOOKING: {}", ex.getMessage());
+        }
+
+        // Publish event để kích hoạt thông báo chuông in-app và gửi Email xác nhận tới Khách hàng
+        eventPublisher.publishEvent(new BookingStateChangedEvent(
+                this,
+                booking.getId(),
+                booking.getBookingCode(),
+                prevStatus,
+                BookingStatus.ACCEPTED,
+                muaUserId
+        ));
+
+        // Ghi nhận MUA đã nhận ca và cập nhật lại acceptance_rate / rank_score
+        if (booking.getMua() != null) {
+            muaReputationService.recordOfferAndRecalculate(
+                    booking.getMua().getId(),
+                    booking.getId(),
+                    "SCHEDULED",
+                    "ACCEPTED",
+                    "Chuyên viên đã xác nhận tiếp nhận ca hẹn trước"
+            );
         }
 
         log.info("[ScheduledBooking] MUA userId: {} confirmed booking ID: {}", muaUserId, bookingId);
@@ -382,7 +521,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     @Override
     @Transactional
     public void rejectScheduledBookingByMua(Long bookingId, Long muaUserId, String reason) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found"));
 
         if (booking.getMua() == null || booking.getMua().getUser() == null || !booking.getMua().getUser().getId().equals(muaUserId)) {
@@ -422,8 +561,35 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             payload.put("timestamp", System.currentTimeMillis());
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
             messagingTemplate.convertAndSend("/topic/booking-matched/" + bookingId, payload);
+            if (booking.getCustomer() != null) {
+                messagingTemplate.convertAndSend("/topic/customer-bookings/" + booking.getCustomer().getId(), payload);
+            }
+            if (booking.getMua() != null) {
+                messagingTemplate.convertAndSend("/topic/mua-bookings/" + booking.getMua().getId(), payload);
+            }
         } catch (Exception ex) {
             log.warn("[ScheduledBooking] Failed to broadcast MUA_REJECTED_SCHEDULED_BOOKING: {}", ex.getMessage());
+        }
+
+        // Publish event để kích hoạt thông báo chuông in-app về việc hủy ca
+        eventPublisher.publishEvent(new BookingStateChangedEvent(
+                this,
+                booking.getId(),
+                booking.getBookingCode(),
+                prevStatus,
+                BookingStatus.CANCELLED,
+                muaUserId
+        ));
+
+        // Ghi nhận MUA từ chối ca hẹn và cập nhật lại acceptance_rate / rank_score
+        if (booking.getMua() != null) {
+            muaReputationService.recordOfferAndRecalculate(
+                    booking.getMua().getId(),
+                    booking.getId(),
+                    "SCHEDULED",
+                    "REJECTED",
+                    cancelReason
+            );
         }
 
         log.info("[ScheduledBooking] MUA userId: {} rejected booking ID: {}, reason: {}", muaUserId, bookingId, cancelReason);
@@ -432,7 +598,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     @Override
     @Transactional
     public void cancelRequestedBookingByCustomer(Long bookingId, Long customerId, String reason) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found"));
 
         if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerId)) {
@@ -479,6 +645,8 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 }
                 messagingTemplate.convertAndSend("/topic/mua-offer-revoked/" + muaId, revokePayload);
                 messagingTemplate.convertAndSend("/topic/instant-dismiss", revokePayload);
+                messagingTemplate.convertAndSend("/topic/mua-bookings/" + muaId, revokePayload);
+                messagingTemplate.convertAndSend("/topic/customer-bookings/" + customerId, revokePayload);
             } catch (Exception ex) {
                 log.warn("[ScheduledBooking] Failed to broadcast revoke offer: {}", ex.getMessage());
             }
@@ -491,12 +659,23 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     @Transactional
     public void expireUnconfirmedScheduledBookings() {
         OffsetDateTime now = OffsetDateTime.now(VIETNAM_OFFSET);
-        List<BookingEntity> expiredList = bookingRepository.findExpiredRequestedBookings(now);
+        LocalDate today = now.toLocalDate();
+        LocalTime currentTime = now.toLocalTime();
+        List<BookingEntity> expiredList = bookingRepository.findExpiredRequestedBookings(now, today, currentTime);
         for (BookingEntity b : expiredList) {
             try {
                 BookingStatus prevStatus = b.getStatus();
                 b.setStatus(BookingStatus.CANCELLED_EXPIRED);
-                String reason = "Quá thời hạn xác nhận (" + b.getConfirmDeadline() + "). Tự động hủy và hoàn cọc 100%.";
+                String reason;
+                if (b.getConfirmDeadline() != null && b.getConfirmDeadline().isBefore(now)) {
+                    String deadlineStr = b.getConfirmDeadline().atZoneSameInstant(ZoneId.of("Asia/Ho_Chi_Minh"))
+                            .format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy"));
+                    reason = "Quá thời hạn xác nhận (" + deadlineStr + "). Tự động hủy và hoàn cọc 100%.";
+                } else {
+                    String timeStr = (b.getStartTime() != null ? b.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm")) : "")
+                            + (b.getBookingDate() != null ? " ngày " + b.getBookingDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "");
+                    reason = "Đã quá thời gian hẹn làm dịch vụ (" + timeStr.trim() + ") mà chưa được tiếp nhận. Tự động hủy và hoàn cọc 100%.";
+                }
                 b.setCancellationReason(reason);
                 bookingRepository.save(b);
 
@@ -510,6 +689,33 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                         null,
                         reason
                 );
+
+                if (b.getMua() != null && b.getMua().getUser() != null) {
+                    try {
+                        messagingTemplate.convertAndSend(
+                                "/topic/mua/" + b.getMua().getUser().getId() + "/offers",
+                                Map.of(
+                                        "type", "OFFER_REVOKED",
+                                        "bookingId", b.getId(),
+                                        "reason", reason
+                                )
+                        );
+                    } catch (Exception ex) {
+                        log.warn("[ConfirmationExpiration] Failed to broadcast revoke offer: {}", ex.getMessage());
+                    }
+                }
+
+                // Ghi nhận ca bị hết hạn do thợ không bấm xác nhận và cập nhật lại acceptance_rate / rank_score
+                if (b.getMua() != null) {
+                    muaReputationService.recordOfferAndRecalculate(
+                            b.getMua().getId(),
+                            b.getId(),
+                            "SCHEDULED",
+                            "EXPIRED",
+                            reason
+                    );
+                }
+
                 log.info("[ConfirmationExpiration] Expired requested booking ID: {} cancelled and refunded", b.getId());
             } catch (Exception e) {
                 log.error("[ConfirmationExpiration] Failed to expire requested booking ID: {}", b.getId(), e);
@@ -568,10 +774,10 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             }
 
             BigDecimal serviceSubtotal = b.getServiceSubtotal() != null ? b.getServiceSubtotal() : BigDecimal.ZERO;
-            BigDecimal platformFee = serviceSubtotal.multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal platformFee = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
             BigDecimal surchargeFee = b.getSurchargeFee() != null ? b.getSurchargeFee() : BigDecimal.ZERO;
             BigDecimal distanceFee = b.getDistanceFee() != null ? b.getDistanceFee() : BigDecimal.ZERO;
-            BigDecimal earningsAmount = serviceSubtotal.subtract(platformFee).add(surchargeFee).add(distanceFee);
+            BigDecimal earningsAmount = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).subtract(platformFee);
 
             resList.add(ScheduledOfferRes.builder()
                     .bookingId(b.getId())
@@ -595,5 +801,102 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     .build());
         }
         return resList;
+    }
+
+    @Override
+    @Transactional
+    public void escalateDisputeToAdmin(Long bookingId, Long customerId, String reason) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "auth.unauthorized", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.DISPUTED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
+        }
+
+        String effectiveReason = StringUtils.hasText(reason)
+                ? reason.trim()
+                : "Khách hàng không đồng ý kết quả từ Studio và yêu cầu Ban Quản Trị Sàn phân xử";
+        String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
+        String escalatedReason = "[LEO_THANG_ADMIN]: " + effectiveReason + (existing.isBlank() ? "" : " | " + existing);
+        booking.setCancellationReason(escalatedReason);
+        booking.setEmergencyReason(escalatedReason);
+        BookingEntity savedBooking = bookingRepository.save(booking);
+
+        bookingAuditService.logTransition(
+                bookingId,
+                BookingStatus.DISPUTED,
+                BookingStatus.DISPUTED,
+                customerId,
+                "Khách hàng khiếu nại leo thang lên Admin sàn: " + effectiveReason
+        );
+
+        try {
+            Map<String, Object> payload = Map.of(
+                    "type", "DISPUTE_ESCALATED_TO_ADMIN",
+                    "bookingId", bookingId,
+                    "bookingCode", savedBooking.getBookingCode(),
+                    "reason", effectiveReason,
+                    "timestamp", System.currentTimeMillis()
+            );
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+            messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
+            messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
+
+            if (savedBooking.getAgency() != null) {
+                messagingTemplate.convertAndSend("/topic/agency/" + savedBooking.getAgency().getId() + "/dispatch-alerts", Map.of(
+                        "type", "AGENCY_DISPUTE_ESCALATED",
+                        "bookingId", bookingId,
+                        "bookingCode", savedBooking.getBookingCode(),
+                        "reason", effectiveReason,
+                        "timestamp", System.currentTimeMillis()
+                ));
+            }
+        } catch (Exception ex) {
+            log.warn("[EscalateDispute] Failed to broadcast websocket: {}", ex.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void acceptStudioDisputeResolution(Long bookingId, Long customerId) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+
+        if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "auth.unauthorized", HttpStatus.FORBIDDEN);
+        }
+
+        if (booking.getStatus() != BookingStatus.DISPUTED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
+        }
+
+        booking.setStatus(BookingStatus.DISPUTE_COMPENSATED);
+        String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
+        booking.setCancellationReason("[KHACH_DONG_Y_KET_QUA]: Khách hàng chấp nhận giải quyết của Studio | " + existing);
+        bookingRepository.save(booking);
+
+        bookingAuditService.logTransition(
+                bookingId,
+                BookingStatus.DISPUTED,
+                BookingStatus.DISPUTE_COMPENSATED,
+                customerId,
+                "Khách hàng chấp nhận giải quyết nội bộ của Studio"
+        );
+
+        try {
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, Map.of(
+                    "type", "DISPUTE_RESOLUTION_ACCEPTED",
+                    "bookingId", bookingId,
+                    "status", "DISPUTE_COMPENSATED",
+                    "timestamp", System.currentTimeMillis()
+            ));
+        } catch (Exception ex) {
+            log.warn("[AcceptResolution] Failed to broadcast websocket: {}", ex.getMessage());
+        }
     }
 }

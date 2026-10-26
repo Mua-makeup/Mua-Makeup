@@ -19,7 +19,9 @@ import { PackageSelectorList } from '@/components/customer/PackageSelectorList';
 import { PackageIncludedSteps } from '@/components/customer/PackageIncludedSteps';
 import { ServiceSampleGallery } from '@/components/customer/ServiceSampleGallery';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
+import { MuaReviewPreviewSection } from '@/components/customer/MuaReviewPreviewSection';
 import { PortfolioShowcase } from '@/services/mua-profile.service';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 export default function MuaDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,6 +43,7 @@ export default function MuaDetailScreen() {
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [selectedAngleIndex, setSelectedAngleIndex] = useState(0);
 
   const currentMuaId = Number(id) || 1;
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
@@ -55,12 +58,18 @@ export default function MuaDetailScreen() {
     return () => resetDetail();
   }, [id, fetchMuaDetails, resetDetail]);
 
-  const handleOpenPhoto = (_photo: PortfolioShowcase, index: number) => {
+  const handleOpenPhoto = (_photo: PortfolioShowcase, index: number, angleIndex: number = 0) => {
     setSelectedPhotoIndex(index);
+    setSelectedAngleIndex(angleIndex);
     setIsModalVisible(true);
   };
 
   const handleBookingPress = () => {
+    if (!isAuthenticated) {
+      router.push('/(auth)/login');
+      return;
+    }
+
     if (isOwnProfile) {
       if (router.canGoBack()) {
         router.back();
@@ -80,6 +89,14 @@ export default function MuaDetailScreen() {
 
     if (!selectedPackage) {
       Alert.alert('Thông báo', 'Vui lòng chọn một gói dịch vụ để đặt lịch.');
+      return;
+    }
+
+    if (selectedPackage.isAvailable === false) {
+      Alert.alert(
+        'Tạm ngưng nhận lịch',
+        'Gói dịch vụ này hiện đang tạm ngưng nhận lịch ca hẹn. Quý khách chỉ có thể xem chi tiết thông tin và ảnh mẫu thực tế.'
+      );
       return;
     }
 
@@ -103,9 +120,8 @@ export default function MuaDetailScreen() {
 
   if (isLoading && !muaProfile) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang tải hồ sơ & các dịch vụ của thợ...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <DetailScreenSkeleton />
       </SafeAreaView>
     );
   }
@@ -186,6 +202,14 @@ export default function MuaDetailScreen() {
           isLoading={isLoadingShowcases}
           onPressPhoto={handleOpenPhoto}
         />
+
+        {/* ĐÁNH GIÁ CỦA KHÁCH HÀNG (PREVIEW 1-2 BÀI NHẸ NHÀNG + NÚT XEM TẤT CẢ) */}
+        <MuaReviewPreviewSection
+          muaId={Number(id)}
+          muaName={muaProfile?.fullName}
+          ratingAverage={muaProfile?.ratingAverage}
+          totalReviews={muaProfile?.totalReviews}
+        />
       </ScrollView>
 
       {/* STICKY BOTTOM ACTION BAR */}
@@ -204,25 +228,31 @@ export default function MuaDetailScreen() {
           <TouchableOpacity
             style={[styles.bookingBtn, styles.editProfileBtn]}
             onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace('/profile/mua-profile');
-              }
+              router.push('/profile/mua-profile');
             }}
             activeOpacity={0.88}
           >
             <Ionicons name="create-outline" size={16} color="#FFFFFF" />
             <Text style={styles.bookingBtnText}>Chỉnh Sửa Hồ Sơ</Text>
           </TouchableOpacity>
+        ) : selectedPackage?.isAvailable === false ? (
+          <View style={styles.viewOnlyBadgeContainer}>
+            <View style={styles.viewOnlyBadge}>
+              <Ionicons name="eye-outline" size={15} color="#475569" />
+              <Text style={styles.viewOnlyBadgeText}>Chỉ xem thông tin</Text>
+            </View>
+            <Text style={styles.viewOnlySubtext}>Gói tạm ngưng nhận lịch</Text>
+          </View>
         ) : (
           <TouchableOpacity
             style={styles.bookingBtn}
             onPress={handleBookingPress}
             activeOpacity={0.88}
           >
-            <Text style={styles.bookingBtnText}>Đặt Lịch Gói Này</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            <Text style={styles.bookingBtnText}>
+              {isAuthenticated ? 'Đặt Lịch Gói Này' : 'Đăng Nhập Để Đặt Lịch'}
+            </Text>
+            <Ionicons name={isAuthenticated ? "arrow-forward" : "log-in-outline"} size={16} color="#FFFFFF" />
           </TouchableOpacity>
         )}
       </View>
@@ -232,6 +262,7 @@ export default function MuaDetailScreen() {
         visible={isModalVisible}
         showcases={showcases}
         initialIndex={selectedPhotoIndex}
+        initialAngleIndex={selectedAngleIndex}
         onClose={() => setIsModalVisible(false)}
       />
     </View>
@@ -397,5 +428,32 @@ const styles = StyleSheet.create({
   editProfileBtn: {
     backgroundColor: '#0F172A',
     shadowColor: '#0F172A',
+  },
+  viewOnlyBadgeContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  viewOnlyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  viewOnlyBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  viewOnlySubtext: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 3,
+    fontWeight: '500',
   },
 });

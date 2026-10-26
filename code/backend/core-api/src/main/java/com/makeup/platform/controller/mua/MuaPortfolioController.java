@@ -16,9 +16,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
-import com.makeup.platform.common.constants.ErrorCodes;
-import com.makeup.platform.common.exception.CustomBusinessException;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,9 +32,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @Validated
 @RestController
@@ -50,56 +45,24 @@ public class MuaPortfolioController extends BaseController {
     @PreAuthorize("hasRole('FREELANCE_MUA') and hasAuthority('portfolio:upload')")
     public ResponseEntity<ApiResponse<PortfolioDetailRes>> createPortfolio(
             @AuthenticationPrincipal Long userId,
-            @RequestParam(value = "image_file", required = false) MultipartFile imageFileSnake,
-            @RequestParam(value = "imageFile", required = false) MultipartFile imageFileCamel,
-            @RequestParam(value = "file", required = false) MultipartFile fileGeneric,
-            @RequestParam(value = "additional_files", required = false) List<MultipartFile> additionalFilesSnake,
-            @RequestParam(value = "additionalFiles", required = false) List<MultipartFile> additionalFilesCamel,
-            @RequestParam(value = "files", required = false) List<MultipartFile> filesGeneric,
-            @RequestParam("title") String title,
-            @RequestParam(value = "description", required = false) String description,
-            @RequestParam(value = "style_id", required = false) Integer styleIdSnake,
-            @RequestParam(value = "styleId", required = false) Integer styleIdCamel,
-            @RequestParam(value = "package_id", required = false) Long packageIdSnake,
-            @RequestParam(value = "packageId", required = false) Long packageIdCamel,
-            @RequestParam(value = "is_featured", required = false) Boolean isFeaturedSnake,
-            @RequestParam(value = "isFeatured", required = false) Boolean isFeaturedCamel) {
-
-        MultipartFile imageFile = imageFileSnake != null ? imageFileSnake
-                : (imageFileCamel != null ? imageFileCamel : fileGeneric);
-        if (imageFile == null || imageFile.isEmpty()) {
-            throw new CustomBusinessException(
-                    ErrorCodes.ERR_VALIDATION,
-                    "mua.portfolio_files_empty",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-
-        List<MultipartFile> additionalFiles = (additionalFilesSnake != null && !additionalFilesSnake.isEmpty())
-                ? additionalFilesSnake
-                : ((additionalFilesCamel != null && !additionalFilesCamel.isEmpty())
-                        ? additionalFilesCamel : filesGeneric);
-        Integer styleId = styleIdSnake != null ? styleIdSnake : styleIdCamel;
-        Long packageId = packageIdSnake != null ? packageIdSnake : packageIdCamel;
-        boolean isFeatured = Boolean.TRUE.equals(isFeaturedSnake) || Boolean.TRUE.equals(isFeaturedCamel);
-
-        CreatePortfolioReq req = CreatePortfolioReq.builder()
-                .imageFile(imageFile)
-                .additionalFiles(additionalFiles)
-                .title(title)
-                .description(description)
-                .styleId(styleId)
-                .packageId(packageId)
-                .isFeatured(isFeatured)
-                .build();
-
+            @Valid @ModelAttribute CreatePortfolioReq req) {
         PortfolioDetailRes res = portfolioService.createPortfolioShowcase(userId, req);
         return created(res, "mua.portfolio_create_success");
     }
 
-    @PutMapping("/my-profile/portfolios/{id}")
+    @PutMapping(value = "/my-profile/portfolios/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('FREELANCE_MUA')")
     public ResponseEntity<ApiResponse<PortfolioDetailRes>> updatePortfolio(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long id,
+            @Valid @ModelAttribute UpdatePortfolioReq req) {
+        PortfolioDetailRes res = portfolioService.updatePortfolioShowcase(userId, id, req);
+        return ok(res, "mua.portfolio_update_success");
+    }
+
+    @PutMapping(value = "/my-profile/portfolios/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasRole('FREELANCE_MUA')")
+    public ResponseEntity<ApiResponse<PortfolioDetailRes>> updatePortfolioJson(
             @AuthenticationPrincipal Long userId,
             @PathVariable Long id,
             @Valid @RequestBody UpdatePortfolioReq req) {
@@ -140,12 +103,15 @@ public class MuaPortfolioController extends BaseController {
     public ResponseEntity<ApiResponse<PageResponse<PortfolioSummaryRes>>> getPublicGallery(
             @PathVariable Long muaId,
             @RequestParam(value = "style_id", required = false) Integer styleId,
+            @RequestParam(value = "package_id", required = false) Long packageIdSnake,
+            @RequestParam(value = "packageId", required = false) Long packageIdCamel,
             @RequestParam(value = "is_featured", required = false) Boolean isFeatured,
             @RequestParam(value = "page", defaultValue = "0") @Min(value = 0, message = "{validation.page_min}") int page,
-            @RequestParam(value = "size", defaultValue = "12") @Min(value = 1, message = "{validation.page_size_min}") @Max(value = 50, message = "{validation.page_size_max}") int size) {
+            @RequestParam(value = "size", defaultValue = "12") @Min(value = 1, message = "{validation.page_size_min}") @Max(value = 100, message = "{validation.page_size_max}") int size) {
 
+        Long packageId = packageIdSnake != null ? packageIdSnake : packageIdCamel;
         PageResponse<PortfolioSummaryRes> res = portfolioService.getPublicGallery(
-                muaId, styleId, isFeatured, PageRequest.of(page, size));
+                muaId, styleId, packageId, isFeatured, PageRequest.of(page, size));
         return ok(res, "mua.portfolios_list_success");
     }
 
@@ -154,7 +120,7 @@ public class MuaPortfolioController extends BaseController {
     public ResponseEntity<ApiResponse<PageResponse<PortfolioDetailRes>>> getMyPortfolios(
             @AuthenticationPrincipal Long userId,
             @RequestParam(value = "page", defaultValue = "0") @Min(value = 0, message = "{validation.page_min}") int page,
-            @RequestParam(value = "size", defaultValue = "12") @Min(value = 1, message = "{validation.page_size_min}") @Max(value = 50, message = "{validation.page_size_max}") int size) {
+            @RequestParam(value = "size", defaultValue = "12") @Min(value = 1, message = "{validation.page_size_min}") @Max(value = 100, message = "{validation.page_size_max}") int size) {
 
         PageResponse<PortfolioDetailRes> res = portfolioService.getMyPortfolios(userId, PageRequest.of(page, size));
         return ok(res, "mua.portfolios_list_success");

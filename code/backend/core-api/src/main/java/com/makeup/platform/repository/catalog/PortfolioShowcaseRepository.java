@@ -1,7 +1,6 @@
 package com.makeup.platform.repository.catalog;
 
 import com.makeup.platform.entity.catalog.PortfolioShowcaseEntity;
-import com.makeup.platform.repository.catalog.projection.PortfolioSummaryProjection;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,36 +20,75 @@ public interface PortfolioShowcaseRepository extends JpaRepository<PortfolioShow
 
    
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId AND p.isFeatured = true AND p.isVisible = true")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId AND p.isFeatured = true AND p.isVisible = true AND p.isDeleted = false")
     List<PortfolioShowcaseEntity> findFeaturedForUpdate(@Param("muaId") Long muaId);
 
   
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id AND p.isDeleted = false")
     Optional<PortfolioShowcaseEntity> findByIdForUpdate(@Param("id") Long id);
 
-    @Query("SELECT p.id AS id, p.title AS title, p.thumbnailUrl AS thumbnailUrl, " +
-            "p.imageUrl AS imageUrl, p.style.styleName AS styleName, " +
-            "p.isFeatured AS isFeatured, p.createdAt AS createdAt " +
-            "FROM PortfolioShowcaseEntity p " +
+    @Query(value = "SELECT p FROM PortfolioShowcaseEntity p " +
+            "LEFT JOIN FETCH p.style " +
+            "LEFT JOIN FETCH p.servicePackage " +
             "WHERE p.mua.id = :muaId " +
             "AND (:styleId IS NULL OR p.style.id = :styleId) " +
+            "AND (:packageId IS NULL OR p.servicePackage.id = :packageId) " +
             "AND (:isFeatured IS NULL OR p.isFeatured = :isFeatured) " +
-            "AND p.isVisible = true " +
-            "ORDER BY p.isFeatured DESC, p.createdAt DESC")
-    Page<PortfolioSummaryProjection> findPublicGalleryProjected(
+            "AND p.isVisible = true AND p.isDeleted = false " +
+            "ORDER BY p.isFeatured DESC, p.createdAt DESC",
+            countQuery = "SELECT count(p) FROM PortfolioShowcaseEntity p " +
+            "WHERE p.mua.id = :muaId " +
+            "AND (:styleId IS NULL OR p.style.id = :styleId) " +
+            "AND (:packageId IS NULL OR p.servicePackage.id = :packageId) " +
+            "AND (:isFeatured IS NULL OR p.isFeatured = :isFeatured) " +
+            "AND p.isVisible = true AND p.isDeleted = false")
+    Page<PortfolioShowcaseEntity> findPublicGallery(
             @Param("muaId") Long muaId,
             @Param("styleId") Integer styleId,
+            @Param("packageId") Long packageId,
             @Param("isFeatured") Boolean isFeatured,
             Pageable pageable
     );
 
-    
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId ORDER BY p.createdAt DESC")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.mua.id = :muaId AND p.isDeleted = false ORDER BY p.createdAt DESC")
     Page<PortfolioShowcaseEntity> findAllByMuaIdOrderByCreatedAtDesc(@Param("muaId") Long muaId, Pageable pageable);
 
-    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id AND p.mua.id = :muaId")
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id AND p.mua.id = :muaId AND p.isDeleted = false")
     Optional<PortfolioShowcaseEntity> findByIdAndMuaId(@Param("id") Long id, @Param("muaId") Long muaId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.agency.id = :agencyId AND p.isFeatured = true AND p.isVisible = true AND p.isDeleted = false")
+    List<PortfolioShowcaseEntity> findAgencyFeaturedForUpdate(@Param("agencyId") Long agencyId);
+
+    @Query(value = "SELECT p FROM PortfolioShowcaseEntity p " +
+            "LEFT JOIN FETCH p.style " +
+            "LEFT JOIN FETCH p.servicePackage " +
+            "WHERE p.agency.id = :agencyId " +
+            "AND (:styleId IS NULL OR p.style.id = :styleId) " +
+            "AND (:packageId IS NULL OR p.servicePackage.id = :packageId) " +
+            "AND (:isFeatured IS NULL OR p.isFeatured = :isFeatured) " +
+            "AND p.isVisible = true AND p.isDeleted = false " +
+            "ORDER BY p.isFeatured DESC, p.createdAt DESC",
+            countQuery = "SELECT count(p) FROM PortfolioShowcaseEntity p " +
+            "WHERE p.agency.id = :agencyId " +
+            "AND (:styleId IS NULL OR p.style.id = :styleId) " +
+            "AND (:packageId IS NULL OR p.servicePackage.id = :packageId) " +
+            "AND (:isFeatured IS NULL OR p.isFeatured = :isFeatured) " +
+            "AND p.isVisible = true AND p.isDeleted = false")
+    Page<PortfolioShowcaseEntity> findAgencyPublicGallery(
+            @Param("agencyId") Long agencyId,
+            @Param("styleId") Integer styleId,
+            @Param("packageId") Long packageId,
+            @Param("isFeatured") Boolean isFeatured,
+            Pageable pageable
+    );
+
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.agency.id = :agencyId AND p.isDeleted = false ORDER BY p.createdAt DESC")
+    Page<PortfolioShowcaseEntity> findAllByAgencyIdOrderByCreatedAtDesc(@Param("agencyId") Long agencyId, Pageable pageable);
+
+    @Query("SELECT p FROM PortfolioShowcaseEntity p WHERE p.id = :id AND p.agency.id = :agencyId AND p.isDeleted = false")
+    Optional<PortfolioShowcaseEntity> findByIdAndAgencyId(@Param("id") Long id, @Param("agencyId") Long agencyId);
 
 
    
@@ -72,4 +110,9 @@ public interface PortfolioShowcaseRepository extends JpaRepository<PortfolioShow
             "WHERE package_id IN (:packageIds) AND is_visible = true AND is_deleted = false " +
             "ORDER BY package_id, is_featured DESC, created_at DESC", nativeQuery = true)
     List<Object[]> findCoverImagesByPackageIds(@Param("packageIds") List<Long> packageIds);
+
+    @Query("SELECT p FROM PortfolioShowcaseEntity p " +
+            "WHERE p.servicePackage.id = :packageId AND p.isVisible = true AND p.isDeleted = false " +
+            "ORDER BY p.isFeatured DESC, p.createdAt DESC")
+    List<PortfolioShowcaseEntity> findAllByPackageId(@Param("packageId") Long packageId);
 }

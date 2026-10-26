@@ -4,6 +4,7 @@ import com.makeup.platform.common.base.ApiResponse;
 import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.common.utils.SecurityContextUtils;
 import com.makeup.platform.dto.request.booking.CreateScheduledBookingReq;
+import com.makeup.platform.dto.response.booking.CustomerActiveTrackingRes;
 import com.makeup.platform.dto.response.booking.CustomerBookingItemRes;
 import com.makeup.platform.dto.response.booking.ScheduledBookingCreatedRes;
 import com.makeup.platform.service.booking.ScheduledBookingService;
@@ -41,6 +42,14 @@ public class CustomerScheduledBookingController extends BaseController {
         return ok(res, "booking.query_success");
     }
 
+    @GetMapping("/active-tracking")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'FREELANCE_MUA', 'AGENCY_STAFF')")
+    public ResponseEntity<ApiResponse<CustomerActiveTrackingRes>> getActiveTrackingBooking() {
+        Long userId = SecurityContextUtils.getCurrentUserId();
+        CustomerActiveTrackingRes res = customerBookingQueryService.getActiveTrackingBooking(userId);
+        return ok(res, "booking.active_tracking_retrieved");
+    }
+
     @PostMapping({"", "/scheduled"})
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<ScheduledBookingCreatedRes>> createScheduledBooking(
@@ -54,6 +63,7 @@ public class CustomerScheduledBookingController extends BaseController {
      * @deprecated Endpoint này đã bị thay thế bởi POST /deposit-intents
      * Trả 410 Gone để client chuyển sang API cọc mới.
      */
+    @Deprecated
     @PostMapping("/{bookingId}/deposit")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<Void>> confirmDepositPayment(
@@ -76,5 +86,25 @@ public class CustomerScheduledBookingController extends BaseController {
         String reason = body != null ? body.get("reason") : null;
         scheduledBookingService.cancelRequestedBookingByCustomer(bookingId, customerId, reason);
         return ok(null, "booking.cancel_requested_success");
+    }
+
+    @PostMapping("/{bookingId}/escalate-dispute")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Void>> escalateDispute(
+            @PathVariable Long bookingId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long customerId = SecurityContextUtils.getCurrentUserId();
+        String reason = body != null ? body.get("reason") : null;
+        scheduledBookingService.escalateDisputeToAdmin(bookingId, customerId, reason);
+        return ok(null, "dispute.escalate_success");
+    }
+
+    @PostMapping("/{bookingId}/accept-studio-dispute-resolution")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Void>> acceptStudioDisputeResolution(
+            @PathVariable Long bookingId) {
+        Long customerId = SecurityContextUtils.getCurrentUserId();
+        scheduledBookingService.acceptStudioDisputeResolution(bookingId, customerId);
+        return ok(null, "dispute.resolution_accepted");
     }
 }

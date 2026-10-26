@@ -21,10 +21,14 @@ public class ServicePackageMapper {
     private final PackageItemMapper itemMapper;
 
     public PackageDetailRes toDetailRes(ServicePackageEntity entity) {
-        return toDetailRes(entity, null);
+        return toDetailRes(entity, null, Collections.emptyList());
     }
 
     public PackageDetailRes toDetailRes(ServicePackageEntity entity, String coverImageUrl) {
+        return toDetailRes(entity, coverImageUrl, Collections.emptyList());
+    }
+
+    public PackageDetailRes toDetailRes(ServicePackageEntity entity, String coverImageUrl, List<String> galleryImages) {
         if (entity == null) {
             return null;
         }
@@ -43,6 +47,7 @@ public class ServicePackageMapper {
                 .durationMinutes(entity.getEstimatedDurationMinutes())
                 .isAvailable(entity.getIsAvailable())
                 .coverImageUrl(coverImageUrl)
+                .galleryImages(galleryImages != null ? galleryImages : Collections.emptyList())
                 .styles(entity.getStyles() != null ? taxonomyMapper.toStyleResList(entity.getStyles()) : Collections.emptyList())
                 .items(entity.getPackageItems() != null ? itemMapper.toResList(deduplicateItems(entity.getPackageItems())) : Collections.emptyList())
                 .createdAt(entity.getCreatedAt())

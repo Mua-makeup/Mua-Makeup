@@ -16,11 +16,13 @@ import { router, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
+import { useAuthStore } from '@/store/auth.store';
 import { depositService, CustomerWalletInfo, CustomerWalletTransaction } from '@/services/deposit.service';
 import {
   TransactionDetailModal,
   TransactionDetailData,
 } from '@/components/common/TransactionDetailModal';
+import { WalletSkeleton } from '@/components/base/Skeleton';
 
 function formatVnd(val?: number): string {
   if (!val && val !== 0) return '0 đ';
@@ -114,6 +116,16 @@ export default function CustomerWalletScreen() {
   };
 
   useFocusEffect(useCallback(() => {
+    const roles = useAuthStore.getState().userInfo?.roles || [];
+    if (!roles.includes('ROLE_CUSTOMER')) {
+      setIsLoading(false);
+      Alert.alert(
+        'Không Có Quyền Truy Cập',
+        'Trang ví này chỉ dành riêng cho tài khoản Khách hàng.',
+        [{ text: 'Quay lại', onPress: () => (router.canGoBack() ? router.back() : router.replace('/')) }]
+      );
+      return;
+    }
     void fetchWallet();
   }, []));
 
@@ -133,10 +145,7 @@ export default function CustomerWalletScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải ví cá nhân...</Text>
-        </View>
+        <WalletSkeleton />
       </SafeAreaView>
     );
   }
@@ -176,7 +185,7 @@ export default function CustomerWalletScreen() {
     fullDesc: string;
   } => {
     const isCompensated = item.holdStatus === 'COMPENSATED_TO_MUA' || item.holdStatus === 'FORFEITED';
-    const isRefund = item.referenceType === 'BOOKING_REFUND' || item.holdStatus === 'REFUNDED';
+    const isRefund = item.referenceType === 'BOOKING_REFUND';
     const isConsumed = item.holdStatus === 'CONSUMED';
     const isActive = item.holdStatus === 'ACTIVE';
 
@@ -187,6 +196,47 @@ export default function CustomerWalletScreen() {
         amountColor: '#059669', statusText: 'Thanh Toán Thành Công', statusBadgeColor: '#ECFDF5',
         statusTextColor: '#059669', transactionType: 'Thanh toán online phần còn lại',
         fullDesc: item.description || 'Đã thanh toán phần còn lại qua cổng thanh toán.' };
+    }
+
+    // 1. Khoản Ký quỹ cọc ban đầu qua cổng thanh toán (Escrow hold)
+    if (item.referenceType === 'BOOKING_DEPOSIT') {
+      const isHoldRefunded = item.holdStatus === 'REFUNDED';
+      const isHoldConsumed = item.holdStatus === 'CONSUMED';
+      const isHoldCompensated = item.holdStatus === 'COMPENSATED_TO_MUA' || item.holdStatus === 'FORFEITED';
+
+      let statusText = 'Đang Ký Quỹ Escrow';
+      let statusBadgeColor = '#FFFBEB';
+      let statusTextColor = '#D97706';
+      let fullDesc = `Khoản tiền cọc (${formatVnd(item.amount)}) được bảo chứng an toàn trong quỹ Escrow.`;
+
+      if (isHoldRefunded) {
+        statusText = 'Đã Hoàn Về Ví Khả Dụng';
+        statusBadgeColor = '#F1F5F9';
+        statusTextColor = '#64748B';
+        fullDesc = `Khoản tiền cọc (${formatVnd(item.amount)}) đã được ký quỹ trước đó và hiện đã được hệ thống hoàn lại 100% vào ví khả dụng do ca hẹn đã hủy.`;
+      } else if (isHoldConsumed) {
+        statusText = 'Đã Quyết Toán Cho Thợ';
+        statusBadgeColor = '#F1F5F9';
+        statusTextColor = '#475569';
+        fullDesc = `Khoản tiền cọc (${formatVnd(item.amount)}) đã được đối soát và quyết toán thành công vào hợp đồng dịch vụ cho thợ make-up khi ca làm hoàn tất 100%.`;
+      } else if (isHoldCompensated) {
+        statusText = 'Khấu Trừ Bồi Thường Cho Thợ';
+        statusBadgeColor = '#FEF2F2';
+        statusTextColor = '#DC2626';
+        fullDesc = `Khoản tiền cọc (${formatVnd(item.amount)}) đã được khấu trừ bồi thường cho thợ make-up do vi phạm điều kiện hủy ca.`;
+      }
+
+      return {
+        code,
+        summary: `${code} - Ký quỹ cọc Escrow`,
+        sign: '',
+        amountColor: isHoldRefunded ? '#64748B' : '#D97706',
+        statusText,
+        statusBadgeColor,
+        statusTextColor,
+        transactionType: 'Ký quỹ bảo chứng Escrow',
+        fullDesc,
+      };
     }
 
     if (isCompensated) {
@@ -206,14 +256,14 @@ export default function CustomerWalletScreen() {
     if (isRefund) {
       return {
         code,
-        summary: `${code} - Hoàn cọc hủy ca`,
+        summary: `${code} - Hoàn cọc về ví`,
         sign: '+',
         amountColor: '#059669',
         statusText: 'Đã Hoàn Cọc Thành Công',
         statusBadgeColor: '#ECFDF5',
         statusTextColor: '#059669',
         transactionType: 'Hoàn tiền cọc Escrow',
-        fullDesc: `Hoàn 100% tiền cọc (${formatVnd(item.amount)}) vào ví khả dụng của khách hàng do thợ hủy ca hoặc hủy theo quy định miễn phí của hệ thống.`,
+        fullDesc: item.description || `Hoàn 100% tiền cọc (${formatVnd(item.amount)}) vào ví khả dụng của khách hàng do thợ hủy ca hoặc hủy theo quy định miễn phí của hệ thống.`,
       };
     }
 

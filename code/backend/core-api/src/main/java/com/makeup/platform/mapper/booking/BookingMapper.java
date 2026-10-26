@@ -11,14 +11,19 @@ import com.makeup.platform.dto.response.catalog.PackageItemRes;
 import com.makeup.platform.entity.booking.AssignmentRole;
 import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
+import com.makeup.platform.entity.catalog.PackageItemType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -140,7 +145,24 @@ public class BookingMapper {
                 categoryName = pkg.getMasterCategory().getCategoryName();
             }
             if (pkg.getPackageItems() != null) {
+                Set<String> selectedAddonSet = new HashSet<>();
+                if (entity.getSelectedAddons() != null && !entity.getSelectedAddons().isBlank()) {
+                    String[] parts = entity.getSelectedAddons().split(",,,");
+                    for (String p : parts) {
+                        if (p != null && !p.isBlank()) {
+                            selectedAddonSet.add(p.trim().toLowerCase());
+                        }
+                    }
+                }
+
                 packageItems = pkg.getPackageItems().stream()
+                        .filter(item -> {
+                            if (item == null) return false;
+                            if (item.getItemType() == PackageItemType.ADD_ON) {
+                                return item.getItemName() != null && selectedAddonSet.contains(item.getItemName().trim().toLowerCase());
+                            }
+                            return true;
+                        })
                         .map(item -> PackageItemRes.builder()
                                 .id(item.getId())
                                 .itemType(item.getItemType())
@@ -158,7 +180,8 @@ public class BookingMapper {
         final List<StaffAssignmentDetailRes> assignedStaff = (entity.getStaffAssignments() != null && !entity.getStaffAssignments().isEmpty())
                 ? bookingStaffAssignmentMapper.toDetailResList(
                         entity.getStaffAssignments().stream()
-                                .filter(sa -> sa.getStatus() != AssignmentStatus.REPLACED)
+                                .filter(sa -> sa.getStatus() == AssignmentStatus.ACTIVE
+                                        || (Boolean.TRUE.equals(entity.getNeedsEmergencyReassignment()) && sa.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED))
                                 .toList()
                   )
                 : List.of();
@@ -216,12 +239,17 @@ public class BookingMapper {
     }
 
     public FreelancerBookingItemRes toFreelancerBookingRes(BookingEntity entity) {
+        return toFreelancerBookingRes(entity, null);
+    }
+
+    public FreelancerBookingItemRes toFreelancerBookingRes(BookingEntity entity, Long muaId) {
         if (entity == null) {
             return null;
         }
 
         String customerName = entity.getCustomer() != null ? entity.getCustomer().getFullName() : null;
         String customerPhone = entity.getCustomer() != null ? entity.getCustomer().getPhoneNumber() : null;
+        String customerAvatar = entity.getCustomer() != null ? entity.getCustomer().getAvatarUrl() : null;
 
         String packageName = "Trang điểm";
         String packageCoverUrl = null;
@@ -232,14 +260,71 @@ public class BookingMapper {
         }
 
         BigDecimal earnings = BigDecimal.ZERO;
-        if (entity.getServiceSubtotal() != null) {
-            BigDecimal platformFee = entity.getServiceSubtotal().multiply(BigDecimal.valueOf(0.1));
-            BigDecimal surcharge = entity.getSurchargeFee() != null ? entity.getSurchargeFee() : BigDecimal.ZERO;
-            BigDecimal distance = entity.getDistanceFee() != null ? entity.getDistanceFee() : BigDecimal.ZERO;
-            earnings = entity.getServiceSubtotal().subtract(platformFee).add(surcharge).add(distance);
-        } else if (entity.getTotalAmount() != null) {
-            earnings = entity.getTotalAmount();
+        if (entity.getTotalAmount() != null) {
+            BigDecimal platformFee = entity.getTotalAmount().multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+            earnings = entity.getTotalAmount().subtract(platformFee);
+        } else if (entity.getServiceSubtotal() != null) {
+            BigDecimal platformFee = entity.getServiceSubtotal().multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+            earnings = entity.getServiceSubtotal().subtract(platformFee);
         }
+
+        Boolean isConfirmedByStaff = true;
+        String assignmentRole = null;
+        String assignmentStatus = null;
+        BigDecimal commissionRate = null;
+        String commissionNote = null;
+        Boolean soloPendingConfirmation = false;
+        BigDecimal soloCommissionRate = null;
+
+        if (muaId != null && entity.getStaffAssignments() != null) {
+            var assignmentOpt = entity.getStaffAssignments().stream()
+                    .filter(sa -> sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getId().equals(muaId))
+                    .findFirst();
+
+            if (assignmentOpt.isPresent()) {
+                var assignment = assignmentOpt.get();
+                isConfirmedByStaff = Boolean.TRUE.equals(assignment.getIsConfirmedByStaff());
+                assignmentRole = assignment.getAssignmentRole() != null ? assignment.getAssignmentRole().name() : null;
+                assignmentStatus = assignment.getStatus() != null ? assignment.getStatus().name() : null;
+                commissionRate = assignment.getCommissionRate();
+                commissionNote = assignment.getCommissionNote();
+
+                // Nếu thợ đã gửi báo bận đột xuất nhưng chưa được đổi thợ
+                if (assignment.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED) {
+                    assignmentStatus = "REPORTED_BUSY_PENDING_APPROVAL";
+                }
+
+                // Kiểm tra xem thợ có đang chờ xác nhận làm Solo không
+                boolean isSoloNote = commissionNote != null && (commissionNote.contains("Solo") || commissionNote.contains("solo") || commissionNote.contains("gộp"));
+                if (Boolean.FALSE.equals(assignment.getIsConfirmedByStaff()) && isSoloNote) {
+                    soloPendingConfirmation = true;
+                    soloCommissionRate = assignment.getCommissionRate();
+                }
+
+                if (assignment.getCommissionRate() != null) {
+                    earnings = assignment.getCommissionAmount() != null && assignment.getCommissionAmount().compareTo(BigDecimal.ZERO) > 0
+                            ? assignment.getCommissionAmount()
+                            : (entity.getTotalAmount() != null
+                            ? entity.getTotalAmount().multiply(assignment.getCommissionRate()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
+                            : earnings);
+                }
+            } else if (entity.getMua() != null && entity.getMua().getId().equals(muaId)) {
+                if (entity.getBookingPartner() == BookingPartner.AGENCY_DISPATCH || entity.getAgency() != null) {
+                    assignmentRole = "PRIMARY_MUA";
+                } else {
+                    assignmentRole = null;
+                }
+                isConfirmedByStaff = entity.getStatus() != BookingStatus.AGENCY_ASSIGNED;
+                assignmentStatus = "ACTIVE";
+            }
+        } else if (entity.getStatus() == BookingStatus.AGENCY_ASSIGNED) {
+            isConfirmedByStaff = false;
+        }
+
+        String bookingPartner = entity.getBookingPartner() != null ? entity.getBookingPartner().name() : null;
+        Long agencyId = entity.getAgency() != null ? entity.getAgency().getId() : null;
+        String agencyName = entity.getAgency() != null ? entity.getAgency().getAgencyName() : null;
+        String agencyLogoUrl = entity.getAgency() != null ? entity.getAgency().getLogoUrl() : null;
 
         return FreelancerBookingItemRes.builder()
                 .id(entity.getId())
@@ -248,6 +333,7 @@ public class BookingMapper {
                 .bookingType(entity.getBookingType() != null ? entity.getBookingType().name() : null)
                 .customerName(customerName)
                 .customerPhone(customerPhone)
+                .customerAvatar(customerAvatar)
                 .packageName(packageName)
                 .packageCoverUrl(packageCoverUrl)
                 .destinationAddress(entity.getDestinationAddress())
@@ -260,6 +346,17 @@ public class BookingMapper {
                 .earningsAmount(earnings)
                 .note(entity.getEmergencyReason())
                 .completionPhotoUrl(entity.getCompletionPhotoUrl())
+                .isConfirmedByStaff(isConfirmedByStaff)
+                .assignmentRole(assignmentRole)
+                .assignmentStatus(assignmentStatus)
+                .commissionRate(commissionRate)
+                .commissionNote(commissionNote)
+                .soloPendingConfirmation(soloPendingConfirmation)
+                .soloCommissionRate(soloCommissionRate)
+                .bookingPartner(bookingPartner)
+                .agencyId(agencyId)
+                .agencyName(agencyName)
+                .agencyLogoUrl(agencyLogoUrl)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -321,6 +418,46 @@ public class BookingMapper {
             }
         }
 
+        boolean isDepositRefunded = false;
+        if (entity.getStatus() == BookingStatus.CANCELLED || entity.getStatus() == BookingStatus.DISPUTE_REFUNDED) {
+            String reason = entity.getCancellationReason();
+            if (reason != null && (reason.toLowerCase().contains("khách hàng khác")
+                    || reason.toLowerCase().contains("trùng")
+                    || reason.toLowerCase().contains("hoàn trả")
+                    || reason.toLowerCase().contains("hoàn cọc"))) {
+                isDepositRefunded = true;
+            }
+        }
+
+        Integer styleId = entity.getStyle() != null ? entity.getStyle().getId() : null;
+        String styleName = entity.getStyle() != null ? entity.getStyle().getStyleName() : null;
+
+        // Trích xuất thông tin Studio Agency & Đội ngũ nhân sự
+        String bookingPartner = entity.getBookingPartner() != null ? entity.getBookingPartner().name() : null;
+        Long agencyId = null;
+        String agencyName = null;
+        String agencyLogoUrl = null;
+        if (entity.getAgency() != null) {
+            agencyId = entity.getAgency().getId();
+            agencyName = entity.getAgency().getAgencyName();
+            agencyLogoUrl = entity.getAgency().getLogoUrl();
+        }
+
+        String staffName = muaName;
+        java.util.List<String> assistantNames = new java.util.ArrayList<>();
+        if (entity.getStaffAssignments() != null && !entity.getStaffAssignments().isEmpty()) {
+            for (BookingStaffAssignmentEntity sa : entity.getStaffAssignments()) {
+                if (sa.getStatus() == AssignmentStatus.ACTIVE && sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getUser() != null) {
+                    String name = sa.getStaff().getMua().getUser().getFullName();
+                    if (sa.getAssignmentRole() == AssignmentRole.PRIMARY_MUA) {
+                        staffName = name;
+                    } else if (sa.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA) {
+                        assistantNames.add(name);
+                    }
+                }
+            }
+        }
+
         return CustomerBookingItemRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -330,6 +467,8 @@ public class BookingMapper {
                 .muaPhoneNumber(muaPhoneNumber)
                 .packageName(packageName)
                 .packageCoverUrl(packageCoverUrl)
+                .styleId(styleId)
+                .styleName(styleName)
                 .bookingTime(bookingTime)
                 .destinationAddress(entity.getDestinationAddress())
                 .destinationLatitude(entity.getDestinationLatitude())
@@ -340,8 +479,16 @@ public class BookingMapper {
                 .remainingAmount(remainingAmount)
                 .note(entity.getEmergencyReason())
                 .isDepositPaid(isDepositPaid)
+                .cancellationReason(entity.getCancellationReason())
+                .isDepositRefunded(isDepositRefunded)
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
+                .bookingPartner(bookingPartner)
+                .agencyId(agencyId)
+                .agencyName(agencyName)
+                .agencyLogoUrl(agencyLogoUrl)
+                .staffName(staffName)
+                .assistantNames(assistantNames)
                 .build();
     }
 }

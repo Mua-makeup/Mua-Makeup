@@ -12,13 +12,20 @@ import {
   UserPlus,
   Award,
   ShieldAlert,
+  AlertTriangle,
+  CalendarOff,
+  CalendarCheck,
+  CalendarX,
 } from 'lucide-react';
 import { useNotificationStore } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { useAuth } from '../../../hooks/useAuth';
+import { USER_ROLES } from '../../../constants/roles.constant';
 import { formatCurrency, formatDate, formatBookingDateTime } from '../../../utils/formatters';
 
 export const NotificationDropdown = ({ agencyLogo }) => {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const { t, language } = useI18nStore();
   const {
     notifications,
@@ -40,7 +47,23 @@ export const NotificationDropdown = ({ agencyLogo }) => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const displayNotifications = notifications.filter((n) => {
+    if (role === USER_ROLES.SUPER_ADMIN && n.type === 'BOOKING_DISPUTE') {
+      const isAgencyDispute = n.bookingPartner === 'AGENCY_DISPATCH' || Boolean(n.agencyId);
+      const isEscalated =
+        (n.reason && n.reason.includes('[LEO_THANG_ADMIN]')) ||
+        (n.content && n.content.includes('[LEO_THANG_ADMIN]'));
+      if (isAgencyDispute && !isEscalated) {
+        return false;
+      }
+    }
+    if (role === USER_ROLES.AGENCY_ADMIN) {
+      return n.type !== 'STAFF_LEAVE_APPROVED' && n.type !== 'STAFF_LEAVE_REJECTED';
+    }
+    return true;
+  });
+
+  const unreadCount = displayNotifications.filter((n) => !n.isRead).length;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -53,6 +76,18 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   }, []);
 
   const getNotificationTitle = (notif) => {
+    if (notif.type === 'STAFF_LEAVE_SUBMITTED') {
+      return 'Đơn xin nghỉ ca mới';
+    }
+    if (notif.type === 'STAFF_LEAVE_APPROVED') {
+      return 'Đơn xin nghỉ ca đã được phê duyệt';
+    }
+    if (notif.type === 'STAFF_LEAVE_REJECTED') {
+      return 'Đơn xin nghỉ ca bị từ chối';
+    }
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return notif.title || `Báo Cáo Khiếu Nại: #${notif.bookingCode || ''}`;
+    }
     if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       return t('notification_emergency_title');
     }
@@ -81,6 +116,9 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   };
 
   const getNotificationContent = (notif) => {
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return notif.content || notif.reason || 'Có báo cáo khiếu nại ca làm cần Ban Quản Trị xem xét phân xử.';
+    }
     if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       const staffName = notif.staffName || (notif.metadata && notif.metadata.staffName) || 'Thợ';
       const bookingCode = notif.bookingCode || (notif.metadata && notif.metadata.bookingCode) || '';
@@ -119,18 +157,46 @@ export const NotificationDropdown = ({ agencyLogo }) => {
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
     setIsOpen(false);
-    if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
+    if (
+      notif.type === 'BOOKING_DISPUTE' ||
+      notif.type === 'AGENCY_STAFF_DISPUTED' ||
+      notif.type === 'AGENCY_DISPUTE_RESULT' ||
+      notif.type === 'DISPUTE_RESOLUTION_RESULT'
+    ) {
+      if (role === USER_ROLES.AGENCY_ADMIN) {
+        navigate('/agency/disputes');
+      } else {
+        navigate('/admin/disputes');
+      }
+    } else if (
+      notif.type === 'STAFF_LEAVE_SUBMITTED' ||
+      notif.type === 'STAFF_LEAVE_APPROVED' ||
+      notif.type === 'STAFF_LEAVE_REJECTED'
+    ) {
+      navigate('/agency/shifts?tab=leave-requests');
+    } else if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       navigate('/agency/bookings');
     } else if (notif.type === 'STAFF_APPLICATION') {
-      navigate('/agency/staff');
+      navigate('/agency/staff?tab=pending');
     } else if (notif.type === 'CERTIFICATE_VERIFICATION') {
       navigate('/admin/muas/credentials');
     } else {
-      navigate('/agency/bookings');
+      if (role === USER_ROLES.SUPER_ADMIN) {
+        navigate('/admin/muas/credentials');
+      } else {
+        navigate('/agency/bookings');
+      }
     }
   };
 
   const renderNotifIcon = (notif) => {
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-rose-300 dark:border-rose-800 flex items-center justify-center bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
+          <AlertTriangle className="w-4 h-4" />
+        </div>
+      );
+    }
     if (notif.type === 'EMERGENCY_REASSIGNMENT_ALERT') {
       return (
         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-rose-200 dark:border-rose-800 flex items-center justify-center bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
@@ -149,6 +215,34 @@ export const NotificationDropdown = ({ agencyLogo }) => {
       return (
         <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-amber-200 dark:border-amber-800 flex items-center justify-center bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
           <Award className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (notif.type === 'BOOKING_DISPUTE') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-purple-200 dark:border-purple-800 flex items-center justify-center bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
+          <ShieldAlert className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (notif.type === 'STAFF_LEAVE_SUBMITTED') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-amber-300 dark:border-amber-800 flex items-center justify-center bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
+          <CalendarOff className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (notif.type === 'STAFF_LEAVE_APPROVED') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
+          <CalendarCheck className="w-4 h-4" />
+        </div>
+      );
+    }
+    if (notif.type === 'STAFF_LEAVE_REJECTED') {
+      return (
+        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 mt-0.5 border border-rose-300 dark:border-rose-800 flex items-center justify-center bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
+          <CalendarX className="w-4 h-4" />
         </div>
       );
     }
@@ -181,7 +275,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
         <Bell className="w-4 h-4 text-slate-700 dark:text-slate-200" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm animate-pulse">
-            {unreadCount > 99 ? '99+' : unreadCount}
+            {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
@@ -205,7 +299,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
               </span>
               {unreadCount > 0 && (
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40">
-                  {unreadCount} {t('new_badge').toLowerCase()}
+                  {unreadCount > 9 ? '9+' : unreadCount} {t('new_badge').toLowerCase()}
                 </span>
               )}
             </div>
@@ -253,12 +347,12 @@ export const NotificationDropdown = ({ agencyLogo }) => {
 
           {/* List Content */}
           <div className="max-h-[calc(100vh-180px)] sm:max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 flex-1">
-            {isLoading && notifications.length === 0 ? (
+            {isLoading && displayNotifications.length === 0 ? (
               <div className="py-8 text-center px-4">
                 <div className="w-5 h-5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                 <p className="text-xs text-slate-400">{t('loading')}</p>
               </div>
-            ) : notifications.length === 0 ? (
+            ) : displayNotifications.length === 0 ? (
               <div className="py-8 text-center px-4">
                 <div className="w-10 h-10 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 mb-2">
                   <Bell className="w-5 h-5" />
@@ -268,7 +362,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                 </p>
               </div>
             ) : (
-              notifications.map((notif) => (
+              displayNotifications.map((notif) => (
                 <div
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}
@@ -378,10 +472,63 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                           </span>
                         </div>
                       </>
+                    ) : notif.type === 'BOOKING_DISPUTE' ? (
+                      <>
+                        <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-0.5 leading-snug line-clamp-2 font-medium">
+                          {notif.content || 'Khách hàng/Thợ gửi báo cáo sự cố cần Admin giải quyết.'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] flex-wrap">
+                          {notif.bookingCode && (
+                            <span className="font-mono bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                              #{notif.bookingCode}
+                            </span>
+                          )}
+                          <span className="text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            {t('btn_resolve_dispute') || 'Xử lý khiếu nại'}
+                          </span>
+                        </div>
+                      </>
+                    ) : notif.type === 'STAFF_LEAVE_SUBMITTED' ? (
+                      <>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug line-clamp-2">
+                          {notif.content || `Thợ ${notif.staffName || 'Studio'} xin nghỉ ca ${notif.shiftName || ''} ngày ${notif.leaveDate || ''}`}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] flex-wrap">
+                          {notif.shiftName && (
+                            <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 font-medium">
+                              {notif.shiftName}
+                            </span>
+                          )}
+                          <span className="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            Xem & duyệt đơn
+                          </span>
+                        </div>
+                      </>
+                    ) : (notif.type === 'STAFF_LEAVE_APPROVED' || notif.type === 'STAFF_LEAVE_REJECTED') ? (
+                      <>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug line-clamp-2">
+                          {notif.content}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] flex-wrap">
+                          <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" />
+                            Xem lịch làm
+                          </span>
+                        </div>
+                      </>
+                    ) : notif.content && !notif.bookingCode ? (
+                      <>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-snug line-clamp-2">
+                          {notif.content}
+                        </p>
+                      </>
                     ) : (
                       <>
                         <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 truncate">
-                          <span className="font-semibold">{notif.customerName}</span> • {notif.servicePackageName}
+                          <span className="font-semibold">{notif.customerName || 'Khách hàng'}</span>
+                          {notif.servicePackageName ? ` • ${notif.servicePackageName}` : ''}
                         </p>
                         <div className="flex items-center gap-2 sm:gap-3 mt-1.5 text-[10px] text-slate-500 dark:text-slate-400 flex-wrap">
                           {notif.bookingCode && (
@@ -410,17 +557,25 @@ export const NotificationDropdown = ({ agencyLogo }) => {
           </div>
 
           {/* Footer */}
-          {notifications.length > 0 && (
+          {displayNotifications.length > 0 && (
             <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 text-center shrink-0">
               <button
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
-                  navigate('/agency/bookings');
+                  if (role === USER_ROLES.SUPER_ADMIN) {
+                    navigate('/admin/muas/credentials');
+                  } else {
+                    navigate('/agency/bookings');
+                  }
                 }}
                 className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 flex items-center justify-center gap-1.5 w-full py-1 transition-colors cursor-pointer"
               >
-                <span>{t('view_all_bookings')}</span>
+                <span>
+                  {role === USER_ROLES.SUPER_ADMIN
+                    ? t('btn_verify_certificate') || 'Duyệt Chứng Chỉ Thợ'
+                    : t('view_all_bookings')}
+                </span>
                 <ExternalLink className="w-3 h-3" />
               </button>
             </div>

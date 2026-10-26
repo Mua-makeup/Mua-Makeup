@@ -18,6 +18,8 @@ public class PortfolioDetailRes {
 
     private Long id;
     private Long muaId;
+    private Long agencyId;
+    private String agencyName;
     private String title;
     private String description;
     private String imageUrl;

@@ -1,15 +1,12 @@
-import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { SwipeableBottomSheet } from '@/components/common/SwipeableBottomSheet';
 import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
-  SafeAreaView,
-  StatusBar,
+  Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 export interface TransactionDetailData {
@@ -51,134 +48,96 @@ export const TransactionDetailModal: React.FC<Props> = ({ visible, data, onClose
   };
 
   return (
-    <DismissibleModal visible={visible} onClose={handleClose} contentStyle={{ backgroundColor: '#FFFFFF' }} fullHeight>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <SwipeableBottomSheet
+      visible={visible}
+      onClose={handleClose}
+      title="Chi tiết giao dịch"
+      showCloseButton={false}
+      showHandleBar={true}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Card Thông Tin Chi Tiết */}
+        <View style={styles.detailCard}>
+          {/* Mã giao dịch */}
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Mã giao dịch</Text>
+            <Text style={styles.valueHighlight} selectable>
+              {data.bookingCode || data.transactionCode}
+            </Text>
+          </View>
 
-        {/* Header Chi Tiết Giao Dịch */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose} style={styles.backBtn} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={22} color="#0F172A" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chi tiết giao dịch</Text>
-          <View style={styles.headerRightPlaceholder} />
-        </View>
+          <View style={styles.divider} />
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Card Thông Tin Chi Tiết */}
-          <View style={styles.detailCard}>
-            {/* Mã giao dịch */}
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Mã giao dịch</Text>
-              <Text style={styles.valueHighlight} selectable>
-                {data.bookingCode || data.transactionCode}
+          {/* Ngày giao dịch */}
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Ngày giao dịch</Text>
+            <Text style={styles.valueText}>{data.dateTime}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Số tiền thanh toán */}
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Số tiền biến động</Text>
+            <Text style={[styles.amountValue, { color: data.amountColor }]}>
+              {data.sign} {formatVnd(data.amount)}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Trạng thái giao dịch */}
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Trạng thái</Text>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: data.statusBadgeColor || '#F1F5F9' },
+              ]}
+            >
+              <Text style={[styles.statusBadgeText, { color: data.statusTextColor || '#334155' }]}>
+                {data.statusText}
               </Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Ngày giao dịch */}
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Ngày giao dịch</Text>
-              <Text style={styles.valueText}>{data.dateTime}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Số tiền thanh toán */}
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Số tiền biến động</Text>
-              <Text style={[styles.amountValue, { color: data.amountColor }]}>
-                {data.sign} {formatVnd(data.amount)}
-              </Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Trạng thái giao dịch */}
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Trạng thái</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: data.statusBadgeColor || '#F1F5F9' },
-                ]}
-              >
-                <Text style={[styles.statusBadgeText, { color: data.statusTextColor || '#334155' }]}>
-                  {data.statusText}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Loại giao dịch */}
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Loại nghiệp vụ</Text>
-              <Text style={styles.valueText}>{data.transactionType}</Text>
-            </View>
-
-            {data.balanceAfter !== undefined && data.balanceAfter !== null && (
-              <>
-                <View style={styles.divider} />
-                <View style={styles.detailRow}>
-                  <Text style={styles.label}>Số dư sau GD</Text>
-                  <Text style={styles.valueText}>{formatVnd(data.balanceAfter)}</Text>
-                </View>
-              </>
-            )}
-
-            <View style={styles.divider} />
-
-            {/* Nội dung giao dịch */}
-            <View style={styles.descRow}>
-              <Text style={styles.label}>Nội dung giao dịch</Text>
-              <View style={styles.descBox}>
-                <Text style={styles.descValue}>{data.description}</Text>
-              </View>
             </View>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </DismissibleModal>
+
+          <View style={styles.divider} />
+
+          {/* Loại giao dịch */}
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>Loại nghiệp vụ</Text>
+            <Text style={styles.valueText}>{data.transactionType}</Text>
+          </View>
+
+          {data.balanceAfter !== undefined && data.balanceAfter !== null && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>Số dư sau GD</Text>
+                <Text style={styles.valueText}>{formatVnd(data.balanceAfter)}</Text>
+              </View>
+            </>
+          )}
+
+          <View style={styles.divider} />
+
+          {/* Nội dung giao dịch */}
+          <View style={styles.descRow}>
+            <Text style={styles.label}>Nội dung giao dịch</Text>
+            <View style={styles.descBox}>
+              <Text style={styles.descValue}>{data.description}</Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SwipeableBottomSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-  },
-  headerRightPlaceholder: {
-    width: 40,
-  },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    paddingVertical: 8,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 12,
   },
   detailCard: {
     backgroundColor: '#FFFFFF',

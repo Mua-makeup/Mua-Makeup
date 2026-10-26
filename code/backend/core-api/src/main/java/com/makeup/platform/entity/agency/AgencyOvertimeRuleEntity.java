@@ -43,6 +43,11 @@ public class AgencyOvertimeRuleEntity extends BaseEntity {
     @Column(name = "penalty_type", nullable = false, length = 30)
     private OvertimePenaltyType penaltyType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "policy_type", nullable = false, length = 30)
+    @Builder.Default
+    private OvertimePolicyType policyType = OvertimePolicyType.ALLOWANCE;
+
     @Column(name = "penalty_value", precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal penaltyValue = BigDecimal.ZERO;

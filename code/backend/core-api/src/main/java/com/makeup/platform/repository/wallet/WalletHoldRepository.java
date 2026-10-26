@@ -16,6 +16,8 @@ import java.util.Optional;
 public interface WalletHoldRepository extends JpaRepository<WalletHoldEntity, Long> {
 
     List<BookingStatus> ACTIVE_HOLD_STATUSES = List.of(
+            BookingStatus.REQUESTED,
+            BookingStatus.PENDING_AGENCY_DISPATCH,
             BookingStatus.ACCEPTED,
             BookingStatus.AGENCY_ASSIGNED,
             BookingStatus.ON_THE_WAY,
@@ -35,17 +37,17 @@ public interface WalletHoldRepository extends JpaRepository<WalletHoldEntity, Lo
 
     List<WalletHoldEntity> findAllByWalletIdAndStatus(Long walletId, String status);
 
-    @Query("SELECT h FROM WalletHoldEntity h WHERE h.booking.mua.user.id = :muaUserId AND h.status = :status")
+    @Query("SELECT h FROM WalletHoldEntity h WHERE h.booking.mua.user.id = :muaUserId AND h.booking.agency IS NULL AND h.status = :status")
     List<WalletHoldEntity> findAllByMuaUserIdAndStatus(@Param("muaUserId") Long muaUserId, @Param("status") String status);
 
-    @Query("SELECT COALESCE(SUM(h.amount), 0) FROM WalletHoldEntity h WHERE h.booking.mua.user.id = :muaUserId AND h.status = 'ACTIVE' AND h.booking.status IN :activeStatuses")
+    @Query("SELECT COALESCE(SUM(h.amount), 0) FROM WalletHoldEntity h WHERE h.booking.mua.user.id = :muaUserId AND h.booking.agency IS NULL AND h.status = 'ACTIVE' AND h.booking.status IN :activeStatuses")
     BigDecimal sumActiveHoldsByMuaUserId(@Param("muaUserId") Long muaUserId, @Param("activeStatuses") Collection<BookingStatus> activeStatuses);
 
     default BigDecimal sumActiveHoldsByMuaUserId(Long muaUserId) {
         return sumActiveHoldsByMuaUserId(muaUserId, ACTIVE_HOLD_STATUSES);
     }
 
-    @Query("SELECT h FROM WalletHoldEntity h LEFT JOIN FETCH h.booking b LEFT JOIN FETCH b.customer LEFT JOIN FETCH h.deposit WHERE b.mua.user.id = :muaUserId AND h.status = 'ACTIVE' AND b.status IN :activeStatuses ORDER BY h.createdAt DESC")
+    @Query("SELECT h FROM WalletHoldEntity h LEFT JOIN FETCH h.booking b LEFT JOIN FETCH b.customer LEFT JOIN FETCH h.deposit WHERE b.mua.user.id = :muaUserId AND b.agency IS NULL AND h.status = 'ACTIVE' AND b.status IN :activeStatuses ORDER BY h.createdAt DESC")
     List<WalletHoldEntity> findActiveHoldsByMuaUserId(@Param("muaUserId") Long muaUserId, @Param("activeStatuses") Collection<BookingStatus> activeStatuses);
 
     default List<WalletHoldEntity> findActiveHoldsByMuaUserId(Long muaUserId) {
@@ -63,5 +65,12 @@ public interface WalletHoldRepository extends JpaRepository<WalletHoldEntity, Lo
 
     default BigDecimal sumActiveHoldsByWalletId(Long walletId) {
         return sumActiveHoldsByWalletId(walletId, ACTIVE_HOLD_STATUSES);
+    }
+
+    @Query("SELECT COALESCE(SUM(h.amount), 0) FROM WalletHoldEntity h WHERE h.booking.agency.id = :agencyId AND h.status = 'ACTIVE' AND h.booking.status IN :activeStatuses")
+    BigDecimal sumActiveHoldsByAgencyId(@Param("agencyId") Long agencyId, @Param("activeStatuses") Collection<BookingStatus> activeStatuses);
+
+    default BigDecimal sumActiveHoldsByAgencyId(Long agencyId) {
+        return sumActiveHoldsByAgencyId(agencyId, ACTIVE_HOLD_STATUSES);
     }
 }

@@ -118,6 +118,33 @@ public class AgencyDispatchSupport {
             payload.put("timestamp", System.currentTimeMillis());
 
             messagePublisher.send("/topic/agency/" + agencyId + "/bookings", payload);
+            messagePublisher.send("/topic/booking-status/" + booking.getId(), payload);
+
+            if (booking.getStaffAssignments() != null && !booking.getStaffAssignments().isEmpty()) {
+                for (var assignment : booking.getStaffAssignments()) {
+                    if (assignment.getStaff() != null && assignment.getStaff().getMua() != null) {
+                        Long muaId = assignment.getStaff().getMua().getId();
+                        messagePublisher.send("/topic/mua-dispatch/" + muaId, payload);
+                        messagePublisher.send("/topic/mua-offer/" + muaId, payload);
+                        messagePublisher.send("/topic/mua-scheduled-offer/" + muaId, payload);
+
+                        if (assignment.getStaff().getMua().getUser() != null) {
+                            Long userId = assignment.getStaff().getMua().getUser().getId();
+                            messagePublisher.send("/topic/user-notifications/" + userId, payload);
+                        }
+                    }
+                }
+            } else if (booking.getMua() != null && booking.getMua().getId() != null) {
+                Long muaId = booking.getMua().getId();
+                messagePublisher.send("/topic/mua-dispatch/" + muaId, payload);
+                messagePublisher.send("/topic/mua-offer/" + muaId, payload);
+                messagePublisher.send("/topic/mua-scheduled-offer/" + muaId, payload);
+
+                if (booking.getMua().getUser() != null) {
+                    Long userId = booking.getMua().getUser().getId();
+                    messagePublisher.send("/topic/user-notifications/" + userId, payload);
+                }
+            }
         } catch (Exception e) {
             log.error("Failed to broadcast dispatch update for bookingId={}", booking.getId(), e);
         }

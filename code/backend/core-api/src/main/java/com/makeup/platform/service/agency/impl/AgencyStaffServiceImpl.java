@@ -21,6 +21,7 @@ import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffStyleEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.mapper.agency.AgencyInvitationMapper;
+import com.makeup.platform.mapper.agency.AgencyStaffPackageMapper;
 import com.makeup.platform.mapper.agency.AgencyStaffMapper;
 import com.makeup.platform.common.constants.SecurityConstants;
 import com.makeup.platform.entity.auth.RoleEntity;
@@ -58,6 +59,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.makeup.platform.common.constants.MediaConstants;
+import com.makeup.platform.common.utils.FileValidationUtils;
+import com.makeup.platform.dto.request.agency.ReviewStaffCertificateReq;
+import com.makeup.platform.dto.response.mua.CertificateRes;
+import com.makeup.platform.entity.mua.MuaCertificateItem;
+import com.makeup.platform.mapper.mua.MuaProfileMapper;
+import com.makeup.platform.dto.response.media.CloudMediaUploadResult;
+import com.makeup.platform.service.media.MediaStorageService;
+import org.springframework.web.multipart.MultipartFile;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -74,10 +85,13 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final AgencyStaffMapper agencyStaffMapper;
+    private final AgencyStaffPackageMapper agencyStaffPackageMapper;
     private final AgencyInvitationMapper agencyInvitationMapper;
     private final NotificationService notificationService;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final MediaStorageService mediaStorageService;
+    private final MuaProfileMapper muaProfileMapper;
 
     @Override
     public AgencyInvitationRes createInvitation(Long userId, CreateInvitationReq req) {
@@ -395,6 +409,21 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         }
 
         AgencyStaffEntity saved = agencyStaffRepository.save(staff);
+
+        // Bắn thông báo In-App + WebSocket P2P + Gửi Email thông báo tới Thợ MUA
+        try {
+            boolean isApproved = "APPROVE".equals(decision);
+            notificationService.createStaffApplicationResultNotification(
+                    agency,
+                    saved.getMua(),
+                    isApproved,
+                    saved.getAgreedCommissionRate(),
+                    saved.getNote()
+            );
+        } catch (Exception notifEx) {
+            log.error("Failed to dispatch staff application result notification for staffId={}", staffId, notifEx);
+        }
+
         return agencyStaffMapper.toRes(saved);
     }
 
@@ -469,6 +498,15 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                     .collect(Collectors.toList()));
         } else {
             res.setAssignedStyles(Collections.emptyList());
+        }
+
+        List<AgencyStaffServiceEntity> packages = agencyStaffServiceRepository.findByStaffIdWithPackage(staffId);
+        if (packages != null && !packages.isEmpty()) {
+            res.setAssignedPackages(packages.stream()
+                    .map(agencyStaffPackageMapper::toAssignedPackageRes)
+                    .collect(Collectors.toList()));
+        } else {
+            res.setAssignedPackages(Collections.emptyList());
         }
         return res;
     }
@@ -554,7 +592,9 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
     @Override
     @Transactional(readOnly = true)
     public AgencyStaffDetailRes getMyStaffProfile(Long userId) {
-        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveOrPendingStaffByUserId(userId)
+                .stream()
+                .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_STAFF_NOT_FOUND,
                         "ERR_STAFF_NOT_FOUND"
@@ -573,6 +613,15 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         } else {
             res.setAssignedStyles(Collections.emptyList());
         }
+
+        List<AgencyStaffServiceEntity> packages = agencyStaffServiceRepository.findByStaffIdWithPackage(staff.getId());
+        if (packages != null && !packages.isEmpty()) {
+            res.setAssignedPackages(packages.stream()
+                    .map(agencyStaffPackageMapper::toAssignedPackageRes)
+                    .collect(Collectors.toList()));
+        } else {
+            res.setAssignedPackages(Collections.emptyList());
+        }
         return res;
     }
 
@@ -582,5 +631,132 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                         ErrorCodes.ERR_AGENCY_NOT_FOUND,
                         "ERR_AGENCY_NOT_FOUND"
                 ));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CertificateRes uploadStaffCertificate(Long userId, MultipartFile file, String certName, String notes) {
+        if (!StringUtils.hasText(certName)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                    "mua.cert_name_required", HttpStatus.BAD_REQUEST);
+        }
+
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_STAFF_NOT_FOUND,
+                        "agency.staff_not_found_or_inactive", HttpStatus.NOT_FOUND));
+
+        MuaProfileEntity mua = staff.getMua();
+        if (mua == null) {
+            throw new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
+                    "ERR_MUA_PROFILE_NOT_FOUND", HttpStatus.NOT_FOUND);
+        }
+
+        FileValidationUtils.validateImageFile(file, MediaConstants.MAX_MAIN_IMAGE_SIZE);
+
+        String uploadedPublicId = null;
+        try {
+            CloudMediaUploadResult uploadResult = mediaStorageService.uploadImage(
+                    file,
+                    "agency_staff_credentials/" + staff.getId());
+            uploadedPublicId = uploadResult.getPublicId();
+
+            MuaCertificateItem certificateItem = MuaCertificateItem.builder()
+                    .certName(certName.trim())
+                    .imageUrl(uploadResult.getImageUrl())
+                    .publicId(uploadResult.getPublicId())
+                    .isVerified(false)
+                    .status("PENDING")
+                    .scope("AGENCY")
+                    .agencyId(staff.getAgency().getId())
+                    .agencyName(staff.getAgency().getAgencyName())
+                    .notes(notes)
+                    .uploadedAt(LocalDateTime.now())
+                    .build();
+
+            if (mua.getCertificates() == null) {
+                mua.setCertificates(new ArrayList<>());
+            }
+            mua.getCertificates().add(certificateItem);
+            muaProfileRepository.save(mua);
+
+            return muaProfileMapper.toCertificateRes(certificateItem);
+        } catch (Exception ex) {
+            log.error("Lỗi khi tải lên chứng chỉ nhân viên Studio: {}", ex.getMessage());
+            if (uploadedPublicId != null) {
+                mediaStorageService.deleteMedia(uploadedPublicId);
+            }
+            throw ex;
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CertificateRes reviewStaffCertificate(Long ownerUserId, Long staffId, String certName, ReviewStaffCertificateReq req) {
+        AgencyProfileEntity agency = getAgencyByOwnerId(ownerUserId);
+        AgencyStaffEntity staff = agencyStaffRepository.findById(staffId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_STAFF_NOT_FOUND,
+                        "agency.staff_not_in_agency"
+                ));
+
+        if (!staff.getAgency().getId().equals(agency.getId())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
+                    "agency.staff_not_in_agency", HttpStatus.FORBIDDEN);
+        }
+
+        MuaProfileEntity mua = staff.getMua();
+        if (mua == null || mua.getCertificates() == null) {
+            throw new ResourceNotFoundException(ErrorCodes.ERR_CERTIFICATE_NOT_FOUND, "mua.cert_not_found");
+        }
+
+        MuaCertificateItem targetCert = mua.getCertificates().stream()
+                .filter(c -> certName.trim().equalsIgnoreCase(c.getCertName()))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_CERTIFICATE_NOT_FOUND, "mua.cert_not_found"));
+
+        boolean isApprove = "VERIFIED".equalsIgnoreCase(req.getDecision());
+        targetCert.setStatus(isApprove ? "VERIFIED" : "REJECTED");
+        targetCert.setIsVerified(isApprove);
+        targetCert.setVerifierType("AGENCY_ADMIN");
+        targetCert.setVerifierName(agency.getAgencyName());
+        targetCert.setAgencyId(agency.getId());
+        targetCert.setAgencyName(agency.getAgencyName());
+        targetCert.setVerifiedAt(LocalDateTime.now());
+        if (!isApprove && StringUtils.hasText(req.getRejectionReason())) {
+            targetCert.setRejectionReason(req.getRejectionReason().trim());
+        }
+
+        muaProfileRepository.save(mua);
+        return muaProfileMapper.toCertificateRes(targetCert);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteStaffCertificate(Long userId, String certName) {
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_STAFF_NOT_FOUND,
+                        "agency.staff_not_found_or_inactive", HttpStatus.NOT_FOUND));
+
+        MuaProfileEntity mua = staff.getMua();
+        if (mua == null || mua.getCertificates() == null) {
+            throw new ResourceNotFoundException(ErrorCodes.ERR_CERTIFICATE_NOT_FOUND, "mua.cert_not_found");
+        }
+
+        MuaCertificateItem targetCert = mua.getCertificates().stream()
+                .filter(c -> certName.trim().equalsIgnoreCase(c.getCertName()))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_CERTIFICATE_NOT_FOUND, "mua.cert_not_found"));
+
+        if ("VERIFIED".equalsIgnoreCase(targetCert.getStatus()) && "PLATFORM".equalsIgnoreCase(targetCert.getScope())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
+                    "agency.cannot_delete_verified_platform_cert", HttpStatus.FORBIDDEN);
+        }
+
+        mua.getCertificates().remove(targetCert);
+        muaProfileRepository.save(mua);
+
+        if (targetCert.getPublicId() != null) {
+            mediaStorageService.deleteMedia(targetCert.getPublicId());
+        }
     }
 }

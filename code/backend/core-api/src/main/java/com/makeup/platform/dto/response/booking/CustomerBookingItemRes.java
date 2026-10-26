@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,6 +23,8 @@ public class CustomerBookingItemRes {
     private String muaPhoneNumber;
     private String packageName;
     private String packageCoverUrl;
+    private Integer styleId;
+    private String styleName;
     private LocalDateTime bookingTime;
     private String destinationAddress;
     private BigDecimal destinationLatitude;
@@ -31,6 +35,16 @@ public class CustomerBookingItemRes {
     private BigDecimal remainingAmount;
     private String note;
     private Boolean isDepositPaid;
+    private String cancellationReason;
+    private Boolean isDepositRefunded;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // Phân hệ Studio Agency & Đội ngũ nhân sự
+    private String bookingPartner;
+    private Long agencyId;
+    private String agencyName;
+    private String agencyLogoUrl;
+    private String staffName;
+    private List<String> assistantNames;
 }

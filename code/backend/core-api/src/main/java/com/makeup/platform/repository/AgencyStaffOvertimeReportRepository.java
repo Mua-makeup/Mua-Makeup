@@ -9,10 +9,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface AgencyStaffOvertimeReportRepository extends JpaRepository<AgencyStaffOvertimeReportEntity, Long> {
+
+    List<AgencyStaffOvertimeReportEntity> findByBookingId(Long bookingId);
+
+    boolean existsByBookingIdAndStaffId(Long bookingId, Long staffId);
+
+    Optional<AgencyStaffOvertimeReportEntity> findByBookingIdAndStaffId(Long bookingId, Long staffId);
 
     Page<AgencyStaffOvertimeReportEntity> findByAgencyId(Long agencyId, Pageable pageable);
 
