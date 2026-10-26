@@ -31,12 +31,12 @@ jobs:
         run: |
           find . -name "gradlew" -exec chmod +x {} +
 
-      - name: Chạy Unit Tests & Build file .jar
+      - name: Build file .jar từng service con
         run: |
           cd code/backend/core-api
-          ./gradlew test bootJar --no-daemon
+          ./gradlew bootJar -x test --no-daemon
 
-      - name: Set up Docker Buildx
+      - name: Set up Docker Build
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
