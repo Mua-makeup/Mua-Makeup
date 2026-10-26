@@ -12,6 +12,9 @@ const getDevApiBaseUrl = () => {
     const webHost = typeof window !== 'undefined' && window.location?.hostname
       ? window.location.hostname
       : 'localhost';
+    if (webHost !== 'localhost' && webHost !== '127.0.0.1') {
+      return PROD_BASE_URL;
+    }
     return `http://${webHost}:8080/api/v1`;
   }
 
