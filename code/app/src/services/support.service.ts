@@ -31,7 +31,9 @@ export const supportService = {
    * Gửi tin nhắn hỏi đáp tới Trợ lý AI CSKH Mua-Makeup
    */
   async sendMessage(request: AiChatRequest): Promise<AiChatResponse> {
-    const res = await apiClient.post<{ success: boolean; data: AiChatResponse }>('/support/chat', request);
+    const res = await apiClient.post<{ success: boolean; data: AiChatResponse }>('/support/chat', request, {
+      timeout: 60000,
+    });
     return res.data.data;
   },
 
