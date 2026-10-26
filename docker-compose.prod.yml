@@ -39,9 +39,6 @@ services:
       - makeup_network
 
   core-api:
-    build:
-      context: ./code/backend/core-api
-      dockerfile: Dockerfile
     image: ${BACKEND_IMAGE:-makeup-backend:latest}
     container_name: makeup-backend
     restart: always
@@ -53,7 +50,7 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - ./code/backend/core-api/.env
+      - .env
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
