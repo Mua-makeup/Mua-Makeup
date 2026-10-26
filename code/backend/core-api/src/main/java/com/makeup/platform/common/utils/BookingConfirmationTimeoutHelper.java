@@ -25,7 +25,7 @@ public final class BookingConfirmationTimeoutHelper {
         // 1. Phân bậc thời hạn đếm ngược theo khoảng cách Lead Time
         int timeoutMinutes;
         if (leadTimeMinutes <= 180) {          // 1h - 3h (Ca gấp trong ngày)
-            timeoutMinutes = 15;
+            timeoutMinutes = 1;
         } else if (leadTimeMinutes <= 720) {   // 3h - 12h (Ca trong ngày cách xa)
             timeoutMinutes = 30;
         } else if (leadTimeMinutes <= 2880) {  // 12h - 48h (Đặt trước 1-2 ngày)
