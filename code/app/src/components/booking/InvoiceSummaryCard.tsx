@@ -99,6 +99,16 @@ export const InvoiceSummaryCard: React.FC<Props> = ({
           </View>
         )}
 
+        {/* Phụ phí dịch vụ (ngày lễ / làm sớm) */}
+        {(invoicePreview?.totalSurchargesAmount || 0) > 0 && (
+          <View style={styles.row}>
+            <View style={styles.surgeTagRow}>
+              <Text style={styles.surgeLabel}>Phụ phí phát sinh</Text>
+            </View>
+            <Text style={styles.surgeValue}>+{formatPrice(invoicePreview?.totalSurchargesAmount)}</Text>
+          </View>
+        )}
+
         {/* Giảm giá voucher */}
         {discountAmount > 0 && (
           <View style={styles.row}>
