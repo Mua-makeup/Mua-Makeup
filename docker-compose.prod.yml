@@ -1,0 +1,74 @@
+services:
+
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    image: makeup-postgres:latest
+    container_name: makeup-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
+      POSTGRES_DB: ${DB_NAME:-makeup_platform_db}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-makeup_platform_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - makeup_network
+
+  redis:
+    build:
+      context: ./docker/redis
+      dockerfile: Dockerfile
+    image: makeup-redis:latest
+    container_name: makeup-redis
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - makeup_network
+
+  core-api:
+    build:
+      context: ./code/backend/core-api
+      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-makeup-backend:latest}
+    container_name: makeup-backend
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./code/backend/core-api/.env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SERVER_PORT=8080
+    networks:
+      - makeup_network
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+
+networks:
+  makeup_network:
+    driver: bridge
