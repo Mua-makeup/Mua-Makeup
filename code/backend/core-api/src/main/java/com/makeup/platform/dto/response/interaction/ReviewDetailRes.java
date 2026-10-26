@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Getter
@@ -30,5 +31,7 @@ public class ReviewDetailRes {
     private String comment;
     private List<String> imageUrls;
     private String status;
+    private String agencyReply;
+    private OffsetDateTime agencyRepliedAt;
     private LocalDateTime createdAt;
 }

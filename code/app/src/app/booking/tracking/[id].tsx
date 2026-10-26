@@ -14,7 +14,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -31,6 +31,7 @@ import { websocketService } from '@/services/websocket.service';
 import { BookingProgressStepper } from '@/components/booking/BookingProgressStepper';
 import { LiveTrackingMap } from '@/components/booking/LiveTrackingMap';
 import { computeHybridEta } from '@/utils/date';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
 
 const CUSTOMER_CANCEL_REASONS = [
   'Bận việc đột xuất / Không thể tiếp tục',
@@ -50,6 +51,7 @@ const REVIEW_TAGS = [
 ];
 
 export default function BookingLiveTrackingScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const bookingId = Number(id);
 
@@ -676,9 +678,21 @@ export default function BookingLiveTrackingScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang kết nối tín hiệu vệ tinh...</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleBox}>
+            <Text style={styles.headerTitle}>Theo Dõi Tiến Trình</Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+        <BookingDetailSkeleton />
       </SafeAreaView>
     );
   }
@@ -753,7 +767,7 @@ export default function BookingLiveTrackingScreen() {
           </View>
 
           {/* BOTTOM MUA PROFILE DRAWER */}
-          <View style={styles.bottomDrawer}>
+          <View style={[styles.bottomDrawer, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
             <View style={styles.drawerHandle} />
 
             {(isWaitingCancelConfirm || bookingDetail?.isCancelRequested) && (
@@ -842,7 +856,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 2. MÀN HÌNH GIAO DIỆN KHI THỢ ĐÃ ĐẾN NƠI (ARRIVED) - KHÔNG HIỂN THỊ MAP   */}
       {/* ========================================================================= */}
       {status === 'ARRIVED' && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* BANNER THÔNG BÁO ĐÃ ĐẾN */}
           <View style={styles.arrivedBannerCard}>
             <View style={styles.arrivedIconPulse}>
@@ -934,7 +948,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 3. MÀN HÌNH GIAO DIỆN KHI ĐANG TRANG ĐIỂM (IN_PROGRESS) - KHÔNG HIỂN THỊ MAP */}
       {/* ========================================================================= */}
       {status === 'IN_PROGRESS' && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* THẺ ĐỒNG HỒ LIVE ĐANG MAKE-UP */}
           <View style={styles.liveTimerCard}>
             <View style={styles.timerBadgeHeader}>
@@ -1016,7 +1030,7 @@ export default function BookingLiveTrackingScreen() {
       {/* 4. MÀN HÌNH GIAO DIỆN HOÀN TẤT & ĐÁNH GIÁ (COMPLETED) - KHÔNG HIỂN THỊ MAP  */}
       {/* ========================================================================= */}
       {(status === 'COMPLETED' || status === 'PAID_OUT') && (
-        <ScrollView style={styles.stageScroll} contentContainerStyle={styles.stageScrollContent}>
+        <ScrollView style={styles.stageScroll} contentContainerStyle={[styles.stageScrollContent, { paddingBottom: Math.max(insets.bottom, 16) + 32 }]}>
           {/* BANNER CHÚC MỪNG HOÀN THÀNH */}
           <View style={styles.completedCelebrationCard}>
             <View style={styles.celebrationIconBox}>

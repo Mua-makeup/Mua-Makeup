@@ -20,6 +20,7 @@ import { ShowcaseGridCard } from '@/components/mua/showcase/ShowcaseGridCard';
 import { ShowcaseGalleryModal } from '@/components/customer/ShowcaseGalleryModal';
 import { parseApiError } from '@/utils/error';
 import { useUndoStore } from '@/store/undo.store';
+import { Skeleton } from '@/components/base/Skeleton';
 
 export default function PackageShowcaseScreen() {
   const insets = useSafeAreaInsets();
@@ -181,9 +182,25 @@ export default function PackageShowcaseScreen() {
 
       {/* Danh sách ảnh tác phẩm */}
       {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải album tác phẩm...</Text>
+        <View style={{ padding: 16, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <View
+              key={idx}
+              style={{
+                width: '48%',
+                backgroundColor: '#FFFFFF',
+                borderRadius: 12,
+                padding: 8,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: '#F1F5F9',
+              }}
+            >
+              <Skeleton width="100%" height={160} borderRadius={8} style={{ marginBottom: 8 }} />
+              <Skeleton width="80%" height={14} borderRadius={4} style={{ marginBottom: 4 }} />
+              <Skeleton width="40%" height={12} borderRadius={4} />
+            </View>
+          ))}
         </View>
       ) : (
         <FlatList

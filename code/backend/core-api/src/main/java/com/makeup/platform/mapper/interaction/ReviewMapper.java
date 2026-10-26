@@ -68,6 +68,8 @@ public class ReviewMapper {
                 .comment(review.getComment())
                 .imageUrls(review.getImageUrls() != null ? new ArrayList<>(review.getImageUrls()) : List.of())
                 .status(review.getStatus() != null ? review.getStatus().name() : null)
+                .agencyReply(review.getAgencyReply())
+                .agencyRepliedAt(review.getAgencyRepliedAt())
                 .createdAt(review.getCreatedAt())
                 .build();
     }

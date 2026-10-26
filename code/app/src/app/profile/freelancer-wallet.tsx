@@ -22,6 +22,7 @@ import {
   TransactionDetailModal,
   TransactionDetailData,
 } from '@/components/common/TransactionDetailModal';
+import { WalletSkeleton } from '@/components/base/Skeleton';
 
 function formatVnd(val?: number): string {
   if (!val && val !== 0) return '0 đ';
@@ -58,6 +59,9 @@ function formatDateTimeFull(isoStr?: string): string {
 }
 
 export default function FreelancerWalletScreen() {
+  const userInfo = useAuthStore((s) => s.userInfo);
+  const isAgencyStaffOnly = userInfo?.roles?.includes('ROLE_AGENCY_STAFF') && !userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [wallet, setWallet] = useState<FreelancerWalletInfo | null>(null);
@@ -146,10 +150,7 @@ export default function FreelancerWalletScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải ví chuyên gia...</Text>
-        </View>
+        <WalletSkeleton />
       </SafeAreaView>
     );
   }
@@ -284,7 +285,11 @@ export default function FreelancerWalletScreen() {
               <Ionicons name="lock-closed" size={16} color="#D97706" />
               <View>
                 <Text style={styles.escrowTitle}>Cọc đơn đang giữ trong Escrow:</Text>
-                <Text style={styles.escrowSubtitle}>Chưa thể rút cho đến khi hoàn tất dịch vụ</Text>
+                <Text style={styles.escrowSubtitle}>
+                  {isAgencyStaffOnly
+                    ? 'Đơn Studio do Studio ký quỹ giữ; Bạn nhận hoa hồng khi hoàn tất'
+                    : 'Chưa thể rút cho đến khi hoàn tất dịch vụ'}
+                </Text>
               </View>
             </View>
             <Text style={styles.escrowAmount}>{formatVnd(wallet?.bookingDepositsHeld || 0)}</Text>
@@ -318,7 +323,9 @@ export default function FreelancerWalletScreen() {
               <Ionicons name="shield-checkmark-outline" size={48} color="#94A3B8" />
               <Text style={styles.emptyTitle}>Không có khoản cọc nào đang giữ</Text>
               <Text style={styles.emptyDesc}>
-                Khi khách hàng đặt đơn và thanh toán cọc online, khoản cọc bảo chứng Escrow sẽ hiển thị tại đây.
+                {isAgencyStaffOnly
+                  ? 'Đối với đơn hàng của Studio, tiền đặt cọc của khách do Studio ký quỹ quản lý. Nhân viên sẽ nhận hoa hồng cộng trực tiếp vào ví sau khi hoàn thành dịch vụ.'
+                  : 'Khi khách hàng đặt đơn và thanh toán cọc online, khoản cọc bảo chứng Escrow sẽ hiển thị tại đây.'}
               </Text>
             </View>
           ) : (

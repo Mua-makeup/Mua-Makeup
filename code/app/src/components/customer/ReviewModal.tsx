@@ -91,7 +91,7 @@ export const ReviewModal: React.FC<Props> = ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         quality: 0.8,
         selectionLimit: MAX_IMAGES - images.length,
@@ -206,7 +206,11 @@ export const ReviewModal: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={{ paddingBottom: 16 }}
+          >
             {/* Stars selection */}
             <View style={styles.ratingSection}>
               <Text style={styles.ratingSectionTitle}>Bạn cảm thấy dịch vụ thế nào?</Text>
@@ -292,6 +296,15 @@ export const ReviewModal: React.FC<Props> = ({
             {uploadStatusText ? (
               <Text style={styles.uploadStatusText}>{uploadStatusText}</Text>
             ) : null}
+
+            {/* Policy Notice */}
+            <View style={styles.policyNoticeBox}>
+              <Text style={styles.policyNoticeText}>
+                {isEditMode
+                  ? 'Bạn có thể chỉnh sửa đánh giá này trong vòng 48 giờ kể từ khi tạo. Sau đó hệ thống sẽ chuyển sang trạng thái chỉ xem.'
+                  : 'Sau khi gửi, bạn có 48 giờ để chỉnh sửa lại đánh giá trước khi chuyển sang trạng thái chỉ xem.'}
+              </Text>
+            </View>
 
             {/* Submit Button */}
             <TouchableOpacity
@@ -490,6 +503,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
     fontWeight: '600',
+  },
+  policyNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  policyNoticeText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 16,
   },
   submitBtn: {
     backgroundColor: BrandColors.primary,

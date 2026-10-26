@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { RefreshCw, Search, Eye, AlertCircle, X, Check, User, Sparkles } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
 import { useI18nStore } from '../../store/useI18nStore';
@@ -77,6 +77,17 @@ export const AgencyDisputesPage = () => {
     fetchDisputes(0);
   }, [statusFilter]);
 
+  // Realtime update listener when agency receives a dispute alert
+  useEffect(() => {
+    const handleDisputeAlert = () => {
+      fetchDisputes(pageInfo.page);
+    };
+    window.addEventListener('agency:dispute-alert', handleDisputeAlert);
+    return () => {
+      window.removeEventListener('agency:dispute-alert', handleDisputeAlert);
+    };
+  }, [pageInfo.page]);
+
   // Close image lightbox on Escape key without bubbling to parent modal
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -137,20 +148,20 @@ export const AgencyDisputesPage = () => {
     const isRejected = typeof rowOrStatus === 'object' && rowOrStatus?.isStudioRejected;
 
     if (isEscalated) {
-      return <Badge variant="danger">Leo thang Admin</Badge>;
+      return <Badge variant="danger">{t('status_escalated_admin')}</Badge>;
     }
     if (isRejected && status === 'DISPUTED') {
-      return <Badge variant="warning">Đã từ chối (Chờ khách)</Badge>;
+      return <Badge variant="warning">{t('status_rejected_waiting_customer')}</Badge>;
     }
     switch (status) {
       case 'DISPUTED':
-        return <Badge variant="warning">Chờ Studio xử lý</Badge>;
+        return <Badge variant="warning">{t('status_waiting_studio')}</Badge>;
       case 'DISPUTE_REFUNDED':
-        return <Badge variant="neutral">Đã hoàn cọc</Badge>;
+        return <Badge variant="neutral">{t('status_refunded')}</Badge>;
       case 'DISPUTE_COMPENSATED':
-        return <Badge variant="success">Giải quyết nội bộ</Badge>;
+        return <Badge variant="success">{t('status_resolved_internal')}</Badge>;
       case 'CANCELLED':
-        return <Badge variant="danger">Đã hủy</Badge>;
+        return <Badge variant="danger">{t('status_cancelled')}</Badge>;
       default:
         return <Badge variant="neutral">{status}</Badge>;
     }
@@ -158,30 +169,30 @@ export const AgencyDisputesPage = () => {
 
   const columns = [
     {
-      header: 'Mã đơn',
+      header: t('col_dispute_booking_code'),
       accessor: 'bookingCode',
       render: (row) => <span className="font-semibold text-slate-900 dark:text-slate-100">#{row.bookingCode}</span>,
     },
     {
-      header: 'Khách hàng',
+      header: t('col_dispute_customer'),
       render: (row) => (
         <div>
-          <p className="font-medium text-slate-800 dark:text-slate-200">{row.customerName || 'Khách vãng lai'}</p>
+          <p className="font-medium text-slate-800 dark:text-slate-200">{row.customerName || t('guest_customer')}</p>
           {row.customerPhone && <p className="text-xs text-slate-500">{row.customerPhone}</p>}
         </div>
       ),
     },
     {
-      header: 'Chuyên viên',
+      header: t('col_dispute_staff'),
       render: (row) => (
         <div>
-          <p className="font-medium text-slate-800 dark:text-slate-200">{row.staffName || 'Chưa chỉ định'}</p>
+          <p className="font-medium text-slate-800 dark:text-slate-200">{row.staffName || t('unassigned_staff')}</p>
           {row.staffPhone && <p className="text-xs text-slate-500">{row.staffPhone}</p>}
         </div>
       ),
     },
     {
-      header: 'Lịch hẹn',
+      header: t('col_dispute_appointment'),
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400">
           {formatDate(row.bookingDate)} {row.startTime ? `(${row.startTime.substring(0, 5)})` : ''}
@@ -189,23 +200,23 @@ export const AgencyDisputesPage = () => {
       ),
     },
     {
-      header: 'Lý do sự cố',
+      header: t('col_dispute_reason'),
       render: (row) => (
         <p className="text-xs text-slate-700 dark:text-slate-300 max-w-xs truncate" title={row.emergencyReason || row.cancellationReason}>
-          {row.emergencyReason || row.cancellationReason || 'Không có lý do'}
+          {row.emergencyReason || row.cancellationReason || t('no_reason')}
         </p>
       ),
     },
     {
-      header: 'Trạng thái',
+      header: t('status'),
       render: (row) => renderStatusBadge(row),
     },
     {
-      header: 'Thao tác',
+      header: t('actions'),
       render: (row) => (
         <Button variant="outline" size="sm" onClick={() => handleOpenDetail(row)} className="flex items-center gap-1.5 py-1 px-2.5 text-xs">
           <Eye size={13} />
-          <span>Chi tiết</span>
+          <span>{t('btn_detail')}</span>
         </Button>
       ),
     },
@@ -264,39 +275,52 @@ export const AgencyDisputesPage = () => {
           }
         }
       });
-
-      const hasTaggedProofs = rawProofParts.some((p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]'));
-      if (hasTaggedProofs) {
-        rawProofParts.forEach((item) => {
-          const cleaned = cleanUrl(item);
-          if (!cleaned) return;
-          if (item.includes('[Khách hàng]')) {
-            customerProofUrls.push(cleaned);
-          } else if (item.includes('[Chuyên viên MUA]')) {
-            muaProofUrls.push(cleaned);
-          } else {
-            if (muaProofUrls.length === 0) muaProofUrls.push(cleaned);
-            else customerProofUrls.push(cleaned);
-          }
-        });
-      } else {
-        customerProofUrls = rawProofParts.slice(0, 1).map(cleanUrl).filter(Boolean);
-        muaProofUrls = rawProofParts.slice(1).map(cleanUrl).filter(Boolean);
-      }
     } else if (isMuaOnly) {
       muaStatement = rawReason.replace(/\[Chuyên viên MUA\]:?/, '').trim();
       hasMuaStatement = Boolean(muaStatement);
-      customerStatement = 'Khách hàng chưa gửi lời khai riêng';
+      customerStatement = t('dispute_customer_no_statement_msg');
       hasCustomerStatement = false;
-      muaProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
-      customerProofUrls = [];
     } else {
       customerStatement = rawReason.replace(/\[Khách hàng\]:?/, '').trim();
       hasCustomerStatement = Boolean(customerStatement);
-      muaStatement = 'Chuyên viên chưa gửi lời khai giải trình riêng qua ứng dụng';
+      muaStatement = t('dispute_staff_no_statement_msg');
       hasMuaStatement = false;
-      customerProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
-      muaProofUrls = [];
+    }
+
+    // Parse proof images independently of statement dual state
+    const hasTaggedProofs = rawProofParts.some(
+      (p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]') || p.includes('[Thợ MUA]')
+    );
+    if (hasTaggedProofs) {
+      rawProofParts.forEach((item) => {
+        const cleaned = cleanUrl(item);
+        if (!cleaned) return;
+        if (item.includes('[Khách hàng]')) {
+          customerProofUrls.push(cleaned);
+        } else if (item.includes('[Chuyên viên MUA]') || item.includes('[Thợ MUA]')) {
+          muaProofUrls.push(cleaned);
+        } else {
+          if (isMuaOnly) {
+            muaProofUrls.push(cleaned);
+          } else if (isDual) {
+            if (muaProofUrls.length === 0) muaProofUrls.push(cleaned);
+            else customerProofUrls.push(cleaned);
+          } else {
+            customerProofUrls.push(cleaned);
+          }
+        }
+      });
+    } else {
+      if (isDual) {
+        customerProofUrls = rawProofParts.slice(0, 1).map(cleanUrl).filter(Boolean);
+        muaProofUrls = rawProofParts.slice(1).map(cleanUrl).filter(Boolean);
+      } else if (isMuaOnly) {
+        muaProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
+        customerProofUrls = [];
+      } else {
+        customerProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
+        muaProofUrls = [];
+      }
     }
 
     return {
@@ -315,14 +339,14 @@ export const AgencyDisputesPage = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Khiếu Nại & Sự Cố</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">{t('agency_disputes_title')}</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Quản lý và giải quyết các báo cáo sự cố hoặc khiếu nại liên quan đến đơn hàng của Studio
+            {t('agency_disputes_subtitle')}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => fetchDisputes(pageInfo.page)} className="self-start sm:self-auto flex items-center gap-1.5 text-xs">
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
-          <span>Làm mới</span>
+          <span>{t('reload')}</span>
         </Button>
       </div>
 
@@ -337,9 +361,9 @@ export const AgencyDisputesPage = () => {
       <div className="bg-white dark:bg-slate-900 p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 overflow-x-auto">
           {[
-            { id: 'ALL', label: 'Tất cả' },
-            { id: 'PENDING', label: 'Chờ xử lý' },
-            { id: 'RESOLVED', label: 'Đã giải quyết' },
+            { id: 'ALL', label: t('agency_disputes_tab_all') },
+            { id: 'PENDING', label: t('agency_disputes_tab_pending') },
+            { id: 'RESOLVED', label: t('agency_disputes_tab_resolved') },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -360,33 +384,49 @@ export const AgencyDisputesPage = () => {
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Tìm theo mã đơn hoặc lý do..."
+              placeholder={t('agency_disputes_search_placeholder')}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-800 dark:text-slate-100"
             />
           </div>
           <Button type="submit" size="sm" className="text-xs px-3 py-1.5">
-            Tìm
+            {t('search')}
           </Button>
         </form>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <DataTable
-          columns={columns}
-          data={disputes}
-          loading={isLoading}
-          page={pageInfo.page}
-          pageSize={pageInfo.size}
-          totalElements={pageInfo.totalElements}
-          totalPages={pageInfo.totalPages}
-          onPageChange={(newPage) => fetchDisputes(newPage)}
-          onPageSizeChange={(newSize) => fetchDisputes(0, newSize)}
-          emptyMessage="Không có báo cáo khiếu nại nào."
-        />
-      </div>
+      {/* Sorted Disputes: DISPUTED / PENDING on top, then newest date */}
+      {(() => {
+        const sortedDisputes = [...disputes].sort((a, b) => {
+          const isAPending = a.status === 'DISPUTED' || a.status === 'PENDING';
+          const isBPending = b.status === 'DISPUTED' || b.status === 'PENDING';
+          if (isAPending && !isBPending) return -1;
+          if (!isAPending && isBPending) return 1;
+          const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return dateB - dateA;
+        });
+
+        return (
+          <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <DataTable
+              columns={columns}
+              data={sortedDisputes}
+              isLoading={isLoading}
+              pagination={{
+                page: pageInfo.page,
+                size: pageInfo.size,
+                totalElements: pageInfo.totalElements,
+                totalPages: pageInfo.totalPages,
+                onPageChange: (newPage1Indexed) => fetchDisputes(newPage1Indexed - 1, pageInfo.size),
+                onPageSizeChange: (newSize) => fetchDisputes(0, newSize),
+              }}
+              emptyMessage={t('agency_disputes_empty')}
+            />
+          </div>
+        );
+      })()}
 
       {/* Detail & Resolve Modal */}
       {selectedDispute && (() => {
@@ -402,38 +442,38 @@ export const AgencyDisputesPage = () => {
           <Modal
             isOpen={isDetailModalOpen}
             onClose={() => setIsDetailModalOpen(false)}
-            title={`Chi Tiết Sự Cố #${selectedDispute.bookingCode}`}
+            title={`${t('agency_dispute_detail_title')} #${selectedDispute.bookingCode}`}
             maxWidth="max-w-4xl"
           >
             <div className="space-y-4 text-xs">
               {/* Tóm tắt thông tin */}
               <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-100 dark:border-slate-800">
                 <div>
-                  <span className="text-slate-500">Khách hàng:</span>
+                  <span className="text-slate-500">{t('customer_label')}:</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
                     {selectedDispute.customerName || 'N/A'} ({selectedDispute.customerPhone || 'N/A'})
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-500">Chuyên viên phụ trách:</span>
+                  <span className="text-slate-500">{t('staff_in_charge')}:</span>
                   <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
-                    {selectedDispute.staffName || 'Chưa có'} ({selectedDispute.staffPhone || 'N/A'})
+                    {selectedDispute.staffName || 'N/A'} ({selectedDispute.staffPhone || 'N/A'})
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-500">Tiền cọc:</span>
+                  <span className="text-slate-500">{t('deposit_amount')}:</span>
                   <p className="font-semibold text-blue-600 dark:text-blue-400 mt-0.5">
                     {formatVnd(selectedDispute.depositAmount)}
                   </p>
                 </div>
                 <div>
-                  <span className="text-slate-500">Tổng tiền dịch vụ:</span>
+                  <span className="text-slate-500">{t('total_service_amount')}:</span>
                   <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">
                     {formatVnd(selectedDispute.totalAmount || selectedDispute.depositAmount)}
                   </p>
                 </div>
                 <div className="col-span-2 flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-500">Trạng thái hiện tại:</span>
+                  <span className="text-slate-500">{t('current_status')}:</span>
                   <div>{renderStatusBadge(selectedDispute)}</div>
                 </div>
               </div>
@@ -442,15 +482,15 @@ export const AgencyDisputesPage = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-800 dark:text-slate-200">
-                    Hồ sơ đối soát & Lời khai 2 bên:
+                    {t('dispute_dossier_title')}
                   </span>
                   {disputeInfo.hasMuaStatement ? (
                     <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
-                      ✓ Đã có giải trình từ thợ
+                      {t('dispute_staff_has_statement')}
                     </span>
                   ) : (
                     <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
-                      Chuyên viên chưa gửi giải trình
+                      {t('dispute_staff_no_statement_yet')}
                     </span>
                   )}
                 </div>
@@ -466,7 +506,7 @@ export const AgencyDisputesPage = () => {
                           </div>
                           <div>
                             <span className="font-bold text-xs text-slate-900 dark:text-white">
-                              {selectedDispute.customerName || 'Khách hàng'}
+                              {selectedDispute.customerName || t('customer_label')}
                             </span>
                             <span className="text-[10px] text-slate-500 block">
                               {selectedDispute.customerPhone || 'N/A'}
@@ -474,16 +514,16 @@ export const AgencyDisputesPage = () => {
                           </div>
                         </div>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                          Phía Khách Hàng
+                          {t('dispute_customer_side')}
                         </span>
                       </div>
 
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
-                          {isPostCompletion ? 'Nội dung khiếu nại chất lượng ca làm:' : 'Lý do báo cáo sự cố:'}
+                          {isPostCompletion ? t('dispute_complaint_content') : t('dispute_incident_reason')}
                         </label>
                         <div className="p-2.5 rounded bg-white dark:bg-slate-900 border border-blue-200/70 dark:border-blue-900/40 text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
-                          "{disputeInfo.customerStatement || 'Không có mô tả chi tiết'}"
+                          "{disputeInfo.customerStatement || t('dispute_no_desc')}"
                         </div>
                       </div>
                     </div>
@@ -491,7 +531,7 @@ export const AgencyDisputesPage = () => {
                     {/* Ảnh minh chứng từ khách */}
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
-                        Ảnh minh chứng hiện trường (Khách):
+                        {t('dispute_customer_proof')}
                       </label>
                       {disputeInfo.customerProofUrls.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
@@ -514,7 +554,7 @@ export const AgencyDisputesPage = () => {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-400 italic">Không có ảnh minh chứng đính kèm</span>
+                        <span className="text-[11px] text-slate-400 italic">{t('dispute_no_proof_attached')}</span>
                       )}
                     </div>
                   </div>
@@ -529,7 +569,7 @@ export const AgencyDisputesPage = () => {
                           </div>
                           <div>
                             <span className="font-bold text-xs text-slate-900 dark:text-white">
-                              {selectedDispute.staffName || 'Chuyên viên MUA'}
+                              {selectedDispute.staffName || t('staff_in_charge')}
                             </span>
                             <span className="text-[10px] text-slate-500 block">
                               {selectedDispute.staffPhone || 'N/A'}
@@ -537,13 +577,13 @@ export const AgencyDisputesPage = () => {
                           </div>
                         </div>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                          Phía Chuyên Viên (Thợ)
+                          {t('dispute_staff_side')}
                         </span>
                       </div>
 
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
-                          Lời khai giải trình của thợ:
+                          {t('dispute_staff_statement_title')}
                         </label>
                         {disputeInfo.hasMuaStatement ? (
                           <div className="p-2.5 rounded bg-white dark:bg-slate-900 border border-amber-200/70 dark:border-amber-900/40 text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
@@ -551,7 +591,7 @@ export const AgencyDisputesPage = () => {
                           </div>
                         ) : (
                           <div className="p-2.5 rounded bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-500 italic">
-                            Chuyên viên chưa gửi lời khai giải trình riêng qua ứng dụng.
+                            {t('dispute_staff_no_statement_msg')}
                           </div>
                         )}
                       </div>
@@ -562,8 +602,8 @@ export const AgencyDisputesPage = () => {
                       {selectedDispute.completionPhotoUrl && (
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center justify-between mb-1">
-                            <span>Ảnh check-out hoàn thành ca:</span>
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold lowercase">đã chụp hoàn tất</span>
+                            <span>{t('dispute_staff_checkout_photo')}</span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold lowercase">{t('dispute_checkout_completed_badge')}</span>
                           </label>
                           <div className="flex items-center gap-2">
                             <div className="relative group">
@@ -581,14 +621,14 @@ export const AgencyDisputesPage = () => {
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
                             </div>
-                            <span className="text-slate-500 text-[11px]">(Ảnh thợ chụp sau ca)</span>
+                            <span className="text-slate-500 text-[11px]">{t('dispute_staff_photo_hint')}</span>
                           </div>
                         </div>
                       )}
 
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
-                          Ảnh minh chứng đối soát của Thợ:
+                          {t('dispute_staff_proof')}
                         </label>
                         {disputeInfo.muaProofUrls.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
@@ -612,7 +652,7 @@ export const AgencyDisputesPage = () => {
                           </div>
                         ) : (
                           <span className="text-[11px] text-slate-400 italic">
-                            {selectedDispute.completionPhotoUrl ? 'Chỉ có ảnh hoàn thành ca ở trên' : 'Không có ảnh minh chứng đính kèm'}
+                            {selectedDispute.completionPhotoUrl ? t('dispute_only_checkout_photo') : t('dispute_no_proof_attached')}
                           </span>
                         )}
                       </div>
@@ -627,15 +667,15 @@ export const AgencyDisputesPage = () => {
                   <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-md text-xs text-red-800 dark:text-red-200 space-y-1">
                     <div className="font-semibold flex items-center gap-1.5 text-red-700 dark:text-red-300">
                       <AlertCircle size={14} />
-                      <span>Khách hàng đã chuyển khiếu nại lên Admin Sàn</span>
+                      <span>{t('dispute_escalated_admin_title')}</span>
                     </div>
                     <p className="text-slate-600 dark:text-slate-400">
-                      Hồ sơ đã được chuyển giao cho Ban Quản Trị Sàn phân xử tối hậu. Quyết định hoàn tiền hoặc bảo lưu doanh thu sẽ do Admin phê duyệt.
+                      {t('dispute_escalated_admin_desc')}
                     </p>
                   </div>
                   <div className="flex justify-end">
                     <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)}>
-                      Đóng
+                      {t('close')}
                     </Button>
                   </div>
                 </div>
@@ -645,17 +685,15 @@ export const AgencyDisputesPage = () => {
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-md text-xs text-amber-800 dark:text-amber-200 space-y-1">
                     <div className="font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
                       <AlertCircle size={14} />
-                      <span>{isPostCompletion ? 'Studio đã bác bỏ khiếu nại sau ca (Chờ khách phản hồi)' : 'Studio đã từ chối hoàn cọc (Chờ khách phản hồi)'}</span>
+                      <span>{isPostCompletion ? t('dispute_studio_rejected_post_title') : t('dispute_studio_rejected_pre_title')}</span>
                     </div>
                     <p className="text-slate-600 dark:text-slate-400">
-                      {isPostCompletion
-                        ? 'Hệ thống đang chờ khách hàng xác nhận chấp nhận kết quả bác bỏ khiếu nại hoặc lựa chọn chuyển khiếu nại lên Ban Quản Trị Sàn phân xử tối hậu.'
-                        : 'Hệ thống đang chờ khách hàng xác nhận chấp nhận kết quả hoặc lựa chọn chuyển khiếu nại lên Ban Quản Trị Sàn phân xử.'}
+                      {isPostCompletion ? t('dispute_studio_rejected_post_desc') : t('dispute_studio_rejected_pre_desc')}
                     </p>
                   </div>
                   <div className="flex justify-end">
                     <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)}>
-                      Đóng
+                      {t('close')}
                     </Button>
                   </div>
                 </div>
@@ -663,7 +701,7 @@ export const AgencyDisputesPage = () => {
                 /* Form xử lý khi chưa từ chối, chưa leo thang */
                 <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {isPostCompletion ? 'Phương án giải quyết khiếu nại sau ca:' : 'Phương án xử lý sự cố cọc:'}
+                    {isPostCompletion ? t('dispute_resolution_options_post') : t('dispute_resolution_options_pre')}
                   </span>
                   <div className="grid grid-cols-2 gap-2.5">
                     <label
@@ -675,12 +713,12 @@ export const AgencyDisputesPage = () => {
                       }`}
                     >
                       <span className="font-semibold text-xs">
-                        {isPostCompletion ? 'Chấp thuận khiếu nại (Hoàn 100% tiền đơn)' : 'Đồng ý hoàn cọc cho khách'}
+                        {isPostCompletion ? t('dispute_approve_refund_title') : t('dispute_approve_refund_pre_title')}
                       </span>
                       <span className="text-[11px] text-slate-500">
                         {isPostCompletion
-                          ? `Hoàn trả 100% chi phí dịch vụ (${formatVnd(selectedDispute.totalAmount)}) vào ví khách hàng. Ca làm không phát sinh doanh thu.`
-                          : `Hoàn trả 100% tiền cọc (${formatVnd(selectedDispute.depositAmount)}) từ Escrow vào ví khách hàng.`}
+                          ? t('dispute_approve_refund_post_desc', { amount: formatVnd(selectedDispute.totalAmount) })
+                          : t('dispute_approve_refund_pre_desc', { amount: formatVnd(selectedDispute.depositAmount) })}
                       </span>
                     </label>
 
@@ -693,20 +731,18 @@ export const AgencyDisputesPage = () => {
                       }`}
                     >
                       <span className="font-semibold text-xs">
-                        {isPostCompletion ? 'Bác bỏ khiếu nại (Bảo lưu thù lao dịch vụ)' : 'Từ chối hoàn cọc'}
+                        {isPostCompletion ? t('dispute_reject_title') : t('dispute_reject_pre_title')}
                       </span>
                       <span className="text-[11px] text-slate-500">
-                        {isPostCompletion
-                          ? 'Bảo lưu doanh thu cho Studio & Thợ. Khách hàng sẽ nhận thông báo để chấp nhận hoặc chuyển lên Admin Sàn.'
-                          : 'Giữ cọc cho Studio. Khách sẽ nhận thông báo để chấp nhận hoặc chuyển Admin Sàn.'}
+                        {isPostCompletion ? t('dispute_reject_post_desc') : t('dispute_reject_pre_desc')}
                       </span>
                     </label>
                   </div>
 
                   <div>
-                    <span className="text-slate-600 dark:text-slate-400">Ghi chú giải trình của Studio:</span>
+                    <span className="text-slate-600 dark:text-slate-400">{t('dispute_resolve_note_label')}</span>
                     <Textarea
-                      placeholder={isPostCompletion ? 'Nhập giải trình lý do chấp thuận hoặc bác bỏ khiếu nại chất lượng...' : 'Nhập lý do hoặc giải trình gửi tới khách hàng...'}
+                      placeholder={t('dispute_resolve_note_placeholder')}
                       value={resolveNote}
                       onChange={(e) => setResolveNote(e.target.value)}
                       rows={2}
@@ -717,17 +753,17 @@ export const AgencyDisputesPage = () => {
 
                   <div className="flex justify-end gap-2 pt-2">
                     <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)}>
-                      Hủy
+                      {t('cancel')}
                     </Button>
                     <Button size="sm" onClick={handleResolveSubmit} disabled={isResolving}>
-                      {isResolving ? 'Đang xử lý...' : 'Xác nhận xử lý'}
+                      {isResolving ? t('loading') : t('btn_confirm_resolution')}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                   <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)}>
-                    Đóng
+                    {t('close')}
                   </Button>
                 </div>
               )}
@@ -748,13 +784,13 @@ export const AgencyDisputesPage = () => {
           >
             <img
               src={previewImageUrl}
-              alt="Xem minh chứng"
+              alt={t('dispute_customer_proof')}
               className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10"
             />
             <button
               onClick={() => setPreviewImageUrl(null)}
               className="absolute -top-3.5 -right-3.5 bg-white text-slate-800 hover:bg-slate-100 p-1.5 rounded-full shadow-lg border border-slate-200 transition-colors cursor-pointer"
-              title="Đóng xem ảnh"
+              title={t('close')}
             >
               <X size={18} />
             </button>

@@ -21,6 +21,7 @@ import {
 import { PackageItemModal } from '@/components/mua/packages/PackageItemModal';
 import { parseApiError } from '@/utils/error';
 import { useUndoStore } from '@/store/undo.store';
+import { CardSkeleton } from '@/components/base/Skeleton';
 
 export default function PackageItemsScreen() {
   const insets = useSafeAreaInsets();
@@ -150,9 +151,8 @@ export default function PackageItemsScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải các bước dịch vụ...</Text>
+        <View style={{ padding: 16 }}>
+          <CardSkeleton count={3} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>

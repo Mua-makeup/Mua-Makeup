@@ -75,6 +75,18 @@ public class ReviewServiceImpl implements ReviewService {
                     "review.already_reviewed", HttpStatus.CONFLICT);
         }
 
+        // Kiểm tra thời hạn đánh giá trong vòng 7 ngày kể từ khi hoàn tất/quyết toán đơn
+        LocalDateTime completionTime = booking.getUpdatedAt() != null
+                ? booking.getUpdatedAt()
+                : (booking.getBookingDate() != null && booking.getStartTime() != null
+                    ? booking.getBookingDate().atTime(booking.getStartTime())
+                    : booking.getCreatedAt());
+
+        if (completionTime != null && completionTime.isBefore(LocalDateTime.now().minusDays(7))) {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
+                    "review.create_expired", HttpStatus.BAD_REQUEST);
+        }
+
         if (booking.getMua() == null) {
             throw new CustomBusinessException(ErrorCodes.ERR_MUA_PROFILE_NOT_FOUND,
                     "review.mua_not_found", HttpStatus.BAD_REQUEST);
@@ -166,8 +178,9 @@ public class ReviewServiceImpl implements ReviewService {
                     "review.unauthorized", HttpStatus.FORBIDDEN);
         }
 
-        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-        if (review.getCreatedAt() != null && review.getCreatedAt().isBefore(sevenDaysAgo)) {
+        // Chỉ cho phép chỉnh sửa đánh giá trong vòng 48 giờ (2 ngày) kể từ khi tạo
+        LocalDateTime fortyEightHoursAgo = LocalDateTime.now().minusHours(48);
+        if (review.getCreatedAt() != null && review.getCreatedAt().isBefore(fortyEightHoursAgo)) {
             throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
                     "review.edit_expired", HttpStatus.BAD_REQUEST);
         }

@@ -29,7 +29,7 @@ public interface BookingStaffAssignmentRepository extends JpaRepository<BookingS
     boolean existsByBookingIdAndStaffIdAndStatus(Long bookingId, Long staffId, AssignmentStatus status);
 
     @Query("""
-        SELECT bsa FROM BookingStaffAssignmentEntity bsa
+        SELECT DISTINCT bsa FROM BookingStaffAssignmentEntity bsa
         JOIN FETCH bsa.staff s
         JOIN FETCH s.mua m
         JOIN FETCH m.user u
@@ -42,7 +42,7 @@ public interface BookingStaffAssignmentRepository extends JpaRepository<BookingS
     );
 
     @Query("""
-        SELECT bsa FROM BookingStaffAssignmentEntity bsa
+        SELECT DISTINCT bsa FROM BookingStaffAssignmentEntity bsa
         JOIN FETCH bsa.staff s
         JOIN FETCH s.mua m
         JOIN FETCH m.user u

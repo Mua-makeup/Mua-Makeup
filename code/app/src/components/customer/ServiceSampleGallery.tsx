@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { PortfolioShowcase } from '@/services/mua-profile.service';
 import { PackageDetail } from '@/services/package.service';
+import { Skeleton } from '@/components/base/Skeleton';
 
 interface Props {
   selectedPackage: PackageDetail | null;
@@ -228,9 +229,16 @@ export const ServiceSampleGallery: React.FC<Props> = ({
 
       {/* TRẠNG THÁI ĐANG TẢI */}
       {isLoading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="small" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải bộ sưu tập ảnh của gói...</Text>
+        <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 6, height: 180 }}>
+            <View style={{ flex: 2 }}>
+              <Skeleton width="100%" height={180} borderRadius={12} />
+            </View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Skeleton width="100%" height={87} borderRadius={10} />
+              <Skeleton width="100%" height={87} borderRadius={10} />
+            </View>
+          </View>
         </View>
       ) : allPhotos.length === 0 ? (
         /* TRẠNG THÁI CHƯA CÓ ẢNH RIÊNG CHO GÓI */

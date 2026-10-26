@@ -21,6 +21,7 @@ import { BrandColors } from '@/constants/theme';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { bookingService, BookingStatusDetailRes, CandidatePackageRes } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
 
 interface AddOnOption {
   id: string;
@@ -318,9 +319,21 @@ export default function InstantMatchedScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang chuẩn bị thông tin chuyên viên...</Text>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="close" size={22} color="#0F172A" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleGroup}>
+            <Text style={styles.headerBadge}>⚡ CA KHẨN CẤP KHỚP THÀNH CÔNG</Text>
+            <Text style={styles.headerTitle}>Xác Nhận & Đặt Cọc Giữ Chỗ</Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+        <BookingDetailSkeleton />
       </SafeAreaView>
     );
   }

@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
 import { packageService, PackageDetail } from '@/services/package.service';
 import { parseApiError } from '@/utils/error';
+import { ImageViewerModal } from '@/components/common/ImageViewerModal';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IMAGE_CONTAINER_WIDTH = SCREEN_WIDTH - 32;
@@ -76,10 +78,7 @@ export default function StaffPackageDetailScreen() {
           <Text style={styles.headerTitle}>Chi Tiết Gói Dịch Vụ</Text>
           <View style={{ width: 36 }} />
         </View>
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải thông tin chi tiết gói...</Text>
-        </View>
+        <DetailScreenSkeleton />
       </SafeAreaView>
     );
   }
@@ -368,30 +367,13 @@ export default function StaffPackageDetailScreen() {
         <View style={{ height: 36 }} />
       </ScrollView>
 
-      {/* MODAL XEM PHÓNG TO TOÀN BỘ ẢNH (KHÔNG BỊ CHE KHUẤT) */}
-      <Modal
+      {/* MODAL XEM PHÓNG TO TOÀN BỘ ẢNH (CHẠM NGOÀI HOẶC VUỐT XUỐNG ĐỂ TẮT) */}
+      <ImageViewerModal
         visible={!!previewImageUrl}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setPreviewImageUrl(null)}
-      >
-        <View style={styles.imageModalOverlay}>
-          <TouchableOpacity
-            style={styles.closeImageModalBtn}
-            onPress={() => setPreviewImageUrl(null)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={26} color="#FFFFFF" />
-          </TouchableOpacity>
-          {previewImageUrl && (
-            <Image
-              source={{ uri: previewImageUrl }}
-              style={styles.fullPreviewImage}
-              contentFit="contain"
-            />
-          )}
-        </View>
-      </Modal>
+        images={previewImageUrl ? [previewImageUrl] : []}
+        title="Ảnh gói dịch vụ"
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </SafeAreaView>
   );
 }

@@ -32,6 +32,8 @@ export interface ReviewItem {
   rating: number;
   comment?: string;
   imageUrls?: string[];
+  agencyReply?: string;
+  agencyRepliedAt?: string;
   status: string;
   createdAt: string;
 }

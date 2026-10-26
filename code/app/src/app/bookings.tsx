@@ -15,10 +15,11 @@ import {
   Easing,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors } from '@/constants/theme';
+import { getBottomNavPadding } from '@/utils/responsive';
 import { useAuthStore } from '@/store/auth.store';
 import { useBookingStore } from '@/store/booking.store';
 import { useWorkstationStore } from '@/store/workstation.store';
@@ -34,6 +35,7 @@ import { BookingHistoryCard } from '@/components/booking/BookingHistoryCard';
 import { TodayBookingCard } from '@/components/mua/TodayBookingCard';
 import { CancelBookingModal } from '@/components/booking/CancelBookingModal';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
+import { BookingCardSkeleton } from '@/components/base/Skeleton';
 
 export type SortOption =
   | 'CREATED_DESC'
@@ -138,6 +140,7 @@ const HISTORY_STATUS_FILTERS: StatusFilterConfig[] = [
 
 
 export default function BookingsScreen() {
+  const insets = useSafeAreaInsets();
   const { userInfo, isAuthenticated } = useAuthStore();
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
@@ -160,6 +163,7 @@ export default function BookingsScreen() {
   const [freelancerHistory, setFreelancerHistory] = useState<FreelancerBookingItem[]>([]);
   const [isLoadingFreelancer, setIsLoadingFreelancer] = useState(false);
   const [isRefreshingFreelancer, setIsRefreshingFreelancer] = useState(false);
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
 
   const [selectedBookingToCancel, setSelectedBookingToCancel] = useState<CustomerBookingItem | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -217,6 +221,16 @@ export default function BookingsScreen() {
 
     try {
       const all = await freelancerBookingService.getMyAssignedBookings();
+
+      // Loại bỏ trùng lặp đơn hàng theo id
+      const uniqueMap = new Map<number, FreelancerBookingItem>();
+      all.forEach((item) => {
+        if (item?.id) {
+          uniqueMap.set(item.id, item);
+        }
+      });
+      const uniqueAll = Array.from(uniqueMap.values());
+
       const upcoming: FreelancerBookingItem[] = [];
       const history: FreelancerBookingItem[] = [];
 
@@ -230,7 +244,7 @@ export default function BookingsScreen() {
         'IN_PROGRESS',
       ];
 
-      for (const item of all) {
+      for (const item of uniqueAll) {
         if (upcomingStatuses.includes(item.status)) {
           upcoming.push(item);
         } else {
@@ -462,10 +476,18 @@ export default function BookingsScreen() {
   const totalFilteredCount = filteredAndSortedList.length;
 
   const displayList = useMemo(() => {
-    if (activeTab !== 'HISTORY') {
-      return filteredAndSortedList;
-    }
-    return filteredAndSortedList.slice(0, displayLimit);
+    const list = activeTab !== 'HISTORY'
+      ? filteredAndSortedList
+      : filteredAndSortedList.slice(0, displayLimit);
+
+    // Đảm bảo danh sách render không có phần tử trùng id gây lỗi key trong FlatList
+    const uniqueMap = new Map<number, any>();
+    list.forEach((item: any) => {
+      if (item?.id && !uniqueMap.has(item.id)) {
+        uniqueMap.set(item.id, item);
+      }
+    });
+    return Array.from(uniqueMap.values());
   }, [filteredAndSortedList, displayLimit, activeTab]);
 
   // Tự động reset về 10 đơn mỗi khi thay đổi từ khóa tìm kiếm, bộ lọc hoặc tab
@@ -501,10 +523,16 @@ export default function BookingsScreen() {
   };
 
   const handleTabChange = (newTab: 'UPCOMING' | 'HISTORY') => {
-    setActiveTab(newTab);
-    setSelectedStatus('ALL');
-    setSelectedTimeframe('ALL');
-    setDisplayLimit(PAGE_CHUNK_SIZE);
+    if (newTab !== activeTab) {
+      setIsTabSwitching(true);
+      setActiveTab(newTab);
+      setSelectedStatus('ALL');
+      setSelectedTimeframe('ALL');
+      setDisplayLimit(PAGE_CHUNK_SIZE);
+      setTimeout(() => {
+        setIsTabSwitching(false);
+      }, 350);
+    }
   };
 
   const handleResetFilters = () => {
@@ -760,19 +788,12 @@ export default function BookingsScreen() {
       </View>
 
       {/* DANH SÁCH ĐƠN HÀNG */}
-      {isLoading && rawList.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>
-            {isWorkstationRole
-              ? 'Đang tải danh sách ca làm việc...'
-              : 'Đang tải danh sách lịch hẹn...'}
-          </Text>
-        </View>
+      {(isLoading && rawList.length === 0) || isTabSwitching ? (
+        <BookingCardSkeleton count={3} style={styles.listContent} />
       ) : (
         <FlatList
           data={displayList as any[]}
-          keyExtractor={(item) => `booking-${item.id}`}
+          keyExtractor={(item, index) => (item?.id ? `booking-${item.id}` : `booking-idx-${index}`)}
           renderItem={({ item }) =>
             isWorkstationRole ? (
               <TodayBookingCard
@@ -787,10 +808,11 @@ export default function BookingsScreen() {
                 onReviewPress={handleReview}
                 onRebookPress={handleRebook}
                 onDisputePress={handleDispute}
+                onPayFinalPress={(b) => router.push(`/booking/history-detail/${b.id}` as any)}
               />
             )
           }
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
           showsVerticalScrollIndicator={false}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.25}

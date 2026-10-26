@@ -26,6 +26,7 @@ import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.wallet.WalletEntity;
 import com.makeup.platform.mapper.auth.AuthMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
+import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.RolePermissionRepository;
 import com.makeup.platform.repository.RoleRepository;
@@ -69,6 +70,7 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final AgencyProfileRepository agencyProfileRepository;
+    private final AgencyStaffRepository agencyStaffRepository;
     private final MuaProfileRepository muaProfileRepository;
     private final RedisTokenService redisTokenService;
     private final PasswordEncoder passwordEncoder;
@@ -367,6 +369,12 @@ public class AuthServiceImpl implements AuthService {
                 .map(AgencyProfileEntity::getId)
                 .orElse(null);
 
+        if (agencyId == null) {
+            agencyId = agencyStaffRepository.findActiveStaffByUserId(userId)
+                    .map(staff -> staff.getAgency().getId())
+                    .orElse(null);
+        }
+
         Long muaId = muaProfileRepository.findByUserId(userId)
                 .map(MuaProfileEntity::getId)
                 .orElse(null);
@@ -470,6 +478,12 @@ public class AuthServiceImpl implements AuthService {
         Long agencyId = agencyProfileRepository.findByOwnerId(user.getId())
                 .map(AgencyProfileEntity::getId)
                 .orElse(null);
+
+        if (agencyId == null) {
+            agencyId = agencyStaffRepository.findActiveStaffByUserId(user.getId())
+                    .map(staff -> staff.getAgency().getId())
+                    .orElse(null);
+        }
 
         Long muaId = muaProfileRepository.findByUserId(user.getId())
                 .map(MuaProfileEntity::getId)

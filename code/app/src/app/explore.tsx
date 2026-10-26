@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { UserAvatar } from '@/components/common/UserAvatar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getBottomNavPadding } from '@/utils/responsive';
 import * as Haptics from 'expo-haptics';
 import { BrandColors } from '@/constants/theme';
 import { useExploreStore } from '@/store/explore.store';
@@ -27,6 +28,7 @@ import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { ExploreFilterModal } from '@/components/customer/ExploreFilterModal';
 import { StudioServicesModal } from '@/components/customer/StudioServicesModal';
 import { calculateMuaRankScore } from '@/utils/ranking';
+import { ExploreSkeleton } from '@/components/base/Skeleton';
 
 const getDistanceKm = (
   lat1?: number | null,
@@ -49,6 +51,7 @@ const getDistanceKm = (
 };
 
 export default function ExploreScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string; search?: string }>();
   const [providerTab, setProviderTab] = useState<'FREELANCE' | 'STUDIO'>(
     params.tab === 'STUDIO' ? 'STUDIO' : 'FREELANCE'
@@ -70,6 +73,23 @@ export default function ExploreScreen() {
   const [selectedStudioForModal, setSelectedStudioForModal] =
     useState<AgencyPublicProfile | null>(null);
   const [isStudioModalVisible, setIsStudioModalVisible] = useState(false);
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
+
+  const handleTabChange = (newTab: 'FREELANCE' | 'STUDIO') => {
+    if (newTab !== providerTab) {
+      Haptics.selectionAsync();
+      setIsTabSwitching(true);
+      setProviderTab(newTab);
+      if (newTab === 'STUDIO' && studios.length === 0) {
+        fetchStudios();
+      } else if (newTab === 'FREELANCE' && muaList.length === 0) {
+        fetchMuas();
+      }
+      setTimeout(() => {
+        setIsTabSwitching(false);
+      }, 350);
+    }
+  };
 
   // Store quản lý bộ lọc
   const {
@@ -598,10 +618,7 @@ export default function ExploreScreen() {
         <View style={styles.segmentSwitchBox}>
           <TouchableOpacity
             style={[styles.segmentBtn, providerTab === 'FREELANCE' && styles.segmentBtnActive]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setProviderTab('FREELANCE');
-            }}
+            onPress={() => handleTabChange('FREELANCE')}
             activeOpacity={0.8}
           >
             <Text
@@ -631,10 +648,7 @@ export default function ExploreScreen() {
 
           <TouchableOpacity
             style={[styles.segmentBtn, providerTab === 'STUDIO' && styles.segmentBtnActive]}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setProviderTab('STUDIO');
-            }}
+            onPress={() => handleTabChange('STUDIO')}
             activeOpacity={0.8}
           >
             <Text
@@ -720,17 +734,14 @@ export default function ExploreScreen() {
 
       {/* 4. NỘI DUNG CHÍNH THEO TAB */}
       {providerTab === 'FREELANCE' ? (
-        isLoadingMuas && muaList.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={BrandColors.primary} />
-            <Text style={styles.loadingText}>Đang tải danh sách chuyên viên make-up tự do...</Text>
-          </View>
+        (isLoadingMuas && muaList.length === 0) || isTabSwitching ? (
+          <ExploreSkeleton count={4} style={styles.listContent} />
         ) : (
           <FlatList
             data={filteredMuas}
             keyExtractor={(item) => `mua-${item.muaId}`}
             renderItem={renderMuaItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -758,17 +769,14 @@ export default function ExploreScreen() {
             }
           />
         )
-      ) : isLoadingStudios && studios.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải danh sách Studio & Viện Áo Cưới...</Text>
-        </View>
+      ) : (isLoadingStudios && studios.length === 0) || isTabSwitching ? (
+        <ExploreSkeleton count={4} style={styles.listContent} />
       ) : (
         <FlatList
           data={filteredStudios}
           keyExtractor={(item) => `agency-${item.id}`}
           renderItem={renderStudioItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

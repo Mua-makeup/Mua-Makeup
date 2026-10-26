@@ -27,7 +27,7 @@ import { Textarea } from '../../components/base/Textarea';
 import { Toast } from '../../components/base/Toast';
 import { getSavedPageSize } from '../../utils/pagination.util';
 import { formatDate } from '../../utils/formatters';
-
+import { StatsGridSkeleton } from '../../components/base/Skeleton';
 
 export const AdminDisputesPage = () => {
   const { t } = useI18nStore();
@@ -303,22 +303,39 @@ export const AdminDisputesPage = () => {
           else if (!customerStatement) customerStatement = trimmed;
         }
       });
+    } else if (isMuaOnly) {
+      muaStatement = rawReason.replace(/\[Chuyên viên MUA\]:?/, '').trim();
+      customerStatement = 'Chưa gửi lời khai riêng';
+    } else {
+      customerStatement = rawReason.replace(/\[Khách hàng\]:?/, '').trim();
+      muaStatement = 'Chưa gửi lời khai riêng';
+    }
 
-      const hasTaggedProofs = rawProofParts.some((p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]'));
-      if (hasTaggedProofs) {
-        rawProofParts.forEach((item) => {
-          const cleaned = cleanUrl(item);
-          if (!cleaned) return;
-          if (item.includes('[Khách hàng]')) {
-            customerProofUrls.push(cleaned);
-          } else if (item.includes('[Chuyên viên MUA]')) {
+    // Parse proof images independently of statement dual state
+    const hasTaggedProofs = rawProofParts.some(
+      (p) => p.includes('[Khách hàng]') || p.includes('[Chuyên viên MUA]') || p.includes('[Thợ MUA]')
+    );
+    if (hasTaggedProofs) {
+      rawProofParts.forEach((item) => {
+        const cleaned = cleanUrl(item);
+        if (!cleaned) return;
+        if (item.includes('[Khách hàng]')) {
+          customerProofUrls.push(cleaned);
+        } else if (item.includes('[Chuyên viên MUA]') || item.includes('[Thợ MUA]')) {
+          muaProofUrls.push(cleaned);
+        } else {
+          if (isMuaOnly) {
             muaProofUrls.push(cleaned);
-          } else {
+          } else if (isDual) {
             if (muaProofUrls.length === 0) muaProofUrls.push(cleaned);
             else customerProofUrls.push(cleaned);
+          } else {
+            customerProofUrls.push(cleaned);
           }
-        });
-      } else {
+        }
+      });
+    } else {
+      if (isDual) {
         if (rawReason.startsWith('[Khách hàng]')) {
           customerProofUrls = rawProofParts.slice(0, 1).map(cleanUrl).filter(Boolean);
           muaProofUrls = rawProofParts.slice(1).map(cleanUrl).filter(Boolean);
@@ -326,17 +343,13 @@ export const AdminDisputesPage = () => {
           muaProofUrls = rawProofParts.slice(0, 1).map(cleanUrl).filter(Boolean);
           customerProofUrls = rawProofParts.slice(1).map(cleanUrl).filter(Boolean);
         }
+      } else if (isMuaOnly) {
+        muaProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
+        customerProofUrls = [];
+      } else {
+        customerProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
+        muaProofUrls = [];
       }
-    } else if (isMuaOnly) {
-      muaStatement = rawReason.replace(/\[Chuyên viên MUA\]:?/, '').trim();
-      customerStatement = 'Chưa gửi lời khai riêng';
-      muaProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
-      customerProofUrls = [];
-    } else {
-      customerStatement = rawReason.replace(/\[Khách hàng\]:?/, '').trim();
-      muaStatement = 'Chưa gửi lời khai riêng';
-      customerProofUrls = rawProofParts.map(cleanUrl).filter(Boolean);
-      muaProofUrls = [];
     }
 
     const proofUrls = [...customerProofUrls, ...muaProofUrls];
@@ -593,6 +606,19 @@ export const AdminDisputesPage = () => {
     },
   ];
 
+  const sortedDisputes = useMemo(() => {
+    return [...disputes].sort((a, b) => {
+      const aPending = a.status === 'DISPUTED';
+      const bPending = b.status === 'DISPUTED';
+      if (aPending !== bPending) {
+        return aPending ? -1 : 1;
+      }
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      return timeB - timeA;
+    });
+  }, [disputes]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -618,67 +644,71 @@ export const AdminDisputesPage = () => {
       </div>
 
       {/* KPI Overview Cards (Solid, Clean, No Blinking) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Pending Disputes */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_pending_disputes') || 'Khiếu Nại Đang Chờ'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4" />
+      {isStatsLoading ? (
+        <StatsGridSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Pending Disputes */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_pending_disputes') || 'Khiếu Nại Đang Chờ'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-rose-600 dark:text-rose-400">
+              {stats.pendingDisputes || 0}
             </div>
           </div>
-          <div className="mt-2 text-2xl font-black text-rose-600 dark:text-rose-400">
-            {stats.pendingDisputes || 0}
-          </div>
-        </div>
 
-        {/* Card 2: Refunded Disputes */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_refunded_disputes') || 'Đã Chấp Thuận Hoàn Cọc'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
+          {/* Card 2: Refunded Disputes */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_refunded_disputes') || 'Đã Chấp Thuận Hoàn Cọc'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">
+              {stats.refundedDisputes || 0}
             </div>
           </div>
-          <div className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {stats.refundedDisputes || 0}
-          </div>
-        </div>
 
-        {/* Card 3: Rejected / Paid Out Disputes */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_rejected_disputes') || 'Đã Bác Bỏ / Quyết Toán'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
-              <XCircle className="w-4 h-4" />
+          {/* Card 3: Rejected / Paid Out Disputes */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_rejected_disputes') || 'Đã Bác Bỏ / Quyết Toán'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
+                <XCircle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-black text-indigo-600 dark:text-indigo-400">
+              {stats.rejectedDisputes || 0}
             </div>
           </div>
-          <div className="mt-2 text-2xl font-black text-indigo-600 dark:text-indigo-400">
-            {stats.rejectedDisputes || 0}
-          </div>
-        </div>
 
-        {/* Card 4: Total Disputed Deposit Amount */}
-        <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('stat_disputed_deposit_amount') || 'Tổng Tiền Cọc Tranh Chấp'}
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
+          {/* Card 4: Total Disputed Deposit Amount */}
+          <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('stat_disputed_deposit_amount') || 'Tổng Tiền Cọc Tranh Chấp'}
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
+                <DollarSign className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 text-xl font-black text-amber-600 dark:text-amber-400">
+              {formatCurrency(stats.totalDisputedDepositAmount)}
             </div>
           </div>
-          <div className="mt-2 text-xl font-black text-amber-600 dark:text-amber-400">
-            {formatCurrency(stats.totalDisputedDepositAmount)}
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Error Notice */}
       {apiError && (
@@ -735,7 +765,7 @@ export const AdminDisputesPage = () => {
       {/* Disputes Data Table */}
       <DataTable
         columns={columns}
-        data={disputes}
+        data={sortedDisputes}
         isLoading={isLoading}
         onRowClick={(row) => handleOpenDetail(row)}
         pagination={{

@@ -126,10 +126,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   /**
-   * Tải lại thông tin User
+   * Tải lại thông tin User và cấp lại Token mới nhất nếu có cập nhật vai trò (VD: Studio duyệt thợ)
    */
   refreshCurrentUser: async () => {
     try {
+      const currentRefreshToken = await getRefreshToken();
+      const currentAccessToken = await getAccessToken();
+
+      if (currentRefreshToken) {
+        try {
+          const res = await authService.refreshToken(currentRefreshToken, currentAccessToken);
+          if (res?.accessToken && res?.refreshToken) {
+            await saveTokens(res.accessToken, res.refreshToken);
+            set({
+              accessToken: res.accessToken,
+              refreshToken: res.refreshToken,
+              userInfo: res.userInfo,
+            });
+            return;
+          }
+        } catch (refreshErr) {
+          console.warn('[authStore] Lỗi refresh token mới, thử lấy hồ sơ trực tiếp:', refreshErr);
+        }
+      }
+
       const user = await authService.getCurrentUser();
       set({ userInfo: user });
     } catch (e) {

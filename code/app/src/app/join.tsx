@@ -28,6 +28,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { parseApiError } from '@/utils/error';
 import { scanFromURLAsync } from 'expo-camera';
 import { QrScannerView } from '@/components/common/QrScannerModal';
+import { CardSkeleton } from '@/components/base/Skeleton';
 
 export default function JoinStudioScreen() {
   const { code } = useLocalSearchParams<{ code?: string }>();
@@ -70,6 +71,37 @@ export default function JoinStudioScreen() {
   useEffect(() => {
     loadCurrentStaffStatus();
   }, [loadCurrentStaffStatus]);
+
+  // Tự động kiểm tra lại trạng thái liên kết khi quyền tài khoản cập nhật sang ROLE_AGENCY_STAFF
+  const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+  useEffect(() => {
+    if (isAgencyStaff) {
+      loadCurrentStaffStatus();
+    }
+  }, [isAgencyStaff, loadCurrentStaffStatus]);
+
+  // Hiển thị thông báo chúc mừng khi trạng thái đơn chuyển từ PENDING -> ACTIVE trong thời gian thực
+  const prevStatusRef = React.useRef(staffProfile?.status);
+  useEffect(() => {
+    if (prevStatusRef.current === 'PENDING' && staffProfile?.status === 'ACTIVE') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        'Chúc Mừng Bạn! 🎉',
+        `Đơn xin gia nhập Studio "${staffProfile.agencyName}" đã được duyệt thành công. Bạn đã chính thức trở thành Nhân sự của Studio!`,
+        [
+          {
+            text: 'Xem Hồ Sơ Nhân Sự',
+            onPress: () => router.replace('/profile/staff-profile'),
+          },
+          {
+            text: 'Về Bàn Làm Việc',
+            onPress: () => router.replace('/'),
+          },
+        ]
+      );
+    }
+    prevStatusRef.current = staffProfile?.status;
+  }, [staffProfile?.status, staffProfile?.agencyName]);
 
   // Kiểm tra nếu có mã code truyền từ Deep Link hoặc params
   useEffect(() => {
@@ -272,9 +304,8 @@ export default function JoinStudioScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang kiểm tra hồ sơ liên kết...</Text>
+        <View style={{ padding: 16 }}>
+          <CardSkeleton count={2} />
         </View>
       ) : staffProfile?.status === 'PENDING' ? (
         /* TRƯỜNG HỢP 2: ĐÃ GỬI ĐƠN VÀ ĐANG CHỜ DUYỆT (PENDING) */
@@ -374,9 +405,6 @@ export default function JoinStudioScreen() {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Banner Giới thiệu */}
           <View style={styles.heroIntroCard}>
-            <View style={styles.heroIconCircle}>
-              <Ionicons name="sparkles" size={26} color="#BE123C" />
-            </View>
             <Text style={styles.heroIntroTitle}>Hợp Tác Cùng Studio Làm Đẹp</Text>
             <Text style={styles.heroIntroSub}>
               Gia nhập đội ngũ Studio uy tín để nhận thêm các ca làm tiệc cưới, sự kiện lớn và bảo đảm thu nhập ổn định.

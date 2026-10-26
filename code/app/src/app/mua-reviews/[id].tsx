@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { reviewService, ReviewItem, MuaRatingSummary } from '@/services/review.service';
 import { BrandColors } from '@/constants/theme';
+import { ReviewListSkeleton } from '@/components/base/Skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const REVIEW_PHOTO_SIZE = Math.floor((SCREEN_WIDTH - 28 - 8) / 2);
@@ -479,10 +480,7 @@ export default function MuaReviewsScreen() {
 
             {/* Loading Indicator for Filter Switching */}
             {isLoadingList && (
-              <View style={styles.listLoadingBox}>
-                <ActivityIndicator size="small" color={BrandColors.primary} />
-                <Text style={styles.listLoadingText}>Đang tải đánh giá phù hợp...</Text>
-              </View>
+              <ReviewListSkeleton count={3} />
             )}
           </>
         }
@@ -568,10 +566,7 @@ export default function MuaReviewsScreen() {
                       return (
                         <TouchableOpacity
                           key={idx}
-                          style={[
-                            styles.reviewPhotoCard,
-                            displayImages.length === 1 && { width: '50%', flex: 0 },
-                          ]}
+                          style={displayImages.length === 1 ? styles.reviewPhotoCardSingle : styles.reviewPhotoCard}
                           onPress={() => {
                             setLightboxImages(uniqueImages);
                             setLightboxIndex(idx);
@@ -592,6 +587,19 @@ export default function MuaReviewsScreen() {
                   </View>
                 );
               })()}
+
+              {/* Phản hồi từ Studio */}
+              {item.agencyReply ? (
+                <View style={styles.agencyReplyBox}>
+                  <View style={styles.agencyReplyHeaderRow}>
+                    <Text style={styles.agencyReplyTitle}>Phản hồi từ Studio</Text>
+                    {item.agencyRepliedAt ? (
+                      <Text style={styles.agencyReplyDate}>{formatDate(item.agencyRepliedAt)}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.agencyReplyContent}>{item.agencyReply}</Text>
+                </View>
+              ) : null}
             </View>
           );
         }}
@@ -1129,6 +1137,17 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     position: 'relative',
   },
+  reviewPhotoCardSingle: {
+    width: '48%',
+    maxWidth: '48%',
+    height: 140,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    position: 'relative',
+  },
   reviewPhotoImage: {
     width: '100%',
     height: '100%',
@@ -1139,6 +1158,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
+  },
+  agencyReplyBox: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#FFF1F2',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#E11D48',
+  },
+  agencyReplyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  agencyReplyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9F1239',
+  },
+  agencyReplyDate: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    marginLeft: 'auto',
+  },
+  agencyReplyContent: {
+    fontSize: 12,
+    color: '#334155',
+    lineHeight: 17,
+    fontStyle: 'italic',
   },
   reviewPhotoMoreText: {
     color: '#FFFFFF',

@@ -69,6 +69,12 @@
     "portfolio_image_delete_success": "Portfolio image deleted successfully!"
   },
   "agency": {
+    "not_found": "Agency profile not found.",
+    "bookings_fetch_success": "Agency bookings retrieved successfully.",
+    "stats_fetch_success": "Agency statistics retrieved successfully.",
+    "wallet_fetch_success": "Agency revenue wallet retrieved successfully.",
+    "reviews_fetch_success": "Agency reviews retrieved successfully.",
+    "review_overview_success": "Agency review overview retrieved successfully.",
     "not_verified_cannot_operate": "Studio is not verified yet by Super Admin, cannot perform this operation.",
     "profile_get_success": "Agency profile retrieved successfully.",
     "profile_update_success": "Agency profile updated successfully.",
@@ -82,6 +88,7 @@
     "invitation_cancel_success": "Invitation cancelled successfully.",
     "invitation_accept_success": "Successfully joined Studio.",
     "staff_list_success": "Staff list retrieved successfully.",
+    "staff_leaderboard_success": "Staff leaderboard retrieved successfully.",
     "staff_detail_success": "Staff detail retrieved successfully.",
     "staff_review_success": "Staff application reviewed successfully.",
     "staff_review_approved": "Staff application approved successfully!",
@@ -199,6 +206,7 @@
     "deposit_not_paid": "Cannot start trip: Customer deposit has not been paid.",
     "assistant_not_confirmed": "Assistant artist has not confirmed the booking yet, cannot start trip.",
     "assistant_cannot_transition_state": "Assistant artist is only allowed to accept assignments and report busy. Job execution is managed by the Primary artist.",
+    "assistant_cannot_dispute": "Assistant artist is not authorized to intervene in disputes or submit statements. Only the Primary artist can perform this action.",
     "confirm_scheduled_success": "Scheduled booking confirmed successfully!",
     "reject_scheduled_success": "Scheduled booking rejected successfully.",
     "cancel_requested_success": "Booking cancelled successfully. Deposit refunded to your wallet.",
@@ -679,8 +687,13 @@
     "booking_not_paid_out": "You can only submit a review after the booking has been completed and fully settled.",
     "not_found": "Review details not found.",
     "update_success": "Review updated successfully! Thank you for your feedback.",
-    "edit_expired": "The 7-day review editing period has expired.",
-    "upload_images_success": "Review images uploaded successfully.",
-    "missing_files": "Please select at least one image to upload."
+    "create_expired": "The 7-day review period for this booking has expired.",
+    "edit_expired": "The 48-hour review editing period has expired.",
+    "missing_files": "Please select at least one image to upload.",
+    "fetch_success": "Retrieved reviews successfully.",
+    "reply_success": "Replied to customer review successfully.",
+    "reply_not_blank": "Reply content cannot be blank.",
+    "reply_max_length": "Reply content cannot exceed 1000 characters.",
+    "agency_unauthorized": "You are not authorized to reply to this review."
   }
 }

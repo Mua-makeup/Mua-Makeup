@@ -16,6 +16,7 @@ import { Input } from '../../base/Input';
 import { agencyService } from '../../../services/agency.service';
 import { formatCurrency } from '../../../utils/formatters';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { SurchargeSkeleton } from '../../base/Skeleton';
 
 export const SurchargeConfigCard = ({ onSaveSuccess }) => {
   const { t, language } = useI18nStore();
@@ -69,6 +70,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
   const [simTime, setSimTime] = useState('05:30');
   const [simOrderAmount, setSimOrderAmount] = useState(1000000);
 
+  const [isFetching, setIsFetching] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
@@ -76,6 +78,7 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
   const [isNotVerified, setIsNotVerified] = useState(false);
 
   const loadSurcharges = async () => {
+    setIsFetching(true);
     setApiError(null);
     try {
       const res = await agencyService.getMySurcharges();
@@ -114,6 +117,8 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
             : errMsg
         );
       }
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -191,6 +196,10 @@ export const SurchargeConfigCard = ({ onSaveSuccess }) => {
   const numHolidayPercent = Number(holidayPercentage) || 0;
   const simHolidayFee = (numSimOrder * numHolidayPercent) / 100;
   const simTotalHolidayAmount = numSimOrder + simHolidayFee;
+
+  if (isFetching) {
+    return <SurchargeSkeleton />;
+  }
 
   return (
     <div className="space-y-6">

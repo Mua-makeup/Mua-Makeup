@@ -3,6 +3,7 @@ import {
   Animated, KeyboardAvoidingView, Modal, ModalProps, PanResponder,
   Platform, Pressable, StyleProp, StyleSheet, useWindowDimensions, View, ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UndoToast } from './UndoToast';
 
 interface SurfaceProps {
@@ -21,6 +22,7 @@ interface SurfaceProps {
 
 /** Shared backdrop and drag handle. Scroll views, maps and inputs keep their own gestures. */
 export function DismissibleSurface({ visible, onClose, dismissDisabled = false, overlayStyle, contentStyle, children, overlays, fullHeight, onDismissStart, avoidKeyboard = false, showHandle = true }: SurfaceProps) {
+  const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const translateY = useRef(new Animated.Value(0)).current;
   const dismissing = useRef(false);
@@ -122,7 +124,7 @@ export function DismissibleSurface({ visible, onClose, dismissDisabled = false, 
     <KeyboardAvoidingView style={styles.fill} enabled={avoidKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.overlay, overlayStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => dismiss()} disabled={dismissDisabled} accessibilityRole="button" accessibilityLabel="Đóng cửa sổ" />
-        <Animated.View style={[styles.surface, fullHeight && styles.fullHeight, contentStyle, { transform: [{ translateY }] }]} accessibilityViewIsModal>
+        <Animated.View style={[styles.surface, { paddingBottom: Math.max(insets.bottom, 12) }, fullHeight && styles.fullHeight, contentStyle, { transform: [{ translateY }] }]} accessibilityViewIsModal>
           {showHandle && (
             <View
               {...pan.panHandlers}
@@ -138,7 +140,7 @@ export function DismissibleSurface({ visible, onClose, dismissDisabled = false, 
         </Animated.View>
       </View>
       {overlays}
-      <UndoToast bottomOffset={24} />
+      <UndoToast bottomOffset={24 + insets.bottom} />
     </KeyboardAvoidingView>
   );
 }

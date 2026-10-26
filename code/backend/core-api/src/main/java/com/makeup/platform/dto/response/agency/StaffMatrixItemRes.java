@@ -20,6 +20,13 @@ public class StaffMatrixItemRes {
     private String staffPhone;
     private String staffAvatarUrl;
 
+    // Quality, rating & customer history
+    private BigDecimal ratingAvg;
+    private Integer totalReviews;
+    private Integer totalCompletedJobs;
+    @JsonProperty("hasServedThisCustomer")
+    private boolean hasServedThisCustomer;
+
     // 4-way qualification flags
     private boolean hasShift;
     private boolean hasPackage;

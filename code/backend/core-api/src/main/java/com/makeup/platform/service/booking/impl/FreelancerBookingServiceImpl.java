@@ -14,7 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -41,6 +44,12 @@ public class FreelancerBookingServiceImpl implements FreelancerBookingService {
         } else {
             bookings = bookingRepository.findAllFreelancerBookings(mua.getId());
         }
+
+        Map<Long, BookingEntity> uniqueBookings = new LinkedHashMap<>();
+        for (BookingEntity b : bookings) {
+            uniqueBookings.putIfAbsent(b.getId(), b);
+        }
+        bookings = new ArrayList<>(uniqueBookings.values());
 
         if (statusGroup != null && !statusGroup.isBlank() && !"ALL".equalsIgnoreCase(statusGroup)) {
             if ("UPCOMING".equalsIgnoreCase(statusGroup)) {

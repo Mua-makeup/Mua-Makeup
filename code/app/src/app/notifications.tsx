@@ -10,7 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotificationStore } from '@/store/notification.store';
@@ -18,8 +18,10 @@ import { useAuthStore } from '@/store/auth.store';
 import { NotificationItem } from '@/services/notification.service';
 import { BrandColors } from '@/constants/theme';
 import { useUndoStore } from '@/store/undo.store';
+import { NotificationSkeleton } from '@/components/base/Skeleton';
 
 export default function NotificationsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     notifications,
@@ -115,10 +117,14 @@ export default function NotificationsScreen() {
     }
 
     // 3. Deep link cho kết quả duyệt chứng chỉ hoặc đơn gia nhập Studio
+    if (item.type === 'STAFF_APPLICATION_APPROVED') {
+      router.push('/profile/staff-profile' as any);
+      return;
+    }
+
     if (
       item.type === 'CERTIFICATE_APPROVED' ||
       item.type === 'CERTIFICATE_REJECTED' ||
-      item.type === 'STAFF_APPLICATION_APPROVED' ||
       item.type === 'STAFF_APPLICATION_REJECTED'
     ) {
       router.push('/profile/mua-profile' as any);
@@ -384,10 +390,7 @@ export default function NotificationsScreen() {
 
       {/* Main Content Area */}
       {isLoading && notifications.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải thông báo từ hệ thống...</Text>
-        </View>
+        <NotificationSkeleton count={6} />
       ) : (
         <FlatList
           data={notifications}
@@ -395,6 +398,7 @@ export default function NotificationsScreen() {
           renderItem={renderItem}
           contentContainerStyle={[
             styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 24 },
             notifications.length === 0 && styles.listContentEmpty,
           ]}
           refreshControl={

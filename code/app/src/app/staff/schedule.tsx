@@ -20,6 +20,9 @@ import { getTodayVN } from '@/utils/date';
 import { AppBottomNavBar } from '@/components/common/AppBottomNavBar';
 import { websocketService } from '@/services/websocket.service';
 import { useAuthStore } from '@/store/auth.store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getBottomNavPadding } from '@/utils/responsive';
+import { ScheduleMatrixSkeleton, CardSkeleton } from '@/components/base/Skeleton';
 
 const DAY_NAMES: Record<number, string> = {
   1: 'Chủ Nhật',
@@ -143,6 +146,7 @@ export interface WeekDayInfo {
 }
 
 export default function StaffScheduleScreen() {
+  const insets = useSafeAreaInsets();
   const { userInfo } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'SHIFTS' | 'BUSY'>('SHIFTS');
   const [currentWeekBase, setCurrentWeekBase] = useState<Date>(new Date());
@@ -154,6 +158,7 @@ export default function StaffScheduleScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [staffName, setStaffName] = useState<string>('');
   const [agencyName, setAgencyName] = useState<string>('');
+  const [isTabSwitching, setIsTabSwitching] = useState<boolean>(false);
 
   // Kiểm tra xem tuần đang xem có phải tuần hiện tại (hôm nay) không
   const isCurrentWeek = useMemo(() => {
@@ -717,7 +722,13 @@ export default function StaffScheduleScreen() {
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tabItem, activeTab === 'SHIFTS' && styles.tabItemActive]}
-          onPress={() => setActiveTab('SHIFTS')}
+          onPress={() => {
+            if (activeTab !== 'SHIFTS') {
+              setIsTabSwitching(true);
+              setActiveTab('SHIFTS');
+              setTimeout(() => setIsTabSwitching(false), 300);
+            }
+          }}
           activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'SHIFTS' && styles.tabTextActive]}>
@@ -726,7 +737,14 @@ export default function StaffScheduleScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabItem, activeTab === 'BUSY' && styles.tabItemActive]}
-          onPress={() => setActiveTab('BUSY')}
+          onPress={() => {
+            if (activeTab !== 'BUSY') {
+              setIsTabSwitching(true);
+              setActiveTab('BUSY');
+              loadLeaveRequests();
+              setTimeout(() => setIsTabSwitching(false), 300);
+            }
+          }}
           activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'BUSY' && styles.tabTextActive]}>
@@ -736,7 +754,7 @@ export default function StaffScheduleScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#991B1B']} />}
       >
@@ -763,8 +781,8 @@ export default function StaffScheduleScreen() {
               </View>
             </View>
 
-            {isLoadingShifts ? (
-              <ActivityIndicator size="small" color="#991B1B" style={{ marginTop: 40 }} />
+            {isLoadingShifts || isTabSwitching ? (
+              <ScheduleMatrixSkeleton />
             ) : (
               /* ======================= CHẾ ĐỘ XEM MA TRẬN LƯỚI TUẦN DUY NHẤT ======================= */
               <>
@@ -952,6 +970,10 @@ export default function StaffScheduleScreen() {
               </>
             )}
           </>
+        ) : isTabSwitching ? (
+          <View style={{ paddingVertical: 12 }}>
+            <CardSkeleton count={3} />
+          </View>
         ) : (
           <>
             {/* Thẻ Đăng Ký Nghỉ Ca Tối Ưu UX (Không dùng Icon) */}
@@ -1198,9 +1220,7 @@ export default function StaffScheduleScreen() {
               </View>
 
               {isLoadingLeaveRequests ? (
-                <View style={styles.busyLoadingBox}>
-                  <ActivityIndicator size="small" color="#E11D48" />
-                </View>
+                <CardSkeleton count={2} />
               ) : leaveRequests.length === 0 ? (
                 <View style={styles.emptyBusyCard}>
                   <Text style={styles.emptyBusyTitle}>Chưa có đơn xin nghỉ ca nào</Text>

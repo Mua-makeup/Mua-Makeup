@@ -1,4 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import { ImageViewerModal } from '@/components/common/ImageViewerModal';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -27,6 +28,7 @@ import { useAuthStore } from '@/store/auth.store';
 
 import { useUndoStore } from '@/store/undo.store';
 import { VerticalNumberPicker } from '@/components/common/VerticalNumberPicker';
+import { DetailScreenSkeleton } from '@/components/base/Skeleton';
 
 export default function MuaWorkProfileScreen() {
   const { userInfo } = useAuthStore();
@@ -412,10 +414,7 @@ export default function MuaWorkProfileScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={BrandColors.primary} />
-          <Text style={styles.loadingText}>Đang tải thông tin chuyên môn...</Text>
-        </View>
+        <DetailScreenSkeleton />
       ) : loadError ? (
         <View style={styles.centerLoading}>
           <Text style={styles.loadingText}>{loadError}</Text>
@@ -837,29 +836,13 @@ export default function MuaWorkProfileScreen() {
         </ScrollView>
       </SwipeableBottomSheet>
 
-      {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHỨNG CHỈ & TÁC PHẨM) */}
-      <DismissibleModal visible={!!previewImageUrl} onClose={() => setPreviewImageUrl(null)} contentStyle={{ backgroundColor: '#000000' }} fullHeight>
-        <TouchableOpacity
-          style={styles.imageViewerOverlay}
-          activeOpacity={1}
-          onPress={() => setPreviewImageUrl(null)}
-        >
-          <TouchableOpacity
-            style={styles.imageViewerCloseBtn}
-            onPress={() => setPreviewImageUrl(null)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          {previewImageUrl && (
-            <Image
-              source={{ uri: previewImageUrl }}
-              style={styles.imageViewerFull}
-              contentFit="contain"
-            />
-          )}
-        </TouchableOpacity>
-      </DismissibleModal>
+      {/* MODAL XEM TRƯỚC ẢNH PHÓNG TO (CHẠM NGOÀI HOẶC VUỐT XUỐNG ĐỂ TẮT) */}
+      <ImageViewerModal
+        visible={!!previewImageUrl}
+        images={previewImageUrl ? [previewImageUrl] : []}
+        title="Ảnh xem trước"
+        onClose={() => setPreviewImageUrl(null)}
+      />
     </SafeAreaView>
   );
 }

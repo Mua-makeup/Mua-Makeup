@@ -19,6 +19,7 @@ import { PackageFormModal } from '../../components/features/agency/PackageFormMo
 import { formatCurrency } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { StatsGridSkeleton, Skeleton } from '../../components/base/Skeleton';
 
 export const AgencyDashboardPage = () => {
   const { t } = useI18nStore();
@@ -146,23 +147,32 @@ export const AgencyDashboardPage = () => {
             </div>
           )}
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white truncate">
-                {profile?.agencyName || 'Studio Agency'}
-              </h1>
-              {profile?.isVerified ? (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30 shrink-0">
-                  {t('agency_status_verified')}
-                </span>
-              ) : (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 shrink-0">
-                  {t('agency_status_pending')}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
-              Hotline: <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.district || ''}, ${profile.city || ''}` : 'N/A'}
-            </p>
+            {isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-44 rounded-lg" />
+                <Skeleton className="h-3.5 w-64 rounded" />
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-lg sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white truncate">
+                    {profile?.agencyName || 'Studio Agency'}
+                  </h1>
+                  {profile?.isVerified ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30 shrink-0">
+                      {t('agency_status_verified')}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30 shrink-0">
+                      {t('agency_status_pending')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
+                  Hotline: <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{profile?.hotline || 'N/A'}</span> • {profile?.addressStreet ? `${profile.addressStreet}, ${profile.district || ''}, ${profile.city || ''}` : 'N/A'}
+                </p>
+              </>
+            )}
           </div>
         </div>
 
@@ -172,7 +182,7 @@ export const AgencyDashboardPage = () => {
             variant="primary"
             size="sm"
             icon={QrCode}
-            disabled={!profile?.isVerified}
+            disabled={isLoading || !profile?.isVerified}
             onClick={() => setIsInviteModalOpen(true)}
             className="w-full sm:w-auto"
           >
@@ -182,7 +192,7 @@ export const AgencyDashboardPage = () => {
             variant="secondary"
             size="sm"
             icon={Plus}
-            disabled={!profile?.isVerified}
+            disabled={isLoading || !profile?.isVerified}
             onClick={() => setIsPackageModalOpen(true)}
             className="w-full sm:w-auto"
           >
@@ -203,96 +213,100 @@ export const AgencyDashboardPage = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Nhân sự */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('agency_staff_count')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {isLoading ? '...' : staffCount}
-            </p>
-            <Link
-              to="/agency/staff"
-              className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium hover:underline inline-flex items-center gap-1"
-            >
-              <span>{t('nav_agency_staff')}</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
+      {isLoading ? (
+        <StatsGridSkeleton count={4} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Nhân sự */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('agency_staff_count')}
+              </p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                {staffCount}
+              </p>
+              <Link
+                to="/agency/staff"
+                className="mt-1 text-xs text-rose-600 dark:text-rose-400 font-medium hover:underline inline-flex items-center gap-1"
+              >
+                <span>{t('nav_agency_staff')}</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50">
+              <Users className="w-6 h-6" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50">
-            <Users className="w-6 h-6" />
-          </div>
-        </div>
 
-        {/* Card 2: Gói Dịch Vụ */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('agency_packages_count')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {isLoading ? '...' : (packageTotalCount || packages.length)}
-            </p>
-            <Link
-              to="/agency/packages"
-              className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline inline-flex items-center gap-1"
-            >
-              <span>{t('nav_agency_packages')}</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
+          {/* Card 2: Gói Dịch Vụ */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('agency_packages_count')}
+              </p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                {packageTotalCount || packages.length}
+              </p>
+              <Link
+                to="/agency/packages"
+                className="mt-1 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline inline-flex items-center gap-1"
+              >
+                <span>{t('nav_agency_packages')}</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900/50">
+              <Package className="w-6 h-6" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900/50">
-            <Package className="w-6 h-6" />
-          </div>
-        </div>
 
-        {/* Card 3: Hoa hồng mặc định */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('agency_commission_default')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
-              {isLoading ? '...' : `${profile?.commissionRateInternal ?? 0}%`}
-            </p>
-            <Link
-              to="/agency/profile"
-              className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium hover:underline inline-flex items-center gap-1"
-            >
-              <span>{t('nav_agency_profile')}</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
+          {/* Card 3: Hoa hồng mặc định */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('agency_commission_default')}
+              </p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+                {`${profile?.commissionRateInternal ?? 0}%`}
+              </p>
+              <Link
+                to="/agency/profile"
+                className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium hover:underline inline-flex items-center gap-1"
+              >
+                <span>{t('nav_agency_profile')}</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/50">
+              <Percent className="w-6 h-6" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/50">
-            <Percent className="w-6 h-6" />
-          </div>
-        </div>
 
-        {/* Card 4: Đánh giá trung bình */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-              {t('agency_rating_avg')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-1">
-              <span>
-                {profile?.ratingAvg && Number(profile.ratingAvg) > 0
-                  ? Number(profile.ratingAvg).toFixed(1)
-                  : 'N/A'}
-              </span>
-              <Star className={`w-5 h-5 ${profile?.ratingAvg && Number(profile.ratingAvg) > 0 ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-slate-600'}`} />
-            </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {profile?.totalReviews ? `${t('agency_reviews_count_prefix')} ${profile.totalReviews} ${t('agency_reviews_count_suffix')}` : t('agency_reviews_updating')}
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50">
-            <Star className="w-6 h-6" />
+          {/* Card 4: Đánh giá trung bình */}
+          <div className="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                {t('agency_rating_avg')}
+              </p>
+              <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                <span>
+                  {profile?.ratingAvg && Number(profile.ratingAvg) > 0
+                    ? Number(profile.ratingAvg).toFixed(1)
+                    : 'N/A'}
+                </span>
+                <Star className={`w-5 h-5 ${profile?.ratingAvg && Number(profile.ratingAvg) > 0 ? 'text-amber-500 fill-amber-500' : 'text-slate-300 dark:text-slate-600'}`} />
+              </p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {profile?.totalReviews ? `${t('agency_reviews_count_prefix')} ${profile.totalReviews} ${t('agency_reviews_count_suffix')}` : t('agency_reviews_updating')}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/50">
+              <Star className="w-6 h-6" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Package Quick View */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">

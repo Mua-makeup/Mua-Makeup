@@ -6,10 +6,11 @@ import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
 import com.makeup.platform.common.event.booking.ScheduledBookingCreatedEvent;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.booking.CreateScheduledBookingReq;
-import com.makeup.platform.dto.request.catalog.CalculateSurchargeReq;
+import com.makeup.platform.dto.request.pricing.PreviewInvoiceReq;
 import com.makeup.platform.dto.response.booking.ScheduledBookingCreatedRes;
-import com.makeup.platform.dto.response.catalog.SurchargeCalculationRes;
+import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
 import com.makeup.platform.service.catalog.SurchargeService;
+import com.makeup.platform.service.pricing.DynamicPricingService;
 import com.makeup.platform.common.utils.BookingConfirmationTimeoutHelper;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.auth.UserEntity;
@@ -88,6 +89,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final SimpMessagingTemplate messagingTemplate;
     private final MakeupStyleRepository makeupStyleRepository;
     private final MuaReputationService muaReputationService;
+    private final DynamicPricingService dynamicPricingService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final int DEFAULT_BUFFER_MINUTES = 30;
@@ -197,36 +199,70 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 }
             }
 
-            // 6. Tính phụ phí từ CSDL qua SurchargeService
-            CalculateSurchargeReq surchargeReq = CalculateSurchargeReq.builder()
-                    .agencyId(req.getBookingPartner() == BookingPartner.AGENCY_DISPATCH ? req.getAgencyId() : null)
-                    .muaId(req.getBookingPartner() == BookingPartner.FREELANCER_DIRECT ? req.getMuaId() : null)
-                    .bookingTime(req.getBookingDate().atTime(req.getStartTime()))
-                    .distanceKm(BigDecimal.ZERO)
-                    .build();
+            // 6. Tính toán toàn bộ tài chính hóa đơn qua DynamicPricingService đồng bộ 100% với Invoice Preview
+            Long providerId = (req.getBookingPartner() == BookingPartner.AGENCY_DISPATCH)
+                    ? req.getAgencyId()
+                    : req.getMuaId();
+            String providerType = (req.getBookingPartner() == BookingPartner.AGENCY_DISPATCH)
+                    ? "AGENCY"
+                    : "FREELANCER";
 
-            SurchargeCalculationRes surchargeCalc = surchargeService.calculateSurcharges(surchargeReq);
-            BigDecimal surchargeFee = (surchargeCalc != null && surchargeCalc.getTotalSurcharge() != null)
-                    ? surchargeCalc.getTotalSurcharge()
-                    : BigDecimal.ZERO;
-
-            // 7. Tra cứu quy tắc phụ trội hoặc ưu đãi giảm giá theo khung giờ đặt lịch
-            String dayOfWeekStr = req.getBookingDate().getDayOfWeek().name();
-            List<SurgePricingRuleEntity> matchingSurgeRules = surgePricingRuleRepository.findMatchingRules(req.getStartTime(), dayOfWeekStr, "ALL");
-            boolean hasSurge = !matchingSurgeRules.isEmpty();
-            BigDecimal surgeMultiplier = hasSurge ? matchingSurgeRules.get(0).getSurgeMultiplier() : BigDecimal.ONE;
-
-            BigDecimal basePrice = servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO;
-            BigDecimal serviceSubtotal = basePrice.add(addOnsTotal).setScale(2, RoundingMode.HALF_UP);
-
-            BigDecimal adjustedServiceSubtotal = serviceSubtotal.multiply(surgeMultiplier).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal serviceSubtotal;
+            BigDecimal distanceFee = BigDecimal.ZERO;
+            BigDecimal surchargeFee = BigDecimal.ZERO;
+            BigDecimal surgeMultiplier = BigDecimal.ONE;
             BigDecimal discountAmount = BigDecimal.ZERO;
-            if (surgeMultiplier.compareTo(BigDecimal.ONE) < 0) {
-                discountAmount = serviceSubtotal.subtract(adjustedServiceSubtotal).max(BigDecimal.ZERO);
-            }
+            BigDecimal totalAmount;
+            BigDecimal depositAmount;
 
-            BigDecimal totalAmount = adjustedServiceSubtotal.add(surchargeFee).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal depositAmount = totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+            try {
+                PreviewInvoiceReq pricingReq = PreviewInvoiceReq.builder()
+                        .packageId(req.getPackageId())
+                        .addOnItemIds(req.getAddOnItemIds())
+                        .bookingTime(req.getBookingDate().atTime(req.getStartTime()))
+                        .customerLatitude(req.getDestinationLatitude())
+                        .customerLongitude(req.getDestinationLongitude())
+                        .providerType(providerType)
+                        .providerId(providerId)
+                        .voucherCode(req.getVoucherCode())
+                        .build();
+
+                InvoicePreviewRes invoice = dynamicPricingService.calculatePreviewInvoice(pricingReq);
+                if (invoice != null && invoice.getFinancialSummary() != null) {
+                    serviceSubtotal = invoice.getServiceSubtotal() != null
+                            ? invoice.getServiceSubtotal()
+                            : (servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO).add(addOnsTotal);
+                    distanceFee = (invoice.getDistanceInfo() != null && invoice.getDistanceInfo().getDistanceFee() != null)
+                            ? invoice.getDistanceInfo().getDistanceFee()
+                            : BigDecimal.ZERO;
+                    surchargeFee = invoice.getTotalSurchargesAmount() != null
+                            ? invoice.getTotalSurchargesAmount()
+                            : BigDecimal.ZERO;
+                    surgeMultiplier = (invoice.getSurgePricing() != null && invoice.getSurgePricing().getMultiplier() != null)
+                            ? invoice.getSurgePricing().getMultiplier()
+                            : BigDecimal.ONE;
+                    discountAmount = (invoice.getDiscount() != null && invoice.getDiscount().getDiscountAmount() != null)
+                            ? invoice.getDiscount().getDiscountAmount()
+                            : BigDecimal.ZERO;
+                    totalAmount = invoice.getFinancialSummary().getTotalAmount() != null
+                            ? invoice.getFinancialSummary().getTotalAmount()
+                            : serviceSubtotal.multiply(surgeMultiplier).add(surchargeFee).add(distanceFee).subtract(discountAmount);
+                    depositAmount = invoice.getFinancialSummary().getDepositRequiredAmount() != null
+                            ? invoice.getFinancialSummary().getDepositRequiredAmount()
+                            : totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+                } else {
+                    BigDecimal basePrice = servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO;
+                    serviceSubtotal = basePrice.add(addOnsTotal).setScale(2, RoundingMode.HALF_UP);
+                    totalAmount = serviceSubtotal.setScale(2, RoundingMode.HALF_UP);
+                    depositAmount = totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+                }
+            } catch (Exception e) {
+                log.warn("[ScheduledBooking] Không thể gọi calculatePreviewInvoice, fallback sang tính cục bộ: {}", e.getMessage());
+                BigDecimal basePrice = servicePackage.getPrice() != null ? servicePackage.getPrice() : BigDecimal.ZERO;
+                serviceSubtotal = basePrice.add(addOnsTotal).setScale(2, RoundingMode.HALF_UP);
+                totalAmount = serviceSubtotal.setScale(2, RoundingMode.HALF_UP);
+                depositAmount = totalAmount.multiply(DEPOSIT_PERCENTAGE).setScale(2, RoundingMode.HALF_UP);
+            }
 
             String bookingCode = "BK-SCHED-" + (System.currentTimeMillis() % 10000000L);
             OffsetDateTime depositExpiredAt = OffsetDateTime.now(VIETNAM_OFFSET).plusMinutes(HOLD_DEPOSIT_MINUTES);
@@ -252,7 +288,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     .bookingDate(req.getBookingDate())
                     .startTime(req.getStartTime())
                     .serviceSubtotal(serviceSubtotal)
-                    .distanceFee(BigDecimal.ZERO)
+                    .distanceFee(distanceFee)
                     .surchargeFee(surchargeFee)
                     .surgeMultiplier(surgeMultiplier)
                     .discountAmount(discountAmount)
@@ -785,8 +821,10 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                 ? reason.trim()
                 : "Khách hàng không đồng ý kết quả từ Studio và yêu cầu Ban Quản Trị Sàn phân xử";
         String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
-        booking.setCancellationReason("[LEO_THANG_ADMIN]: " + effectiveReason + (existing.isBlank() ? "" : " | " + existing));
-        bookingRepository.save(booking);
+        String escalatedReason = "[LEO_THANG_ADMIN]: " + effectiveReason + (existing.isBlank() ? "" : " | " + existing);
+        booking.setCancellationReason(escalatedReason);
+        booking.setEmergencyReason(escalatedReason);
+        BookingEntity savedBooking = bookingRepository.save(booking);
 
         bookingAuditService.logTransition(
                 bookingId,
@@ -797,20 +835,27 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         );
 
         try {
-            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, Map.of(
+            Map<String, Object> payload = Map.of(
                     "type", "DISPUTE_ESCALATED_TO_ADMIN",
                     "bookingId", bookingId,
-                    "bookingCode", booking.getBookingCode(),
+                    "bookingCode", savedBooking.getBookingCode(),
                     "reason", effectiveReason,
                     "timestamp", System.currentTimeMillis()
-            ));
-            messagingTemplate.convertAndSend("/topic/admin/disputes", Map.of(
-                    "type", "NEW_ESCALATED_DISPUTE",
-                    "bookingId", bookingId,
-                    "bookingCode", booking.getBookingCode(),
-                    "agencyId", booking.getAgency() != null ? booking.getAgency().getId() : 0,
-                    "timestamp", System.currentTimeMillis()
-            ));
+            );
+
+            messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, payload);
+            messagingTemplate.convertAndSend("/topic/admin/disputes", payload);
+            messagingTemplate.convertAndSend("/topic/admin/notifications", payload);
+
+            if (savedBooking.getAgency() != null) {
+                messagingTemplate.convertAndSend("/topic/agency/" + savedBooking.getAgency().getId() + "/dispatch-alerts", Map.of(
+                        "type", "AGENCY_DISPUTE_ESCALATED",
+                        "bookingId", bookingId,
+                        "bookingCode", savedBooking.getBookingCode(),
+                        "reason", effectiveReason,
+                        "timestamp", System.currentTimeMillis()
+                ));
+            }
         } catch (Exception ex) {
             log.warn("[EscalateDispute] Failed to broadcast websocket: {}", ex.getMessage());
         }

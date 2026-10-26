@@ -217,16 +217,20 @@ export const TodayBookingCard: React.FC<Props> = ({ booking, onRefresh }) => {
             {booking.packageName}
           </Text>
 
-          {(booking.packageName || (booking as any).styleName) ? (
-            <View style={styles.variationRow}>
-              <Text style={styles.variationLabel}>Phân loại: </Text>
-              <Text style={styles.variationValue} numberOfLines={1}>
-                {[booking.packageName, (booking as any).styleName ? `Tone ${(booking as any).styleName}` : null]
-                  .filter(Boolean)
-                  .join(' • ')}
-              </Text>
-            </View>
-          ) : null}
+          {(booking as any).styleName ? (() => {
+            const rawStyle = String((booking as any).styleName).trim();
+            const isTone = rawStyle.toLowerCase().startsWith('tone');
+            const label = isTone ? 'Tone: ' : 'Phong cách: ';
+            const val = isTone ? rawStyle.replace(/^tone\s+/i, '') : rawStyle;
+            return (
+              <View style={styles.variationRow}>
+                <Text style={styles.variationValue} numberOfLines={2}>
+                  <Text style={styles.variationLabel}>{label}</Text>
+                  {val}
+                </Text>
+              </View>
+            );
+          })() : null}
 
           {isStudioOrder && (
             <View style={styles.agencyNoticeRow}>

@@ -27,9 +27,9 @@ import { useLocationStore } from '@/store/location.store';
 import { customerAddressService } from '@/services/customer-address.service';
 import { createBookingSchema } from '@/schemas/booking-create.schema';
 import { parseApiError } from '@/utils/error';
-import { DismissibleModal } from '@/components/common/DismissibleModal';
-
 import { agencyService, AgencyPublicProfile } from '@/services/agency.service';
+import { BookingDetailSkeleton } from '@/components/base/Skeleton';
+import { DismissibleModal } from '@/components/common/DismissibleModal';
 
 export default function CreateBookingScreen() {
   const insets = useSafeAreaInsets();
@@ -244,12 +244,30 @@ export default function CreateBookingScreen() {
     }
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={styles.loadingText}>Đang chuẩn bị thông tin đặt lịch...</Text>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <SafeAreaView style={styles.headerBar} edges={['top']}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={handleBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Xác Nhận Đặt Lịch</Text>
+          <View style={{ width: 40 }} />
+        </SafeAreaView>
+        <BookingDetailSkeleton />
+      </View>
     );
   }
 
@@ -268,14 +286,6 @@ export default function CreateBookingScreen() {
     style: 'currency',
     currency: 'VND',
   }).format(depositAmount);
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
-  };
 
   return (
     <View style={styles.container}>
