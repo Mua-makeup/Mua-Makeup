@@ -1166,10 +1166,11 @@ export const TRANSLATIONS = {
 
     // Auth & Register extras
     login_role_unauthorized: 'Tài khoản này không có quyền truy cập Cổng Quản Trị (Yêu cầu vai trò Super Admin hoặc Agency Admin).',
-    register_title_main: 'Đăng Ký Tài Khoản Mới',
-    register_page_sub: 'Gia nhập nền tảng đặt lịch make-up chuyên nghiệp hàng đầu',
+    register_title_main: 'Đăng Ký Đối Tác Studio',
+    register_page_sub: 'Gia nhập nền tảng quản trị và kết nối khách hàng dành cho Studio Make-up',
     tab_agency_owner: 'Chủ Studio Agency',
     tab_customer_artist: 'Khách Hàng / Thợ',
+    mobile_app_notice_for_customer: 'Khách hàng và Thợ trang điểm vui lòng tải ứng dụng Mobile để trải nghiệm và tạo tài khoản.',
     field_fullname: 'Họ và Tên',
     field_phone: 'Số Điện Thoại',
     field_email: 'Email Liên Hệ',
@@ -3271,10 +3272,11 @@ export const TRANSLATIONS = {
 
     // Auth & Register extras
     login_role_unauthorized: 'This account does not have access to Management Portals (Requires Super Admin or Agency Admin role).',
-    register_title_main: 'Register New Account',
-    register_page_sub: 'Join the premier professional makeup booking platform',
+    register_title_main: 'Studio Partner Registration',
+    register_page_sub: 'Join the premier management and booking platform for Make-up Studios',
     tab_agency_owner: 'Studio Agency Owner',
     tab_customer_artist: 'Customer / Artist',
+    mobile_app_notice_for_customer: 'Customers and Freelance Artists please download our Mobile App to create an account and book services.',
     field_fullname: 'Full Name',
     field_phone: 'Phone Number',
     field_email: 'Contact Email',
