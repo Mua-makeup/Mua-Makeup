@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import { Sparkles, X, ArrowRight, Clock, Bell, User, UserPlus, Phone, ShieldAlert, CalendarOff } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
-import { USER_ROLES } from '../../../constants/roles.constant';
+import { USER_ROLES, STORAGE_KEYS } from '../../../constants/roles.constant';
 import { agencyService } from '../../../services/agency.service';
 import { notificationService } from '../../../services/notification.service';
 import { useNotificationStore, mapServerNotification } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { formatCurrency, formatBookingDateTime } from '../../../utils/formatters';
 import { notificationSound } from '../../../utils/notificationSound';
+import { getWebSocketUrl } from '../../../constants/app.constant';
 
 export const AgencyRealtimeNotifier = () => {
   const navigate = useNavigate();
@@ -95,9 +96,7 @@ export const AgencyRealtimeNotifier = () => {
 
       if (!isMounted) return;
 
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsHost = window.location.hostname || 'localhost';
-      const brokerURL = `${wsProtocol}//${wsHost}:8080/ws-makeup`;
+      const brokerURL = getWebSocketUrl();
 
       const handleMessage = (message) => {
         try {
@@ -308,8 +307,10 @@ export const AgencyRealtimeNotifier = () => {
         }
       };
 
+      const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
       stompClient = new Client({
         brokerURL,
+        connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
         reconnectDelay: 5000,
         heartbeatIncoming: 4000,
         heartbeatOutgoing: 4000,

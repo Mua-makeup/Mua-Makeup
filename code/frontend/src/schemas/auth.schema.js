@@ -12,7 +12,14 @@ export const loginSchema = z.object({
 export const changePasswordSchema = z
   .object({
     oldPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại'),
-    newPassword: z.string().min(6, 'Mật khẩu mới phải có ít nhất 6 ký tự'),
+    newPassword: z
+      .string()
+      .min(8, 'Mật khẩu mới phải có ít nhất 8 ký tự')
+      .max(50, 'Mật khẩu mới tối đa 50 ký tự')
+      .regex(
+        /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!._-]).*$/,
+        'Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt'
+      ),
     confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu mới'),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {

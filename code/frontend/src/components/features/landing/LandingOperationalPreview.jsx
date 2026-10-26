@@ -35,12 +35,12 @@ export const LandingOperationalPreview = () => {
         </div>
 
         {/* Tab Switcher Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 mb-6 sm:mb-8">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
                 activeTab === tab.id
                   ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
                   : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -53,11 +53,11 @@ export const LandingOperationalPreview = () => {
         </div>
 
         {/* Studio Portal Container Mockup */}
-        <div className="p-4 sm:p-7 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-none transition-all">
+        <div className="p-3.5 sm:p-7 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-none transition-all">
           {/* Top Bar of Studio Portal Mockup */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center font-black text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-4 sm:pb-5 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center font-black text-xs sm:text-sm">
                 S
               </div>
               <div>
@@ -79,19 +79,19 @@ export const LandingOperationalPreview = () => {
 
           {/* Tab 1: Shifts Matrix Preview */}
           {activeTab === 'shifts' && (
-            <div className="pt-6 space-y-4 animate-in fade-in duration-200">
+            <div className="pt-4 sm:pt-6 space-y-3 sm:space-y-4 animate-in fade-in duration-200">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-900 dark:text-white">
                   {t('landing_prev_shifts_title')}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {t('landing_prev_shifts_no_conflict')}
+                  <span>{t('landing_prev_shifts_no_conflict')}</span>
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[550px]">
+              <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+                <table className="w-full text-left text-xs min-w-[480px] sm:min-w-[550px]">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold text-[11px]">
                       <th className="pb-2.5">{t('landing_prev_col_artist')}</th>
@@ -104,20 +104,20 @@ export const LandingOperationalPreview = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     <tr>
-                      <td className="py-3 font-bold text-slate-900 dark:text-white">Mai Linh (Senior)</td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-[10px] font-semibold">{t('landing_prev_shift_bridal_morning')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px]">{t('landing_prev_shift_day_off')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 text-[10px] font-semibold">{t('landing_prev_shift_douyin_afternoon')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 text-[10px] font-semibold">{t('landing_prev_shift_prom_morning')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 text-[10px] font-semibold">{t('landing_prev_shift_gala_evening')}</span></td>
+                      <td className="py-2.5 sm:py-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">Mai Linh (Senior)</td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_bridal_morning')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] whitespace-nowrap">{t('landing_prev_shift_day_off')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_douyin_afternoon')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_prom_morning')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_gala_evening')}</span></td>
                     </tr>
                     <tr>
-                      <td className="py-3 font-bold text-slate-900 dark:text-white">Thanh Vân (Master)</td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 text-[10px] font-semibold">{t('landing_prev_shift_gala_vip_evening')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-[10px] font-semibold">{t('landing_prev_shift_bridal_morning')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-[10px] font-semibold">{t('landing_prev_shift_bridal_noon')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px]">{t('landing_prev_shift_day_off')}</span></td>
-                      <td className="py-3"><span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 text-[10px] font-semibold">{t('landing_prev_shift_party_evening')}</span></td>
+                      <td className="py-2.5 sm:py-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">Thanh Vân (Master)</td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_gala_vip_evening')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_bridal_morning')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_bridal_noon')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] whitespace-nowrap">{t('landing_prev_shift_day_off')}</span></td>
+                      <td className="py-2.5 sm:py-3"><span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 text-[10px] font-semibold whitespace-nowrap">{t('landing_prev_shift_party_evening')}</span></td>
                     </tr>
                   </tbody>
                 </table>

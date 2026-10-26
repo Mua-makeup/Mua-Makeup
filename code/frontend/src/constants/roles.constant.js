@@ -8,4 +8,7 @@ export const USER_ROLES = {
 
 export const STORAGE_KEYS = {
   LANGUAGE: 'mua_language',
+  ACCESS_TOKEN: 'mua_access_token',
+  REFRESH_TOKEN: 'mua_refresh_token',
+  LOGGED_IN: 'mua_logged_in',
 };

@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import { Award, X, ArrowRight, User, FileText, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
-import { USER_ROLES } from '../../../constants/roles.constant';
+import { USER_ROLES, STORAGE_KEYS } from '../../../constants/roles.constant';
 import { useNotificationStore, mapServerNotification, extractCleanProofUrl } from '../../../store/useNotificationStore';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { notificationService } from '../../../services/notification.service';
 import { notificationSound } from '../../../utils/notificationSound';
+import { getWebSocketUrl } from '../../../constants/app.constant';
 
 export const AdminRealtimeNotifier = () => {
   const navigate = useNavigate();
@@ -75,9 +76,7 @@ export const AdminRealtimeNotifier = () => {
 
     checkUnreadOnLogin();
 
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.hostname || 'localhost';
-    const brokerURL = `${wsProtocol}//${wsHost}:8080/ws-makeup`;
+    const brokerURL = getWebSocketUrl();
 
     const handleMessage = (message) => {
       if (!isMounted) return;
@@ -152,8 +151,10 @@ export const AdminRealtimeNotifier = () => {
       }
     };
 
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     stompClient = new Client({
       brokerURL,
+      connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,

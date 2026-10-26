@@ -38,9 +38,10 @@ export const LandingBentoFeatures = () => {
         </div>
 
         {/* Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8">
+        {/* Bento Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 sm:gap-8">
           {/* Card 1: Shift Matrix with Conflict Shield (Span 7) */}
-          <div className="lg:col-span-7 p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="lg:col-span-7 p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-900/60">
@@ -55,46 +56,50 @@ export const LandingBentoFeatures = () => {
               <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-2">
                 {t('landing_feat_shift_title')}
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal mb-6">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-normal mb-5 sm:mb-6">
                 {t('landing_feat_shift_desc')}
               </p>
             </div>
 
-            {/* Shift Matrix Mockup */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800">
-              <div className="grid grid-cols-5 gap-2 text-center text-[11px] font-bold text-slate-500 pb-3 border-b border-slate-200/70 dark:border-slate-700/60">
-                <span>{t('landing_feat_shift_mock_mon')}</span>
-                <span>{t('landing_feat_shift_mock_tue')}</span>
-                <span>{t('landing_feat_shift_mock_wed')}</span>
-                <span>{t('landing_feat_shift_mock_thu')}</span>
-                <span>{t('landing_feat_shift_mock_fri')}</span>
-              </div>
+            {/* Shift Matrix Mockup with mobile horizontal scrolling */}
+            <div className="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 overflow-hidden">
+              <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+                <div className="min-w-[440px] sm:min-w-0">
+                  <div className="grid grid-cols-5 gap-2 text-center text-[11px] font-bold text-slate-500 pb-3 border-b border-slate-200/70 dark:border-slate-700/60">
+                    <span>{t('landing_feat_shift_mock_mon')}</span>
+                    <span>{t('landing_feat_shift_mock_tue')}</span>
+                    <span>{t('landing_feat_shift_mock_wed')}</span>
+                    <span>{t('landing_feat_shift_mock_thu')}</span>
+                    <span>{t('landing_feat_shift_mock_fri')}</span>
+                  </div>
 
-              <div className="grid grid-cols-5 gap-2 pt-3">
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
-                  <span className="text-[9px] font-extrabold text-rose-600 block">08:00</span>
-                  <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_bridal')}</span>
-                  <span className="text-[9px] text-slate-400 block truncate">Mai Linh</span>
-                </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
-                  <span className="text-[9px] font-extrabold text-indigo-600 block">10:30</span>
-                  <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_gala')}</span>
-                  <span className="text-[9px] text-slate-400 block truncate">Thanh Vân</span>
-                </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
-                  <span className="text-[9px] font-extrabold text-amber-600 block">14:00</span>
-                  <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_douyin')}</span>
-                  <span className="text-[9px] text-slate-400 block truncate">Hà My</span>
-                </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
-                  <span className="text-[9px] font-extrabold text-emerald-600 block">09:00</span>
-                  <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_prom')}</span>
-                  <span className="text-[9px] text-slate-400 block truncate">Mai Linh</span>
-                </div>
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
-                  <span className="text-[9px] font-extrabold text-purple-600 block">18:00</span>
-                  <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_gala_vip')}</span>
-                  <span className="text-[9px] text-slate-400 block truncate">Lan Anh</span>
+                  <div className="grid grid-cols-5 gap-2 pt-3">
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
+                      <span className="text-[9px] font-extrabold text-rose-600 block">08:00</span>
+                      <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_bridal')}</span>
+                      <span className="text-[9px] text-slate-400 block truncate">Mai Linh</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
+                      <span className="text-[9px] font-extrabold text-indigo-600 block">10:30</span>
+                      <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_gala')}</span>
+                      <span className="text-[9px] text-slate-400 block truncate">Thanh Vân</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
+                      <span className="text-[9px] font-extrabold text-amber-600 block">14:00</span>
+                      <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_douyin')}</span>
+                      <span className="text-[9px] text-slate-400 block truncate">Hà My</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
+                      <span className="text-[9px] font-extrabold text-emerald-600 block">09:00</span>
+                      <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_prom')}</span>
+                      <span className="text-[9px] text-slate-400 block truncate">Mai Linh</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-left">
+                      <span className="text-[9px] font-extrabold text-purple-600 block">18:00</span>
+                      <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 block truncate">{t('landing_feat_shift_mock_gala_vip')}</span>
+                      <span className="text-[9px] text-slate-400 block truncate">Lan Anh</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -114,7 +119,7 @@ export const LandingBentoFeatures = () => {
           </div>
 
           {/* Card 2: 72-Hour QR Recruitment (Span 5) */}
-          <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="lg:col-span-5 p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/60">
@@ -135,7 +140,7 @@ export const LandingBentoFeatures = () => {
             </div>
 
             {/* QR Mockup */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+            <div className="p-4 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
               <div className="w-24 h-24 rounded-xl bg-white p-2 border border-slate-200 flex items-center justify-center shrink-0 shadow-xs">
                 {/* Visual SVG QR representation */}
                 <svg className="w-full h-full text-slate-900" viewBox="0 0 24 24" fill="currentColor">
@@ -172,7 +177,7 @@ export const LandingBentoFeatures = () => {
           </div>
 
           {/* Card 3: Transparent Pricing & Surcharges (Span 6) */}
-          <div className="lg:col-span-6 p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="lg:col-span-6 p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-900/60">
@@ -190,7 +195,7 @@ export const LandingBentoFeatures = () => {
             </div>
 
             {/* Pricing Receipt Mockup */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
+            <div className="p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
                   {t('landing_feat_pricing_mock_base')}
@@ -222,7 +227,7 @@ export const LandingBentoFeatures = () => {
           </div>
 
           {/* Card 4: Credential Verification & Quality Audits (Span 6) */}
-          <div className="lg:col-span-6 p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+          <div className="lg:col-span-6 p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/60">
@@ -240,9 +245,9 @@ export const LandingBentoFeatures = () => {
             </div>
 
             {/* Artist Credential Badge Mockup */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-4">
+            <div className="p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-xl sm:rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                   <UserCheck className="w-6 h-6" />
                 </div>
                 <div>
