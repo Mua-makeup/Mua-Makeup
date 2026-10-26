@@ -88,6 +88,37 @@ services:
     networks:
       - makeup_network
 
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: makeup-node-exporter
+    restart: always
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - makeup_network
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: makeup-prometheus
+    restart: always
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+    depends_on:
+      - node-exporter
+    networks:
+      - makeup_network
+
   grafana:
     image: grafana/grafana:11.1.0
     container_name: makeup-grafana
@@ -105,6 +136,7 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - loki
+      - prometheus
     networks:
       - makeup_network
 
@@ -116,6 +148,8 @@ volumes:
   loki_data:
     driver: local
   grafana_data:
+    driver: local
+  prometheus_data:
     driver: local
 
 networks:
