@@ -23,8 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Slf4j
@@ -34,6 +36,7 @@ import java.util.List;
 public class SurgePricingServiceImpl implements SurgePricingService {
 
     private static final String H3_SURGE_GLOBAL_KEY = "pricing:settings:h3_surge_enabled";
+    private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
     private final SurgePricingRuleRepository surgePricingRuleRepository;
     private final SurgePricingRuleMapper surgePricingRuleMapper;
@@ -81,7 +84,10 @@ public class SurgePricingServiceImpl implements SurgePricingService {
         // 2. Đánh giá hệ số từ Cung / Cầu Thời gian thực (Uber H3 Spatial Binning)
         BigDecimal realtimeMultiplier = PricingConstants.NORMAL_SURGE_MULTIPLIER;
         SurgeDemandTracker.RealtimeSurgeResult realtimeResult = null;
-        if (isH3SurgeGloballyEnabled()) {
+        boolean isNearRealtime = bookingTime != null
+                && Math.abs(Duration.between(LocalDateTime.now(VIETNAM_OFFSET), bookingTime).toMinutes()) <= 120;
+
+        if (isH3SurgeGloballyEnabled() && isNearRealtime) {
             realtimeResult = surgeDemandTracker.evaluateRealtimeSurge(customerLat, customerLng);
             realtimeMultiplier = realtimeResult.multiplier();
         }
