@@ -17,6 +17,11 @@ apiClient.interceptors.request.use(
   (config) => {
     const lang = localStorage.getItem(STORAGE_KEYS.LANGUAGE) || 'vi';
     config.headers['Accept-Language'] = lang;
+
+    const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -75,7 +80,9 @@ apiClient.interceptors.response.use(
     }
 
     if (is401) {
-      localStorage.removeItem('mua_logged_in');
+      localStorage.removeItem(STORAGE_KEYS.LOGGED_IN);
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
 
       // Nếu đang chủ động logout, tuyệt đối không hiển thị toast lỗi hết hạn token
       if (!isLoggingOut) {

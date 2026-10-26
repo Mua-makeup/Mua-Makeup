@@ -7,9 +7,9 @@ export const LandingCtaSection = () => {
   const { t } = useI18nStore();
 
   return (
-    <section className="py-16 sm:py-24 border-t border-slate-200/80 dark:border-slate-800">
+    <section className="py-12 sm:py-24 border-t border-slate-200/80 dark:border-slate-800">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        <div className="p-8 sm:p-14 rounded-3xl bg-gradient-to-br from-rose-50/90 via-white to-pink-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 dark:bg-slate-900 border border-rose-200/80 dark:border-slate-800 text-slate-900 dark:text-white text-center relative overflow-hidden shadow-xl shadow-rose-500/5 dark:shadow-none transition-colors">
+        <div className="p-6 sm:p-14 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-rose-50/90 via-white to-pink-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 dark:bg-slate-900 border border-rose-200/80 dark:border-slate-800 text-slate-900 dark:text-white text-center relative overflow-hidden shadow-xl shadow-rose-500/5 dark:shadow-none transition-colors">
           {/* Subtle Glow */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 blur-3xl pointer-events-none rounded-full" />
 

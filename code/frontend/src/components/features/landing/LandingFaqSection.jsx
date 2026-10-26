@@ -15,10 +15,10 @@ export const LandingFaqSection = () => {
   ];
 
   return (
-    <section id="faq" className="py-16 sm:py-24 border-t border-slate-200/80 dark:border-slate-800">
+    <section id="faq" className="py-12 sm:py-24 border-t border-slate-200/80 dark:border-slate-800">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-xs mb-3">
             <HelpCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
             <span>{t('landing_faq_badge')}</span>
@@ -32,35 +32,35 @@ export const LandingFaqSection = () => {
         </div>
 
         {/* FAQ Accordion List */}
-        <div className="space-y-3">
+        <div className="space-y-2.5 sm:space-y-3">
           {faqs.map((faq, idx) => {
             const isOpen = openIdx === idx;
             return (
               <div
                 key={idx}
-                className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs transition-colors"
+                className="rounded-xl sm:rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xs transition-colors"
               >
                 <button
                   onClick={() => setOpenIdx(isOpen ? -1 : idx)}
                   aria-expanded={isOpen}
-                  className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                  className="w-full p-3.5 sm:p-5 text-left flex items-center justify-between gap-3 sm:gap-4 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-rose-500"
                 >
                   <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                     {faq.q}
                   </span>
                   <div
-                    className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 ${
+                    className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 ${
                       isOpen
                         ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rotate-180'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                     }`}
                   >
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
                 </button>
 
                 {isOpen && (
-                  <div className="px-4 pb-4 sm:px-5 sm:pb-5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-3 animate-in fade-in duration-200">
+                  <div className="px-3.5 pb-3.5 sm:px-5 sm:pb-5 text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-3 animate-in fade-in duration-200">
                     {faq.a}
                   </div>
                 )}

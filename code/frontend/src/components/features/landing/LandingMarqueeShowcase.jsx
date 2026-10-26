@@ -398,63 +398,62 @@ export const LandingMarqueeShowcase = () => {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* HORIZONTAL SLIDER WITH ARROWS PLACED OUTSIDE THE CARDS TRACK               */}
-      {/* ========================================================================= */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-6 select-none">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 select-none">
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* Left Arrow Button - Completely outside the cards */}
+          {/* Left Arrow Button - Visible on tablet/desktop, mobile uses touch swipe */}
           <button
             type="button"
             onClick={handlePrev}
             aria-label={t('landing_marquee_prev')}
-            className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-md hover:bg-rose-500 hover:text-white hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-white transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer z-10"
+            className="hidden sm:flex shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-md hover:bg-rose-500 hover:text-white hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-white transition-all transform hover:scale-105 active:scale-95 items-center justify-center cursor-pointer z-10"
           >
             <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           {/* Viewport Container with Edge Gradient Masks */}
           <div
-            className="relative flex-1 overflow-hidden py-3"
+            className="relative flex-1 overflow-hidden py-2 sm:py-3"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
+            onTouchStart={() => setIsPaused(true)}
+            onTouchEnd={() => setIsPaused(false)}
           >
             {/* Left Edge Gradient Fade */}
-            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 sm:w-20 bg-gradient-to-r from-slate-100/90 dark:from-slate-900 to-transparent z-10" />
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 sm:w-20 bg-gradient-to-r from-slate-100/90 dark:from-slate-900 to-transparent z-10" />
 
             {/* Right Edge Gradient Fade */}
-            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-12 sm:w-20 bg-gradient-to-l from-slate-100/90 dark:from-slate-900 to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 sm:w-20 bg-gradient-to-l from-slate-100/90 dark:from-slate-900 to-transparent z-10" />
 
             {/* Smooth Scrollable Cards Track */}
             <div
               ref={scrollRef}
-              className="flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth py-2"
+              className="flex items-center gap-3 sm:gap-6 overflow-x-auto no-scrollbar scroll-smooth py-1 sm:py-2"
             >
               {displayItems.map((brand, index) => (
                 <div
                   key={`brand-${brand.id}-${index}`}
-                  className="w-[280px] sm:w-[310px] shrink-0 group flex items-center gap-4 px-5 py-4 rounded-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-700/80 shadow-xs hover:shadow-lg hover:border-rose-400 dark:hover:border-rose-500/80 hover:-translate-y-1 transition-all duration-300 cursor-default"
+                  className="w-[230px] sm:w-[310px] shrink-0 group flex items-center gap-3 sm:gap-4 px-3.5 py-3 sm:px-5 sm:py-4 rounded-xl sm:rounded-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-700/80 shadow-xs hover:shadow-lg hover:border-rose-400 dark:hover:border-rose-500/80 hover:-translate-y-1 transition-all duration-300 cursor-default"
                 >
                   {/* Brand Logo Avatar */}
-                  <div className="w-12 h-12 shrink-0 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 group-hover:border-rose-300 dark:group-hover:border-rose-500/50 shadow-inner group-hover:scale-105 transition-all">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 group-hover:border-rose-300 dark:group-hover:border-rose-500/50 shadow-inner group-hover:scale-105 transition-all">
                     {brand.logo}
                   </div>
 
                   {/* Brand Information - Ample width without ugly truncation */}
                   <div className="text-left flex-1 min-w-0">
-                    <div className="text-sm font-black tracking-wide text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors whitespace-nowrap">
+                    <div className="text-xs sm:text-sm font-black tracking-wide text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors whitespace-nowrap">
                       {brand.name}
                     </div>
-                    <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate">
+                    <div className="text-[10px] sm:text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate">
                       {brand.origin}
                     </div>
-                    <div className="text-[10px] text-slate-400 dark:text-slate-400 font-medium truncate">
+                    <div className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-400 font-medium truncate">
                       {brand.specialty}
                     </div>
                   </div>
 
                   {/* Verified Dot */}
-                  <div className="flex items-center pl-1 shrink-0">
+                  <div className="flex items-center pl-0.5 sm:pl-1 shrink-0">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 group-hover:scale-125 transition-transform" title="Verified Genuine Cosmetics" />
                   </div>
                 </div>
@@ -462,12 +461,12 @@ export const LandingMarqueeShowcase = () => {
             </div>
           </div>
 
-          {/* Right Arrow Button - Completely outside the cards */}
+          {/* Right Arrow Button - Visible on tablet/desktop */}
           <button
             type="button"
             onClick={handleNext}
             aria-label={t('landing_marquee_next')}
-            className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-md hover:bg-rose-500 hover:text-white hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-white transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer z-10"
+            className="hidden sm:flex shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-md hover:bg-rose-500 hover:text-white hover:border-rose-500 dark:hover:bg-rose-500 dark:hover:text-white transition-all transform hover:scale-105 active:scale-95 items-center justify-center cursor-pointer z-10"
           >
             <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>

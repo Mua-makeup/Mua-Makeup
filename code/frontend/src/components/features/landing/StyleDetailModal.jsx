@@ -36,18 +36,18 @@ export const StyleDetailModal = ({ isOpen, onClose, styleData }) => {
       />
 
       {/* Modal Container */}
-      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden z-10 max-h-[90vh] flex flex-col md:flex-row my-auto">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden z-10 max-h-[92vh] sm:max-h-[90vh] flex flex-col md:flex-row my-auto">
         {/* Close Button */}
         <button
           onClick={onClose}
           aria-label={t('close')}
-          className="absolute top-3.5 right-3.5 z-30 w-9 h-9 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center transition-all cursor-pointer shadow-md focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+          className="absolute top-3 right-3 sm:top-3.5 sm:right-3.5 z-30 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/70 hover:bg-slate-900 text-white flex items-center justify-center transition-all cursor-pointer shadow-md focus:outline-hidden focus:ring-2 focus:ring-rose-500"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
         {/* Left Column: Image Artwork */}
-        <div className="relative md:w-5/12 bg-slate-950 overflow-hidden flex-shrink-0 flex items-center justify-center min-h-[240px] sm:min-h-[300px] md:min-h-[460px]">
+        <div className="relative md:w-5/12 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center h-48 sm:h-64 md:h-auto md:min-h-[460px]">
           <img
             src={styleData.image}
             alt={styleData.title}
@@ -57,20 +57,20 @@ export const StyleDetailModal = ({ isOpen, onClose, styleData }) => {
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-black/20 pointer-events-none" />
 
           {/* Floating Tag Badge */}
-          <div className="absolute top-3.5 left-3.5 z-20">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-rose-600 text-white shadow-md">
+          <div className="absolute top-3 left-3 sm:top-3.5 sm:left-3.5 z-20">
+            <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-extrabold uppercase tracking-wider bg-rose-600 text-white shadow-md">
               <Sparkles className="w-3 h-3" />
-              {styleData.tag}
+              <span>{styleData.tag}</span>
             </span>
           </div>
         </div>
 
         {/* Right Column: Details & Procedure */}
-        <div className="md:w-7/12 flex flex-col justify-between bg-white dark:bg-slate-900 overflow-hidden">
+        <div className="md:w-7/12 flex flex-col justify-between bg-white dark:bg-slate-900 overflow-hidden flex-1">
           {/* Scrollable Body */}
-          <div className="p-5 sm:p-7 overflow-y-auto space-y-5 text-slate-800 dark:text-slate-200">
+          <div className="p-4 sm:p-7 overflow-y-auto space-y-4 sm:space-y-5 text-slate-800 dark:text-slate-200">
             <div>
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400 block mb-1">
+              <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400 block mb-1">
                 {t('landing_styles_tag')}
               </span>
               <h2

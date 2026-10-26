@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { USER_ROLES } from '../constants/roles.constant';
+import { USER_ROLES, STORAGE_KEYS } from '../constants/roles.constant';
 import { authService } from '../services/auth.service';
 import { useI18nStore } from './useI18nStore';
 import { useToastStore } from './useToastStore';
@@ -30,6 +30,14 @@ export const useAuthStore = create((set) => ({
       const { userInfo } = authData;
       const primaryRole = userInfo?.role || userInfo?.roles?.[0] || USER_ROLES.CUSTOMER;
 
+      if (authData.accessToken) {
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, authData.accessToken);
+      }
+      if (authData.refreshToken) {
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, authData.refreshToken);
+      }
+      localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
+
       set({
         user: userInfo,
         role: primaryRole,
@@ -37,8 +45,6 @@ export const useAuthStore = create((set) => ({
         isCheckingAuth: false,
         isLoading: false,
       });
-
-      localStorage.setItem('mua_logged_in', 'true');
 
       if (userInfo?.language && (userInfo.language === 'vi' || userInfo.language === 'en')) {
         useI18nStore.getState().setLanguage(userInfo.language);
@@ -59,6 +65,14 @@ export const useAuthStore = create((set) => ({
       const { userInfo } = authData;
       const primaryRole = userInfo?.role || userInfo?.roles?.[0] || USER_ROLES.CUSTOMER;
 
+      if (authData.accessToken) {
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, authData.accessToken);
+      }
+      if (authData.refreshToken) {
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, authData.refreshToken);
+      }
+      localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
+
       set({
         user: userInfo,
         role: primaryRole,
@@ -66,8 +80,6 @@ export const useAuthStore = create((set) => ({
         isCheckingAuth: false,
         isLoading: false,
       });
-
-      localStorage.setItem('mua_logged_in', 'true');
 
       if (userInfo?.language && (userInfo.language === 'vi' || userInfo.language === 'en')) {
         useI18nStore.getState().setLanguage(userInfo.language);
@@ -89,12 +101,15 @@ export const useAuthStore = create((set) => ({
     sessionStorage.setItem('is_logging_out', 'true');
     sessionStorage.removeItem('auth_redirect_toast');
     useToastStore.getState().hideToast();
+    const refreshToken = localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
     try {
-      await authService.logout();
+      await authService.logout(refreshToken);
     } catch {
       // Ignored if server error
     } finally {
-      localStorage.removeItem('mua_logged_in');
+      localStorage.removeItem(STORAGE_KEYS.LOGGED_IN);
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       localStorage.removeItem('ai_chat_session_code');
       localStorage.removeItem('ai_support_session_code');
       sessionStorage.removeItem('auth_redirect_toast');
@@ -131,7 +146,9 @@ export const useAuthStore = create((set) => ({
         return true;
       }
 
-      localStorage.removeItem('mua_logged_in');
+      localStorage.removeItem(STORAGE_KEYS.LOGGED_IN);
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       set({
         user: null,
         role: null,
@@ -140,7 +157,9 @@ export const useAuthStore = create((set) => ({
       });
       return false;
     } catch {
-      localStorage.removeItem('mua_logged_in');
+      localStorage.removeItem(STORAGE_KEYS.LOGGED_IN);
+      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
       set({
         user: null,
         role: null,

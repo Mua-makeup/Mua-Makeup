@@ -1,10 +1,11 @@
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { AppState, AppStateStatus } from 'react-native';
 import { getAccessToken } from '@/utils/storage';
-import { BASE_URL } from './api';
+import { BASE_URL, getActiveBaseUrl } from './api';
 
-export const getWebSocketUrl = (): string => {
-  return BASE_URL.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '/ws-makeup');
+export const getWebSocketUrl = async (): Promise<string> => {
+  const activeUrl = await getActiveBaseUrl();
+  return activeUrl.replace(/^http/, 'ws').replace(/\/api\/v1\/?$/, '/ws-makeup');
 };
 
 class WebSocketService {
@@ -39,7 +40,7 @@ class WebSocketService {
 
     this.isConnecting = true;
     const token = await getAccessToken();
-    const brokerURL = getWebSocketUrl();
+    const brokerURL = await getWebSocketUrl();
     console.log('[WebSocket-STOMP] Đang kết nối tới:', brokerURL);
 
     this.client = new Client({

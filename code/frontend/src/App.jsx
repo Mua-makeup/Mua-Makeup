@@ -4,6 +4,7 @@ import { useAuthStore } from './store/useAuthStore';
 import { useThemeStore } from './store/useThemeStore';
 import { useToastStore } from './store/useToastStore';
 import { Toast } from './components/base/Toast';
+import { STORAGE_KEYS } from './constants/roles.constant';
 
 export default function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -36,8 +37,10 @@ export default function App() {
       }
     }
 
-    // Chi goi /auth/me khi co flag session
-    const hasSession = localStorage.getItem('mua_logged_in') === 'true';
+    // Chi goi /auth/me khi co flag session hoac token
+    const hasSession =
+      localStorage.getItem(STORAGE_KEYS.LOGGED_IN) === 'true' ||
+      !!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (hasSession) {
       checkAuth();
     } else {
