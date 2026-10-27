@@ -298,12 +298,6 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           get().dismissOffer(false);
         });
 
-        websocketService.subscribe('/topic/instant-dismiss', (dismissPayload) => {
-          const currentOffer = get().activeOffer;
-          if (currentOffer && (!dismissPayload?.bookingId || dismissPayload.bookingId === currentOffer.bookingId)) {
-            get().dismissOffer(false);
-          }
-        });
 
         // Đăng ký nhận tin đơn đặt lịch hẹn trước (Scheduled Offer)
         websocketService.subscribe(`/topic/mua-scheduled-offer/${effectiveMuaId}`, (offerPayload) => {
@@ -454,12 +448,6 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
             get().dismissOffer(false);
           });
 
-          websocketService.subscribe('/topic/instant-dismiss', (dismissPayload) => {
-            const currentOffer = get().activeOffer;
-            if (currentOffer && (!dismissPayload?.bookingId || dismissPayload.bookingId === currentOffer.bookingId)) {
-              get().dismissOffer(false);
-            }
-          });
 
           websocketService.subscribe(`/topic/booking-customer-confirmed/${effectiveMuaId}`, (depositPayload) => {
             console.log('[WorkstationStore] Online nhận cọc / thanh toán hoàn tất:', depositPayload);
@@ -511,7 +499,7 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
           websocketService.unsubscribe(`/topic/mua-offer/${effectiveMuaId}`);
         }
         websocketService.unsubscribe('/user/queue/offers');
-        websocketService.unsubscribe('/topic/instant-dismiss');
+
         soundManager.stopJobAlertSound();
 
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

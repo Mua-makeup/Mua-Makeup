@@ -23,11 +23,13 @@ import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.service.telemetry.RedisGeoService;
 import com.makeup.platform.service.telemetry.TelemetryLogService;
 import com.makeup.platform.service.telemetry.TelemetryStreamService;
+import com.makeup.platform.security.WebSocketAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -49,6 +51,7 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
     private final TelemetryLogService telemetryLogService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
+    private final WebSocketAccessService webSocketAccessService;
 
     @Override
     @Transactional
@@ -128,6 +131,9 @@ public class TelemetryStreamServiceImpl implements TelemetryStreamService {
 
     @Override
     public LiveTrackingRes processLocationStream(Long userId, LocationStreamReq req) {
+        if (!webSocketAccessService.canSendTelemetry(userId, req.getBookingId())) {
+            throw new AccessDeniedException("Telemetry access denied");
+        }
         validateCoordinates(req.getLatitude(), req.getLongitude());
 
         MuaProfileEntity mua = muaProfileRepository.findByUserId(userId)

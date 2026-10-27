@@ -33,6 +33,8 @@ class ReceivingLocationTest {
     @Mock TelemetryLogService telemetryLogService;
     @Mock SimpMessagingTemplate messagingTemplate;
     @Mock ObjectMapper objectMapper;
+    @Mock com.makeup.platform.security.WebSocketAccessService webSocketAccessService;
+    @Mock com.makeup.platform.repository.AgencyStaffRepository agencyStaffRepository;
     @InjectMocks TelemetryStreamServiceImpl service;
 
     private MuaProfileEntity profile() {
@@ -91,6 +93,7 @@ class ReceivingLocationTest {
     @Test
     void tripGpsStillStreamsWithoutMovingReceivingPoint() {
         profile();
+        when(webSocketAccessService.canSendTelemetry(1L, 20L)).thenReturn(true);
         var request = LocationStreamReq.builder().bookingId(20L)
                 .latitude(21.04).longitude(105.86).accuracy(10.0).build();
         var response = service.processLocationStream(1L, request);
@@ -99,5 +102,13 @@ class ReceivingLocationTest {
         assertEquals("LIVE", response.getLocationStatus());
         verify(telemetryLogService).saveTelemetryLog(7L, request);
         verify(redisGeoService, never()).addActiveMua(anyLong(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void unauthorizedTripCannotReadOrWriteLocationData() {
+        var request = LocationStreamReq.builder().bookingId(20L).latitude(21.04).longitude(105.86).build();
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> service.processLocationStream(1L, request));
+        verifyNoInteractions(muaProfileRepository, redisGeoService, telemetryLogService, messagingTemplate);
     }
 }
