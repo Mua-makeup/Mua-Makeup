@@ -1,5 +1,5 @@
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { getAccessToken } from '@/utils/storage';
 import { BASE_URL, getActiveBaseUrl } from './api';
 
@@ -47,22 +47,27 @@ class WebSocketService {
     const brokerURL = await getWebSocketUrl();
     console.log('[WebSocket-STOMP] Đang kết nối tới:', brokerURL);
 
+    const isWeb = Platform.OS === 'web';
+
     this.client = new Client({
-      webSocketFactory: () => {
-        // Tương thích chuẩn React Native iOS / Hermes / Android: Khởi tạo WebSocket thuần
-        const ws = new WebSocket(brokerURL, ['v12.stomp', 'v11.stomp', 'v10.stomp']);
-        ws.onopen = () => console.log('[RAW-WS] ✅ Native WebSocket OPENED to:', brokerURL);
-        ws.onerror = (e: any) => console.warn('[RAW-WS] ❌ Native WebSocket ERROR:', e?.message || e);
-        ws.onclose = (e: any) => console.log('[RAW-WS] ⚠️ Native WebSocket CLOSED:', e?.code, e?.reason);
-        return ws;
-      },
+      brokerURL: isWeb ? brokerURL : undefined,
+      webSocketFactory: isWeb
+        ? undefined
+        : () => {
+            // Tương thích chuẩn React Native iOS / Hermes / Android: Khởi tạo WebSocket thuần
+            const ws = new WebSocket(brokerURL, ['v12.stomp', 'v11.stomp', 'v10.stomp']);
+            ws.onopen = () => console.log('[RAW-WS] ✅ Native WebSocket OPENED to:', brokerURL);
+            ws.onerror = (e: any) => console.warn('[RAW-WS] ❌ Native WebSocket ERROR:', e?.message || e);
+            ws.onclose = (e: any) => console.log('[RAW-WS] ⚠️ Native WebSocket CLOSED:', e?.code, e?.reason);
+            return ws;
+          },
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       debug: () => {},
       reconnectDelay: 3000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
       appendMissingNULLonIncoming: true, // Fix lỗi Null-chopping trên React Native iOS
-      forceBinaryWSFrames: true, // Ép dùng binary frame để không bị iOS cắt cụt ký tự null \0
+      forceBinaryWSFrames: !isWeb, // Ép dùng binary frame để không bị iOS cắt cụt ký tự null \0 (chỉ dùng trên native mobile)
     });
 
     const activeClient = this.client;

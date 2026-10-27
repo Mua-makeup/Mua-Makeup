@@ -51,7 +51,12 @@
         {
           "cameraPermission": "Cho phép ứng dụng sử dụng Camera để quét mã QR tuyển dụng của Studio."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

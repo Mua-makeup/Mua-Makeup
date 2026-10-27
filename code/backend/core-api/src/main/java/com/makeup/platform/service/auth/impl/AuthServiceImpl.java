@@ -124,6 +124,7 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(req.getPassword()))
                 .fullName(req.getFullName())
                 .gender(req.getGender())
+                .language("vi")
                 .isActive(true)
                 .isVerified(false)
                 .role(assignedRole)
@@ -497,7 +498,7 @@ public class AuthServiceImpl implements AuthService {
                 muaId,
                 roles,
                 permissions,
-                user.getLanguage() != null ? user.getLanguage() : "en");
+                user.getLanguage() != null ? user.getLanguage() : "vi");
 
         String refreshToken = jwtUtils.generateRefreshToken(user.getId());
         redisTokenService.saveRefreshToken(refreshToken, user.getId(), refreshTokenExpirationDays);

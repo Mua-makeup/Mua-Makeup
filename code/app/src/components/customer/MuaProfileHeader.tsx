@@ -119,7 +119,7 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
           <View style={styles.nameRow}>
             <Text style={styles.fullName}>{profile.fullName}</Text>
             <View style={styles.freelancerTag}>
-              <Text style={styles.freelancerTagText}>✨ Nghệ Sĩ Tự Do</Text>
+              <Text style={styles.freelancerTagText}>✨ Thợ Tự Do</Text>
             </View>
           </View>
           <View style={styles.subInfoRow}>

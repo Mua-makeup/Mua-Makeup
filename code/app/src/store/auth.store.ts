@@ -165,41 +165,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const refreshToken = await getRefreshToken();
       await authService.logout(refreshToken);
+    } catch (err) {
+      console.warn('Lỗi khi gọi API logout từ máy chủ:', err);
     } finally {
       await clearTokens();
 
-      // 1. Ngắt WebSocket HOÀN TOÀN: Xóa sạch registeredHandlers + deactivate client
-      //    Ngăn WebSocket tự reconnect và re-subscribe topic thợ cũ sau khi đổi tài khoản
-      websocketService.disconnectAll();
-
-      // 2. Dọn dẹp Notification listener & state
-      useNotificationStore.getState().cleanWebSocketListener();
-      useNotificationStore.setState({
-        notifications: [],
-        unreadCount: 0,
-        isSubscribed: false,
-        subscribedUserId: null,
-        activeToast: null,
-      });
-
-      // Reset toàn bộ workstation state để tránh lộ dữ liệu thợ sang tài khoản khác
-      useWorkstationStore.setState({
-        isOnline: false,
-        isLoading: false,
-        currentCoords: null,
-        profile: null,
-        todayBookings: [],
-        activeOffer: null,
-        isAcceptModalVisible: false,
-        stats: { completedToday: 0, ratingAverage: 5.0, totalReviews: 0, dailyEarnings: 0 },
-      });
-
-      // Reset booking store của khách hàng
-      useBookingStore.setState({
-        upcomingBookings: [],
-        historyBookings: [],
-      });
-
+      // Cập nhật trạng thái Đăng Xuất NGAY LẬP TỨC để UI phản hồi tức thì
       set({
         accessToken: null,
         refreshToken: null,
@@ -207,6 +178,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: false,
         isLoading: false,
       });
+
+      // 1. Ngắt WebSocket HOÀN TOÀN
+      try {
+        websocketService.disconnectAll();
+      } catch (e) {
+        console.warn('Lỗi ngắt kết nối WebSocket khi logout:', e);
+      }
+
+      // 2. Dọn dẹp Notification listener & state
+      try {
+        useNotificationStore.getState().cleanWebSocketListener();
+        useNotificationStore.setState({
+          notifications: [],
+          unreadCount: 0,
+          isSubscribed: false,
+          subscribedUserId: null,
+          activeToast: null,
+        });
+      } catch (e) {
+        console.warn('Lỗi dọn dẹp NotificationStore khi logout:', e);
+      }
+
+      // 3. Reset workstation state (bọc an toàn tránh lỗi circular dependency trên web)
+      try {
+        useWorkstationStore.setState({
+          isOnline: false,
+          isLoading: false,
+          currentCoords: null,
+          profile: null,
+          todayBookings: [],
+          activeOffer: null,
+          isAcceptModalVisible: false,
+          stats: { completedToday: 0, ratingAverage: 5.0, totalReviews: 0, dailyEarnings: 0 },
+        });
+      } catch (e) {
+        console.warn('Lỗi dọn dẹp WorkstationStore khi logout:', e);
+      }
+
+      // 4. Reset booking store của khách hàng
+      try {
+        useBookingStore.setState({
+          upcomingBookings: [],
+          historyBookings: [],
+        });
+      } catch (e) {
+        console.warn('Lỗi dọn dẹp BookingStore khi logout:', e);
+      }
     }
   },
 }));

@@ -73,9 +73,9 @@ class CustomLocaleResolverTest {
     }
 
     @Test
-    @DisplayName("Mặc định không có thông tin -> Fallback về Locale.ENGLISH ('en')")
+    @DisplayName("Mặc định không có thông tin -> Fallback về Locale vi ('vi')")
     void testResolveLocaleDefault() {
         Locale locale = resolver.resolveLocale(request);
-        assertEquals(Locale.ENGLISH, locale);
+        assertEquals(new Locale("vi"), locale);
     }
 }
