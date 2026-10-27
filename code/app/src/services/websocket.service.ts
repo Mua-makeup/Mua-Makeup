@@ -12,8 +12,8 @@ class WebSocketService {
   private client: Client | null = null;
   private isConnecting: boolean = false;
   private subscriptions: Map<string, StompSubscription> = new Map();
-  // Danh sách topic đăng ký thường trực: Tự động đăng ký lại khi socket kết nối lại (reconnect)
-  private registeredHandlers: Map<string, (payload: any) => void> = new Map();
+  // Hỗ trợ NHIỀU subscriber cùng lắng nghe 1 topic (Fan-out Pattern):
+  private registeredHandlers: Map<string, Set<(payload: any) => void>> = new Map();
   private appStateSubscription: any = null;
 
   constructor() {
@@ -86,8 +86,10 @@ class WebSocketService {
       console.log('[WebSocket-STOMP] Đã kết nối thành công tới:', brokerURL);
 
       // Đăng ký lại tất cả các topic đã được lưu thường trực (kể cả sau khi reconnect)
-      this.registeredHandlers.forEach((callback, topic) => {
-        this.doSubscribe(topic, callback);
+      this.registeredHandlers.forEach((handlers, topic) => {
+        if (handlers && handlers.size > 0) {
+          this.doSubscribe(topic);
+        }
       });
     };
 
@@ -139,41 +141,51 @@ class WebSocketService {
   }
 
   /**
-   * Đăng ký lắng nghe (Subscribe) 1 topic cụ thể
+   * Đăng ký lắng nghe (Subscribe) 1 topic cụ thể. Hỗ trợ nhiều components cùng subscribe 1 topic.
    */
   subscribe(topic: string, callback: (payload: any) => void): () => void {
-    // Lưu callback vào danh sách thường trực
-    this.registeredHandlers.set(topic, callback);
+    if (!this.registeredHandlers.has(topic)) {
+      this.registeredHandlers.set(topic, new Set());
+    }
+    this.registeredHandlers.get(topic)!.add(callback);
 
-    if (this.client?.connected) {
-      this.doSubscribe(topic, callback);
+    if (this.isConnected()) {
+      this.doSubscribe(topic);
     } else {
       this.connect();
     }
 
-    // Trả về hàm hủy đăng ký (unsubscribe)
+    // Trả về hàm hủy đăng ký (unsubscribe) riêng cho listener này
     return () => {
-      this.unsubscribe(topic);
+      this.unsubscribe(topic, callback);
     };
   }
 
-  private doSubscribe(topic: string, callback: (payload: any) => void) {
+  private doSubscribe(topic: string) {
     if (!this.client?.connected) return;
 
-    // Hủy đăng ký cũ nếu trùng topic
+    // Nếu đã có STOMP subscription cho topic này rồi thì không cần đăng ký lặp
     if (this.subscriptions.has(topic)) {
-      try {
-        this.subscriptions.get(topic)?.unsubscribe();
-      } catch { }
-      this.subscriptions.delete(topic);
+      return;
     }
 
     const sub = this.client.subscribe(topic, (msg: IMessage) => {
+      let body: any;
       try {
-        const body = JSON.parse(msg.body);
-        callback(body);
+        body = JSON.parse(msg.body);
       } catch (e) {
-        callback(msg.body);
+        body = msg.body;
+      }
+      // Broadcast tới TẤT CẢ các component đang lắng nghe topic này
+      const handlers = this.registeredHandlers.get(topic);
+      if (handlers) {
+        handlers.forEach((callback) => {
+          try {
+            callback(body);
+          } catch (err) {
+            console.error('[WebSocket-STOMP] Lỗi callback topic', topic, err);
+          }
+        });
       }
     });
 
@@ -181,9 +193,20 @@ class WebSocketService {
   }
 
   /**
-   * Hủy đăng ký (Unsubscribe) 1 topic
+   * Hủy đăng ký (Unsubscribe) 1 callback cụ thể hoặc toàn bộ topic
    */
-  unsubscribe(topic: string): void {
+  unsubscribe(topic: string, callback?: (payload: any) => void): void {
+    if (callback) {
+      const handlers = this.registeredHandlers.get(topic);
+      if (handlers) {
+        handlers.delete(callback);
+        if (handlers.size > 0) {
+          // Vẫn còn component khác đang cần topic này -> Giữ nguyên STOMP subscription
+          return;
+        }
+      }
+    }
+
     this.registeredHandlers.delete(topic);
     const sub = this.subscriptions.get(topic);
     if (sub) {

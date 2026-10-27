@@ -197,9 +197,13 @@ export default function CustomerBookingDetailScreen() {
 
     // Lắng nghe cập nhật trạng thái realtime
     if (bookingId) {
-      const topic = `/topic/booking-status/${bookingId}`;
-      websocketService.subscribe(topic, (msg: any) => {
+      const unsub = websocketService.subscribe(topic, (msg: any) => {
         if (msg) {
+          const nextStatus = msg.currentStatus || msg.status;
+          if (nextStatus) {
+            setBookingDetail((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+          }
+
           if (msg.type === 'WORKER_CASH_DECLINED') {
             setIsCashPaidConfirmed(false);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -211,7 +215,6 @@ export default function CustomerBookingDetailScreen() {
             return;
           }
 
-          const nextStatus = msg.currentStatus || msg.status;
           if (
             nextStatus === 'PAID_OUT' ||
             msg.type === 'PAYMENT_COMPLETED' ||
@@ -269,7 +272,7 @@ export default function CustomerBookingDetailScreen() {
         }
       });
       return () => {
-        websocketService.unsubscribe(topic);
+        unsub?.();
       };
     }
   }, [bookingId]);
