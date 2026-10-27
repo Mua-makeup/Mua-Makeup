@@ -167,6 +167,10 @@ export const useNotificationStore = create((set, get) => ({
     );
     set({ notifications: updated });
 
+    if (!id || !/^\d+$/.test(String(id).trim())) {
+      return;
+    }
+
     try {
       await notificationService.markAsRead(id);
     } catch (err) {
@@ -183,6 +187,10 @@ export const useNotificationStore = create((set, get) => ({
     );
     set({ notifications: updated });
 
+    if (!id || !/^\d+$/.test(String(id).trim())) {
+      return;
+    }
+
     try {
       await notificationService.toggleRead(id);
     } catch (err) {
@@ -193,6 +201,10 @@ export const useNotificationStore = create((set, get) => ({
   deleteNotification: async (id) => {
     const updated = get().notifications.filter((n) => String(n.id) !== String(id));
     set({ notifications: updated });
+
+    if (!id || !/^\d+$/.test(String(id).trim())) {
+      return;
+    }
 
     try {
       await notificationService.deleteNotification(id);

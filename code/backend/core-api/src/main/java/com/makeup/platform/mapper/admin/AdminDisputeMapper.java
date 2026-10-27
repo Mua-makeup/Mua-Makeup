@@ -2,10 +2,15 @@ package com.makeup.platform.mapper.admin;
 
 import com.makeup.platform.dto.response.admin.AdminDisputeRes;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.service.booking.DisputeStageService;
+
 import org.springframework.stereotype.Component;
 
 @Component
+@lombok.RequiredArgsConstructor
 public class AdminDisputeMapper {
+    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
+    private final DisputeStageService disputeStageService;
 
     public AdminDisputeRes toRes(BookingEntity booking) {
         if (booking == null) {
@@ -82,6 +87,8 @@ public class AdminDisputeMapper {
                 .emergencyReportedAt(booking.getEmergencyReportedAt())
                 .cancellationReason(booking.getCancellationReason())
                 .disputeOrigin(disputeOrigin)
+                .financials(booking.getAgency() != null ? studioFinance.inspect(booking) : null)
+                .completedService(disputeStageService.isCompletedService(booking))
                 .isEscalatedFromStudio((booking.getCancellationReason() != null && booking.getCancellationReason().contains("[LEO_THANG_ADMIN]"))
                         || (booking.getEmergencyReason() != null && booking.getEmergencyReason().contains("[LEO_THANG_ADMIN]")))
                 .serviceSubtotal(booking.getServiceSubtotal())

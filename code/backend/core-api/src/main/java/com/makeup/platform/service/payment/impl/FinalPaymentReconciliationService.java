@@ -21,7 +21,7 @@ public class FinalPaymentReconciliationService {
     @Transactional
     public void reconcile(String paymentCode) {
         var payment = payments.findByPaymentCodeWithLock(paymentCode).orElseThrow();
-        if (!"BOOKING_FINAL_PAYMENT".equals(payment.getPurpose()) ||
+        if ("REFUNDED".equals(payment.getApplicationStatus()) || !"BOOKING_FINAL_PAYMENT".equals(payment.getPurpose()) ||
                 ("APPLIED".equals(payment.getApplicationStatus()) && "POSTED".equals(payment.getWalletPostingStatus()))) return;
         if (!"SUCCESS".equals(payment.getStatus())) {
             var strategy = gateways.getStrategy(payment.getPaymentGateway());

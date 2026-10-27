@@ -1068,6 +1068,15 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
 
         Long bookingId = payment.getBooking().getId();
+        if (payment.getBooking().getAgency() != null) {
+            var lockedBooking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
+            if ("REFUNDED".equals(payment.getApplicationStatus())) return;
+            if (lockedBooking.getStatus() == BookingStatus.DISPUTED
+                    || lockedBooking.getStatus() == BookingStatus.DISPUTE_REFUNDED
+                    || lockedBooking.getStatus() == BookingStatus.DISPUTE_COMPENSATED) {
+                throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+            }
+        }
         // Serialize different payment attempts for the same booking as well as retries.
         BookingDepositEntity deposit = bookingDepositRepository.findByBookingIdWithLock(bookingId).orElseThrow();
         if ("APPLIED".equals(payment.getApplicationStatus()) && "POSTED".equals(payment.getWalletPostingStatus())) return;
@@ -1077,7 +1086,11 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
         BigDecimal defaultCommissionRate = new BigDecimal("0.20");
 
-        bookingSettlementService.settleBookingOnlinePayment(bookingId, defaultCommissionRate);
+        if (payment.getBooking().getAgency() != null) {
+            bookingSettlementService.settleBookingOnlinePaymentInTransaction(bookingId, defaultCommissionRate);
+        } else {
+            bookingSettlementService.settleBookingOnlinePayment(bookingId, defaultCommissionRate);
+        }
 
         WalletEntity customerWallet = walletRepository.findByUserIdWithLock(payment.getUser().getId())
                 .orElseGet(() -> createWalletForUser(payment.getUser().getId(), payment.getUser()));

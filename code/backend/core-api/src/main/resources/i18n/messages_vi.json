@@ -1,4 +1,12 @@
 {
+  "dispute.invalid_studio_state": "Đơn studio không ở trạng thái cho phép xử lý khiếu nại.",
+  "dispute.already_resolved": "Khiếu nại đã được xử lý tiền trước đó.",
+  "dispute.payment_reconciliation_required": "Cần đối soát thanh toán/quyết toán của đơn trước khi xử lý. Chưa thực hiện hoàn hoặc thu hồi tiền.",
+  "dispute.insufficient_recovery_balance": "Ví nhận tiền quyết toán hoặc tiền mặt không đủ số dư để thu hồi. Khiếu nại vẫn chờ xử lý; chưa hoàn tiền.",
+  "dispute.escalated_admin_only": "Khiếu nại đã chuyển lên admin; studio không thể tự xử lý tiếp.",
+  "dispute.studio_not_escalated": "Khiếu nại studio chưa được chuyển lên admin.",
+  "dispute.studio_resolution_required": "Cần quyết định từ chối của studio và đơn chưa chuyển admin để thực hiện thao tác này.",
+
   "common": {
     "success": "Thao tác thành công.",
     "internal_error": "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.",
@@ -11,7 +19,8 @@
     "request_body_missing": "Dữ liệu yêu cầu (Request Body) không hợp lệ hoặc bị thiếu.",
     "file_size_exceeded": "Dung lượng tệp tải lên vượt quá giới hạn cho phép.",
     "invalid_file_format": "Định dạng tệp không hợp lệ. Các định dạng cho phép: {0}.",
-    "invalid_magic_bytes": "Nội dung tệp không khớp với định dạng đa phương tiện cho phép."
+    "invalid_magic_bytes": "Nội dung tệp không khớp với định dạng đa phương tiện cho phép.",
+    "argument_type_mismatch": "Tham số ''{0}'' không đúng định dạng."
   },
   "auth": {
     "login_success": "Đăng nhập thành công!",

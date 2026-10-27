@@ -50,6 +50,7 @@ import java.util.Optional;
 public class AgencyDisputeServiceImpl implements AgencyDisputeService {
 
     private final BookingRepository bookingRepository;
+    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
     private final AgencyDispatchSupport support;
     private final AgencyDisputeMapper agencyDisputeMapper;
     private final BookingDepositRepository bookingDepositRepository;
@@ -139,7 +140,11 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
     @Transactional
     public AgencyDisputeRes resolveAgencyDispute(Long agencyOwnerId, Long bookingId, ResolveDisputeReq req) {
         AgencyProfileEntity agency = support.getAgencyByOwnerUserId(agencyOwnerId);
-        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+        if (booking.getAgency() == null || !booking.getAgency().getId().equals(agency.getId())) {
+            throw new CustomBusinessException(ErrorCodes.ERR_AGENCY_ACCESS_DENIED, "agency.access_denied", HttpStatus.FORBIDDEN);
+        }
 
         if (booking.getStatus() != BookingStatus.DISPUTED) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
@@ -151,122 +156,23 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
         BookingStatus currentStatus = booking.getStatus();
         BookingStatus targetStatus;
 
-        boolean isCompletedService = StringUtils.hasText(booking.getCompletionPhotoUrl())
-                || (booking.getTotalAmount() != null && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0
-                    && booking.getDepositAmount() != null && booking.getTotalAmount().compareTo(booking.getDepositAmount()) > 0);
-
-        BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
-        Optional<BookingDepositEntity> depositOpt = bookingDepositRepository.findByBookingId(bookingId);
-        if (depositOpt.isPresent()) {
-            BookingDepositEntity dep = depositOpt.get();
-            if (dep.getPaidAmount() != null && dep.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
-                depositAmount = dep.getPaidAmount();
-            }
+        if (com.makeup.platform.service.booking.StudioDisputeFinanceService.escalated(booking)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "dispute.escalated_admin_only", HttpStatus.CONFLICT);
         }
-
-        BigDecimal refundAmount = (isCompletedService && booking.getTotalAmount() != null && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? booking.getTotalAmount()
-                : depositAmount;
-
+        var financials = studioFinance.inspect(booking);
+        boolean isCompletedService = financials.completedService();
+        BigDecimal refundAmount = financials.paidAmount();
         if ("APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution)) {
-            targetStatus = BookingStatus.DISPUTE_REFUNDED;
-
-            if (depositOpt.isPresent()) {
-                BookingDepositEntity dep = depositOpt.get();
-                dep.setStatus("REFUNDED");
-                bookingDepositRepository.save(dep);
-            }
-
-            if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && booking.getCustomer() != null) {
-                Long customerId = booking.getCustomer().getId();
-                WalletEntity customerWallet = walletRepository.findByUserId(customerId)
-                        .orElseGet(() -> walletRepository.save(WalletEntity.builder()
-                                .user(booking.getCustomer())
-                                .availableBalance(BigDecimal.ZERO)
-                                .frozenBalance(BigDecimal.ZERO)
-                                .currency("VND")
-                                .build()));
-
-                BigDecimal currentAvailable = customerWallet.getAvailableBalance() != null ? customerWallet.getAvailableBalance() : BigDecimal.ZERO;
-                BigDecimal newBalance = currentAvailable.add(refundAmount);
-                customerWallet.setAvailableBalance(newBalance);
-
-                BigDecimal curFrozen = customerWallet.getFrozenBalance() != null ? customerWallet.getFrozenBalance() : BigDecimal.ZERO;
-                customerWallet.setFrozenBalance(curFrozen.subtract(depositAmount).max(BigDecimal.ZERO));
-                walletRepository.save(customerWallet);
-
-                // Release hold
-                Optional<WalletHoldEntity> holdOpt = walletHoldRepository.findByBookingIdAndStatus(bookingId, "ACTIVE");
-                if (holdOpt.isPresent()) {
-                    WalletHoldEntity hold = holdOpt.get();
-                    hold.setStatus("REFUNDED");
-                    hold.setReleasedAt(OffsetDateTime.now());
-                    walletHoldRepository.save(hold);
-                }
-
-                // Double entry ledger for customer
-                String idempotencyKey = "agency_dispute_refund:booking:" + bookingId;
-                if (!ledgerEntryRepository.existsByIdempotencyKey(idempotencyKey)) {
-                    String desc = isCompletedService
-                            ? "Studio (" + agency.getAgencyName() + ") duyệt khiếu nại sau ca: Hoàn 100% tổng tiền đơn #" + booking.getBookingCode() + " (" + note + ")"
-                            : "Studio (" + agency.getAgencyName() + ") duyệt khiếu nại hoàn cọc đơn #" + booking.getBookingCode() + " (" + note + ")";
-                    LedgerEntryEntity ledgerEntry = LedgerEntryEntity.builder()
-                            .referenceType("BOOKING_REFUND")
-                            .referenceId(bookingId)
-                            .wallet(customerWallet)
-                            .entryType("CREDIT")
-                            .amount(refundAmount)
-                            .balanceAfter(newBalance)
-                            .description(desc)
-                            .idempotencyKey(idempotencyKey)
-                            .build();
-                    ledgerEntryRepository.save(ledgerEntry);
-                }
-
-                // Nếu ca đã hoàn thành, tiến hành thu hồi từ ví của chủ Studio
-                if (isCompletedService && agency.getOwner() != null) {
-                    walletRepository.findByUserIdWithLock(agency.getOwner().getId()).ifPresent(agencyWallet -> {
-                        BigDecimal curAvail = agencyWallet.getAvailableBalance() != null ? agencyWallet.getAvailableBalance() : BigDecimal.ZERO;
-                        BigDecimal clawbackBalance = curAvail.subtract(refundAmount).max(BigDecimal.ZERO);
-                        agencyWallet.setAvailableBalance(clawbackBalance);
-                        walletRepository.save(agencyWallet);
-
-                        String clawbackKey = "agency_dispute_clawback:booking:" + bookingId;
-                        if (!ledgerEntryRepository.existsByIdempotencyKey(clawbackKey)) {
-                            LedgerEntryEntity clawbackEntry = LedgerEntryEntity.builder()
-                                    .referenceType("BOOKING_CLAWBACK")
-                                    .referenceId(bookingId)
-                                    .wallet(agencyWallet)
-                                    .entryType("DEBIT")
-                                    .amount(refundAmount)
-                                    .balanceAfter(clawbackBalance)
-                                    .description("Thu hồi thù lao đơn #" + booking.getBookingCode() + " do Studio chấp thuận khiếu nại của khách hàng (" + note + ")")
-                                    .idempotencyKey(clawbackKey)
-                                    .build();
-                            ledgerEntryRepository.save(clawbackEntry);
-                        }
-                    });
-                }
-            }
-
-            booking.setCancellationReason(isCompletedService
-                    ? "Studio phê duyệt khiếu nại sau ca (Hoàn 100% tổng tiền đơn): " + note
-                    : "Studio phê duyệt khiếu nại hoàn cọc: " + note);
-
-            try {
-                muaCalendarService.releaseSlotByBookingId(bookingId);
-            } catch (Exception ex) {
-                log.warn("[AgencyDispute] Failed to release slot for bookingId={}: {}", bookingId, ex.getMessage());
-            }
-
-        } else {
-            // Studio từ chối hoàn cọc / bác bỏ khiếu nại -> Giữ trạng thái DISPUTED để khách có quyền chấp nhận hoặc leo thang lên Admin sàn
+            targetStatus = studioFinance.resolve(booking, resolution, note);
+            booking.setCancellationReason("Studio phê duyệt hoàn số tiền thực trả: " + refundAmount + " VND. " + note);
+            muaCalendarService.releaseSlotByBookingId(bookingId);
+        } else if ("RESOLVE_INTERNAL".equalsIgnoreCase(resolution)) {
             targetStatus = BookingStatus.DISPUTED;
-            booking.setCancellationReason(isCompletedService
-                    ? "[STUDIO_TU_CHOI]: Studio bác bỏ khiếu nại sau ca (Bảo lưu thù lao ca làm): " + (StringUtils.hasText(note) ? note : "Studio không chấp thuận khiếu nại")
-                    : "[STUDIO_TU_CHOI]: " + (StringUtils.hasText(note) ? note : "Studio không đồng ý hoàn cọc"));
+            booking.setCancellationReason("[STUDIO_TU_CHOI]: " + note);
+        } else {
+            throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispute.invalid_resolution_type", HttpStatus.BAD_REQUEST);
         }
-
         booking.setStatus(targetStatus);
         BookingEntity savedBooking = bookingRepository.save(booking);
 
@@ -306,7 +212,7 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
                     ? "Studio Đã Chấp Thuận Khiếu Nại: #" + savedBooking.getBookingCode()
                     : "Studio Từ Chối Khiếu Nại Đơn Hàng: #" + savedBooking.getBookingCode();
             String custContent = isApproved
-                    ? "Studio " + agency.getAgencyName() + " đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". " + (isCompletedService ? "Toàn bộ 100% tiền đơn hàng" : "Tiền cọc") + " đã được hoàn về ví của bạn. Ghi chú Studio: " + note
+                    ? "Studio " + agency.getAgencyName() + " đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". " + ("Số tiền thực trả " + refundAmount + " VND") + " đã được hoàn về ví của bạn. Ghi chú Studio: " + note
                     : "Studio " + agency.getAgencyName() + " đã từ chối yêu cầu khiếu nại của bạn cho đơn #" + savedBooking.getBookingCode() + ". Bạn có thể đồng ý với quyết định này hoặc khiếu nại lên Ban Quản Trị Sàn để được phân xử. Ghi chú Studio: " + note;
             try {
                 notificationService.createInAppNotification(
@@ -339,7 +245,7 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
                     ? "Studio Đã Phê Duyệt Khiếu Nại Ca Làm: #" + savedBooking.getBookingCode()
                     : "Studio Bác Bỏ Khiếu Nại Ca Làm: #" + savedBooking.getBookingCode();
             String staffContent = isApproved
-                    ? "Studio " + agency.getAgencyName() + " đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". Toàn bộ tiền đơn đã được hoàn lại cho khách hàng. Ghi chú: " + note
+                    ? "Studio " + agency.getAgencyName() + " đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". Số tiền thực trả " + refundAmount + " VND đã được hoàn lại cho khách hàng. Ghi chú: " + note
                     : "Studio " + agency.getAgencyName() + " đã bảo vệ kết quả ca làm đơn #" + savedBooking.getBookingCode() + " và bác bỏ khiếu nại của khách hàng. Ghi chú: " + note;
             try {
                 notificationService.createInAppNotification(
@@ -396,7 +302,7 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
         if (staffUser != null && StringUtils.hasText(staffUser.getEmail())) {
             try {
                 boolean isApproved = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution);
-                BigDecimal staffPayout = isApproved ? BigDecimal.ZERO : refundAmount;
+                BigDecimal staffPayout = BigDecimal.ZERO; // Studio rejection is not a payout decision.
                 emailService.sendWorkerDisputeResolutionEmail(
                         staffUser.getEmail(),
                         staffUser.getFullName(),

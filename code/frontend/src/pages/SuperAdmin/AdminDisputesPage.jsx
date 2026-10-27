@@ -1,3 +1,4 @@
+import { DisputeFinancialSummary } from '../../components/base/DisputeFinancialSummary';
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   AlertTriangle,
@@ -782,12 +783,8 @@ export const AdminDisputesPage = () => {
       {/* Comprehensive Dispute Dossier & Arbitration Modal */}
       {isDetailModalOpen && selectedDispute && (() => {
         const disputeInfo = parseDisputeInfo(selectedDispute);
-        const isPostCompletion = Boolean(
-          selectedDispute.status === 'COMPLETED' ||
-          selectedDispute.status === 'PAID_OUT' ||
-          (selectedDispute.totalAmount && selectedDispute.depositAmount && Number(selectedDispute.totalAmount) > Number(selectedDispute.depositAmount))
-        );
-        const disputeAssetAmount = isPostCompletion && Number(selectedDispute.totalAmount || 0) > 0
+        const isPostCompletion = selectedDispute.completedService === true;
+        const disputeAssetAmount = selectedDispute.financials ? Number(selectedDispute.financials.paidAmount || 0) : isPostCompletion && Number(selectedDispute.totalAmount || 0) > 0
           ? Number(selectedDispute.totalAmount)
           : Number(selectedDispute.depositAmount || 0);
         const halfDeposit = Math.round(disputeAssetAmount / 2);
@@ -846,7 +843,7 @@ export const AdminDisputesPage = () => {
                     }
                   >
                     {resolutionAction === 'APPROVE_REFUND_CUSTOMER'
-                      ? (isPostCompletion ? 'Duyệt Khiếu Nại (Hoàn 100% Tiền Đơn)' : (t('btn_approve_refund') || 'Phê Duyệt Hoàn 100% Khách'))
+                      ? (isPostCompletion ? 'Duyệt Hoàn Tiền Thực Trả' : (t('btn_approve_refund') || 'Phê Duyệt Hoàn 100% Khách'))
                       : resolutionAction === 'SPLIT_SETTLEMENT_50_50'
                       ? 'Phán Quyết Hòa Giải 50% - 50%'
                       : (isPostCompletion ? 'Duyệt Giải Trình Thợ (Không Trừ Tiền Thợ)' : (t('btn_reject_dispute') || 'Bác Bỏ & Bồi Thường 100% Thợ'))}
@@ -885,7 +882,7 @@ export const AdminDisputesPage = () => {
                 </div>
                 <div>
                   <span className="text-[10px] text-rose-500 font-bold uppercase block">
-                    {isPostCompletion ? 'Tài Sản Khiếu Nại (100% Đơn)' : 'Tiền Cọc Đóng Băng (Escrow)'}
+                    {isPostCompletion ? 'Số Tiền Có Thể Hoàn' : 'Tiền Cọc Đóng Băng (Escrow)'}
                   </span>
                   <span className="font-black text-rose-600 dark:text-rose-400 mt-1 block text-sm">
                     {formatCurrency(disputeAssetAmount)}
@@ -1100,7 +1097,7 @@ export const AdminDisputesPage = () => {
                           ? 'ĐÃ PHÁN QUYẾT: HÒA GIẢI 50% - 50% (CHIA ĐÔI TIỀN CỌC)'
                           : isRefunded
                           ? (isPostCompletion
-                              ? 'ĐÃ PHÁN QUYẾT: DUYỆT KHIẾU NẠI (HOÀN 100% TIỀN ĐƠN CHO KHÁCH)'
+                              ? 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CHO KHÁCH'
                               : 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CỌC 100% CHO KHÁCH HÀNG')
                           : isCompensated
                           ? (isPostCompletion
@@ -1160,6 +1157,7 @@ export const AdminDisputesPage = () => {
                           ? `Hoàn toàn bộ ${formatCurrency(disputeAssetAmount)} về ví Khách. Thu hồi thù lao từ ${selectedDispute.agencyName ? `Studio (${selectedDispute.agencyName})` : 'Thợ'}.`
                           : `Hoàn toàn bộ ${formatCurrency(disputeAssetAmount)} về ví Khách. Thợ không nhận thù lao.`}
                       </p>
+                  <DisputeFinancialSummary financials={selectedDispute.financials} />
                     </button>
 
                     {/* Option 2: 50/50 Split - Chỉ hiển thị khi sự cố hủy ca/bỏ hẹn trước khi hoàn thành dịch vụ */}
@@ -1183,7 +1181,7 @@ export const AdminDisputesPage = () => {
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                          Chia đôi số tiền: Khách hoàn <strong>{formatCurrency(halfDeposit)}</strong>, Thợ bồi thường <strong>{formatCurrency(halfDeposit)}</strong>.
+                          Chia đôi số tiền: Khách hoàn <strong>{formatCurrency(halfDeposit)}</strong>, {selectedDispute.financials ? 'Studio' : 'Thợ'} nhận <strong>{formatCurrency(disputeAssetAmount - halfDeposit)}</strong>.
                         </p>
                       </button>
                     )}
@@ -1201,14 +1199,14 @@ export const AdminDisputesPage = () => {
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="font-bold text-xs flex items-center gap-1.5">
                           <XCircle className="w-4 h-4 text-rose-600" />
-                          {isPostCompletion ? 'Duyệt Giải Trình Thợ' : 'Bồi Thường 100% Thợ'}
+                          {isPostCompletion ? 'Công nhận kết quả dịch vụ' : (selectedDispute.financials ? 'Bồi thường cọc cho Studio' : 'Bồi Thường 100% Thợ')}
                         </span>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
                           {isPostCompletion ? 'Bác Khiếu Nại' : 'Lỗi Khách'}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                        {isPostCompletion
+                        {selectedDispute.financials ? (isPostCompletion ? 'Công nhận dịch vụ. Nếu chưa trả đủ, đơn trở về Hoàn thành để tiếp tục thanh toán; chỉ quyết toán khi đã trả đủ.' : `Chuyển  tiền cọc cho ví chủ studio.`) : isPostCompletion
                           ? `Bác bỏ khiếu nại của khách, công nhận giải trình của thợ. Không trừ tiền thợ, bảo lưu toàn bộ ${formatCurrency(disputeAssetAmount)} cho ${selectedDispute.agencyName ? `Studio (${selectedDispute.agencyName})` : 'Thợ'}.`
                           : `Bác bỏ khiếu nại. Chuyển ${formatCurrency(disputeAssetAmount)} vào ví ${selectedDispute.agencyName ? `Studio (${selectedDispute.agencyName})` : 'Thợ'} bù chi phí dịch vụ.`}
                       </p>

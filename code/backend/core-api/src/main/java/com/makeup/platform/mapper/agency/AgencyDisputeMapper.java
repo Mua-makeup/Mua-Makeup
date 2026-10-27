@@ -8,7 +8,9 @@ import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import org.springframework.stereotype.Component;
 
 @Component
+@lombok.RequiredArgsConstructor
 public class AgencyDisputeMapper {
+    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
 
     public AgencyDisputeRes toRes(BookingEntity entity) {
         if (entity == null) {
@@ -65,6 +67,7 @@ public class AgencyDisputeMapper {
             }
         }
 
+        var financials = studioFinance.inspect(entity);
         return AgencyDisputeRes.builder()
                 .bookingId(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -87,6 +90,8 @@ public class AgencyDisputeMapper {
                 .emergencyReportedAt(entity.getEmergencyReportedAt())
                 .cancellationReason(entity.getCancellationReason())
                 .disputeOrigin(disputeOrigin)
+                .financials(financials)
+                .completedService(financials.completedService())
                 .isEscalatedToAdmin((entity.getCancellationReason() != null && entity.getCancellationReason().contains("[LEO_THANG_ADMIN]"))
                         || (entity.getEmergencyReason() != null && entity.getEmergencyReason().contains("[LEO_THANG_ADMIN]")))
                 .isStudioRejected(entity.getCancellationReason() != null && entity.getCancellationReason().contains("[STUDIO_TU_CHOI]"))
