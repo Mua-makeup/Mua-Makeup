@@ -14,6 +14,7 @@ import java.util.Optional;
 
 @Repository
 public interface LedgerEntryRepository extends JpaRepository<LedgerEntryEntity, Long> {
+    java.util.List<LedgerEntryEntity> findByReferenceIdAndReferenceTypeAndEntryType(Long referenceId, String referenceType, String entryType);
 
     Optional<LedgerEntryEntity> findByIdempotencyKey(String idempotencyKey);
 

@@ -47,8 +47,10 @@ public class AdminDisputeRes {
     private OffsetDateTime emergencyReportedAt;
     private String cancellationReason;
     private String disputeOrigin;
+    private boolean completedService;
     private Boolean isEscalatedFromStudio;
 
+    private com.makeup.platform.service.booking.StudioDisputeFinanceService.Financials financials;
     // Financials
     private BigDecimal serviceSubtotal;
     private BigDecimal surchargeFee;

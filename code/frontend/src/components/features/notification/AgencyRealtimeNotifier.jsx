@@ -654,7 +654,9 @@ export const AgencyRealtimeNotifier = () => {
                   dismissed.push(String(activeToast.id));
                   sessionStorage.setItem('agency_dismissed_toast_ids', JSON.stringify(dismissed));
                 }
-                notificationService.markAsRead(activeToast.id).catch(() => {});
+                if (/^\d+$/.test(String(activeToast.id).trim())) {
+                  notificationService.markAsRead(activeToast.id).catch(() => {});
+                }
               } catch {
                 // ignore
               }

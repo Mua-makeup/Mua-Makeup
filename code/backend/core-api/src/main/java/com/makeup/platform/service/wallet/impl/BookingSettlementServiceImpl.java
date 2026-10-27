@@ -63,6 +63,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     @Override
     @Transactional
     public void settleBooking(Long bookingId, BigDecimal commissionRate) {
+        guardStudioSettlement(bookingId);
         // Idempotency check
         if (settlementRepository.existsByBookingId(bookingId)) {
             log.info("[Settlement] Booking {} already settled, ensuring booking status is PAID_OUT", bookingId);
@@ -369,6 +370,13 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void settleBookingOnlinePayment(Long bookingId, BigDecimal commissionRate) {
+        settleBookingOnlinePaymentInTransaction(bookingId, commissionRate);
+    }
+
+    @Override
+    @Transactional
+    public void settleBookingOnlinePaymentInTransaction(Long bookingId, BigDecimal commissionRate) {
+        guardStudioSettlement(bookingId);
         if (settlementRepository.existsByBookingId(bookingId)) {
             log.info("[SettlementOnline] Booking {} already settled, skipping", bookingId);
             return;
@@ -726,6 +734,16 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
             }
         } catch (Exception ex) {
             log.error("[Settlement] Error processing overtime allowances for booking {}: {}", booking.getId(), ex.getMessage(), ex);
+        }
+    }
+    private void guardStudioSettlement(Long bookingId) {
+        var booking = bookingRepository.findById(bookingId).orElse(null);
+        if (booking != null && booking.getAgency() != null) {
+            booking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
+            if (booking.getStatus() != BookingStatus.COMPLETED && booking.getStatus() != BookingStatus.PAID_OUT) {
+                throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                        "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+            }
         }
     }
 }

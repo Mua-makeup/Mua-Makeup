@@ -9,6 +9,8 @@ public interface BookingSettlementService {
     
     void settleBookingOnlinePayment(Long bookingId, java.math.BigDecimal commissionRate);
 
+    void settleBookingOnlinePaymentInTransaction(Long bookingId, java.math.BigDecimal commissionRate);
+
     void retryPendingSettlements();
 
     void processOvertimeAllowancesForBooking(Long bookingId);

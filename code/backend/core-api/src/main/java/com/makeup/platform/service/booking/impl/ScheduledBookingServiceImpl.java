@@ -70,6 +70,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 public class ScheduledBookingServiceImpl implements ScheduledBookingService {
+    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
@@ -806,7 +807,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     @Override
     @Transactional
     public void escalateDisputeToAdmin(Long bookingId, Long customerId, String reason) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
 
         if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerId)) {
@@ -817,6 +818,10 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
         }
 
+        if (booking.getAgency() == null || !com.makeup.platform.service.booking.StudioDisputeFinanceService.studioRejected(booking)
+                || com.makeup.platform.service.booking.StudioDisputeFinanceService.escalated(booking)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.studio_resolution_required", HttpStatus.CONFLICT);
+        }
         String effectiveReason = StringUtils.hasText(reason)
                 ? reason.trim()
                 : "Khách hàng không đồng ý kết quả từ Studio và yêu cầu Ban Quản Trị Sàn phân xử";
@@ -864,7 +869,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     @Override
     @Transactional
     public void acceptStudioDisputeResolution(Long bookingId, Long customerId) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
 
         if (booking.getCustomer() == null || !booking.getCustomer().getId().equals(customerId)) {
@@ -875,7 +880,12 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
         }
 
-        booking.setStatus(BookingStatus.DISPUTE_COMPENSATED);
+        if (booking.getAgency() == null || !com.makeup.platform.service.booking.StudioDisputeFinanceService.studioRejected(booking)
+                || com.makeup.platform.service.booking.StudioDisputeFinanceService.escalated(booking)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.studio_resolution_required", HttpStatus.CONFLICT);
+        }
+        BookingStatus resolvedStatus = studioFinance.resolve(booking, "APPROVE_COMPENSATION_MUA", "Khách đồng ý kết quả studio");
+        booking.setStatus(resolvedStatus);
         String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
         booking.setCancellationReason("[KHACH_DONG_Y_KET_QUA]: Khách hàng chấp nhận giải quyết của Studio | " + existing);
         bookingRepository.save(booking);
@@ -883,7 +893,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         bookingAuditService.logTransition(
                 bookingId,
                 BookingStatus.DISPUTED,
-                BookingStatus.DISPUTE_COMPENSATED,
+                resolvedStatus,
                 customerId,
                 "Khách hàng chấp nhận giải quyết nội bộ của Studio"
         );
@@ -892,7 +902,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, Map.of(
                     "type", "DISPUTE_RESOLUTION_ACCEPTED",
                     "bookingId", bookingId,
-                    "status", "DISPUTE_COMPENSATED",
+                    "status", resolvedStatus.name(),
                     "timestamp", System.currentTimeMillis()
             ));
         } catch (Exception ex) {

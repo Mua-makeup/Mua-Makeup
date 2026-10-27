@@ -1,4 +1,12 @@
 {
+  "dispute.invalid_studio_state": "This studio booking cannot be resolved in its current state.",
+  "dispute.already_resolved": "The dispute funds have already been distributed.",
+  "dispute.payment_reconciliation_required": "Reconcile the booking payment and settlement before resolving it. No funds have been refunded or recovered.",
+  "dispute.insufficient_recovery_balance": "A payout or cash recipient has insufficient recovery balance. The dispute remains pending; no refund was issued.",
+  "dispute.escalated_admin_only": "This dispute has been escalated; only an administrator may resolve it.",
+  "dispute.studio_not_escalated": "This studio dispute has not been escalated to an administrator.",
+  "dispute.studio_resolution_required": "A studio rejection is required and the dispute must not have been escalated.",
+
   "common": {
     "success": "Operation completed successfully.",
     "internal_error": "System encountered an error. Please try again later.",
@@ -11,7 +19,8 @@
     "request_body_missing": "Request body is missing or malformed.",
     "file_size_exceeded": "Uploaded file exceeds maximum allowed size.",
     "invalid_file_format": "Invalid file format. Allowed formats: {0}.",
-    "invalid_magic_bytes": "File content does not match allowed media types."
+    "invalid_magic_bytes": "File content does not match allowed media types.",
+    "argument_type_mismatch": "Parameter ''{0}'' has an invalid format."
   },
   "auth": {
     "login_success": "Login successful.",
