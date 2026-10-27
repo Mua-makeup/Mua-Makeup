@@ -20,7 +20,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("infrastructure") @Testcontainers
-@DataJpaTest(properties={"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop",
+@DataJpaTest(properties={"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create",
     "spring.jpa.properties.hibernate.hbm2ddl.create_namespaces=true", "spring.jpa.show-sql=false"})
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
 @ContextConfiguration(classes=PostgresRepositoryTest.JpaConfig.class)

@@ -32,6 +32,7 @@ class CashPaymentAuthorizationTest {
     }
     @Test void missingBookingCannotCreateReceipt() {
         assertThrows(CustomBusinessException.class,()->service.confirmByCustomer(1L,9L,new CashPaymentConfirmationReq()));
-        verifyNoInteractions(receipts,settlement);
+        verify(receipts, never()).save(any());
+        verifyNoInteractions(settlement);
     }
 }
