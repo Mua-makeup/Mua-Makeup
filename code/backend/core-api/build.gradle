@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'eclipse'
     id 'idea'
     id 'org.springframework.boot' version '3.3.4'
@@ -66,10 +67,35 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.6'
+    testImplementation 'org.testcontainers:postgresql:1.20.6'
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform { excludeTags 'infrastructure' }
     maxHeapSize = '512m'
     jvmArgs '-XX:MaxMetaspaceSize=256m'
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs PostgreSQL and Redis integration tests in disposable Docker containers.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'infrastructure' }
+    maxHeapSize = '768m'
+    shouldRunAfter tasks.named('test')
+}
+
+jacoco {
+    toolVersion = '0.8.13'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
