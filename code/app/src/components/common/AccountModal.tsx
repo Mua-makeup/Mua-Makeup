@@ -40,7 +40,14 @@ export const AccountModal: React.FC = () => {
       setShowLogoutConfirm(false);
       closeAccountModal();
       await logout();
-      router.replace('/');
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        // Trên nền tảng Web (Vercel / Browser): Chuyển hướng về root để làm mới trạng thái DOM sạch sẽ
+        window.location.href = '/';
+      } else {
+        // Trên nền tảng Native Mobile (iOS / Android): Sử dụng Expo Router để điều hướng mượt mà
+        router.replace('/');
+      }
     } catch (err) {
       console.error('Logout error:', err);
     } finally {

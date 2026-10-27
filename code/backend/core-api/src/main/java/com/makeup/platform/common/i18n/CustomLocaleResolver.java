@@ -18,8 +18,9 @@ import java.util.Optional;
 @Slf4j
 public class CustomLocaleResolver implements LocaleResolver {
 
-    public static final Locale DEFAULT_LOCALE = Locale.ENGLISH;
     public static final Locale VIETNAMESE_LOCALE = new Locale("vi");
+    public static final Locale ENGLISH_LOCALE = Locale.ENGLISH;
+    public static final Locale DEFAULT_LOCALE = VIETNAMESE_LOCALE;
 
     private final UserRepository userRepository;
 
@@ -41,7 +42,7 @@ public class CustomLocaleResolver implements LocaleResolver {
             if (primaryLang.startsWith("vi")) {
                 return VIETNAMESE_LOCALE;
             } else if (primaryLang.startsWith("en")) {
-                return DEFAULT_LOCALE;
+                return ENGLISH_LOCALE;
             }
         }
 
@@ -54,7 +55,7 @@ public class CustomLocaleResolver implements LocaleResolver {
                 if (reqLang.equalsIgnoreCase("vi")) {
                     return VIETNAMESE_LOCALE;
                 } else if (reqLang.equalsIgnoreCase("en")) {
-                    return DEFAULT_LOCALE;
+                    return ENGLISH_LOCALE;
                 }
             }
 
@@ -74,7 +75,7 @@ public class CustomLocaleResolver implements LocaleResolver {
                             if (dbLang.equalsIgnoreCase("vi")) {
                                 return VIETNAMESE_LOCALE;
                             } else if (dbLang.equalsIgnoreCase("en")) {
-                                return DEFAULT_LOCALE;
+                                return ENGLISH_LOCALE;
                             }
                         }
                     }
@@ -84,7 +85,7 @@ public class CustomLocaleResolver implements LocaleResolver {
             }
         }
 
-        // 3. Fallback mặc định hệ thống là Tiếng Anh ('en')
+        // 3. Fallback mặc định hệ thống là Tiếng Việt ('vi')
         return DEFAULT_LOCALE;
     }
 

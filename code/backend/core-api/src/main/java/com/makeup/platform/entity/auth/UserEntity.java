@@ -51,7 +51,7 @@ public class UserEntity extends BaseEntity {
 
     @Column(name = "language", nullable = false, length = 10)
     @Builder.Default
-    private String language = "en";
+    private String language = "vi";
 
     @Column(name = "push_token", length = 255)
     private String pushToken;
