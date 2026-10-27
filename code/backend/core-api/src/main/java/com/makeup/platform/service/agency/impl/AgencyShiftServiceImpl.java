@@ -332,7 +332,7 @@ public class AgencyShiftServiceImpl implements AgencyShiftService {
             throw new CustomBusinessException(
                     ErrorCodes.ERR_SHIFT_OVERLAPPING,
                     "agency.shift_time_overlapped",
-                    dayInfo,
+                    new Object[]{dayInfo},
                     HttpStatus.CONFLICT
             );
         }

@@ -72,6 +72,9 @@ class AgencyStaffServiceImplTest {
     private AgencyStaffRepository agencyStaffRepository;
 
     @Mock
+    private com.makeup.platform.repository.AgencyStaffServiceRepository agencyStaffServiceRepository;
+
+    @Mock
     private AgencyStaffStyleRepository agencyStaffStyleRepository;
 
     @Mock
@@ -120,6 +123,7 @@ class AgencyStaffServiceImplTest {
 
         mockAgency = AgencyProfileEntity.builder()
                 .agencyCode("AG00105")
+                .isVerified(true)
                 .agencyName("Glamour Bridal Luxury Studio")
                 .hotline("02838383838")
                 .addressStreet("88 Đồng Khởi")

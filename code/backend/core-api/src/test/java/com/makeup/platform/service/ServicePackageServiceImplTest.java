@@ -47,6 +47,9 @@ class ServicePackageServiceImplTest {
     private ServicePackageRepository packageRepository;
 
     @Mock
+    private com.makeup.platform.repository.catalog.PortfolioShowcaseRepository portfolioShowcaseRepository;
+
+    @Mock
     private MasterCategoryRepository masterCategoryRepository;
 
     @Mock
@@ -94,6 +97,7 @@ class ServicePackageServiceImplTest {
     @Test
     @DisplayName("Tạo gói dịch vụ thành công cho Freelance MUA")
     void testCreatePackage_Success() {
+        when(ownerHelper.hasVerifiedCertificate(testMua)).thenReturn(true);
         CreatePackageReq req = CreatePackageReq.builder()
                 .masterCategoryId(1)
                 .packageName("Gói Trang Điểm Cô Dâu VIP")
