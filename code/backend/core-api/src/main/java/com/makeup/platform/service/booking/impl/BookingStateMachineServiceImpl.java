@@ -909,9 +909,19 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
 
         Integer inProgressElapsedSeconds = null;
         if (booking.getStatus() == BookingStatus.IN_PROGRESS) {
-            LocalDateTime startedAt = booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt();
+            LocalDateTime startedAt = bookingHistoryRepository.findByBookingIdOrderByCreatedAtAsc(booking.getId())
+                    .stream()
+                    .filter(h -> h.getToStatus() == BookingStatus.IN_PROGRESS)
+                    .map(BookingHistoryEntity::getCreatedAt)
+                    .reduce((first, second) -> second)
+                    .orElse(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt());
             if (startedAt != null) {
-                long elapsed = Duration.between(startedAt, LocalDateTime.now()).getSeconds();
+                // Database stores TIMESTAMPTZ (UTC). If startedAt is UTC, compare against UTC now.
+                long elapsed = Duration.between(startedAt, LocalDateTime.now(ZoneOffset.UTC)).getSeconds();
+                if (elapsed < 0) {
+                    // startedAt was already in local Vietnam time (UTC+7)
+                    elapsed = Duration.between(startedAt, LocalDateTime.now(VIETNAM_OFFSET)).getSeconds();
+                }
                 inProgressElapsedSeconds = (int) Math.max(0, elapsed);
             } else {
                 inProgressElapsedSeconds = 0;

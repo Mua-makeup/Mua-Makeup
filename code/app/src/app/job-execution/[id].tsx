@@ -857,7 +857,11 @@ export default function JobExecutionScreen() {
           if (detail.inProgressElapsedSeconds !== undefined && detail.inProgressElapsedSeconds !== null) {
             elapsed = detail.inProgressElapsedSeconds;
           } else if (detail.updatedAt) {
-            const startMs = new Date(detail.updatedAt).getTime();
+            let dateStr = detail.updatedAt;
+            if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.includes('+')) {
+              dateStr = dateStr + 'Z';
+            }
+            const startMs = new Date(dateStr).getTime();
             if (!isNaN(startMs)) {
               elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
             }

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { authService, LoginReq, RegisterReq, UserInfo, UserRegisterRes } from '@/services/auth.service';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '@/utils/storage';
-import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { websocketService } from '@/services/websocket.service';
 import { registerForPushNotificationsAsync } from '@/services/push-notification.service';

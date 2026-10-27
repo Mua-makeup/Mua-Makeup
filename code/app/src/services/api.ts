@@ -12,6 +12,9 @@ const getDevApiBaseUrl = () => {
     const webHost = typeof window !== 'undefined' && window.location?.hostname
       ? window.location.hostname
       : 'localhost';
+    if (webHost !== 'localhost' && webHost !== '127.0.0.1') {
+      return PROD_BASE_URL;
+    }
     return `http://${webHost}:8080/api/v1`;
   }
 
@@ -104,7 +107,7 @@ export const getActiveBaseUrl = async (): Promise<string> => {
 };
 
 // Cấu hình URL kết nối máy tính qua Wi-Fi khi dev hoặc domain production
-export let BASE_URL = __DEV__ ? getDevApiBaseUrl() : PROD_BASE_URL;
+export let BASE_URL = process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? getDevApiBaseUrl() : PROD_BASE_URL);
 
 // Tự động kiểm tra ngay khi nạp ứng dụng
 if (__DEV__) {

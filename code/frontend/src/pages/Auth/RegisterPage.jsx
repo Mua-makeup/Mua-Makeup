@@ -21,7 +21,7 @@ import { useI18nStore } from '../../store/useI18nStore';
 export const RegisterPage = () => {
   const navigate = useNavigate();
   const { t } = useI18nStore();
-  const [accountType, setAccountType] = useState('AGENCY_ADMIN');
+  const accountType = 'AGENCY_ADMIN';
 
   // Common fields
   const [fullName, setFullName] = useState('');
@@ -56,14 +56,12 @@ export const RegisterPage = () => {
       password,
       confirmPassword,
       accountType,
-      ...(accountType === 'AGENCY_ADMIN' && {
-        agencyName: agencyName.trim(),
-        hotline: hotline.trim(),
-        addressStreet: addressStreet.trim(),
-        district: district.trim(),
-        city: city.trim(),
-        commissionRateInternal: Number(commissionRateInternal),
-      }),
+      agencyName: agencyName.trim(),
+      hotline: hotline.trim(),
+      addressStreet: addressStreet.trim(),
+      district: district.trim(),
+      city: city.trim(),
+      commissionRateInternal: Number(commissionRateInternal),
     };
 
     const validation = agencyRegisterSchema.safeParse(payload);
@@ -83,17 +81,15 @@ export const RegisterPage = () => {
         phoneNumber: payload.phoneNumber,
         email: payload.email,
         password: payload.password,
-        accountType: payload.accountType,
-        ...(payload.accountType === 'AGENCY_ADMIN' && {
-          agencyDetails: {
-            agencyName: payload.agencyName,
-            hotline: payload.hotline,
-            addressStreet: payload.addressStreet,
-            district: payload.district,
-            city: payload.city,
-            commissionRateInternal: payload.commissionRateInternal,
-          },
-        }),
+        accountType: 'AGENCY_ADMIN',
+        agencyDetails: {
+          agencyName: payload.agencyName,
+          hotline: payload.hotline,
+          addressStreet: payload.addressStreet,
+          district: payload.district,
+          city: payload.city,
+          commissionRateInternal: payload.commissionRateInternal,
+        },
       };
 
       await authService.register(registerPayload);
@@ -129,33 +125,10 @@ export const RegisterPage = () => {
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-lg">
         <div className="bg-white dark:bg-slate-900 py-6 sm:py-8 px-4 sm:px-8 shadow-sm rounded-3xl border border-slate-200 dark:border-slate-800 transition-colors">
-          {/* Account Type Selector Tabs */}
-          <div className="mb-6 grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setAccountType('AGENCY_ADMIN')}
-              className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
-                accountType === 'AGENCY_ADMIN'
-                  ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>{t('tab_agency_owner')}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setAccountType('CUSTOMER')}
-              className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
-                accountType === 'CUSTOMER'
-                  ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              <User className="w-4 h-4" />
-              <span>{t('tab_customer_artist')}</span>
-            </button>
+          {/* Studio Agency Partner Badge */}
+          <div className="mb-6 flex items-center justify-center gap-2 py-2.5 px-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300">
+            <Building2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            <span>{t('tab_agency_owner')}</span>
           </div>
 
           {serverError && (
@@ -231,78 +204,76 @@ export const RegisterPage = () => {
             </div>
 
             {/* Specific Agency Details */}
-            {accountType === 'AGENCY_ADMIN' && (
-              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
-                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-xs">
-                  <Building2 className="w-4 h-4 text-rose-600" />
-                  <span>{t('agency_info_heading')}</span>
-                </div>
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-xs">
+                <Building2 className="w-4 h-4 text-rose-600" />
+                <span>{t('agency_info_heading')}</span>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label={t('field_agency_name')}
-                    placeholder="Glamour Beauty Studio"
-                    required
-                    value={agencyName}
-                    onChange={(e) => setAgencyName(e.target.value)}
-                    error={errors.agencyName}
-                  />
-
-                  <Input
-                    label={t('field_agency_hotline')}
-                    placeholder="0933112233"
-                    required
-                    value={hotline}
-                    onChange={(e) => setHotline(e.target.value)}
-                    error={errors.hotline}
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  label={t('field_agency_street')}
-                  placeholder={t('placeholder_street')}
+                  label={t('field_agency_name')}
+                  placeholder="Glamour Beauty Studio"
                   required
-                  icon={MapPin}
-                  value={addressStreet}
-                  onChange={(e) => setAddressStreet(e.target.value)}
-                  error={errors.addressStreet}
+                  value={agencyName}
+                  onChange={(e) => setAgencyName(e.target.value)}
+                  error={errors.agencyName}
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label={t('field_agency_district')}
-                    placeholder={t('placeholder_district')}
-                    required
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    error={errors.district}
-                  />
-
-                  <Input
-                    label={t('field_agency_city')}
-                    placeholder={t('placeholder_city')}
-                    required
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    error={errors.city}
-                  />
-                </div>
-
                 <Input
-                  label={t('field_agency_commission')}
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
+                  label={t('field_agency_hotline')}
+                  placeholder="0933112233"
                   required
-                  icon={Percent}
-                  value={commissionRateInternal}
-                  onChange={(e) => setCommissionRateInternal(e.target.value)}
-                  error={errors.commissionRateInternal}
-                  helperText={t('agency_commission_helper_register')}
+                  value={hotline}
+                  onChange={(e) => setHotline(e.target.value)}
+                  error={errors.hotline}
                 />
               </div>
-            )}
+
+              <Input
+                label={t('field_agency_street')}
+                placeholder={t('placeholder_street')}
+                required
+                icon={MapPin}
+                value={addressStreet}
+                onChange={(e) => setAddressStreet(e.target.value)}
+                error={errors.addressStreet}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label={t('field_agency_district')}
+                  placeholder={t('placeholder_district')}
+                  required
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                  error={errors.district}
+                />
+
+                <Input
+                  label={t('field_agency_city')}
+                  placeholder={t('placeholder_city')}
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  error={errors.city}
+                />
+              </div>
+
+              <Input
+                label={t('field_agency_commission')}
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                required
+                icon={Percent}
+                value={commissionRateInternal}
+                onChange={(e) => setCommissionRateInternal(e.target.value)}
+                error={errors.commissionRateInternal}
+                helperText={t('agency_commission_helper_register')}
+              />
+            </div>
 
             <div className="pt-3">
               <Button
@@ -319,14 +290,19 @@ export const RegisterPage = () => {
             </div>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs">
-            <span className="text-slate-500 dark:text-slate-400">{t('already_have_admin_account')} </span>
-            <Link
-              to="/login"
-              className="font-bold text-rose-600 dark:text-rose-400 hover:underline"
-            >
-              {t('login_here')}
-            </Link>
+          <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center text-xs space-y-2">
+            <div>
+              <span className="text-slate-500 dark:text-slate-400">{t('already_have_admin_account')} </span>
+              <Link
+                to="/login"
+                className="font-bold text-rose-600 dark:text-rose-400 hover:underline"
+              >
+                {t('login_here')}
+              </Link>
+            </div>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
+              {t('mobile_app_notice_for_customer')}
+            </p>
           </div>
         </div>
 
