@@ -70,6 +70,7 @@ class AgencyOvertimeServiceImplTest {
     void setUp() {
         mockAgency = AgencyProfileEntity.builder()
                 .agencyName("Bella Bridal")
+                .isVerified(true)
                 .build();
         mockAgency.setId(1L);
 

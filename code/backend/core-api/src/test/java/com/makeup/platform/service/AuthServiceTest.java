@@ -53,6 +53,12 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private com.makeup.platform.repository.wallet.WalletRepository walletRepository;
+
+    @Mock
+    private com.makeup.platform.repository.AgencyStaffRepository agencyStaffRepository;
+
+    @Mock
     private RoleRepository roleRepository;
 
     @Mock

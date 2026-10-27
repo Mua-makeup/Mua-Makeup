@@ -129,10 +129,11 @@ class SurgePricingServiceImplTest {
     @Test
     @DisplayName("Should apply higher realtime demand multiplier when it exceeds schedule rule")
     void testRealtimeDemandExceedsScheduleRule() {
-        LocalDateTime bookingTime = LocalDateTime.of(2027, 1, 3, 5, 30);
+        when(valueOperations.get("pricing:settings:h3_surge_enabled")).thenReturn("true");
+        LocalDateTime bookingTime = LocalDateTime.now(java.time.ZoneOffset.ofHours(7));
         BigDecimal subtotal = new BigDecimal("1000000.00");
 
-        when(surgePricingRuleRepository.findMatchingRules(any(LocalTime.class), eq("SUNDAY"), eq("ALL")))
+        when(surgePricingRuleRepository.findMatchingRules(any(LocalTime.class), eq(bookingTime.getDayOfWeek().name()), eq("ALL")))
                 .thenReturn(List.of(morningWeekendRule)); // 1.20x
 
         when(surgeDemandTracker.evaluateRealtimeSurge(any(), any()))

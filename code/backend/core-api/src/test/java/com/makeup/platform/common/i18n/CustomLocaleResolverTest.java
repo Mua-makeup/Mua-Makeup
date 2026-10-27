@@ -39,7 +39,7 @@ class CustomLocaleResolverTest {
     }
 
     @Test
-    @DisplayName("Ưu tiên 1: Đã đăng nhập, Database User có language = 'vi' -> Locale vi (Bất kể Postman có gửi Accept-Language: en-US)")
+    @DisplayName("Use database language when the request has no language preference")
     void testResolveLocaleFromDatabaseUserVi() {
         UserEntity user = UserEntity.builder().language("vi").build();
         user.setId(10L);
@@ -48,9 +48,6 @@ class CustomLocaleResolverTest {
         UsernamePasswordAuthenticationToken auth =
                 new UsernamePasswordAuthenticationToken(10L, null, Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(auth);
-
-        // Giả lập Postman tự động gửi Accept-Language: en-US
-        request.addHeader("Accept-Language", "en-US,en;q=0.9");
 
         Locale locale = resolver.resolveLocale(request);
         assertEquals(new Locale("vi"), locale);
@@ -77,5 +74,32 @@ class CustomLocaleResolverTest {
     void testResolveLocaleDefault() {
         Locale locale = resolver.resolveLocale(request);
         assertEquals(new Locale("vi"), locale);
+    }
+
+    @Test
+    void explicitHeaderOverridesAuthenticatedUsersPreference() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(10L, null, Collections.emptyList()));
+        request.setAttribute("USER_LANGUAGE", "vi");
+        request.addHeader("Accept-Language", "en-US,en;q=0.9");
+        assertEquals(Locale.ENGLISH, resolver.resolveLocale(request));
+        org.mockito.Mockito.verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void tokenPreferenceAvoidsDatabaseLookup() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(10L, null, Collections.emptyList()));
+        request.setAttribute("USER_LANGUAGE", "en");
+        assertEquals(Locale.ENGLISH, resolver.resolveLocale(request));
+        org.mockito.Mockito.verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void databaseFailureFallsBackToVietnamese() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(10L, null, Collections.emptyList()));
+        when(userRepository.findById(10L)).thenThrow(new RuntimeException("Database unavailable"));
+        assertEquals(new Locale("vi"), resolver.resolveLocale(request));
     }
 }

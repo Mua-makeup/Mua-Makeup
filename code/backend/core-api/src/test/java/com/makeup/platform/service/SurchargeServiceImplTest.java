@@ -147,7 +147,7 @@ class SurchargeServiceImplTest {
                 .isActive(true)
                 .build();
 
-        when(surchargeRepository.findByMuaIdAndIsActiveTrue(8L))
+        when(surchargeRepository.findByMuaIdAndIsActiveTrueAndIsDeletedFalse(8L))
                 .thenReturn(List.of(earlySurcharge, distanceSurcharge, holidaySurcharge));
         when(muaProfileRepository.findById(8L)).thenReturn(Optional.of(testMua));
 
