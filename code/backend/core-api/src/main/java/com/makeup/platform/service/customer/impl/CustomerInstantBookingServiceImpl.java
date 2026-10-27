@@ -38,6 +38,8 @@ import com.makeup.platform.repository.catalog.MakeupStyleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.geo.GeoResults;
@@ -1156,7 +1158,18 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         dismissPayload.put("timestamp", System.currentTimeMillis());
 
         messagePublisher.send("/topic/instant-dismiss/" + bookingId, dismissPayload);
-        messagePublisher.send("/topic/instant-dismiss", dismissPayload);
+        String candidates = stringRedisTemplate.opsForValue().get(InstantBookingKeys.candidates(bookingId));
+        if (candidates != null) {
+            try {
+                for (Long muaId : objectMapper.readValue(candidates, Long[].class)) {
+                    if (muaId != null) {
+                        messagePublisher.send("/topic/mua-offer-revoked/" + muaId, dismissPayload);
+                    }
+                }
+            } catch (JsonProcessingException exception) {
+                log.warn("Could not resolve offer recipients for booking {}", bookingId);
+            }
+        }
     }
 
     private List<Long> findAvailableCandidates(CreateInstantBookingReq req) {
