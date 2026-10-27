@@ -1,3 +1,4 @@
+import { DisputeFinancialSummary } from '../../components/base/DisputeFinancialSummary';
 import React, { useEffect, useState, useMemo } from 'react';
 import { RefreshCw, Search, Eye, AlertCircle, X, Check, User, Sparkles } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
@@ -430,12 +431,7 @@ export const AgencyDisputesPage = () => {
 
       {/* Detail & Resolve Modal */}
       {selectedDispute && (() => {
-        const isPostCompletion = Boolean(
-          selectedDispute.completionPhotoUrl ||
-          (selectedDispute.totalAmount && selectedDispute.depositAmount && Number(selectedDispute.totalAmount) > Number(selectedDispute.depositAmount)) ||
-          selectedDispute.status === 'COMPLETED' ||
-          selectedDispute.status === 'PAID_OUT'
-        );
+        const isPostCompletion = selectedDispute.completedService === true;
         const disputeInfo = parseDisputeInfo(selectedDispute);
 
         return (
@@ -446,6 +442,7 @@ export const AgencyDisputesPage = () => {
             maxWidth="max-w-4xl"
           >
             <div className="space-y-4 text-xs">
+              <DisputeFinancialSummary financials={selectedDispute.financials} />
               {/* Tóm tắt thông tin */}
               <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-100 dark:border-slate-800">
                 <div>
@@ -716,9 +713,7 @@ export const AgencyDisputesPage = () => {
                         {isPostCompletion ? t('dispute_approve_refund_title') : t('dispute_approve_refund_pre_title')}
                       </span>
                       <span className="text-[11px] text-slate-500">
-                        {isPostCompletion
-                          ? t('dispute_approve_refund_post_desc', { amount: formatVnd(selectedDispute.totalAmount) })
-                          : t('dispute_approve_refund_pre_desc', { amount: formatVnd(selectedDispute.depositAmount) })}
+                        {`Hoàn ${formatVnd(selectedDispute.financials?.paidAmount || 0)} đã thực trả về ví khách.`}
                       </span>
                     </label>
 

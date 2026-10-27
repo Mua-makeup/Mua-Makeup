@@ -46,9 +46,11 @@ public class AgencyDisputeRes {
     private OffsetDateTime emergencyReportedAt;
     private String cancellationReason;
     private String disputeOrigin;
+    private boolean completedService;
     private Boolean isEscalatedToAdmin;
     private Boolean isStudioRejected;
 
+    private com.makeup.platform.service.booking.StudioDisputeFinanceService.Financials financials;
     // Financials
     private BigDecimal serviceSubtotal;
     private BigDecimal surchargeFee;
