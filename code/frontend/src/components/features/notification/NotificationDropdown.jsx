@@ -485,7 +485,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                           )}
                           <span className="text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
                             <ExternalLink className="w-3 h-3" />
-                            {t('btn_resolve_dispute') || 'Xử lý khiếu nại'}
+                            {t('btn_resolve_dispute')}
                           </span>
                         </div>
                       </>
@@ -502,7 +502,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                           )}
                           <span className="text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1">
                             <ExternalLink className="w-3 h-3" />
-                            Xem & duyệt đơn
+                            {t('btn_review_leave')}
                           </span>
                         </div>
                       </>
@@ -514,7 +514,7 @@ export const NotificationDropdown = ({ agencyLogo }) => {
                         <div className="flex items-center gap-2 mt-1.5 text-[10px] flex-wrap">
                           <span className="text-slate-500 dark:text-slate-400 font-semibold flex items-center gap-1">
                             <ExternalLink className="w-3 h-3" />
-                            Xem lịch làm
+                            {t('btn_view_schedule')}
                           </span>
                         </div>
                       </>
