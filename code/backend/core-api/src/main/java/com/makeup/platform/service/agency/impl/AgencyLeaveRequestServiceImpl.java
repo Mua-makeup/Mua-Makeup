@@ -458,9 +458,6 @@ public class AgencyLeaveRequestServiceImpl implements AgencyLeaveRequestService 
                 messagingTemplate.convertAndSend("/topic/user-notifications/" + staffUserId, wsPayload);
                 messagingTemplate.convertAndSendToUser(staffUserId, "/queue/notifications", wsPayload);
             }
-            if (staff != null && staff.getId() != null) {
-                messagingTemplate.convertAndSend("/topic/staff-leave-status/" + staff.getId(), wsPayload);
-            }
             log.info("[WebSocket] Dispatched realtime leave review status={} to staffUserId={} staffId={}",
                     req.getStatus(), staffUserId, staff != null ? staff.getId() : null);
         } catch (Exception wsEx) {

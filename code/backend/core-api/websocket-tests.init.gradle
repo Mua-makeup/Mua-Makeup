@@ -1,0 +1,8 @@
+allprojects {
+    plugins.withId('java') {
+        sourceSets.test.java.setIncludes([
+            'com/makeup/platform/security/WebSocket*Test.java',
+            'com/makeup/platform/service/telemetry/ReceivingLocationTest.java'
+        ])
+    }
+}

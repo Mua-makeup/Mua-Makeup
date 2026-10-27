@@ -307,11 +307,6 @@ export default function BookingsScreen() {
 
         if (isWorkstationRole) {
           // Lắng nghe topic của thợ MUA
-          const dismissTopic = '/topic/instant-dismiss';
-          websocketService.subscribe(dismissTopic, () => {
-            fetchFreelancerBookings(true);
-          });
-          activeTopics.push(dismissTopic);
 
           if (effectiveMuaId) {
             const muaTopic = `/topic/mua-bookings/${effectiveMuaId}`;

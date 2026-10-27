@@ -5,6 +5,7 @@ import { useBookingStore } from '@/store/booking.store';
 import { websocketService } from '@/services/websocket.service';
 import { registerForPushNotificationsAsync } from '@/services/push-notification.service';
 import { useNotificationStore } from '@/store/notification.store';
+import { useWorkstationStore } from '@/store/workstation.store';
 
 interface AuthState {
   accessToken: string | null;

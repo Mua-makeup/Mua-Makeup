@@ -311,6 +311,14 @@ export const AgencyRealtimeNotifier = () => {
       stompClient = new Client({
         brokerURL,
         connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+        beforeConnect: () => {
+          const currentToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+          if (!currentToken) {
+            void stompClient.deactivate();
+            return;
+          }
+          stompClient.connectHeaders = { Authorization: `Bearer ${currentToken}` };
+        },
         reconnectDelay: 5000,
         heartbeatIncoming: 4000,
         heartbeatOutgoing: 4000,
@@ -323,12 +331,6 @@ export const AgencyRealtimeNotifier = () => {
             stompClient.subscribe(`/topic/agency/${agencyId}/notifications`, handleMessage);
             stompClient.subscribe(`/topic/agency-notifications/${agencyId}`, handleMessage);
           }
-          // Also subscribe to non-parameterized topics as fallback
-          stompClient.subscribe('/topic/agency/bookings', handleMessage);
-          stompClient.subscribe('/topic/agency/staff-applications', handleMessage);
-          stompClient.subscribe('/topic/agency/dispatch-alerts', handleMessage);
-          stompClient.subscribe('/topic/agency/leave-requests', handleMessage);
-          stompClient.subscribe('/topic/agency/notifications', handleMessage);
         },
         onStompError: (frame) => {
           console.warn('[AgencyRealtimeNotifier] STOMP Error:', frame.headers['message']);
