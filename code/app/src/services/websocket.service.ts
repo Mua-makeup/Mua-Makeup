@@ -40,6 +40,10 @@ class WebSocketService {
 
     this.isConnecting = true;
     const token = await getAccessToken();
+    if (!token) {
+      this.isConnecting = false;
+      return;
+    }
     const brokerURL = await getWebSocketUrl();
     console.log('[WebSocket-STOMP] Đang kết nối tới:', brokerURL);
 
@@ -60,6 +64,17 @@ class WebSocketService {
       appendMissingNULLonIncoming: true, // Fix lỗi Null-chopping trên React Native iOS
       forceBinaryWSFrames: true, // Ép dùng binary frame để không bị iOS cắt cụt ký tự null \0
     });
+
+    const activeClient = this.client;
+    activeClient.beforeConnect = async () => {
+      const currentToken = await getAccessToken();
+      if (!currentToken || this.client !== activeClient) {
+        this.isConnecting = false;
+        void activeClient.deactivate();
+        return;
+      }
+      activeClient.connectHeaders = { Authorization: `Bearer ${currentToken}` };
+    };
 
     this.client.onConnect = () => {
       this.isConnecting = false;

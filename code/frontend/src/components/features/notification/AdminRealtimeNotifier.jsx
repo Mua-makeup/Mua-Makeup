@@ -155,6 +155,14 @@ export const AdminRealtimeNotifier = () => {
     stompClient = new Client({
       brokerURL,
       connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+      beforeConnect: () => {
+        const currentToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+        if (!currentToken) {
+          void stompClient.deactivate();
+          return;
+        }
+        stompClient.connectHeaders = { Authorization: `Bearer ${currentToken}` };
+      },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
