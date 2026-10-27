@@ -6,6 +6,7 @@ import com.makeup.platform.common.i18n.JsonMessageSource;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,15 +33,19 @@ import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
-@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
     private final JsonMessageSource messageSource;
     private final DiscordAlertService discordAlertService;
 
-    public GlobalExceptionHandler(JsonMessageSource messageSource) {
+    @Autowired
+    public GlobalExceptionHandler(JsonMessageSource messageSource, @Autowired(required = false) DiscordAlertService discordAlertService) {
         this.messageSource = messageSource;
-        this.discordAlertService = null;
+        this.discordAlertService = discordAlertService;
+    }
+
+    public GlobalExceptionHandler(JsonMessageSource messageSource) {
+        this(messageSource, null);
     }
 
     private String getLocalizedMessage(String key, Object[] args, String defaultMessage) {
