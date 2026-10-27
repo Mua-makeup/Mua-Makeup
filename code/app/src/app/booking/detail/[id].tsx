@@ -197,6 +197,7 @@ export default function CustomerBookingDetailScreen() {
 
     // Lắng nghe cập nhật trạng thái realtime
     if (bookingId) {
+      const topic = `/topic/booking-status/${bookingId}`;
       const unsub = websocketService.subscribe(topic, (msg: any) => {
         if (msg) {
           const nextStatus = msg.currentStatus || msg.status;
