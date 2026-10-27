@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'code/backend/**'
+      - 'code/discord-bot/**'
       - 'docker/**'
       - 'docker-compose.prod.yml'
       - '.github/workflows/deploy-backend.yml'
@@ -76,8 +77,22 @@ jobs:
 
             export BACKEND_IMAGE=${{ secrets.DOCKER_USERNAME }}/makeup-backend:latest
 
-            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml pull --ignore-buildable || docker compose -f docker-compose.prod.yml pull
 
-            docker compose -f docker-compose.prod.yml up -d --force-recreate
+            docker compose -f docker-compose.prod.yml up -d --build --force-recreate
 
             docker image prune -f
+
+      - name: Gửi thông báo Discord Deploy
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK_DEPLOY }}
+          status: ${{ job.status }}
+          title: "CI/CD Backend Deployment"
+          description: |
+            **Commit:** `${{ github.event.head_commit.message }}`
+            **Author:** `${{ github.actor }}`
+            **Branch:** `${{ github.ref_name }}`
+            **Repo:** `${{ github.repository }}`
+          color: ${{ job.status == 'success' && '0x2ecc71' || '0xe74c3c' }}

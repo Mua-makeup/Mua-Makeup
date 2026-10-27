@@ -61,6 +61,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - SERVER_PORT=8080
+      - DISCORD_WEBHOOK_ERROR=${DISCORD_WEBHOOK_ERROR}
     networks:
       - makeup_network
 
@@ -131,12 +132,33 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://mua-makeup.duckdns.org/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - DISCORD_WEBHOOK_METRICS=${DISCORD_WEBHOOK_METRICS}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - loki
       - prometheus
+    networks:
+      - makeup_network
+
+  discord-bot:
+    build:
+      context: ./code/discord-bot
+      dockerfile: Dockerfile
+    image: makeup-discord-bot:latest
+    container_name: makeup-discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-}
+      - CORE_API_URL=http://core-api:8080
+      - NODE_EXPORTER_URL=http://node-exporter:9100
+    depends_on:
+      - core-api
+      - node-exporter
     networks:
       - makeup_network
 

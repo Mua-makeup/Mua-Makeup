@@ -12,6 +12,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.util.StringUtils;
+import com.makeup.platform.service.interaction.DiscordAlertService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,6 +36,12 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private final JsonMessageSource messageSource;
+    private final DiscordAlertService discordAlertService;
+
+    public GlobalExceptionHandler(JsonMessageSource messageSource) {
+        this.messageSource = messageSource;
+        this.discordAlertService = null;
+    }
 
     private String getLocalizedMessage(String key, Object[] args, String defaultMessage) {
         Locale locale = LocaleContextHolder.getLocale();
@@ -188,10 +198,27 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
+    public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex, HttpServletRequest request) {
         log.error("Internal server error: ", ex);
+        if (discordAlertService != null) {
+            String uri = request != null ? request.getRequestURI() : "UNKNOWN";
+            String method = request != null ? request.getMethod() : "UNKNOWN";
+            String userPrincipal = extractCurrentUser();
+            discordAlertService.sendExceptionAlert(uri, method, userPrincipal, ex);
+        }
         String message = getLocalizedMessage("common.internal_error", null, "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(ErrorCodes.ERR_INTERNAL, message));
+    }
+
+    private String extractCurrentUser() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {
+        }
+        return "Anonymous";
     }
 }
