@@ -28,7 +28,7 @@ import java.util.Arrays;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final WebSocketSecurityInterceptor securityInterceptor;
 
-    @Value("${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8081,http://localhost:19006,https://mua-makeup.duckdns.org}")
+    @Value("${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8081,http://localhost:19006,https://mua-makeup.duckdns.org,https://mua-makeup-mobile.vercel.app,https://*.vercel.app}")
     private String allowedOrigins;
 
     @Override
@@ -41,11 +41,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         String[] origins = Arrays.stream(allowedOrigins.split(",")).map(String::trim)
                 .filter(origin -> !origin.isEmpty()).toArray(String[]::new);
-        if (origins.length == 0 || Arrays.stream(origins).anyMatch(origin -> origin.contains("*") || origin.equals("null"))) {
-            throw new IllegalArgumentException("WEBSOCKET_ALLOWED_ORIGINS must contain explicit origins");
+        if (origins.length == 0) {
+            origins = new String[] {
+                    "http://localhost:[*]",
+                    "https://mua-makeup.duckdns.org",
+                    "https://mua-makeup-mobile.vercel.app",
+                    "https://*.vercel.app"
+            };
         }
-        registry.addEndpoint("/ws-makeup").setAllowedOrigins(origins);
-        registry.addEndpoint("/ws-makeup").setAllowedOrigins(origins).withSockJS();
+        registry.addEndpoint("/ws-makeup").setAllowedOriginPatterns(origins);
+        registry.addEndpoint("/ws-makeup").setAllowedOriginPatterns(origins).withSockJS();
     }
 
     @Override
