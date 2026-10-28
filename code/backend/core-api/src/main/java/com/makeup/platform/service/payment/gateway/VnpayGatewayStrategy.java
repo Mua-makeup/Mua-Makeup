@@ -23,6 +23,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Slf4j
 @Component
@@ -202,11 +211,11 @@ public class VnpayGatewayStrategy implements PaymentGatewayStrategy {
     public GatewayPaymentResult queryTransaction(PaymentTransactionEntity txn) {
         if (!vnpayConfig.isEnabled()) return null;
         // Use the exact checkout timestamp, not the later query time.
-        String transactionDate = org.springframework.web.util.UriComponentsBuilder.fromUriString(txn.getPaymentUrl())
+        String transactionDate = UriComponentsBuilder.fromUriString(txn.getPaymentUrl())
                 .build().getQueryParams().getFirst("vnp_CreateDate");
         if (transactionDate == null) return null;
-        Map<String, String> request = new java.util.LinkedHashMap<>();
-        request.put("vnp_RequestId", java.util.UUID.randomUUID().toString().replace("-", ""));
+        Map<String, String> request = new LinkedHashMap<>();
+        request.put("vnp_RequestId", UUID.randomUUID().toString().replace("-", ""));
         request.put("vnp_Version", "2.1.0");
         request.put("vnp_Command", "querydr");
         request.put("vnp_TmnCode", vnpayConfig.getTmnCode());
@@ -216,21 +225,21 @@ public class VnpayGatewayStrategy implements PaymentGatewayStrategy {
         request.put("vnp_IpAddr", "127.0.0.1");
         request.put("vnp_OrderInfo", "Query payment " + txn.getPaymentCode());
         request.put("vnp_SecureHash", HmacUtils.hmacSha512(vnpayConfig.getHashSecret(), String.join("|", request.values())));
-        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
         factory.setReadTimeout(5000);
-        Map<?, ?> response = org.springframework.web.client.RestClient.builder().requestFactory(factory).build()
-                .post().uri(vnpayConfig.getApiUrl()).contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+        Map<?, ?> response = RestClient.builder().requestFactory(factory).build()
+                .post().uri(vnpayConfig.getApiUrl()).contentType(MediaType.APPLICATION_JSON)
                 .body(request).retrieve().body(Map.class);
         if (response == null) return null;
         String[] signedFields = {"vnp_ResponseId", "vnp_Command", "vnp_ResponseCode", "vnp_Message",
                 "vnp_TmnCode", "vnp_TxnRef", "vnp_Amount", "vnp_BankCode", "vnp_PayDate", "vnp_TransactionNo",
                 "vnp_TransactionType", "vnp_TransactionStatus", "vnp_OrderInfo", "vnp_PromotionCode", "vnp_PromotionAmount"};
-        String data = java.util.Arrays.stream(signedFields)
+        String data = Arrays.stream(signedFields)
                 .map(key -> response.get(key) == null ? "" : String.valueOf(response.get(key)))
-                .collect(java.util.stream.Collectors.joining("|"));
+                .collect(Collectors.joining("|"));
         String hash = String.valueOf(response.get("vnp_SecureHash"));
-        if (!HmacUtils.constantTimeEquals(HmacUtils.hmacSha512(vnpayConfig.getHashSecret(), data).toLowerCase(java.util.Locale.ROOT), hash.toLowerCase(java.util.Locale.ROOT)) ||
+        if (!HmacUtils.constantTimeEquals(HmacUtils.hmacSha512(vnpayConfig.getHashSecret(), data).toLowerCase(Locale.ROOT), hash.toLowerCase(Locale.ROOT)) ||
                 !vnpayConfig.getTmnCode().equals(response.get("vnp_TmnCode")) ||
                 !txn.getPaymentCode().equals(response.get("vnp_TxnRef"))) {
             throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_SIGNATURE_INVALID, "ERR_PAYMENT_SIGNATURE_INVALID");

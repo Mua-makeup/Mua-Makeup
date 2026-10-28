@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.time.DayOfWeek;
 
 @Slf4j
 @Service
@@ -401,7 +402,7 @@ public class MUACalendarServiceImpl implements MUACalendarService {
                     .build();
 
             String badgeLabel = null;
-            boolean isWeekend = date.getDayOfWeek() == java.time.DayOfWeek.SATURDAY || date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY;
+            boolean isWeekend = date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY;
 
             if (isEarlySurchargeApplied && hasSurge && surgeMultiplier.compareTo(BigDecimal.ONE) > 0) {
                 int pct = surgeMultiplier.subtract(BigDecimal.ONE).multiply(BigDecimal.valueOf(100)).intValue();

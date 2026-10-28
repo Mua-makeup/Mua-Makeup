@@ -6,6 +6,9 @@ import org.junit.jupiter.api.*;
 import org.springframework.mock.web.*;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.junit.jupiter.api.Assertions.*;
+import jakarta.servlet.http.HttpServletResponse;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 class CookieUtilsTest {
     CookieUtils cookies;
@@ -17,10 +20,10 @@ class CookieUtilsTest {
         ReflectionTestUtils.setField(cookies, "refreshTokenExpirationDays", 7L);
     }
     @Test void loginSetsSecureHttpOnlyCookiesWithSeparateExpirations() {
-        var response = org.mockito.Mockito.mock(jakarta.servlet.http.HttpServletResponse.class);
+        var response = Mockito.mock(HttpServletResponse.class);
         cookies.setAccessTokenCookie(response, "access"); cookies.setRefreshTokenCookie(response, "refresh");
-        var captor = org.mockito.ArgumentCaptor.forClass(String.class);
-        org.mockito.Mockito.verify(response, org.mockito.Mockito.times(2)).addHeader(org.mockito.Mockito.eq("Set-Cookie"), captor.capture());
+        var captor = ArgumentCaptor.forClass(String.class);
+        Mockito.verify(response, Mockito.times(2)).addHeader(Mockito.eq("Set-Cookie"), captor.capture());
         var headers = captor.getAllValues(); assertEquals(2, headers.size());
         for (var header : headers) {
             assertTrue(header.contains("HttpOnly")); assertTrue(header.contains("Secure"));

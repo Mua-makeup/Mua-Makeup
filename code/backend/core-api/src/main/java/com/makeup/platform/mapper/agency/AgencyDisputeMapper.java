@@ -6,11 +6,13 @@ import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import org.springframework.stereotype.Component;
+import com.makeup.platform.service.booking.StudioDisputeFinanceService;
+import lombok.RequiredArgsConstructor;
 
 @Component
-@lombok.RequiredArgsConstructor
+@RequiredArgsConstructor
 public class AgencyDisputeMapper {
-    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
+    private final StudioDisputeFinanceService studioFinance;
 
     public AgencyDisputeRes toRes(BookingEntity entity) {
         if (entity == null) {

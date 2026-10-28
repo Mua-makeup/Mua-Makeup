@@ -16,6 +16,7 @@ import org.locationtech.jts.geom.Point;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import jakarta.persistence.SequenceGenerator;
 
 @Entity
 @Table(name = "telemetry_logs", schema = "telemetry_schema")
@@ -29,7 +30,7 @@ public class TelemetryLogEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "telemetry_logs_seq")
-    @jakarta.persistence.SequenceGenerator(
+    @SequenceGenerator(
             name = "telemetry_logs_seq",
             sequenceName = "telemetry_logs_seq",
             schema = "telemetry_schema",

@@ -49,7 +49,7 @@ public class MasterTaxonomyServiceImpl implements MasterTaxonomyService {
     @Override
     public List<MasterCategoryRes> getAllCategories() {
         return taxonomyMapper.toCategoryResList(
-                masterCategoryRepository.findAll(org.springframework.data.domain.Sort.by("categoryName"))
+                masterCategoryRepository.findAll(Sort.by("categoryName"))
         );
     }
 

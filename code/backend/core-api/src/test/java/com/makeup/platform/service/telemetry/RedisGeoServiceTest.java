@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import java.util.Arrays;
 
 @ExtendWith(MockitoExtension.class)
 class RedisGeoServiceTest {
@@ -37,7 +38,7 @@ class RedisGeoServiceTest {
     @Test void summaryBatchPreservesMissingEntriesAndOrder() {
         when(redis.opsForValue()).thenReturn(values);
         when(values.multiGet(List.of(TelemetryConstants.REDIS_KEY_SUMMARY_PREFIX+1, TelemetryConstants.REDIS_KEY_SUMMARY_PREFIX+2)))
-            .thenReturn(java.util.Arrays.asList("first", null));
-        assertEquals(java.util.Arrays.asList("first",null), service.getMuaSummaries(List.of(1L,2L)));
+            .thenReturn(Arrays.asList("first", null));
+        assertEquals(Arrays.asList("first",null), service.getMuaSummaries(List.of(1L,2L)));
     }
 }

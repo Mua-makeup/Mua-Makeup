@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.makeup.platform.service.booking.StudioDisputeFinanceService;
 
 @Slf4j
 @Service
@@ -50,7 +51,7 @@ import java.util.Optional;
 public class AgencyDisputeServiceImpl implements AgencyDisputeService {
 
     private final BookingRepository bookingRepository;
-    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
+    private final StudioDisputeFinanceService studioFinance;
     private final AgencyDispatchSupport support;
     private final AgencyDisputeMapper agencyDisputeMapper;
     private final BookingDepositRepository bookingDepositRepository;
@@ -156,7 +157,7 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
         BookingStatus currentStatus = booking.getStatus();
         BookingStatus targetStatus;
 
-        if (com.makeup.platform.service.booking.StudioDisputeFinanceService.escalated(booking)) {
+        if (StudioDisputeFinanceService.escalated(booking)) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
                     "dispute.escalated_admin_only", HttpStatus.CONFLICT);
         }

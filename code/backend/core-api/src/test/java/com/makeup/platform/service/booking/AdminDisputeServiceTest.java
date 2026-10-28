@@ -22,6 +22,8 @@ import java.math.BigDecimal;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.makeup.platform.common.exception.CustomBusinessException;
+import com.makeup.platform.repository.MuaProfileRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AdminDisputeServiceTest {
@@ -35,7 +37,7 @@ class AdminDisputeServiceTest {
     @Mock BookingSettlementService settlement;
     @Mock AdminDisputeMapper mapper;
     @Mock BookingAuditService audit;
-    @Mock com.makeup.platform.repository.MuaProfileRepository profiles;
+    @Mock MuaProfileRepository profiles;
     @InjectMocks AdminDisputeServiceImpl service;
 
     @ParameterizedTest
@@ -64,7 +66,7 @@ class AdminDisputeServiceTest {
         assertEquals(holdStatus, hold.getStatus());
         verifyNoInteractions(settlement);
         verify(ledger, never()).save(argThat(e -> "BOOKING_CLAWBACK".equals(e.getReferenceType())));
-        assertThrows(com.makeup.platform.common.exception.CustomBusinessException.class,
+        assertThrows(CustomBusinessException.class,
             () -> service.resolveDispute(9L, 3L, ResolveDisputeReq.builder().resolution(resolution).note("Retry").build()));
     }
 }

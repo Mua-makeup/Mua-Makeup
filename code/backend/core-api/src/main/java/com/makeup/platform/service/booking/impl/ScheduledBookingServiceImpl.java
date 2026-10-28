@@ -65,12 +65,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import com.makeup.platform.service.booking.StudioDisputeFinanceService;
+import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScheduledBookingServiceImpl implements ScheduledBookingService {
-    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
+    private final StudioDisputeFinanceService studioFinance;
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
@@ -766,11 +768,11 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         List<BookingEntity> bookings = bookingRepository.findPendingRequestedScheduledBookingsByMuaId(mua.getId());
         OffsetDateTime now = OffsetDateTime.now(VIETNAM_OFFSET);
 
-        List<ScheduledOfferRes> resList = new java.util.ArrayList<>();
+        List<ScheduledOfferRes> resList = new ArrayList<>();
         for (BookingEntity b : bookings) {
             Long confirmTimeoutSeconds = null;
             if (b.getConfirmDeadline() != null) {
-                long diff = java.time.temporal.ChronoUnit.SECONDS.between(now, b.getConfirmDeadline());
+                long diff = ChronoUnit.SECONDS.between(now, b.getConfirmDeadline());
                 confirmTimeoutSeconds = Math.max(0, diff);
             }
 
@@ -818,8 +820,8 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
         }
 
-        if (booking.getAgency() == null || !com.makeup.platform.service.booking.StudioDisputeFinanceService.studioRejected(booking)
-                || com.makeup.platform.service.booking.StudioDisputeFinanceService.escalated(booking)) {
+        if (booking.getAgency() == null || !StudioDisputeFinanceService.studioRejected(booking)
+                || StudioDisputeFinanceService.escalated(booking)) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.studio_resolution_required", HttpStatus.CONFLICT);
         }
         String effectiveReason = StringUtils.hasText(reason)
@@ -880,8 +882,8 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.not_in_disputed_state", HttpStatus.BAD_REQUEST);
         }
 
-        if (booking.getAgency() == null || !com.makeup.platform.service.booking.StudioDisputeFinanceService.studioRejected(booking)
-                || com.makeup.platform.service.booking.StudioDisputeFinanceService.escalated(booking)) {
+        if (booking.getAgency() == null || !StudioDisputeFinanceService.studioRejected(booking)
+                || StudioDisputeFinanceService.escalated(booking)) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.studio_resolution_required", HttpStatus.CONFLICT);
         }
         BookingStatus resolvedStatus = studioFinance.resolve(booking, "APPROVE_COMPENSATION_MUA", "Khách đồng ý kết quả studio");

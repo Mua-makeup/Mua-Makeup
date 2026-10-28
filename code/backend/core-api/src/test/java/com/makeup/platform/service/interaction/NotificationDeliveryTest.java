@@ -10,6 +10,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import java.util.Map;
 
 class NotificationDeliveryTest {
     @Test void duplicateNotificationIsRejectedWithBoundedRetention() {
@@ -33,7 +34,7 @@ class NotificationDeliveryTest {
         var notification = NotificationEntity.builder().title("Test").content("Message").build(); notification.setId(3L);
         new UserWebSocketNotificationServiceImpl(messaging).sendNotificationToUser(7L, notification, 2);
         verify(messaging).convertAndSendToUser(eq("7"), eq("/queue/notifications"), argThat((Object p) ->
-            p instanceof java.util.Map<?,?> map && map.get("notificationId").equals(3L) && map.get("unreadCount").equals(2L)));
+            p instanceof Map<?,?> map && map.get("notificationId").equals(3L) && map.get("unreadCount").equals(2L)));
         verify(messaging).convertAndSend(eq("/topic/user-notifications/7"), any(Object.class));
     }
     @Test void missingRecipientDoesNotBroadcast() {

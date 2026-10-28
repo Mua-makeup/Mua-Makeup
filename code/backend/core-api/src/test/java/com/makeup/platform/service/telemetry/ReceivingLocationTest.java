@@ -23,6 +23,9 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.security.WebSocketAccessService;
+import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
 class ReceivingLocationTest {
@@ -33,8 +36,8 @@ class ReceivingLocationTest {
     @Mock TelemetryLogService telemetryLogService;
     @Mock SimpMessagingTemplate messagingTemplate;
     @Mock ObjectMapper objectMapper;
-    @Mock com.makeup.platform.security.WebSocketAccessService webSocketAccessService;
-    @Mock com.makeup.platform.repository.AgencyStaffRepository agencyStaffRepository;
+    @Mock WebSocketAccessService webSocketAccessService;
+    @Mock AgencyStaffRepository agencyStaffRepository;
     @InjectMocks TelemetryStreamServiceImpl service;
 
     private MuaProfileEntity profile() {
@@ -107,7 +110,7 @@ class ReceivingLocationTest {
     @Test
     void unauthorizedTripCannotReadOrWriteLocationData() {
         var request = LocationStreamReq.builder().bookingId(20L).latitude(21.04).longitude(105.86).build();
-        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+        assertThrows(AccessDeniedException.class,
                 () -> service.processLocationStream(1L, request));
         verifyNoInteractions(muaProfileRepository, redisGeoService, telemetryLogService, messagingTemplate);
     }

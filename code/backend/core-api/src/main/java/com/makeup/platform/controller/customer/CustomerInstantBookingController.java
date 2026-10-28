@@ -21,6 +21,7 @@ import com.makeup.platform.dto.response.booking.RecentAddressRes;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/customer/bookings")
@@ -42,7 +43,7 @@ public class CustomerInstantBookingController extends BaseController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<Void>> cancelInstantBooking(
             @PathVariable Long bookingId,
-            @RequestBody(required = false) java.util.Map<String, String> body) {
+            @RequestBody(required = false) Map<String, String> body) {
         Long customerId = SecurityContextUtils.getCurrentUserId();
         String reason = (body != null && body.containsKey("reason"))
                 ? body.get("reason") : "Khách hàng chủ động hủy tìm kiếm";
@@ -63,7 +64,7 @@ public class CustomerInstantBookingController extends BaseController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<Void>> rejectMatchedProvider(
             @PathVariable Long bookingId,
-            @RequestBody(required = false) java.util.Map<String, String> body) {
+            @RequestBody(required = false) Map<String, String> body) {
         Long customerId = SecurityContextUtils.getCurrentUserId();
         String reason = (body != null && body.containsKey("reason"))
                 ? body.get("reason") : "Khách hàng từ chối thợ";

@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import org.springframework.transaction.TransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 class DistributedLockServiceTest {
@@ -63,7 +64,7 @@ class DistributedLockServiceTest {
     void onlyRequestedBookingsCanBeClaimed(BookingStatus status) throws Exception {
         when(lock.tryLock(anyLong(), anyLong(), eq(TimeUnit.MILLISECONDS))).thenReturn(true);
         when(lock.isHeldByCurrentThread()).thenReturn(true);
-        when(transaction.execute(any())).thenAnswer(i -> ((TransactionCallback<?>)i.getArgument(0)).doInTransaction(mock(org.springframework.transaction.TransactionStatus.class)));
+        when(transaction.execute(any())).thenAnswer(i -> ((TransactionCallback<?>)i.getArgument(0)).doInTransaction(mock(TransactionStatus.class)));
         var booking = new BookingEntity(); booking.setStatus(status);
         when(bookings.findByIdForUpdate(1L)).thenReturn(Optional.of(booking));
         var ex = assertThrows(CustomBusinessException.class, () -> service.acceptBookingWithLock(1L, 2L));

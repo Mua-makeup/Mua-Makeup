@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
+import java.time.ZoneOffset;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SurgePricingServiceImpl Unit Tests")
@@ -130,7 +131,7 @@ class SurgePricingServiceImplTest {
     @DisplayName("Should apply higher realtime demand multiplier when it exceeds schedule rule")
     void testRealtimeDemandExceedsScheduleRule() {
         when(valueOperations.get("pricing:settings:h3_surge_enabled")).thenReturn("true");
-        LocalDateTime bookingTime = LocalDateTime.now(java.time.ZoneOffset.ofHours(7));
+        LocalDateTime bookingTime = LocalDateTime.now(ZoneOffset.ofHours(7));
         BigDecimal subtotal = new BigDecimal("1000000.00");
 
         when(surgePricingRuleRepository.findMatchingRules(any(LocalTime.class), eq(bookingTime.getDayOfWeek().name()), eq("ALL")))

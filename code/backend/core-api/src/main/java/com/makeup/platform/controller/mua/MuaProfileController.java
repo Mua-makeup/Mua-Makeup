@@ -104,19 +104,19 @@ public class MuaProfileController extends BaseController {
 
     @PostMapping(value = "/my-profile/portfolio-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('FREELANCE_MUA')")
-    public ResponseEntity<ApiResponse<java.util.List<String>>> uploadPortfolioImages(
+    public ResponseEntity<ApiResponse<List<String>>> uploadPortfolioImages(
             @AuthenticationPrincipal Long userId,
-            @RequestParam("files") java.util.List<MultipartFile> files) {
-        java.util.List<String> imageUrls = muaProfileService.uploadPortfolioImages(userId, files);
+            @RequestParam("files") List<MultipartFile> files) {
+        List<String> imageUrls = muaProfileService.uploadPortfolioImages(userId, files);
         return ok(imageUrls, "mua.portfolio_images_upload_success");
     }
 
     @DeleteMapping("/my-profile/portfolio-images")
     @PreAuthorize("hasRole('FREELANCE_MUA')")
-    public ResponseEntity<ApiResponse<java.util.List<String>>> deletePortfolioImage(
+    public ResponseEntity<ApiResponse<List<String>>> deletePortfolioImage(
             @AuthenticationPrincipal Long userId,
             @RequestParam("imageUrl") String imageUrl) {
-        java.util.List<String> imageUrls = muaProfileService.deletePortfolioImage(userId, imageUrl);
+        List<String> imageUrls = muaProfileService.deletePortfolioImage(userId, imageUrl);
         return ok(imageUrls, "mua.portfolio_image_delete_success");
     }
 }

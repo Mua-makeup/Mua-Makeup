@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.makeup.platform.service.payment.impl.FinalPaymentSyncService;
 
 @RestController
 @RequestMapping("/api/v1/customer/bookings")
@@ -26,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CustomerDepositController extends BaseController {
 
     private final BookingDepositService bookingDepositService;
-    private final com.makeup.platform.service.payment.impl.FinalPaymentSyncService finalPaymentSyncService;
+    private final FinalPaymentSyncService finalPaymentSyncService;
 
     @PostMapping("/{bookingId}/final-payment/sync")
     @PreAuthorize("hasRole('CUSTOMER')")

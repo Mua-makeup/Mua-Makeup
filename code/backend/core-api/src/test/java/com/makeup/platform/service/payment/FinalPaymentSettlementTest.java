@@ -18,11 +18,12 @@ import java.util.List;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 
 @ExtendWith(MockitoExtension.class)
 class FinalPaymentSettlementTest {
     @Mock BookingRepository bookings;
-    @Mock com.makeup.platform.repository.booking.BookingStaffAssignmentRepository staffAssignments;
+    @Mock BookingStaffAssignmentRepository staffAssignments;
     @Mock BookingDepositRepository deposits;
     @Mock BookingSettlementRepository settlements;
     @Mock WalletRepository wallets;

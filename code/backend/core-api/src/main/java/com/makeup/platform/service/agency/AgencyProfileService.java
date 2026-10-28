@@ -9,6 +9,8 @@ import com.makeup.platform.dto.request.agency.UpdateCommissionReq;
 import com.makeup.platform.dto.response.agency.AgencyLocationRes;
 import com.makeup.platform.dto.response.agency.AgencyProfileRes;
 import com.makeup.platform.dto.request.admin.AdminCreateAgencyReq;
+import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface AgencyProfileService {
 
@@ -26,10 +28,10 @@ public interface AgencyProfileService {
 
     AgencyProfileRes verifyAgency(Long agencyId, boolean isVerified);
 
-    AgencyProfileRes uploadLogo(Long userId, org.springframework.web.multipart.MultipartFile file);
+    AgencyProfileRes uploadLogo(Long userId, MultipartFile file);
 
     AgencyProfileRes createAgencyByAdmin(AdminCreateAgencyReq req);
 
-    java.util.List<AgencyProfileRes> getPublicAgencies(Integer limit);
+    List<AgencyProfileRes> getPublicAgencies(Integer limit);
 }
 
