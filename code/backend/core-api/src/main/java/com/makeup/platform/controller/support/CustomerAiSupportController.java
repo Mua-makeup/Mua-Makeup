@@ -35,15 +35,17 @@ public class CustomerAiSupportController extends BaseController {
 
     @GetMapping("/history/{sessionCode}")
     public ResponseEntity<ApiResponse<AiChatSessionHistoryResponse>> getSessionHistory(
+            @AuthenticationPrincipal Long userId,
             @PathVariable String sessionCode) {
-        AiChatSessionHistoryResponse response = aiSupportService.getSessionHistory(sessionCode);
+        AiChatSessionHistoryResponse response = aiSupportService.getSessionHistory(sessionCode, userId);
         return ok(response);
     }
 
     @PostMapping("/session/{sessionCode}/close")
     public ResponseEntity<ApiResponse<Void>> closeSession(
+            @AuthenticationPrincipal Long userId,
             @PathVariable String sessionCode) {
-        aiSupportService.closeSession(sessionCode, null);
+        aiSupportService.closeSession(sessionCode, userId);
         return ok(null, "support.session_closed_success");
     }
 }
