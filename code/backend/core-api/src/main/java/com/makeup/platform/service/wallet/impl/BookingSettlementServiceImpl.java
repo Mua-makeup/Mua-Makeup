@@ -130,30 +130,33 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
             }
         }
 
-        // Tính T/D/C/F/E/N
+        // Tính T/D/C/F/E
         // T: tổng hóa đơn cuối
         BigDecimal T = booking.getTotalAmount();
-        // D: tiền cọc
-        BigDecimal D = deposit.getPaidAmount();
+        // D: tiền cọc (có thể = 0 nếu thanh toán tiền mặt toàn bộ)
+        BigDecimal D = deposit.getPaidAmount() != null ? deposit.getPaidAmount() : BigDecimal.ZERO;
         // C: tiền mặt khách trả thợ (xác nhận bởi cả hai)
-        BigDecimal C = cashReceipt.getExpectedAmount();
-        // Validate: T = D + C (trong trường hợp bình thường)
+        BigDecimal C = cashReceipt.getExpectedAmount() != null ? cashReceipt.getExpectedAmount() : BigDecimal.ZERO;
         // F: phí nền tảng
         BigDecimal F = T.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
-        // E: thu nhập thợ = T - F
+        // E: doanh thu ròng sau phí nền tảng = T - F
+        // Đây là tổng phải phân chia cho thợ + studio
         BigDecimal E = T.subtract(F);
-        // N: ghi có ví thợ = D - F (phần hệ thống giữ trừ phí)
-        BigDecimal N = D.subtract(F);
+
+        // Xác định trạng thái settlement:
+        // - Khi có tiền mặt (C > 0): luôn SETTLED vì khách đã trả thực tế.
+        // - Chỉ PENDING_FEE_COLLECTION khi không có tiền mặt VÀ cọc không đủ bù phí (D < F).
+        boolean hasCashPayment = C.compareTo(BigDecimal.ZERO) > 0;
+        BigDecimal N = D.subtract(F); // Giá trị tham chiếu nội bộ, dùng để kiểm tra escrow coverage
 
         String settlementStatus;
         String failureReason = null;
 
-        if (N.compareTo(BigDecimal.ZERO) < 0) {
-            log.warn("[Settlement] Booking {} has N={} < 0. commissionRate={}, D={}, F={}. Setting PENDING_FEE_COLLECTION.",
+        if (!hasCashPayment && N.compareTo(BigDecimal.ZERO) < 0) {
+            log.warn("[Settlement] Booking {} has N={} < 0 and no cash payment. commissionRate={}, D={}, F={}. Setting PENDING_FEE_COLLECTION.",
                     bookingId, N, commissionRate, D, F);
             settlementStatus = "PENDING_FEE_COLLECTION";
             failureReason = "commission_exceeds_deposit_N=" + N;
-            N = BigDecimal.ZERO; // Không trừ âm vào ví
         } else {
             settlementStatus = "SETTLED";
         }
@@ -248,9 +251,11 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                 }
             }
 
-            // Nếu đơn thuộc Agency và N > totalStaffPayout, ghi có phần cọc còn lại cho Agency Owner
-            if (booking.getAgency() != null && booking.getAgency().getOwner() != null && N.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal agencyRemaining = N.subtract(totalStaffPayout);
+            // Ghi có phần doanh thu studio = E - totalStaffPayout
+            // Công thức: Doanh thu Studio = T - F - tổng_hoa_hồng_thợ
+            // Dùng E (= T - F) thay vì N (= D - F) để đúng cả trường hợp tiền mặt (D = 0)
+            if (booking.getAgency() != null && booking.getAgency().getOwner() != null && E.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal agencyRemaining = E.subtract(totalStaffPayout);
                 if (agencyRemaining.compareTo(BigDecimal.ZERO) > 0) {
                     UserEntity agencyOwner = booking.getAgency().getOwner();
                     Long ownerId = agencyOwner.getId();
@@ -279,7 +284,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                                 .entryType("CREDIT")
                                 .amount(agencyRemaining)
                                 .balanceAfter(ownerWallet.getAvailableBalance())
-                                .description("Quyết toán booking #" + booking.getBookingCode() + " cho Agency " + agencyName + " (doanh thu cọc còn lại sau hoa hồng thợ)")
+                                .description("Quyết toán booking #" + booking.getBookingCode() + " cho Agency " + agencyName + " (doanh thu studio = T-F-hoa_hồng_thợ)")
                                 .idempotencyKey(ledgerKey)
                                 .build();
                         ledgerEntryRepository.save(credit);
@@ -292,7 +297,8 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
 
             // Tự động quyết toán phụ cấp tăng ca độc lập: trừ ví Studio và cộng ví Thợ
             processOvertimeAllowances(booking);
-        } else if (N.compareTo(BigDecimal.ZERO) > 0) {
+        } else if (E.compareTo(BigDecimal.ZERO) > 0) {
+            // Trường hợp không có staff assignment: ghi toàn bộ E (= T - F) vào ví owner
             UserEntity beneficiaryUser = null;
             String beneficiaryDesc = null;
 
@@ -321,7 +327,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                 String ledgerKey = "settle:credit:" + bookingId + ":" + beneficiaryUserId;
                 if (!ledgerEntryRepository.existsByIdempotencyKey(ledgerKey)) {
                     BigDecimal balanceBefore = targetWallet.getAvailableBalance();
-                    targetWallet.setAvailableBalance(balanceBefore.add(N));
+                    targetWallet.setAvailableBalance(balanceBefore.add(E));
                     walletRepository.save(targetWallet);
 
                     LedgerEntryEntity credit = LedgerEntryEntity.builder()
@@ -329,15 +335,15 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                             .referenceId(bookingId)
                             .wallet(targetWallet)
                             .entryType("CREDIT")
-                            .amount(N)
+                            .amount(E)
                             .balanceAfter(targetWallet.getAvailableBalance())
-                            .description("Quyết toán booking #" + booking.getBookingCode() + " cho " + beneficiaryDesc + " (N=D-F)")
+                            .description("Quyết toán booking #" + booking.getBookingCode() + " cho " + beneficiaryDesc + " (E=T-F, tiền mặt)")
                             .idempotencyKey(ledgerKey)
                             .build();
                     ledgerEntryRepository.save(credit);
 
                     log.info("[Settlement] Credited {} VND to wallet (userId={}, beneficiary={}) for booking {}",
-                            N, beneficiaryUserId, beneficiaryDesc, bookingId);
+                            E, beneficiaryUserId, beneficiaryDesc, bookingId);
                 }
             } else {
                 log.warn("[Settlement] No beneficiary found (neither Agency Owner nor Freelancer) for bookingId={}", bookingId);
@@ -363,8 +369,8 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
             log.warn("[Settlement] Failed to delete calendar slots for bookingId={}: {}", bookingId, ex.getMessage());
         }
 
-        log.info("[Settlement] Booking {} settled. T={} D={} C={} F={} E={} N={} Status={}",
-                bookingId, T, D, C, F, E, N, settlementStatus);
+        log.info("[Settlement] Booking {} settled. T={} D={} C={} F={} E={} hasCash={} Status={}",
+                bookingId, T, D, C, F, E, hasCashPayment, settlementStatus);
     }
 
     @Override
