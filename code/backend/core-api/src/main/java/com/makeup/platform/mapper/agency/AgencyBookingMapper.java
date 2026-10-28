@@ -35,6 +35,7 @@ public class AgencyBookingMapper {
     private final AgencyStaffRepository agencyStaffRepository;
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
     private final BookingSettlementRepository settlementRepository;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     public AgencyBookingRes toRes(BookingEntity b, AgencyProfileEntity agency) {
         return toRes(b, agency, null);
@@ -102,7 +103,7 @@ public class AgencyBookingMapper {
         }
         var settlement = settlementRepository.findByBookingId(b.getId()).orElse(null);
         BigDecimal platformFeeRate = settlement != null ? settlement.getCommissionRate()
-                : BookingCommissionPolicy.rateFor(b, new BigDecimal("0.20"));
+                : bookingCommissionPolicy.rateFor(b);
         BigDecimal platformFee = settlement != null ? settlement.getCommissionAmount()
                 : totalAmount.multiply(platformFeeRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal estimatedStudioNet = totalAmount.subtract(platformFee).subtract(estimatedStaffCommission).setScale(2, RoundingMode.HALF_UP);

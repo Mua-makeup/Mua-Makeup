@@ -24,6 +24,7 @@ import { ConfirmDialog } from '../../components/base/ConfirmDialog';
 import { Toast } from '../../components/base/Toast';
 import { DataTable } from '../../components/base/DataTable';
 import { CreateAgencyModal } from '../../components/features/admin/CreateAgencyModal';
+import { PlatformFeeModal } from '../../components/features/admin/PlatformFeeModal';
 import { formatDate } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
@@ -46,6 +47,7 @@ export const AdminAgenciesPage = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [isCreateAgencyOpen, setIsCreateAgencyOpen] = useState(false);
+  const [isPlatformFeeOpen, setIsPlatformFeeOpen] = useState(false);
 
   const [pageInfo, setPageInfo] = useState({
     page: 0,
@@ -286,6 +288,14 @@ export const AdminAgenciesPage = () => {
         </div>
 
         <div className="flex items-center gap-2.5 w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">
+          <button
+            onClick={() => setIsPlatformFeeOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer w-full sm:w-auto"
+          >
+            <Percent className="w-4 h-4 shrink-0" />
+            <span>{t('btn_platform_fee') || 'Phí Sàn Nền Tảng'}</span>
+          </button>
+
           <button
             onClick={() => setIsCreateAgencyOpen(true)}
             className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer w-full sm:w-auto"
@@ -545,6 +555,15 @@ export const AdminAgenciesPage = () => {
         message={`${t('confirm_revoke_agency_msg')} (${confirmRevokeTarget?.agencyName})`}
         confirmText={t('action_reject')}
         variant="danger"
+      />
+
+      {/* Platform Fee Modal */}
+      <PlatformFeeModal
+        isOpen={isPlatformFeeOpen}
+        onClose={() => setIsPlatformFeeOpen(false)}
+        onSuccess={(updatedPercent) => {
+          setToastMessage("Đã cập nhật phí sàn nền tảng: $%");
+        }}
       />
 
       {/* Create Agency Modal */}

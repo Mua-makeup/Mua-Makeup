@@ -37,7 +37,7 @@ export const StaffCommissionSplitMatrix = ({
     }, 0);
 
   // Phí hoa hồng nền tảng (Platform Commission Rate: 20%)
-  const platformFeeRate = Number(booking.platformFeeRate ?? 0.20);
+  const platformFeeRate = Number(booking.platformFeeRate ?? 0.15);
   const platformFee = Number(booking.platformFee ?? Math.round(totalAmount * platformFeeRate));
   const estimatedStudioNet = totalAmount - platformFee - totalStaffCommission;
 

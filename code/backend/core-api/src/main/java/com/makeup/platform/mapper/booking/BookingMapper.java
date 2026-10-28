@@ -15,6 +15,7 @@ import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.catalog.PackageItemType;
+import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 public class BookingMapper {
 
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     public BookingStateTransitionRes toTransitionRes(BookingEntity entity, BookingStatus previousStatus, Long updatedByUserId) {
         if (entity == null) {
@@ -261,11 +263,12 @@ public class BookingMapper {
         }
 
         BigDecimal earnings = BigDecimal.ZERO;
+        BigDecimal feeRate = bookingCommissionPolicy.rateFor(entity);
         if (entity.getTotalAmount() != null) {
-            BigDecimal platformFee = entity.getTotalAmount().multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal platformFee = entity.getTotalAmount().multiply(feeRate).setScale(0, RoundingMode.HALF_UP);
             earnings = entity.getTotalAmount().subtract(platformFee);
         } else if (entity.getServiceSubtotal() != null) {
-            BigDecimal platformFee = entity.getServiceSubtotal().multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal platformFee = entity.getServiceSubtotal().multiply(feeRate).setScale(0, RoundingMode.HALF_UP);
             earnings = entity.getServiceSubtotal().subtract(platformFee);
         }
 

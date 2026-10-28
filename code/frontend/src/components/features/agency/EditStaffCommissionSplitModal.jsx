@@ -106,7 +106,7 @@ export const EditStaffCommissionSplitModal = ({
     });
   };
 
-  const platformFeeRate = 0.20;
+  const platformFeeRate = Number(booking.platformFeeRate ?? 0.15);
   const platformFee = Math.round(totalAmount * platformFeeRate);
   const totalCommissions = items.reduce((acc, curr) => acc + (Number(curr.commissionAmount) || 0), 0);
   const studioNet = totalAmount - platformFee - totalCommissions;

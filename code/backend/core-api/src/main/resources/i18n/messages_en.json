@@ -443,7 +443,7 @@
     "disputes_fetch_success": "Retrieved dispute reports successfully.",
     "dispute_stats_fetch_success": "Retrieved dispute statistics successfully.",
     "dispute_detail_fetch_success": "Retrieved dispute detail successfully.",
-    "dispute_resolved_success": "Resolved dispute successfully!"
+    "dispute_resolved_success": "Resolved dispute successfully!",`r`n    "platform_fee_get_success": "Retrieved platform fee successfully.",`r`n    "platform_fee_updated": "Platform fee updated successfully!"
   },
   "dispute": {
     "not_in_disputed_state": "Booking is not in DISPUTED state.",

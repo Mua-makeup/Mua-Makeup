@@ -109,6 +109,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final BookingHistoryRepository bookingHistoryRepository;
     private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
     private final NotificationService notificationService;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
@@ -545,9 +546,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .stream()
                 .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
                         && a.getStaff() != null && a.getStaff().getMua() != null
-                        && ((a.getStaff().getMua().getId() != null && a.getStaff().getMua().getId().equals(userId))
-                                || (a.getStaff().getMua().getUser() != null
-                                && a.getStaff().getMua().getUser().getId().equals(userId))));
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(userId));
 
         switch (toStatus) {
             case ACCEPTED:
@@ -700,9 +700,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .stream()
                 .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
                         && a.getStaff() != null && a.getStaff().getMua() != null
-                        && ((a.getStaff().getMua().getId() != null && a.getStaff().getMua().getId().equals(userId))
-                                || (a.getStaff().getMua().getUser() != null
-                                && a.getStaff().getMua().getUser().getId().equals(userId))));
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(userId));
         if (isAssistantOnBooking) {
             log.warn("[StateMachine] Assistant MUA userId={} attempted unauthorized dispute proof upload on bookingId={}",
                     userId, bookingId);
@@ -840,7 +839,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
-        BigDecimal commissionRate = BookingCommissionPolicy.rateFor(booking, getFreelancerCommissionRate());
+        BigDecimal commissionRate = bookingCommissionPolicy.rateFor(booking);
         BigDecimal platformFee = totalAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         var settlementSnapshot = settlementRepository.findByBookingId(bookingId).orElse(null);
         if (settlementSnapshot != null) platformFee = settlementSnapshot.getCommissionAmount();

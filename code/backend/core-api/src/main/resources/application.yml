@@ -58,6 +58,10 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:demo}
 
 app:
+  settlement:
+    platform-fee-rate: ${PLATFORM_FEE_RATE:0.15}
+    commission-rate: ${PLATFORM_FEE_RATE:0.15}
+    online-commission-rate: ${PLATFORM_FEE_RATE:0.15}
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
   scheduling:

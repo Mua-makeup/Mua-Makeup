@@ -23,6 +23,7 @@ public class StudioFeeReconciliationService {
     private final LedgerEntryRepository ledger;
     private final WalletRepository wallets;
     private final StudioDisputeFinanceService finance;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     public record Preview(BigDecimal oldFee, BigDecimal correctFee, BigDecimal recoveryAmount, boolean applicable) {}
 
@@ -31,7 +32,7 @@ public class StudioFeeReconciliationService {
         var booking = bookings.findById(bookingId).orElseThrow(StudioFeeReconciliationService::conflict);
         if (booking.getAgency() == null) throw conflict();
         var settlement = settlements.findByBookingId(bookingId).orElseThrow(StudioFeeReconciliationService::conflict);
-        BigDecimal fee = settlement.getTotalAmount().multiply(BookingCommissionPolicy.rateFor(booking, null)).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal fee = settlement.getTotalAmount().multiply(bookingCommissionPolicy.rateFor(booking)).setScale(0, RoundingMode.HALF_UP);
         BigDecimal recovery = fee.subtract(settlement.getCommissionAmount());
         return new Preview(settlement.getCommissionAmount(), fee, recovery,
                 recovery.signum() > 0 && "SETTLED".equals(settlement.getStatus())
@@ -74,7 +75,7 @@ public class StudioFeeReconciliationService {
                 .entryType("DEBIT").amount(plan.recoveryAmount()).balanceAfter(wallet.getAvailableBalance())
                 .idempotencyKey(key).description("Điều chỉnh phí Studio 20% #" + booking.getBookingCode() + " bởi Admin " + adminId
                         + " (phí cũ " + plan.oldFee() + ")").build());
-        settlement.setCommissionRate(BookingCommissionPolicy.rateFor(booking, null));
+        settlement.setCommissionRate(bookingCommissionPolicy.rateFor(booking));
         settlement.setCommissionAmount(plan.correctFee());
         settlement.setFreelancerEarnings(settlement.getTotalAmount().subtract(plan.correctFee()));
         settlement.setWalletCreditedAmount(total.subtract(plan.recoveryAmount()));

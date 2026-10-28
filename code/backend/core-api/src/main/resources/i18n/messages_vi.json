@@ -155,7 +155,7 @@
     "leave_request_already_reviewed": "Đơn xin nghỉ này đã được xử lý trước đó.",
     "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
-    "dispute_resolved_success": "Giải quyết khiếu nại thành công.",
+    "dispute_resolved_success": "Phân xử khiếu nại thành công!",`r`n    "platform_fee_get_success": "Lấy thông tin phí sàn thành công.",`r`n    "platform_fee_updated": "Cập nhật phí sàn thành công!",
     "portfolio_create_success": "Tạo tác phẩm mẫu Studio thành công!",
     "portfolio_update_success": "Cập nhật tác phẩm mẫu Studio thành công!",
     "portfolio_delete_success": "Xóa tác phẩm mẫu Studio thành công!",
@@ -443,7 +443,7 @@
     "disputes_fetch_success": "Lấy danh sách khiếu nại thành công.",
     "dispute_stats_fetch_success": "Lấy thống kê khiếu nại thành công.",
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
-    "dispute_resolved_success": "Phân xử khiếu nại thành công!"
+    "dispute_resolved_success": "Phân xử khiếu nại thành công!",`r`n    "platform_fee_get_success": "Lấy thông tin phí sàn thành công.",`r`n    "platform_fee_updated": "Cập nhật phí sàn thành công!"
   },
   "dispute": {
     "not_in_disputed_state": "Đơn hàng không nằm ở trạng thái tranh chấp (DISPUTED).",

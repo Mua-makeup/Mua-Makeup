@@ -60,6 +60,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
     private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
     private final MUACalendarRepository muaCalendarRepository;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     @Override
     @Transactional
@@ -143,7 +144,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         // C: tiền mặt khách trả thợ (xác nhận bởi cả hai)
         BigDecimal C = cashReceipt.getExpectedAmount() != null ? cashReceipt.getExpectedAmount() : BigDecimal.ZERO;
         // F: phí nền tảng
-        commissionRate = BookingCommissionPolicy.rateFor(booking, commissionRate);
+        commissionRate = bookingCommissionPolicy.rateFor(booking);
         BigDecimal F = T.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         // E: doanh thu ròng sau phí nền tảng = T - F
         // Đây là tổng phải phân chia cho thợ + studio
@@ -266,9 +267,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                 }
             }
 
-            // Ghi có phần doanh thu studio = E - totalStaffPayout
-            // Công thức: Doanh thu Studio = T - F - tổng_hoa_hồng_thợ
-            // Dùng E (= T - F) thay vì N (= D - F) để đúng cả trường hợp tiền mặt (D = 0)
+            
             if (booking.getAgency() != null && booking.getAgency().getOwner() != null && E.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal agencyRemaining = E.subtract(totalStaffPayout);
                 if (agencyRemaining.compareTo(BigDecimal.ZERO) > 0) {
@@ -429,7 +428,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         BigDecimal T = booking.getTotalAmount();
         BigDecimal D = deposit.getPaidAmount() != null ? deposit.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal C = BigDecimal.ZERO;
-        commissionRate = BookingCommissionPolicy.rateFor(booking, commissionRate);
+        commissionRate = bookingCommissionPolicy.rateFor(booking);
         BigDecimal F = T.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal E = T.subtract(F);
         BigDecimal N = E;

@@ -17,3 +17,10 @@ export const surgeRuleSchema = z.object({
   minDemandRatio: z.number().optional().default(1.0),
   isActive: z.boolean().default(true),
 });
+
+export const updatePlatformFeeSchema = z.object({
+  feePercent: z.coerce
+    .number({ invalid_type_error: 'Phí sàn phải là số' })
+    .min(0, 'Phí sàn tối thiểu là 0%')
+    .max(100, 'Phí sàn tối đa là 100%'),
+});
