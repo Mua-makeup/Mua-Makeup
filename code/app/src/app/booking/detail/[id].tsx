@@ -301,8 +301,12 @@ export default function CustomerBookingDetailScreen() {
       case 'IN_PROGRESS':
         return { label: 'Đang Trang Điểm', color: BrandColors.primary, bg: '#FFF1F2', icon: 'brush-outline' };
       case 'COMPLETED':
-      case 'PAID_OUT':
+      case 'PAID_OUT': {
+        if (reason?.includes('[KHACH_DONG_Y_KET_QUA]')) {
+          return { label: 'Đã Đồng Ý Kết Quả', color: '#2563EB', bg: '#DBEAFE', icon: 'checkmark-circle-outline' };
+        }
         return { label: 'Hoàn Thành', color: '#059669', bg: '#D1FAE5', icon: 'checkmark-done-circle-outline' };
+      }
       case 'CANCELLED':
       case 'EXPIRED':
         return { label: 'Đã Hủy', color: '#DC2626', bg: '#FEE2E2', icon: 'close-circle-outline' };
@@ -813,7 +817,7 @@ export default function CustomerBookingDetailScreen() {
                         : 'Đã duyệt khiếu nại: Hoàn 100% tiền cọc về Ví của bạn'
                     )
                   )}
-                  {bookingDetail.status === 'DISPUTE_COMPENSATED' && (
+                  {(bookingDetail.status === 'DISPUTE_COMPENSATED' || (bookingDetail.status === 'PAID_OUT' && (bookingDetail.cancellationReason || '').includes('[KHACH_DONG_Y_KET_QUA]'))) && (
                     (bookingDetail.cancellationReason || '').includes('[KHACH_DONG_Y_KET_QUA]')
                       ? 'Đã giải quyết: Bạn đã chấp nhận kết quả từ Studio'
                       : (bookingDetail.cancellationReason || (

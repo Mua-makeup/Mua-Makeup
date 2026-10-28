@@ -13,6 +13,9 @@ import com.makeup.platform.entity.catalog.PackageItemType;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
 import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.wallet.BookingSettlementRepository;
+import com.makeup.platform.service.wallet.BookingCommissionPolicy;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +34,7 @@ public class AgencyBookingMapper {
 
     private final AgencyStaffRepository agencyStaffRepository;
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
+    private final BookingSettlementRepository settlementRepository;
 
     public AgencyBookingRes toRes(BookingEntity b, AgencyProfileEntity agency) {
         return toRes(b, agency, null);
@@ -96,7 +100,12 @@ public class AgencyBookingMapper {
             BigDecimal commissionMultiplier = staffCommissionRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
             estimatedStaffCommission = totalAmount.multiply(commissionMultiplier).setScale(2, RoundingMode.HALF_UP);
         }
-        BigDecimal estimatedStudioNet = totalAmount.subtract(estimatedStaffCommission).setScale(2, RoundingMode.HALF_UP);
+        var settlement = settlementRepository.findByBookingId(b.getId()).orElse(null);
+        BigDecimal platformFeeRate = settlement != null ? settlement.getCommissionRate()
+                : BookingCommissionPolicy.rateFor(b, new BigDecimal("0.20"));
+        BigDecimal platformFee = settlement != null ? settlement.getCommissionAmount()
+                : totalAmount.multiply(platformFeeRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal estimatedStudioNet = totalAmount.subtract(platformFee).subtract(estimatedStaffCommission).setScale(2, RoundingMode.HALF_UP);
 
         String servicePkgName = null;
         Long pkgId = null;
@@ -208,6 +217,9 @@ public class AgencyBookingMapper {
                 .bookingDate(b.getBookingDate())
                 .startTime(b.getStartTime())
                 .totalAmount(totalAmount)
+                .platformFeeRate(platformFeeRate)
+                .platformFee(platformFee)
+                .settlementRecorded(settlement != null)
                 .depositAmount(b.getDepositAmount() != null ? b.getDepositAmount() : BigDecimal.ZERO)
                 .estimatedStaffCommission(estimatedStaffCommission)
                 .estimatedStudioNet(estimatedStudioNet)

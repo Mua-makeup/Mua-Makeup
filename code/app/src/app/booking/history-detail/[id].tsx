@@ -314,7 +314,7 @@ export default function BookingHistoryDetailScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(
       'Xác Nhận Đã Thu Đủ Tiền Mặt',
-      `Bạn xác nhận đã nhận đủ ${formatPrice(remainingAmount)} tiền mặt trực tiếp từ khách hàng? Ca làm sẽ được chuyển sang trạng thái ĐÃ QUYẾT TOÁN 100% và giải ngân cọc Escrow vào Ví thợ.`,
+      `Bạn xác nhận đã nhận đủ ${formatPrice(remainingAmount)} tiền mặt từ khách hàng? Hệ thống chỉ quyết toán khi đủ xác nhận và không có khiếu nại đang xử lý.`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
@@ -322,10 +322,11 @@ export default function BookingHistoryDetailScreen() {
           onPress: async () => {
             try {
               setIsConfirmingMuaReceivedCash(true);
-              await depositService.confirmFreelancerCashReceipt(bookingId, 'v1');
-              setBookingDetail((prev) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
+              const receipt = await depositService.confirmFreelancerCashReceipt(bookingId, 'v1');
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('🎉 Quyết Toán Thành Công!', 'Ca làm đã hoàn tất 100%. Khoản cọc Escrow đã được tự động giải ngân vào Ví của bạn.');
+              Alert.alert('Đã ghi nhận xác nhận', receipt.bookingStatus === 'PAID_OUT'
+                ? 'Đơn đã quyết toán. Xem khoản hoa hồng thực nhận trong ví.'
+                : 'Xác nhận nhận tiền đã được lưu. Đơn còn chờ xác nhận của khách hoặc xử lý khiếu nại.');
               await loadData(true);
             } catch (err: any) {
               Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể cập nhật quyết toán.');
@@ -570,6 +571,7 @@ export default function BookingHistoryDetailScreen() {
   const payment = getBookingPaymentPresentation({
     isPaidOut, isCompleted, isCancelled, isDisputed,
     isCashReceived,
+    isPaymentSettled: bookingDetail.isPaymentSettled,
     isDisputeRefunded, isDisputeCompensated, isDepositRefunded,
     isDepositPaid: Boolean(bookingDetail.isDepositPaid), isSplit5050, remainingAmount,
   });
@@ -751,7 +753,11 @@ export default function BookingHistoryDetailScreen() {
                   Ảnh minh chứng hiện trường của Thợ:
                 </Text>
                 <TouchableOpacity
-                  onPress={() => setPreviewPhotoUrl(disputeDossier.muaProofUrl!)}
+                  onPress={() => {
+                    setPreviewPhotoList([disputeDossier.muaProofUrl!]);
+                    setPreviewPhotoIndex(0);
+                    setIsPhotoModalVisible(true);
+                  }}
                   activeOpacity={0.85}
                   style={{ position: 'relative', borderRadius: 8, overflow: 'hidden' }}
                 >
@@ -823,7 +829,11 @@ export default function BookingHistoryDetailScreen() {
                   Ảnh minh chứng của Khách hàng:
                 </Text>
                 <TouchableOpacity
-                  onPress={() => setPreviewPhotoUrl(disputeDossier.customerProofUrl!)}
+                  onPress={() => {
+                    setPreviewPhotoList([disputeDossier.customerProofUrl!]);
+                    setPreviewPhotoIndex(0);
+                    setIsPhotoModalVisible(true);
+                  }}
                   activeOpacity={0.85}
                   style={{ position: 'relative', borderRadius: 8, overflow: 'hidden' }}
                 >
@@ -4328,7 +4338,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   reviewPhotoMoreOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.52)',
     justifyContent: 'center',
     alignItems: 'center',

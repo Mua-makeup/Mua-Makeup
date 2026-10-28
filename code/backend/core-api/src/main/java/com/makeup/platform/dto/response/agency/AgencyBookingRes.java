@@ -43,6 +43,9 @@ public class AgencyBookingRes {
 
     // Financials
     private BigDecimal totalAmount;
+    private BigDecimal platformFeeRate;
+    private BigDecimal platformFee;
+    private Boolean settlementRecorded;
     private BigDecimal depositAmount;
     private BigDecimal estimatedStaffCommission;
     private BigDecimal estimatedStudioNet;

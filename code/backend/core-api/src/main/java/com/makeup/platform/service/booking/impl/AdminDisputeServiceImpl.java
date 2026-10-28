@@ -244,6 +244,9 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             }
             studioFinancials = studioFinance.inspect(booking);
             targetStatus = studioFinance.resolve(booking, resolution, note);
+            if (targetStatus == BookingStatus.PAID_OUT) {
+                targetStatus = BookingStatus.DISPUTE_COMPENSATED;
+            }
             booking.setCancellationReason("Admin xử lý khiếu nại studio: " + resolution + ". " + note);
         } else if ("APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)) {
             targetStatus = BookingStatus.DISPUTE_REFUNDED;
@@ -347,7 +350,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
         } else if ("REJECT_AND_PAYOUT_MUA".equalsIgnoreCase(resolution) || "APPROVE_COMPENSATION_MUA".equalsIgnoreCase(resolution)) {
             if (isCompletedService) {
-                targetStatus = BookingStatus.PAID_OUT;
+                targetStatus = BookingStatus.DISPUTE_COMPENSATED;
                 // Ca đã hoàn tất làm đẹp trước đó -> Settle thông qua Settlement Service
                 try {
                     bookingSettlementService.settleBooking(bookingId, null);

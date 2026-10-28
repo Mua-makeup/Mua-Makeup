@@ -1,4 +1,6 @@
 package com.makeup.platform.service.agency.impl;
+import org.springframework.http.HttpStatus;
+import com.makeup.platform.repository.wallet.BookingSettlementRepository;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
@@ -100,6 +102,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
     private final TransactionTemplate transactionTemplate;
     private final ApplicationEventPublisher eventPublisher;
     private final AgencyBookingMapper agencyBookingMapper;
+    private final BookingSettlementRepository settlementRepository;
     private final DispatchMatrixMapper dispatchMatrixMapper;
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
     private final NotificationService notificationService;
@@ -734,7 +737,13 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
     @Transactional
     public AgencyBookingRes updateStaffCommissions(Long ownerUserId, Long bookingId, UpdateStaffCommissionSplitReq req) {
         AgencyProfileEntity agency = support.getAgencyByOwnerUserId(ownerUserId);
-        BookingEntity booking = support.getBookingAndVerifyOwnership(bookingId, agency.getId());
+        support.getBookingAndVerifyOwnership(bookingId, agency.getId());
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
+        if (settlementRepository.existsByBookingId(bookingId) || booking.getStatus() == BookingStatus.DISPUTED
+                || booking.getStatus() == BookingStatus.PAID_OUT || booking.getStatus() == BookingStatus.DISPUTE_REFUNDED
+                || booking.getStatus() == BookingStatus.DISPUTE_COMPENSATED || booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+        }
 
         List<BookingStaffAssignmentEntity> activeAssignments = bookingStaffAssignmentRepository
                 .findByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE);

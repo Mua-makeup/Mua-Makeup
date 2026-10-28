@@ -75,6 +75,7 @@ export interface FreelancerWalletInfo {
 }
 
 export interface CashReceiptStatus {
+  bookingStatus?: string;
   receiptId: number;
   bookingId: number;
   invoiceVersion: string;

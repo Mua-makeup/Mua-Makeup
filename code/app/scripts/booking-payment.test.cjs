@@ -58,3 +58,9 @@ test('refund takes precedence over a previously confirmed cash receipt', () => {
   assert.equal(result.paid, false);
   assert.equal(result.remainingAmount, 0);
 });
+test('settled online payment survives transition to a dispute', () => {
+  const result = present({ isDisputed: true, isPaymentSettled: true });
+  assert.equal(result.remainingLabel, 'Đã Quyết Toán');
+  assert.equal(result.paid, true);
+  assert.equal(result.depositLabel, 'Đã Giải Ngân · Đang Khiếu Nại');
+});

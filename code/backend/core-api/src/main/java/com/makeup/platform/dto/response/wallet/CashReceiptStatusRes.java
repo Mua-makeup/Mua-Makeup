@@ -22,6 +22,7 @@ public class CashReceiptStatusRes {
     private String invoiceVersion;
     private BigDecimal expectedAmount;
     private String status;
+    private String bookingStatus;
     private OffsetDateTime customerConfirmedAt;
     private OffsetDateTime freelancerConfirmedAt;
     private boolean customerConfirmed;
