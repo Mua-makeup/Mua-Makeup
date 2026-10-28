@@ -545,9 +545,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .stream()
                 .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
                         && a.getStaff() != null && a.getStaff().getMua() != null
-                        && ((a.getStaff().getMua().getId() != null && a.getStaff().getMua().getId().equals(userId))
-                                || (a.getStaff().getMua().getUser() != null
-                                && a.getStaff().getMua().getUser().getId().equals(userId))));
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(userId));
 
         switch (toStatus) {
             case ACCEPTED:
@@ -700,9 +699,8 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .stream()
                 .anyMatch(a -> a.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA
                         && a.getStaff() != null && a.getStaff().getMua() != null
-                        && ((a.getStaff().getMua().getId() != null && a.getStaff().getMua().getId().equals(userId))
-                                || (a.getStaff().getMua().getUser() != null
-                                && a.getStaff().getMua().getUser().getId().equals(userId))));
+                        && a.getStaff().getMua().getUser() != null
+                        && a.getStaff().getMua().getUser().getId().equals(userId));
         if (isAssistantOnBooking) {
             log.warn("[StateMachine] Assistant MUA userId={} attempted unauthorized dispute proof upload on bookingId={}",
                     userId, bookingId);
