@@ -17,7 +17,7 @@ public class CustomerWalletMapper {
         return toWalletRes(wallet, entries, null, null);
     }
 
-    public CustomerWalletRes toWalletRes(WalletEntity wallet, List<LedgerEntryEntity> entries, java.util.Map<Long, String> bookingHoldStatusMap) {
+    public CustomerWalletRes toWalletRes(WalletEntity wallet, List<LedgerEntryEntity> entries, Map<Long, String> bookingHoldStatusMap) {
         return toWalletRes(wallet, entries, bookingHoldStatusMap, null);
     }
 

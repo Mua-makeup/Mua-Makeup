@@ -11,10 +11,11 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public interface LedgerEntryRepository extends JpaRepository<LedgerEntryEntity, Long> {
-    java.util.List<LedgerEntryEntity> findByReferenceIdAndReferenceTypeAndEntryType(Long referenceId, String referenceType, String entryType);
+    List<LedgerEntryEntity> findByReferenceIdAndReferenceTypeAndEntryType(Long referenceId, String referenceType, String entryType);
 
     Optional<LedgerEntryEntity> findByIdempotencyKey(String idempotencyKey);
 

@@ -45,6 +45,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.makeup.platform.mapper.auth.AuthMapper;
+import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.wallet.WalletRepository;
+import org.mockito.Spy;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -53,10 +57,10 @@ class AuthServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private com.makeup.platform.repository.wallet.WalletRepository walletRepository;
+    private WalletRepository walletRepository;
 
     @Mock
-    private com.makeup.platform.repository.AgencyStaffRepository agencyStaffRepository;
+    private AgencyStaffRepository agencyStaffRepository;
 
     @Mock
     private RoleRepository roleRepository;
@@ -82,8 +86,8 @@ class AuthServiceTest {
     @Mock
     private AuthenticationManager authenticationManager;
 
-    @org.mockito.Spy
-    private com.makeup.platform.mapper.auth.AuthMapper authMapper = new com.makeup.platform.mapper.auth.AuthMapper();
+    @Spy
+    private AuthMapper authMapper = new AuthMapper();
 
     @InjectMocks
     private AuthServiceImpl authService;

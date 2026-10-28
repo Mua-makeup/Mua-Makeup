@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import com.makeup.platform.entity.mua.CalendarSlotType;
 
 @Component
 public class MUACalendarMapper {
@@ -40,7 +41,7 @@ public class MUACalendarMapper {
 
         return MUACalendarEntity.builder()
                 .mua(muaProfile)
-                .slotType(com.makeup.platform.entity.mua.CalendarSlotType.PERSONAL_BLOCKED)
+                .slotType(CalendarSlotType.PERSONAL_BLOCKED)
                 .bookingDate(req.getBookingDate())
                 .startAt(startAt)
                 .endAt(endAt)

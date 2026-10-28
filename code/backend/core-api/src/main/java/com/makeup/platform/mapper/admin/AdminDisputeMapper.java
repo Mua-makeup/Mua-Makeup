@@ -5,11 +5,13 @@ import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.service.booking.DisputeStageService;
 
 import org.springframework.stereotype.Component;
+import com.makeup.platform.service.booking.StudioDisputeFinanceService;
+import lombok.RequiredArgsConstructor;
 
 @Component
-@lombok.RequiredArgsConstructor
+@RequiredArgsConstructor
 public class AdminDisputeMapper {
-    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
+    private final StudioDisputeFinanceService studioFinance;
     private final DisputeStageService disputeStageService;
 
     public AdminDisputeRes toRes(BookingEntity booking) {

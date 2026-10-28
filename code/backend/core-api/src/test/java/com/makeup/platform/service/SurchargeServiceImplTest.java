@@ -34,6 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.makeup.platform.mapper.catalog.SurchargeMapper;
+import org.junit.jupiter.api.Assertions;
+import org.mockito.Spy;
 
 @ExtendWith(MockitoExtension.class)
 class SurchargeServiceImplTest {
@@ -47,8 +50,8 @@ class SurchargeServiceImplTest {
     @Mock
     private CatalogOwnerHelper ownerHelper;
 
-    @org.mockito.Spy
-    private com.makeup.platform.mapper.catalog.SurchargeMapper surchargeMapper = new com.makeup.platform.mapper.catalog.SurchargeMapper();
+    @Spy
+    private SurchargeMapper surchargeMapper = new SurchargeMapper();
 
     @InjectMocks
     private SurchargeServiceImpl surchargeService;
@@ -167,7 +170,7 @@ class SurchargeServiceImplTest {
         assertEquals(new BigDecimal("400000.00"), res.getTotalSurcharge());
         assertEquals(3, res.getAppliedSurcharges().size());
         // Hiệu năng engine < 30ms
-        org.junit.jupiter.api.Assertions.assertTrue(duration < 500, "Calculation took " + duration + "ms");
+        Assertions.assertTrue(duration < 500, "Calculation took " + duration + "ms");
     }
 
     @Test

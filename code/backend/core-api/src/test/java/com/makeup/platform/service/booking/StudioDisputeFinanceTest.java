@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.makeup.platform.common.exception.CustomBusinessException;
+import java.time.OffsetDateTime;
 
 @ExtendWith(MockitoExtension.class)
 class StudioDisputeFinanceTest {
@@ -110,12 +112,12 @@ class StudioDisputeFinanceTest {
     @Test void insufficientRecoveryDoesNotCreditCustomerOrWriteLedger() {
         when(stages.isCompletedService(booking)).thenReturn(true);
         var receipt = BookingCashReceiptEntity.builder().status("BOTH_CONFIRMED")
-            .expectedAmount(n(140000)).customerConfirmedAt(java.time.OffsetDateTime.now())
-            .freelancerConfirmedAt(java.time.OffsetDateTime.now()).freelancerUser(booking.getAgency().getOwner()).build();
+            .expectedAmount(n(140000)).customerConfirmedAt(OffsetDateTime.now())
+            .freelancerConfirmedAt(OffsetDateTime.now()).freelancerUser(booking.getAgency().getOwner()).build();
         when(receipts.findByBookingId(9L)).thenReturn(Optional.of(receipt));
         when(wallets.findByUserIdWithLock(1L)).thenReturn(Optional.of(customerWallet));
         when(wallets.findByUserIdWithLock(2L)).thenReturn(Optional.of(ownerWallet));
-        assertThrows(com.makeup.platform.common.exception.CustomBusinessException.class,
+        assertThrows(CustomBusinessException.class,
             () -> service.resolve(booking,"REFUND","test"));
         assertEquals(n(0),customerWallet.getAvailableBalance());
         assertEquals(n(90000),ownerWallet.getAvailableBalance());
@@ -124,8 +126,8 @@ class StudioDisputeFinanceTest {
     @Test void cashRefundRecoversOnlyConfirmedCashBeforeSettlement() {
         when(stages.isCompletedService(booking)).thenReturn(true);
         var receipt = BookingCashReceiptEntity.builder().status("BOTH_CONFIRMED")
-            .expectedAmount(n(140000)).customerConfirmedAt(java.time.OffsetDateTime.now())
-            .freelancerConfirmedAt(java.time.OffsetDateTime.now()).freelancerUser(booking.getAgency().getOwner()).build();
+            .expectedAmount(n(140000)).customerConfirmedAt(OffsetDateTime.now())
+            .freelancerConfirmedAt(OffsetDateTime.now()).freelancerUser(booking.getAgency().getOwner()).build();
         when(receipts.findByBookingId(9L)).thenReturn(Optional.of(receipt));
         ownerWallet.setAvailableBalance(n(180000)); walletsAndHold();
         service.resolve(booking,"REFUND","test");

@@ -183,8 +183,10 @@ flowchart LR
     ci["GitHub Actions<br/>bootJar + Docker build"]
     hub["Docker Hub<br/>makeup-backend:latest"]
     clients["Web / Expo clients"]
-    edge["Điểm vào HTTPS / WSS<br/>Cấu hình proxy chưa có trong repo"]
     subgraph vps["VPS - Docker Compose production"]
+        edge["Nginx :443<br/>HTTPS / WSS · TLS Let's Encrypt / Certbot"]
+        http["Nginx :80<br/>Đúng domain: 301 HTTPS · Fallback: 404"]
+        http --> edge
         core["core-api<br/>host 127.0.0.1:8080"]
         pg[("PostgreSQL + PostGIS<br/>volume riêng")]
         redis[("Redis<br/>volume riêng")]
@@ -202,13 +204,15 @@ flowchart LR
     end
     git --> ci --> hub
     hub -->|"SSH deploy / compose pull"| core
-    clients -.-> edge
-    edge -.-> core
+    clients --> edge
+    edge -->|"/ → HTTP :8080"| core
+    edge -->|"/ws-makeup → WS :8080"| core
+    edge -->|"/grafana/ · Basic Auth → HTTP :3000"| grafana
 ```
 
 - Compose khai báo một core-api, một PostgreSQL và một Redis, cùng bridge network; dữ liệu có named volumes.
 - PostgreSQL và Redis chỉ bind host loopback. Core API và Grafana cũng bind loopback, nên cần thành phần vào hệ thống ở ngoài Compose để truy cập từ Internet.
-- Client cấu hình URL HTTPS DuckDNS; repository chưa có cấu hình reverse proxy/TLS để xác nhận dùng Nginx, Caddy hay phương án khác. Nét đứt biểu diễn phần triển khai cần xác minh.
+- Hai ảnh `backend.conf` người dùng cung cấp ngày 28/10/2026 xác nhận Nginx trên VPS: cổng 80 chuyển domain sang HTTPS bằng 301 (fallback 404), cổng 443 dùng TLS Let's Encrypt/Certbot, `/` và `/ws-makeup` chuyển tiếp đến backend qua `127.0.0.1:8080`, `/grafana/` có Basic Auth và chuyển tiếp đến `127.0.0.1:3000`. Nginx hỗ trợ Upgrade cho WebSocket và Grafana. Các tuyến này đã được đối chiếu với ảnh cấu hình, chưa kiểm thử trực tiếp trên server.
 - Web React và Expo web có `vercel.json`; đủ để xác nhận hỗ trợ triển khai Vercel, chưa chứng minh deployment nào đang hoạt động.
 - Workflow build backend rồi push Docker Hub, SSH vào VPS và chạy Compose. Hiện bước build dùng `bootJar -x test`.
 - Promtail đẩy log sang Loki. Prometheus hiện chỉ có scrape job cho Node Exporter, chưa có scrape job core-api. Không nên mô tả đã thu đủ metrics nghiệp vụ Spring Boot.

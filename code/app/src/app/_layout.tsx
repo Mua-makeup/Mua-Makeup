@@ -7,8 +7,6 @@ import { useColorScheme, AppState, AppStateStatus } from 'react-native';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { useAuthStore } from '@/store/auth.store';
 
-SplashScreen.preventAutoHideAsync();
-
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { GlobalPopupModal } from '@/components/common/GlobalPopupModal';
 import { AccountModal } from '@/components/common/AccountModal';
@@ -22,6 +20,8 @@ import { useWorkstationStore } from '@/store/workstation.store';
 import { useBookingStore } from '@/store/booking.store';
 import { useNotificationStore } from '@/store/notification.store';
 import { registerForPushNotificationsAsync } from '@/services/push-notification.service';
+
+SplashScreen.preventAutoHideAsync();
 
 // Kích hoạt hệ thống Luxury Popup tự động cho toàn bộ Alert.alert trong app
 setupAlertPolyfill();

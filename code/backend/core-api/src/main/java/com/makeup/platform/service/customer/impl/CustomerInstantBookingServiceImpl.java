@@ -363,7 +363,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                         nextMuaIdStr, bookingId);
                 // Đọc giá trị hiện tại để debug
                 String existingLease = stringRedisTemplate.opsForValue().get(
-                        com.makeup.platform.common.constants.InstantBookingKeys.candidateLease(nextMuaIdStr));
+                        InstantBookingKeys.candidateLease(nextMuaIdStr));
                 log.warn("[SequentialDispatch] Current lease for MUA id={}: bookingId={}", nextMuaIdStr, existingLease);
                 continue;
             }

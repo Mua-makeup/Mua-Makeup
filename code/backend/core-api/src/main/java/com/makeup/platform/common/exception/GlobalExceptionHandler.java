@@ -31,6 +31,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.text.MessageFormat;
 
 @Slf4j
 @RestControllerAdvice
@@ -93,7 +94,7 @@ public class GlobalExceptionHandler {
 
         if (ex.getArgs() != null && ex.getArgs().length > 0 && StringUtils.hasText(ex.getMessage()) && ex.getMessage().contains("{")) {
             try {
-                return java.text.MessageFormat.format(ex.getMessage(), ex.getArgs());
+                return MessageFormat.format(ex.getMessage(), ex.getArgs());
             } catch (Exception ignored) {
             }
         }

@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
 
 @Component
 @RequiredArgsConstructor
@@ -444,7 +445,7 @@ public class BookingMapper {
         }
 
         String staffName = muaName;
-        java.util.List<String> assistantNames = new java.util.ArrayList<>();
+        List<String> assistantNames = new ArrayList<>();
         if (entity.getStaffAssignments() != null && !entity.getStaffAssignments().isEmpty()) {
             for (BookingStaffAssignmentEntity sa : entity.getStaffAssignments()) {
                 if (sa.getStatus() == AssignmentStatus.ACTIVE && sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getUser() != null) {
