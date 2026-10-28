@@ -1,4 +1,4 @@
-﻿package com.makeup.platform.service.payment.impl;
+package com.makeup.platform.service.payment.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;

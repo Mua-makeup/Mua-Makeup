@@ -1,4 +1,4 @@
-﻿package com.makeup.platform.service.booking;
+package com.makeup.platform.service.booking;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;

@@ -1,4 +1,4 @@
-﻿package com.makeup.platform.service.booking.impl;
+package com.makeup.platform.service.booking.impl;
 import com.makeup.platform.repository.wallet.BookingSettlementRepository;
 import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 

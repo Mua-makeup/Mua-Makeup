@@ -1,4 +1,4 @@
-﻿package com.makeup.platform.service.customer.impl;
+package com.makeup.platform.service.customer.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.InstantBookingKeys;

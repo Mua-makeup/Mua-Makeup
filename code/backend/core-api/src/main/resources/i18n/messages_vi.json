@@ -1,4 +1,4 @@
-﻿{
+{
   "dispute.invalid_studio_state": "Đơn studio không ở trạng thái cho phép xử lý khiếu nại.",
   "dispute.already_resolved": "Khiếu nại đã được xử lý tiền trước đó.",
   "dispute.payment_reconciliation_required": "Cần đối soát thanh toán/quyết toán của đơn trước khi xử lý. Chưa thực hiện hoàn hoặc thu hồi tiền.",

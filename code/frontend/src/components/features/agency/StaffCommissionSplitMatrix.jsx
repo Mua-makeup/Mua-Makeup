@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { DollarSign, User, SlidersHorizontal, CheckCircle2, Clock } from 'lucide-react';
 import { Badge } from '../../base/Badge';
 import { Button } from '../../base/Button';

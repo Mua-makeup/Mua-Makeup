@@ -1,4 +1,4 @@
-﻿package com.makeup.platform.service.booking.impl;
+package com.makeup.platform.service.booking.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.booking.BookingDepositExpiredEvent;
