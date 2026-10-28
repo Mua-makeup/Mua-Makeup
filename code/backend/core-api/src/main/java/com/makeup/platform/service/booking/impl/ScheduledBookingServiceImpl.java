@@ -66,7 +66,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import com.makeup.platform.service.booking.StudioDisputeFinanceService;
-import com.makeup.platform.service.wallet.BookingCommissionPolicy;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import java.time.temporal.ChronoUnit;
 
 @Slf4j
@@ -94,7 +94,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final MakeupStyleRepository makeupStyleRepository;
     private final MuaReputationService muaReputationService;
     private final DynamicPricingService dynamicPricingService;
-    private final BookingCommissionPolicy bookingCommissionPolicy;
+    private final PlatformFeeService platformFeeService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final int DEFAULT_BUFFER_MINUTES = 30;
@@ -779,7 +779,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             }
 
             BigDecimal serviceSubtotal = b.getServiceSubtotal() != null ? b.getServiceSubtotal() : BigDecimal.ZERO;
-            BigDecimal commissionRate = bookingCommissionPolicy.rateFor(b);
+            BigDecimal commissionRate = platformFeeService.rateFor(b);
             BigDecimal platformFee = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
             BigDecimal surchargeFee = b.getSurchargeFee() != null ? b.getSurchargeFee() : BigDecimal.ZERO;
             BigDecimal distanceFee = b.getDistanceFee() != null ? b.getDistanceFee() : BigDecimal.ZERO;

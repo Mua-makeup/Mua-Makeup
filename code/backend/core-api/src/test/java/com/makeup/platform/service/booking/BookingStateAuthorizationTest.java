@@ -25,6 +25,7 @@ import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.service.mua.MUACalendarService;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
@@ -40,6 +41,7 @@ class BookingStateAuthorizationTest {
     @Mock BookingAuditService audit;
     @Mock ApplicationEventPublisher events;
     @Mock MUACalendarService calendar;
+    @Mock PlatformFeeService platformFeeService;
     @InjectMocks BookingStateMachineServiceImpl service;
 
     @ParameterizedTest @CsvSource({"ACCEPTED,ON_THE_WAY", "ON_THE_WAY,ARRIVED", "ARRIVED,IN_PROGRESS",

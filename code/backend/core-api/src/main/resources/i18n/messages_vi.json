@@ -70,7 +70,7 @@
   },
   "agency": {
     "not_found": "Không tìm thấy thông tin Studio / Đại lý.",
-    "bookings_fetch_success": "Tải danh sách đơn đặt lịch của Studio thành công.",
+    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
     "stats_fetch_success": "Tải thống kê tổng quan của Studio thành công.",
     "wallet_fetch_success": "Tải thông tin ví doanh thu Studio thành công.",
     "reviews_fetch_success": "Tải danh sách đánh giá của Studio thành công.",
@@ -125,7 +125,6 @@
     "shift_created_success": "Tạo ca làm việc thành công!",
     "shift_updated_success": "Cập nhật ca làm việc thành công!",
     "shift_deleted_success": "Xóa ca làm việc thành công!",
-    "bookings_fetch_success": "Lấy danh sách đơn hàng của Studio thành công.",
     "logo_upload_success": "Tải lên logo của Studio thành công.",
     "cert_upload_success": "Tải lên chứng chỉ nghề nghiệp thành công (chờ Studio phê duyệt).",
     "cert_review_success": "Xử lý phê duyệt chứng chỉ nhân viên thành công.",
@@ -434,14 +433,14 @@
     "disputes_fetch_success": "Lấy danh sách khiếu nại thành công.",
     "dispute_stats_fetch_success": "Lấy thống kê khiếu nại thành công.",
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
-    "dispute_resolved_success": "Phân xử khiếu nại thành công!"
+    "dispute_resolved_success": "Phân xử khiếu nại thành công!",
+    "platform_fee_get_success": "Lấy thông tin phí sàn thành công.",
+    "platform_fee_updated": "Cập nhật phí sàn thành công!"
   },
   "dispute": {
-    "not_in_disputed_state": "Đơn hàng không nằm ở trạng thái tranh chấp (DISPUTED).",
-    "invalid_resolution_type": "Loại phán quyết không hợp lệ. Phải là APPROVE_REFUND_CUSTOMER hoặc REJECT_AND_PAYOUT_MUA.",
-    "split_not_allowed_for_completed_booking": "Khiếu nại sau khi kết thúc ca chỉ cho phép hoàn tiền 100% cho khách hoặc bác bỏ khiếu nại bảo lưu tiền thợ, không áp dụng hòa giải chia đôi.",
-    "resolution_required": "Quyết định phân xử không được để trống.",
-    "note_required": "Ghi chú phân xử của Admin không được để trống."
+    "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",
+    "resolution_accepted": "Đã chấp nhận kết quả giải quyết khiếu nại.",
+    "not_in_disputed_state": "Đơn hàng không ở trạng thái khiếu nại."
   },
   "category": {
     "code_required": "Mã danh mục không được để trống.",
@@ -490,43 +489,22 @@
     "slot_not_found": "Không tìm thấy khung giờ lịch làm việc."
   },
   "dispatch": {
-    "primary_staff_id": {
-      "required": "Vui lòng chọn 1 Thợ chính (Primary MUA) chịu trách nhiệm ca."
-    },
-    "assistants": {
-      "max_two": "Tối đa chỉ được phân công 2 Thợ phụ (Assistant MUAs)."
-    },
-    "notes": {
-      "too_long": "Ghi chú điều phối không được vượt quá 500 ký tự."
-    },
-    "rejection_reason": {
-      "required": "Lý do từ chối đơn điều phối là bắt buộc.",
-      "too_long": "Lý do từ chối không được vượt quá 200 ký tự."
-    },
-    "rejection_note": {
-      "too_long": "Ghi chú từ chối không được vượt quá 500 ký tự."
-    },
-    "fetch_pending_success": "Lấy danh sách đơn chờ điều phối thành công.",
-    "fetch_matrix_success": "Lấy ma trận khả dụng 4 chiều của thợ thành công.",
-    "assign_success": "Điều phối thợ thành công! Đã gửi thông báo tới thợ.",
-    "reassign_success": "Đổi thợ dự phòng thành công! Khung giờ thợ cũ đã được bảo lưu lịch bận.",
-    "reject_success": "Từ chối tiếp nhận đơn thành công.",
-    "primary_required": "Đơn hàng bắt buộc phải có 1 Thợ chính (Primary MUA).",
-    "staff_unqualified": "Thợ được chọn không đáp ứng đủ 4 tiêu chí khả dụng (Ca, Gói, Phong cách, Lịch rảnh).",
-    "staff_conflict": "Thợ đã bị trùng lịch làm việc hoặc không khả dụng trong khung giờ này.",
-    "max_assistants_exceeded": "Chỉ được phân công tối đa 2 Thợ phụ cho một đơn.",
-    "assignment_not_found": "Không tìm thấy thông tin phân công thợ cho đơn này.",
-    "cannot_dispatch_in_status": "Không thể điều phối thợ ở trạng thái hiện tại của đơn hàng.",
-    "cannot_reassign_to_same_staff": "Không thể điều chuyển ca lại cho chính thợ cần thay thế hoặc đang báo bận.",
-    "staff_reported_busy": "Thợ này đã báo bận cho đơn hàng này, không thể chọn làm thợ thay thế.",
-    "staff_already_assigned": "Thợ này đang đảm nhiệm một vai trò khác trong đơn hàng này.",
-    "emergency_report_success": "Báo bận khẩn cấp thành công. Studio và Quản trị viên đã nhận cảnh báo.",
-    "emergency_review_success": "Xử lý duyệt báo bận khẩn cấp thành công.",
-    "proceed_solo_success": "Xác nhận để thợ đảm nhiệm toàn bộ đơn hàng thành công.",
-    "cannot_proceed_solo_no_active_staff": "Đơn hàng hiện không còn thợ nào đang hoạt động để làm một mình. Vui lòng chọn thợ thay thế hoặc từ chối báo bận.",
-    "emergency_proof_required_critical": "Báo bận khẩn cấp sát giờ hẹn (dưới 2 tiếng) bắt buộc phải đính kèm ảnh chụp minh chứng sự cố bất khả kháng.",
-    "assignment_confirm_success": "Xác nhận nhận ca điều phối thành công!",
-    "assignment_decline_success": "Đã từ chối nhận ca và hoàn trả về Studio để tìm thợ khác."
+    "fetch_pending_success": "Lấy danh sách đơn hàng chờ điều phối thành công.",
+    "fetch_matrix_success": "Lấy ma trận khả dụng của thợ thành công.",
+    "assign_success": "Phân công thợ cho đơn hàng thành công.",
+    "reassign_success": "Đổi thợ dự phòng khẩn cấp thành công.",
+    "reject_success": "Studio từ chối tiếp nhận đơn hàng thành công.",
+    "proceed_solo_success": "Xác nhận thợ chính phục vụ đơn lẻ thành công.",
+    "emergency_report_success": "Báo bận khẩn cấp thành công.",
+    "emergency_review_success": "Duyệt báo bận khẩn cấp thành công.",
+    "assignment_confirm_success": "Xác nhận nhận ca thành công.",
+    "update_commissions_success": "Cập nhật phân chia hoa hồng cho các thợ thành công.",
+    "no_active_staff_to_update_commission": "Không tìm thấy thợ nào đang hoạt động trong ca này để cập nhật hoa hồng.",
+    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng.",
+    "staff_unqualified": "Thợ được chọn không đủ điều kiện thực hiện ca này.",
+    "primary_required": "Vui lòng chọn thợ chính cho đơn hàng.",
+    "max_assistants_exceeded": "Số lượng thợ phụ vượt quá giới hạn tối đa (2 thợ phụ).",
+    "staff_reported_busy": "Thợ đã báo bận ca này, không thể phân công lại."
   },
   "emergency": {
     "reason": {
@@ -633,24 +611,6 @@
     "chat_success": "Phản hồi từ trợ lý AI thành công.",
     "session_closed_success": "Đã kết thúc phiên trò chuyện thành công."
   },
-  "dispatch": {
-    "fetch_pending_success": "Lấy danh sách đơn hàng chờ điều phối thành công.",
-    "fetch_matrix_success": "Lấy ma trận khả dụng của thợ thành công.",
-    "assign_success": "Phân công thợ cho đơn hàng thành công.",
-    "reassign_success": "Đổi thợ dự phòng khẩn cấp thành công.",
-    "reject_success": "Studio từ chối tiếp nhận đơn hàng thành công.",
-    "proceed_solo_success": "Xác nhận thợ chính phục vụ đơn lẻ thành công.",
-    "emergency_report_success": "Báo bận khẩn cấp thành công.",
-    "emergency_review_success": "Duyệt báo bận khẩn cấp thành công.",
-    "assignment_confirm_success": "Xác nhận nhận ca thành công.",
-    "update_commissions_success": "Cập nhật phân chia hoa hồng cho các thợ thành công.",
-    "no_active_staff_to_update_commission": "Không tìm thấy thợ nào đang hoạt động trong ca này để cập nhật hoa hồng.",
-    "total_commission_exceeds_max": "Tổng hoa hồng của các thợ không được vượt quá 100% giá trị đơn hàng.",
-    "staff_unqualified": "Thợ được chọn không đủ điều kiện thực hiện ca này.",
-    "primary_required": "Vui lòng chọn thợ chính cho đơn hàng.",
-    "max_assistants_exceeded": "Số lượng thợ phụ vượt quá giới hạn tối đa (2 thợ phụ).",
-    "staff_reported_busy": "Thợ đã báo bận ca này, không thể phân công lại."
-  },
   "ERR_SLOT_ALREADY_BOOKED": "Lịch hẹn này vừa có khách hàng khác đặt và hoàn tất thanh toán trước bạn. Vui lòng chọn khung giờ khác!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Phiên trò chuyện không tồn tại hoặc đã hết hạn.",
   "cash_receipt": {
@@ -667,11 +627,6 @@
   "ERR_LEAVE_REQUEST_NOT_FOUND": "Không tìm thấy đơn xin nghỉ ca trên hệ thống.",
   "ERR_DUPLICATE_LEAVE_REQUEST": "Đơn xin nghỉ ca cho khung giờ này đã tồn tại và đang chờ duyệt.",
   "ERR_INVALID_LEAVE_ACTION": "Thao tác trên đơn xin nghỉ không hợp lệ.",
-  "dispute": {
-    "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",
-    "resolution_accepted": "Đã chấp nhận kết quả giải quyết khiếu nại.",
-    "not_in_disputed_state": "Đơn hàng không ở trạng thái khiếu nại."
-  },
   "review": {
     "booking_id_required": "Mã đơn hàng không được để trống.",
     "rating_required": "Vui lòng chọn số sao đánh giá (1 - 5 sao).",

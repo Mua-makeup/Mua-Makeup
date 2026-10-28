@@ -14,6 +14,8 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.repository.wallet.*;
 import com.makeup.platform.service.wallet.impl.BookingSettlementServiceImpl;
+import com.makeup.platform.service.wallet.PlatformFeeService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -36,7 +38,13 @@ class FinalPaymentSettlementTest {
     @Mock LedgerEntryRepository ledger;
     @Mock BookingCashReceiptRepository receipts;
     @Mock AgencyStaffOvertimeReportRepository overtimeReports;
+    @Mock PlatformFeeService platformFeeService;
     @InjectMocks BookingSettlementServiceImpl service;
+
+    @BeforeEach void setUp() {
+        lenient().when(platformFeeService.rateFor(any())).thenReturn(new BigDecimal("0.20"));
+        lenient().when(platformFeeService.getRate()).thenReturn(new BigDecimal("0.20"));
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"CASH", "ONLINE", "ONLINE_IN_TRANSACTION"})
@@ -63,7 +71,7 @@ class FinalPaymentSettlementTest {
         when(wallets.findByUserIdWithLock(5L)).thenReturn(Optional.of(ownerWallet));
         when(wallets.findByUserIdWithLock(6L)).thenReturn(Optional.of(workerWallet));
         when(settlements.existsByBookingId(9L)).thenReturn(false, true);
-        if ("CASH".equals(method)) {
+                if ("CASH".equals(method)) {
             when(receipts.findByBookingId(9L)).thenReturn(Optional.of(BookingCashReceiptEntity.builder()
                 .status("BOTH_CONFIRMED").expectedAmount(new BigDecimal("35000")).build()));
         }
