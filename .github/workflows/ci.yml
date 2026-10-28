@@ -3,12 +3,16 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - 'feature/**'
+      - 'feat/**'
+      - 'bugfix/**'
       - develop
+      - main
   pull_request:
+    types: [opened, reopened]
     branches:
-      - main
       - develop
+      - main
   workflow_dispatch:
 
 permissions:
