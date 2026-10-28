@@ -1,6 +1,6 @@
 package com.makeup.platform.service.booking.impl;
 import com.makeup.platform.repository.wallet.BookingSettlementRepository;
-import com.makeup.platform.service.wallet.BookingCommissionPolicy;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.InstantBookingKeys;
@@ -109,7 +109,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final BookingHistoryRepository bookingHistoryRepository;
     private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
     private final NotificationService notificationService;
-    private final BookingCommissionPolicy bookingCommissionPolicy;
+    private final PlatformFeeService platformFeeService;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
@@ -776,15 +776,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     }
 
     private BigDecimal getFreelancerCommissionRate() {
-        try {
-            if (stringRedisTemplate != null) {
-                String val = stringRedisTemplate.opsForValue().get("settings:freelancer_commission_rate");
-                if (val != null) {
-                    return new BigDecimal(val);
-                }
-            }
-        } catch (Exception ignored) {}
-        return new BigDecimal("0.20"); // Mặc định 20%
+        return platformFeeService.getRate();
     }
 
     @Override
@@ -839,7 +831,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
-        BigDecimal commissionRate = bookingCommissionPolicy.rateFor(booking);
+        BigDecimal commissionRate = platformFeeService.rateFor(booking);
         BigDecimal platformFee = totalAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         var settlementSnapshot = settlementRepository.findByBookingId(bookingId).orElse(null);
         if (settlementSnapshot != null) platformFee = settlementSnapshot.getCommissionAmount();

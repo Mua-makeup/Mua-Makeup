@@ -1,14 +1,16 @@
 package com.makeup.platform.service.wallet;
 
+import com.makeup.platform.entity.booking.BookingEntity;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Slf4j
-@Component
+@Service
 public class PlatformFeeService {
 
     /** Primary Redis key where Admin persists the live platform fee rate. */
@@ -18,14 +20,13 @@ public class PlatformFeeService {
     public static final String LEGACY_FREELANCER_KEY = "settings:freelancer_commission_rate";
 
     @Value("${app.settlement.platform-fee-rate:${app.settlement.commission-rate:0.15}}")
-    private BigDecimal defaultRate;
+    private BigDecimal defaultRate = new BigDecimal("0.15");
 
     private final StringRedisTemplate stringRedisTemplate;
 
     public PlatformFeeService(StringRedisTemplate stringRedisTemplate) {
         this.stringRedisTemplate = stringRedisTemplate;
     }
-
 
     public BigDecimal getRate() {
         try {
@@ -39,7 +40,7 @@ public class PlatformFeeService {
                     if (rate.compareTo(BigDecimal.ZERO) >= 0 && rate.compareTo(BigDecimal.ONE) <= 0) {
                         return rate;
                     }
-                    log.warn("[PlatformFee] Redis value '{}' is out of [0,1] range; using default {}", raw, defaultRate);
+                    log.warn("[PlatformFee] Redis value '{}' is out of [0, 1] range; using default {}", raw, defaultRate);
                 }
             }
         } catch (Exception e) {
@@ -48,6 +49,24 @@ public class PlatformFeeService {
         return defaultRate != null ? defaultRate : new BigDecimal("0.15");
     }
 
+    public BigDecimal rateFor(BookingEntity booking) {
+        return getRate();
+    }
+
+ 
+    public BigDecimal calculateFee(BigDecimal totalAmount) {
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return totalAmount.multiply(getRate()).setScale(0, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal calculateEarnings(BigDecimal totalAmount) {
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return totalAmount.subtract(calculateFee(totalAmount));
+    }
 
     public void updateRate(BigDecimal rate) {
         if (rate == null || rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(BigDecimal.ONE) > 0) {

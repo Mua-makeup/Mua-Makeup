@@ -10,6 +10,7 @@ import com.makeup.platform.repository.payment.*;
 import com.makeup.platform.repository.wallet.*;
 import com.makeup.platform.service.payment.impl.BookingDepositServiceImpl;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -28,6 +29,7 @@ class FinalPaymentPostingTest {
     @Mock LedgerEntryRepository ledger;
     @Mock BookingSettlementService settlement;
     @Mock SimpMessagingTemplate messaging;
+    @Mock PlatformFeeService platformFeeService;
     @InjectMocks BookingDepositServiceImpl service;
 
     @Test void postsCustomerExpenseWithoutDebitingWalletAndDoesNotDuplicateOnRetry() {
@@ -42,6 +44,7 @@ class FinalPaymentPostingTest {
         when(payments.findById(7L)).thenReturn(Optional.of(payment));
         when(deposits.findByBookingIdWithLock(9L)).thenReturn(Optional.of(deposit));
         when(wallets.findByUserIdWithLock(5L)).thenReturn(Optional.of(wallet));
+        when(platformFeeService.rateFor(any())).thenReturn(new BigDecimal("0.20"));
 
         service.applyFinalPayment(7L);
         service.applyFinalPayment(7L);

@@ -26,7 +26,7 @@ import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.mua.MUACalendarService;
 import com.makeup.platform.service.payment.BookingDepositService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
-import com.makeup.platform.service.wallet.BookingCommissionPolicy;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.payment.gateway.GatewayPaymentResult;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayRegistry;
@@ -86,7 +86,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     private final EmailService emailService;
     private final MUACalendarService muaCalendarService;
     private final BookingSlotCancelHelper bookingSlotCancelHelper;
-    private final BookingCommissionPolicy bookingCommissionPolicy;
+    private final PlatformFeeService platformFeeService;
 
     @Override
     @Transactional
@@ -792,7 +792,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         BigDecimal serviceSubtotal = booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO;
         BigDecimal surchargeFee = booking.getSurchargeFee() != null ? booking.getSurchargeFee() : BigDecimal.ZERO;
         BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
-        BigDecimal commissionRate = bookingCommissionPolicy.rateFor(booking);
+        BigDecimal commissionRate = platformFeeService.rateFor(booking);
         BigDecimal platformFee = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal earningsAmount = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).subtract(platformFee);
 
@@ -1089,7 +1089,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 payment.getAmount().compareTo(payment.getBooking().getTotalAmount().subtract(deposit.getPaidAmount())) != 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_AMOUNT_MISMATCH, "ERR_PAYMENT_AMOUNT_MISMATCH");
         }
-        BigDecimal finalCommissionRate = bookingCommissionPolicy.rateFor(payment.getBooking());
+        BigDecimal finalCommissionRate = platformFeeService.rateFor(payment.getBooking());
 
         if (payment.getBooking().getAgency() != null) {
             bookingSettlementService.settleBookingOnlinePaymentInTransaction(bookingId, finalCommissionRate);
