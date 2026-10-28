@@ -8,6 +8,7 @@ on:
       - 'bugfix/**'
       - develop
       - main
+      - 'fix/**'
   pull_request:
     types: [opened, reopened]
     branches:
