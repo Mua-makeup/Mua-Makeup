@@ -39,7 +39,7 @@ public class AgencyWalletServiceImpl implements AgencyWalletService {
     private final BookingRepository bookingRepository;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AgencyWalletRes getAgencyWalletInfo(Long agencyOwnerUserId) {
         AgencyProfileEntity agency = agencyProfileRepository.findByOwnerId(agencyOwnerUserId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_AGENCY_NOT_FOUND,

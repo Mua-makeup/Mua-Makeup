@@ -220,10 +220,16 @@ export const StaffManagementPage = () => {
             {row.experienceYears || 1} {t('unit_years')}
           </span>
           <span className="text-slate-300 dark:text-slate-600">•</span>
-          <span className="flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
-            {row.ratingAvg ? Number(row.ratingAvg).toFixed(1) : '5.0'}
-          </span>
+          {row.ratingAvg ? (
+            <span className="flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+              {Number(row.ratingAvg).toFixed(1)}
+            </span>
+          ) : (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+              {t('staff_badge_new')}
+            </span>
+          )}
         </div>
       ),
     },

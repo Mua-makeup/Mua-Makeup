@@ -229,8 +229,16 @@ export const StaffCredentialsModal = ({
                     {t('staff_metric_rating')}
                   </span>
                   <span className="text-sm font-bold text-amber-500 flex items-center justify-center gap-0.5 mt-0.5">
-                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    {detail.ratingAvg ? Number(detail.ratingAvg).toFixed(1) : '5.0'}
+                    {detail.ratingAvg ? (
+                      <>
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        {Number(detail.ratingAvg).toFixed(1)}
+                      </>
+                    ) : (
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        {t('staff_badge_new')}
+                      </span>
+                    )}
                   </span>
                 </div>
 
