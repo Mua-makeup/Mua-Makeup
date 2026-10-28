@@ -65,15 +65,12 @@ export const PlatformFeeModal = ({ isOpen, onClose, onSuccess }) => {
     try {
       const res = await superAdminService.updatePlatformFee(feeRate);
       const data = res?.data || res;
-      const updatedPercent = data?.feePercent ?? numericPercent;
+      const updatedPercent = Number(data?.feePercent ?? numericPercent);
       setCurrentFee(updatedPercent);
-      setSuccessMsg(t('admin.platform_fee_updated') || 'Cập nhật phí sàn thành công!');
       if (onSuccess) {
         onSuccess(updatedPercent);
       }
-      setTimeout(() => {
-        onClose();
-      }, 1200);
+      onClose();
     } catch (err) {
       const parsed = parseApiError(err);
       setError(parsed.message);
