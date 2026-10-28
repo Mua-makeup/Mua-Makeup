@@ -1,4 +1,4 @@
-﻿export const TRANSLATIONS = {
+export const TRANSLATIONS = {
   vi: {
     // Navigation & Common
     app_title: 'MUA MAKEUP',

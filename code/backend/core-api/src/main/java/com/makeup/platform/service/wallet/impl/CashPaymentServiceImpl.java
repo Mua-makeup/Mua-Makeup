@@ -1,4 +1,4 @@
-﻿package com.makeup.platform.service.wallet.impl;
+package com.makeup.platform.service.wallet.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;

@@ -1,4 +1,4 @@
-﻿{
+{
   "dispute.invalid_studio_state": "This studio booking cannot be resolved in its current state.",
   "dispute.already_resolved": "The dispute funds have already been distributed.",
   "dispute.payment_reconciliation_required": "Reconcile the booking payment and settlement before resolving it. No funds have been refunded or recovered.",

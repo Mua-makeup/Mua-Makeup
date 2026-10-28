@@ -1,4 +1,4 @@
-﻿package com.makeup.platform.entity.mua;
+package com.makeup.platform.entity.mua;
 
 import com.makeup.platform.common.base.BaseEntity;
 import com.makeup.platform.entity.auth.UserEntity;
