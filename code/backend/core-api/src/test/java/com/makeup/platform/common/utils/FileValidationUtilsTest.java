@@ -7,6 +7,7 @@ import org.junit.jupiter.params.provider.*;
 import org.springframework.mock.web.MockMultipartFile;
 import java.util.HexFormat;
 import static org.junit.jupiter.api.Assertions.*;
+import com.makeup.platform.common.constants.ErrorCodes;
 
 class FileValidationUtilsTest {
     @ParameterizedTest @CsvSource({"jpg,ffd8ff000000000000000000", "png,89504e470d0a1a0a00000000", "webp,524946460000000057454250"})
@@ -22,7 +23,7 @@ class FileValidationUtilsTest {
     @Test void rejectsEmptyAndOversizedUploads() {
         assertThrows(CustomBusinessException.class, () -> FileValidationUtils.validateImageFile(null, 100));
         var file = new MockMultipartFile("file", "a.png", "image/png", new byte[101]);
-        assertEquals(com.makeup.platform.common.constants.ErrorCodes.ERR_FILE_SIZE_EXCEEDED, assertThrows(CustomBusinessException.class,
+        assertEquals(ErrorCodes.ERR_FILE_SIZE_EXCEEDED, assertThrows(CustomBusinessException.class,
             () -> FileValidationUtils.validateImageFile(file, 100)).getErrorCode());
     }
 }

@@ -1,3 +1,4 @@
+import { formatBookingExecutionTime } from '@/utils/booking-time';
 import { getBookingPaymentPresentation } from '@/utils/booking-payment';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
 import { ImageViewerModal } from '@/components/common/ImageViewerModal';
@@ -27,7 +28,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
 import { depositService } from '@/services/deposit.service';
 import { freelancerBookingService } from '@/services/freelancer-booking.service';
-import { formatDateTimeVN, formatDateVN, formatTimeVN } from '@/utils/date';
+import { formatDateTimeVN, formatDateVN } from '@/utils/date';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { DisputeDossierModal } from '@/components/booking/DisputeDossierModal';
 import { websocketService } from '@/services/websocket.service';
@@ -70,55 +71,6 @@ const formatReviewDate = (dateStr?: string) => {
     return dateStr;
   }
 };
-
-function formatScheduleOrCompletionTime(
-  startTime?: string,
-  durationMinutes?: number,
-  status?: string,
-  completedAt?: string
-) {
-  const isCompleted = status === 'COMPLETED' || status === 'PAID_OUT';
-
-  if (isCompleted && completedAt) {
-    try {
-      const compDate = new Date(completedAt);
-      if (!isNaN(compDate.getTime())) {
-        const compHours = String(compDate.getHours()).padStart(2, '0');
-        const compMinutes = String(compDate.getMinutes()).padStart(2, '0');
-        const startFormatted = startTime ? formatTimeVN(startTime) : '--:--';
-        return {
-          timeRange: `${startFormatted} - ${compHours}:${compMinutes}`,
-          subText: `Hoàn thành lúc ${compHours}:${compMinutes}`,
-          isCompleted: true,
-        };
-      }
-    } catch { }
-  }
-
-  const startFormatted = startTime ? formatTimeVN(startTime) : '--:--';
-  let endFormatted = '--:--';
-  if (startTime) {
-    try {
-      const parts = startTime.split(':');
-      if (parts.length >= 2) {
-        const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        if (!isNaN(h) && !isNaN(m)) {
-          const total = h * 60 + m + (durationMinutes || 60);
-          const endH = Math.floor(total / 60) % 24;
-          const endM = total % 60;
-          endFormatted = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-        }
-      }
-    } catch { }
-  }
-
-  return {
-    timeRange: `${startFormatted} - ${endFormatted}`,
-    subText: `Ước tính (${durationMinutes || 60}p)`,
-    isCompleted: false,
-  };
-}
 
 export default function BookingHistoryDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -975,16 +927,11 @@ export default function BookingHistoryDetailScreen() {
 
             <View style={styles.scheduledHeroBody}>
               {(() => {
-                const timeInfo = formatScheduleOrCompletionTime(
-                  bookingDetail.startTime,
-                  bookingDetail.estimatedDurationMinutes || 60,
-                  bookingDetail.status,
-                  bookingDetail.completedAt
-                );
+                const timeInfo = formatBookingExecutionTime(bookingDetail);
                 return (
                   <View style={styles.scheduledHeroTimeCol}>
                     <Text style={styles.scheduledHeroTimeLabel}>
-                      {timeInfo.isCompleted ? 'Thời Gian Hoàn Thành' : 'Thời Gian Thực Hiện'}
+                      {timeInfo.title}
                     </Text>
                     <Text style={styles.scheduledHeroTimeValue} numberOfLines={1} adjustsFontSizeToFit>
                       {timeInfo.timeRange}
@@ -2327,17 +2274,12 @@ export default function BookingHistoryDetailScreen() {
               <Ionicons name="time-outline" size={16} color="#64748B" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoColLabel}>
-                  {isCompleted || isPaidOut ? 'Thời Gian Hoàn Tất' : 'Thời Gian Thực Hiện'}
+                  {formatBookingExecutionTime(bookingDetail).title}
                 </Text>
                 <Text style={styles.infoColValue}>
                   {(() => {
-                    const timeInfo = formatScheduleOrCompletionTime(
-                      bookingDetail.startTime,
-                      bookingDetail.estimatedDurationMinutes || 60,
-                      bookingDetail.status,
-                      bookingDetail.completedAt
-                    );
-                    return timeInfo.timeRange;
+                    const timeInfo = formatBookingExecutionTime(bookingDetail);
+                    return `${timeInfo.timeRange}\n${timeInfo.subText}`;
                   })()}
                 </Text>
               </View>

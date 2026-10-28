@@ -51,6 +51,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @Service
@@ -420,7 +421,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
     @Transactional(rollbackFor = Exception.class)
     @CacheEvict(value = "mua_portfolios", allEntries = true)
     public List<String> uploadPortfolioImages(Long userId,
-            List<org.springframework.web.multipart.MultipartFile> files) {
+            List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION,
                     "mua.portfolio_files_empty", HttpStatus.BAD_REQUEST);
@@ -441,7 +442,7 @@ public class MuaProfileServiceImpl implements MuaProfileService {
 
         List<String> newlyUploadedCloudIds = new ArrayList<>();
         try {
-            for (org.springframework.web.multipart.MultipartFile file : files) {
+            for (MultipartFile file : files) {
                 if (file == null || file.isEmpty()) {
                     continue;
                 }

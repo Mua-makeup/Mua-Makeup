@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import java.util.stream.Collectors;
 
 class GatewaySecurityTest {
     final VnpayConfig config = mock(VnpayConfig.class);
@@ -62,7 +63,7 @@ class GatewaySecurityTest {
         // Independent JCA signing fixture: do not use production HmacUtils.
         var mac = Mac.getInstance("HmacSHA512");
         mac.init(new SecretKeySpec("test-only-signing-key".getBytes(StandardCharsets.UTF_8), "HmacSHA512"));
-        var data = payload.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(java.util.stream.Collectors.joining("&"));
+        var data = payload.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("&"));
         payload.put("vnp_SecureHash", HexFormat.of().formatHex(mac.doFinal(data.getBytes(StandardCharsets.UTF_8))));
     }
 }

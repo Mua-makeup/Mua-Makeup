@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import com.makeup.platform.service.booking.StudioDisputeFinanceService;
 
 @Getter
 @Setter
@@ -50,7 +51,7 @@ public class AdminDisputeRes {
     private boolean completedService;
     private Boolean isEscalatedFromStudio;
 
-    private com.makeup.platform.service.booking.StudioDisputeFinanceService.Financials financials;
+    private StudioDisputeFinanceService.Financials financials;
     // Financials
     private BigDecimal serviceSubtotal;
     private BigDecimal surchargeFee;

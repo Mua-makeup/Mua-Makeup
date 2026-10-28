@@ -78,6 +78,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.concurrent.TimeUnit;
+import java.time.Instant;
 
 @Slf4j
 @Service
@@ -965,7 +966,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                     if (p.getPackageItems() != null) {
                         for (var it : p.getPackageItems()) {
                             if (it != null && it.getItemName() != null) {
-                                if (it.getItemType() == com.makeup.platform.entity.catalog.PackageItemType.ADD_ON) {
+                                if (it.getItemType() == PackageItemType.ADD_ON) {
                                     pAddons.add(PackageItemRes.builder()
                                             .id(it.getId())
                                             .itemType(it.getItemType())
@@ -1056,15 +1057,11 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             log.warn("[StateMachine] Unable to fetch staff assignments for bookingId={}: {}", booking.getId(), e.getMessage());
         }
 
-        LocalDateTime completedAt = null;
-        if (booking.getStatus() == BookingStatus.COMPLETED || booking.getStatus() == BookingStatus.PAID_OUT) {
-            completedAt = bookingHistoryRepository.findByBookingIdOrderByCreatedAtAsc(booking.getId())
-                    .stream()
-                    .filter(h -> h.getToStatus() == BookingStatus.COMPLETED)
-                    .map(BookingHistoryEntity::getCreatedAt)
-                    .findFirst()
-                    .orElse(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt());
-        }
+        var executionTimes = bookingHistoryRepository.findExecutionTimes(booking.getId());
+        OffsetDateTime startedAt = executionTimes != null && executionTimes.getStartedAtMillis() != null
+                ? Instant.ofEpochMilli(executionTimes.getStartedAtMillis()).atOffset(VIETNAM_OFFSET) : null;
+        OffsetDateTime completedAt = executionTimes != null && executionTimes.getCompletedAtMillis() != null
+                ? Instant.ofEpochMilli(executionTimes.getCompletedAtMillis()).atOffset(VIETNAM_OFFSET) : null;
 
         Integer overtimeMinutes = null;
         BigDecimal overtimePay = null;
@@ -1149,6 +1146,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .agencyAddress(agencyAddress)
                 .assignedStaff(assignedStaff)
                 .updatedAt(booking.getUpdatedAt() != null ? booking.getUpdatedAt() : booking.getCreatedAt())
+                .startedAt(startedAt)
                 .completedAt(completedAt)
                 .overtimeMinutes(overtimeMinutes)
                 .overtimePay(overtimePay)

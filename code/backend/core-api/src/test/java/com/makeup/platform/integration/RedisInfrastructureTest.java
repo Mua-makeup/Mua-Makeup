@@ -12,6 +12,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.*;
 import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
+import java.util.ArrayList;
 
 @Tag("infrastructure") @Testcontainers
 class RedisInfrastructureTest {
@@ -49,7 +50,7 @@ class RedisInfrastructureTest {
         var service = new NotificationDeduplicationServiceImpl(strings);
         var pool = Executors.newFixedThreadPool(8);
         try {
-            var jobs = new java.util.ArrayList<Callable<Boolean>>();
+            var jobs = new ArrayList<Callable<Boolean>>();
             for (int i = 0; i < 20; i++) jobs.add(() -> service.tryAcquire("same-event"));
             int winners = 0;
             for (var result : pool.invokeAll(jobs)) if (result.get()) winners++;

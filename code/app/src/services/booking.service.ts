@@ -194,6 +194,8 @@ export interface BookingStatusDetailRes {
   agencyAddress?: string;
   assignedStaff?: StaffAssignmentItem[];
   updatedAt: string;
+  /** Actual IN_PROGRESS / COMPLETED history timestamps, including timezone offset. */
+  startedAt?: string;
   completedAt?: string;
   overtimeMinutes?: number;
   overtimePay?: number;

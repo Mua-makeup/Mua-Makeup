@@ -68,7 +68,9 @@ public class BookingStatusDetailRes {
     private Boolean isDirectBooking;
     private List<CandidatePackageRes> availablePackages;
     private LocalDateTime updatedAt;
-    private LocalDateTime completedAt;
+    // Actual execution events, with explicit offsets; null when no event was recorded.
+    private OffsetDateTime startedAt;
+    private OffsetDateTime completedAt;
 
     // Thông tin phụ cấp làm thêm giờ (Overtime)
     private Integer overtimeMinutes;

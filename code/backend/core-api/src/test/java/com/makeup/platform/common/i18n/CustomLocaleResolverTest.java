@@ -18,6 +18,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import org.mockito.Mockito;
 
 class CustomLocaleResolverTest {
 
@@ -83,7 +84,7 @@ class CustomLocaleResolverTest {
         request.setAttribute("USER_LANGUAGE", "vi");
         request.addHeader("Accept-Language", "en-US,en;q=0.9");
         assertEquals(Locale.ENGLISH, resolver.resolveLocale(request));
-        org.mockito.Mockito.verifyNoInteractions(userRepository);
+        Mockito.verifyNoInteractions(userRepository);
     }
 
     @Test
@@ -92,7 +93,7 @@ class CustomLocaleResolverTest {
                 new UsernamePasswordAuthenticationToken(10L, null, Collections.emptyList()));
         request.setAttribute("USER_LANGUAGE", "en");
         assertEquals(Locale.ENGLISH, resolver.resolveLocale(request));
-        org.mockito.Mockito.verifyNoInteractions(userRepository);
+        Mockito.verifyNoInteractions(userRepository);
     }
 
     @Test

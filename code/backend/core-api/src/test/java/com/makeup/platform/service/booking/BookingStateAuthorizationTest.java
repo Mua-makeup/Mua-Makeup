@@ -18,19 +18,28 @@ import java.util.*;
 import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.makeup.platform.common.event.booking.BookingStateChangedEvent;
+import com.makeup.platform.entity.mua.MuaProfileEntity;
+import com.makeup.platform.mapper.booking.BookingMapper;
+import com.makeup.platform.repository.MuaProfileRepository;
+import com.makeup.platform.repository.payment.BookingDepositRepository;
+import com.makeup.platform.repository.wallet.WalletHoldRepository;
+import com.makeup.platform.service.mua.MUACalendarService;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 @ExtendWith(MockitoExtension.class)
 class BookingStateAuthorizationTest {
     @Mock BookingRepository bookings;
     @Mock UserRepository users;
     @Mock BookingStaffAssignmentRepository assignments;
-    @Mock com.makeup.platform.repository.MuaProfileRepository profiles;
-    @Mock com.makeup.platform.repository.payment.BookingDepositRepository deposits;
-    @Mock com.makeup.platform.repository.wallet.WalletHoldRepository holds;
-    @Mock com.makeup.platform.mapper.booking.BookingMapper mapper;
+    @Mock MuaProfileRepository profiles;
+    @Mock BookingDepositRepository deposits;
+    @Mock WalletHoldRepository holds;
+    @Mock BookingMapper mapper;
     @Mock BookingAuditService audit;
-    @Mock org.springframework.context.ApplicationEventPublisher events;
-    @Mock com.makeup.platform.service.mua.MUACalendarService calendar;
+    @Mock ApplicationEventPublisher events;
+    @Mock MUACalendarService calendar;
     @InjectMocks BookingStateMachineServiceImpl service;
 
     @ParameterizedTest @CsvSource({"ACCEPTED,ON_THE_WAY", "ON_THE_WAY,ARRIVED", "ARRIVED,IN_PROGRESS",
@@ -64,7 +73,7 @@ class BookingStateAuthorizationTest {
     }
     BookingEntity ownedBooking(BookingStatus status) {
         var user = new UserEntity(); user.setId(2L);
-        var mua = new com.makeup.platform.entity.mua.MuaProfileEntity(); mua.setUser(user); mua.setId(3L); mua.setIsBusy(true);
+        var mua = new MuaProfileEntity(); mua.setUser(user); mua.setId(3L); mua.setIsBusy(true);
         var booking = new BookingEntity(); booking.setId(1L); booking.setStatus(status); booking.setMua(mua);
         when(bookings.findById(1L)).thenReturn(Optional.of(booking));
         when(users.findById(2L)).thenReturn(Optional.of(user));
@@ -78,7 +87,7 @@ class BookingStateAuthorizationTest {
         service.transitionState(1L,2L,req);
         assertEquals(to,booking.getStatus());
         verify(audit).logTransition(eq(booking),eq(from),eq(to),eq(2L),anyString());
-        verify(events).publishEvent(any(com.makeup.platform.common.event.booking.BookingStateChangedEvent.class));
+        verify(events).publishEvent(any(BookingStateChangedEvent.class));
         if(to == BookingStatus.COMPLETED) {
             assertFalse(booking.getMua().getIsBusy()); verify(calendar).releaseSlotByBookingId(1L);
         }
@@ -97,7 +106,7 @@ class BookingStateAuthorizationTest {
     }
     @Test void optimisticConflictBecomesHttp409AndDoesNotPublishEvent() {
         var booking=ownedBooking(BookingStatus.ARRIVED);
-        when(bookings.save(booking)).thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(BookingEntity.class,1L));
+        when(bookings.save(booking)).thenThrow(new ObjectOptimisticLockingFailureException(BookingEntity.class,1L));
         var req=new TransitionBookingStateReq(); req.setTargetStatus("IN_PROGRESS");
         var ex=assertThrows(CustomBusinessException.class,()->service.transitionState(1L,2L,req));
         assertEquals(HttpStatus.CONFLICT,ex.getStatus()); verifyNoInteractions(events,audit);

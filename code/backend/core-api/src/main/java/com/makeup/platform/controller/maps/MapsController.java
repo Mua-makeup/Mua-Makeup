@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import com.makeup.platform.dto.response.maps.PlaceSuggestionRes;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/maps")
@@ -38,12 +40,12 @@ public class MapsController extends BaseController {
     }
 
     @GetMapping("/places/autocomplete")
-    public ResponseEntity<ApiResponse<java.util.List<com.makeup.platform.dto.response.maps.PlaceSuggestionRes>>> getPlaceAutoComplete(
+    public ResponseEntity<ApiResponse<List<PlaceSuggestionRes>>> getPlaceAutoComplete(
             @RequestParam("input") String input,
             @RequestParam(value = "lat", required = false) BigDecimal latitude,
             @RequestParam(value = "lng", required = false) BigDecimal longitude
     ) {
-        java.util.List<com.makeup.platform.dto.response.maps.PlaceSuggestionRes> res =
+        List<PlaceSuggestionRes> res =
                 mapsClientService.getPlaceAutoComplete(input, latitude, longitude);
         return ok(res, "maps.autocomplete_success");
     }

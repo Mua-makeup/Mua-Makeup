@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.makeup.platform.service.booking.StudioDisputeFinanceService;
 
 @Slf4j
 @Service
@@ -58,7 +59,7 @@ import java.util.Optional;
 public class AdminDisputeServiceImpl implements AdminDisputeService {
 
     private final BookingRepository bookingRepository;
-    private final com.makeup.platform.service.booking.StudioDisputeFinanceService studioFinance;
+    private final StudioDisputeFinanceService studioFinance;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final WalletHoldRepository walletHoldRepository;
@@ -235,9 +236,9 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
         boolean isCompletedService = disputeStageService.isCompletedService(booking);
 
-        com.makeup.platform.service.booking.StudioDisputeFinanceService.Financials studioFinancials = null;
+        StudioDisputeFinanceService.Financials studioFinancials = null;
         if (booking.getAgency() != null) {
-            if (!com.makeup.platform.service.booking.StudioDisputeFinanceService.escalated(booking)) {
+            if (!StudioDisputeFinanceService.escalated(booking)) {
                 throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
                         "dispute.studio_not_escalated", HttpStatus.CONFLICT);
             }

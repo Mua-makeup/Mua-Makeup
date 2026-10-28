@@ -12,6 +12,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -85,7 +87,7 @@ public class ServicePackageMapper {
         return toSummaryResList(entities, Collections.emptyMap());
     }
 
-    public List<PackageSummaryRes> toSummaryResList(Collection<ServicePackageEntity> entities, java.util.Map<Long, String> coverImageMap) {
+    public List<PackageSummaryRes> toSummaryResList(Collection<ServicePackageEntity> entities, Map<Long, String> coverImageMap) {
         if (entities == null || entities.isEmpty()) {
             return Collections.emptyList();
         }
@@ -99,7 +101,7 @@ public class ServicePackageMapper {
             return Collections.emptyList();
         }
         Set<Long> seenIds = new HashSet<>();
-        List<PackageItemEntity> result = new java.util.ArrayList<>();
+        List<PackageItemEntity> result = new ArrayList<>();
         for (PackageItemEntity item : items) {
             if (item.getId() == null || seenIds.add(item.getId())) {
                 result.add(item);

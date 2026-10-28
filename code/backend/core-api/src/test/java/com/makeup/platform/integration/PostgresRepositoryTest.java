@@ -18,6 +18,7 @@ import org.testcontainers.utility.DockerImageName;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @Tag("infrastructure") @Testcontainers
 @DataJpaTest(properties={"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create",
@@ -54,13 +55,13 @@ class PostgresRepositoryTest {
     }
     @Test void duplicatePhoneNumberIsRejectedByDatabase() {
         users.saveAndFlush(UserEntity.builder().phoneNumber("0900000002").passwordHash("hash").fullName("One").build());
-        assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+        assertThrows(DataIntegrityViolationException.class,
             () -> users.saveAndFlush(UserEntity.builder().phoneNumber("0900000002").passwordHash("hash").fullName("Two").build()));
     }
     @Test void oneWalletPerUserIsEnforcedByDatabase() {
         var user = users.saveAndFlush(UserEntity.builder().phoneNumber("0900000003").passwordHash("hash").fullName("User").build());
         wallets.saveAndFlush(WalletEntity.builder().user(user).build());
-        assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+        assertThrows(DataIntegrityViolationException.class,
             () -> wallets.saveAndFlush(WalletEntity.builder().user(user).build()));
     }
 }
