@@ -1,3 +1,4 @@
+import { getBookingPaymentPresentation } from '@/utils/booking-payment';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
 import { ImageViewerModal } from '@/components/common/ImageViewerModal';
 import React, { useState, useEffect, useRef } from 'react';
@@ -609,6 +610,12 @@ export default function BookingHistoryDetailScreen() {
     cancelReasonLower.includes('hòa giải');
 
   // Bóc tách chi tiết hồ sơ khiếu nại (Lời khai & Ảnh minh chứng sạch của MUA và Khách)
+  const payment = getBookingPaymentPresentation({
+    isPaidOut, isCompleted, isCancelled, isDisputed,
+    isDisputeRefunded, isDisputeCompensated, isDepositRefunded,
+    isDepositPaid: Boolean(bookingDetail.isDepositPaid), isSplit5050, remainingAmount,
+  });
+
   const disputeDossier = (() => {
     const hasDisputeKeywords = Boolean(
       bookingDetail.emergencyReason ||
@@ -2625,264 +2632,65 @@ export default function BookingHistoryDetailScreen() {
             </View>
           )}
 
-          {/* KHOẢN CÒN LẠI 70% */}
-          {isCancelled || isDisputeCompensated || isDisputeRefunded || (isDisputed && !isPostCompletion) ? (
-            <View style={[styles.remainingBillBox, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
-              <View style={styles.escrowBillLeft}>
-                <Text style={[styles.remainingBillTitle, { color: '#64748B' }]}>
-                  Khoản Còn Lại (70%):
-                </Text>
-                <Text style={styles.remainingBillSub}>
-                  {isDisputeCompensated
-                    ? 'Ca không diễn ra — Miễn thanh toán khoản còn lại 70%'
-                    : isDisputeRefunded
-                      ? 'Đã giải quyết khiếu nại — Miễn thanh toán khoản còn lại 70%'
-                      : (isDisputed && !isPostCompletion)
-                        ? 'Đang khiếu nại ca chưa diễn ra — Miễn thanh toán khoản còn lại 70%'
-                        : 'Đơn đã hủy — Miễn thanh toán khoản còn lại'}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[styles.remainingBillAmount, { color: '#64748B' }]}>
-                  {formatPrice(0)}
-                </Text>
-                <View style={[styles.remainingTag, { backgroundColor: '#F1F5F9', borderColor: '#CBD5E1' }]}>
-                  <Ionicons name="close-circle" size={11} color="#64748B" />
-                  <Text style={[styles.remainingTagText, { color: '#64748B' }]}>Miễn Thu</Text>
-                </View>
+          {/* Invoice and payment history share the same current payment state. */}
+          <View style={[styles.remainingBillBox, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
+            <View style={styles.escrowBillLeft}>
+              <Text style={[styles.remainingBillTitle, { color: payment.color }]}>Khoản Còn Lại (70%):</Text>
+              <Text style={styles.remainingBillSub}>{payment.remainingDescription}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[styles.remainingBillAmount, { color: payment.color }]}>{formatPrice(payment.remainingAmount)}</Text>
+              <View style={[styles.remainingTag, { backgroundColor: payment.backgroundColor }]}>
+                <Ionicons name={payment.waived ? 'close-circle' : payment.paid ? 'checkmark-circle' : 'time-outline'} size={11} color={payment.color} />
+                <Text style={[styles.remainingTagText, { color: payment.color }]}>{payment.remainingLabel}</Text>
               </View>
             </View>
-          ) : (
-            <View
-              style={[
-                styles.remainingBillBox,
-                isPaidOut || (isDisputed && isPostCompletion)
-                  ? styles.remainingPaidBox
-                  : styles.remainingUnpaidBox,
-              ]}
-            >
-              <View style={styles.escrowBillLeft}>
-                <Text
-                  style={[
-                    styles.remainingBillTitle,
-                    {
-                      color:
-                        isPaidOut || (isDisputed && isPostCompletion)
-                          ? '#065F46'
-                          : '#9A3412',
-                    },
-                  ]}
-                >
-                  Khoản Còn Lại (70%):
-                </Text>
-                <Text style={styles.remainingBillSub}>
-                  {isPaidOut
-                    ? 'Đã thanh toán và quyết toán hoàn tất'
-                    : isDisputed && isPostCompletion
-                      ? 'Đã thanh toán tại ca • Đang phong tỏa tạm giữ chờ phán quyết'
-                      : 'Cần thanh toán trực tiếp hoặc qua cổng online'}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text
-                  style={[
-                    styles.remainingBillAmount,
-                    {
-                      color:
-                        isPaidOut || (isDisputed && isPostCompletion)
-                          ? '#059669'
-                          : '#DC2626',
-                    },
-                  ]}
-                >
-                  {formatPrice(remainingAmount)}
-                </Text>
-                <View
-                  style={[
-                    styles.remainingTag,
-                    isPaidOut || (isDisputed && isPostCompletion)
-                      ? styles.remainingTagPaid
-                      : styles.remainingTagUnpaid,
-                  ]}
-                >
-                  <Ionicons
-                    name={
-                      isPaidOut
-                        ? 'checkmark-circle'
-                        : isDisputed
-                          ? 'shield-checkmark'
-                          : 'time-outline'
-                    }
-                    size={11}
-                    color={
-                      isPaidOut || (isDisputed && isPostCompletion)
-                        ? '#059669'
-                        : '#DC2626'
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.remainingTagText,
-                      {
-                        color:
-                          isPaidOut || (isDisputed && isPostCompletion)
-                            ? '#059669'
-                            : '#DC2626',
-                      },
-                    ]}
-                  >
-                    {isPaidOut
-                      ? 'Đã Quyết Toán'
-                      : isDisputed && isPostCompletion
-                        ? 'Đã Trả (Tạm Giữ)'
-                        : 'Chưa Quyết Toán'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
+          </View>
 
-          {/* CARD PHƯƠNG THỨC & NHẬT KÝ THANH TOÁN TOÀN DIỆN (ĐỒNG BỘ CẢ KHÁCH VÀ THỢ) */}
           <View style={styles.paymentMethodCardFull}>
             <View style={styles.paymentMethodCardHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.paymentMethodCardTitle}>Phương Thức & Lịch Sử Thanh Toán</Text>
-                <Text style={styles.paymentMethodCardSub}>
-                  Minh bạch dòng tiền giữa Khách hàng, Chuyên viên và Nền tảng
-                </Text>
+                <Text style={styles.paymentMethodCardSub}>Minh bạch dòng tiền giữa Khách hàng, Chuyên viên và Nền tảng</Text>
               </View>
-              <View
-                style={[
-                  styles.paymentStatusBadge,
-                  {
-                    backgroundColor: isDisputed
-                      ? '#FEF3C7'
-                      : isPaidOut
-                        ? '#D1FAE5'
-                        : isCompleted
-                          ? '#FEF3C7'
-                          : '#F1F5F9',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.paymentStatusBadgeText,
-                    {
-                      color: isDisputed
-                        ? '#B45309'
-                        : isPaidOut
-                          ? '#065F46'
-                          : isCompleted
-                            ? '#92400E'
-                            : '#475569',
-                    },
-                  ]}
-                >
-                  {isDisputed
-                    ? isPostCompletion
-                      ? 'Tạm Giữ Khiếu Nại'
-                      : 'Tranh Chấp Cọc'
-                    : isPaidOut
-                      ? 'Đã Quyết Toán'
-                      : isCompleted
-                        ? 'Chờ Thu 70%'
-                        : 'Đang Xử Lý'}
-                </Text>
+              <View style={[styles.paymentStatusBadge, { backgroundColor: payment.backgroundColor }]}>
+                <Text style={[styles.paymentStatusBadgeText, { color: payment.color }]}>{payment.badge}</Text>
               </View>
             </View>
-
-            {/* Đợt 1: Tiền Cọc 30% */}
             <View style={styles.paymentStageRow}>
               <View style={styles.paymentStageLeft}>
-                <View style={styles.paymentStageDotSuccess} />
+                <View style={bookingDetail.isDepositPaid || payment.paid ? styles.paymentStageDotSuccess : styles.paymentStageDotPending} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.paymentStageTitle}>Đợt 1: Tiền Cọc Bảo Chứng (30%)</Text>
-                  <Text style={styles.paymentStageMethod}>
-                    Cổng trực tuyến MoMo / VNPay • Quỹ Escrow an toàn
-                  </Text>
+                  <Text style={styles.paymentStageMethod}>Khoản cọc được xử lý theo trạng thái đơn và kết quả khiếu nại</Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.paymentStageAmount}>{formatPrice(depositAmount)}</Text>
-                <Text style={styles.paymentStageStatusTextSuccess}>✓ Đã bảo chứng</Text>
+                <Text style={styles.paymentStageAmount}>{formatPrice(isCancelled && !isDepositRefunded && !isDisputeRefunded ? 0 : depositAmount)}</Text>
+                <Text style={[styles.paymentStageStatusTextSuccess, { color: isDisputed || (!bookingDetail.isDepositPaid && !payment.waived && !payment.paid) ? '#D97706' : '#059669' }]}>{payment.depositLabel}</Text>
               </View>
             </View>
-
             <View style={styles.paymentStageDivider} />
-
-            {/* Đợt 2: Khoản Còn Lại 70% */}
             <View style={styles.paymentStageRow}>
               <View style={styles.paymentStageLeft}>
-                <View
-                  style={
-                    isPaidOut || (isDisputed && isPostCompletion)
-                      ? styles.paymentStageDotSuccess
-                      : isDisputed && !isPostCompletion
-                        ? { width: 10, height: 10, borderRadius: 5, backgroundColor: '#94A3B8' }
-                        : styles.paymentStageDotPending
-                  }
-                />
+                <View style={[styles.paymentStageDotPending, { backgroundColor: payment.color }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.paymentStageTitle}>Đợt 2: Quyết Toán Còn Lại (70%)</Text>
-                  <Text style={styles.paymentStageMethod}>
-                    {isPaidOut
-                      ? isCashPaidConfirmed
-                        ? 'Tiền mặt trực tiếp (Thợ chính đã thu đủ tại ca)'
-                        : 'Thanh toán trực tuyến (MoMo / VNPay / Chuyển khoản)'
-                      : isDisputed && isPostCompletion
-                        ? 'Đã thanh toán tại ca • Đang phong tỏa tạm giữ chờ phán quyết'
-                        : isDisputed && !isPostCompletion
-                          ? 'Miễn thu (Ca làm chưa hoàn tất do phát sinh sự cố)'
-                          : 'Thu tiền mặt trực tiếp hoặc quét mã online'}
-                  </Text>
+                  <Text style={styles.paymentStageMethod}>{payment.remainingDescription}</Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text
-                  style={[
-                    styles.paymentStageAmount,
-                    isDisputed && !isPostCompletion
-                      ? { color: '#64748B' }
-                      : !(isPaidOut || (isDisputed && isPostCompletion)) && { color: '#E11D48' },
-                  ]}
-                >
-                  {formatPrice(isDisputed && !isPostCompletion ? 0 : remainingAmount)}
-                </Text>
-                <Text
-                  style={
-                    isPaidOut || (isDisputed && isPostCompletion)
-                      ? styles.paymentStageStatusTextSuccess
-                      : isDisputed && !isPostCompletion
-                        ? { fontSize: 10.5, fontWeight: '700', color: '#64748B', marginTop: 2 }
-                        : styles.paymentStageStatusTextPending
-                  }
-                >
-                  {isPaidOut
-                    ? '✓ Đã quyết toán'
-                    : isDisputed && isPostCompletion
-                      ? '✓ Đã thanh toán (Tạm giữ)'
-                      : isDisputed && !isPostCompletion
-                        ? 'Miễn thu'
-                        : 'Chờ thanh toán'}
-                </Text>
+                <Text style={[styles.paymentStageAmount, { color: payment.color }]}>{formatPrice(payment.remainingAmount)}</Text>
+                <Text style={[styles.paymentStageStatusTextPending, { color: payment.color }]}>{payment.remainingLabel}</Text>
               </View>
             </View>
-
-            {/* Tổng kết dòng tiền */}
             <View style={styles.paymentSummaryBox}>
               <View style={styles.paymentSummaryRow}>
-                <Text style={styles.paymentSummaryLabel}>Tổng giá trị thanh toán (100%):</Text>
+                <Text style={styles.paymentSummaryLabel}>Giá trị đơn hàng ban đầu (100%):</Text>
                 <Text style={styles.paymentSummaryTotal}>{formatPrice(totalAmount)}</Text>
               </View>
               <View style={styles.paymentSummaryNotice}>
-                <Text style={styles.paymentSummaryNoticeText}>
-                  {isDisputed && isPostCompletion
-                    ? 'Hợp đồng đã hoàn tất thanh toán 100% tại ca. Do đang trong quá trình khiếu nại, số tiền này đang được phong tỏa an toàn để bảo vệ quyền lợi hai bên chờ phân xử.'
-                    : isPaidOut
-                      ? 'Hợp đồng đã hoàn tất thanh toán. Tiền cọc và thu nhập đã được giải ngân minh bạch vào Ví.'
-                      : 'Hệ thống bảo vệ quyền lợi song phương qua quy trình nghiệm thu và biên nhận điện tử.'}
-                </Text>
+                <Text style={styles.paymentSummaryNoticeText}>{payment.remainingDescription}</Text>
               </View>
             </View>
           </View>
