@@ -576,7 +576,7 @@ export default function CustomerBookingDetailScreen() {
     Boolean(bookingDetail.agencyName);
 
   const rawAssignedStaff = (bookingDetail.assignedStaff || []).filter(
-    (s) => s.status !== 'REPLACED' || Boolean(s.cancellationReason) || (s.status as string) === 'EMERGENCY_CANCELLED'
+    (s) => s.status !== 'REPLACED' && s.status !== 'DECLINED'
   );
 
   // Khử trùng lặp thợ phân công (tránh hiển thị cùng 1 thợ nhiều lần nếu có bản ghi gán trùng hoặc SQL join)
@@ -599,14 +599,17 @@ export default function CustomerBookingDetailScreen() {
     (s) =>
       (s.isConfirmedByStaff === true || Boolean(s.confirmedAt) || s.status === 'CONFIRMED') &&
       s.status !== 'DECLINED' &&
+      s.status !== 'REPLACED' &&
       s.status !== 'EMERGENCY_CANCELLED'
   );
 
-  const emergencyCancelledStaff = allAssignedStaff.find(
-    (s) => s.status === 'EMERGENCY_CANCELLED' || (Boolean(s.cancellationReason) && s.isConfirmedByStaff === false)
+  const emergencyCancelledStaff = (bookingDetail.assignedStaff || []).find(
+    (s) => s.status === 'EMERGENCY_CANCELLED' || (Boolean(s.cancellationReason) && (s.status as string) !== 'REPLACED')
   );
 
-  const hasEmergencyCancelledStaff = Boolean(emergencyCancelledStaff);
+  const hasEmergencyCancelledStaff = allAssignedStaff.some(
+    (s) => s.status === 'EMERGENCY_CANCELLED' || (Boolean(s.cancellationReason) && s.isConfirmedByStaff === false)
+  );
 
   const hasPendingStaff = allAssignedStaff.some(
     (s) => s.status === 'ACTIVE' && (s.isConfirmedByStaff === false || !s.confirmedAt)
@@ -1413,7 +1416,7 @@ export default function CustomerBookingDetailScreen() {
                     .map((staff, sIdx) => {
                       const isPrimary = staff.role === 'PRIMARY_MUA';
                       const isEmergency = staff.status === 'EMERGENCY_CANCELLED' || (Boolean(staff.cancellationReason) && staff.isConfirmedByStaff === false);
-                      const isConfirmed = staff.isConfirmedByStaff === true || Boolean(staff.confirmedAt) || staff.status === 'CONFIRMED';
+                      const isConfirmed = staff.status !== 'REPLACED' && staff.status !== 'EMERGENCY_CANCELLED' && staff.status !== 'DECLINED' && (staff.isConfirmedByStaff === true || Boolean(staff.confirmedAt) || staff.status === 'CONFIRMED');
                       const isDeclined = staff.status === 'DECLINED';
 
                       return (
