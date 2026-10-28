@@ -20,6 +20,7 @@ import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
 import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 import com.makeup.platform.service.wallet.CashPaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -332,7 +333,9 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             try {
                 BigDecimal totalAmount = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
                 BigDecimal depositAmount = booking != null && booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
-                BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, RoundingMode.HALF_UP);
+                BigDecimal rate = booking != null
+                        ? BookingCommissionPolicy.rateFor(booking, defaultCommissionRate) : defaultCommissionRate;
+                BigDecimal commission = totalAmount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
                 BigDecimal earningsAmount = totalAmount.subtract(commission);
 
                 Map<String, Object> payload = new HashMap<>();

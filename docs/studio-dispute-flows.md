@@ -2,6 +2,8 @@
 
 Áp dụng chung cho studio duyệt hoàn, khách đồng ý kết quả studio và admin phân xử đơn đã chuyển lên sàn.
 
+Phí sàn Studio cố định 20% tổng hóa đơn cho mọi phương thức (tiền mặt, online và quyết toán tiếp sau khiếu nại). `BookingCommissionPolicy` được áp dụng tại cả hai writer quyết toán và thông báo tiền mặt; tỷ lệ freelance do caller truyền không được ghi đè chính sách Studio. Đơn 50.000đ, hoa hồng nhân sự 25.000đ: phí sàn 10.000đ, phần Studio 15.000đ. Snapshot/ledger của đơn đã quyết toán trước sửa không tự tính lại; hoàn khiếu nại vẫn dùng khoản thực tế đã ghi, không dùng mức phí mới để suy ngược số dư lịch sử.
+
 | Giai đoạn | Hoàn khách | Công nhận studio |
 | --- | --- | --- |
 | Chưa hoàn thành | Hoàn cọc thực trả, giải phóng hold; không thu hồi ví | Cọc chuyển vào ví chủ studio, giải phóng hold |

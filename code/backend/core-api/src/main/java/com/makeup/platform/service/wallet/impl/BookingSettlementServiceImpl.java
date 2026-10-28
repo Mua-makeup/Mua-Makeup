@@ -28,6 +28,7 @@ import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -138,6 +139,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         // C: tiền mặt khách trả thợ (xác nhận bởi cả hai)
         BigDecimal C = cashReceipt.getExpectedAmount() != null ? cashReceipt.getExpectedAmount() : BigDecimal.ZERO;
         // F: phí nền tảng
+        commissionRate = BookingCommissionPolicy.rateFor(booking, commissionRate);
         BigDecimal F = T.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         // E: doanh thu ròng sau phí nền tảng = T - F
         // Đây là tổng phải phân chia cho thợ + studio
@@ -284,7 +286,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
                                 .entryType("CREDIT")
                                 .amount(agencyRemaining)
                                 .balanceAfter(ownerWallet.getAvailableBalance())
-                                .description("Quyết toán booking #" + booking.getBookingCode() + " cho Agency " + agencyName + " (doanh thu studio = T-F-hoa_hồng_thợ)")
+                                .description("Quyết toán booking #" + booking.getBookingCode() + " cho Agency " + agencyName)
                                 .idempotencyKey(ledgerKey)
                                 .build();
                         ledgerEntryRepository.save(credit);
@@ -414,6 +416,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         BigDecimal T = booking.getTotalAmount();
         BigDecimal D = deposit.getPaidAmount() != null ? deposit.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal C = BigDecimal.ZERO;
+        commissionRate = BookingCommissionPolicy.rateFor(booking, commissionRate);
         BigDecimal F = T.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal E = T.subtract(F);
         BigDecimal N = E;

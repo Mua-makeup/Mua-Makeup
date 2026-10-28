@@ -1,6 +1,11 @@
 package com.makeup.platform.service.payment;
 
 import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.agency.AgencyProfileEntity;
+import com.makeup.platform.entity.agency.AgencyStaffEntity;
+import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import com.makeup.platform.entity.booking.*;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
 import com.makeup.platform.entity.payment.BookingDepositEntity;
@@ -29,7 +34,55 @@ class FinalPaymentSettlementTest {
     @Mock WalletRepository wallets;
     @Mock WalletHoldRepository holds;
     @Mock LedgerEntryRepository ledger;
+    @Mock BookingCashReceiptRepository receipts;
+    @Mock AgencyStaffOvertimeReportRepository overtimeReports;
     @InjectMocks BookingSettlementServiceImpl service;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"CASH", "ONLINE", "ONLINE_IN_TRANSACTION"})
+    void studioAlwaysChargesTwentyPercentAndCreditsCorrectSplit(String method) {
+        var owner = new UserEntity(); owner.setId(5L);
+        var worker = new UserEntity(); worker.setId(6L);
+        var agency = new AgencyProfileEntity(); agency.setOwner(owner);
+        var mua = new MuaProfileEntity(); mua.setUser(worker);
+        var staff = new AgencyStaffEntity(); staff.setMua(mua);
+        var assignment = new BookingStaffAssignmentEntity(); assignment.setId(11L);
+        assignment.setStaff(staff); assignment.setStatus(AssignmentStatus.ACTIVE);
+        assignment.setAssignmentRole(AssignmentRole.PRIMARY_MUA);
+        assignment.setCommissionAmount(new BigDecimal("25000"));
+        var booking = new BookingEntity(); booking.setId(9L); booking.setAgency(agency);
+        booking.setStatus(BookingStatus.COMPLETED); booking.setTotalAmount(new BigDecimal("50000"));
+        booking.setDepositAmount(new BigDecimal("15000"));
+        var deposit = BookingDepositEntity.builder().status("PAID").paidAmount(new BigDecimal("15000")).build();
+        var ownerWallet = WalletEntity.builder().user(owner).availableBalance(BigDecimal.ZERO).build();
+        var workerWallet = WalletEntity.builder().user(worker).availableBalance(BigDecimal.ZERO).build();
+        when(bookings.findById(9L)).thenReturn(Optional.of(booking));
+        when(bookings.findByIdForUpdate(9L)).thenReturn(Optional.of(booking));
+        when(deposits.findByBookingId(9L)).thenReturn(Optional.of(deposit));
+        when(staffAssignments.findByBookingIdAndStatus(9L, AssignmentStatus.ACTIVE)).thenReturn(List.of(assignment));
+        when(wallets.findByUserIdWithLock(5L)).thenReturn(Optional.of(ownerWallet));
+        when(wallets.findByUserIdWithLock(6L)).thenReturn(Optional.of(workerWallet));
+        when(settlements.existsByBookingId(9L)).thenReturn(false, true);
+        if ("CASH".equals(method)) {
+            when(receipts.findByBookingId(9L)).thenReturn(Optional.of(BookingCashReceiptEntity.builder()
+                .status("BOTH_CONFIRMED").expectedAmount(new BigDecimal("35000")).build()));
+        }
+        // A legacy caller still passing 15% must not change the Studio contract.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            switch (method) {
+                case "CASH" -> service.settleBooking(9L, new BigDecimal("0.15"));
+                case "ONLINE" -> service.settleBookingOnlinePayment(9L, new BigDecimal("0.15"));
+                default -> service.settleBookingOnlinePaymentInTransaction(9L, new BigDecimal("0.15"));
+            }
+        }
+        var snapshot = ArgumentCaptor.forClass(BookingSettlementEntity.class);
+        verify(settlements, times(1)).save(snapshot.capture());
+        assertEquals(0, new BigDecimal("0.20").compareTo(snapshot.getValue().getCommissionRate()));
+        assertEquals(new BigDecimal("10000"), snapshot.getValue().getCommissionAmount());
+        assertEquals(new BigDecimal("15000"), ownerWallet.getAvailableBalance());
+        assertEquals(new BigDecimal("25000"), workerWallet.getAvailableBalance());
+        verify(ledger, times(2)).save(any());
+    }
 
     @Test void creditsFreelancerEarningsAndLedgerExactlyOnce() {
         var user = new UserEntity(); user.setId(5L);
