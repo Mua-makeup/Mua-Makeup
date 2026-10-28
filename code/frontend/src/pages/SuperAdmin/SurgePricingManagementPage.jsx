@@ -481,7 +481,8 @@ export const SurgePricingManagementPage = () => {
         isOpen={isPlatformFeeOpen}
         onClose={() => setIsPlatformFeeOpen(false)}
         onSuccess={(updatedPercent) => {
-          setToastMessage({ text: "Đã cập nhật phí sàn nền tảng: $%", type: 'success' });
+          setIsPlatformFeeOpen(false);
+          setToastMessage({ text: `Đã cập nhật phí sàn nền tảng: ${updatedPercent}%`, type: 'success' });
         }}
       />
 
