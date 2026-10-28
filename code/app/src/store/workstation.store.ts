@@ -373,6 +373,10 @@ export const useWorkstationStore = create<WorkstationState>((set, get) => ({
       console.error('Lỗi nạp dữ liệu Bàn làm việc:', e);
     } finally {
       set({ isLoading: false });
+      try {
+        const { useBookingStore } = require('@/store/booking.store');
+        useBookingStore.getState().fetchActiveBookingsCount();
+      } catch {}
     }
   },
 

@@ -20,6 +20,7 @@ import { DismissibleModal } from '@/components/common/DismissibleModal';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { useNotificationStore } from '@/store/notification.store';
+import { useBookingStore } from '@/store/booking.store';
 import { websocketService } from '@/services/websocket.service';
 import {
   bookingService,
@@ -152,6 +153,7 @@ export default function OrderTrackingActivityScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      useBookingStore.getState().fetchActiveBookingsCount();
     }
   }, [isAuthenticated, isMUA]);
 

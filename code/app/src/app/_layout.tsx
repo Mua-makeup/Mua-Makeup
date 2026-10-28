@@ -50,7 +50,7 @@ export default function RootLayout() {
       }
 
       useNotificationStore.getState().initWebSocketListener(userInfo.id);
-      useBookingStore.getState().fetchMyBookings(true);
+      useBookingStore.getState().fetchActiveBookingsCount();
       registerForPushNotificationsAsync();
     }
   }, [isAuthenticated, userInfo?.id, userInfo?.roles, userInfo?.muaId]);
@@ -125,6 +125,10 @@ export default function RootLayout() {
         } else if (state.isAuthenticated) {
           console.log('[_layout] App đã active, làm mới danh sách đơn của khách hàng...');
           useBookingStore.getState().fetchMyBookings(true);
+        }
+
+        if (state.isAuthenticated) {
+          useBookingStore.getState().fetchActiveBookingsCount();
         }
       }
     });
