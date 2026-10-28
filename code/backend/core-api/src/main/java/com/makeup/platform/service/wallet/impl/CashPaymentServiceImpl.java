@@ -20,7 +20,6 @@ import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
 import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
-import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 import com.makeup.platform.service.wallet.CashPaymentService;
 import com.makeup.platform.service.wallet.PlatformFeeService;
 import lombok.RequiredArgsConstructor;

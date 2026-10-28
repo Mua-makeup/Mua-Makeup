@@ -12,6 +12,7 @@ import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
 import com.makeup.platform.service.wallet.impl.CashPaymentServiceImpl;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -27,6 +28,7 @@ class CashPaymentAuthorizationTest {
     @Mock BookingSettlementService settlement;
     @Mock UserRepository users;
     @Mock BookingStaffAssignmentRepository assignments;
+    @Mock PlatformFeeService platformFeeService;
     @InjectMocks CashPaymentServiceImpl service;
     @Test void unrelatedWorkerCannotConfirmReceiptOrSettle() {
         when(bookings.findByIdForUpdate(1L)).thenReturn(Optional.of(new BookingEntity()));

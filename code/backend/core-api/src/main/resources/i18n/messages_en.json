@@ -1,12 +1,4 @@
 {
-  "dispute.invalid_studio_state": "This studio booking cannot be resolved in its current state.",
-  "dispute.already_resolved": "The dispute funds have already been distributed.",
-  "dispute.payment_reconciliation_required": "Reconcile the booking payment and settlement before resolving it. No funds have been refunded or recovered.",
-  "dispute.insufficient_recovery_balance": "A payout or cash recipient has insufficient recovery balance. The dispute remains pending; no refund was issued.",
-  "dispute.escalated_admin_only": "This dispute has been escalated; only an administrator may resolve it.",
-  "dispute.studio_not_escalated": "This studio dispute has not been escalated to an administrator.",
-  "dispute.studio_resolution_required": "A studio rejection is required and the dispute must not have been escalated.",
-
   "common": {
     "success": "Operation completed successfully.",
     "internal_error": "System encountered an error. Please try again later.",
@@ -19,8 +11,7 @@
     "request_body_missing": "Request body is missing or malformed.",
     "file_size_exceeded": "Uploaded file exceeds maximum allowed size.",
     "invalid_file_format": "Invalid file format. Allowed formats: {0}.",
-    "invalid_magic_bytes": "File content does not match allowed media types.",
-    "argument_type_mismatch": "Parameter ''{0}'' has an invalid format."
+    "invalid_magic_bytes": "File content does not match allowed media types."
   },
   "auth": {
     "login_success": "Login successful.",
@@ -79,7 +70,7 @@
   },
   "agency": {
     "not_found": "Agency profile not found.",
-    "bookings_fetch_success": "Agency bookings retrieved successfully.",
+    "bookings_fetch_success": "Retrieved studio bookings successfully.",
     "stats_fetch_success": "Agency statistics retrieved successfully.",
     "wallet_fetch_success": "Agency revenue wallet retrieved successfully.",
     "reviews_fetch_success": "Agency reviews retrieved successfully.",
@@ -134,7 +125,6 @@
     "shift_created_success": "Shift created successfully!",
     "shift_updated_success": "Shift updated successfully!",
     "shift_deleted_success": "Shift deleted successfully!",
-    "bookings_fetch_success": "Retrieved studio bookings successfully.",
     "logo_upload_success": "Studio logo uploaded successfully.",
     "cert_upload_success": "Professional certificate uploaded successfully (pending Studio verification).",
     "cert_review_success": "Staff certificate reviewed successfully.",
@@ -443,14 +433,14 @@
     "disputes_fetch_success": "Retrieved dispute reports successfully.",
     "dispute_stats_fetch_success": "Retrieved dispute statistics successfully.",
     "dispute_detail_fetch_success": "Retrieved dispute detail successfully.",
-    "dispute_resolved_success": "Resolved dispute successfully!",`r`n    "platform_fee_get_success": "Retrieved platform fee successfully.",`r`n    "platform_fee_updated": "Platform fee updated successfully!"
+    "dispute_resolved_success": "Resolved dispute successfully!",
+    "platform_fee_get_success": "Retrieved platform fee successfully.",
+    "platform_fee_updated": "Platform fee updated successfully!"
   },
   "dispute": {
-    "not_in_disputed_state": "Booking is not in DISPUTED state.",
-    "invalid_resolution_type": "Invalid resolution type. Must be APPROVE_REFUND_CUSTOMER or REJECT_AND_PAYOUT_MUA.",
-    "split_not_allowed_for_completed_booking": "Post-completion disputes only support 100% refund to customer or rejection retaining worker payout. 50/50 split is not allowed.",
-    "resolution_required": "Dispute resolution cannot be blank.",
-    "note_required": "Admin resolution note cannot be blank."
+    "escalate_success": "Dispute escalated to Platform Admin successfully.",
+    "resolution_accepted": "Dispute resolution accepted successfully.",
+    "not_in_disputed_state": "Booking is not in disputed state."
   },
   "category": {
     "code_required": "Category code cannot be blank.",
@@ -499,43 +489,22 @@
     "slot_not_found": "Calendar slot not found."
   },
   "dispatch": {
-    "primary_staff_id": {
-      "required": "Please select 1 Primary MUA responsible for this booking."
-    },
-    "assistants": {
-      "max_two": "A maximum of 2 Assistant MUAs can be assigned."
-    },
-    "notes": {
-      "too_long": "Dispatch notes cannot exceed 500 characters."
-    },
-    "rejection_reason": {
-      "required": "Rejection reason is required.",
-      "too_long": "Rejection reason cannot exceed 200 characters."
-    },
-    "rejection_note": {
-      "too_long": "Rejection note cannot exceed 500 characters."
-    },
-    "fetch_pending_success": "Pending dispatch bookings retrieved successfully.",
-    "fetch_matrix_success": "4-way staff availability matrix retrieved successfully.",
-    "assign_success": "Staff dispatched successfully! Notifications sent to staff.",
-    "reassign_success": "Backup staff reassigned successfully! Former staff calendar slot locked defensively.",
-    "reject_success": "Booking rejected successfully.",
-    "primary_required": "A Primary MUA is strictly required for this booking.",
-    "staff_unqualified": "Selected staff does not meet all 4 qualification criteria (Shift, Package, Style, Calendar).",
-    "staff_conflict": "Staff has an overlapping calendar conflict or is unavailable during this time.",
-    "max_assistants_exceeded": "Only up to 2 Assistant MUAs can be assigned to a booking.",
-    "assignment_not_found": "Staff assignment not found for this booking.",
-    "cannot_dispatch_in_status": "Cannot dispatch staff in the current booking status.",
-    "cannot_reassign_to_same_staff": "Cannot reassign to the same staff who is being replaced or reported busy.",
-    "staff_reported_busy": "This staff member has already reported emergency unavailability for this booking.",
-    "staff_already_assigned": "This staff member is already assigned to another role in this booking.",
-    "emergency_report_success": "Emergency busy reported successfully. Agency and Admin have been alerted.",
-    "emergency_review_success": "Emergency report reviewed successfully.",
-    "proceed_solo_success": "Confirmed solo fulfillment for the booking successfully.",
-    "cannot_proceed_solo_no_active_staff": "This booking has no active staff available to fulfill solo. Please reassign a staff member or reject the emergency request.",
-    "emergency_proof_required_critical": "Reporting emergency unavailability within 2 hours requires an incident proof document.",
-    "assignment_confirm_success": "Dispatch assignment confirmed successfully!",
-    "assignment_decline_success": "Declined assignment and returned to Studio dispatch pool."
+    "fetch_pending_success": "Fetched pending dispatch bookings successfully.",
+    "fetch_matrix_success": "Fetched staff availability matrix successfully.",
+    "assign_success": "Assigned staff to booking successfully.",
+    "reassign_success": "Reassigned emergency backup staff successfully.",
+    "reject_success": "Studio rejected booking successfully.",
+    "proceed_solo_success": "Confirmed primary artist to proceed solo successfully.",
+    "emergency_report_success": "Reported emergency busy successfully.",
+    "emergency_review_success": "Reviewed emergency report successfully.",
+    "assignment_confirm_success": "Confirmed assignment successfully.",
+    "update_commissions_success": "Updated staff commission split successfully.",
+    "no_active_staff_to_update_commission": "No active staff found in this booking to update commissions.",
+    "total_commission_exceeds_max": "Total staff commissions cannot exceed 100% of the booking value.",
+    "staff_unqualified": "Selected staff member is not qualified for this booking.",
+    "primary_required": "Please select a primary artist for this booking.",
+    "max_assistants_exceeded": "Maximum number of assistants exceeded (max 2).",
+    "staff_reported_busy": "Staff has already reported busy for this booking."
   },
   "emergency": {
     "reason": {
@@ -633,27 +602,8 @@
     "message_too_long": "Question content cannot exceed 1000 characters.",
     "session_code_required": "Chat session code is required.",
     "session_not_found": "The requested chat session was not found.",
-    "session_access_denied": "You do not have permission to access this chat session.",
     "chat_success": "AI Assistant response received successfully.",
     "session_closed_success": "Chat session ended successfully."
-  },
-  "dispatch": {
-    "fetch_pending_success": "Fetched pending dispatch bookings successfully.",
-    "fetch_matrix_success": "Fetched staff availability matrix successfully.",
-    "assign_success": "Assigned staff to booking successfully.",
-    "reassign_success": "Reassigned emergency backup staff successfully.",
-    "reject_success": "Studio rejected booking successfully.",
-    "proceed_solo_success": "Confirmed primary artist to proceed solo successfully.",
-    "emergency_report_success": "Reported emergency busy successfully.",
-    "emergency_review_success": "Reviewed emergency report successfully.",
-    "assignment_confirm_success": "Confirmed assignment successfully.",
-    "update_commissions_success": "Updated staff commission split successfully.",
-    "no_active_staff_to_update_commission": "No active staff found in this booking to update commissions.",
-    "total_commission_exceeds_max": "Total staff commissions cannot exceed 100% of the booking value.",
-    "staff_unqualified": "Selected staff member is not qualified for this booking.",
-    "primary_required": "Please select a primary artist for this booking.",
-    "max_assistants_exceeded": "Maximum number of assistants exceeded (max 2).",
-    "staff_reported_busy": "Staff has already reported busy for this booking."
   },
   "ERR_SLOT_ALREADY_BOOKED": "This appointment slot was just booked and paid by another customer. Please choose another time slot!",
   "ERR_SUPPORT_SESSION_NOT_FOUND": "Chat session does not exist or has expired.",
@@ -668,15 +618,9 @@
     "only_primary_worker_allowed": "Only the primary artist can confirm or decline cash receipt.",
     "worker_declined": "Customer has been notified that cash has not been received."
   },
-
   "ERR_LEAVE_REQUEST_NOT_FOUND": "Staff leave request was not found.",
   "ERR_DUPLICATE_LEAVE_REQUEST": "A pending leave request already exists for this slot.",
   "ERR_INVALID_LEAVE_ACTION": "Invalid action on staff leave request.",
-  "dispute": {
-    "escalate_success": "Dispute escalated to Platform Admin successfully.",
-    "resolution_accepted": "Dispute resolution accepted successfully.",
-    "not_in_disputed_state": "Booking is not in disputed state."
-  },
   "review": {
     "booking_id_required": "Booking ID is required.",
     "rating_required": "Please provide a rating between 1 and 5 stars.",

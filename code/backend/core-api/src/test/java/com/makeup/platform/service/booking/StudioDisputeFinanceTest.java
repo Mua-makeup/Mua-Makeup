@@ -21,6 +21,7 @@ import com.makeup.platform.repository.wallet.LedgerEntryRepository;
 import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -58,6 +60,7 @@ class StudioDisputeFinanceTest {
     @Mock WalletHoldRepository holds;
     @Mock BookingRepository bookings;
     @Mock BookingSettlementService settlementService;
+    @Mock PlatformFeeService platformFeeService;
     @InjectMocks StudioDisputeFinanceService service;
 
     BookingEntity booking;
@@ -74,6 +77,8 @@ class StudioDisputeFinanceTest {
         when(deposits.findByBookingId(9L)).thenReturn(Optional.of(deposit));
         customerWallet = WalletEntity.builder().user(customer).availableBalance(n(0)).frozenBalance(n(60000)).build();
         ownerWallet = WalletEntity.builder().user(owner).availableBalance(n(90000)).frozenBalance(n(0)).build();
+        lenient().when(platformFeeService.getRate()).thenReturn(new BigDecimal("0.15"));
+        lenient().when(platformFeeService.rateFor(any())).thenReturn(new BigDecimal("0.15"));
     }
 
     void walletsAndHold() {

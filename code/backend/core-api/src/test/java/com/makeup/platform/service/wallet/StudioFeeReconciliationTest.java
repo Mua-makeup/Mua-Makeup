@@ -8,6 +8,8 @@ import com.makeup.platform.entity.wallet.*;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.wallet.*;
 import com.makeup.platform.service.booking.StudioDisputeFinanceService;
+import com.makeup.platform.service.wallet.PlatformFeeService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -24,8 +26,14 @@ class StudioFeeReconciliationTest {
     @Mock LedgerEntryRepository ledger;
     @Mock WalletRepository wallets;
     @Mock StudioDisputeFinanceService finance;
+    @Mock PlatformFeeService platformFeeService;
     @InjectMocks StudioFeeReconciliationService service;
     static BigDecimal n(long x) { return BigDecimal.valueOf(x); }
+
+    @BeforeEach void setUp() {
+        lenient().when(platformFeeService.rateFor(any())).thenReturn(new BigDecimal("0.20"));
+        lenient().when(platformFeeService.getRate()).thenReturn(new BigDecimal("0.20"));
+    }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(longs = {17500, 2000})
