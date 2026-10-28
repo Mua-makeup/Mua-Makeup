@@ -33,6 +33,11 @@ export function formatBookingExecutionTime(booking: {
     const label = (date: Date | null) => date
       ? `${clock(date)}${crossDay ? ` ${day(date)}` : ''}` : '--:--';
     return {
+      startTime: start ? clock(start) : '--:--',
+      startDate: start ? day(start) : '—',
+      endTime: end ? clock(end) : '--:--',
+      endDate: end ? day(end) : '—',
+      isEstimated: false,
       title: 'Bắt Đầu / Kết Thúc Thực Tế',
       timeRange: `${label(start)} - ${label(end)}`,
       subText: !start ? 'Chưa ghi nhận giờ bắt đầu'
@@ -45,6 +50,11 @@ export function formatBookingExecutionTime(booking: {
   const estimatedEnd = scheduled && duration != null && duration > 0
     ? new Date(scheduled.getTime() + duration * 60000) : null;
   return {
+    startTime: scheduled ? clock(scheduled) : '--:--',
+    startDate: scheduled ? day(scheduled) : '—',
+    endTime: estimatedEnd ? clock(estimatedEnd) : '--:--',
+    endDate: estimatedEnd ? day(estimatedEnd) : '—',
+    isEstimated: true,
     title: 'Thời Gian Dự Kiến',
     timeRange: scheduled
       ? `${clock(scheduled)} - ${estimatedEnd ? clock(estimatedEnd) + (day(scheduled) !== day(estimatedEnd) ? ` ${day(estimatedEnd)}` : '') : '--:--'}`

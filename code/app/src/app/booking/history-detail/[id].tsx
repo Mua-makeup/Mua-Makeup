@@ -2259,32 +2259,30 @@ export default function BookingHistoryDetailScreen() {
             </View>
           </View>
 
-          <View style={styles.infoGrid}>
-            <View style={styles.infoCol}>
-              <Ionicons name="calendar-outline" size={16} color="#64748B" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.infoColLabel}>Ngày Hẹn</Text>
-                <Text style={styles.infoColValue}>
-                  {formatDateVN(bookingDetail.bookingDate)}
-                </Text>
+          {(() => {
+            const timeInfo = formatBookingExecutionTime(bookingDetail);
+            return (
+              <View style={styles.infoGrid}>
+                <View style={styles.infoCol}>
+                  <Ionicons name="time-outline" size={16} color="#64748B" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.infoColLabel}>{timeInfo.isEstimated ? 'Bắt đầu (dự kiến)' : 'Bắt đầu'}</Text>
+                    <Text style={styles.infoColValue}>{timeInfo.startTime}</Text>
+                    <Text style={styles.infoColDate}>{timeInfo.startDate}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoDivider} />
+                <View style={styles.infoCol}>
+                  <Ionicons name="time-outline" size={16} color="#64748B" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.infoColLabel}>{timeInfo.isEstimated ? 'Kết thúc (dự kiến)' : 'Kết thúc'}</Text>
+                    <Text style={styles.infoColValue}>{timeInfo.endTime}</Text>
+                    <Text style={styles.infoColDate}>{timeInfo.endDate}</Text>
+                  </View>
+                </View>
               </View>
-            </View>
-
-            <View style={styles.infoCol}>
-              <Ionicons name="time-outline" size={16} color="#64748B" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.infoColLabel}>
-                  {formatBookingExecutionTime(bookingDetail).title}
-                </Text>
-                <Text style={styles.infoColValue}>
-                  {(() => {
-                    const timeInfo = formatBookingExecutionTime(bookingDetail);
-                    return `${timeInfo.timeRange}\n${timeInfo.subText}`;
-                  })()}
-                </Text>
-              </View>
-            </View>
-          </View>
+            );
+          })()}
 
           <View style={styles.addressBox}>
             <Ionicons name="location-outline" size={18} color="#E11D48" style={{ marginTop: 2 }} />
@@ -3621,6 +3619,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  infoDivider: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 2,
+  },
+  infoColDate: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
   },
   infoColLabel: {
     fontSize: 11,
