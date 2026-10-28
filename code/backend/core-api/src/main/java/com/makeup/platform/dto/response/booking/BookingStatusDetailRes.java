@@ -58,6 +58,7 @@ public class BookingStatusDetailRes {
     private String emergencyReason;
     private OffsetDateTime emergencyReportedAt;
     private Boolean isDepositPaid;
+    private Boolean isPaymentSettled;
     private Integer depositTimeoutSeconds;
     private OffsetDateTime confirmDeadline;
     private Integer confirmTimeoutSeconds;

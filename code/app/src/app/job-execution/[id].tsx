@@ -1196,10 +1196,15 @@ export default function JobExecutionScreen() {
     try {
       setIsConfirmingCash(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await depositService.confirmWorkerCashReceipt(bookingId, 'v1');
+      const receipt = await depositService.confirmWorkerCashReceipt(bookingId, 'v1');
       setCashReceiptConfirmed(true);
       setIsCashPromptModalVisible(false);
-      setIsBothCashConfirmed(true);
+      setIsBothCashConfirmed(receipt.customerConfirmed && receipt.freelancerConfirmed);
+      if (receipt.bookingStatus !== 'PAID_OUT') {
+        await loadBookingDetail();
+        Alert.alert('Đã ghi nhận xác nhận', 'Đơn còn chờ xác nhận của khách hoặc xử lý khiếu nại; chưa quyết toán.');
+        return;
+      }
       setCurrentStatus('PAID_OUT');
       setBooking((prev: any) => (prev ? { ...prev, status: 'PAID_OUT' } : prev));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

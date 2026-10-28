@@ -1,4 +1,6 @@
 package com.makeup.platform.service.booking.impl;
+import com.makeup.platform.repository.wallet.BookingSettlementRepository;
+import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.InstantBookingKeys;
@@ -97,6 +99,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final StringRedisTemplate stringRedisTemplate;
     private final BookingDepositRepository bookingDepositRepository;
     private final BookingCashReceiptRepository cashReceiptRepository;
+    private final BookingSettlementRepository settlementRepository;
     private final WalletRepository walletRepository;
     private final WalletHoldRepository walletHoldRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
@@ -837,8 +840,10 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
-        BigDecimal commissionRate = getFreelancerCommissionRate();
+        BigDecimal commissionRate = BookingCommissionPolicy.rateFor(booking, getFreelancerCommissionRate());
         BigDecimal platformFee = totalAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        var settlementSnapshot = settlementRepository.findByBookingId(bookingId).orElse(null);
+        if (settlementSnapshot != null) platformFee = settlementSnapshot.getCommissionAmount();
         BigDecimal earningsAmount = totalAmount.subtract(platformFee);
 
         boolean isDepositPaid = isDepositPaidInternal(booking);
@@ -1123,6 +1128,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .totalAmount(totalAmount)
                 .depositAmount(depositAmount)
                 .platformFee(platformFee)
+                .isPaymentSettled(settlementSnapshot != null && "SETTLED".equals(settlementSnapshot.getStatus()))
                 .earningsAmount(earningsAmount)
                 .completionPhotoUrl(booking.getCompletionPhotoUrl())
                 .emergencyProofUrl(booking.getEmergencyProofUrl())

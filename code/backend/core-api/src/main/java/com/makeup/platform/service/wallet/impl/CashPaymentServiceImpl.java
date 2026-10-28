@@ -62,6 +62,12 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     @Override
     @Transactional
     public CashReceiptStatusRes confirmByCustomer(Long bookingId, Long customerId, CashPaymentConfirmationReq req) {
+        BookingEntity lockedBooking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+        if (lockedBooking.getCustomer() == null || !lockedBooking.getCustomer().getId().equals(customerId)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "booking.access_denied", HttpStatus.FORBIDDEN);
+        }
+        requireCashState(lockedBooking);
         BookingCashReceiptEntity receipt = getOrCreateReceipt(bookingId, customerId, req.getInvoiceVersion());
 
         // Idempotency: cùng key -> cùng kết quả
@@ -122,7 +128,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     @Override
     @Transactional
     public CashReceiptStatusRes confirmByWorker(Long bookingId, Long workerUserId, CashPaymentConfirmationReq req) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
                         "booking.not_found", HttpStatus.NOT_FOUND));
 
@@ -142,6 +148,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN,
                     "cash_receipt.only_primary_worker_allowed", HttpStatus.FORBIDDEN);
         }
+        requireCashState(booking);
 
         UserEntity workerUser = userRepository.findById(workerUserId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
@@ -166,9 +173,6 @@ public class CashPaymentServiceImpl implements CashPaymentService {
 
         // Idempotency: nếu thợ đã xác nhận rồi, vẫn đảm bảo settlement và booking sang PAID_OUT
         if (receipt.getFreelancerConfirmedAt() != null) {
-            if (receipt.getCustomerConfirmedAt() == null) {
-                receipt.setCustomerConfirmedAt(OffsetDateTime.now(VIETNAM_OFFSET));
-            }
             receipt = checkAndTriggerSettlement(receipt, bookingId);
             cashReceiptRepository.save(receipt);
             log.info("[CashReceipt] Worker {} confirmed cash for booking {}, returning settled receipt", workerUserId, bookingId);
@@ -184,9 +188,6 @@ public class CashPaymentServiceImpl implements CashPaymentService {
         receipt.setFreelancerUser(workerUser);
         receipt.setIdempotencyKeyFreelancer(req.getIdempotencyKey());
 
-        if (receipt.getCustomerConfirmedAt() == null) {
-            receipt.setCustomerConfirmedAt(OffsetDateTime.now(VIETNAM_OFFSET));
-        }
 
         receipt = checkAndTriggerSettlement(receipt, bookingId);
         cashReceiptRepository.save(receipt);
@@ -198,7 +199,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     @Override
     @Transactional
     public CashReceiptStatusRes declineByWorker(Long bookingId, Long workerUserId, String reason) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
                         "booking.not_found", HttpStatus.NOT_FOUND));
 
@@ -221,6 +222,10 @@ public class CashPaymentServiceImpl implements CashPaymentService {
 
         BookingCashReceiptEntity receipt = cashReceiptRepository.findByBookingIdWithLock(bookingId).orElse(null);
         if (receipt != null) {
+            if (booking.getStatus() != BookingStatus.COMPLETED || receipt.getFreelancerConfirmedAt() != null
+                    || "BOTH_CONFIRMED".equals(receipt.getStatus())) {
+                throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+            }
             receipt.setCustomerConfirmedAt(null);
             receipt.setFreelancerConfirmedAt(null);
             receipt.setStatus("DECLINED_BY_WORKER");
@@ -262,6 +267,17 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     @Override
     @Transactional(readOnly = true)
     public CashReceiptStatusRes getStatus(Long bookingId, Long actorUserId) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND, "booking.not_found", HttpStatus.NOT_FOUND));
+        boolean allowed = booking.getCustomer() != null && actorUserId.equals(booking.getCustomer().getId())
+                || booking.getMua() != null && booking.getMua().getUser() != null && actorUserId.equals(booking.getMua().getUser().getId())
+                || booking.getAgency() != null && booking.getAgency().getOwner() != null && actorUserId.equals(booking.getAgency().getOwner().getId());
+        if (!allowed) allowed = bookingStaffAssignmentRepository.findWithStaffAndUserByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE)
+                .stream().anyMatch(a -> a.getStaff() != null && a.getStaff().getMua() != null
+                        && a.getStaff().getMua().getUser() != null && actorUserId.equals(a.getStaff().getMua().getUser().getId()));
+        if (!allowed) allowed = userRepository.findById(actorUserId)
+                .map(u -> u.getRole() != null && "ROLE_SUPER_ADMIN".equals(u.getRole().getName())).orElse(false);
+        if (!allowed) throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "booking.access_denied", HttpStatus.FORBIDDEN);
         BookingCashReceiptEntity receipt = cashReceiptRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_CASH_RECEIPT_NOT_FOUND,
                         "cash_receipt.not_found", HttpStatus.NOT_FOUND));
@@ -269,6 +285,12 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     }
 
     // === Private helpers ===
+    private void requireCashState(BookingEntity booking) {
+        if (booking.getStatus() != BookingStatus.COMPLETED && booking.getStatus() != BookingStatus.PAID_OUT
+                && booking.getStatus() != BookingStatus.DISPUTED) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+        }
+    }
 
     private BookingCashReceiptEntity getOrCreateReceipt(Long bookingId, Long customerId, String invoiceVersion) {
         // Lock để tránh tạo duplicate
@@ -303,13 +325,15 @@ public class CashPaymentServiceImpl implements CashPaymentService {
         BookingEntity studioBooking = bookingRepository.findById(bookingId).orElse(null);
         if (studioBooking != null && studioBooking.getAgency() != null) {
             studioBooking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
-            if (studioBooking.getStatus() != BookingStatus.COMPLETED && studioBooking.getStatus() != BookingStatus.PAID_OUT) {
+            if (studioBooking.getStatus() != BookingStatus.COMPLETED && studioBooking.getStatus() != BookingStatus.PAID_OUT
+                    && studioBooking.getStatus() != BookingStatus.DISPUTED) {
                 throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
             }
         }
         if (receipt.getCustomerConfirmedAt() != null && receipt.getFreelancerConfirmedAt() != null) {
             receipt.setStatus("BOTH_CONFIRMED");
             cashReceiptRepository.save(receipt);
+            if (studioBooking != null && studioBooking.getStatus() == BookingStatus.DISPUTED) return receipt;
 
             // Cập nhật trạng thái booking sang PAID_OUT ngay lập tức
             BookingEntity booking = receipt.getBooking();
@@ -412,6 +436,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
                 .invoiceVersion(receipt.getInvoiceVersion())
                 .expectedAmount(receipt.getExpectedAmount())
                 .status(receipt.getStatus())
+                .bookingStatus(booking != null && booking.getStatus() != null ? booking.getStatus().name() : null)
                 .customerConfirmedAt(receipt.getCustomerConfirmedAt())
                 .freelancerConfirmedAt(receipt.getFreelancerConfirmedAt())
                 .customerConfirmed(receipt.getCustomerConfirmedAt() != null)

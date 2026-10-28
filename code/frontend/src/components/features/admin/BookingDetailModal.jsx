@@ -4,6 +4,7 @@ import { superAdminService } from '../../../services/super-admin.service';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { Badge } from '../../base/Badge';
 import { formatDate, formatDateTime } from '../../../utils/formatters';
+import { StudioFeeCorrectionPanel } from './StudioFeeCorrectionPanel';
 
 export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
   const { t, language } = useI18nStore();
@@ -302,6 +303,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
           )}
 
           {/* Main Info Grid */}
+          {b.agencyId && ['PAID_OUT', 'DISPUTED'].includes(b.status) && <StudioFeeCorrectionPanel key={b.id} bookingId={b.id} />}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Customer Box */}
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-2">

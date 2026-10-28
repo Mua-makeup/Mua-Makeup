@@ -128,6 +128,7 @@ export interface CustomerBookingItem {
 }
 
 export interface BookingStatusDetailRes {
+  isPaymentSettled?: boolean;
   bookingId: number;
   bookingCode: string;
   status: BookingStatusType;

@@ -99,6 +99,10 @@ public class AgencyDisputeServiceImpl implements AgencyDisputeService {
                         cb.and(
                                 cb.equal(root.get("status"), BookingStatus.CANCELLED),
                                 cb.isNotNull(root.get("emergencyReason"))
+                        ),
+                        cb.and(
+                                cb.equal(root.get("status"), BookingStatus.PAID_OUT),
+                                cb.isNotNull(root.get("emergencyReason"))
                         )
                 ));
             }

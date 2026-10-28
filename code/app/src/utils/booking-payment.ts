@@ -2,6 +2,7 @@
 export function getBookingPaymentPresentation(input: {
   isPaidOut: boolean;
   isCashReceived?: boolean;
+  isPaymentSettled?: boolean;
   isCompleted: boolean;
   isCancelled: boolean;
   isDisputed: boolean;
@@ -14,7 +15,7 @@ export function getBookingPaymentPresentation(input: {
 }) {
   const resolved = input.isDisputeRefunded || input.isDisputeCompensated;
   const waived = resolved || input.isCancelled;
-  const paid = (input.isPaidOut || input.isCashReceived === true) && !waived;
+  const paid = (input.isPaidOut || input.isPaymentSettled === true || input.isCashReceived === true) && !waived;
   const color = waived ? '#64748B' : paid ? '#059669' : '#D97706';
   return {
     waived,
@@ -43,6 +44,7 @@ export function getBookingPaymentPresentation(input: {
       : input.isDisputeCompensated ? 'Đã Bồi Thường'
       : input.isDepositRefunded ? 'Đã Hoàn Cọc 100%'
       : input.isCancelled ? 'Miễn Cọc'
+      : input.isDisputed && input.isPaymentSettled ? 'Đã Giải Ngân · Đang Khiếu Nại'
       : input.isDisputed ? 'Tạm Giữ Khiếu Nại'
       : paid ? 'Đã Giải Ngân'
       : input.isDepositPaid ? 'Đã Bảo Chứng' : 'Chờ Đặt Cọc',
