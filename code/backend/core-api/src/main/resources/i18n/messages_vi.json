@@ -1,12 +1,4 @@
 {
-  "dispute.invalid_studio_state": "Đơn studio không ở trạng thái cho phép xử lý khiếu nại.",
-  "dispute.already_resolved": "Khiếu nại đã được xử lý tiền trước đó.",
-  "dispute.payment_reconciliation_required": "Cần đối soát thanh toán/quyết toán của đơn trước khi xử lý. Chưa thực hiện hoàn hoặc thu hồi tiền.",
-  "dispute.insufficient_recovery_balance": "Ví nhận tiền quyết toán hoặc tiền mặt không đủ số dư để thu hồi. Khiếu nại vẫn chờ xử lý; chưa hoàn tiền.",
-  "dispute.escalated_admin_only": "Khiếu nại đã chuyển lên admin; studio không thể tự xử lý tiếp.",
-  "dispute.studio_not_escalated": "Khiếu nại studio chưa được chuyển lên admin.",
-  "dispute.studio_resolution_required": "Cần quyết định từ chối của studio và đơn chưa chuyển admin để thực hiện thao tác này.",
-
   "common": {
     "success": "Thao tác thành công.",
     "internal_error": "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.",
@@ -19,8 +11,7 @@
     "request_body_missing": "Dữ liệu yêu cầu (Request Body) không hợp lệ hoặc bị thiếu.",
     "file_size_exceeded": "Dung lượng tệp tải lên vượt quá giới hạn cho phép.",
     "invalid_file_format": "Định dạng tệp không hợp lệ. Các định dạng cho phép: {0}.",
-    "invalid_magic_bytes": "Nội dung tệp không khớp với định dạng đa phương tiện cho phép.",
-    "argument_type_mismatch": "Tham số ''{0}'' không đúng định dạng."
+    "invalid_magic_bytes": "Nội dung tệp không khớp với định dạng đa phương tiện cho phép."
   },
   "auth": {
     "login_success": "Đăng nhập thành công!",
@@ -155,7 +146,7 @@
     "leave_request_already_reviewed": "Đơn xin nghỉ này đã được xử lý trước đó.",
     "disputes_fetch_success": "Lấy danh sách khiếu nại của Studio thành công.",
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
-    "dispute_resolved_success": "Phân xử khiếu nại thành công!",`r`n    "platform_fee_get_success": "Lấy thông tin phí sàn thành công.",`r`n    "platform_fee_updated": "Cập nhật phí sàn thành công!",
+    "dispute_resolved_success": "Giải quyết khiếu nại thành công.",
     "portfolio_create_success": "Tạo tác phẩm mẫu Studio thành công!",
     "portfolio_update_success": "Cập nhật tác phẩm mẫu Studio thành công!",
     "portfolio_delete_success": "Xóa tác phẩm mẫu Studio thành công!",
@@ -443,7 +434,7 @@
     "disputes_fetch_success": "Lấy danh sách khiếu nại thành công.",
     "dispute_stats_fetch_success": "Lấy thống kê khiếu nại thành công.",
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
-    "dispute_resolved_success": "Phân xử khiếu nại thành công!",`r`n    "platform_fee_get_success": "Lấy thông tin phí sàn thành công.",`r`n    "platform_fee_updated": "Cập nhật phí sàn thành công!"
+    "dispute_resolved_success": "Phân xử khiếu nại thành công!"
   },
   "dispute": {
     "not_in_disputed_state": "Đơn hàng không nằm ở trạng thái tranh chấp (DISPUTED).",
@@ -639,7 +630,6 @@
     "message_too_long": "Nội dung câu hỏi không được vượt quá 1000 ký tự.",
     "session_code_required": "Mã phiên trò chuyện không được để trống.",
     "session_not_found": "Không tìm thấy phiên trò chuyện yêu cầu.",
-    "session_access_denied": "Bạn không có quyền truy cập vào phiên trò chuyện này.",
     "chat_success": "Phản hồi từ trợ lý AI thành công.",
     "session_closed_success": "Đã kết thúc phiên trò chuyện thành công."
   },
