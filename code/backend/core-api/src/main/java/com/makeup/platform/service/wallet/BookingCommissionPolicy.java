@@ -1,15 +1,28 @@
 package com.makeup.platform.service.wallet;
 
 import com.makeup.platform.entity.booking.BookingEntity;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
 import java.math.BigDecimal;
 
-/** Studio platform fees do not depend on the customer's payment method. */
-public final class BookingCommissionPolicy {
-    private static final BigDecimal STUDIO_RATE = new BigDecimal("0.20");
 
-    private BookingCommissionPolicy() {}
+@Component
+@RequiredArgsConstructor
+public class BookingCommissionPolicy {
 
-    public static BigDecimal rateFor(BookingEntity booking, BigDecimal freelanceRate) {
-        return booking.getAgency() != null ? STUDIO_RATE : freelanceRate;
+    private final PlatformFeeService platformFeeService;
+
+    public BigDecimal rateFor(BookingEntity booking) {
+        return platformFeeService.getRate();
+    }
+
+    public BigDecimal rateFor(BookingEntity booking, BigDecimal fallback) {
+        return platformFeeService.getRate();
+    }
+
+ 
+    public BigDecimal getRate() {
+        return platformFeeService.getRate();
     }
 }

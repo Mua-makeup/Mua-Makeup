@@ -1,4 +1,4 @@
-package com.makeup.platform.entity.mua;
+﻿package com.makeup.platform.entity.mua;
 
 import com.makeup.platform.common.base.BaseEntity;
 import com.makeup.platform.entity.auth.UserEntity;
@@ -142,7 +142,7 @@ public class MuaProfileEntity extends BaseEntity {
 
     @Column(name = "commission_rate", nullable = false, precision = 4, scale = 2)
     @Builder.Default
-    private BigDecimal commissionRate = new BigDecimal("0.20");
+    private BigDecimal commissionRate = new BigDecimal("0.15");
 }
 
 

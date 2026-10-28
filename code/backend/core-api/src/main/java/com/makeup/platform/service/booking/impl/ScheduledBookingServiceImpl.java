@@ -1,4 +1,4 @@
-package com.makeup.platform.service.booking.impl;
+﻿package com.makeup.platform.service.booking.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.event.booking.BookingDepositExpiredEvent;
@@ -66,6 +66,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import com.makeup.platform.service.booking.StudioDisputeFinanceService;
+import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 import java.time.temporal.ChronoUnit;
 
 @Slf4j
@@ -93,6 +94,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
     private final MakeupStyleRepository makeupStyleRepository;
     private final MuaReputationService muaReputationService;
     private final DynamicPricingService dynamicPricingService;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
     private static final int DEFAULT_BUFFER_MINUTES = 30;
@@ -777,7 +779,8 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             }
 
             BigDecimal serviceSubtotal = b.getServiceSubtotal() != null ? b.getServiceSubtotal() : BigDecimal.ZERO;
-            BigDecimal platformFee = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal commissionRate = bookingCommissionPolicy.rateFor(b);
+            BigDecimal platformFee = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
             BigDecimal surchargeFee = b.getSurchargeFee() != null ? b.getSurchargeFee() : BigDecimal.ZERO;
             BigDecimal distanceFee = b.getDistanceFee() != null ? b.getDistanceFee() : BigDecimal.ZERO;
             BigDecimal earningsAmount = (b.getTotalAmount() != null ? b.getTotalAmount() : serviceSubtotal).subtract(platformFee);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { DollarSign, Percent, AlertCircle, Save, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
@@ -106,7 +106,7 @@ export const EditStaffCommissionSplitModal = ({
     });
   };
 
-  const platformFeeRate = 0.20;
+  const platformFeeRate = Number(booking.platformFeeRate ?? 0.15);
   const platformFee = Math.round(totalAmount * platformFeeRate);
   const totalCommissions = items.reduce((acc, curr) => acc + (Number(curr.commissionAmount) || 0), 0);
   const studioNet = totalAmount - platformFee - totalCommissions;

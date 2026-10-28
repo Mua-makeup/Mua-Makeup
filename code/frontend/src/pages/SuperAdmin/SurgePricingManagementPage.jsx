@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   TrendingUp,
   Plus,
@@ -15,6 +15,8 @@ import { Toast } from '../../components/base/Toast';
 import { ConfirmDialog } from '../../components/base/ConfirmDialog';
 import { DataTable } from '../../components/base/DataTable';
 import { SurgeRuleModal } from '../../components/features/admin/SurgeRuleModal';
+import { PlatformFeeModal } from '../../components/features/admin/PlatformFeeModal';
+import { Percent } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { useI18nStore } from '../../store/useI18nStore';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
@@ -32,6 +34,7 @@ export const SurgePricingManagementPage = () => {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPlatformFeeOpen, setIsPlatformFeeOpen] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [togglingRuleId, setTogglingRuleId] = useState(null);
@@ -203,16 +206,26 @@ export const SurgePricingManagementPage = () => {
           </div>
         </div>
 
-        <Button
-          onClick={() => {
-            setEditingRule(null);
-            setIsModalOpen(true);
-          }}
-          icon={Plus}
-          className="shadow-md shadow-rose-500/20 shrink-0 w-full sm:w-auto"
-        >
-          {t('surge_rule_btn_add')}
-        </Button>
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() => setIsPlatformFeeOpen(true)}
+            icon={Percent}
+            className="shrink-0 w-full sm:w-auto"
+          >
+            {t('btn_platform_fee') || 'Phí Sàn Nền Tảng'}
+          </Button>
+          <Button
+            onClick={() => {
+              setEditingRule(null);
+              setIsModalOpen(true);
+            }}
+            icon={Plus}
+            className="shadow-md shadow-rose-500/20 shrink-0 w-full sm:w-auto"
+          >
+            {t('surge_rule_btn_add')}
+          </Button>
+        </div>
       </div>
 
       {/* Toast Notification (Auto dismiss after 3s) */}
@@ -461,6 +474,15 @@ export const SurgePricingManagementPage = () => {
         onSubmit={handleSaveRule}
         initialData={editingRule}
         isLoading={isSubmitting}
+      />
+
+      {/* PLATFORM FEE MODAL */}
+      <PlatformFeeModal
+        isOpen={isPlatformFeeOpen}
+        onClose={() => setIsPlatformFeeOpen(false)}
+        onSuccess={(updatedPercent) => {
+          setToastMessage({ text: "Đã cập nhật phí sàn nền tảng: $%", type: 'success' });
+        }}
       />
 
       {/* CONFIRM DELETE DIALOG */}
