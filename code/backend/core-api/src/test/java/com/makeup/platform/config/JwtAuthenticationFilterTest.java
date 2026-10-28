@@ -7,6 +7,9 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.SecurityConstants;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.common.utils.JwtUtils;
+import com.makeup.platform.common.utils.CookieUtils;
+import com.makeup.platform.common.i18n.JsonMessageSource;
+import org.springframework.web.servlet.LocaleResolver;
 import com.makeup.platform.service.auth.RedisTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -50,6 +53,15 @@ class JwtAuthenticationFilterTest {
     private RedisTokenService redisTokenService;
 
     @Mock
+    private CookieUtils cookieUtils;
+
+    @Mock
+    private JsonMessageSource messageSource;
+
+    @Mock
+    private LocaleResolver localeResolver;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock
@@ -69,9 +81,9 @@ class JwtAuthenticationFilterTest {
     void setUp() throws IOException {
         SecurityContextHolder.clearContext();
         objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtUtils, redisTokenService, objectMapper);
-        entryPoint = new JwtAuthenticationEntryPoint(objectMapper);
-        accessDeniedHandler = new CustomAccessDeniedHandler(objectMapper);
+        jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtUtils, redisTokenService, objectMapper, cookieUtils);
+        entryPoint = new JwtAuthenticationEntryPoint(objectMapper, messageSource, localeResolver);
+        accessDeniedHandler = new CustomAccessDeniedHandler(objectMapper, messageSource, localeResolver);
 
         responseWriter = new StringWriter();
         lenient().when(response.getWriter()).thenReturn(new PrintWriter(responseWriter));

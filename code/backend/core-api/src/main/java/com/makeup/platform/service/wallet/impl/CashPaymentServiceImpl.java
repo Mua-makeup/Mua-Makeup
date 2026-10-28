@@ -36,6 +36,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import java.math.RoundingMode;
 
 @Slf4j
 @Service
@@ -298,6 +299,13 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     }
 
     private BookingCashReceiptEntity checkAndTriggerSettlement(BookingCashReceiptEntity receipt, Long bookingId) {
+        BookingEntity studioBooking = bookingRepository.findById(bookingId).orElse(null);
+        if (studioBooking != null && studioBooking.getAgency() != null) {
+            studioBooking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
+            if (studioBooking.getStatus() != BookingStatus.COMPLETED && studioBooking.getStatus() != BookingStatus.PAID_OUT) {
+                throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+            }
+        }
         if (receipt.getCustomerConfirmedAt() != null && receipt.getFreelancerConfirmedAt() != null) {
             receipt.setStatus("BOTH_CONFIRMED");
             cashReceiptRepository.save(receipt);
@@ -317,13 +325,14 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             try {
                 bookingSettlementService.settleBooking(bookingId, defaultCommissionRate);
             } catch (Exception e) {
+                if (studioBooking != null && studioBooking.getAgency() != null) throw e;
                 log.error("[CashReceipt] Settlement trigger error for booking {}: {}", bookingId, e.getMessage(), e);
             }
 
             try {
-                BigDecimal totalAmount = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.ZERO;
-                BigDecimal depositAmount = booking != null && booking.getDepositAmount() != null ? booking.getDepositAmount() : java.math.BigDecimal.ZERO;
-                BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, java.math.RoundingMode.HALF_UP);
+                BigDecimal totalAmount = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+                BigDecimal depositAmount = booking != null && booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+                BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, RoundingMode.HALF_UP);
                 BigDecimal earningsAmount = totalAmount.subtract(commission);
 
                 Map<String, Object> payload = new HashMap<>();

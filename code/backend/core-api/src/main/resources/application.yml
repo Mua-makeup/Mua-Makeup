@@ -92,4 +92,9 @@ gemini:
   model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
   embedding-model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
 
+discord:
+  webhook:
+    error-url: ${DISCORD_WEBHOOK_ERROR:}
+    enabled: ${DISCORD_ALERTS_ENABLED:true}
+
 

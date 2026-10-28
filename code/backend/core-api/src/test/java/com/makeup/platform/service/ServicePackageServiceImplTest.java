@@ -39,12 +39,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.makeup.platform.mapper.catalog.MasterTaxonomyMapper;
+import com.makeup.platform.mapper.catalog.PackageItemMapper;
+import com.makeup.platform.mapper.catalog.ServicePackageMapper;
+import com.makeup.platform.repository.catalog.PortfolioShowcaseRepository;
+import org.mockito.Spy;
 
 @ExtendWith(MockitoExtension.class)
 class ServicePackageServiceImplTest {
 
     @Mock
     private ServicePackageRepository packageRepository;
+
+    @Mock
+    private PortfolioShowcaseRepository portfolioShowcaseRepository;
 
     @Mock
     private MasterCategoryRepository masterCategoryRepository;
@@ -55,10 +63,10 @@ class ServicePackageServiceImplTest {
     @Mock
     private CatalogOwnerHelper ownerHelper;
 
-    @org.mockito.Spy
-    private com.makeup.platform.mapper.catalog.ServicePackageMapper packageMapper = new com.makeup.platform.mapper.catalog.ServicePackageMapper(
-            new com.makeup.platform.mapper.catalog.MasterTaxonomyMapper(),
-            new com.makeup.platform.mapper.catalog.PackageItemMapper()
+    @Spy
+    private ServicePackageMapper packageMapper = new ServicePackageMapper(
+            new MasterTaxonomyMapper(),
+            new PackageItemMapper()
     );
 
     @InjectMocks
@@ -94,6 +102,7 @@ class ServicePackageServiceImplTest {
     @Test
     @DisplayName("Tạo gói dịch vụ thành công cho Freelance MUA")
     void testCreatePackage_Success() {
+        when(ownerHelper.hasVerifiedCertificate(testMua)).thenReturn(true);
         CreatePackageReq req = CreatePackageReq.builder()
                 .masterCategoryId(1)
                 .packageName("Gói Trang Điểm Cô Dâu VIP")

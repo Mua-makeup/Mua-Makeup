@@ -56,6 +56,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
@@ -1068,6 +1070,15 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
 
         Long bookingId = payment.getBooking().getId();
+        if (payment.getBooking().getAgency() != null) {
+            var lockedBooking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
+            if ("REFUNDED".equals(payment.getApplicationStatus())) return;
+            if (lockedBooking.getStatus() == BookingStatus.DISPUTED
+                    || lockedBooking.getStatus() == BookingStatus.DISPUTE_REFUNDED
+                    || lockedBooking.getStatus() == BookingStatus.DISPUTE_COMPENSATED) {
+                throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+            }
+        }
         // Serialize different payment attempts for the same booking as well as retries.
         BookingDepositEntity deposit = bookingDepositRepository.findByBookingIdWithLock(bookingId).orElseThrow();
         if ("APPLIED".equals(payment.getApplicationStatus()) && "POSTED".equals(payment.getWalletPostingStatus())) return;
@@ -1077,7 +1088,11 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         }
         BigDecimal defaultCommissionRate = new BigDecimal("0.20");
 
-        bookingSettlementService.settleBookingOnlinePayment(bookingId, defaultCommissionRate);
+        if (payment.getBooking().getAgency() != null) {
+            bookingSettlementService.settleBookingOnlinePaymentInTransaction(bookingId, defaultCommissionRate);
+        } else {
+            bookingSettlementService.settleBookingOnlinePayment(bookingId, defaultCommissionRate);
+        }
 
         WalletEntity customerWallet = walletRepository.findByUserIdWithLock(payment.getUser().getId())
                 .orElseGet(() -> createWalletForUser(payment.getUser().getId(), payment.getUser()));
@@ -1100,10 +1115,10 @@ public class BookingDepositServiceImpl implements BookingDepositService {
 
         try {
             var booking = payment.getBooking();
-            java.math.BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : java.math.BigDecimal.ZERO;
-            java.math.BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, java.math.RoundingMode.HALF_UP);
-            java.math.BigDecimal earningsAmount = totalAmount.subtract(commission);
+            BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+            BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal earningsAmount = totalAmount.subtract(commission);
 
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "PAYMENT_COMPLETED");
@@ -1134,9 +1149,9 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 }
             }
             };
-            if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                        new org.springframework.transaction.support.TransactionSynchronization() {
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronization() {
                             @Override public void afterCommit() {
                                 try { broadcast.run(); } catch (Exception ex) { log.warn("Payment notification failed for {}", bookingId, ex); }
                             }

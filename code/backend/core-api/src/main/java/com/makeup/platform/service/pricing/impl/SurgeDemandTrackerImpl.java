@@ -32,7 +32,7 @@ public class SurgeDemandTrackerImpl implements SurgeDemandTracker {
     public RealtimeSurgeResult evaluateRealtimeSurge(BigDecimal customerLat, BigDecimal customerLng) {
         if (customerLat == null || customerLng == null) {
             return new RealtimeSurgeResult(
-                    PricingConstants.MIN_SURGE_MULTIPLIER,
+                    PricingConstants.NORMAL_SURGE_MULTIPLIER,
                     0, 0, BigDecimal.ONE,
                     "Không xác định được tọa độ khách hàng",
                     "NORMAL"
@@ -75,7 +75,7 @@ public class SurgeDemandTrackerImpl implements SurgeDemandTracker {
             // 5. Tính toán hệ số nhân giá theo tỷ lệ Cung / Cầu
             if (rawRatio <= 1.0) {
                 return new RealtimeSurgeResult(
-                        PricingConstants.MIN_SURGE_MULTIPLIER,
+                        PricingConstants.NORMAL_SURGE_MULTIPLIER,
                         demandCount, supplyCount, demandRatio,
                         "Cung cầu cân bằng tại khu vực",
                         "NORMAL"
@@ -104,7 +104,7 @@ public class SurgeDemandTrackerImpl implements SurgeDemandTracker {
             // CƠ CHẾ DỰ PHÒNG SẬP REDIS: Bắt ngoại lệ, không làm gián đoạn request, fallback an toàn về 1.00x
             log.warn("Redis demand/supply evaluation error: {}. Falling back gracefully to 1.00x multiplier.", e.getMessage());
             return new RealtimeSurgeResult(
-                    PricingConstants.MIN_SURGE_MULTIPLIER,
+                    PricingConstants.NORMAL_SURGE_MULTIPLIER,
                     0, 0, BigDecimal.ONE,
                     "Khung giờ bình thường (Redis fallback)",
                     "NORMAL"

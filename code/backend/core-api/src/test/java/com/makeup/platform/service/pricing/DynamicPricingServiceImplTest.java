@@ -49,6 +49,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
+import org.mockito.Mockito;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DynamicPricingServiceImpl Unit Tests")
@@ -206,10 +207,10 @@ class DynamicPricingServiceImplTest {
 
         InvoicePreviewRes res = dynamicPricingService.calculatePreviewInvoice(req);
 
-        org.mockito.Mockito.verify(mapsClientService).getDistanceAndDuration(
+        Mockito.verify(mapsClientService).getDistanceAndDuration(
                 eq(mockMua.getBaseAddressLat()), eq(mockMua.getBaseAddressLng()),
                 eq(req.getCustomerLatitude()), eq(req.getCustomerLongitude()));
-        org.mockito.Mockito.verifyNoInteractions(redisTemplate, telemetryLogRepository);
+        Mockito.verifyNoInteractions(redisTemplate, telemetryLogRepository);
         assertNotNull(res);
         assertEquals("Gói Trang điểm Cô Dâu Luxury", res.getPackageInfo().getPackageName());
         assertEquals(new BigDecimal("2580000.00"), res.getServiceSubtotal());

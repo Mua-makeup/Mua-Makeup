@@ -1,0 +1,94 @@
+flowchart TB
+    subgraph device["THIẾT BỊ NGƯỜI DÙNG"]
+        browser["Trình duyệt<br/>Khách hàng · Thợ · Studio · Admin"]
+        native["Ứng dụng Expo / React Native<br/>Android / iOS"]
+    end
+
+    subgraph hosting["VERCEL — Cấu hình hosting frontend"]
+        web["React / Vite<br/>Web quản trị và studio"]
+        expo["Expo Web<br/>Web khách hàng và thợ"]
+    end
+    browser -->|"HTTPS: tải HTML / JS / CSS"| web
+    browser -->|"HTTPS: tải HTML / JS / CSS"| expo
+
+    browser -->|"REST / WebSocket từ trình duyệt"| ingress
+    native -->|"REST / WebSocket"| ingress
+
+    subgraph server["VPS — Máy chủ triển khai theo Docker Compose production"]
+        http["Nginx :80<br/>Đúng domain → 301 HTTPS<br/>Fallback → 404"]
+        ingress["Nginx :443 — Reverse Proxy / TLS<br/>mua-makeup.duckdns.org<br/>HTTPS / WSS · Body tối đa 50 MB"]
+        cert["Let's Encrypt / Certbot<br/>Chứng chỉ TLS cho Nginx"]
+        auth["Nginx Basic Auth<br/>Bảo vệ /grafana/"]
+        blocked["Nginx trả 444<br/>URL khớp regex chặn"]
+        http -->|"301: client gửi lại qua HTTPS"| ingress
+        cert --- ingress
+        ingress -->|"Regex chặn trong backend.conf"| blocked
+        subgraph docker["Docker bridge network: makeup_network"]
+            api["core-api :8080<br/>Spring Boot / Java 17<br/>REST · STOMP · JWT<br/>Nghiệp vụ · Scheduler · Events"]
+            pg[("PostgreSQL + PostGIS :5432<br/>Dữ liệu nghiệp vụ")]
+            redis[("Redis :6379<br/>Token · GEO · TTL · Khóa")]
+            api -->|"JPA / SQL"| pg
+            api -->|"Redis / Redisson"| redis
+
+            subgraph monitoring["Giám sát và vận hành"]
+                promtail["Promtail"]
+                loki["Loki"]
+                exporter["Node Exporter"]
+                prom["Prometheus"]
+                grafana["Grafana :3000"]
+                bot["Discord Bot"]
+                promtail -->|"Đẩy log"| loki
+                prom -->|"Scrape metrics"| exporter
+                grafana -->|"Truy vấn"| prom
+                grafana -->|"Truy vấn"| loki
+                bot -->|"/metrics"| exporter
+            end
+            logs["Log container<br/>Backend · PostgreSQL · Redis · Grafana"]
+            logs --> promtail
+            bot -->|"/actuator/health"| api
+        end
+        volumes[("Docker named volumes<br/>PostgreSQL · Redis<br/>Loki · Prometheus · Grafana")]
+        pg --- volumes
+        redis --- volumes
+        loki --- volumes
+        prom --- volumes
+        grafana --- volumes
+    end
+
+    browser -->|"HTTP :80"| http
+    ingress -->|"location / → HTTP 127.0.0.1:8080"| api
+    ingress -->|"/ws-makeup → WS 127.0.0.1:8080/ws-makeup"| api
+    ingress -->|"/grafana/ · HTTP/1.1 Upgrade"| auth
+    auth -->|"HTTP 127.0.0.1:3000"| grafana
+
+    subgraph external["DỊCH VỤ BÊN NGOÀI"]
+        pay["MoMo / VNPay"]
+        services["Goong Maps · Cloudinary<br/>Gemini · SMTP · Expo Push"]
+        discord["Discord"]
+    end
+    api -->|"Tạo thanh toán"| pay
+    pay -->|"Callback / IPN"| ingress
+    api --> services
+    api -->|"Webhook lỗi"| discord
+    bot <-->|"Lệnh / Phản hồi"| discord
+
+    subgraph cicd["CI/CD BACKEND"]
+        git["GitHub: main"]
+        actions["GitHub Actions<br/>Gradle bootJar · Docker build"]
+        hub["Docker Hub<br/>makeup-backend:latest"]
+        deploy["SSH vào VPS<br/>git pull · compose pull · compose up"]
+        git --> actions
+        actions -->|"Push image"| hub
+        actions --> deploy
+    end
+    hub -->|"Pull backend image"| deploy
+    deploy -->|"Triển khai stack"| docker
+
+    classDef client fill:#eff6ff,stroke:#2563eb,color:#172554;
+    classDef core fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+    classDef data fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+    classDef ops fill:#faf5ff,stroke:#9333ea,color:#581c87;
+    class browser,native,web,expo client;
+    class api core;
+    class pg,redis,volumes data;
+    class promtail,loki,exporter,prom,grafana,bot,actions,hub,deploy ops;

@@ -4,6 +4,7 @@ import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
 import com.makeup.platform.service.pricing.impl.DistanceFeeServiceImpl;
+import com.makeup.platform.repository.pricing.DistanceFeeTierRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 @DisplayName("DistanceFeeServiceImpl Unit Tests")
 class DistanceFeeServiceImplTest {
@@ -19,7 +21,7 @@ class DistanceFeeServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        distanceFeeService = new DistanceFeeServiceImpl();
+        distanceFeeService = new DistanceFeeServiceImpl(mock(DistanceFeeTierRepository.class));
     }
 
     @Test

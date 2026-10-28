@@ -18,10 +18,12 @@ import java.util.List;
 import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 
 @ExtendWith(MockitoExtension.class)
 class FinalPaymentSettlementTest {
     @Mock BookingRepository bookings;
+    @Mock BookingStaffAssignmentRepository staffAssignments;
     @Mock BookingDepositRepository deposits;
     @Mock BookingSettlementRepository settlements;
     @Mock WalletRepository wallets;
@@ -36,7 +38,6 @@ class FinalPaymentSettlementTest {
         booking.setStatus(BookingStatus.COMPLETED); booking.setTotalAmount(new BigDecimal("1000000"));
         var deposit = BookingDepositEntity.builder().status("PAID").paidAmount(new BigDecimal("300000")).build();
         var wallet = WalletEntity.builder().availableBalance(new BigDecimal("100000")).build();
-        when(deposits.findByBookingIdWithLock(9L)).thenReturn(Optional.of(deposit));
         when(deposits.findByBookingId(9L)).thenReturn(Optional.of(deposit));
         when(bookings.findById(9L)).thenReturn(Optional.of(booking));
         when(wallets.findByUserIdWithLock(5L)).thenReturn(Optional.of(wallet));

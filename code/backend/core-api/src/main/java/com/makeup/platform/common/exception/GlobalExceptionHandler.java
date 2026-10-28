@@ -6,12 +6,17 @@ import com.makeup.platform.common.i18n.JsonMessageSource;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.util.StringUtils;
+import com.makeup.platform.service.interaction.DiscordAlertService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -20,18 +25,30 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.text.MessageFormat;
 
 @Slf4j
 @RestControllerAdvice
-@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
     private final JsonMessageSource messageSource;
+    private final DiscordAlertService discordAlertService;
+
+    @Autowired
+    public GlobalExceptionHandler(JsonMessageSource messageSource, @Autowired(required = false) DiscordAlertService discordAlertService) {
+        this.messageSource = messageSource;
+        this.discordAlertService = discordAlertService;
+    }
+
+    public GlobalExceptionHandler(JsonMessageSource messageSource) {
+        this(messageSource, null);
+    }
 
     private String getLocalizedMessage(String key, Object[] args, String defaultMessage) {
         Locale locale = LocaleContextHolder.getLocale();
@@ -77,7 +94,7 @@ public class GlobalExceptionHandler {
 
         if (ex.getArgs() != null && ex.getArgs().length > 0 && StringUtils.hasText(ex.getMessage()) && ex.getMessage().contains("{")) {
             try {
-                return java.text.MessageFormat.format(ex.getMessage(), ex.getArgs());
+                return MessageFormat.format(ex.getMessage(), ex.getArgs());
             } catch (Exception ignored) {
             }
         }
@@ -180,6 +197,15 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCodes.ERR_VALIDATION, message));
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+        log.warn("Method argument type mismatch: parameter '{}', value '{}', required type '{}'",
+                ex.getName(), ex.getValue(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+        String message = getLocalizedMessage("common.argument_type_mismatch", new Object[]{ex.getName()}, "Tham số '" + ex.getName() + "' không đúng định dạng.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorCodes.ERR_VALIDATION, message));
+    }
+
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoResourceFoundException(NoResourceFoundException ex) {
         log.debug("Static resource not found: {}", ex.getResourcePath());
@@ -188,10 +214,27 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
+    public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex, HttpServletRequest request) {
         log.error("Internal server error: ", ex);
+        if (discordAlertService != null) {
+            String uri = request != null ? request.getRequestURI() : "UNKNOWN";
+            String method = request != null ? request.getMethod() : "UNKNOWN";
+            String userPrincipal = extractCurrentUser();
+            discordAlertService.sendExceptionAlert(uri, method, userPrincipal, ex);
+        }
         String message = getLocalizedMessage("common.internal_error", null, "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(ErrorCodes.ERR_INTERNAL, message));
+    }
+
+    private String extractCurrentUser() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+                return auth.getName();
+            }
+        } catch (Exception ignored) {
+        }
+        return "Anonymous";
     }
 }

@@ -61,6 +61,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import com.makeup.platform.repository.AgencyStaffServiceRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AgencyStaffServiceImplTest {
@@ -70,6 +71,9 @@ class AgencyStaffServiceImplTest {
 
     @Mock
     private AgencyStaffRepository agencyStaffRepository;
+
+    @Mock
+    private AgencyStaffServiceRepository agencyStaffServiceRepository;
 
     @Mock
     private AgencyStaffStyleRepository agencyStaffStyleRepository;
@@ -120,6 +124,7 @@ class AgencyStaffServiceImplTest {
 
         mockAgency = AgencyProfileEntity.builder()
                 .agencyCode("AG00105")
+                .isVerified(true)
                 .agencyName("Glamour Bridal Luxury Studio")
                 .hotline("02838383838")
                 .addressStreet("88 Đồng Khởi")

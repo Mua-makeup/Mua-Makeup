@@ -1,0 +1,60 @@
+flowchart TB
+    customer["Khách hàng / Thợ freelance / Nhân viên studio"]
+    admin["Quản trị viên / Chủ studio"]
+
+    subgraph clients["LỚP GIAO DIỆN"]
+        app["Expo / React Native<br/>Android · iOS · Web"]
+        web["React / Vite<br/>Web quản trị và studio"]
+    end
+    customer --> app
+    admin --> web
+
+    subgraph backend["BACKEND — Một ứng dụng Spring Boot / Java 17"]
+        rest["REST API /api/v1<br/>Spring Security · JWT · Phân quyền"]
+        ws["WebSocket /ws-makeup<br/>STOMP · Cập nhật thời gian thực"]
+        business["Các module nghiệp vụ<br/>Tài khoản · Studio · Thợ · Danh mục<br/>Đặt lịch · Điều phối · Định vị<br/>Thanh toán · Ví · Khiếu nại · Đánh giá · AI"]
+        jobs["Scheduler / Sự kiện nội bộ<br/>Hết hạn · Nhắc lịch · Thông báo"]
+        data["Spring Data JPA / Hibernate<br/>Truy cập dữ liệu · Giao dịch"]
+        rest --> business
+        ws --> business
+        business --> data
+        business --> jobs
+        jobs --> business
+        business --> ws
+    end
+
+    app -->|"HTTPS / JSON"| rest
+    web -->|"HTTPS / JSON"| rest
+    app <-->|"WSS / STOMP"| ws
+    web <-->|"WSS / STOMP"| ws
+
+    subgraph storage["LỚP DỮ LIỆU"]
+        pg[("PostgreSQL + PostGIS<br/>8 schema nghiệp vụ<br/>Flyway migrations")]
+        redis[("Redis / Redisson<br/>Token · GEO · TTL<br/>Khóa phân tán")]
+    end
+    data --> pg
+    business --> redis
+    rest -->|"Kiểm tra token"| redis
+
+    subgraph external["DỊCH VỤ TÍCH HỢP"]
+        payment["MoMo / VNPay<br/>Cổng thanh toán"]
+        maps["Goong Maps<br/>Bản đồ / Khoảng cách"]
+        media["Cloudinary<br/>Lưu trữ hình ảnh"]
+        ai["Google Gemini<br/>Hỗ trợ AI"]
+        notify["SMTP / Expo Push<br/>Email / Thông báo đẩy"]
+    end
+    business -->|"Tạo thanh toán"| payment
+    payment -->|"Callback / IPN"| rest
+    business --> maps
+    business --> media
+    business --> ai
+    jobs --> notify
+
+    classDef client fill:#eff6ff,stroke:#2563eb,color:#172554;
+    classDef core fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+    classDef db fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+    classDef integration fill:#faf5ff,stroke:#9333ea,color:#581c87;
+    class app,web client;
+    class rest,ws,business,jobs,data core;
+    class pg,redis db;
+    class payment,maps,media,ai,notify integration;

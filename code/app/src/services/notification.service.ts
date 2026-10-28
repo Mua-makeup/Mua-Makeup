@@ -23,6 +23,8 @@ export interface NotificationPageResponse {
   size: number;
 }
 
+const isNumericId = (id: any): boolean => id != null && !isNaN(Number(id)) && /^\d+$/.test(String(id).trim());
+
 export const notificationService = {
   /**
    * Lấy danh sách thông báo phân trang từ CSDL
@@ -56,6 +58,9 @@ export const notificationService = {
    * Đánh dấu 1 thông báo là đã đọc
    */
   async markAsRead(id: number): Promise<NotificationItem> {
+    if (!isNumericId(id)) {
+      return null as any;
+    }
     const res = await apiClient.patch(`/notifications/${id}/read`);
     return res.data?.data;
   },
@@ -64,6 +69,9 @@ export const notificationService = {
    * Bật/tắt trạng thái đã đọc của 1 thông báo
    */
   async toggleRead(id: number): Promise<NotificationItem> {
+    if (!isNumericId(id)) {
+      return null as any;
+    }
     const res = await apiClient.patch(`/notifications/${id}/toggle-read`);
     return res.data?.data;
   },
@@ -79,6 +87,9 @@ export const notificationService = {
    * Xóa 1 thông báo khỏi lịch sử
    */
   async deleteNotification(id: number): Promise<void> {
+    if (!isNumericId(id)) {
+      return;
+    }
     await apiClient.delete(`/notifications/${id}`);
   },
 

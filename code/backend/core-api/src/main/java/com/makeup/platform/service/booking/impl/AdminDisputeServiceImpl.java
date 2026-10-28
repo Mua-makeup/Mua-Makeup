@@ -26,6 +26,7 @@ import com.makeup.platform.repository.wallet.WalletHoldRepository;
 import com.makeup.platform.repository.wallet.WalletRepository;
 import com.makeup.platform.service.booking.AdminDisputeService;
 import com.makeup.platform.service.booking.BookingAuditService;
+import com.makeup.platform.service.booking.DisputeStageService;
 import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.mua.MUACalendarService;
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.makeup.platform.service.booking.StudioDisputeFinanceService;
 
 @Slf4j
 @Service
@@ -57,6 +59,7 @@ import java.util.Optional;
 public class AdminDisputeServiceImpl implements AdminDisputeService {
 
     private final BookingRepository bookingRepository;
+    private final StudioDisputeFinanceService studioFinance;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final WalletHoldRepository walletHoldRepository;
@@ -64,6 +67,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     private final MuaProfileRepository muaProfileRepository;
     private final BookingAuditService bookingAuditService;
     private final BookingSettlementService bookingSettlementService;
+    private final DisputeStageService disputeStageService;
     private final BookingDepositRepository bookingDepositRepository;
     private final AdminDisputeMapper adminDisputeMapper;
     private final SimpMessagingTemplate messagingTemplate;
@@ -212,7 +216,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
     @Override
     @Transactional
     public AdminDisputeRes resolveDispute(Long bookingId, Long adminUserId, ResolveDisputeReq req) {
-        BookingEntity booking = bookingRepository.findById(bookingId)
+        BookingEntity booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_BOOKING_NOT_FOUND,
                         "booking.not_found", HttpStatus.NOT_FOUND));
 
@@ -230,11 +234,18 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
         BookingStatus currentStatus = booking.getStatus();
         BookingStatus targetStatus;
 
-        boolean isCompletedService = StringUtils.hasText(booking.getCompletionPhotoUrl())
-                || (booking.getTotalAmount() != null && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0
-                    && booking.getDepositAmount() != null && booking.getTotalAmount().compareTo(booking.getDepositAmount()) > 0);
+        boolean isCompletedService = disputeStageService.isCompletedService(booking);
 
-        if ("APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)) {
+        StudioDisputeFinanceService.Financials studioFinancials = null;
+        if (booking.getAgency() != null) {
+            if (!StudioDisputeFinanceService.escalated(booking)) {
+                throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                        "dispute.studio_not_escalated", HttpStatus.CONFLICT);
+            }
+            studioFinancials = studioFinance.inspect(booking);
+            targetStatus = studioFinance.resolve(booking, resolution, note);
+            booking.setCancellationReason("Admin xử lý khiếu nại studio: " + resolution + ". " + note);
+        } else if ("APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)) {
             targetStatus = BookingStatus.DISPUTE_REFUNDED;
 
             // 1. Xác định số tiền hoàn lại: Nếu khiếu nại sau ca đã hoàn thành thì hoàn 100% tổng tiền đơn (totalAmount), ngược lại hoàn tiền cọc (depositAmount)
@@ -255,7 +266,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
 
             if (refundAmount.compareTo(BigDecimal.ZERO) > 0 && booking.getCustomer() != null) {
                 Long customerId = booking.getCustomer().getId();
-                WalletEntity customerWallet = walletRepository.findByUserId(customerId)
+                WalletEntity customerWallet = walletRepository.findByUserIdWithLock(customerId)
                         .orElseGet(() -> walletRepository.save(WalletEntity.builder()
                                 .user(booking.getCustomer())
                                 .availableBalance(BigDecimal.ZERO)
@@ -267,18 +278,17 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 BigDecimal newBalance = currentAvailable.add(refundAmount);
                 customerWallet.setAvailableBalance(newBalance);
 
-                BigDecimal curFrozen = customerWallet.getFrozenBalance() != null ? customerWallet.getFrozenBalance() : BigDecimal.ZERO;
-                customerWallet.setFrozenBalance(curFrozen.subtract(depositAmount).max(BigDecimal.ZERO));
-                walletRepository.save(customerWallet);
-
                 // Release hold
                 Optional<WalletHoldEntity> holdOpt = walletHoldRepository.findByBookingIdAndStatus(bookingId, "ACTIVE");
                 if (holdOpt.isPresent()) {
                     WalletHoldEntity hold = holdOpt.get();
+                    BigDecimal curFrozen = customerWallet.getFrozenBalance() != null ? customerWallet.getFrozenBalance() : BigDecimal.ZERO;
+                    customerWallet.setFrozenBalance(curFrozen.subtract(hold.getAmount()).max(BigDecimal.ZERO));
                     hold.setStatus("REFUNDED");
                     hold.setReleasedAt(OffsetDateTime.now());
                     walletHoldRepository.save(hold);
                 }
+                walletRepository.save(customerWallet);
 
                 // Ghi nhận sổ cái kế toán kép hoàn tiền cho khách
                 String idempotencyKey = "dispute_refund:booking:" + bookingId;
@@ -300,7 +310,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                 }
 
                 // Nếu ca đã hoàn thành và thợ/agency đã nhận thù lao trước đó, tiến hành thu hồi từ ví thợ/agency
-                if (isCompletedService) {
+                if (isCompletedService && disputeStageService.isSettled(bookingId)) {
                     UserEntity payeeUser = (booking.getAgency() != null && booking.getAgency().getOwner() != null)
                             ? booking.getAgency().getOwner()
                             : (booking.getMua() != null && booking.getMua().getUser() != null ? booking.getMua().getUser() : null);
@@ -578,7 +588,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                         ? "Khiếu Nại Đã Được Chấp Thuận: #" + savedBooking.getBookingCode()
                         : "Từ Chối Khiếu Nại Đơn Hàng: #" + savedBooking.getBookingCode();
                 String custContent = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)
-                        ? "Ban Quản Trị đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". " + (isCompletedService ? "Toàn bộ 100% tiền đơn hàng" : "Tiền cọc") + " đã được hoàn về ví của bạn. Ghi chú Admin: " + note
+                        ? "Ban Quản Trị đã chấp thuận khiếu nại đơn #" + savedBooking.getBookingCode() + ". " + (studioFinancials != null ? "Số tiền thực trả " + studioFinancials.paidAmount() + " VND" : (isCompletedService ? "Toàn bộ 100% tiền đơn hàng" : "Tiền cọc")) + " đã được hoàn về ví của bạn. Ghi chú Admin: " + note
                         : "Căn cứ lời khai giải trình và ảnh minh chứng của chuyên viên, Ban Quản Trị quyết định từ chối khiếu nại đơn #" + savedBooking.getBookingCode() + ". Ghi chú Admin: " + note;
                 notificationService.createInAppNotification(
                         savedBooking.getCustomer().getId(),
@@ -612,6 +622,11 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
                         : (isCompletedService
                                 ? "Ban Quản Trị đã duyệt lời khai giải trình của bạn cho đơn #" + savedBooking.getBookingCode() + " và từ chối khiếu nại của khách hàng. Bạn không bị trừ tiền, toàn bộ thù lao ca làm việc được bảo lưu nguyên vẹn. Ghi chú Admin: " + note
                                 : "Ban Quản Trị đã duyệt lời khai giải trình của bạn cho đơn #" + savedBooking.getBookingCode() + " và từ chối khiếu nại của khách hàng. Thù lao bồi thường cọc đã được cộng vào ví của bạn. Ghi chú Admin: " + note);
+                if (studioFinancials != null) {
+                    workerContent = "Admin đã xử lý khiếu nại đơn #" + savedBooking.getBookingCode()
+                            + ". Trạng thái: " + targetStatus.name()
+                            + ". Hoàn tiền theo số thực trả; bồi thường cọc thuộc ví chủ studio. Ghi chú: " + note;
+                }
                 notificationService.createInAppNotification(
                         workerUser.getId(),
                         savedBooking.getAgency() != null ? savedBooking.getAgency().getId() : null,
@@ -644,10 +659,11 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             BigDecimal actualRefund = BigDecimal.ZERO;
             BigDecimal actualPayout = BigDecimal.ZERO;
             BigDecimal depAmount = savedBooking.getDepositAmount() != null ? savedBooking.getDepositAmount() : BigDecimal.ZERO;
+            if (studioFinancials != null) depAmount = studioFinancials.paidDeposit();
             BigDecimal totAmount = savedBooking.getTotalAmount() != null ? savedBooking.getTotalAmount() : depAmount;
 
             if ("APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution)) {
-                actualRefund = isCompletedService ? totAmount : depAmount;
+                actualRefund = studioFinancials != null ? studioFinancials.paidAmount() : (isCompletedService ? totAmount : depAmount);
             } else if ("SPLIT_SETTLEMENT_50_50".equalsIgnoreCase(resolution) || "SPLIT_50_50".equalsIgnoreCase(resolution)) {
                 actualRefund = depAmount.divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
                 actualPayout = depAmount.subtract(actualRefund);
@@ -672,6 +688,7 @@ public class AdminDisputeServiceImpl implements AdminDisputeService {
             }
 
             // 2. Gửi Email kết quả phân xử tới Thợ MUA / Nhân viên Studio
+            if (studioFinancials != null) actualPayout = BigDecimal.ZERO;
             if (workerUser != null && StringUtils.hasText(workerUser.getEmail())) {
                 try {
                     emailService.sendWorkerDisputeResolutionEmail(

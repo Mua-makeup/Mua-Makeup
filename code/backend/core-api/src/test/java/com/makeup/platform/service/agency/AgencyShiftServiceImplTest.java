@@ -57,6 +57,7 @@ class AgencyShiftServiceImplTest {
     void setUp() {
         mockAgency = AgencyProfileEntity.builder()
                 .agencyName("Glamour Bridal")
+                .isVerified(true)
                 .build();
         mockAgency.setId(1L);
 
@@ -84,7 +85,7 @@ class AgencyShiftServiceImplTest {
                 .staff(mockStaff)
                 .dayOfWeek(2)
                 .shiftName("Ca Sáng Make-up Tiệc")
-                .startTime(LocalTime.of(7, 0))
+                .startTime(LocalTime.of(8, 0))
                 .endTime(LocalTime.of(12, 0))
                 .isRecurring(true)
                 .isActive(true)
@@ -96,7 +97,7 @@ class AgencyShiftServiceImplTest {
     void createShift_Success() {
         when(agencyProfileRepository.findByOwnerId(10L)).thenReturn(Optional.of(mockAgency));
         when(agencyStaffRepository.findById(101L)).thenReturn(Optional.of(mockStaff));
-        when(agencyStaffShiftRepository.findOverlappingShifts(101L, 2, LocalTime.of(7, 0), LocalTime.of(12, 0), null))
+        when(agencyStaffShiftRepository.findOverlappingRecurringShifts(101L, 2, LocalTime.of(8, 0), LocalTime.of(12, 0)))
                 .thenReturn(List.of());
         when(agencyStaffShiftRepository.save(any(AgencyStaffShiftEntity.class))).thenAnswer(invocation -> {
             AgencyStaffShiftEntity s = invocation.getArgument(0);
@@ -108,7 +109,7 @@ class AgencyShiftServiceImplTest {
                 .staffId(101L)
                 .dayOfWeek(2)
                 .shiftName("Ca Sáng Make-up Tiệc")
-                .startTime(LocalTime.of(7, 0))
+                .startTime(LocalTime.of(8, 0))
                 .endTime(LocalTime.of(12, 0))
                 .isRecurring(true)
                 .build();
@@ -147,14 +148,14 @@ class AgencyShiftServiceImplTest {
     void createShift_WhenShiftOverlapping_ShouldThrowConflictException() {
         when(agencyProfileRepository.findByOwnerId(10L)).thenReturn(Optional.of(mockAgency));
         when(agencyStaffRepository.findById(101L)).thenReturn(Optional.of(mockStaff));
-        when(agencyStaffShiftRepository.findOverlappingShifts(101L, 2, LocalTime.of(7, 0), LocalTime.of(12, 0), null))
+        when(agencyStaffShiftRepository.findOverlappingRecurringShifts(101L, 2, LocalTime.of(8, 0), LocalTime.of(12, 0)))
                 .thenReturn(List.of(mockShift));
 
         ConfigureShiftReq req = ConfigureShiftReq.builder()
                 .staffId(101L)
                 .dayOfWeek(2)
                 .shiftName("Ca Trùng")
-                .startTime(LocalTime.of(7, 0))
+                .startTime(LocalTime.of(8, 0))
                 .endTime(LocalTime.of(12, 0))
                 .build();
 

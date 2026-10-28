@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Repository
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransactionEntity, Long> {
@@ -38,8 +39,7 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     @Query("SELECT p.paymentCode FROM PaymentTransactionEntity p WHERE p.booking.id = :bookingId AND p.user.id = :customerId AND p.purpose = 'BOOKING_FINAL_PAYMENT' ORDER BY p.createdAt DESC")
     List<String> findFinalPaymentOwner(@Param("bookingId") Long bookingId, @Param("customerId") Long customerId);
 
-    @Query("SELECT p.paymentCode FROM PaymentTransactionEntity p WHERE p.purpose = 'BOOKING_FINAL_PAYMENT' AND (COALESCE(p.applicationStatus, '') <> 'APPLIED' OR COALESCE(p.walletPostingStatus, '') <> 'POSTED') AND p.createdAt >= :since AND p.paymentCode > :afterCode ORDER BY p.paymentCode")
-    List<String> findFinalPaymentsToReconcile(@Param("since") java.time.LocalDateTime since, @Param("afterCode") String afterCode, Pageable pageable);
+    @Query("SELECT p.paymentCode FROM PaymentTransactionEntity p WHERE p.purpose = 'BOOKING_FINAL_PAYMENT' AND COALESCE(p.applicationStatus, '') <> 'REFUNDED' AND (COALESCE(p.applicationStatus, '') <> 'APPLIED' OR COALESCE(p.walletPostingStatus, '') <> 'POSTED') AND p.createdAt >= :since AND p.paymentCode > :afterCode ORDER BY p.paymentCode")
+    List<String> findFinalPaymentsToReconcile(@Param("since") LocalDateTime since, @Param("afterCode") String afterCode, Pageable pageable);
 
 }
-

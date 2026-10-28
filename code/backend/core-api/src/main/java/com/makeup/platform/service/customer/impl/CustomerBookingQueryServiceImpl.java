@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import com.makeup.platform.entity.mua.MuaProfileEntity;
 
 @Slf4j
 @Service
@@ -101,7 +102,7 @@ public class CustomerBookingQueryServiceImpl implements CustomerBookingQueryServ
     public CustomerActiveTrackingRes getActiveTrackingBooking(Long userId) {
         List<BookingEntity> bookings = bookingRepository.findCustomerBookings(userId);
         if (bookings.isEmpty()) {
-            Optional<com.makeup.platform.entity.mua.MuaProfileEntity> muaOpt = muaProfileRepository.findByUserId(userId);
+            Optional<MuaProfileEntity> muaOpt = muaProfileRepository.findByUserId(userId);
             if (muaOpt.isPresent()) {
                 bookings = bookingRepository.findAllFreelancerBookings(muaOpt.get().getId());
             }

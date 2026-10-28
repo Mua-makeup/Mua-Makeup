@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import org.springframework.http.HttpStatus;
 
 @Slf4j
 @Service
@@ -22,7 +23,7 @@ public class FinalPaymentSyncService {
 
     public void syncBooking(Long bookingId, Long customerId) {
         if (!bookings.existsByIdAndCustomerId(bookingId, customerId)) {
-            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "booking.access_denied", org.springframework.http.HttpStatus.FORBIDDEN);
+            throw new CustomBusinessException(ErrorCodes.ERR_FORBIDDEN, "booking.access_denied", HttpStatus.FORBIDDEN);
         }
         for (String code : payments.findFinalPaymentOwner(bookingId, customerId)) reconciliation.reconcile(code);
     }

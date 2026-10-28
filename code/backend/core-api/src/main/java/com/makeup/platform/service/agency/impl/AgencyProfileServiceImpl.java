@@ -40,6 +40,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 
 @Slf4j
 @Service
@@ -258,8 +260,8 @@ public class AgencyProfileServiceImpl implements AgencyProfileService {
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), filtered.size());
         List<AgencyProfileRes> pagedList = start > filtered.size() ? List.of() : filtered.subList(start, end);
-        org.springframework.data.domain.Page<AgencyProfileRes> page =
-                new org.springframework.data.domain.PageImpl<>(pagedList, pageable, filtered.size());
+        Page<AgencyProfileRes> page =
+                new PageImpl<>(pagedList, pageable, filtered.size());
         return PageResponse.from(page);
     }
 
