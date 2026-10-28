@@ -370,8 +370,16 @@ export const StaffDetailPage = () => {
               {t('staff_metric_rating')}
             </span>
             <span className="text-sm sm:text-base font-extrabold text-amber-500 flex items-center justify-center gap-1 mt-0.5">
-              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-400 text-amber-400 shrink-0" />
-              <span>{detail.ratingAvg ? Number(detail.ratingAvg).toFixed(1) : '5.0'}</span>
+              {detail.ratingAvg ? (
+                <>
+                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-400 text-amber-400 shrink-0" />
+                  <span>{Number(detail.ratingAvg).toFixed(1)}</span>
+                </>
+              ) : (
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  {t('staff_badge_new')}
+                </span>
+              )}
             </span>
           </div>
 
