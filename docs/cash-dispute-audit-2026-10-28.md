@@ -1,3 +1,5 @@
+> **Đã được thay thế bởi quy tắc nghiệp vụ xác nhận sau đó:** thợ nộp tiền mặt vào sàn, sàn chi ví. Các phân tích bên dưới về thu thêm tiền mặt từ ví thợ là giả định cũ, không còn áp dụng. Xem [luồng hiện tại](studio-dispute-flows.md). Bản sửa hiện tại không thu khoản tiền mặt lần hai khi hoàn và có công cụ Admin điều chỉnh phí cũ 15% thành 20%.
+
 # Kiểm tra thanh toán tiền mặt và khiếu nại — 28/10/2026
 
 ## Cập nhật sau xác nhận của người dùng

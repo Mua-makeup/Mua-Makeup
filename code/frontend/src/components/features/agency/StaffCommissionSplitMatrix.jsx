@@ -37,12 +37,12 @@ export const StaffCommissionSplitMatrix = ({
     }, 0);
 
   // Phí hoa hồng nền tảng (Platform Commission Rate: 20%)
-  const platformFeeRate = 0.20;
-  const platformFee = Math.round(totalAmount * platformFeeRate);
+  const platformFeeRate = Number(booking.platformFeeRate ?? 0.20);
+  const platformFee = Number(booking.platformFee ?? Math.round(totalAmount * platformFeeRate));
   const estimatedStudioNet = totalAmount - platformFee - totalStaffCommission;
 
   const currentStatus = booking.bookingStatus || booking.status;
-  const canEdit = !['CANCELLED', 'CANCELLED_EXPIRED', 'REFUNDED'].includes(currentStatus);
+  const canEdit = !booking.settlementRecorded && !['PAID_OUT', 'DISPUTED', 'DISPUTE_REFUNDED', 'DISPUTE_COMPENSATED', 'CANCELLED', 'CANCELLED_EXPIRED', 'REFUNDED'].includes(currentStatus);
 
   return (
     <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-4">
@@ -216,7 +216,7 @@ export const StaffCommissionSplitMatrix = ({
 
         <div>
           <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
-            Phí Sàn (20%)
+            Phí Sàn ({Math.round(platformFeeRate * 100)}%)
           </div>
           <div className="text-base font-bold text-slate-500 mt-0.5">
             -{formatCurrency(platformFee)}

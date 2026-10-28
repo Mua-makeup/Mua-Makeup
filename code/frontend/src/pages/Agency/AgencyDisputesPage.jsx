@@ -147,6 +147,10 @@ export const AgencyDisputesPage = () => {
     const status = typeof rowOrStatus === 'string' ? rowOrStatus : rowOrStatus?.status;
     const isEscalated = typeof rowOrStatus === 'object' && rowOrStatus?.isEscalatedToAdmin;
     const isRejected = typeof rowOrStatus === 'object' && rowOrStatus?.isStudioRejected;
+    const isCustomerAccepted =
+      typeof rowOrStatus === 'object' &&
+      ((rowOrStatus?.cancellationReason || '').includes('[KHACH_DONG_Y_KET_QUA]') ||
+        (rowOrStatus?.emergencyReason || '').includes('[KHACH_DONG_Y_KET_QUA]'));
 
     if (isEscalated) {
       return <Badge variant="danger">{t('status_escalated_admin')}</Badge>;
@@ -154,13 +158,14 @@ export const AgencyDisputesPage = () => {
     if (isRejected && status === 'DISPUTED') {
       return <Badge variant="warning">{t('status_rejected_waiting_customer')}</Badge>;
     }
+    if (isCustomerAccepted || status === 'DISPUTE_COMPENSATED' || status === 'PAID_OUT') {
+      return <Badge variant="success">{t('status_resolved_internal')}</Badge>;
+    }
     switch (status) {
       case 'DISPUTED':
         return <Badge variant="warning">{t('status_waiting_studio')}</Badge>;
       case 'DISPUTE_REFUNDED':
         return <Badge variant="neutral">{t('status_refunded')}</Badge>;
-      case 'DISPUTE_COMPENSATED':
-        return <Badge variant="success">{t('status_resolved_internal')}</Badge>;
       case 'CANCELLED':
         return <Badge variant="danger">{t('status_cancelled')}</Badge>;
       default:
@@ -756,10 +761,27 @@ export const AgencyDisputesPage = () => {
                   </div>
                 </div>
               ) : (
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                  <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)}>
-                    {t('close')}
-                  </Button>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                  {(selectedDispute.status === 'DISPUTE_COMPENSATED' ||
+                    selectedDispute.status === 'PAID_OUT' ||
+                    (selectedDispute.cancellationReason || '').includes('[KHACH_DONG_Y_KET_QUA]')) && (
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-md text-xs text-emerald-800 dark:text-emerald-200 space-y-1">
+                      <div className="font-semibold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">
+                        <Check size={14} />
+                        <span>{t('status_resolved_internal')}</span>
+                      </div>
+                      <p className="text-slate-600 dark:text-slate-400">
+                        {(selectedDispute.cancellationReason || '').includes('[KHACH_DONG_Y_KET_QUA]')
+                          ? t('dispute_customer_accepted_desc')
+                          : t('dispute_resolved_compensated_desc')}
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setIsDetailModalOpen(false)}>
+                      {t('close')}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

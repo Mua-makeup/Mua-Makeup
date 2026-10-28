@@ -887,7 +887,8 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION, "dispute.studio_resolution_required", HttpStatus.CONFLICT);
         }
         BookingStatus resolvedStatus = studioFinance.resolve(booking, "APPROVE_COMPENSATION_MUA", "Khách đồng ý kết quả studio");
-        booking.setStatus(resolvedStatus);
+        BookingStatus targetStatus = (resolvedStatus == BookingStatus.PAID_OUT) ? BookingStatus.DISPUTE_COMPENSATED : resolvedStatus;
+        booking.setStatus(targetStatus);
         String existing = booking.getCancellationReason() != null ? booking.getCancellationReason() : "";
         booking.setCancellationReason("[KHACH_DONG_Y_KET_QUA]: Khách hàng chấp nhận giải quyết của Studio | " + existing);
         bookingRepository.save(booking);
@@ -895,7 +896,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
         bookingAuditService.logTransition(
                 bookingId,
                 BookingStatus.DISPUTED,
-                resolvedStatus,
+                targetStatus,
                 customerId,
                 "Khách hàng chấp nhận giải quyết nội bộ của Studio"
         );
@@ -904,7 +905,7 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
             messagingTemplate.convertAndSend("/topic/booking-status/" + bookingId, Map.of(
                     "type", "DISPUTE_RESOLUTION_ACCEPTED",
                     "bookingId", bookingId,
-                    "status", resolvedStatus.name(),
+                    "status", targetStatus.name(),
                     "timestamp", System.currentTimeMillis()
             ));
         } catch (Exception ex) {

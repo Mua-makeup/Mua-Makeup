@@ -5,11 +5,19 @@ import com.makeup.platform.common.base.BaseController;
 import com.makeup.platform.dto.response.admin.AdminBookingOverviewStatsRes;
 import com.makeup.platform.dto.response.admin.AdminBookingRes;
 import com.makeup.platform.service.booking.AdminBookingService;
+import com.makeup.platform.service.wallet.StudioFeeReconciliationService;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 import com.makeup.platform.common.base.PageResponse;
+import com.makeup.platform.common.utils.SecurityContextUtils;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -28,6 +38,20 @@ import org.springframework.data.web.PageableDefault;
 public class AdminBookingController extends BaseController {
 
     private final AdminBookingService adminBookingService;
+    private final StudioFeeReconciliationService feeReconciliation;
+
+    @GetMapping("/{id}/studio-fee-reconciliation")
+    public ResponseEntity<ApiResponse<StudioFeeReconciliationService.Preview>> previewFee(@PathVariable Long id) {
+        return ok(feeReconciliation.preview(id), "admin.booking_detail_fetch_success");
+    }
+
+    public record CorrectFeeRequest(@NotNull @PositiveOrZero BigDecimal expectedOldFee) {}
+
+    @PostMapping ("/{id}/studio-fee-reconciliation")
+    public ResponseEntity<ApiResponse<StudioFeeReconciliationService.Preview>> correctFee(
+            @PathVariable Long id, @Valid @RequestBody CorrectFeeRequest request) {
+        return ok(feeReconciliation.correct(id, SecurityContextUtils.getCurrentUserId(), request.expectedOldFee()), "admin.booking_detail_fetch_success");
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<AdminBookingRes>>> getAllBookings(

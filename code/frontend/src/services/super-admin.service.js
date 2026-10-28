@@ -35,6 +35,8 @@ export const superAdminService = {
   getBookingStats: () => apiClient.get('/admin/bookings/stats'),
   getBookingDetail: (id) => apiClient.get(`/admin/bookings/${id}`),
   getBookingHistory: (id) => apiClient.get(`/bookings/${id}/history`),
+  previewStudioFee: (id) => apiClient.get(`/admin/bookings/${id}/studio-fee-reconciliation`),
+  correctStudioFee: (id, expectedOldFee) => apiClient.post(`/admin/bookings/${id}/studio-fee-reconciliation`, { expectedOldFee }),
 
   // Platform Users Management
   getUsers: (params) => apiClient.get('/admin/users', { params }),

@@ -81,6 +81,12 @@ public class StudioDisputeFinanceService {
         // Lock the same deposit as final-payment application before reading payment evidence.
         deposits.findByBookingIdWithLock(booking.getId());
         Financials f = inspect(booking);
+        // A one-sided cash declaration must be resolved before closing the complaint.
+        if (receipts.findByBookingId(booking.getId()).filter(r -> !"CANCELLED".equals(r.getStatus())
+                && !"DECLINED_BY_WORKER".equals(r.getStatus())
+                && (r.getCustomerConfirmedAt() != null || r.getFreelancerConfirmedAt() != null)
+                && !("BOTH_CONFIRMED".equals(r.getStatus()) && r.getCustomerConfirmedAt() != null && r.getFreelancerConfirmedAt() != null)).isPresent())
+            throw conflict("dispute.payment_reconciliation_required");
         boolean refund = "APPROVE_REFUND_CUSTOMER".equalsIgnoreCase(resolution) || "REFUND".equalsIgnoreCase(resolution);
         boolean split = "SPLIT_50_50".equalsIgnoreCase(resolution) || "SPLIT_SETTLEMENT_50_50".equalsIgnoreCase(resolution);
         boolean uphold = "APPROVE_COMPENSATION_MUA".equalsIgnoreCase(resolution) || "REJECT_AND_PAYOUT_MUA".equalsIgnoreCase(resolution);
@@ -119,11 +125,22 @@ public class StudioDisputeFinanceService {
                     credited = credited.add(money(entry.getAmount()));
                 }
                 var settlement = settlements.findByBookingId(booking.getId()).orElseThrow();
+                for (var adjustment : ledger.findByReferenceIdAndReferenceTypeAndEntryType(booking.getId(), "BOOKING_SETTLEMENT", "DEBIT")) {
+                    Long ownerId = booking.getAgency().getOwner().getId();
+                    if (!("studio_fee20:" + booking.getId()).equals(adjustment.getIdempotencyKey())
+                            || adjustment.getWallet() == null || adjustment.getWallet().getUser() == null
+                            || !ownerId.equals(adjustment.getWallet().getUser().getId())
+                            || adjustment.getAmount() == null || adjustment.getAmount().signum() <= 0
+                            || debits.getOrDefault(ownerId, BigDecimal.ZERO).compareTo(adjustment.getAmount()) < 0)
+                        throw conflict("dispute.payment_reconciliation_required");
+                    debits.merge(ownerId, adjustment.getAmount().negate(), BigDecimal::add);
+                    credited = credited.subtract(adjustment.getAmount());
+                }
                 boolean netCashPayout = credited.compareTo(money(settlement.getWalletCreditedAmount())) == 0
-                        && credited.add(f.cashAmount()).add(money(settlement.getCommissionAmount())).compareTo(f.paidAmount()) == 0;
+                        && credited.add(money(settlement.getCommissionAmount())).compareTo(f.paidAmount()) == 0;
                 // The cash writer historically credited T-F, while its snapshot stored D-F.
-                // Recognize that exact, fully evidenced shape only. Reverse every actual credit
-                // AND collect the cash from its recipient: skipping either leaves money behind.
+                // Recognize that exact, fully evidenced shape only. Studio cash is remitted
+                // to the platform: reverse actual wallet credits, never charge the collector twice.
                 boolean grossCashPayout = f.cashAmount().signum() > 0
                         && settlement.getTotalAmount() != null && settlement.getDepositAmount() != null
                         && settlement.getCashAmount() != null && settlement.getCommissionAmount() != null
@@ -137,11 +154,6 @@ public class StudioDisputeFinanceService {
                         && ledger.findByReferenceIdAndReferenceTypeAndEntryType(booking.getId(), "BOOKING_SETTLEMENT", "DEBIT").isEmpty();
                 if (!netCashPayout && !grossCashPayout)
                     throw conflict("dispute.payment_reconciliation_required");
-            }
-            if (f.cashAmount().signum() > 0) {
-                var receipt = receipts.findByBookingId(booking.getId()).orElseThrow();
-                if (receipt.getFreelancerUser() == null) throw conflict("dispute.payment_reconciliation_required");
-                debits.merge(receipt.getFreelancerUser().getId(), f.cashAmount(), BigDecimal::add);
             }
         }
         // Lock all involved wallets in user-id order, and validate before changing any balance.

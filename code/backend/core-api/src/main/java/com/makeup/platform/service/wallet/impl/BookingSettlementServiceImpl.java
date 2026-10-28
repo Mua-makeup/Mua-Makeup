@@ -103,6 +103,10 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
             cashReceipt = cashReceiptRepository.save(cashReceipt);
         }
 
+        if (booking.getAgency() != null && !bookingDepositRepository.findByBookingId(bookingId)
+                .map(d -> "PAID".equals(d.getStatus()) && d.getPaidAmount() != null).orElse(false)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_DEPOSIT_NOT_PAID, "settlement.deposit_not_paid", HttpStatus.CONFLICT);
+        }
         BookingDepositEntity deposit = bookingDepositRepository.findByBookingId(bookingId)
                 .orElseGet(() -> {
                     BigDecimal depAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
@@ -149,7 +153,13 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         // - Khi có tiền mặt (C > 0): luôn SETTLED vì khách đã trả thực tế.
         // - Chỉ PENDING_FEE_COLLECTION khi không có tiền mặt VÀ cọc không đủ bù phí (D < F).
         boolean hasCashPayment = C.compareTo(BigDecimal.ZERO) > 0;
-        BigDecimal N = D.subtract(F); // Giá trị tham chiếu nội bộ, dùng để kiểm tra escrow coverage
+        // Studio cash is collected for the platform, which pays the full net earnings.
+        BigDecimal N = booking.getAgency() != null ? E : D.subtract(F);
+        if (booking.getAgency() != null && (D.add(C).compareTo(T) != 0
+                || D.signum() < 0 || C.signum() < 0 || !"PAID".equals(deposit.getStatus()))) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+        }
 
         String settlementStatus;
         String failureReason = null;
@@ -166,6 +176,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         // Tạo settlement record
         BookingSettlementEntity settlement = BookingSettlementEntity.builder()
                 .booking(booking)
+                .settlementVersion(booking.getAgency() != null ? 2 : 1)
                 .totalAmount(T)
                 .depositAmount(D)
                 .cashAmount(C)
@@ -184,6 +195,8 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         List<BookingStaffAssignmentEntity> activeStaffAssignments = (booking.getStaffAssignments() != null && !booking.getStaffAssignments().isEmpty())
                 ? booking.getStaffAssignments().stream().filter(sa -> sa.getStatus() == AssignmentStatus.ACTIVE).toList()
                 : bookingStaffAssignmentRepository.findByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE);
+
+        validateStudioSplit(booking, activeStaffAssignments, T, E);
 
         if (!activeStaffAssignments.isEmpty()) {
             BigDecimal totalStaffPayout = BigDecimal.ZERO;
@@ -439,6 +452,8 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
         List<BookingStaffAssignmentEntity> activeStaffAssignments = (booking.getStaffAssignments() != null && !booking.getStaffAssignments().isEmpty())
                 ? booking.getStaffAssignments().stream().filter(sa -> sa.getStatus() == AssignmentStatus.ACTIVE).toList()
                 : bookingStaffAssignmentRepository.findByBookingIdAndStatus(bookingId, AssignmentStatus.ACTIVE);
+
+        validateStudioSplit(booking, activeStaffAssignments, T, E);
 
         if (!activeStaffAssignments.isEmpty()) {
             BigDecimal totalStaffPayout = BigDecimal.ZERO;
@@ -745,6 +760,29 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
             log.error("[Settlement] Error processing overtime allowances for booking {}: {}", booking.getId(), ex.getMessage(), ex);
         }
     }
+    private void validateStudioSplit(BookingEntity booking, List<BookingStaffAssignmentEntity> assignments,
+                                     BigDecimal total, BigDecimal earnings) {
+        if (booking.getAgency() == null) return;
+        BigDecimal allocated = BigDecimal.ZERO;
+        if (booking.getAgency().getOwner() == null) throw invalidSettlement();
+        for (var assignment : assignments) {
+            BigDecimal amount = assignment.getCommissionAmount();
+            BigDecimal rate = assignment.getCommissionRate();
+            if (amount != null && amount.signum() < 0 || rate != null && rate.signum() < 0) throw invalidSettlement();
+            if (amount == null || amount.signum() == 0) amount = rate == null ? BigDecimal.ZERO
+                    : total.multiply(rate).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            if (amount.signum() > 0 && (assignment.getStaff() == null || assignment.getStaff().getMua() == null
+                    || assignment.getStaff().getMua().getUser() == null)) throw invalidSettlement();
+            allocated = allocated.add(amount);
+        }
+        if (allocated.compareTo(earnings) > 0) throw invalidSettlement();
+    }
+
+    private CustomBusinessException invalidSettlement() {
+        return new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                "dispute.payment_reconciliation_required", HttpStatus.CONFLICT);
+    }
+
     private void guardStudioSettlement(Long bookingId) {
         var booking = bookingRepository.findById(bookingId).orElse(null);
         if (booking != null && booking.getAgency() != null) {
