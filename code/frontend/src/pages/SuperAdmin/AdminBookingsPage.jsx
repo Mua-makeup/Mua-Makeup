@@ -154,6 +154,10 @@ export const AdminBookingsPage = () => {
         return 'inactive';
       case 'DISPUTED':
         return 'rejected';
+      case 'DISPUTE_REFUNDED':
+        return 'warning';
+      case 'DISPUTE_COMPENSATED':
+        return 'indigo';
       default:
         return 'neutral';
     }
@@ -175,6 +179,9 @@ export const AdminBookingsPage = () => {
       CANCELLED: t('status_cancelled'),
       CANCELLED_EXPIRED: t('status_cancelled_expired'),
       DISPUTED: t('status_disputed'),
+      DISPUTE_REFUNDED: t('status_dispute_refunded'),
+      DISPUTE_COMPENSATED: t('status_dispute_compensated'),
+      REFUNDED: t('status_refunded'),
       PENDING: t('status_pending'),
     };
     return map[status] || status;
@@ -305,6 +312,7 @@ export const AdminBookingsPage = () => {
     { key: 'COMPLETED', label: t('status_completed') },
     { key: 'CANCELLED', label: t('status_cancelled') },
     { key: 'DISPUTED', label: t('status_disputed') },
+    { key: 'DISPUTE_REFUNDED', label: t('status_dispute_refunded') },
   ];
 
   return (
