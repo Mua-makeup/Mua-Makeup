@@ -780,10 +780,6 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private BigDecimal getFreelancerCommissionRate() {
         return platformFeeService.getRate();
     }
-            }
-        } catch (Exception ignored) {}
-        return new BigDecimal("0.20"); // Mặc định 20%
-    }
 
     @Override
     @Transactional
