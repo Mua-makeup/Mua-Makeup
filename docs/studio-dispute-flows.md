@@ -19,4 +19,8 @@
 
 Quy tắc thu hồi: lấy đúng các khoản BOOKING_SETTLEMENT/CREDIT; phần phí nền tảng không thu thêm từ studio. Kiểm tra tổng khoản đã chi + tiền mặt + phí khớp tiền thực trả trước khi hoàn. Dữ liệu cũ thiếu hoặc bất nhất cần đối soát, không tự suy đoán. Không tự sửa số dư lịch sử.
 
+Ngoại lệ có kiểm chứng cho writer tiền mặt hiện tại: writer ghi CREDIT bằng T-F nhưng snapshot walletCreditedAmount bằng D-F. Chỉ nhận diện khi snapshot T/D/C khớp bằng chứng thanh toán, D+C bằng số thực trả, CREDIT+F=T, snapshot+C=CREDIT và không có BOOKING_SETTLEMENT/DEBIT. Khi đó đảo toàn bộ CREDIT thực tế và thu hồi C từ người nhận tiền mặt, rồi hoàn khách D+C. Không bỏ thu hồi C hoặc chỉ đổi snapshot: làm vậy sẽ để lại khoản ghi có dư. Nếu người nhận không đủ số dư cho cả hoa hồng đã chi và tiền mặt phải thu hồi, transaction vẫn bị chặn bằng lỗi thiếu số dư. Không tự điều chỉnh dữ liệu cũ khi chỉ đọc hoặc mở khiếu nại.
+
+Hóa đơn mobile đọc cash receipt: BOTH_CONFIRMED kèm xác nhận khách/thợ giữ nhãn Đã Thanh Toán Tiền Mặt khi booking chuyển DISPUTED. Kết quả hoàn/hủy vẫn được ưu tiên. Bản sửa này xử lý tương thích hoàn tiền và hiển thị; chưa thay đổi cách writer phân bổ tiền mặt thành số dư ví ở lần quyết toán ban đầu.
+
 Kiểm chứng: unit test cho phân loại và phân bổ cọc, hoàn thành chưa trả đủ, online trả đủ chưa quyết toán, thu hồi đã quyết toán, thiếu số dư và các guard; frontend build. Chưa kiểm thử database/gateway thật hoặc triển khai migration lên môi trường chạy.
