@@ -57,6 +57,10 @@ export const superAdminService = {
   getH3SurgeStatus: () => apiClient.get('/admin/pricing/surge-rules/h3-status'),
   toggleH3Surge: (enabled) => apiClient.post(`/admin/pricing/surge-rules/toggle-h3?enabled=${enabled}`),
 
+
+  // Platform Fee Settings
+  getPlatformFee: () => apiClient.get('/admin/settings/platform-fee'),
+  updatePlatformFee: (feeRate) => apiClient.put('/admin/settings/platform-fee', { feeRate }),
   // Customer & MUA Booking Disputes Management
   getDisputes: (params) => apiClient.get('/admin/disputes', { params }),
   getDisputeStats: () => apiClient.get('/admin/disputes/stats'),
