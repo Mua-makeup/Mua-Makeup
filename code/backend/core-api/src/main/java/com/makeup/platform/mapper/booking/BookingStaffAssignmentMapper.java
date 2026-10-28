@@ -45,7 +45,6 @@ public class BookingStaffAssignmentMapper {
 
         boolean isConfirmed = Boolean.TRUE.equals(entity.getIsConfirmedByStaff())
                 && entity.getStatus() != AssignmentStatus.REPLACED
-                && entity.getStatus() != AssignmentStatus.DECLINED
                 && entity.getStatus() != AssignmentStatus.EMERGENCY_CANCELLED;
 
         return StaffAssignmentDetailRes.builder()

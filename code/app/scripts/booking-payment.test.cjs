@@ -46,3 +46,15 @@ test('ordinary bookings preserve deposit, collection, and settlement states', ()
   assert.equal(present({ isPaidOut: true }).remainingLabel, 'Đã Quyết Toán');
   assert.equal(present({ isPaidOut: true }).depositLabel, 'Đã Giải Ngân');
 });
+test('confirmed cash remains paid when the booking enters a dispute', () => {
+  const result = present({ isDisputed: true, isCashReceived: true });
+  assert.equal(result.paid, true);
+  assert.equal(result.remainingLabel, 'Đã Thanh Toán Tiền Mặt');
+  assert.equal(result.badge, 'Đang Giải Quyết Khiếu Nại');
+  assert.match(result.remainingDescription, /không thu lại/);
+});
+test('refund takes precedence over a previously confirmed cash receipt', () => {
+  const result = present({ isDisputeRefunded: true, isCashReceived: true });
+  assert.equal(result.paid, false);
+  assert.equal(result.remainingAmount, 0);
+});
