@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandColors } from '@/constants/theme';
 import { useAuthStore } from '@/store/auth.store';
 import { useAccountModalStore } from '@/store/account-modal.store';
-import { useNotificationStore } from '@/store/notification.store';
+import { useBookingStore } from '@/store/booking.store';
 
 import { isSmallDevice } from '@/utils/responsive';
 
@@ -23,9 +23,16 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { userInfo, isAuthenticated } = useAuthStore();
-  const { unreadCount } = useNotificationStore();
+  const activeBookingsCount = useBookingStore((s) => s.activeBookingsCount);
+  const fetchActiveBookingsCount = useBookingStore((s) => s.fetchActiveBookingsCount);
   const isMUA = userInfo?.roles?.includes('ROLE_FREELANCE_MUA');
   const isAgencyStaff = userInfo?.roles?.includes('ROLE_AGENCY_STAFF');
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      fetchActiveBookingsCount();
+    }
+  }, [isAuthenticated, fetchActiveBookingsCount]);
 
   const handleTabPress = (tab: BottomNavTab) => {
     // Luôn dọn dẹp sạch stack các màn hình con trước khi chuyển tab ("không lưu stack trang cũ")
@@ -194,10 +201,10 @@ export const AppBottomNavBar: React.FC<AppBottomNavBarProps> = ({
             size={isSmallDevice ? 20 : 22}
             color={activeTab === 'tracking' ? BrandColors.primary : BrandColors.slateMuted}
           />
-          {unreadCount > 0 ? (
+          {activeBookingsCount > 0 ? (
             <View style={styles.badgePill}>
               <Text style={styles.badgeText}>
-                {unreadCount > 9 ? '9+' : unreadCount}
+                {activeBookingsCount > 9 ? '9+' : activeBookingsCount}
               </Text>
             </View>
           ) : null}

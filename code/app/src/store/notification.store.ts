@@ -302,8 +302,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         try {
           const { useWorkstationStore } = require('@/store/workstation.store');
           useWorkstationStore.getState().fetchWorkstationData();
+          const { useBookingStore } = require('@/store/booking.store');
+          useBookingStore.getState().fetchActiveBookingsCount();
         } catch (wsErr) {
-          console.warn('[NotificationStore] Không thể refresh Workstation:', wsErr);
+          console.warn('[NotificationStore] Không thể refresh Workstation hoặc Booking count:', wsErr);
         }
       }
     };
