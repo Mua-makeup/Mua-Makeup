@@ -2,9 +2,10 @@ package com.makeup.platform.mapper.booking;
 
 import com.makeup.platform.dto.response.agency.StaffAssignmentDetailRes;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
+import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.mua.MuaProfileEntity;
-import com.makeup.platform.entity.auth.UserEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
@@ -42,6 +43,11 @@ public class BookingStaffAssignmentMapper {
             }
         }
 
+        boolean isConfirmed = Boolean.TRUE.equals(entity.getIsConfirmedByStaff())
+                && entity.getStatus() != AssignmentStatus.REPLACED
+                && entity.getStatus() != AssignmentStatus.DECLINED
+                && entity.getStatus() != AssignmentStatus.EMERGENCY_CANCELLED;
+
         return StaffAssignmentDetailRes.builder()
                 .id(entity.getId())
                 .staffId(staffId)
@@ -54,7 +60,7 @@ public class BookingStaffAssignmentMapper {
                 .status(entity.getStatus())
                 .assignedAt(entity.getAssignedAt() != null ? entity.getAssignedAt().toLocalDateTime() : null)
                 .confirmedAt(entity.getConfirmedAt() != null ? entity.getConfirmedAt().toLocalDateTime() : null)
-                .isConfirmedByStaff(Boolean.TRUE.equals(entity.getIsConfirmedByStaff()))
+                .isConfirmedByStaff(isConfirmed)
                 .cancellationReason(entity.getCancellationReason())
                 .proofDocumentUrl(entity.getProofDocumentUrl())
                 .commissionRate(entity.getCommissionRate())

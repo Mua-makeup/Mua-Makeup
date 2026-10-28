@@ -633,6 +633,7 @@
     "message_too_long": "Question content cannot exceed 1000 characters.",
     "session_code_required": "Chat session code is required.",
     "session_not_found": "The requested chat session was not found.",
+    "session_access_denied": "You do not have permission to access this chat session.",
     "chat_success": "AI Assistant response received successfully.",
     "session_closed_success": "Chat session ended successfully."
   },

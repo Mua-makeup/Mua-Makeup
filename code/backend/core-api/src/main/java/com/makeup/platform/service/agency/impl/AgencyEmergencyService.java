@@ -150,6 +150,8 @@ public class AgencyEmergencyService {
             }
             oldAssignment.setStatus(AssignmentStatus.REPLACED);
             oldAssignment.setReplacedByStaff(newStaff);
+            oldAssignment.setIsConfirmedByStaff(false);
+            oldAssignment.setConfirmedAt(null);
             bookingStaffAssignmentRepository.saveAndFlush(oldAssignment);
 
             // Convert old staff's calendar slot to emergency blocked if they reported emergency, otherwise release
@@ -356,6 +358,8 @@ public class AgencyEmergencyService {
 
             ea.setStatus(AssignmentStatus.REPLACED);
             ea.setReplacedByStaff(primaryStaff);
+            ea.setIsConfirmedByStaff(false);
+            ea.setConfirmedAt(null);
             ea.setCommissionRate(BigDecimal.ZERO);
             ea.setCommissionAmount(BigDecimal.ZERO);
             String oldNote = ea.getCommissionNote() != null ? ea.getCommissionNote() + " | " : "";
@@ -399,6 +403,8 @@ public class AgencyEmergencyService {
                 if (bsa.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED) {
                     bsa.setStatus(AssignmentStatus.REPLACED);
                     bsa.setReplacedByStaff(primaryStaff);
+                    bsa.setIsConfirmedByStaff(false);
+                    bsa.setConfirmedAt(null);
                     bsa.setCommissionRate(BigDecimal.ZERO);
                     bsa.setCommissionAmount(BigDecimal.ZERO);
                 } else if (bsa.getId() != null && bsa.getId().equals(primaryAssignment.getId())) {
@@ -519,6 +525,8 @@ public class AgencyEmergencyService {
         assignment.setCancellationReason(effectiveReason);
         assignment.setProofDocumentUrl(finalProofUrl);
         assignment.setCancelledAt(OffsetDateTime.now());
+        assignment.setIsConfirmedByStaff(false);
+        assignment.setConfirmedAt(null);
         bookingStaffAssignmentRepository.save(assignment);
 
         // Convert staff's calendar slot to PERSONAL_BLOCKED so it is recorded as busy in mua_calendars
