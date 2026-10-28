@@ -149,4 +149,62 @@ class StudioDisputeFinanceTest {
         assertThrows(RuntimeException.class,()->service.resolve(booking,"REFUND","test"));
         verifyNoInteractions(wallets);
     }
+
+    @ParameterizedTest
+    @CsvSource({"35000,42500,60000,OK", "34000,42500,60000,RECONCILE", "35000,42000,60000,RECONCILE", "35000,42500,25000,INSUFFICIENT"})
+    void cashSettlementWithGrossWalletCredits(long snapshotCash, long totalCredits, long workerBalance, String outcome) {
+        // Reproduce the cash writer's T-F credits versus D-F settlement snapshot.
+        booking.setTotalAmount(n(50000));
+        booking.setDepositAmount(n(15000));
+        deposit.setPaidAmount(n(15000));
+        when(stages.isCompletedService(booking)).thenReturn(true);
+        var worker = new UserEntity(); worker.setId(3L);
+        var workerWallet = WalletEntity.builder().user(worker).availableBalance(n(workerBalance)).frozenBalance(n(0)).build();
+        when(receipts.findByBookingId(9L)).thenReturn(Optional.of(
+            BookingCashReceiptEntity.builder().status("BOTH_CONFIRMED")
+                .expectedAmount(n(35000)).customerConfirmedAt(OffsetDateTime.now())
+                .freelancerConfirmedAt(OffsetDateTime.now())
+                .freelancerUser(worker).build()));
+        when(settlements.findByBookingId(9L)).thenReturn(Optional.of(
+            BookingSettlementEntity.builder().status("SETTLED")
+                .totalAmount(n(50000)).depositAmount(n(15000)).cashAmount(n(snapshotCash))
+                .walletCreditedAmount(n(7500)).commissionAmount(n(7500)).build()));
+        when(ledger.findByReferenceIdAndReferenceTypeAndEntryType(9L,"BOOKING_SETTLEMENT","CREDIT"))
+            .thenReturn(List.of(LedgerEntryEntity.builder().wallet(ownerWallet).amount(n(totalCredits - 25000)).build(),
+                LedgerEntryEntity.builder().wallet(workerWallet).amount(n(25000)).build()));
+
+        assertEquals(n(50000), service.inspect(booking).paidAmount());
+        assertEquals("SETTLED", service.inspect(booking).stage());
+        if (!"RECONCILE".equals(outcome)) {
+            when(wallets.findByUserIdWithLock(1L)).thenReturn(Optional.of(customerWallet));
+            when(wallets.findByUserIdWithLock(2L)).thenReturn(Optional.of(ownerWallet));
+            when(wallets.findByUserIdWithLock(3L)).thenReturn(Optional.of(workerWallet));
+        }
+        if ("OK".equals(outcome)) {
+            assertEquals(BookingStatus.DISPUTE_REFUNDED, service.resolve(booking, "REFUND", "test"));
+            assertEquals(n(50000), customerWallet.getAvailableBalance());
+            assertEquals(n(72500), ownerWallet.getAvailableBalance());
+            assertEquals(n(0), workerWallet.getAvailableBalance());
+            verifyNoInteractions(settlementService);
+        } else {
+            var error = assertThrows(CustomBusinessException.class,
+                () -> service.resolve(booking, "REFUND", "test"));
+            assertEquals("RECONCILE".equals(outcome) ? "dispute.payment_reconciliation_required"
+                : "dispute.insufficient_recovery_balance", error.getMessage());
+            assertEquals(n(0), customerWallet.getAvailableBalance());
+            assertEquals(n(90000), ownerWallet.getAvailableBalance());
+            verify(ledger, never()).save(any());
+        }
+    }
+
+    @Test void customerConfirmationAloneDoesNotProveCashWasReceived() {
+        when(stages.isCompletedService(booking)).thenReturn(true);
+        when(receipts.findByBookingId(9L)).thenReturn(Optional.of(
+            BookingCashReceiptEntity.builder().status("PENDING")
+                .expectedAmount(n(140000)).customerConfirmedAt(OffsetDateTime.now()).build()));
+        var financials = service.inspect(booking);
+        assertEquals("COMPLETED_UNPAID", financials.stage());
+        assertEquals(n(60000), financials.paidAmount());
+        assertEquals(n(0), financials.cashAmount());
+    }
 }

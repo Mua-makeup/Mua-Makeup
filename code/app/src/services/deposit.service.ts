@@ -88,6 +88,10 @@ export interface CashReceiptStatus {
 }
 
 export const depositService = {
+  async getCashReceiptStatus(bookingId: number): Promise<CashReceiptStatus> {
+    const res = await apiClient.get(`/bookings/${bookingId}/cash-receipt-status`);
+    return res.data?.data;
+  },
   /**
    * Tạo / lấy lại checkout URL để thanh toán cọc qua MoMo hoặc VNPay
    */

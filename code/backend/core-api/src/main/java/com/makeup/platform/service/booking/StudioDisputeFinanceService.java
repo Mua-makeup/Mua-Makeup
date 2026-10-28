@@ -112,14 +112,30 @@ public class StudioDisputeFinanceService {
                 var credits = ledger.findByReferenceIdAndReferenceTypeAndEntryType(booking.getId(), "BOOKING_SETTLEMENT", "CREDIT");
                 BigDecimal credited = BigDecimal.ZERO;
                 for (var entry : credits) {
-                    if (entry.getWallet() == null || entry.getWallet().getUser() == null) throw conflict("dispute.payment_reconciliation_required");
+                    if (entry.getWallet() == null || entry.getWallet().getUser() == null
+                            || entry.getAmount() == null || entry.getAmount().signum() <= 0)
+                        throw conflict("dispute.payment_reconciliation_required");
                     debits.merge(entry.getWallet().getUser().getId(), money(entry.getAmount()), BigDecimal::add);
                     credited = credited.add(money(entry.getAmount()));
                 }
                 var settlement = settlements.findByBookingId(booking.getId()).orElseThrow();
-                // Reject inconsistent historical payouts rather than inventing recovery amounts.
-                if (credited.compareTo(money(settlement.getWalletCreditedAmount())) != 0
-                        || credited.add(f.cashAmount()).add(money(settlement.getCommissionAmount())).compareTo(f.paidAmount()) != 0)
+                boolean netCashPayout = credited.compareTo(money(settlement.getWalletCreditedAmount())) == 0
+                        && credited.add(f.cashAmount()).add(money(settlement.getCommissionAmount())).compareTo(f.paidAmount()) == 0;
+                // The cash writer historically credited T-F, while its snapshot stored D-F.
+                // Recognize that exact, fully evidenced shape only. Reverse every actual credit
+                // AND collect the cash from its recipient: skipping either leaves money behind.
+                boolean grossCashPayout = f.cashAmount().signum() > 0
+                        && settlement.getTotalAmount() != null && settlement.getDepositAmount() != null
+                        && settlement.getCashAmount() != null && settlement.getCommissionAmount() != null
+                        && settlement.getWalletCreditedAmount() != null
+                        && settlement.getTotalAmount().compareTo(f.paidAmount()) == 0
+                        && settlement.getDepositAmount().compareTo(f.paidDeposit()) == 0
+                        && settlement.getCashAmount().compareTo(f.cashAmount()) == 0
+                        && f.paidDeposit().add(f.cashAmount()).compareTo(f.paidAmount()) == 0
+                        && credited.add(settlement.getCommissionAmount()).compareTo(f.paidAmount()) == 0
+                        && settlement.getWalletCreditedAmount().add(f.cashAmount()).compareTo(credited) == 0
+                        && ledger.findByReferenceIdAndReferenceTypeAndEntryType(booking.getId(), "BOOKING_SETTLEMENT", "DEBIT").isEmpty();
+                if (!netCashPayout && !grossCashPayout)
                     throw conflict("dispute.payment_reconciliation_required");
             }
             if (f.cashAmount().signum() > 0) {

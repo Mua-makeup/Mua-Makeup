@@ -108,6 +108,7 @@ export default function BookingHistoryDetailScreen() {
 
   // Trạng thái thanh toán 70% còn lại cho Khách
   const [isCashPaidConfirmed, setIsCashPaidConfirmed] = useState(false);
+  const [isCashReceived, setIsCashReceived] = useState(false);
   const [isConfirmingCash, setIsConfirmingCash] = useState(false);
   const [isPayingOnline, setIsPayingOnline] = useState(false);
   const [onlineGatewayPaying, setOnlineGatewayPaying] = useState<'MOMO' | 'VNPAY' | null>(null);
@@ -121,11 +122,15 @@ export default function BookingHistoryDetailScreen() {
     else setIsLoading(true);
 
     try {
-      const [data, rev] = await Promise.all([
+      const [data, rev, receipt] = await Promise.all([
         bookingService.getBookingStatus(bookingId),
         reviewService.getReviewByBookingId(bookingId).catch(() => null),
+        depositService.getCashReceiptStatus(bookingId).catch(() => null),
       ]);
       setBookingDetail(data);
+      setIsCashPaidConfirmed(Boolean(receipt?.customerConfirmed && receipt.status !== 'CANCELLED'));
+      setIsCashReceived(Boolean(receipt?.status === 'BOTH_CONFIRMED'
+        && receipt.customerConfirmed && receipt.freelancerConfirmed));
       setExistingReview(rev);
       setIsReviewLoaded(true);
     } catch (err: any) {
@@ -564,6 +569,7 @@ export default function BookingHistoryDetailScreen() {
   // Bóc tách chi tiết hồ sơ khiếu nại (Lời khai & Ảnh minh chứng sạch của MUA và Khách)
   const payment = getBookingPaymentPresentation({
     isPaidOut, isCompleted, isCancelled, isDisputed,
+    isCashReceived,
     isDisputeRefunded, isDisputeCompensated, isDepositRefunded,
     isDepositPaid: Boolean(bookingDetail.isDepositPaid), isSplit5050, remainingAmount,
   });
