@@ -9,6 +9,8 @@ public interface AiSupportService {
     AiChatResponse chat(Long userId, AiChatRequest request);
 
     AiChatSessionHistoryResponse getSessionHistory(String sessionCode);
- 
+
+    AiChatSessionHistoryResponse getSessionHistory(String sessionCode, Long userId);
+
     void closeSession(String sessionCode, Long userId);
 }

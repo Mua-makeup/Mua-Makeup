@@ -639,6 +639,7 @@
     "message_too_long": "Nội dung câu hỏi không được vượt quá 1000 ký tự.",
     "session_code_required": "Mã phiên trò chuyện không được để trống.",
     "session_not_found": "Không tìm thấy phiên trò chuyện yêu cầu.",
+    "session_access_denied": "Bạn không có quyền truy cập vào phiên trò chuyện này.",
     "chat_success": "Phản hồi từ trợ lý AI thành công.",
     "session_closed_success": "Đã kết thúc phiên trò chuyện thành công."
   },
