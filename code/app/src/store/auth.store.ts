@@ -221,6 +221,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         useBookingStore.setState({
           upcomingBookings: [],
           historyBookings: [],
+          activeBookingsCount: 0,
         });
       } catch (e) {
         console.warn('Lỗi dọn dẹp BookingStore khi logout:', e);

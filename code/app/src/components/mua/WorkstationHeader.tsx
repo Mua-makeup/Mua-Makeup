@@ -239,6 +239,8 @@ export const WorkstationHeader: React.FC = () => {
       );
     });
 
+    todayShifts.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+
     // Ca trực đang diễn ra đúng trong khung giờ hiện tại
     const currentActiveShift = todayShifts.find((s) => {
       const [startH, startM] = (s.startTime || '00:00').split(':').map(Number);
@@ -270,19 +272,33 @@ export const WorkstationHeader: React.FC = () => {
       };
     }
 
-    // 4. Có ca trực hôm nay (dù chưa đến giờ hoặc sắp tới trong ngày)
-    if (todayShifts.length > 0) {
-      const firstShift = todayShifts[0];
-      const timeStr = `${firstShift.startTime.slice(0, 5)} - ${firstShift.endTime.slice(0, 5)}`;
-      const hasTimeInName = firstShift.shiftName.includes(firstShift.startTime.slice(0, 5));
+    // 4. Ca trực sắp tới trong ngày hôm nay (chưa đến giờ bắt đầu)
+    const upcomingShift = todayShifts.find((s) => {
+      const [startH, startM] = (s.startTime || '00:00').split(':').map(Number);
+      const startMins = (startH || 0) * 60 + (startM || 0);
+      return currentMinutes < startMins;
+    });
+
+    if (upcomingShift) {
+      const timeStr = `${upcomingShift.startTime.slice(0, 5)} - ${upcomingShift.endTime.slice(0, 5)}`;
+      const hasTimeInName = upcomingShift.shiftName.includes(upcomingShift.startTime.slice(0, 5));
       return {
-        isActive: true,
-        text: 'Đang trong ca trực',
-        detail: hasTimeInName ? firstShift.shiftName : `${firstShift.shiftName} (${timeStr})`,
+        isActive: false,
+        text: 'Chưa vào ca trực',
+        detail: hasTimeInName ? upcomingShift.shiftName : `${upcomingShift.shiftName} (${timeStr})`,
       };
     }
 
-    // 5. Không có ca làm việc / ca trực nào
+    // 5. Đã hết tất cả các ca trực trong ngày
+    if (todayShifts.length > 0) {
+      return {
+        isActive: false,
+        text: 'Đã hết ca trực',
+        detail: 'Đã hoàn thành ca trực hôm nay',
+      };
+    }
+
+    // 6. Không có ca làm việc / ca trực nào
     return {
       isActive: false,
       text: 'Không có ca làm việc',

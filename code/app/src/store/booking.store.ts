@@ -14,6 +14,7 @@ import {
   InvoicePreviewRes,
   DistanceMatrixRes,
 } from '@/services/pricing.service';
+import { freelancerBookingService } from '@/services/freelancer-booking.service';
 import { PreviewInvoicePayload } from '@/schemas/pricing-preview.schema';
 import { CreateBookingFormValues } from '@/schemas/booking-create.schema';
 import { getTodayVN } from '@/utils/date';
@@ -43,6 +44,7 @@ interface BookingStoreState {
   activeTab: 'UPCOMING' | 'HISTORY';
   upcomingBookings: CustomerBookingItem[];
   historyBookings: CustomerBookingItem[];
+  activeBookingsCount: number;
   isLoadingBookings: boolean;
   isRefreshingBookings: boolean;
 
@@ -61,6 +63,7 @@ interface BookingStoreState {
   fetchInvoicePreview: () => Promise<void>;
   submitBooking: () => Promise<ScheduledBookingCreatedRes & { id: number; bookingId: number }>;
   fetchMyBookings: (isRefresh?: boolean) => Promise<void>;
+  fetchActiveBookingsCount: () => Promise<void>;
   cancelBooking: (bookingId: number, reason: string) => Promise<void>;
   resetBookingForm: () => void;
 }
@@ -87,6 +90,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   activeTab: 'UPCOMING',
   upcomingBookings: [],
   historyBookings: [],
+  activeBookingsCount: 0,
   isLoadingBookings: false,
   isRefreshingBookings: false,
 
@@ -230,6 +234,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
 
     const newBooking = await bookingService.createScheduledBooking(payload);
     get().fetchMyBookings(true);
+    get().fetchActiveBookingsCount();
     return newBooking;
   },
 
@@ -290,6 +295,7 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
       set({
         upcomingBookings: upcoming,
         historyBookings: history,
+        activeBookingsCount: upcoming.length,
         isLoadingBookings: false,
         isRefreshingBookings: false,
       });
@@ -302,8 +308,9 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
           console.log('[BookingStore] Nhận trạng thái đơn hàng realtime:', b.id, statusMsg);
           const nextStatus = statusMsg?.currentStatus || statusMsg?.status;
 
-          // Cập nhật lại danh sách đơn hàng
+          // Cập nhật lại danh sách đơn hàng và số đếm đơn active
           get().fetchMyBookings(true);
+          get().fetchActiveBookingsCount();
 
           // Rung phản hồi nhẹ nhàng trên điện thoại
           if (Platform.OS !== 'web') {
@@ -370,6 +377,32 @@ export const useBookingStore = create<BookingStoreState>((set, get) => ({
   cancelBooking: async (bookingId: number, reason: string) => {
     await bookingService.cancelBooking(bookingId, reason);
     get().fetchMyBookings(true);
+    get().fetchActiveBookingsCount();
+  },
+
+  fetchActiveBookingsCount: async () => {
+    try {
+      const { useAuthStore } = require('@/store/auth.store');
+      const { userInfo, isAuthenticated } = useAuthStore.getState();
+      if (!isAuthenticated) {
+        set({ activeBookingsCount: 0 });
+        return;
+      }
+      const isMuaOrStaff =
+        userInfo?.roles?.some((r: string) => r === 'ROLE_FREELANCE_MUA' || r === 'ROLE_AGENCY_STAFF') ||
+        Boolean(userInfo?.muaId);
+
+      if (isMuaOrStaff) {
+        const bookings = await freelancerBookingService.getMyAssignedBookings(undefined, 'UPCOMING');
+        const activeList = (bookings || []).filter((b) => b.assignmentStatus !== 'REPLACED');
+        set({ activeBookingsCount: activeList.length });
+      } else {
+        const bookings = await bookingService.getMyBookings('UPCOMING');
+        set({ activeBookingsCount: (bookings || []).length });
+      }
+    } catch (err: any) {
+      console.warn('[BookingStore] Không thể tải số lượng đơn hàng hoạt động:', err?.message);
+    }
   },
 
   resetBookingForm: () => {
