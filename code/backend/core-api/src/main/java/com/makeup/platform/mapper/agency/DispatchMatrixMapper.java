@@ -105,12 +105,16 @@ public class DispatchMatrixMapper {
 
         String disqualificationReason = reasons.isEmpty() ? null : String.join(", ", reasons);
 
+        BigDecimal effectiveRating = (projection.getTotalReviews() != null && projection.getTotalReviews() > 0)
+                ? projection.getRatingAvg()
+                : null;
+
         return StaffMatrixItemRes.builder()
                 .staffId(projection.getStaffId())
                 .staffName(projection.getStaffName())
                 .staffPhone(projection.getStaffPhone())
                 .staffAvatarUrl(projection.getStaffAvatarUrl())
-                .ratingAvg(projection.getRatingAvg())
+                .ratingAvg(effectiveRating)
                 .totalReviews(projection.getTotalReviews() != null ? projection.getTotalReviews() : 0)
                 .totalCompletedJobs(projection.getTotalCompletedJobs() != null ? projection.getTotalCompletedJobs() : 0)
                 .hasServedThisCustomer(Boolean.TRUE.equals(projection.getHasServedThisCustomer()))

@@ -911,8 +911,8 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                         const bServed = b.hasServedThisCustomer ? 1 : 0;
                         if (aServed !== bServed) return bServed - aServed;
 
-                        const aRating = a.ratingAvg ? Number(a.ratingAvg) : 5.0;
-                        const bRating = b.ratingAvg ? Number(b.ratingAvg) : 5.0;
+                        const aRating = a.totalReviews > 0 && a.ratingAvg ? Number(a.ratingAvg) : 0;
+                        const bRating = b.totalReviews > 0 && b.ratingAvg ? Number(b.ratingAvg) : 0;
                         if (aRating !== bRating) return bRating - aRating;
 
                         const aJobs = a.totalCompletedJobs || 0;
@@ -979,13 +979,19 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                                 <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                                   <span className="font-mono text-[10px]">{staff.staffPhone}</span>
                                   <span>•</span>
-                                  <span className="inline-flex items-center gap-0.5 font-bold text-amber-600 dark:text-amber-400">
-                                    <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
-                                    {staff.ratingAvg ? Number(staff.ratingAvg).toFixed(1) : '5.0'}
-                                  </span>
-                                  {staff.totalReviews > 0 && (
-                                    <span className="text-slate-400 text-[10px]">
-                                      ({staff.totalReviews} {t('reviews_count') || 'đánh giá'})
+                                  {staff.totalReviews > 0 && staff.ratingAvg ? (
+                                    <>
+                                      <span className="inline-flex items-center gap-0.5 font-bold text-amber-600 dark:text-amber-400">
+                                        <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                                        {Number(staff.ratingAvg).toFixed(1)}
+                                      </span>
+                                      <span className="text-slate-400 text-[10px]">
+                                        ({staff.totalReviews} {t('reviews_count') || 'đánh giá'})
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                      {t('staff_badge_new')}
                                     </span>
                                   )}
                                   {staff.totalCompletedJobs > 0 && (
