@@ -1,4 +1,4 @@
-package com.makeup.platform.service.booking.impl;
+﻿package com.makeup.platform.service.booking.impl;
 import com.makeup.platform.repository.wallet.BookingSettlementRepository;
 import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 
@@ -109,6 +109,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
     private final BookingHistoryRepository bookingHistoryRepository;
     private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
     private final NotificationService notificationService;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
@@ -840,7 +841,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
             }
         }
 
-        BigDecimal commissionRate = BookingCommissionPolicy.rateFor(booking, getFreelancerCommissionRate());
+        BigDecimal commissionRate = bookingCommissionPolicy.rateFor(booking);
         BigDecimal platformFee = totalAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
         var settlementSnapshot = settlementRepository.findByBookingId(bookingId).orElse(null);
         if (settlementSnapshot != null) platformFee = settlementSnapshot.getCommissionAmount();

@@ -1,4 +1,4 @@
-package com.makeup.platform.service.payment.impl;
+﻿package com.makeup.platform.service.payment.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
@@ -26,6 +26,7 @@ import com.makeup.platform.service.booking.BookingAuditService;
 import com.makeup.platform.service.mua.MUACalendarService;
 import com.makeup.platform.service.payment.BookingDepositService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.payment.gateway.GatewayPaymentResult;
 import com.makeup.platform.service.payment.gateway.PaymentGatewayRegistry;
@@ -85,6 +86,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
     private final EmailService emailService;
     private final MUACalendarService muaCalendarService;
     private final BookingSlotCancelHelper bookingSlotCancelHelper;
+    private final BookingCommissionPolicy bookingCommissionPolicy;
 
     @Override
     @Transactional
@@ -790,8 +792,9 @@ public class BookingDepositServiceImpl implements BookingDepositService {
         BigDecimal serviceSubtotal = booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO;
         BigDecimal surchargeFee = booking.getSurchargeFee() != null ? booking.getSurchargeFee() : BigDecimal.ZERO;
         BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
-        BigDecimal platformFee = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).multiply(new BigDecimal("0.20")).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal earningsAmount = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).multiply(new BigDecimal("0.80")).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal commissionRate = bookingCommissionPolicy.rateFor(booking);
+        BigDecimal platformFee = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal earningsAmount = (booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO).subtract(platformFee);
 
         // Bắn WebSocket thông báo Khách & Thợ: ĐÃ CỌC THÀNH CÔNG VÀO QUỸ ESCROW!
         try {
@@ -1086,12 +1089,12 @@ public class BookingDepositServiceImpl implements BookingDepositService {
                 payment.getAmount().compareTo(payment.getBooking().getTotalAmount().subtract(deposit.getPaidAmount())) != 0) {
             throw new CustomBusinessException(ErrorCodes.ERR_PAYMENT_AMOUNT_MISMATCH, "ERR_PAYMENT_AMOUNT_MISMATCH");
         }
-        BigDecimal defaultCommissionRate = new BigDecimal("0.20");
+        BigDecimal finalCommissionRate = bookingCommissionPolicy.rateFor(payment.getBooking());
 
         if (payment.getBooking().getAgency() != null) {
-            bookingSettlementService.settleBookingOnlinePaymentInTransaction(bookingId, defaultCommissionRate);
+            bookingSettlementService.settleBookingOnlinePaymentInTransaction(bookingId, finalCommissionRate);
         } else {
-            bookingSettlementService.settleBookingOnlinePayment(bookingId, defaultCommissionRate);
+            bookingSettlementService.settleBookingOnlinePayment(bookingId, finalCommissionRate);
         }
 
         WalletEntity customerWallet = walletRepository.findByUserIdWithLock(payment.getUser().getId())
@@ -1117,7 +1120,7 @@ public class BookingDepositServiceImpl implements BookingDepositService {
             var booking = payment.getBooking();
             BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
             BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
-            BigDecimal commission = totalAmount.multiply(defaultCommissionRate).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal commission = totalAmount.multiply(finalCommissionRate).setScale(0, RoundingMode.HALF_UP);
             BigDecimal earningsAmount = totalAmount.subtract(commission);
 
             Map<String, Object> payload = new HashMap<>();

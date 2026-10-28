@@ -1,4 +1,4 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 
 export const verifyCertificateSchema = z.object({
   certIndex: z.number().int().nonnegative().optional().default(0),
@@ -16,4 +16,11 @@ export const surgeRuleSchema = z.object({
   surgeMultiplier: z.number().min(1.0, 'Hệ số tối thiểu 1.00x').max(1.5, 'Hệ số tối đa 1.50x'),
   minDemandRatio: z.number().optional().default(1.0),
   isActive: z.boolean().default(true),
+});
+
+export const updatePlatformFeeSchema = z.object({
+  feePercent: z.coerce
+    .number({ invalid_type_error: 'Phí sàn phải là số' })
+    .min(0, 'Phí sàn tối thiểu là 0%')
+    .max(100, 'Phí sàn tối đa là 100%'),
 });

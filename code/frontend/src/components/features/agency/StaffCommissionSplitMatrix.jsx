@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { DollarSign, User, SlidersHorizontal, CheckCircle2, Clock } from 'lucide-react';
 import { Badge } from '../../base/Badge';
 import { Button } from '../../base/Button';
@@ -37,7 +37,7 @@ export const StaffCommissionSplitMatrix = ({
     }, 0);
 
   // Phí hoa hồng nền tảng (Platform Commission Rate: 20%)
-  const platformFeeRate = Number(booking.platformFeeRate ?? 0.20);
+  const platformFeeRate = Number(booking.platformFeeRate ?? 0.15);
   const platformFee = Number(booking.platformFee ?? Math.round(totalAmount * platformFeeRate));
   const estimatedStudioNet = totalAmount - platformFee - totalStaffCommission;
 

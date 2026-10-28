@@ -1,4 +1,4 @@
-package com.makeup.platform.service.booking;
+﻿package com.makeup.platform.service.booking;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
@@ -10,6 +10,7 @@ import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.payment.*;
 import com.makeup.platform.repository.wallet.*;
 import com.makeup.platform.service.wallet.BookingSettlementService;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,10 +36,7 @@ public class StudioDisputeFinanceService {
     private final WalletHoldRepository holds;
     private final BookingRepository bookings;
     private final BookingSettlementService settlementService;
-    @Value("${app.settlement.commission-rate:0.1500}")
-    private BigDecimal cashCommissionRate;
-    @Value("${app.settlement.online-commission-rate:0.20}")
-    private BigDecimal onlineCommissionRate;
+    private final PlatformFeeService platformFeeService;
 
     public record Financials(String stage, boolean completedService, BigDecimal paidDeposit,
                              BigDecimal paidAmount, BigDecimal cashAmount, boolean settled) {}
@@ -103,8 +101,9 @@ public class StudioDisputeFinanceService {
             if (!f.settled() && "PAID_UNSETTLED".equals(f.stage())) {
                 booking.setStatus(BookingStatus.COMPLETED);
                 bookings.save(booking);
-                if (f.cashAmount().signum() > 0) settlementService.settleBooking(booking.getId(), cashCommissionRate);
-                else settlementService.settleBookingOnlinePaymentInTransaction(booking.getId(), onlineCommissionRate);
+                BigDecimal feeRate = platformFeeService.getRate();
+                if (f.cashAmount().signum() > 0) settlementService.settleBooking(booking.getId(), feeRate);
+                else settlementService.settleBookingOnlinePaymentInTransaction(booking.getId(), feeRate);
                 if (!settlements.findByBookingId(booking.getId()).map(s -> "SETTLED".equals(s.getStatus())).orElse(false))
                     throw conflict("dispute.payment_reconciliation_required");
             }

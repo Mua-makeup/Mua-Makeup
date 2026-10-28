@@ -1,4 +1,4 @@
-package com.makeup.platform.service.customer.impl;
+﻿package com.makeup.platform.service.customer.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.constants.InstantBookingKeys;
@@ -25,6 +25,7 @@ import com.makeup.platform.repository.catalog.PackageItemRepository;
 import com.makeup.platform.repository.catalog.ServicePackageRepository;
 import com.makeup.platform.repository.payment.BookingDepositRepository;
 import com.makeup.platform.service.booking.BookingAuditService;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import com.makeup.platform.service.booking.BookingMessagePublisher;
 import com.makeup.platform.service.customer.CustomerInstantBookingService;
 import com.makeup.platform.service.customer.InstantDispatchLeaseService;
@@ -99,6 +100,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final ObjectMapper objectMapper;
     private final MUACalendarService muaCalendarService;
     private final MuaReputationService muaReputationService;
+    private final PlatformFeeService platformFeeService;
 
     @Override
     @Transactional
@@ -966,14 +968,14 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             bookingDepositRepository.save(deposit);
         }
 
-        // Đọc cấu hình % chiết khấu Freelancer động từ Redis (mặc định 20%)
-        BigDecimal commissionRate = new BigDecimal("0.20");
-        try {
-            String rateStr = stringRedisTemplate.opsForValue().get("settings:freelancer_commission_rate");
-            if (rateStr != null && !rateStr.trim().isEmpty()) {
-                commissionRate = new BigDecimal(rateStr.trim());
-            }
-        } catch (Exception ignored) {}
+        // Dynamic platform fee rate configured by Admin
+        BigDecimal commissionRate = platformFeeService.getRate();
+
+
+
+
+
+
 
         BigDecimal totalBookingAmount = savedBooking.getTotalAmount() != null ? savedBooking.getTotalAmount() : (savedBooking.getServiceSubtotal() != null ? savedBooking.getServiceSubtotal() : BigDecimal.ZERO);
         BigDecimal platformFee = totalBookingAmount.multiply(commissionRate).setScale(0, RoundingMode.HALF_UP);
@@ -1068,7 +1070,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
 
         BigDecimal basePrice = DEFAULT_BASE_PRICE;
         BigDecimal emergencyFee = EMERGENCY_SURCHARGE;
-        BigDecimal platformFee = basePrice.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal instantFeeRate = platformFeeService.getRate();
+        BigDecimal platformFee = basePrice.multiply(instantFeeRate).setScale(0, RoundingMode.HALF_UP);
         BigDecimal earnings = basePrice.subtract(platformFee).add(emergencyFee);
         BigDecimal total = basePrice.add(emergencyFee);
         String serviceName = "Trang Điểm Khẩn Cấp";
@@ -1115,7 +1118,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     packageItems = pkg.getPackageItems().stream().map(PackageItemEntity::getItemName).toList();
                 }
                 total = basePrice.add(emergencyFee);
-                platformFee = total.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+                platformFee = total.multiply(instantFeeRate).setScale(0, RoundingMode.HALF_UP);
                 earnings = total.subtract(platformFee);
             }
         }

@@ -1,4 +1,4 @@
-package com.makeup.platform.service.wallet.impl;
+﻿package com.makeup.platform.service.wallet.impl;
 
 import com.makeup.platform.common.constants.ErrorCodes;
 import com.makeup.platform.common.exception.CustomBusinessException;
@@ -22,9 +22,9 @@ import com.makeup.platform.service.mail.EmailService;
 import com.makeup.platform.service.wallet.BookingSettlementService;
 import com.makeup.platform.service.wallet.BookingCommissionPolicy;
 import com.makeup.platform.service.wallet.CashPaymentService;
+import com.makeup.platform.service.wallet.PlatformFeeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,9 +46,6 @@ public class CashPaymentServiceImpl implements CashPaymentService {
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
-    @Value("${app.settlement.commission-rate:0.1500}")
-    private BigDecimal defaultCommissionRate;
-
     private final BookingRepository bookingRepository;
     private final BookingCashReceiptRepository cashReceiptRepository;
     private final MuaProfileRepository muaProfileRepository;
@@ -58,6 +55,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
     private final SimpMessagingTemplate messagingTemplate;
     private final EmailService emailService;
     private final NotificationService notificationService;
+    private final PlatformFeeService platformFeeService;
 
     @Override
     @Transactional
@@ -348,7 +346,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
 
             // Trigger settlement kế toán đúp
             try {
-                bookingSettlementService.settleBooking(bookingId, defaultCommissionRate);
+                bookingSettlementService.settleBooking(bookingId, platformFeeService.getRate());
             } catch (Exception e) {
                 if (studioBooking != null && studioBooking.getAgency() != null) throw e;
                 log.error("[CashReceipt] Settlement trigger error for booking {}: {}", bookingId, e.getMessage(), e);
@@ -357,8 +355,7 @@ public class CashPaymentServiceImpl implements CashPaymentService {
             try {
                 BigDecimal totalAmount = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
                 BigDecimal depositAmount = booking != null && booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
-                BigDecimal rate = booking != null
-                        ? BookingCommissionPolicy.rateFor(booking, defaultCommissionRate) : defaultCommissionRate;
+                BigDecimal rate = platformFeeService.getRate();
                 BigDecimal commission = totalAmount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
                 BigDecimal earningsAmount = totalAmount.subtract(commission);
 
