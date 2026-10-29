@@ -148,6 +148,8 @@ public class AgencyEmergencyService {
             if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getId().equals(newStaff.getId())) {
                 throw new CustomBusinessException(ErrorCodes.ERR_VALIDATION, "dispatch.cannot_reassign_to_same_staff");
             }
+            boolean reportedBusy = oldAssignment.getStatus() == AssignmentStatus.EMERGENCY_CANCELLED
+                    || oldAssignment.getCancelledAt() != null || oldAssignment.getCancellationReason() != null;
             oldAssignment.setStatus(AssignmentStatus.REPLACED);
             oldAssignment.setReplacedByStaff(newStaff);
             oldAssignment.setIsConfirmedByStaff(false);
@@ -156,7 +158,7 @@ public class AgencyEmergencyService {
 
             // Convert old staff's calendar slot to emergency blocked if they reported emergency, otherwise release
             if (oldAssignment.getStaff() != null && oldAssignment.getStaff().getMua() != null) {
-                if (oldAssignment.getCancellationReason() != null || req.getReassignmentReason() != null) {
+                if (reportedBusy) {
                     muaCalendarService.convertSlotToEmergencyBlocked(booking.getId(), oldAssignment.getStaff().getMua().getId(),
                             oldAssignment.getCancellationReason() != null ? oldAssignment.getCancellationReason() : req.getReassignmentReason());
                 } else {
@@ -591,6 +593,9 @@ public class AgencyEmergencyService {
                     booking.getId(), staffId, AssignmentStatus.EMERGENCY_CANCELLED
             ).orElse(null);
         }
+        if (assignment == null && staffId != null) {
+            throw new CustomBusinessException(ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found");
+        }
         if (assignment == null) {
             List<BookingStaffAssignmentEntity> emergencyAssignments = bookingStaffAssignmentRepository
                     .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
@@ -672,10 +677,13 @@ public class AgencyEmergencyService {
                 );
             }
 
-            booking.setNeedsEmergencyReassignment(false);
-            booking.setEmergencyReason(null);
-            booking.setEmergencyProofUrl(null);
-            booking.setEmergencyReportedAt(null);
+            var remainingReports = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
+                    booking.getId(), AssignmentStatus.EMERGENCY_CANCELLED);
+            booking.setNeedsEmergencyReassignment(!remainingReports.isEmpty());
+            var remainingReport = remainingReports.isEmpty() ? null : remainingReports.get(0);
+            booking.setEmergencyReason(remainingReport != null ? remainingReport.getCancellationReason() : null);
+            booking.setEmergencyProofUrl(remainingReport != null ? remainingReport.getProofDocumentUrl() : null);
+            booking.setEmergencyReportedAt(remainingReport != null ? remainingReport.getCancelledAt() : null);
             bookingRepository.save(booking);
 
             String auditNote = isEn

@@ -1,3 +1,4 @@
+import { findMyAssignment, canConfirmAssignment } from '@/utils/staff-assignment';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -244,30 +245,25 @@ export default function JobExecutionScreen() {
   const [isConfirmingSolo, setIsConfirmingSolo] = useState(false);
   const [isDecliningSolo, setIsDecliningSolo] = useState(false);
 
-  // Xác định phân công của chuyên viên hiện tại (so khớp đa tầng: userId, muaId, staffId, phone)
-  const myAssignment = (booking?.assignedStaff || []).find((s: any) => {
-    if (userInfo?.id && (s.userId === userInfo.id || s.staffId === userInfo.id)) return true;
-    if (userInfo?.muaId && (s.muaId === userInfo.muaId || s.staffId === userInfo.muaId)) return true;
-    if (profile?.muaId && (s.muaId === profile.muaId || s.staffId === profile.muaId)) return true;
-    if (userInfo?.phoneNumber && s.staffPhone && s.staffPhone.replace(/\D/g, '') === userInfo.phoneNumber.replace(/\D/g, '')) return true;
-    return false;
-  }) || null;
+  const myAssignment = findMyAssignment<any>(booking?.assignedStaff || [], userInfo, profile?.muaId);
 
-  const isAssistantRole = myAssignment?.role === 'ASSISTANT_MUA';
-  const isPrimaryRole = myAssignment?.role === 'PRIMARY_MUA' || (!isAssistantRole && (!myAssignment || booking?.muaId === (userInfo?.muaId || profile?.muaId)));
+  const isAssistantRole = myAssignment?.status === 'ACTIVE' && myAssignment?.role === 'ASSISTANT_MUA';
+  const isPrimaryRole = myAssignment ? myAssignment.status === 'ACTIVE' && myAssignment.role === 'PRIMARY_MUA' : !booking?.agencyId && booking?.bookingPartner !== 'AGENCY_DISPATCH' && booking?.muaId === (userInfo?.muaId || profile?.muaId);
   const isAgencyBooking =
     booking?.bookingPartner === 'AGENCY' ||
     booking?.bookingPartner === 'AGENCY_DISPATCH' ||
     Boolean(booking?.agencyId || (booking as any)?.agency || (booking?.assignedStaff && booking.assignedStaff.length > 0) || myAssignment);
 
+  const isMyAssignmentInactive = isAgencyBooking && myAssignment?.status !== 'ACTIVE';
+
   const isMyAssignmentBusy =
     myAssignment?.status === 'EMERGENCY_CANCELLED' ||
     myAssignment?.status === 'REPORTED_BUSY_PENDING_APPROVAL' ||
-    (isAgencyBooking && Boolean(booking?.emergencyReason) && myAssignment?.status !== 'ACTIVE');
+    (myAssignment?.status === 'REPLACED' && Boolean(myAssignment?.cancellationReason));
 
-  const isPendingMyConfirmation = !isMyAssignmentBusy && (myAssignment
-    ? Boolean(myAssignment.isConfirmedByStaff === false || !myAssignment.confirmedAt)
-    : (currentStatus === 'AGENCY_ASSIGNED'));
+  const isPendingMyConfirmation = isAgencyBooking
+    ? canConfirmAssignment(myAssignment)
+    : currentStatus === 'AGENCY_ASSIGNED';
 
   const handleConfirmMyAssignment = () => {
     const roleText = isPrimaryRole ? 'Thợ chính' : (isAssistantRole ? 'Thợ phụ' : 'Chuyên viên');
@@ -2249,11 +2245,11 @@ export default function JobExecutionScreen() {
 
       {/* Floating Bottom Action Bar based on current Status */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {isMyAssignmentBusy ? (
+        {isMyAssignmentInactive ? (
           <View style={{ flex: 1, backgroundColor: '#FFFBEB', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#FDE68A', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="hourglass-outline" size={18} color="#B45309" />
             <Text style={{ flex: 1, fontSize: 13, color: '#B45309', fontWeight: '500' }}>
-              Bạn đã gửi báo bận cho ca làm này. Vui lòng chờ Studio xử lý duyệt.
+              {isMyAssignmentBusy ? 'Bạn đã báo bận ca này. Studio đang xử lý điều phối.' : 'Bạn không còn được phân công thực hiện ca này.'}
             </Text>
           </View>
         ) : currentStatus === 'REQUESTED' ? (
