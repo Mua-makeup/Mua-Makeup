@@ -17,13 +17,17 @@ import com.makeup.platform.entity.agency.OvertimePolicyType;
 import com.makeup.platform.entity.agency.OvertimeReasonType;
 import com.makeup.platform.entity.agency.OvertimeReportStatus;
 import com.makeup.platform.entity.agency.OvertimeReviewAction;
+import com.makeup.platform.entity.booking.AssignmentRole;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.mapper.agency.AgencyOvertimeMapper;
 import com.makeup.platform.repository.AgencyOvertimeRuleRepository;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.service.agency.AgencyOvertimeService;
 import com.makeup.platform.service.interaction.NotificationService;
 import com.makeup.platform.service.wallet.impl.OvertimeAllowancePaymentService;
@@ -40,6 +44,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -54,6 +59,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
     private final AgencyOvertimeMapper agencyOvertimeMapper;
     private final NotificationService notificationService;
     private final BookingRepository bookingRepository;
+    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
     private final OvertimeAllowancePaymentService overtimePaymentService;
 
     @Override
@@ -159,6 +165,46 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                         HttpStatus.FORBIDDEN
                 ));
 
+        BookingEntity booking = bookingRepository.findById(req.getBookingId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found"
+                ));
+
+        // Kiểm tra phân công trong đơn hàng: Chỉ Thợ chính (PRIMARY_MUA) mới có quyền gửi giải trình
+        List<BookingStaffAssignmentEntity> assignments = bookingStaffAssignmentRepository
+                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
+        if (assignments.isEmpty()) {
+            assignments = bookingStaffAssignmentRepository.findByBookingId(booking.getId());
+        }
+
+        if (!assignments.isEmpty()) {
+            BookingStaffAssignmentEntity callerAssignment = assignments.stream()
+                    .filter(sa -> sa.getStaff() != null && sa.getStaff().getId().equals(staff.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new CustomBusinessException(
+                            ErrorCodes.ERR_FORBIDDEN,
+                            "agency.staff_not_assigned_to_booking",
+                            HttpStatus.FORBIDDEN
+                    ));
+
+            if (callerAssignment.getAssignmentRole() != AssignmentRole.PRIMARY_MUA) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_FORBIDDEN,
+                        "agency.only_primary_staff_can_submit_overtime",
+                        HttpStatus.FORBIDDEN
+                );
+            }
+        }
+
+        if (agencyStaffOvertimeReportRepository.existsByBookingIdAndStaffId(booking.getId(), staff.getId())) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_VALIDATION,
+                    "agency.overtime_report_already_submitted",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
         AgencyProfileEntity agency = staff.getAgency();
         AgencyOvertimeRuleEntity rule = null;
 
@@ -177,7 +223,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                     ));
         }
 
-        AgencyStaffOvertimeReportEntity report = AgencyStaffOvertimeReportEntity.builder()
+        AgencyStaffOvertimeReportEntity primaryReport = AgencyStaffOvertimeReportEntity.builder()
                 .bookingId(req.getBookingId())
                 .staff(staff)
                 .agency(agency)
@@ -191,9 +237,35 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                 .customerSurchargeAmount(BigDecimal.ZERO)
                 .build();
 
-        AgencyStaffOvertimeReportEntity saved = agencyStaffOvertimeReportRepository.save(report);
-        log.info("Thợ staffId={} nộp giải trình quá giờ reportId={} cho ca bookingId={}",
+        AgencyStaffOvertimeReportEntity saved = agencyStaffOvertimeReportRepository.save(primaryReport);
+        log.info("Thợ chính staffId={} nộp giải trình quá giờ reportId={} cho ca bookingId={}",
                 staff.getId(), saved.getId(), req.getBookingId());
+
+        // Tự động đính kèm báo cáo tăng ca cho thợ phụ (ASSISTANT_MUA) nếu ca làm có thợ phụ
+        for (BookingStaffAssignmentEntity sa : assignments) {
+            if (sa.getStaff() != null && !sa.getStaff().getId().equals(staff.getId())
+                    && sa.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA) {
+                if (!agencyStaffOvertimeReportRepository.existsByBookingIdAndStaffId(booking.getId(), sa.getStaff().getId())) {
+                    AgencyStaffOvertimeReportEntity assistantReport = AgencyStaffOvertimeReportEntity.builder()
+                            .bookingId(req.getBookingId())
+                            .staff(sa.getStaff())
+                            .agency(agency)
+                            .overtimeMinutes(req.getOvertimeMinutes())
+                            .reasonType(req.getReasonType())
+                            .rule(rule)
+                            .explanationText(req.getExplanationText())
+                            .proofImageUrl(req.getProofImageUrl())
+                            .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW)
+                            .penaltyAmountApplied(BigDecimal.ZERO)
+                            .customerSurchargeAmount(BigDecimal.ZERO)
+                            .adminNotes("Báo cáo được đính kèm tự động từ giải trình của thợ chính")
+                            .build();
+                    agencyStaffOvertimeReportRepository.save(assistantReport);
+                    log.info("Đính kèm tự động báo cáo quá giờ cho thợ phụ staffId={} theo đơn #{}",
+                            sa.getStaff().getId(), booking.getId());
+                }
+            }
+        }
 
         try {
             notificationService.createOvertimeReportSubmittedNotification(agency, staff, saved);
@@ -351,17 +423,38 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
 
     private BigDecimal calculateAllowance(AgencyStaffOvertimeReportEntity report, AgencyOvertimeRuleEntity rule) {
         if (rule == null) return BigDecimal.ZERO;
+        BigDecimal base = BigDecimal.ZERO;
         BigDecimal value = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
         if (rule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
-            return value.multiply(BigDecimal.valueOf(report.getOvertimeMinutes())).setScale(0, RoundingMode.HALF_UP);
-        }
-        if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) return value;
-        if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
+            base = value.multiply(BigDecimal.valueOf(report.getOvertimeMinutes())).setScale(0, RoundingMode.HALF_UP);
+        } else if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
+            base = value;
+        } else if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
             BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
-            BigDecimal base = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
-            return base.multiply(value).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            BigDecimal total = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            base = total.multiply(value).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
         }
-        return BigDecimal.ZERO;
+
+        // PHÂN BIỆT ROLE: Thợ phụ (Assistant MUA) nhận phụ cấp tăng ca theo tỷ lệ hoa hồng hoặc mặc định 50%
+        if (report.getBookingId() != null && report.getStaff() != null && base.compareTo(BigDecimal.ZERO) > 0) {
+            Optional<BookingStaffAssignmentEntity> assignmentOpt = bookingStaffAssignmentRepository
+                    .findByBookingIdAndStaffIdAndStatus(report.getBookingId(), report.getStaff().getId(), AssignmentStatus.ACTIVE);
+            if (assignmentOpt.isEmpty()) {
+                assignmentOpt = bookingStaffAssignmentRepository.findByBookingId(report.getBookingId()).stream()
+                        .filter(sa -> sa.getStaff() != null && sa.getStaff().getId().equals(report.getStaff().getId()))
+                        .findFirst();
+            }
+            if (assignmentOpt.isPresent() && assignmentOpt.get().getAssignmentRole() == AssignmentRole.ASSISTANT_MUA) {
+                BigDecimal staffCommRate = assignmentOpt.get().getCommissionRate();
+                if (staffCommRate != null && staffCommRate.compareTo(BigDecimal.ZERO) > 0 && staffCommRate.compareTo(BigDecimal.valueOf(100)) < 0) {
+                    return base.multiply(staffCommRate).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                } else {
+                    return base.multiply(BigDecimal.valueOf(0.5)).setScale(0, RoundingMode.HALF_UP);
+                }
+            }
+        }
+
+        return base;
     }
 
     private OvertimeReportRes toReportResponse(AgencyStaffOvertimeReportEntity report) {
