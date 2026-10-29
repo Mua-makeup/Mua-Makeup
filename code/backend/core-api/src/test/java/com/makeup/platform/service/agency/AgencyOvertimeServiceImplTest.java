@@ -21,6 +21,7 @@ import com.makeup.platform.repository.AgencyOvertimeRuleRepository;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.service.agency.impl.AgencyOvertimeServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +59,9 @@ class AgencyOvertimeServiceImplTest {
 
     @Spy
     private AgencyOvertimeMapper agencyOvertimeMapper = new AgencyOvertimeMapper();
+
+    @Mock
+    private BookingRepository bookingRepository;
 
     @InjectMocks
     private AgencyOvertimeServiceImpl agencyOvertimeService;
@@ -260,4 +264,47 @@ class AgencyOvertimeServiceImplTest {
         );
         assertEquals(ErrorCodes.ERR_OVERTIME_ALREADY_REVIEWED, ex.getErrorCode());
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"14,0", "15,75000", "30,150000", "60,300000", "61,0"})
+    void freeTextReportUsesMatchingAllowanceForPreviewAndApproval(int minutes, long expected) {
+        mockRule.setMinOvertimeMinutes(15);
+        mockRule.setPenaltyType(OvertimePenaltyType.PER_MINUTE);
+        mockRule.setPenaltyValue(BigDecimal.valueOf(5000));
+        var report = AgencyStaffOvertimeReportEntity.builder()
+                .bookingId(48L).staff(mockStaff).agency(mockAgency).overtimeMinutes(minutes)
+                .explanationText("Customer arrived late")
+                .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW)
+                .penaltyAmountApplied(BigDecimal.ZERO).build();
+        report.setId(501L);
+        when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
+        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(java.util.List.of(mockRule));
+        when(agencyStaffOvertimeReportRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        var preview = agencyOvertimeService.getOvertimeReportDetail(1L, 501L);
+        assertEquals(BigDecimal.valueOf(expected), preview.getEstimatedAllowanceAmount());
+        assertEquals(BigDecimal.ZERO, report.getPenaltyAmountApplied());
+        org.junit.jupiter.api.Assertions.assertNull(report.getRule());
+        var result = agencyOvertimeService.reviewOvertimeReport(1L, 501L, ReviewOvertimeReportReq.builder()
+                .action(OvertimeReviewAction.APPROVE_ALLOWANCE).build());
+        assertEquals(BigDecimal.valueOf(expected), result.getPenaltyAmountApplied());
+    }
+
+    @Test
+    void unlimitedAllowanceExcludesInactiveAndPenaltyRules() {
+        mockRule.setMinOvertimeMinutes(15);
+        mockRule.setMaxOvertimeMinutes(null);
+        mockRule.setPenaltyType(OvertimePenaltyType.PER_MINUTE);
+        mockRule.setPenaltyValue(BigDecimal.valueOf(5000));
+        var inactive = AgencyOvertimeRuleEntity.builder().isActive(false).minOvertimeMinutes(30)
+                .penaltyType(OvertimePenaltyType.PER_MINUTE).penaltyValue(BigDecimal.valueOf(99000)).build();
+        var penalty = AgencyOvertimeRuleEntity.builder().isActive(true).minOvertimeMinutes(30)
+                .policyType(com.makeup.platform.entity.agency.OvertimePolicyType.PENALTY).build();
+        var report = AgencyStaffOvertimeReportEntity.builder().agency(mockAgency).overtimeMinutes(90)
+                .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW).build();
+        when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
+        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(java.util.List.of(inactive, penalty, mockRule));
+        assertEquals(BigDecimal.valueOf(450000), agencyOvertimeService.getOvertimeReportDetail(1L, 501L).getEstimatedAllowanceAmount());
+    }
+
 }
