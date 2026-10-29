@@ -6,8 +6,24 @@ const ts = require('typescript');
 const source = fs.readFileSync(path.join(__dirname, '../src/utils/booking-time.ts'), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } });
 const api = {};
-new Function('exports', compiled.outputText)(api);
+const dateSource = fs.readFileSync(path.join(__dirname, '../src/utils/date.ts'), 'utf8');
+const dateApi = {};
+new Function('exports', ts.transpileModule(dateSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(dateApi);
+new Function('exports', 'require', compiled.outputText)(api, (name) => {
+  if (name === './date') return dateApi;
+  throw new Error(`Unexpected import: ${name}`);
+});
 const format = api.formatBookingExecutionTime;
+
+test('03:00 UTC execution displays as 10:00 Vietnam time, preserving the 11:00 appointment', () => {
+  for (const suffix of ['Z', '', '+00:00']) {
+    const result = format({ bookingDate: '2026-10-29', startTime: '11:00',
+      startedAt: `2026-10-29T03:00:00${suffix}`, completedAt: `2026-10-29T03:06:00${suffix}` });
+    assert.equal(result.startTime, '10:00');
+    assert.equal(result.endTime, '10:06');
+    assert.equal(result.scheduledStartTime, '11:00');
+  }
+});
 
 test('UTC and offset timestamps display the same actual Vietnam time in every device zone', () => {
   const old = process.env.TZ;
