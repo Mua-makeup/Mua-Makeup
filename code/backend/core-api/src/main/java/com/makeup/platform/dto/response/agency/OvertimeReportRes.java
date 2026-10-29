@@ -1,5 +1,6 @@
 package com.makeup.platform.dto.response.agency;
 
+import com.makeup.platform.entity.agency.OvertimeAllowancePaymentStatus;
 import com.makeup.platform.entity.agency.OvertimePenaltyType;
 import com.makeup.platform.entity.agency.OvertimePolicyType;
 import com.makeup.platform.entity.agency.OvertimeReasonType;
@@ -36,6 +37,7 @@ public class OvertimeReportRes {
     private OvertimeReportStatus status;
     private BigDecimal penaltyAmountApplied;
     private BigDecimal estimatedAllowanceAmount;
+    private OvertimeAllowancePaymentStatus allowancePaymentStatus;
     private BigDecimal customerSurchargeAmount;
     private String chargeReason;
     private String adminNotes;

@@ -50,6 +50,7 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
 
     private static final ZoneOffset VIETNAM_OFFSET = ZoneOffset.ofHours(7);
 
+    private final OvertimeAllowancePaymentService overtimePaymentService;
     private final BookingRepository bookingRepository;
     private final BookingDepositRepository bookingDepositRepository;
     private final BookingCashReceiptRepository cashReceiptRepository;
@@ -654,109 +655,9 @@ public class BookingSettlementServiceImpl implements BookingSettlementService {
     }
 
     private void processOvertimeAllowances(BookingEntity booking) {
-        if (booking == null || booking.getAgency() == null || booking.getAgency().getOwner() == null) {
-            return;
-        }
-        UserEntity agencyOwner = booking.getAgency().getOwner();
-        Long ownerId = agencyOwner.getId();
-
-        try {
-            List<AgencyStaffOvertimeReportEntity> otReports = agencyStaffOvertimeReportRepository.findByBookingId(booking.getId());
-            if (otReports == null || otReports.isEmpty()) {
-                return;
-            }
-
-            for (AgencyStaffOvertimeReportEntity ot : otReports) {
-                if (ot.getStatus() == OvertimeReportStatus.APPROVED_WAIVED && ot.getPenaltyAmountApplied() != null
-                        && ot.getPenaltyAmountApplied().compareTo(BigDecimal.ZERO) > 0) {
-
-                    BigDecimal allowanceAmount = ot.getPenaltyAmountApplied();
-                    Long staffUserId = (ot.getStaff() != null && ot.getStaff().getMua() != null && ot.getStaff().getMua().getUser() != null)
-                            ? ot.getStaff().getMua().getUser().getId() : (ot.getStaff() != null ? ot.getStaff().getId() : ot.getId());
-                    String debitKey = "ot:debit:booking:" + booking.getId() + ":staff:" + staffUserId;
-                    String creditKey = "ot:credit:booking:" + booking.getId() + ":staff:" + staffUserId;
-
-                    String staffName = (ot.getStaff() != null && ot.getStaff().getMua() != null && ot.getStaff().getMua().getUser() != null)
-                            ? ot.getStaff().getMua().getUser().getFullName() : "nhân sự";
-
-                    // 1. Trừ tiền từ Ví Studio (Agency Owner Wallet - DEBIT)
-                    if (!ledgerEntryRepository.existsByIdempotencyKey(debitKey)) {
-                        WalletEntity ownerWallet = walletRepository.findByUserIdWithLock(ownerId)
-                                .orElseGet(() -> {
-                                    WalletEntity newWallet = WalletEntity.builder()
-                                            .user(agencyOwner)
-                                            .availableBalance(BigDecimal.ZERO)
-                                            .frozenBalance(BigDecimal.ZERO)
-                                            .currency("VND")
-                                            .build();
-                                    return walletRepository.save(newWallet);
-                                });
-
-                        BigDecimal ownerBalanceBefore = ownerWallet.getAvailableBalance() != null ? ownerWallet.getAvailableBalance() : BigDecimal.ZERO;
-                        BigDecimal deductAmount = ownerBalanceBefore.min(allowanceAmount);
-                        if (deductAmount.compareTo(BigDecimal.ZERO) > 0) {
-                            ownerWallet.setAvailableBalance(ownerBalanceBefore.subtract(deductAmount));
-                            walletRepository.save(ownerWallet);
-
-                            LedgerEntryEntity debitEntry = LedgerEntryEntity.builder()
-                                    .referenceType("OVERTIME_PAYMENT")
-                                    .referenceId(ot.getId())
-                                    .wallet(ownerWallet)
-                                    .entryType("DEBIT")
-                                    .amount(deductAmount)
-                                    .balanceAfter(ownerWallet.getAvailableBalance())
-                                    .description(String.format("Chi trả phụ cấp làm thêm giờ đơn #%s cho thợ %s (-%s đ)",
-                                            booking.getBookingCode(), staffName, String.format("%,d", deductAmount.longValue())))
-                                    .idempotencyKey(debitKey)
-                                    .build();
-                            ledgerEntryRepository.save(debitEntry);
-                            log.info("[Settlement] Debited overtime allowance {} VND from agency owner userId={} for reportId={}",
-                                    deductAmount, ownerId, ot.getId());
-                        } else {
-                            log.warn("[Settlement] Agency owner userId={} has insufficient balance ({}) for overtime allowance {}, skipping debit to satisfy non-negative check",
-                                    ownerId, ownerBalanceBefore, allowanceAmount);
-                        }
-                    }
-
-                    // 2. Cộng tiền vào Ví Thợ (Staff Wallet - CREDIT)
-                    if (ot.getStaff() != null && ot.getStaff().getMua() != null && ot.getStaff().getMua().getUser() != null) {
-                        UserEntity staffUser = ot.getStaff().getMua().getUser();
-                        if (!ledgerEntryRepository.existsByIdempotencyKey(creditKey)) {
-                            WalletEntity staffWallet = walletRepository.findByUserIdWithLock(staffUser.getId())
-                                    .orElseGet(() -> {
-                                        WalletEntity newWallet = WalletEntity.builder()
-                                                .user(staffUser)
-                                                .availableBalance(BigDecimal.ZERO)
-                                                .frozenBalance(BigDecimal.ZERO)
-                                                .currency("VND")
-                                                .build();
-                                        return walletRepository.save(newWallet);
-                                    });
-
-                            BigDecimal staffBalanceBefore = staffWallet.getAvailableBalance() != null ? staffWallet.getAvailableBalance() : BigDecimal.ZERO;
-                            staffWallet.setAvailableBalance(staffBalanceBefore.add(allowanceAmount));
-                            walletRepository.save(staffWallet);
-
-                            LedgerEntryEntity creditEntry = LedgerEntryEntity.builder()
-                                    .referenceType("OVERTIME_ALLOWANCE")
-                                    .referenceId(ot.getId())
-                                    .wallet(staffWallet)
-                                    .entryType("CREDIT")
-                                    .amount(allowanceAmount)
-                                    .balanceAfter(staffWallet.getAvailableBalance())
-                                    .description(String.format("Nhận phụ cấp làm thêm giờ đơn #%s (+%d phút) từ Studio (+%s đ)",
-                                            booking.getBookingCode(), ot.getOvertimeMinutes(), String.format("%,d", allowanceAmount.longValue())))
-                                    .idempotencyKey(creditKey)
-                                    .build();
-                            ledgerEntryRepository.save(creditEntry);
-                            log.info("[Settlement] Credited overtime allowance {} VND to staff userId={} for reportId={}",
-                                    allowanceAmount, staffUser.getId(), ot.getId());
-                        }
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log.error("[Settlement] Error processing overtime allowances for booking {}: {}", booking.getId(), ex.getMessage(), ex);
+        if (booking == null || booking.getAgency() == null) return;
+        for (var report : agencyStaffOvertimeReportRepository.findByBookingId(booking.getId())) {
+            overtimePaymentService.pay(report.getId());
         }
     }
     private void validateStudioSplit(BookingEntity booking, List<BookingStaffAssignmentEntity> assignments,
