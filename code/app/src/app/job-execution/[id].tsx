@@ -2511,12 +2511,14 @@ export default function JobExecutionScreen() {
                         <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
                       </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={styles.overtimeReportBtn}
-                        onPress={() => setIsOvertimeModalVisible(true)}
-                      >
-                        <Text style={styles.overtimeReportBtnText}>Giải trình làm quá giờ</Text>
-                      </TouchableOpacity>
+                      {isPrimaryRole && (
+                        <TouchableOpacity
+                          style={styles.overtimeReportBtn}
+                          onPress={() => setIsOvertimeModalVisible(true)}
+                        >
+                          <Text style={styles.overtimeReportBtnText}>Giải trình làm quá giờ</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
 
