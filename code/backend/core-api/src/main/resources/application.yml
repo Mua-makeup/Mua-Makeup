@@ -102,3 +102,7 @@ discord:
     enabled: ${DISCORD_ALERTS_ENABLED:true}
 
 
+
+auth:
+  otp:
+    test-mode: ${AUTH_OTP_TEST_MODE:false}
