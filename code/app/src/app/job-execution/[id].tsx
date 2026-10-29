@@ -1,4 +1,4 @@
-import { findMyAssignment, canConfirmAssignment } from '@/utils/staff-assignment';
+import { findMyAssignment, canConfirmAssignment, getAssignmentEarnings } from '@/utils/staff-assignment';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -253,6 +253,11 @@ export default function JobExecutionScreen() {
     booking?.bookingPartner === 'AGENCY' ||
     booking?.bookingPartner === 'AGENCY_DISPATCH' ||
     Boolean(booking?.agencyId || (booking as any)?.agency || (booking?.assignedStaff && booking.assignedStaff.length > 0) || myAssignment);
+
+  const myEarnings = isAgencyBooking
+    ? getAssignmentEarnings(myAssignment, booking?.totalAmount ?? 0)
+    : booking?.earningsAmount ?? 0;
+  const myEarningsText = myEarnings == null ? 'Chưa có thông tin' : formatVnd(myEarnings);
 
   const isMyAssignmentInactive = isAgencyBooking && myAssignment?.status !== 'ACTIVE';
 
@@ -1618,7 +1623,7 @@ export default function JobExecutionScreen() {
                 <Ionicons name="wallet-outline" size={22} color="#059669" />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.earningsCardLabel}>Thu nhập thực nhận về ví của bạn:</Text>
-                  <Text style={styles.earningsCardValue}>{formatVnd(booking?.earningsAmount || 0)}</Text>
+                  <Text style={styles.earningsCardValue}>{myEarningsText}</Text>
                 </View>
               </View>
             </View>
@@ -1790,7 +1795,7 @@ export default function JobExecutionScreen() {
                 <View style={styles.escrowGuaranteeBox}>
                   <Ionicons name="shield-outline" size={15} color="#047857" style={{ marginTop: 1 }} />
                   <Text style={styles.escrowGuaranteeText}>
-                    Khoản cọc 30% và thu nhập ca làm ({formatVnd(booking?.earningsAmount || 0)}) được sàn bảo chứng 100%, tự động giải ngân vào Ví của bạn ngay sau khi hoàn thành buổi làm đẹp. Khoản 70% còn lại khách có thể thanh toán trực tiếp hoặc qua cổng trực tuyến.
+                    Khoản cọc 30% và thu nhập ca làm ({myEarningsText}) được sàn bảo chứng 100%, tự động giải ngân vào Ví của bạn ngay sau khi hoàn thành buổi làm đẹp. Khoản 70% còn lại khách có thể thanh toán trực tiếp hoặc qua cổng trực tuyến.
                   </Text>
                 </View>
               </View>
@@ -1960,12 +1965,7 @@ export default function JobExecutionScreen() {
 
                       <View style={{ gap: 8 }}>
                         {sortedStaff.map((staff: any, idx: number) => {
-                          const isSelf = Boolean(
-                            (userInfo?.id && (staff.userId === userInfo.id || staff.staffId === userInfo.id)) ||
-                            (userInfo?.muaId && (staff.muaId === userInfo.muaId || staff.staffId === userInfo.muaId)) ||
-                            (profile?.muaId && (staff.muaId === profile.muaId || staff.staffId === profile.muaId)) ||
-                            (userInfo?.phoneNumber && staff.staffPhone && staff.staffPhone.replace(/\D/g, '') === userInfo.phoneNumber.replace(/\D/g, ''))
-                          );
+                          const isSelf = staff === myAssignment;
                           const isPrimary = staff.role === 'PRIMARY_MUA';
                           const isBusy = isStaffBusy(staff);
                           const isDeclined = staff.status === 'DECLINED';
@@ -2234,9 +2234,19 @@ export default function JobExecutionScreen() {
                 </View>
               )}
 
+              {isAgencyBooking && myAssignment && (
+                <View style={styles.financeRow}>
+                  <Text style={styles.financeLabel}>
+                    Hoa hồng của bạn ({myAssignment.role === 'PRIMARY_MUA' ? 'Thợ Chính' : 'Thợ Phụ'}):
+                  </Text>
+                  <Text style={styles.financeValue}>
+                    {myAssignment.commissionRate != null ? `${myAssignment.commissionRate}%` : 'Theo phân công'}
+                  </Text>
+                </View>
+              )}
               <View style={[styles.financeRow, styles.earningsHighlight]}>
-                <Text style={styles.earningsLabelText}>Thu nhập thợ thực nhận:</Text>
-                <Text style={styles.earningsValueText}>{formatVnd(booking?.earningsAmount || 0)}</Text>
+                <Text style={styles.earningsLabelText}>Thu nhập của bạn:</Text>
+                <Text style={styles.earningsValueText}>{myEarningsText}</Text>
               </View>
             </View>
           </>

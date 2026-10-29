@@ -15,6 +15,14 @@ import com.makeup.platform.mapper.booking.BookingStaffAssignmentMapper;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.wallet.BookingSettlementRepository;
 import com.makeup.platform.service.wallet.PlatformFeeService;
+import com.makeup.platform.repository.payment.BookingDepositRepository;
+import com.makeup.platform.repository.payment.PaymentTransactionRepository;
+import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
+import com.makeup.platform.entity.payment.BookingDepositEntity;
+import com.makeup.platform.entity.payment.PaymentTransactionEntity;
+import com.makeup.platform.entity.wallet.BookingCashReceiptEntity;
+import com.makeup.platform.entity.booking.BookingStatus;
+import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -36,6 +44,9 @@ public class AgencyBookingMapper {
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
     private final BookingSettlementRepository settlementRepository;
     private final PlatformFeeService platformFeeService;
+    private final BookingDepositRepository bookingDepositRepository;
+    private final BookingCashReceiptRepository cashReceiptRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     public AgencyBookingRes toRes(BookingEntity b, AgencyProfileEntity agency) {
         return toRes(b, agency, null);
@@ -189,6 +200,138 @@ public class AgencyBookingMapper {
             staffMuaId = primary.getStaffId();
         }
 
+        // 1. Đợt 1: Cọc (Deposit Amount & Status)
+        BigDecimal depositAmount = b.getDepositAmount();
+        if (depositAmount == null || depositAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            depositAmount = totalAmount.multiply(new BigDecimal("0.30")).setScale(0, RoundingMode.HALF_UP);
+        }
+        BigDecimal remainingAmount = totalAmount.subtract(depositAmount).max(BigDecimal.ZERO);
+
+        boolean isDepositPaid = false;
+        String depositStatus = "PENDING";
+        String depositPaymentMethod = "ESCROW";
+
+        BookingStatus bStatus = b.getStatus();
+
+        if (bookingDepositRepository != null) {
+            Optional<BookingDepositEntity> depositOpt = bookingDepositRepository.findByBookingId(b.getId());
+            if (depositOpt.isPresent()) {
+                BookingDepositEntity dep = depositOpt.get();
+                if (dep.getPaidAmount() != null && dep.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    depositAmount = dep.getPaidAmount();
+                    remainingAmount = totalAmount.subtract(depositAmount).max(BigDecimal.ZERO);
+                }
+                depositStatus = dep.getStatus();
+                if ("PAID".equalsIgnoreCase(depositStatus)) {
+                    isDepositPaid = true;
+                }
+                if (dep.getAppliedPayment() != null && dep.getAppliedPayment().getPaymentGateway() != null) {
+                    depositPaymentMethod = dep.getAppliedPayment().getPaymentGateway();
+                }
+            }
+        }
+
+        // If booking is past deposit phase, deposit was verified & held in Escrow
+        if (!isDepositPaid && bStatus != null && (bStatus == BookingStatus.ON_THE_WAY
+                || bStatus == BookingStatus.ARRIVED
+                || bStatus == BookingStatus.IN_PROGRESS
+                || bStatus == BookingStatus.COMPLETED
+                || bStatus == BookingStatus.PAID_OUT
+                || bStatus == BookingStatus.CONFIRMED
+                || bStatus == BookingStatus.ACCEPTED
+                || bStatus == BookingStatus.AGENCY_ASSIGNED
+                || bStatus == BookingStatus.REQUESTED)) {
+            isDepositPaid = true;
+            if ("PENDING".equals(depositStatus) || "UNPAID".equals(depositStatus)) {
+                depositStatus = "PAID";
+            }
+        }
+
+        if (paymentTransactionRepository != null && ("ESCROW".equals(depositPaymentMethod) || depositPaymentMethod == null)) {
+            List<PaymentTransactionEntity> successTxs = paymentTransactionRepository.findByBookingIdAndStatus(b.getId(), "SUCCESS");
+            if (successTxs != null) {
+                for (PaymentTransactionEntity tx : successTxs) {
+                    if ("BOOKING_DEPOSIT".equalsIgnoreCase(tx.getPurpose()) || "DEPOSIT".equalsIgnoreCase(tx.getPurpose())) {
+                        depositPaymentMethod = tx.getPaymentGateway();
+                        isDepositPaid = true;
+                        depositStatus = "PAID";
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (bStatus == BookingStatus.REFUNDED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
+            depositStatus = "REFUNDED";
+        } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
+            if (!isDepositPaid) {
+                depositStatus = "WAIVED";
+            }
+        }
+
+        // 2. Đợt 2: Quyết Toán Còn Lại (70% Remaining)
+        boolean isFinalPaid = false;
+        String finalPaymentMethod = "CASH_OR_ONLINE";
+        String finalPaymentStatus = "PENDING";
+
+        if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED || bStatus == BookingStatus.REFUNDED) {
+            finalPaymentStatus = "WAIVED";
+            finalPaymentMethod = "NONE";
+        } else if (bStatus == BookingStatus.DISPUTED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
+            finalPaymentStatus = "DISPUTED";
+        } else {
+            // Check Settlement
+            if (settlement != null && "SETTLED".equalsIgnoreCase(settlement.getStatus())) {
+                isFinalPaid = true;
+                finalPaymentStatus = "PAID";
+                if (settlement.getCashAmount() != null && settlement.getCashAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    finalPaymentMethod = "CASH";
+                } else {
+                    finalPaymentMethod = "ONLINE";
+                }
+            }
+
+            // Check Cash Receipt
+            if (!isFinalPaid && cashReceiptRepository != null) {
+                Optional<BookingCashReceiptEntity> receiptOpt = cashReceiptRepository.findByBookingId(b.getId());
+                if (receiptOpt.isPresent()) {
+                    BookingCashReceiptEntity receipt = receiptOpt.get();
+                    finalPaymentMethod = "CASH";
+                    if ("BOTH_CONFIRMED".equalsIgnoreCase(receipt.getStatus())) {
+                        isFinalPaid = true;
+                        finalPaymentStatus = "PAID";
+                    } else if ("CUSTOMER_CONFIRMED".equalsIgnoreCase(receipt.getStatus())) {
+                        finalPaymentStatus = "CUSTOMER_CONFIRMED";
+                    } else {
+                        finalPaymentStatus = "PENDING";
+                    }
+                }
+            }
+
+            // Check Online Final Payment
+            if (!isFinalPaid && paymentTransactionRepository != null) {
+                List<PaymentTransactionEntity> successTxs = paymentTransactionRepository.findByBookingIdAndStatus(b.getId(), "SUCCESS");
+                if (successTxs != null) {
+                    for (PaymentTransactionEntity tx : successTxs) {
+                        if ("BOOKING_FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose()) || "FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose())) {
+                            isFinalPaid = true;
+                            finalPaymentStatus = "PAID";
+                            finalPaymentMethod = tx.getPaymentGateway();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (bStatus == BookingStatus.PAID_OUT) {
+                isFinalPaid = true;
+                finalPaymentStatus = "PAID";
+                if ("CASH_OR_ONLINE".equals(finalPaymentMethod)) {
+                    finalPaymentMethod = "CASH";
+                }
+            }
+        }
+
         return AgencyBookingRes.builder()
                 .id(b.getId())
                 .bookingId(b.getId())
@@ -221,7 +364,14 @@ public class AgencyBookingMapper {
                 .platformFeeRate(platformFeeRate)
                 .platformFee(platformFee)
                 .settlementRecorded(settlement != null)
-                .depositAmount(b.getDepositAmount() != null ? b.getDepositAmount() : BigDecimal.ZERO)
+                .depositAmount(depositAmount)
+                .remainingAmount(remainingAmount)
+                .isDepositPaid(isDepositPaid)
+                .depositPaymentMethod(depositPaymentMethod)
+                .depositStatus(depositStatus)
+                .isFinalPaid(isFinalPaid)
+                .finalPaymentMethod(finalPaymentMethod)
+                .finalPaymentStatus(finalPaymentStatus)
                 .estimatedStaffCommission(estimatedStaffCommission)
                 .estimatedStudioNet(estimatedStudioNet)
                 .needsEmergencyReassignment(b.getNeedsEmergencyReassignment())

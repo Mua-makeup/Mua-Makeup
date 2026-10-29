@@ -50,6 +50,15 @@ public class AgencyBookingRes {
     private BigDecimal estimatedStaffCommission;
     private BigDecimal estimatedStudioNet;
 
+    // Payment Stages (Đợt 1 Cọc & Đợt 2 Còn lại)
+    private BigDecimal remainingAmount;
+    private Boolean isDepositPaid;
+    private String depositPaymentMethod;
+    private String depositStatus;
+    private Boolean isFinalPaid;
+    private String finalPaymentMethod;
+    private String finalPaymentStatus;
+
     // Service Package & Schedule
     private Long bookingId;
     private String bookingStatus;
