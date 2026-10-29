@@ -21,6 +21,10 @@ public class OvertimeReportRes {
 
     private Long id;
     private Long bookingId;
+    private String bookingCode;
+    private String packageName;
+    private String assignmentRole;
+    private String assignmentRoleName;
     private Long staffId;
     private String staffName;
     private Long agencyId;

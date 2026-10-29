@@ -1,16 +1,65 @@
-/**
- * date.ts — Chuẩn múi giờ UTC+7 (Việt Nam) cho toàn bộ Mobile App
- *
- * Vấn đề gốc rễ: `new Date()` trả về giờ UTC của thiết bị (hoặc giờ Server).
- * Nếu Server trả về ISO string dạng "2026-09-29T04:00:00Z" (UTC) mà không kèm
- * offset +07:00, thì `new Date(isoString).getHours()` sẽ cho ra giờ UTC = sai.
- *
- * Giải pháp: Luôn hiển thị giờ theo múi giờ Asia/Ho_Chi_Minh (UTC+7) thông qua
- * Intl.DateTimeFormat với timeZone: 'Asia/Ho_Chi_Minh'.
- */
 
-const VN_TIMEZONE = 'Asia/Ho_Chi_Minh';
-const VN_LOCALE = 'vi-VN';
+export interface VietnamDateParts {
+  hours: string;
+  minutes: string;
+  seconds: string;
+  day: string;
+  month: string;
+  year: number;
+  time: string;
+  date: string;
+  dateTime: string;
+}
+
+/**
+ * Trích xuất các thành phần ngày giờ Việt Nam (UTC+7) từ chuỗi datetime / epoch / Date
+ */
+export function getVietnamParts(value: string | Date | number | null | undefined): VietnamDateParts | null {
+  if (!value) return null;
+  let d: Date;
+  if (value instanceof Date) {
+    d = value;
+  } else if (typeof value === 'number') {
+    d = new Date(value);
+  } else {
+    let clean = String(value).trim().replace(/(\.\d{3})\d+/, '$1');
+    if (clean.includes(' ') && !clean.includes('T')) {
+      clean = clean.replace(' ', 'T');
+    }
+    // Server lưu UTC, nếu có T mà chưa có Z hoặc offset (+/-), thêm Z để chuẩn hóa thành UTC
+    if (clean.includes('T')) {
+      const timePart = clean.split('T')[1];
+      if (!timePart.endsWith('Z') && !timePart.includes('+') && !timePart.includes('-')) {
+        clean += 'Z';
+      }
+    }
+    d = new Date(clean);
+  }
+  if (isNaN(d.getTime())) return null;
+
+  // Epoch millis UTC + 7 tiếng (Vietnam UTC+7)
+  const vnEpoch = d.getTime() + 7 * 60 * 60 * 1000;
+  const vn = new Date(vnEpoch);
+
+  const hours = String(vn.getUTCHours()).padStart(2, '0');
+  const minutes = String(vn.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(vn.getUTCSeconds()).padStart(2, '0');
+  const day = String(vn.getUTCDate()).padStart(2, '0');
+  const month = String(vn.getUTCMonth() + 1).padStart(2, '0');
+  const year = vn.getUTCFullYear();
+
+  return {
+    hours,
+    minutes,
+    seconds,
+    day,
+    month,
+    year,
+    time: `${hours}:${minutes}`,
+    date: `${day}/${month}/${year}`,
+    dateTime: `${hours}:${minutes} ${day}/${month}/${year}`,
+  };
+}
 
 /**
  * Chuyển ISO string (từ Backend) sang giờ Việt Nam hh:mm
@@ -18,22 +67,13 @@ const VN_LOCALE = 'vi-VN';
  */
 export function formatTimeVN(isoString: string | null | undefined): string {
   if (!isoString) return '--:--';
+  const clean = isoString.trim();
   // Nếu là chuỗi giờ HH:mm hoặc HH:mm:ss thuần túy
-  if (/^\d{2}:\d{2}(:\d{2})?$/.test(isoString.trim())) {
-    return isoString.trim().slice(0, 5);
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(clean)) {
+    return clean.slice(0, 5);
   }
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString.slice(0, 5);
-    return new Intl.DateTimeFormat(VN_LOCALE, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: VN_TIMEZONE,
-    }).format(d);
-  } catch {
-    return '--:--';
-  }
+  const parts = getVietnamParts(clean);
+  return parts ? parts.time : '--:--';
 }
 
 /**
@@ -56,7 +96,7 @@ export function formatBookingSchedule(
 
 /**
  * Chuyển ISO string sang ngày giờ đầy đủ Việt Nam dạng hh:mm dd/MM/yyyy
- * Ví dụ: "2026-10-07T20:52:07" → "20:52 07/10/2026"
+ * Ví dụ: "2026-10-07T20:52:07Z" → "03:52 08/10/2026" (hoặc "2026-10-29T03:57:00Z" → "10:57 29/10/2026")
  */
 export function formatDateTimeVN(isoString: string | null | undefined): string {
   if (!isoString) return '--';
@@ -80,39 +120,14 @@ export function formatDateTimeVN(isoString: string | null | undefined): string {
     return `${time} ${timeDateMatch[4]}/${timeDateMatch[3]}/${timeDateMatch[2]}`;
   }
 
-  // 4. Nếu dạng ISO chuẩn Backend Việt Nam "YYYY-MM-DDTHH:mm:ss" hoặc "YYYY-MM-DD HH:mm:ss" (không có offset)
-  const isoLocalMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
-  if (isoLocalMatch) {
-    return `${isoLocalMatch[4]} ${isoLocalMatch[3]}/${isoLocalMatch[2]}/${isoLocalMatch[1]}`;
-  }
-
-  // 5. Nếu dạng "YYYY-MM-DD" thuần túy
+  // 4. Nếu dạng "YYYY-MM-DD" thuần túy
   const dateOnlyMatch = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateOnlyMatch) {
     return `${dateOnlyMatch[3]}/${dateOnlyMatch[2]}/${dateOnlyMatch[1]}`;
   }
 
-  try {
-    // Truncate microseconds (e.g. .543349+07:00 -> .543+07:00) so JS Date parser never fails
-    const cleanStr = clean.replace(/(\.\d{3})\d+/, '$1');
-    const d = new Date(cleanStr);
-    if (isNaN(d.getTime())) return isoString;
-    const time = new Intl.DateTimeFormat(VN_LOCALE, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: VN_TIMEZONE,
-    }).format(d);
-    const date = new Intl.DateTimeFormat(VN_LOCALE, {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      timeZone: VN_TIMEZONE,
-    }).format(d);
-    return `${time} ${date}`;
-  } catch {
-    return isoString;
-  }
+  const parts = getVietnamParts(clean);
+  return parts ? parts.dateTime : isoString;
 }
 
 /**
@@ -126,17 +141,8 @@ export function formatDateVN(isoString: string | null | undefined): string {
   if (match) {
     return `${match[3]}/${match[2]}/${match[1]}`;
   }
-  try {
-    const d = new Date(isoString);
-    return new Intl.DateTimeFormat(VN_LOCALE, {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      timeZone: VN_TIMEZONE,
-    }).format(d);
-  } catch {
-    return '--';
-  }
+  const parts = getVietnamParts(clean);
+  return parts ? parts.date : '--';
 }
 
 export function formatDateDDMMYYYY(dateStr: string | null | undefined): string {
@@ -145,16 +151,12 @@ export function formatDateDDMMYYYY(dateStr: string | null | undefined): string {
 
 /**
  * Lấy ngày hôm nay theo giờ Việt Nam, dạng YYYY-MM-DD
- * Ví dụ: "2026-09-29" (kể cả khi local device đang ở timezone khác)
+ * Ví dụ: "2026-10-29"
  */
 export function getTodayVN(): string {
-  const now = new Date();
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: VN_TIMEZONE,
-  }).format(now); // format: "2026-09-29"
+  const parts = getVietnamParts(new Date());
+  if (!parts) return '';
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 /**
@@ -162,17 +164,15 @@ export function getTodayVN(): string {
  */
 export function isTodayVN(isoString: string | null | undefined): boolean {
   if (!isoString) return false;
-  try {
-    const inputDay = new Intl.DateTimeFormat('en-CA', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      timeZone: VN_TIMEZONE,
-    }).format(new Date(isoString));
-    return inputDay === getTodayVN();
-  } catch {
-    return false;
+  const clean = isoString.trim();
+  const today = getTodayVN();
+  const match = clean.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}` === today;
   }
+  const parts = getVietnamParts(clean);
+  if (!parts) return false;
+  return `${parts.year}-${parts.month}-${parts.day}` === today;
 }
 
 /**
