@@ -198,7 +198,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
       if (resolvedOldStaffId && s.staffId === resolvedOldStaffId) return false;
       if (emergencyCancelledStaffIds.includes(s.staffId)) return false;
       if (activeStaffIds.includes(s.staffId)) return false;
-      if (s.currentRole) return false;
+      if (s.currentRole || s.hasReportedBusy || !s.hasCalendarFree) return false;
 
       return (
         (s.isFullyQualified ?? s.fullyQualified) ||

@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 @Component
 @RequiredArgsConstructor
@@ -283,6 +284,9 @@ public class BookingMapper {
         if (muaId != null && entity.getStaffAssignments() != null) {
             var assignmentOpt = entity.getStaffAssignments().stream()
                     .filter(sa -> sa.getStaff() != null && sa.getStaff().getMua() != null && sa.getStaff().getMua().getId().equals(muaId))
+                    .sorted(Comparator
+                            .comparing((BookingStaffAssignmentEntity sa) -> sa.getStatus() != AssignmentStatus.ACTIVE)
+                            .thenComparing(sa -> sa.getId(), Comparator.nullsLast(Comparator.reverseOrder())))
                     .findFirst();
 
             if (assignmentOpt.isPresent()) {
@@ -300,7 +304,7 @@ public class BookingMapper {
 
                 // Kiểm tra xem thợ có đang chờ xác nhận làm Solo không
                 boolean isSoloNote = commissionNote != null && (commissionNote.contains("Solo") || commissionNote.contains("solo") || commissionNote.contains("gộp"));
-                if (Boolean.FALSE.equals(assignment.getIsConfirmedByStaff()) && isSoloNote) {
+                if (assignment.getStatus() == AssignmentStatus.ACTIVE && Boolean.FALSE.equals(assignment.getIsConfirmedByStaff()) && isSoloNote) {
                     soloPendingConfirmation = true;
                     soloCommissionRate = assignment.getCommissionRate();
                 }
