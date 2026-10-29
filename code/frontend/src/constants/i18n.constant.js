@@ -922,6 +922,8 @@ export const TRANSLATIONS = {
     overtime_modal_title_approve: 'Xác Nhận Duyệt Thưởng Tăng Ca Cho Thợ',
     overtime_modal_title_waive: 'Xác Nhận Duyệt Miễn Trừ Tăng Ca',
     overtime_modal_title_penalty: 'Xác Nhận Chế Tài / Phạt Tăng Ca',
+    overtime_view_proof: 'Xem ảnh đối chứng',
+    overtime_proof_photo_title: 'Ảnh Đối Chứng Làm Thêm Giờ',
 
     // Auth (Login & Register)
     login_title: 'Đăng Nhập Hệ Thống',
@@ -3066,6 +3068,8 @@ export const TRANSLATIONS = {
     overtime_modal_title_approve: 'Confirm Overtime Allowance for Staff',
     overtime_modal_title_waive: 'Confirm Overtime Waiver',
     overtime_modal_title_penalty: 'Confirm Overtime Penalty Sanction',
+    overtime_view_proof: 'View Proof Photo',
+    overtime_proof_photo_title: 'Overtime Evidence Photo',
 
     // Auth (Login & Register)
     login_title: 'Sign In to Platform',

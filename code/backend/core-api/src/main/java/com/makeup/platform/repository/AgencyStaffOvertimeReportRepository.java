@@ -46,6 +46,8 @@ public interface AgencyStaffOvertimeReportRepository extends JpaRepository<Agenc
 
     Page<AgencyStaffOvertimeReportEntity> findByStaffId(Long staffId, Pageable pageable);
 
+    Page<AgencyStaffOvertimeReportEntity> findByStaffIdAndStatus(Long staffId, OvertimeReportStatus status, Pageable pageable);
+
     Optional<AgencyStaffOvertimeReportEntity> findByIdAndAgencyId(Long id, Long agencyId);
 
     @Query("SELECT r FROM AgencyStaffOvertimeReportEntity r " +

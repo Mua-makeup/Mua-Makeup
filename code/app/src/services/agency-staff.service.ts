@@ -33,18 +33,34 @@ export interface OvertimeReportItem {
   id: number;
   bookingId: number;
   bookingCode?: string;
+  packageName?: string;
   staffId: number;
+  staffName?: string;
   agencyId: number;
+  agencyName?: string;
   overtimeMinutes: number;
   reasonType: OvertimeReasonType;
   ruleId?: number;
+  ruleName?: string;
+  policyType?: string;
+  penaltyType?: string;
+  penaltyValue?: number;
   explanationText: string;
   proofImageUrl?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING_AGENCY_REVIEW' | 'APPROVED_WAIVED' | 'PENALIZED' | 'CHARGED_CUSTOMER' | string;
+  penaltyAmountApplied?: number;
+  estimatedAllowanceAmount?: number;
+  allowancePaymentStatus?: 'PENDING_SETTLEMENT' | 'PAID' | 'NEEDS_RECONCILIATION' | string;
+  customerSurchargeAmount?: number;
+  chargeReason?: string;
+  adminNotes?: string;
   adjudicationNote?: string;
   penaltyTypeApplied?: string;
-  penaltyAmountApplied?: number;
+  reviewedByUserId?: number;
+  reviewedAt?: string;
   createdAt: string;
+  assignmentRole?: 'PRIMARY_MUA' | 'ASSISTANT_MUA' | string;
+  assignmentRoleName?: string;
 }
 
 export interface StaffShiftItem {
