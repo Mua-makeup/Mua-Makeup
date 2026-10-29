@@ -23,6 +23,8 @@ import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.service.agency.impl.AgencyOvertimeServiceImpl;
+import com.makeup.platform.service.wallet.impl.OvertimeAllowancePaymentService;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,12 +35,14 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -62,6 +66,9 @@ class AgencyOvertimeServiceImplTest {
 
     @Mock
     private BookingRepository bookingRepository;
+
+    @Mock
+    private OvertimeAllowancePaymentService overtimePaymentService;
 
     @InjectMocks
     private AgencyOvertimeServiceImpl agencyOvertimeService;
@@ -168,7 +175,8 @@ class AgencyOvertimeServiceImplTest {
         report.setId(501L);
 
         when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
-        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(501L, 1L)).thenReturn(Optional.of(report));
         when(agencyStaffOvertimeReportRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         ReviewOvertimeReportReq req = ReviewOvertimeReportReq.builder()
@@ -196,7 +204,8 @@ class AgencyOvertimeServiceImplTest {
         report.setId(501L);
 
         when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
-        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(501L, 1L)).thenReturn(Optional.of(report));
         when(agencyStaffOvertimeReportRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         ReviewOvertimeReportReq req = ReviewOvertimeReportReq.builder()
@@ -224,7 +233,8 @@ class AgencyOvertimeServiceImplTest {
         report.setId(501L);
 
         when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
-        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(501L, 1L)).thenReturn(Optional.of(report));
         when(agencyStaffOvertimeReportRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         ReviewOvertimeReportReq req = ReviewOvertimeReportReq.builder()
@@ -253,7 +263,8 @@ class AgencyOvertimeServiceImplTest {
         report.setId(501L);
 
         when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
-        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(501L, 1L)).thenReturn(Optional.of(report));
 
         ReviewOvertimeReportReq req = ReviewOvertimeReportReq.builder()
                 .action(OvertimeReviewAction.WAIVE_PENALTY)
@@ -277,8 +288,9 @@ class AgencyOvertimeServiceImplTest {
                 .penaltyAmountApplied(BigDecimal.ZERO).build();
         report.setId(501L);
         when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
-        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
-        when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(java.util.List.of(mockRule));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(501L, 1L)).thenReturn(Optional.of(report));
+        when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(List.of(mockRule));
         when(agencyStaffOvertimeReportRepository.save(any())).thenAnswer(i -> i.getArgument(0));
         var preview = agencyOvertimeService.getOvertimeReportDetail(1L, 501L);
         assertEquals(BigDecimal.valueOf(expected), preview.getEstimatedAllowanceAmount());
@@ -302,8 +314,9 @@ class AgencyOvertimeServiceImplTest {
         var report = AgencyStaffOvertimeReportEntity.builder().agency(mockAgency).overtimeMinutes(90)
                 .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW).build();
         when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
-        when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
-        when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(java.util.List.of(inactive, penalty, mockRule));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(501L, 1L)).thenReturn(Optional.of(report));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(501L, 1L)).thenReturn(Optional.of(report));
+        when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(List.of(inactive, penalty, mockRule));
         assertEquals(BigDecimal.valueOf(450000), agencyOvertimeService.getOvertimeReportDetail(1L, 501L).getEstimatedAllowanceAmount());
     }
 
