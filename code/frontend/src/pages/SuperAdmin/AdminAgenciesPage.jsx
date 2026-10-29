@@ -563,7 +563,7 @@ export const AdminAgenciesPage = () => {
         onClose={() => setIsPlatformFeeOpen(false)}
         onSuccess={(updatedPercent) => {
           setIsPlatformFeeOpen(false);
-          setToastMessage(`Đã cập nhật phí sàn nền tảng: ${updatedPercent}%`);
+          setToastMessage(t('platform_fee_update_toast', { percent: updatedPercent }) || `Đã cập nhật phí sàn nền tảng: ${updatedPercent}%`);
         }}
       />
 
