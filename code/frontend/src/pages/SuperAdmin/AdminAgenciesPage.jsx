@@ -460,7 +460,7 @@ export const AdminAgenciesPage = () => {
                 </p>
                 <div className="flex items-center gap-1 font-semibold pt-1 text-xs">
                   {formatRating(selectedAgency.ratingAvg) === 'N/A' ? (
-                    <span className="text-slate-400 dark:text-slate-500">N/A (Chưa có đánh giá)</span>
+                    <span className="text-slate-400 dark:text-slate-500">N/A ({t('agency_reviews_empty_title') || 'Chưa có đánh giá nào'})</span>
                   ) : (
                     <div className="flex items-center gap-1 text-amber-500">
                       <Star className="w-3.5 h-3.5 fill-current" />

@@ -153,7 +153,7 @@ export const DataTable = ({
         <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 mt-auto">
           {/* Left: Total Records */}
           <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-            Tổng số bản ghi: <strong className="font-bold text-slate-900 dark:text-white">{totalItems}</strong>
+            {t('total_records') || 'Tổng số bản ghi'}: <strong className="font-bold text-slate-900 dark:text-white">{totalItems}</strong>
           </div>
 
           {/* Right: Page Navigation & Size Selector */}

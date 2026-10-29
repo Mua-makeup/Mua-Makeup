@@ -120,7 +120,7 @@ export const AgencyDisputesPage = () => {
 
   const handleResolveSubmit = async () => {
     if (!resolveNote.trim()) {
-      setResolveError('Vui lòng nhập ghi chú xử lý ngắn gọn.');
+      setResolveError(t('err_enter_resolution_note') || 'Vui lòng nhập ghi chú xử lý ngắn gọn.');
       return;
     }
     setResolveError('');
@@ -130,11 +130,11 @@ export const AgencyDisputesPage = () => {
         resolution: resolutionAction,
         note: resolveNote.trim(),
       });
-      setToastMessage('Đã xử lý khiếu nại thành công.');
+      setToastMessage(t('msg_dispute_resolved_success') || 'Đã xử lý khiếu nại thành công.');
       setIsDetailModalOpen(false);
       fetchDisputes(pageInfo.page);
     } catch (err) {
-      setResolveError(err.response?.data?.message || err.message || 'Không thể xử lý khiếu nại.');
+      setResolveError(err.response?.data?.message || err.message || (t('err_cannot_resolve_dispute') || 'Không thể xử lý khiếu nại.'));
     } finally {
       setIsResolving(false);
     }

@@ -739,7 +739,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           </span>
                           {st.cancellationReason && (
                             <span className="text-[11px] text-rose-600 dark:text-rose-400 block mt-0.5">
-                              Lý do: {cleanEmergencyReason(st.cancellationReason)}
+                              {t('reason_label') || 'Lý do'}: {cleanEmergencyReason(st.cancellationReason)}
                             </span>
                           )}
                         </div>
@@ -1062,7 +1062,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                                   title={`Tăng ca ${staff.overtimeMinutes} phút (Định mức phụ cấp: +${formatCurrency(staff.overtimePay || 0)})`}
                                   className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 shadow-2xs"
                                 >
-                                  Tăng ca (+{staff.overtimeMinutes}p)
+                                  {t('overtime_badge_label') || 'Tăng ca'} (+{staff.overtimeMinutes}{t('unit_minutes_short') || 'p'})
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30">
@@ -1139,7 +1139,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
 
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-400 block font-medium">Tổng giá trị đơn</span>
+                      <span className="text-[10px] text-slate-400 block font-medium">{t('col_total_amount') || 'Tổng giá trị đơn'}</span>
                       <span className="text-xs font-bold font-mono text-slate-800 dark:text-slate-200">
                         {formatCurrency(totalBookingAmount)}
                       </span>
@@ -1249,9 +1249,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           <div className="flex flex-wrap items-center gap-2.5 flex-1 justify-end">
                             {/* Commission Rate (%) */}
                             <div className="w-28 sm:w-32">
-                              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">
-                                Tỷ lệ (%)
-                              </label>
+                              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">{t('col_commission_rate') || 'Tỷ lệ'} (%)</label>
                               <div className="relative">
                                 <input
                                   type="number"
@@ -1275,9 +1273,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
 
                             {/* Commission Amount (VND) */}
                             <div className="w-36 sm:w-40">
-                              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">
-                                Thành tiền (VNĐ)
-                              </label>
+                              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">{t('col_commission_amount') || 'Thành tiền'} (₫)</label>
                               <div className="relative">
                                 <input
                                   type="number"
@@ -1300,14 +1296,12 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
 
                             {/* Note */}
                             <div className="w-full sm:w-48">
-                              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">
-                                Ghi chú hoa hồng
-                              </label>
+                              <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-0.5">{t('col_commission_reason') || 'Ghi chú hoa hồng'}</label>
                               <input
                                 type="text"
                                 value={split.note || ''}
                                 onChange={(e) => handleCommissionNoteChange(st.staffId, e.target.value)}
-                                placeholder="Ghi chú phân chia..."
+                                placeholder={t('col_commission_reason_placeholder') || 'Ghi chú phân chia...'}
                                 className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                               />
                             </div>
@@ -1326,7 +1320,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                             {st.isOvertime && (
                               <span className="inline-flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/60 shadow-2xs">
                                 <Clock className="w-3 h-3 text-amber-500" />
-                                Tăng ca +{st.overtimeMinutes}p: +{formatCurrency(calculateEffectiveOvertimePay(st, split))} ({isPrimary ? 'phụ cấp tính riêng' : `phụ cấp theo ${split.commissionRate || 0}% hoa hồng`})
+                                {t('overtime_badge_label') || 'Tăng ca'} +{st.overtimeMinutes}{t('unit_minutes_short') || 'p'}: +{formatCurrency(calculateEffectiveOvertimePay(st, split))} ({isPrimary ? (t('overtime_allowance_separate') || 'phụ cấp tính riêng') : (t('overtime_allowance_by_rate', { rate: split.commissionRate || 0 }) || `phụ cấp theo ${split.commissionRate || 0}% hoa hồng`)})
                               </span>
                             )}
                           </div>
@@ -1334,7 +1328,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                           <div className="flex items-center gap-2">
                             {st.isOvertime && calculateEffectiveOvertimePay(st, split) > 0 && (
                               <span className="font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-                                Tổng nhận: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency((Number(split.commissionAmount) || 0) + calculateEffectiveOvertimePay(st, split))}</strong>
+                                {t('commission_total_received') || 'Tổng nhận'}: <strong className="text-amber-600 dark:text-amber-400">{formatCurrency((Number(split.commissionAmount) || 0) + calculateEffectiveOvertimePay(st, split))}</strong>
                               </span>
                             )}
                             {hasError ? (
@@ -1344,7 +1338,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                               </span>
                             ) : (
                               <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                {split.commissionRate > 0 ? `Đã gán ${split.commissionRate}% hoa hồng` : 'Chưa gán hoa hồng'}
+                                {split.commissionRate > 0 ? (t('commission_assigned_rate', { rate: split.commissionRate }) || `Đã gán ${split.commissionRate}% hoa hồng`) : (t('commission_not_assigned') || 'Chưa gán hoa hồng')}
                               </span>
                             )}
                           </div>
@@ -1389,7 +1383,8 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
               const assistantNames = assistantStaffIds
                 .map((id) => matrixData?.staffList?.find((s) => s.staffId === id)?.staffName)
                 .filter(Boolean);
-              const assistantText = assistantNames.length > 0 ? ` cùng thợ phụ (${assistantNames.join(', ')})` : '';
+              const assistantLabel = t('dispatch_with_assistant') || 'cùng thợ phụ';
+              const assistantText = assistantNames.length > 0 ? ` ${assistantLabel} (${assistantNames.join(', ')})` : '';
               return t('dispatch_confirm_dialog_msg')
                 ?.replace('{primaryName}', primaryName)
                 ?.replace('{assistantText}', assistantText)
@@ -1435,7 +1430,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                         {split?.commissionRate || 0}% (~{formatCurrency(split?.commissionAmount || 0)})
                         {st.isOvertime && calculateEffectiveOvertimePay(st, split) > 0 && (
                           <span className="text-amber-700 dark:text-amber-300 ml-1.5 font-normal">
-                            + {formatCurrency(calculateEffectiveOvertimePay(st, split))} (tăng ca {st.overtimeMinutes}p{st.role !== 'PRIMARY_MUA' ? ` - ${split?.commissionRate || 0}%` : ''})
+                            + {formatCurrency(calculateEffectiveOvertimePay(st, split))} ({t('overtime_label') || 'tăng ca'} {st.overtimeMinutes}{t('unit_minutes_short') || 'p'}{st.role !== 'PRIMARY_MUA' ? ` - ${split?.commissionRate || 0}%` : ''})
                           </span>
                         )}
                       </span>
