@@ -1,3 +1,4 @@
+import { formatDateVN, formatDateTimeVN } from '@/utils/date';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import React, { useState, useCallback } from 'react';
@@ -33,29 +34,12 @@ function formatVnd(val?: number): string {
 
 function formatDateShort(isoStr?: string): string {
   if (!isoStr) return '';
-  try {
-    const d = new Date(isoStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  } catch {
-    return isoStr;
-  }
+  return formatDateVN(isoStr) || isoStr;
 }
 
 function formatDateTimeFull(isoStr?: string): string {
   if (!isoStr) return '';
-  try {
-    const d = new Date(isoStr);
-    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${time} ${day}/${month}/${year}`;
-  } catch {
-    return isoStr;
-  }
+  return formatDateTimeVN(isoStr, true) || isoStr;
 }
 
 export default function FreelancerWalletScreen() {
