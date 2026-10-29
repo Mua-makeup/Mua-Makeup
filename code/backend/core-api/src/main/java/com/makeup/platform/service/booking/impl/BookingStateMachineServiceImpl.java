@@ -53,6 +53,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -1055,9 +1056,9 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
 
         var executionTimes = bookingHistoryRepository.findExecutionTimes(booking.getId());
         OffsetDateTime startedAt = executionTimes != null && executionTimes.getStartedAtMillis() != null
-                ? Instant.ofEpochMilli(executionTimes.getStartedAtMillis()).atOffset(VIETNAM_OFFSET) : null;
+                ? Instant.ofEpochMilli(executionTimes.getStartedAtMillis()).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toOffsetDateTime() : null;
         OffsetDateTime completedAt = executionTimes != null && executionTimes.getCompletedAtMillis() != null
-                ? Instant.ofEpochMilli(executionTimes.getCompletedAtMillis()).atOffset(VIETNAM_OFFSET) : null;
+                ? Instant.ofEpochMilli(executionTimes.getCompletedAtMillis()).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toOffsetDateTime() : null;
 
         Integer overtimeMinutes = null;
         BigDecimal overtimePay = null;

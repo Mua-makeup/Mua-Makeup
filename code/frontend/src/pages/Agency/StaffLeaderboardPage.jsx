@@ -281,8 +281,8 @@ export const StaffLeaderboardPage = () => {
             {/* Rank 1 (Quán Quân - Giữa - Bục Cao Nhất) */}
             {top1 ? (
               <div className="order-1 md:order-2 flex flex-col items-center -mt-4">
-                <div className="relative mb-3">
-                  <Crown className="w-8 h-8 text-amber-500 absolute -top-7 left-1/2 -translate-x-1/2 animate-bounce" />
+                <div className="relative mb-3 pt-9">
+                  <Crown className="w-8 h-8 text-amber-500 absolute top-0.5 left-1/2 -translate-x-1/2" />
                   <div className="w-20 h-20 rounded-full p-1 bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-500 shadow-xl shadow-amber-500/30">
                     <div className="w-full h-full rounded-full bg-white dark:bg-slate-800 overflow-hidden flex items-center justify-center font-bold text-base text-amber-700 dark:text-amber-300">
                       {top1.avatarUrl ? (
