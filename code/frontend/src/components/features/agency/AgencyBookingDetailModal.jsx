@@ -4,7 +4,7 @@ import {
   Clock,
   User,
   Phone,
-  DollarSign,
+
   AlertCircle,
   FileText,
   History,
@@ -21,7 +21,7 @@ import { Badge } from '../../base/Badge';
 import { Button } from '../../base/Button';
 import { agencyService } from '../../../services/agency.service';
 import { useI18nStore } from '../../../store/useI18nStore';
-import { formatDateTime, formatBookingDateTime } from '../../../utils/formatters';
+import { formatDate, formatDateTime, formatBookingDateTime } from '../../../utils/formatters';
 import { AgencyCancelBookingModal } from './AgencyCancelBookingModal';
 import { StaffCommissionSplitMatrix } from './StaffCommissionSplitMatrix';
 import { EditStaffCommissionSplitModal } from './EditStaffCommissionSplitModal';
