@@ -1403,7 +1403,7 @@ export default function CustomerBookingDetailScreen() {
               {/* Thông báo đề xuất Solo nếu có */}
               {bookingDetail.soloPendingConfirmation && (
                 <View style={styles.soloNoticeBanner}>
-                  <Ionicons name="sparkles" size={16} color="#7C3AED" />
+                  <Ionicons name="star" size={16} color="#7C3AED" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.soloNoticeTitle}>Studio Đề Xuất Nhận Ca Solo</Text>
                     <Text style={styles.soloNoticeDesc}>

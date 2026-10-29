@@ -224,7 +224,7 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
       {isSoloPending && (
         <View style={styles.soloBanner}>
           <View style={styles.soloBannerHeader}>
-            <Ionicons name="sparkles-outline" size={15} color="#6D28D9" />
+            <Ionicons name="star-outline" size={15} color="#6D28D9" />
             <Text style={styles.soloBannerTitle}>Đề Xuất Làm Solo</Text>
           </View>
           <Text style={styles.soloBannerText}>

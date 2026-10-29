@@ -938,7 +938,7 @@ export default function OrderTrackingActivityScreen() {
                   {/* Tên gói dịch vụ */}
                   <View style={styles.activeInfoRow}>
                     <View style={styles.infoIconWrapper}>
-                      <Ionicons name="sparkles" size={15} color={BrandColors.primary} />
+                      <Ionicons name="color-palette" size={15} color={BrandColors.primary} />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={styles.infoTitle} numberOfLines={1}>
@@ -988,7 +988,7 @@ export default function OrderTrackingActivityScreen() {
                     <View style={styles.partnerLeft}>
                       <View style={styles.partnerAvatarCircle}>
                         <Ionicons
-                          name={isMUA ? 'person' : 'sparkles'}
+                          name={isMUA ? 'person' : 'color-palette'}
                           size={16}
                           color={BrandColors.primary}
                         />
@@ -1273,7 +1273,7 @@ export default function OrderTrackingActivityScreen() {
         {/* Tên dịch vụ trong Modal */}
         {selectedHistoryTarget?.packageName ? (
           <View style={styles.modalPackageBanner}>
-            <Ionicons name="sparkles-outline" size={14} color="#64748B" style={{ marginRight: 6 }} />
+            <Ionicons name="color-palette-outline" size={14} color="#64748B" style={{ marginRight: 6 }} />
             <Text style={styles.modalPackageBannerText} numberOfLines={1}>
               {selectedHistoryTarget.packageName}
             </Text>

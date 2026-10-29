@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, UserCheck, Building2, CheckCircle2, Smartphone, Monitor } from 'lucide-react';
+import { Heart, UserCheck, Building2, CheckCircle2, Smartphone, Monitor } from 'lucide-react';
 import { useI18nStore } from '../../../store/useI18nStore';
 
 export const LandingAudienceValue = () => {
@@ -11,7 +11,7 @@ export const LandingAudienceValue = () => {
       channel: t('landing_aud_client_channel'),
       channelIcon: Smartphone,
       title: t('landing_aud_client_title'),
-      icon: Sparkles,
+      icon: Heart,
       iconColor: 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400',
       points: [
         t('landing_aud_client_point_1'),

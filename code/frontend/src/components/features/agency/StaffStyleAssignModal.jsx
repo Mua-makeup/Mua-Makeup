@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Check } from 'lucide-react';
+import { Palette, Check } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { agencyService } from '../../../services/agency.service';
@@ -74,7 +74,7 @@ export const StaffStyleAssignModal = ({ isOpen, onClose, staff, onSuccess }) => 
       onClose={onClose}
       title={
         <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-          <Sparkles className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+          <Palette className="w-5 h-5 text-rose-600 dark:text-rose-400" />
           <span>{t('staff_style_modal_title')}</span>
         </div>
       }

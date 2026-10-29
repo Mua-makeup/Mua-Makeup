@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Star, Calendar, Sparkles, Tag, Eye, EyeOff, Edit2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Calendar, Tag, Eye, EyeOff, Edit2 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
 import { useI18nStore } from '../../../store/useI18nStore';

@@ -418,7 +418,7 @@ export default function CreateBookingScreen() {
                   }}
                   activeOpacity={0.75}
                 >
-                  <Ionicons name="sparkles" size={13} color="#BE185D" />
+                  <Ionicons name="color-palette" size={13} color="#BE185D" />
                   <Text style={styles.selectedTagText}>Bất kỳ phong cách nào (Mặc định)</Text>
                 </TouchableOpacity>
               )}
@@ -542,7 +542,7 @@ export default function CreateBookingScreen() {
                 ]}
               >
                 <Ionicons
-                  name={selectedStyleId == null ? 'checkmark' : 'sparkles-outline'}
+                  name={selectedStyleId == null ? 'checkmark' : 'color-palette-outline'}
                   size={15}
                   color={selectedStyleId == null ? BrandColors.primary : '#94A3B8'}
                 />

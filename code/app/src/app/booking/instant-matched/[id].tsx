@@ -499,7 +499,7 @@ export default function InstantMatchedScreen() {
             </>
           ) : (
             <View style={styles.singlePackageBox}>
-              <View style={styles.sparkleCircle}>
+              <View style={styles.packageIconCircle}>
                 <Ionicons name="brush-outline" size={18} color="#334155" />
               </View>
               <View style={{ flex: 1, marginHorizontal: 10 }}>
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
     marginTop: 6,
   },
-  sparkleCircle: {
+  packageIconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,

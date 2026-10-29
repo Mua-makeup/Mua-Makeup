@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Building2, Sparkles } from 'lucide-react';
+import { ArrowRight, Building2, Crown } from 'lucide-react';
 import { useI18nStore } from '../../../store/useI18nStore';
 
 export const LandingCtaSection = () => {
@@ -15,7 +15,7 @@ export const LandingCtaSection = () => {
 
           <div className="relative z-10 max-w-2xl mx-auto space-y-4">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-rose-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-rose-600 dark:text-rose-400 shadow-xs">
-              <Sparkles className="w-3.5 h-3.5" />
+              <Crown className="w-3.5 h-3.5" />
               <span>{t('landing_cta_badge')}</span>
             </div>
 

@@ -162,7 +162,7 @@ export default function SupportChatScreen() {
 
         <View style={styles.headerCenter}>
           <View style={styles.headerTitleRow}>
-            <Ionicons name="sparkles" size={16} color={BrandColors.primary} />
+            <Ionicons name="headset" size={16} color={BrandColors.primary} />
             <Text style={styles.headerTitle}>Trợ Lý Mua-Makeup</Text>
           </View>
           <View style={styles.statusBadge}>
@@ -224,7 +224,7 @@ export default function SupportChatScreen() {
               >
                 {!isUser && (
                   <View style={styles.botAvatarCircle}>
-                    <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+                    <Ionicons name="headset" size={14} color="#FFFFFF" />
                   </View>
                 )}
 
@@ -251,11 +251,11 @@ export default function SupportChatScreen() {
           {isLoading && (
             <View style={[styles.messageWrapper, styles.messageWrapperAssistant]}>
               <View style={styles.botAvatarCircle}>
-                <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+                <Ionicons name="headset" size={14} color="#FFFFFF" />
               </View>
               <View style={[styles.bubble, styles.bubbleAssistant, styles.typingBubble]}>
                 <ActivityIndicator size="small" color={BrandColors.primary} />
-                <Text style={styles.typingText}>Trợ lý AI đang tra cứu chính sách...</Text>
+                <Text style={styles.typingText}>Trợ lý Mua-Makeup đang tra cứu chính sách...</Text>
               </View>
             </View>
           )}

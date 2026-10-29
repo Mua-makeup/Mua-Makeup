@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Layers, Sparkles, AlertTriangle, Plus, Edit2 } from 'lucide-react';
+import { Layers, Palette, AlertTriangle, Plus, Edit2 } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { TAXONOMY_TABS } from '../../constants/super-admin.constant';
 import { Button } from '../../components/base/Button';
@@ -335,7 +335,7 @@ export const TaxonomyManagementPage = () => {
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
-          <Sparkles className="w-4 h-4" />
+          <Palette className="w-4 h-4" />
           <span>{t('col_styles')} ({styles.length})</span>
         </button>
       </div>

@@ -11,7 +11,8 @@ import {
   Calendar,
   Mail,
   Phone,
-  Sparkles,
+  FileText,
+  Palette,
   Package,
   Percent,
   Image as ImageIcon,
@@ -472,7 +473,7 @@ export const StaffDetailPage = () => {
             {/* Bio Box */}
             <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-3">
               <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-rose-500" />
+                <FileText className="w-4 h-4 text-rose-500" />
                 {t('staff_bio_title')}
               </h4>
               {detail.bio ? (
@@ -615,7 +616,7 @@ export const StaffDetailPage = () => {
             {detail.assignedStyles && detail.assignedStyles.length > 0 && (
               <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-3">
                 <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-rose-500" />
+                  <Palette className="w-4 h-4 text-rose-500" />
                   {t('staff_styles_title')}
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -681,7 +682,7 @@ export const StaffDetailPage = () => {
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                      <Sparkles className="w-4 h-4" />
+                      <Palette className="w-4 h-4" />
                     </div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       {t('staff_tab_styles')}
@@ -802,7 +803,7 @@ export const StaffDetailPage = () => {
               {detail.bio && (
                 <div className="p-5 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700 shadow-xs space-y-2">
                   <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-rose-500" />
+                    <FileText className="w-4 h-4 text-rose-500" />
                     {t('staff_bio_title')}
                   </h4>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">

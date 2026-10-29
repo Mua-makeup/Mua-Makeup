@@ -12,7 +12,7 @@ import {
   Moon,
   Users,
   Filter,
-  Sparkles,
+  Info,
   GripVertical,
   ChevronLeft,
   ChevronRight,
@@ -914,7 +914,7 @@ export const WeeklyShiftTable = () => {
 
       {/* Hướng Dẫn Kéo Thả Ca Trực */}
       <div className="flex items-center gap-2 px-4 py-2.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40 rounded-2xl text-xs text-rose-700 dark:text-rose-300">
-        <Sparkles className="w-4 h-4 text-rose-500 shrink-0" />
+        <Info className="w-4 h-4 text-rose-500 shrink-0" />
         <span>{t('shift_drag_instruction')}</span>
       </div>
 
@@ -1268,7 +1268,7 @@ export const WeeklyShiftTable = () => {
                   shiftName: t('preset_full_day'),
                   startTime: '08:00',
                   endTime: '17:00',
-                  icon: Sparkles,
+                  icon: CalendarDays,
                   color: 'hover:border-emerald-400 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30',
                 },
               ].map((preset) => {
