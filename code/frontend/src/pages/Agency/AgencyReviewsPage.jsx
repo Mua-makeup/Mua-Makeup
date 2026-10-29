@@ -5,7 +5,7 @@ import {
   RefreshCw,
   Eye,
   X,
-  User,
+
 
   Camera,
   Calendar,
@@ -185,7 +185,7 @@ export const AgencyReviewsPage = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       {/* Toast Notification */}
       {toastMessage && (
         <Toast
