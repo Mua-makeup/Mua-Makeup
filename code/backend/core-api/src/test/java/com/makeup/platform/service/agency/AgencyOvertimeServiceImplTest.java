@@ -13,15 +13,21 @@ import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffOvertimeReportEntity;
 import com.makeup.platform.entity.agency.OvertimePenaltyType;
+import com.makeup.platform.entity.agency.OvertimePolicyType;
 import com.makeup.platform.entity.agency.OvertimeReasonType;
 import com.makeup.platform.entity.agency.OvertimeReportStatus;
 import com.makeup.platform.entity.agency.OvertimeReviewAction;
+import com.makeup.platform.entity.booking.AssignmentRole;
+import com.makeup.platform.entity.booking.AssignmentStatus;
+import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.mapper.agency.AgencyOvertimeMapper;
 import com.makeup.platform.repository.AgencyOvertimeRuleRepository;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.service.agency.impl.AgencyOvertimeServiceImpl;
 import com.makeup.platform.service.wallet.impl.OvertimeAllowancePaymentService;
 
@@ -29,6 +35,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -40,9 +48,11 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +76,9 @@ class AgencyOvertimeServiceImplTest {
 
     @Mock
     private BookingRepository bookingRepository;
+
+    @Mock
+    private BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
 
     @Mock
     private OvertimeAllowancePaymentService overtimePaymentService;
@@ -137,8 +150,20 @@ class AgencyOvertimeServiceImplTest {
                 .explanationText("Đường ngập do mưa to nên đến trễ")
                 .build();
 
+        BookingEntity mockBooking = BookingEntity.builder().build();
+        mockBooking.setId(10025L);
+        when(bookingRepository.findById(10025L)).thenReturn(Optional.of(mockBooking));
         when(agencyStaffRepository.findActiveStaffByUserId(25L)).thenReturn(Optional.of(mockStaff));
         when(agencyOvertimeRuleRepository.findByIdAndAgencyId(10L, 1L)).thenReturn(Optional.of(mockRule));
+
+        BookingStaffAssignmentEntity primaryAssignment = BookingStaffAssignmentEntity.builder()
+                .booking(mockBooking)
+                .staff(mockStaff)
+                .assignmentRole(AssignmentRole.PRIMARY_MUA)
+                .status(AssignmentStatus.ACTIVE)
+                .build();
+        when(bookingStaffAssignmentRepository.findByBookingIdAndStatus(10025L, AssignmentStatus.ACTIVE))
+                .thenReturn(List.of(primaryAssignment));
 
         AgencyStaffOvertimeReportEntity saved = AgencyStaffOvertimeReportEntity.builder()
                 .bookingId(10025L)
@@ -159,6 +184,88 @@ class AgencyOvertimeServiceImplTest {
         assertNotNull(res);
         assertEquals(501L, res.getId());
         assertEquals(OvertimeReportStatus.PENDING_AGENCY_REVIEW, res.getStatus());
+    }
+
+    @Test
+    @DisplayName("Thợ chính nộp giải trình sẽ tự động đính kèm báo cáo tăng ca cho thợ phụ")
+    void submitOvertimeReport_WithAssistantStaff_AttachesAssistantReport() {
+        SubmitOvertimeReportReq req = SubmitOvertimeReportReq.builder()
+                .bookingId(10025L)
+                .overtimeMinutes(30)
+                .reasonType(OvertimeReasonType.PRESET_RULE)
+                .ruleId(10L)
+                .explanationText("Khách đến trễ kéo dài ca")
+                .build();
+
+        BookingEntity mockBooking = BookingEntity.builder().build();
+        mockBooking.setId(10025L);
+        when(bookingRepository.findById(10025L)).thenReturn(Optional.of(mockBooking));
+        when(agencyStaffRepository.findActiveStaffByUserId(25L)).thenReturn(Optional.of(mockStaff));
+        when(agencyOvertimeRuleRepository.findByIdAndAgencyId(10L, 1L)).thenReturn(Optional.of(mockRule));
+
+        AgencyStaffEntity assistantStaff = AgencyStaffEntity.builder().agency(mockAgency).build();
+        assistantStaff.setId(99L);
+
+        BookingStaffAssignmentEntity primaryAssignment = BookingStaffAssignmentEntity.builder()
+                .booking(mockBooking)
+                .staff(mockStaff)
+                .assignmentRole(AssignmentRole.PRIMARY_MUA)
+                .status(AssignmentStatus.ACTIVE)
+                .build();
+        BookingStaffAssignmentEntity assistantAssignment = BookingStaffAssignmentEntity.builder()
+                .booking(mockBooking)
+                .staff(assistantStaff)
+                .assignmentRole(AssignmentRole.ASSISTANT_MUA)
+                .status(AssignmentStatus.ACTIVE)
+                .build();
+
+        when(bookingStaffAssignmentRepository.findByBookingIdAndStatus(10025L, AssignmentStatus.ACTIVE))
+                .thenReturn(List.of(primaryAssignment, assistantAssignment));
+
+        AgencyStaffOvertimeReportEntity primarySaved = AgencyStaffOvertimeReportEntity.builder()
+                .bookingId(10025L)
+                .staff(mockStaff)
+                .agency(mockAgency)
+                .overtimeMinutes(30)
+                .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW)
+                .build();
+        primarySaved.setId(601L);
+
+        when(agencyStaffOvertimeReportRepository.save(any())).thenReturn(primarySaved);
+
+        OvertimeReportRes res = agencyOvertimeService.submitOvertimeReport(25L, req);
+
+        assertNotNull(res);
+        // Verify save was called for BOTH primary staff and assistant staff (2 times)
+        verify(agencyStaffOvertimeReportRepository, times(2)).save(any());
+    }
+
+    @Test
+    @DisplayName("Thợ phụ tự nộp giải trình sẽ bị từ chối")
+    void submitOvertimeReport_AssistantStaff_ThrowsForbidden() {
+        SubmitOvertimeReportReq req = SubmitOvertimeReportReq.builder()
+                .bookingId(10025L)
+                .overtimeMinutes(30)
+                .reasonType(OvertimeReasonType.OTHER_CUSTOM_REASON)
+                .explanationText("Khách trễ")
+                .build();
+
+        BookingEntity mockBooking = BookingEntity.builder().build();
+        mockBooking.setId(10025L);
+        when(bookingRepository.findById(10025L)).thenReturn(Optional.of(mockBooking));
+        when(agencyStaffRepository.findActiveStaffByUserId(25L)).thenReturn(Optional.of(mockStaff));
+
+        BookingStaffAssignmentEntity assistantAssignment = BookingStaffAssignmentEntity.builder()
+                .booking(mockBooking)
+                .staff(mockStaff)
+                .assignmentRole(AssignmentRole.ASSISTANT_MUA)
+                .status(AssignmentStatus.ACTIVE)
+                .build();
+
+        when(bookingStaffAssignmentRepository.findByBookingIdAndStatus(10025L, AssignmentStatus.ACTIVE))
+                .thenReturn(List.of(assistantAssignment));
+
+        assertThrows(CustomBusinessException.class, () -> agencyOvertimeService.submitOvertimeReport(25L, req));
     }
 
     @Test
@@ -275,8 +382,8 @@ class AgencyOvertimeServiceImplTest {
         );
         assertEquals(ErrorCodes.ERR_OVERTIME_ALREADY_REVIEWED, ex.getErrorCode());
     }
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"14,0", "15,75000", "30,150000", "60,300000", "61,0"})
+    @ParameterizedTest
+    @CsvSource({"14,0", "15,75000", "30,150000", "60,300000", "61,0"})
     void freeTextReportUsesMatchingAllowanceForPreviewAndApproval(int minutes, long expected) {
         mockRule.setMinOvertimeMinutes(15);
         mockRule.setPenaltyType(OvertimePenaltyType.PER_MINUTE);
@@ -295,7 +402,7 @@ class AgencyOvertimeServiceImplTest {
         var preview = agencyOvertimeService.getOvertimeReportDetail(1L, 501L);
         assertEquals(BigDecimal.valueOf(expected), preview.getEstimatedAllowanceAmount());
         assertEquals(BigDecimal.ZERO, report.getPenaltyAmountApplied());
-        org.junit.jupiter.api.Assertions.assertNull(report.getRule());
+        assertNull(report.getRule());
         var result = agencyOvertimeService.reviewOvertimeReport(1L, 501L, ReviewOvertimeReportReq.builder()
                 .action(OvertimeReviewAction.APPROVE_ALLOWANCE).build());
         assertEquals(BigDecimal.valueOf(expected), result.getPenaltyAmountApplied());
@@ -310,7 +417,7 @@ class AgencyOvertimeServiceImplTest {
         var inactive = AgencyOvertimeRuleEntity.builder().isActive(false).minOvertimeMinutes(30)
                 .penaltyType(OvertimePenaltyType.PER_MINUTE).penaltyValue(BigDecimal.valueOf(99000)).build();
         var penalty = AgencyOvertimeRuleEntity.builder().isActive(true).minOvertimeMinutes(30)
-                .policyType(com.makeup.platform.entity.agency.OvertimePolicyType.PENALTY).build();
+                .policyType(OvertimePolicyType.PENALTY).build();
         var report = AgencyStaffOvertimeReportEntity.builder().agency(mockAgency).overtimeMinutes(90)
                 .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW).build();
         when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
@@ -318,6 +425,37 @@ class AgencyOvertimeServiceImplTest {
         lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(501L, 1L)).thenReturn(Optional.of(report));
         when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(List.of(inactive, penalty, mockRule));
         assertEquals(BigDecimal.valueOf(450000), agencyOvertimeService.getOvertimeReportDetail(1L, 501L).getEstimatedAllowanceAmount());
+    }
+
+    @Test
+    @DisplayName("Thợ phụ được tính phụ cấp tăng ca theo tỷ lệ hoa hồng hoặc mặc định 50%")
+    void assistantStaffAllowanceCalculatedByRate() {
+        mockRule.setMinOvertimeMinutes(15);
+        mockRule.setPenaltyType(OvertimePenaltyType.FIXED_AMOUNT);
+        mockRule.setPenaltyValue(BigDecimal.valueOf(150000));
+
+        var report = AgencyStaffOvertimeReportEntity.builder()
+                .bookingId(49L).staff(mockStaff).agency(mockAgency).overtimeMinutes(30)
+                .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW)
+                .penaltyAmountApplied(BigDecimal.ZERO).build();
+        report.setId(701L);
+
+        when(agencyProfileRepository.findByOwnerId(1L)).thenReturn(Optional.of(mockAgency));
+        lenient().when(agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(701L, 1L)).thenReturn(Optional.of(report));
+        when(agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(1L)).thenReturn(List.of(mockRule));
+
+        BookingStaffAssignmentEntity astAssignment = BookingStaffAssignmentEntity.builder()
+                .staff(mockStaff)
+                .assignmentRole(AssignmentRole.ASSISTANT_MUA)
+                .commissionRate(BigDecimal.valueOf(40))
+                .status(AssignmentStatus.ACTIVE)
+                .build();
+        when(bookingStaffAssignmentRepository.findByBookingIdAndStaffIdAndStatus(49L, mockStaff.getId(), AssignmentStatus.ACTIVE))
+                .thenReturn(Optional.of(astAssignment));
+
+        var preview = agencyOvertimeService.getOvertimeReportDetail(1L, 701L);
+        // 150.000 * 40% = 60.000
+        assertEquals(BigDecimal.valueOf(60000), preview.getEstimatedAllowanceAmount());
     }
 
 }
