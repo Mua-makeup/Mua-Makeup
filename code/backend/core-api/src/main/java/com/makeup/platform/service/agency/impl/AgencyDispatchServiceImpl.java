@@ -250,7 +250,8 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
         boolean isPrimaryQualified = isPrimaryShiftValid
                 && Boolean.TRUE.equals(primaryProj.getHasPackage())
                 && Boolean.TRUE.equals(primaryProj.getHasStyle())
-                && Boolean.TRUE.equals(primaryProj.getHasCalendarFree());
+                && Boolean.TRUE.equals(primaryProj.getHasCalendarFree())
+                && !Boolean.TRUE.equals(primaryProj.getHasReportedBusy());
 
         if (!isPrimaryQualified) {
             throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified");
@@ -268,7 +269,8 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                     || (Boolean.TRUE.equals(astProj.getHasOverlappingShift()) && astProj.getShiftOvertimeMinutes() != null && astProj.getShiftOvertimeMinutes() > 0);
 
             boolean isAstQualified = isAstShiftValid
-                    && Boolean.TRUE.equals(astProj.getHasCalendarFree());
+                    && Boolean.TRUE.equals(astProj.getHasCalendarFree())
+                    && !Boolean.TRUE.equals(astProj.getHasReportedBusy());
 
             if (!isAstQualified) {
                 throw new CustomBusinessException(ErrorCodes.ERR_DISPATCH_STAFF_UNQUALIFIED, "dispatch.staff_unqualified");

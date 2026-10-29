@@ -94,11 +94,7 @@ export const OvertimeConfigCard = () => {
     setTogglingRuleId(rule.id);
     try {
       await agencyService.toggleOvertimeRuleStatus(rule.id, nextStatus);
-      setRules((prev) =>
-        prev.map((item) =>
-          item.id === rule.id ? { ...item, isActive: nextStatus } : item
-        )
-      );
+      await loadData();
       setToastMessage({
         type: 'success',
         text: nextStatus
@@ -246,9 +242,7 @@ export const OvertimeConfigCard = () => {
       handleCloseForm();
 
       // Reload list
-      const rulesRes = await agencyService.getOvertimeRules();
-      const updatedList = rulesRes?.data || rulesRes || [];
-      setRules(Array.isArray(updatedList) ? updatedList : []);
+      await loadData();
     } catch (err) {
       const respData = err.response?.data?.data;
       if (respData && typeof respData === 'object') {
@@ -281,9 +275,7 @@ export const OvertimeConfigCard = () => {
         handleCloseForm();
       }
 
-      const rulesRes = await agencyService.getOvertimeRules();
-      const updatedList = rulesRes?.data || rulesRes || [];
-      setRules(Array.isArray(updatedList) ? updatedList : []);
+      await loadData();
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message || t('error_general');
       setToastMessage({
@@ -300,15 +292,7 @@ export const OvertimeConfigCard = () => {
     setSelectedReport(report);
     setReviewAction(action);
     setReviewNote('');
-    if (action === 'APPROVE_ALLOWANCE') {
-      if (report.penaltyType === 'FIXED_AMOUNT' && report.penaltyValue) {
-        setCustomAllowance(String(report.penaltyValue));
-      } else {
-        setCustomAllowance('');
-      }
-    } else {
-      setCustomAllowance('');
-    }
+    setCustomAllowance('');
     setIsReviewModalOpen(true);
   };
 
@@ -787,7 +771,9 @@ export const OvertimeConfigCard = () => {
                         +{r.overtimeMinutes ?? r.actualOvertimeMinutes ?? 0} {t('unit_minutes') || 'phút'}
                       </span>
                       <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                        {formatCurrency(r.penaltyAmountApplied || r.customerSurchargeAmount || 0)}
+                        {r.status === 'PENDING_AGENCY_REVIEW'
+                          ? `Dự kiến: ${formatCurrency(r.estimatedAllowanceAmount ?? 0)}`
+                          : formatCurrency(r.penaltyAmountApplied || r.customerSurchargeAmount || 0)}
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-xs max-w-xs">
@@ -937,10 +923,13 @@ export const OvertimeConfigCard = () => {
                   </span>
                 )}
               </div>
+              <p className="text-xs text-emerald-800 dark:text-emerald-300">
+                Dự kiến theo quy tắc: <strong>{formatCurrency(selectedReport?.estimatedAllowanceAmount ?? 0)}</strong>. Để trống để tính tự động khi duyệt.
+              </p>
               <Input
                 label="Số tiền trợ cấp thưởng tăng ca (VND)"
                 type="number"
-                placeholder={selectedReport?.penaltyType === 'FIXED_AMOUNT' ? String(selectedReport?.penaltyValue || 0) : 'Nhập số tiền hoặc để tự động'}
+                placeholder={`Tự động: ${formatCurrency(selectedReport?.estimatedAllowanceAmount ?? 0)}`}
                 value={customAllowance}
                 onChange={(e) => setCustomAllowance(e.target.value)}
               />

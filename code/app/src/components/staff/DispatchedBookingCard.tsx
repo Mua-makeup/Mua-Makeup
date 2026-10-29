@@ -22,15 +22,19 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
     booking.assignmentStatus === 'REPORTED_BUSY_PENDING_APPROVAL' ||
     booking.assignmentStatus === 'EMERGENCY_CANCELLED';
 
-  const isSoloPending = !isCancelled && !isReportedBusy && booking.soloPendingConfirmation === true;
+  const isActiveAssignment = booking.assignmentStatus === 'ACTIVE';
+
+  const isSoloPending = isActiveAssignment && !isCancelled && !isReportedBusy && booking.soloPendingConfirmation === true;
 
   const isAssignedPending =
+    isActiveAssignment &&
     !isCancelled &&
     !isReportedBusy &&
     !isSoloPending &&
     (booking.status === 'AGENCY_ASSIGNED' || booking.isConfirmedByStaff === false);
 
   const isConfirmed =
+    isActiveAssignment &&
     !isCancelled &&
     !isReportedBusy &&
     !isSoloPending &&
@@ -126,6 +130,7 @@ export const DispatchedBookingCard: React.FC<Props> = ({ booking, onRefresh }) =
   };
 
   const getStatusLabel = () => {
+    if (!isActiveAssignment && !isReportedBusy) return { label: 'Đã kết thúc phân công', color: '#64748B', bg: '#F1F5F9' };
     if (isReportedBusy) {
       return { label: 'Đã Báo Bận (Chờ Duyệt)', color: '#D97706', bg: '#FEF3C7' };
     }

@@ -35,6 +35,7 @@ public class OvertimeReportRes {
     private String proofImageUrl;
     private OvertimeReportStatus status;
     private BigDecimal penaltyAmountApplied;
+    private BigDecimal estimatedAllowanceAmount;
     private BigDecimal customerSurchargeAmount;
     private String chargeReason;
     private String adminNotes;
