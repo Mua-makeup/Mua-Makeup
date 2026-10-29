@@ -21,17 +21,10 @@ export async function createImageFormData(
   }
 
   if (Platform.OS === 'web') {
-    try {
       const fetchRes = await fetch(imageUri);
+      if (!fetchRes.ok) throw new Error('Không đọc được ảnh đã chọn. Vui lòng chọn lại ảnh.');
       const blob = await fetchRes.blob();
       formData.append(fieldName, blob, filename);
-    } catch {
-      formData.append(fieldName, {
-        uri: imageUri,
-        name: filename,
-        type: mimeType,
-      } as any);
-    }
   } else {
     formData.append(fieldName, {
       uri: imageUri,

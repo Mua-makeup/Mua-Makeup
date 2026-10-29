@@ -50,6 +50,7 @@ export const OvertimeConfigCard = () => {
   const [customAllowance, setCustomAllowance] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState(null);
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState(null);
 
   // Delete Rule State
   const [ruleToDelete, setRuleToDelete] = useState(null);
@@ -1009,9 +1010,16 @@ export const OvertimeConfigCard = () => {
           >
             <img
               src={previewImageUrl}
+              onLoad={() => setFailedPreviewUrl(null)}
+              onError={() => setFailedPreviewUrl(previewImageUrl)}
               alt={t('overtime_proof_photo_title') || 'Ảnh đối chứng'}
               className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10"
             />
+            {failedPreviewUrl === previewImageUrl && (
+              <p role="alert" className="bg-slate-900 text-white rounded-lg p-6 max-w-md text-center">
+                Không tải được ảnh đối chứng. Ảnh có thể chưa được tải lên hoặc đường dẫn không còn hợp lệ.
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setPreviewImageUrl(null)}
