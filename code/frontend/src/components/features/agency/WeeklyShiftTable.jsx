@@ -405,7 +405,7 @@ export const WeeklyShiftTable = () => {
       (p) => p.start === cleanStart.substring(0, 5) && p.end === cleanEnd.substring(0, 5)
     );
     if (!isPresetValid) {
-      setFormError('Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00-12:00), Ca chiều (13:00-17:00), Ca tối (18:00-21:30) hoặc Cả ngày (08:00-17:00)');
+      setFormError(t('err_shift_fixed_presets') || 'Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00-12:00), Ca chiều (13:00-17:00), Ca tối (18:00-21:30) hoặc Cả ngày (08:00-17:00)');
       return;
     }
 
@@ -1334,7 +1334,7 @@ export const WeeklyShiftTable = () => {
                 readOnly
                 value={startTime}
                 className="bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed select-none text-slate-700 dark:text-slate-300 font-semibold font-mono"
-                helperText="Cố định theo ca"
+                helperText={t('shift_fixed_by_preset') || 'Cố định theo ca'}
               />
 
               <Input
@@ -1345,7 +1345,7 @@ export const WeeklyShiftTable = () => {
                 readOnly
                 value={endTime}
                 className="bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed select-none text-slate-700 dark:text-slate-300 font-semibold font-mono"
-                helperText="Cố định theo ca"
+                helperText={t('shift_fixed_by_preset') || 'Cố định theo ca'}
               />
             </div>
 

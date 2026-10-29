@@ -43,7 +43,7 @@ export const WeeklyShiftSkeleton = ({ className = '' }) => {
 
       {/* 3 Shift Periods (Morning, Afternoon, Evening) Skeleton */}
       <div className="space-y-4">
-        {['Ca Sáng', 'Ca Chiều', 'Ca Tối'].map((periodName, pIdx) => (
+        {[0, 1, 2].map((_, pIdx) => (
           <div
             key={pIdx}
             className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden"

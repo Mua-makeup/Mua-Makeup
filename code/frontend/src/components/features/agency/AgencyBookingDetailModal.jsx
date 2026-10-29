@@ -424,13 +424,33 @@ export const AgencyBookingDetailModal = ({
                     || (booking.scheduledStartTime ? formatDateTime(booking.scheduledStartTime) : '—')}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                <Clock className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                <span className="font-medium">
-                  {formatBookingDateTime(booking.endTime, booking.bookingDate)
-                    || (booking.scheduledEndTime ? formatDateTime(booking.scheduledEndTime) : '—')}
-                </span>
-              </div>
+              {(() => {
+                const startTimeStr = booking.startTime || (booking.scheduledStartTime ? formatDateTime(booking.scheduledStartTime).slice(0, 5) : null);
+                let computedEndTime = booking.endTime;
+                if (!computedEndTime && startTimeStr && /^\d{1,2}:\d{2}/.test(startTimeStr)) {
+                  const duration = Number(booking.packageDurationMinutes || booking.estimatedDurationMinutes || 60);
+                  const [h, m] = startTimeStr.slice(0, 5).split(':').map(Number);
+                  const totalMinutes = h * 60 + m + duration;
+                  const endH = Math.floor((totalMinutes % 1440) / 60);
+                  const endM = totalMinutes % 60;
+                  computedEndTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+                }
+                const formattedEnd = computedEndTime
+                  ? `${computedEndTime} ${booking.bookingDate ? formatDate(booking.bookingDate) : ''}`.trim()
+                  : (booking.scheduledEndTime ? formatDateTime(booking.scheduledEndTime) : '—');
+
+                return (
+                  <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
+                    <Clock className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                    <span className="font-medium">
+                      {formattedEnd}
+                      {!booking.endTime && computedEndTime && (
+                        <span className="text-[11px] text-slate-400 ml-1">({t('estimated') || 'Dự kiến'})</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })()}
 
               {(() => {
                 const staffList = (currentBooking?.assignedStaff || booking?.assignedStaff || [])

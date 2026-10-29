@@ -169,7 +169,7 @@ export const StaffCommissionSplitMatrix = ({
                     </div>
                     {!isEmergencyCancelled && amount !== Math.round((totalAmount * rate) / 100) && (
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
-                        {formatCurrency(Math.round((totalAmount * rate) / 100))} ({rate}%) {amount > Math.round((totalAmount * rate) / 100) ? `+ ${formatCurrency(amount - Math.round((totalAmount * rate) / 100))} tăng ca` : `- ${formatCurrency(Math.round((totalAmount * rate) / 100) - amount)}`}
+                        {formatCurrency(Math.round((totalAmount * rate) / 100))} ({rate}%) {amount > Math.round((totalAmount * rate) / 100) ? `+ ${formatCurrency(amount - Math.round((totalAmount * rate) / 100))} ${t('overtime_label') || 'tăng ca'}` : `- ${formatCurrency(Math.round((totalAmount * rate) / 100) - amount)}`}
                       </span>
                     )}
 
@@ -216,7 +216,7 @@ export const StaffCommissionSplitMatrix = ({
 
         <div>
           <div className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
-            Phí Sàn ({Math.round(platformFeeRate * 100)}%)
+            {t('platform_fee_label') || 'Phí Sàn'} ({Math.round(platformFeeRate * 100)}%)
           </div>
           <div className="text-base font-bold text-slate-500 mt-0.5">
             -{formatCurrency(platformFee)}

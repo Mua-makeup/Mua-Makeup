@@ -264,7 +264,7 @@ export const EditStaffCommissionSplitModal = ({
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px] mb-0.5">Phí Sàn (20%)</span>
+                <span className="text-slate-500 block text-[11px] mb-0.5">{t('platform_fee_label') || 'Phí Sàn'} ({Math.round(platformFeeRate * 100)}%)</span>
                 <span className="font-bold text-slate-500">
                   -{formatCurrency(platformFee)}
                 </span>
@@ -328,12 +328,12 @@ export const EditStaffCommissionSplitModal = ({
           {/* Breakdown box */}
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
             <div className="font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-1.5">
-              Tóm tắt phân chia ({items.length} thợ):
+              {t('commission_summary_title') || 'Tóm tắt phân chia'} ({items.length} {t('staff_label') || 'thợ'}):
             </div>
             {items.map((st, i) => (
               <div key={i} className="flex justify-between items-center text-xs">
                 <span className="text-slate-600 dark:text-slate-400">
-                  {st.staffName} ({st.role === 'PRIMARY_MUA' ? 'Thợ chính' : 'Thợ phụ'}):
+                  {st.staffName} ({st.role === 'PRIMARY_MUA' ? (t('dispatch_badge_primary') || 'Thợ chính') : (t('dispatch_badge_assistant') || 'Thợ phụ')}):
                 </span>
                 <span className="font-bold text-slate-900 dark:text-white">
                   {st.commissionRate}% — {formatCurrency(st.commissionAmount)}
@@ -341,11 +341,11 @@ export const EditStaffCommissionSplitModal = ({
               </div>
             ))}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-1.5 flex justify-between items-center font-bold">
-              <span>Tổng hoa hồng thợ:</span>
+              <span>{t('total_staff_commission') || 'Tổng hoa hồng thợ:'}</span>
               <span className="text-amber-600 dark:text-amber-400">{formatCurrency(totalCommissions)}</span>
             </div>
             <div className="flex justify-between items-center font-bold">
-              <span>Studio giữ lại:</span>
+              <span>{t('studio_net_retained') || 'Studio giữ lại:'}</span>
               <span className={studioNet >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600'}>
                 {formatCurrency(studioNet)}
               </span>

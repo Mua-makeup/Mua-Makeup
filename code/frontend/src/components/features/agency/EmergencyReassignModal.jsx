@@ -402,7 +402,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
                     <span>{t('proceed_solo_card_title')}</span>
                   </div>
                   <Badge variant="success" size="sm">
-                    Nhận trọn {soloTotalRate}% hoa hồng
+                    {t('solo_receive_full_commission', { rate: soloTotalRate }) || `Nhận trọn ${soloTotalRate}% hoa hồng`}
                   </Badge>
                 </div>
                 <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
@@ -428,9 +428,9 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
 
                   <div className="pt-2 border-t border-emerald-100 dark:border-emerald-900/60 flex flex-wrap items-center justify-between text-xs gap-2">
                     <span className="text-slate-600 dark:text-slate-400">
-                      Hoa hồng thợ solo: <strong className="text-slate-900 dark:text-white">{activeStaffBaseRate}%</strong>
+                      {t('solo_artist_label') || 'Hoa hồng thợ solo'}: <strong className="text-slate-900 dark:text-white">{activeStaffBaseRate}%</strong>
                       {emergencyCommissionRate > 0 && (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold"> + {emergencyCommissionRate}% (chuyển từ thợ bận)</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold"> + {emergencyCommissionRate}% ({t('transferred_from_busy_staff') || 'chuyển từ thợ bận'})</span>
                       )}
                     </span>
                     <span className="font-mono font-extrabold text-emerald-700 dark:text-emerald-300 text-xs">
@@ -443,7 +443,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                {qualifiedStaff.length > 0 ? t('dispatch_reassign_select_new') : 'Hoặc chọn thợ thay thế:'}
+                {qualifiedStaff.length > 0 ? t('dispatch_reassign_select_new') : (t('or_select_replacement') || 'Hoặc chọn thợ thay thế:')}
               </label>
 
               {qualifiedStaff.length === 0 ? (
@@ -487,9 +487,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="success" size="sm">
-                            Đủ tiêu chuẩn
-                          </Badge>
+                          <Badge variant="success" size="sm">{t('qualified_badge') || 'Đủ tiêu chuẩn'}</Badge>
                         </div>
                       </div>
                     );
@@ -506,7 +504,7 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
                 value={reassignReason}
                 onChange={(e) => setReassignReason(e.target.value)}
                 rows={2}
-                placeholder="Nhập lý do đổi thợ dự phòng hoặc ghi chú xử lý..."
+                placeholder={t('dispatch_reassign_reason_placeholder') || 'Nhập lý do đổi thợ dự phòng hoặc ghi chú xử lý...'}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80 p-3 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs"
               />
             </div>
@@ -631,17 +629,17 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
           </p>
           <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 space-y-1.5 text-xs">
             <div className="flex justify-between items-center text-emerald-900 dark:text-emerald-200 font-semibold">
-              <span>Thợ đảm nhiệm solo:</span>
+              <span>{t('solo_artist_label') || 'Thợ đảm nhiệm solo:'}</span>
               <span>{activeStaff?.staffName || booking?.staffName}</span>
             </div>
             {emergencyCommissionRate > 0 && (
               <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                <span>Chuyển từ thợ báo bận:</span>
+                <span>{t('transferred_from_busy_staff') || 'Chuyển từ thợ báo bận:'}</span>
                 <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">+{emergencyCommissionRate}%</span>
               </div>
             )}
             <div className="flex justify-between items-center pt-1 border-t border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-white font-bold">
-              <span>Tổng hoa hồng thợ nhận:</span>
+              <span>{t('total_artist_commission') || 'Tổng hoa hồng thợ nhận:'}</span>
               <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold">
                 {soloTotalRate}% {soloTotalAmount > 0 ? `(${soloTotalAmount.toLocaleString('vi-VN')} đ)` : ''}
               </span>
@@ -671,16 +669,16 @@ export const EmergencyReassignModal = ({ isOpen, onClose, booking, onSuccess }) 
           </p>
           <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 space-y-1.5 text-xs">
             <div className="flex justify-between items-center text-rose-900 dark:text-rose-200 font-semibold">
-              <span>Đơn hàng:</span>
+              <span>{t('booking_label') || 'Đơn hàng'}:</span>
               <span className="font-mono font-bold">#{booking?.bookingCode}</span>
             </div>
             <div className="flex justify-between items-center text-rose-900 dark:text-rose-200">
-              <span>Tiền cọc hoàn trả khách:</span>
-              <span className="font-mono font-bold text-rose-600 dark:text-rose-400">100% (Toàn bộ)</span>
+              <span>{t('deposit_refund_to_customer') || 'Tiền cọc hoàn trả khách:'}</span>
+              <span className="font-mono font-bold text-rose-600 dark:text-rose-400">100% ({t('deposit_full_refund') || 'Toàn bộ'})</span>
             </div>
             {reassignReason && (
               <div className="flex justify-between items-start gap-2 pt-1 border-t border-rose-200 dark:border-rose-800 text-slate-600 dark:text-slate-400">
-                <span className="shrink-0">Ghi chú hủy:</span>
+                <span className="shrink-0">{t('cancel_notes_label') || 'Ghi chú hủy:'}</span>
                 <span className="text-right font-medium">{reassignReason}</span>
               </div>
             )}
