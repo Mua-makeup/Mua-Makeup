@@ -73,6 +73,10 @@ public class AgencyDispatchSupport {
             }
         }
 
+        if (oldAssignment == null && oldStaffId != null) {
+            throw new CustomBusinessException(ErrorCodes.ERR_ASSIGNMENT_NOT_FOUND, "dispatch.assignment_not_found");
+        }
+
         if (oldAssignment == null) {
             oldAssignment = bookingStaffAssignmentRepository.findByBookingIdAndStatus(
                     bookingId, AssignmentStatus.EMERGENCY_CANCELLED

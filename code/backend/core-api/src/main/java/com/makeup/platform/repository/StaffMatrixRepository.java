@@ -82,8 +82,8 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                 LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                 WHERE c.mua_id = s.mua_id 
                   AND c.is_locked = true
-                  AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
-                  AND (b IS NULL OR b.status NOT IN (
+                  AND (c.slot_type = 'PERSONAL_BLOCKED' OR c.booking_id IS NULL OR c.booking_id != :bookingId)
+                  AND (c.slot_type = 'PERSONAL_BLOCKED' OR b IS NULL OR b.status NOT IN (
                       'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
                       'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
                   ))
@@ -96,7 +96,7 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                   AND (
                       bsa_canc.status = 'EMERGENCY_CANCELLED'
                       OR bsa_canc.cancellation_reason IS NOT NULL
-                      OR (bsa_canc.status = 'REPLACED' AND bsa_canc.replaced_by_staff_id IS NOT NULL)
+                      OR bsa_canc.cancelled_at IS NOT NULL
                   )
             ) AS hasReportedBusy,
             (
@@ -107,7 +107,7 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                   AND (
                       bsa_canc.status = 'EMERGENCY_CANCELLED'
                       OR bsa_canc.cancellation_reason IS NOT NULL
-                      OR (bsa_canc.status = 'REPLACED' AND bsa_canc.replaced_by_staff_id IS NOT NULL)
+                      OR bsa_canc.cancelled_at IS NOT NULL
                   )
                 ORDER BY bsa_canc.id DESC
                 LIMIT 1
@@ -152,8 +152,8 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                     LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                     WHERE c.mua_id = s.mua_id 
                       AND c.is_locked = true
-                      AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
-                      AND (b IS NULL OR b.status NOT IN (
+                      AND (c.slot_type = 'PERSONAL_BLOCKED' OR c.booking_id IS NULL OR c.booking_id != :bookingId)
+                      AND (c.slot_type = 'PERSONAL_BLOCKED' OR b IS NULL OR b.status NOT IN (
                           'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
                           'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
                       ))
@@ -163,7 +163,7 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                     SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
                     WHERE bsa_canc.staff_id = s.id 
                       AND bsa_canc.booking_id = :bookingId 
-                      AND bsa_canc.status = 'EMERGENCY_CANCELLED'
+                      AND (bsa_canc.status = 'EMERGENCY_CANCELLED' OR bsa_canc.cancellation_reason IS NOT NULL OR bsa_canc.cancelled_at IS NOT NULL)
                 )
             ) DESC,
             (
@@ -197,8 +197,8 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                     LEFT JOIN booking_schema.bookings b ON c.booking_id = b.id
                     WHERE c.mua_id = s.mua_id 
                       AND c.is_locked = true
-                      AND (c.booking_id IS NULL OR c.booking_id != :bookingId)
-                      AND (b IS NULL OR b.status NOT IN (
+                      AND (c.slot_type = 'PERSONAL_BLOCKED' OR c.booking_id IS NULL OR c.booking_id != :bookingId)
+                      AND (c.slot_type = 'PERSONAL_BLOCKED' OR b IS NULL OR b.status NOT IN (
                           'CANCELLED', 'CANCELLED_EXPIRED', 'PENDING_DEPOSIT', 
                           'COMPLETED', 'PAID_OUT', 'DISPUTE_REFUNDED'
                       ))
@@ -208,7 +208,7 @@ public interface StaffMatrixRepository extends JpaRepository<AgencyStaffEntity, 
                     SELECT 1 FROM booking_schema.booking_staff_assignments bsa_canc
                     WHERE bsa_canc.staff_id = s.id 
                       AND bsa_canc.booking_id = :bookingId 
-                      AND bsa_canc.status = 'EMERGENCY_CANCELLED'
+                      AND (bsa_canc.status = 'EMERGENCY_CANCELLED' OR bsa_canc.cancellation_reason IS NOT NULL OR bsa_canc.cancelled_at IS NOT NULL)
                 )
             ) DESC,
             EXISTS (
