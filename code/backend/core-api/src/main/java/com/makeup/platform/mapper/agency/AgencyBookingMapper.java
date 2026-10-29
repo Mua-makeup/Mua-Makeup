@@ -237,7 +237,6 @@ public class AgencyBookingMapper {
                 || bStatus == BookingStatus.IN_PROGRESS
                 || bStatus == BookingStatus.COMPLETED
                 || bStatus == BookingStatus.PAID_OUT
-                || bStatus == BookingStatus.CONFIRMED
                 || bStatus == BookingStatus.ACCEPTED
                 || bStatus == BookingStatus.AGENCY_ASSIGNED
                 || bStatus == BookingStatus.REQUESTED)) {
@@ -261,7 +260,7 @@ public class AgencyBookingMapper {
             }
         }
 
-        if (bStatus == BookingStatus.REFUNDED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
+        if (bStatus == BookingStatus.DISPUTE_REFUNDED) {
             depositStatus = "REFUNDED";
         } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
             if (!isDepositPaid) {
