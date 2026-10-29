@@ -300,15 +300,22 @@ export const OvertimeConfigCard = () => {
     if (!selectedReport) return;
     setIsSaving(true);
     try {
-      await agencyService.reviewOvertimeReport(selectedReport.id, {
+      const response = await agencyService.reviewOvertimeReport(selectedReport.id, {
         action: reviewAction,
         customPenaltyAmount: (reviewAction === 'APPROVE_ALLOWANCE' && customAllowance) ? Number(customAllowance) : undefined,
         adminNotes: reviewNote.trim() || undefined,
       });
+      const reviewed = response?.data || response;
       setIsReviewModalOpen(false);
       setToastMessage({
         text: reviewAction === 'APPROVE_ALLOWANCE'
-          ? 'Đã duyệt thưởng tăng ca và trích chuyển tiền vào ví thợ thành công!'
+          ? (reviewed?.allowancePaymentStatus === 'PAID'
+            ? (t('overtime_pay_toast_paid') || 'Đã duyệt và chuyển tiền tăng ca vào ví thợ.')
+            : reviewed?.allowancePaymentStatus === 'RECONCILIATION_REQUIRED'
+              ? (t('overtime_pay_toast_reconciliation') || 'Đã duyệt. Khoản tăng ca cần đối soát trước khi thanh toán.')
+              : reviewed?.allowancePaymentStatus === 'NOT_APPLICABLE'
+                ? (t('overtime_pay_toast_not_applicable') || 'Đã duyệt báo cáo. Không có khoản thưởng cần thanh toán.')
+                : (t('overtime_pay_toast_pending') || 'Đã duyệt thưởng tăng ca. Khoản chưa thanh toán sẽ chờ ví Studio đủ số dư.'))
           : (t('update_success') || 'Đã xét duyệt báo cáo tăng ca thành công!'),
         type: 'success',
       });
@@ -798,6 +805,9 @@ export const OvertimeConfigCard = () => {
                       {(r.status === 'APPROVED_WAIVED' || r.status === 'APPROVED') && (
                         <Badge variant="active">{t('status_verified') || 'Đã Miễn Trừ / Duyệt'}</Badge>
                       )}
+                      {r.allowancePaymentStatus === 'PENDING_FUNDS' && <div className="mt-1"><Badge variant="pending">{t('overtime_pay_status_pending') || 'Chờ thanh toán'}</Badge></div>}
+                      {r.allowancePaymentStatus === 'PAID' && <div className="mt-1"><Badge variant="active">{t('overtime_pay_status_paid') || 'Đã chuyển tiền'}</Badge></div>}
+                      {r.allowancePaymentStatus === 'RECONCILIATION_REQUIRED' && <div className="mt-1"><Badge variant="rejected">{t('overtime_pay_status_reconciliation') || 'Cần đối soát'}</Badge></div>}
                       {r.status === 'PENALIZED' && (
                         <Badge variant="rejected">Đã Phạt Thợ</Badge>
                       )}
@@ -816,7 +826,7 @@ export const OvertimeConfigCard = () => {
                               onClick={() => openReview(r, 'APPROVE_ALLOWANCE')}
                               className="!bg-emerald-600 hover:!bg-emerald-700 text-white shadow-2xs font-medium"
                             >
-                              Duyệt Thưởng Tăng Ca
+                              {t('overtime_btn_approve_allowance') || 'Duyệt Thưởng Tăng Ca'}
                             </Button>
                           ) : (
                             <Button
@@ -858,10 +868,10 @@ export const OvertimeConfigCard = () => {
         title={
           <span className="font-bold text-slate-900 dark:text-white text-base">
             {reviewAction === 'APPROVE_ALLOWANCE'
-              ? 'Xác Nhận Duyệt Thưởng Tăng Ca Cho Thợ'
+              ? (t('overtime_modal_title_approve') || 'Xác Nhận Duyệt Thưởng Tăng Ca Cho Thợ')
               : reviewAction === 'WAIVE_PENALTY'
-              ? 'Xác Nhận Duyệt Miễn Trừ Tăng Ca'
-              : 'Xác Nhận Chế Tài / Phạt Tăng Ca'}
+              ? (t('overtime_modal_title_waive') || 'Xác Nhận Duyệt Miễn Trừ Tăng Ca')
+              : (t('overtime_modal_title_penalty') || 'Xác Nhận Chế Tài / Phạt Tăng Ca')}
           </span>
         }
         maxWidth="max-w-md"
@@ -881,10 +891,10 @@ export const OvertimeConfigCard = () => {
               className={reviewAction === 'APPROVE_ALLOWANCE' ? '!bg-emerald-600 hover:!bg-emerald-700 text-white' : undefined}
             >
               {reviewAction === 'APPROVE_ALLOWANCE'
-                ? 'Duyệt & Chuyển Tiền Vào Ví'
+                ? (t('overtime_btn_approve_allowance') || 'Duyệt Thưởng Tăng Ca')
                 : reviewAction === 'WAIVE_PENALTY'
-                ? 'Xác Nhận Duyệt'
-                : 'Áp Dụng Chế Tài'}
+                ? (t('overtime_btn_waive_penalty') || 'Xác Nhận Duyệt')
+                : (t('overtime_btn_apply_penalty') || 'Áp Dụng Chế Tài')}
             </Button>
           </>
         }
@@ -934,7 +944,7 @@ export const OvertimeConfigCard = () => {
                 onChange={(e) => setCustomAllowance(e.target.value)}
               />
               <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed italic">
-                * Khi bấm duyệt, số tiền này sẽ được trích từ ví Studio / doanh thu đơn chuyển trực tiếp vào ví của thợ và gửi thông báo cho thợ.
+                {t('overtime_pay_helper_text') || '* Nếu ví Studio đủ tiền, hệ thống chuyển đủ khoản thưởng sang ví thợ. Nếu chưa đủ, khoản thưởng chờ thanh toán và được xử lý lại khi quyết toán hoặc khi thợ mở ví. Không trích một phần.'}
               </p>
             </div>
           )}
