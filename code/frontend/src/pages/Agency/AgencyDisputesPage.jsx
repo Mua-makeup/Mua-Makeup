@@ -1,6 +1,6 @@
 import { DisputeFinancialSummary } from '../../components/base/DisputeFinancialSummary';
 import React, { useEffect, useState, useMemo } from 'react';
-import { RefreshCw, Search, Eye, AlertCircle, X, Check, User, Sparkles } from 'lucide-react';
+import { RefreshCw, Search, Eye, AlertCircle, X, Check, User, UserCheck } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
 import { useI18nStore } from '../../store/useI18nStore';
 import { Badge } from '../../components/base/Badge';
@@ -567,7 +567,7 @@ export const AgencyDisputesPage = () => {
                       <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/60 dark:border-amber-900/60">
                         <div className="flex items-center gap-1.5">
                           <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 flex items-center justify-center font-bold text-xs">
-                            <Sparkles className="w-3.5 h-3.5" />
+                            <UserCheck className="w-3.5 h-3.5" />
                           </div>
                           <div>
                             <span className="font-bold text-xs text-slate-900 dark:text-white">

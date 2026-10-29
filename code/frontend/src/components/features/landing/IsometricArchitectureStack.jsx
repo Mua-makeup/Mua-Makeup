@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, Cpu, Radio, ShieldCheck, Sparkles } from 'lucide-react';
+import { Database, Cpu, Radio, ShieldCheck, Layers } from 'lucide-react';
 
 export const IsometricArchitectureStack = () => {
   const [activeLayer, setActiveLayer] = useState(3); // Default to Top Layer
@@ -76,7 +76,7 @@ export const IsometricArchitectureStack = () => {
       {/* Header */}
       <div className="relative z-10 text-center mb-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-3">
-          <Sparkles className="w-3.5 h-3.5" />
+          <Layers className="w-3.5 h-3.5" />
           Kiến Trúc Đa Tầng 3D Nền Tảng
         </div>
         <h3 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">

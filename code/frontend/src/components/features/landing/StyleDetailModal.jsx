@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Clock, Palette, CheckCircle2, ArrowRight, X, Sparkles } from 'lucide-react';
+import { Clock, Palette, CheckCircle2, ArrowRight, X, Tag, Crown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useI18nStore } from '../../../store/useI18nStore';
 
@@ -59,7 +59,7 @@ export const StyleDetailModal = ({ isOpen, onClose, styleData }) => {
           {/* Floating Tag Badge */}
           <div className="absolute top-3 left-3 sm:top-3.5 sm:left-3.5 z-20">
             <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-extrabold uppercase tracking-wider bg-rose-600 text-white shadow-md">
-              <Sparkles className="w-3 h-3" />
+              <Tag className="w-3 h-3" />
               <span>{styleData.tag}</span>
             </span>
           </div>
@@ -119,7 +119,7 @@ export const StyleDetailModal = ({ isOpen, onClose, styleData }) => {
               {/* Recommended Occasions */}
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 sm:col-span-2 flex items-start gap-3">
                 <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-4 h-4" />
+                  <Crown className="w-4 h-4" />
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">

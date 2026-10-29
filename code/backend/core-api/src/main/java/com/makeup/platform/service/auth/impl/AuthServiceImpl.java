@@ -88,6 +88,23 @@ public class AuthServiceImpl implements AuthService {
     @Value("${jwt.refresh-token-expiration-days:30}")
     private long refreshTokenExpirationDays;
 
+    @Value("${auth.otp.test-mode:false}")
+    private boolean otpTestMode;
+
+    private String generateLoginOtp() {
+        return otpTestMode ? "123456" : String.format("%06d", new SecureRandom().nextInt(1_000_000));
+    }
+
+    private String storedLoginOtp(String code) {
+        return otpTestMode ? "test:" + code : code;
+    }
+
+    private void deliverLoginOtp(UserEntity user, String code) {
+        if (!otpTestMode) {
+            emailService.sendAdminLoginOtp(user.getEmail(), user.getFullName(), code, 5);
+        }
+    }
+
     @Override
     @Transactional
     public UserRegisterRes register(RegisterReq req) {
@@ -231,15 +248,15 @@ public class AuthServiceImpl implements AuthService {
                             "auth.email_required_for_admin_2fa", HttpStatus.BAD_REQUEST);
                 }
 
-                String otpCode = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+                String otpCode = generateLoginOtp();
                 String tempToken = UUID.randomUUID().toString();
 
                 redisTemplate.opsForValue().set("auth:2fa:temp:" + tempToken, String.valueOf(user.getId()), 5,
                         TimeUnit.MINUTES);
-                redisTemplate.opsForValue().set("auth:2fa:otp:" + user.getId(), otpCode, 5, TimeUnit.MINUTES);
+                redisTemplate.opsForValue().set("auth:2fa:otp:" + user.getId(), storedLoginOtp(otpCode), 5, TimeUnit.MINUTES);
 
-                emailService.sendAdminLoginOtp(user.getEmail(), user.getFullName(), otpCode, 5);
-                log.info("Enforced 2FA OTP email for admin user: {} (role: {})", user.getId(), roleName);
+                deliverLoginOtp(user, otpCode);
+                log.info("Created 2FA OTP challenge for admin user: {} (role: {})", user.getId(), roleName);
 
                 return AuthRes.builder()
                         .requires2fa(true)
@@ -410,7 +427,7 @@ public class AuthServiceImpl implements AuthService {
         String otpKey = "auth:2fa:otp:" + userId;
         Object storedOtp = redisTemplate.opsForValue().get(otpKey);
 
-        if (storedOtp == null || !storedOtp.toString().equals(req.getOtpCode().trim())) {
+        if (storedOtp == null || !storedOtp.toString().equals(storedLoginOtp(req.getOtpCode().trim()))) {
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_CREDENTIALS,
                     "auth.invalid_otp", HttpStatus.BAD_REQUEST);
         }
@@ -448,12 +465,12 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
                         "auth.user_not_found", HttpStatus.NOT_FOUND));
 
-        String otpCode = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+        String otpCode = generateLoginOtp();
         redisTemplate.expire(tempKey, 5, TimeUnit.MINUTES);
-        redisTemplate.opsForValue().set("auth:2fa:otp:" + userId, otpCode, 5, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set("auth:2fa:otp:" + userId, storedLoginOtp(otpCode), 5, TimeUnit.MINUTES);
         redisTemplate.opsForValue().set(rateKey, "1", 60, TimeUnit.SECONDS);
 
-        emailService.sendAdminLoginOtp(user.getEmail(), user.getFullName(), otpCode, 5);
+        deliverLoginOtp(user, otpCode);
         log.info("Resent 2FA OTP for user: {}", user.getId());
     }
 

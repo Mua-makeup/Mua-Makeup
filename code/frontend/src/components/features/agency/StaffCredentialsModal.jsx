@@ -9,7 +9,8 @@ import {
   Calendar,
   Mail,
   Phone,
-  Sparkles,
+  FileText,
+  Palette,
   Image as ImageIcon,
   Eye,
   X,
@@ -258,7 +259,7 @@ export const StaffCredentialsModal = ({
             {detail.bio && (
               <div className="p-4 bg-slate-50/75 dark:bg-slate-800/50 rounded-xl border border-slate-200/70 dark:border-slate-700/60 space-y-1">
                 <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+                  <FileText className="w-3.5 h-3.5 text-rose-500" />
                   {t('staff_bio_title')}
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">
@@ -454,7 +455,7 @@ export const StaffCredentialsModal = ({
                       key={idx}
                       className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                     >
-                      <Sparkles className="w-3 h-3 text-rose-500" />
+                      <Palette className="w-3 h-3 text-rose-500" />
                       {st.styleName || st}
                     </span>
                   ))}

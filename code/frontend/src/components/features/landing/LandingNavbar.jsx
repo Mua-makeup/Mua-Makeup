@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Sparkles,
+
   Building2,
   ArrowRight,
   Globe,
@@ -17,6 +17,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
+import { BrandLogo } from '../../base/BrandLogo';
 import { USER_ROLES } from '../../../constants/roles.constant';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { useThemeStore } from '../../../store/useThemeStore';
@@ -71,7 +72,7 @@ export const LandingNavbar = () => {
           className="flex items-center gap-2 sm:gap-2.5 shrink-0 focus:outline-hidden focus:ring-2 focus:ring-rose-500 rounded-xl"
         >
           <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-600/20 shrink-0">
-            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+            <BrandLogo className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="leading-tight">
             <span className="font-extrabold tracking-tight text-sm sm:text-lg block text-slate-900 dark:text-white">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ShieldCheck, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Palette, ShieldCheck, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useI18nStore } from '../../../store/useI18nStore';
 
 export const LandingMarqueeShowcase = () => {
@@ -374,7 +374,7 @@ export const LandingMarqueeShowcase = () => {
       {/* Section Header */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center mb-7 sm:mb-9">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-rose-200 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/40 text-xs font-semibold text-rose-700 dark:text-rose-300 shadow-xs mb-3">
-          <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+          <Palette className="w-3.5 h-3.5 text-rose-500" />
           <span>{t('landing_marquee_badge')}</span>
         </div>
 

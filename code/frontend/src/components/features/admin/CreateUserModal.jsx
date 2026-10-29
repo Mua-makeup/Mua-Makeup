@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, UserPlus, ShieldAlert, Sparkles, Info } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, ShieldAlert, Palette, Info } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Input } from '../../base/Input';
 import { Textarea } from '../../base/Textarea';
@@ -255,7 +255,7 @@ export const CreateUserModal = ({ isOpen, onClose, onSuccess }) => {
         {formData.role === 'ROLE_FREELANCE_MUA' && (
           <div className="space-y-3.5 p-4 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center gap-2 pb-2 border-b border-rose-200/60 dark:border-rose-900/40">
-              <Sparkles className="w-4 h-4 text-rose-600" />
+              <Palette className="w-4 h-4 text-rose-600" />
               <h3 className="text-xs font-black uppercase tracking-wider text-rose-950 dark:text-rose-200">
                 {t('mua_profile_section')}
               </h3>

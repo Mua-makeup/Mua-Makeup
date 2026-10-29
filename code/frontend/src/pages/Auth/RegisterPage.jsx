@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { BrandLogo } from '../../components/base/BrandLogo';
 import {
-  Sparkles,
   Lock,
   Mail,
   User,
@@ -109,7 +109,7 @@ export const RegisterPage = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-lg text-center">
         <Link to="/" className="inline-flex items-center gap-2 group mb-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-400 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5" />
+            <BrandLogo className="w-5 h-5" />
           </div>
           <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-xl">
             {t('app_title')}

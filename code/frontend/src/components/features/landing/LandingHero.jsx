@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Sparkles,
+  Palette,
   ArrowRight,
   Building2,
   CheckCircle2,
@@ -114,7 +114,7 @@ export const LandingHero = () => {
             <div className="pt-3.5 sm:pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-1.5 sm:space-y-2">
                 <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  <Palette className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>{t('landing_hero_mock_service')}</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-600 dark:text-slate-400">

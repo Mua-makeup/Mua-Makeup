@@ -11,7 +11,7 @@ import {
   Loader2,
   UserX,
   Star,
-  Sparkles,
+  Heart,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Button } from '../../base/Button';
@@ -971,7 +971,7 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                                   </p>
                                   {staff.hasServedThisCustomer && (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700 shadow-2xs">
-                                      <Sparkles className="w-2.5 h-2.5 fill-amber-400 text-amber-500 shrink-0" />
+                                      <Heart className="w-2.5 h-2.5 fill-amber-400 text-amber-500 shrink-0" />
                                       {t('dispatch_badge_served_customer')}
                                     </span>
                                   )}
