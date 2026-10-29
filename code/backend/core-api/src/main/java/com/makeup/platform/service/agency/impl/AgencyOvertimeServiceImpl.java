@@ -205,7 +205,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
             log.warn("Failed to create overtime report notification: {}", ex.getMessage());
         }
 
-        return agencyOvertimeMapper.toReportRes(saved);
+        return toReportResponse(saved);
     }
 
     @Override
@@ -236,20 +236,10 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                 shouldCreditAllowance = true;
                 if (req.getCustomPenaltyAmount() != null && req.getCustomPenaltyAmount().compareTo(BigDecimal.ZERO) > 0) {
                     allowanceAmount = req.getCustomPenaltyAmount();
-                } else if (report.getRule() != null) {
-                    AgencyOvertimeRuleEntity rule = report.getRule();
-                    if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
-                        allowanceAmount = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
-                    } else if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
-                        BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
-                        BigDecimal baseAmount = (booking != null && booking.getTotalAmount() != null) ? booking.getTotalAmount() : BigDecimal.ZERO;
-                        BigDecimal pct = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
-                        allowanceAmount = baseAmount.multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-                    } else if (rule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
-                        BigDecimal ratePerMinute = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
-                        int mins = report.getOvertimeMinutes() != null ? report.getOvertimeMinutes() : 0;
-                        allowanceAmount = ratePerMinute.multiply(BigDecimal.valueOf(mins)).setScale(0, RoundingMode.HALF_UP);
-                    }
+                } else {
+                    AgencyOvertimeRuleEntity allowanceRule = resolveAllowanceRule(report);
+                    allowanceAmount = calculateAllowance(report, allowanceRule);
+                    if (allowanceRule != null) report.setRule(allowanceRule);
                 }
                 report.setPenaltyAmountApplied(allowanceAmount);
                 break;
@@ -258,15 +248,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                 report.setStatus(OvertimeReportStatus.APPROVED_WAIVED);
                 if (report.getRule() != null && report.getRule().getPolicyType() == OvertimePolicyType.ALLOWANCE) {
                     shouldCreditAllowance = true;
-                    AgencyOvertimeRuleEntity rule = report.getRule();
-                    if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
-                        allowanceAmount = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
-                    } else if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
-                        BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
-                        BigDecimal baseAmount = (booking != null && booking.getTotalAmount() != null) ? booking.getTotalAmount() : BigDecimal.ZERO;
-                        BigDecimal pct = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
-                        allowanceAmount = baseAmount.multiply(pct).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-                    }
+                    allowanceAmount = calculateAllowance(report, resolveAllowanceRule(report));
                     report.setPenaltyAmountApplied(allowanceAmount);
                 } else {
                     report.setPenaltyAmountApplied(BigDecimal.ZERO);
@@ -412,7 +394,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
         log.info("Admin userId={} phán quyết reportId={} với action={}, allowanceAmount={}",
                 userId, reportId, req.getAction(), allowanceAmount);
 
-        return agencyOvertimeMapper.toReportRes(saved);
+        return toReportResponse(saved);
     }
 
     @Override
@@ -432,7 +414,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
             page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
         }
 
-        return page.map(agencyOvertimeMapper::toReportRes);
+        return page.map(this::toReportResponse);
     }
 
     @Override
@@ -446,7 +428,51 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                         "agency.overtime_report_not_found"
                 ));
 
-        return agencyOvertimeMapper.toReportRes(report);
+        return toReportResponse(report);
+    }
+
+    private boolean matchesAllowance(AgencyOvertimeRuleEntity rule, int minutes) {
+        return rule != null && Boolean.TRUE.equals(rule.getIsActive())
+                && rule.getPolicyType() == OvertimePolicyType.ALLOWANCE
+                && minutes >= (rule.getMinOvertimeMinutes() != null ? rule.getMinOvertimeMinutes() : 0)
+                && (rule.getMaxOvertimeMinutes() == null || minutes <= rule.getMaxOvertimeMinutes());
+    }
+
+    private AgencyOvertimeRuleEntity resolveAllowanceRule(AgencyStaffOvertimeReportEntity report) {
+        int minutes = report.getOvertimeMinutes() != null ? report.getOvertimeMinutes() : 0;
+        if (matchesAllowance(report.getRule(), minutes)) return report.getRule();
+        if (report.getAgency() == null) return null;
+        return agencyOvertimeRuleRepository.findByAgencyIdAndIsActiveTrue(report.getAgency().getId()).stream()
+                .filter(rule -> matchesAllowance(rule, minutes))
+                .sorted(java.util.Comparator
+                        .comparing((AgencyOvertimeRuleEntity rule) -> rule.getMinOvertimeMinutes() != null ? rule.getMinOvertimeMinutes() : 0)
+                        .reversed()
+                        .thenComparing(AgencyOvertimeRuleEntity::getId, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .findFirst().orElse(null);
+    }
+
+    private BigDecimal calculateAllowance(AgencyStaffOvertimeReportEntity report, AgencyOvertimeRuleEntity rule) {
+        if (rule == null) return BigDecimal.ZERO;
+        BigDecimal value = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
+        if (rule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
+            return value.multiply(BigDecimal.valueOf(report.getOvertimeMinutes())).setScale(0, RoundingMode.HALF_UP);
+        }
+        if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) return value;
+        if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
+            BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
+            BigDecimal base = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            return base.multiply(value).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private OvertimeReportRes toReportResponse(AgencyStaffOvertimeReportEntity report) {
+        OvertimeReportRes response = agencyOvertimeMapper.toReportRes(report);
+        if (report.getStatus() == OvertimeReportStatus.PENDING_AGENCY_REVIEW) {
+            AgencyOvertimeRuleEntity rule = resolveAllowanceRule(report);
+            response.setEstimatedAllowanceAmount(calculateAllowance(report, rule));
+        }
+        return response;
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long ownerId) {
