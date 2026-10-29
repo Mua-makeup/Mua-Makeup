@@ -250,6 +250,25 @@ export const AccountModal: React.FC = () => {
               </TouchableOpacity>
             )}
 
+            {/* Lịch Sử Giải Trình Tăng Ca (Dành cho thợ Studio & MUA) */}
+            {(isAgencyStaff || isMUA) && (
+              <TouchableOpacity
+                style={styles.modalActionRow}
+                onPress={() =>
+                  handleNavigate(() => {
+                    router.push('/staff/overtime-reports' as any);
+                  })
+                }
+                activeOpacity={0.7}
+              >
+                <Ionicons name="document-text-outline" size={22} color={BrandColors.primary} />
+                <Text style={[styles.modalActionText, { color: BrandColors.primary, fontWeight: '700' }]}>
+                  Lịch Sử Giải Trình Tăng Ca
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={BrandColors.primary} />
+              </TouchableOpacity>
+            )}
+
             {/* 5. Ví Tiền & Tài Chính (Chuyên viên Thợ/Nhân viên hoặc Khách hàng) */}
             <TouchableOpacity
               style={styles.modalActionRow}

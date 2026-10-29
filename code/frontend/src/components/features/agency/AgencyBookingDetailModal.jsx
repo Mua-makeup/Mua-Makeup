@@ -407,17 +407,15 @@ export const AgencyBookingDetailModal = ({
               <div className="flex items-center gap-2 text-slate-900 dark:text-white">
                 <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
                 <span className="font-semibold">
-                  {booking.scheduledStartTime
-                    ? formatDateTime(booking.scheduledStartTime)
-                    : formatBookingDateTime(booking.startTime, booking.bookingDate) || '—'}
+                  {formatBookingDateTime(booking.startTime, booking.bookingDate)
+                    || (booking.scheduledStartTime ? formatDateTime(booking.scheduledStartTime) : '—')}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
                 <Clock className="w-4 h-4 text-slate-500 flex-shrink-0" />
                 <span className="font-medium">
-                  {booking.scheduledEndTime
-                    ? formatDateTime(booking.scheduledEndTime)
-                    : formatBookingDateTime(booking.endTime, booking.bookingDate) || '—'}
+                  {formatBookingDateTime(booking.endTime, booking.bookingDate)
+                    || (booking.scheduledEndTime ? formatDateTime(booking.scheduledEndTime) : '—')}
                 </span>
               </div>
 

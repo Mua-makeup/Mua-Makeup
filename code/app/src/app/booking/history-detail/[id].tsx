@@ -944,6 +944,10 @@ export default function BookingHistoryDetailScreen() {
             <View style={styles.scheduledHeroBody}>
               {(() => {
                 const timeInfo = formatBookingExecutionTime(bookingDetail);
+                const hasScheduledTime = Boolean(bookingDetail.startTime);
+                const scheduledTimeFormatted = bookingDetail.startTime ? bookingDetail.startTime.slice(0, 5) : '';
+                const scheduledDateFormatted = bookingDetail.bookingDate ? formatDateVN(bookingDetail.bookingDate) : '';
+
                 return (
                   <View style={styles.scheduledHeroTimeCol}>
                     <Text style={styles.scheduledHeroTimeLabel}>
@@ -952,8 +956,11 @@ export default function BookingHistoryDetailScreen() {
                     <Text style={styles.scheduledHeroTimeValue} numberOfLines={1} adjustsFontSizeToFit>
                       {timeInfo.timeRange}
                     </Text>
-                    <Text style={styles.scheduledHeroDateValue} numberOfLines={1} adjustsFontSizeToFit>
-                      {bookingDetail.bookingDate ? formatDateVN(bookingDetail.bookingDate) : '--/--/----'} • {timeInfo.subText}
+                    <Text style={styles.scheduledHeroDateValue} numberOfLines={2}>
+                      {hasScheduledTime && !timeInfo.isEstimated
+                        ? `Giờ hẹn: ${scheduledTimeFormatted} (${scheduledDateFormatted}) • `
+                        : `${scheduledDateFormatted || '--/--/----'} • `}
+                      {timeInfo.subText}
                     </Text>
                   </View>
                 );
@@ -2277,21 +2284,38 @@ export default function BookingHistoryDetailScreen() {
 
           {(() => {
             const timeInfo = formatBookingExecutionTime(bookingDetail);
+            const hasScheduled = Boolean(bookingDetail.startTime);
+            const scheduledTimeStr = bookingDetail.startTime ? bookingDetail.startTime.slice(0, 5) : '';
+            const scheduledDateStr = bookingDetail.bookingDate ? formatDateVN(bookingDetail.bookingDate) : '—';
+
             return (
               <View style={styles.infoGrid}>
+                {hasScheduled && (
+                  <>
+                    <View style={styles.infoCol}>
+                      <Ionicons name="calendar-outline" size={16} color="#0284C7" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.infoColLabel}>Giờ hẹn khách đặt</Text>
+                        <Text style={[styles.infoColValue, { color: '#0284C7' }]}>{scheduledTimeStr}</Text>
+                        <Text style={styles.infoColDate}>{scheduledDateStr}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.infoDivider} />
+                  </>
+                )}
                 <View style={styles.infoCol}>
-                  <Ionicons name="time-outline" size={16} color="#64748B" />
+                  <Ionicons name="play-circle-outline" size={16} color="#64748B" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.infoColLabel}>{timeInfo.isEstimated ? 'Bắt đầu (dự kiến)' : 'Bắt đầu'}</Text>
+                    <Text style={styles.infoColLabel}>{timeInfo.isEstimated ? 'Bắt đầu (dự kiến)' : 'Bắt đầu thực tế'}</Text>
                     <Text style={styles.infoColValue}>{timeInfo.startTime}</Text>
                     <Text style={styles.infoColDate}>{timeInfo.startDate}</Text>
                   </View>
                 </View>
                 <View style={styles.infoDivider} />
                 <View style={styles.infoCol}>
-                  <Ionicons name="time-outline" size={16} color="#64748B" />
+                  <Ionicons name="checkmark-circle-outline" size={16} color="#64748B" />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.infoColLabel}>{timeInfo.isEstimated ? 'Kết thúc (dự kiến)' : 'Kết thúc'}</Text>
+                    <Text style={styles.infoColLabel}>{timeInfo.isEstimated ? 'Kết thúc (dự kiến)' : 'Kết thúc thực tế'}</Text>
                     <Text style={styles.infoColValue}>{timeInfo.endTime}</Text>
                     <Text style={styles.infoColDate}>{timeInfo.endDate}</Text>
                   </View>

@@ -38,6 +38,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -61,6 +63,9 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
     private final BookingRepository bookingRepository;
     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
     private final OvertimeAllowancePaymentService overtimePaymentService;
+
+    @Autowired(required = false)
+    private SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -260,7 +265,8 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                             .customerSurchargeAmount(BigDecimal.ZERO)
                             .adminNotes("Báo cáo được đính kèm tự động từ giải trình của thợ chính")
                             .build();
-                    agencyStaffOvertimeReportRepository.save(assistantReport);
+                    AgencyStaffOvertimeReportEntity savedAssistant = agencyStaffOvertimeReportRepository.save(assistantReport);
+                    broadcastOvertimeReport(savedAssistant);
                     log.info("Đính kèm tự động báo cáo quá giờ cho thợ phụ staffId={} theo đơn #{}",
                             sa.getStaff().getId(), booking.getId());
                 }
@@ -273,6 +279,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
             log.warn("Failed to create overtime report notification: {}", ex.getMessage());
         }
 
+        broadcastOvertimeReport(saved);
         return toReportResponse(saved);
     }
 
@@ -364,40 +371,73 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
         log.info("Admin userId={} phán quyết reportId={} với action={}, allowanceAmount={}",
                 userId, reportId, req.getAction(), allowanceAmount);
 
+        broadcastOvertimeReport(saved);
         return toReportResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<OvertimeReportRes> getOvertimeReports(Long userId, String status, Pageable pageable) {
-        AgencyProfileEntity agency = getAgencyByOwnerId(userId);
+        Optional<AgencyProfileEntity> agencyOpt = agencyProfileRepository.findByOwnerId(userId);
+        if (agencyOpt.isPresent()) {
+            AgencyProfileEntity agency = agencyOpt.get();
+            Page<AgencyStaffOvertimeReportEntity> page;
+            if (status != null && !status.isBlank()) {
+                try {
+                    OvertimeReportStatus reportStatus = OvertimeReportStatus.valueOf(status.trim().toUpperCase());
+                    page = agencyStaffOvertimeReportRepository.findByAgencyIdAndStatus(agency.getId(), reportStatus, pageable);
+                } catch (IllegalArgumentException e) {
+                    page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+                }
+            } else {
+                page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+            }
+            return page.map(this::toReportResponse);
+        }
+
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+                .or(() -> agencyStaffRepository.findActiveOrPendingStaffByUserId(userId).stream().findFirst())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_AGENCY_NOT_FOUND, "ERR_AGENCY_NOT_FOUND"));
 
         Page<AgencyStaffOvertimeReportEntity> page;
         if (status != null && !status.isBlank()) {
             try {
                 OvertimeReportStatus reportStatus = OvertimeReportStatus.valueOf(status.trim().toUpperCase());
-                page = agencyStaffOvertimeReportRepository.findByAgencyIdAndStatus(agency.getId(), reportStatus, pageable);
+                page = agencyStaffOvertimeReportRepository.findByStaffIdAndStatus(staff.getId(), reportStatus, pageable);
             } catch (IllegalArgumentException e) {
-                page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+                page = agencyStaffOvertimeReportRepository.findByStaffId(staff.getId(), pageable);
             }
         } else {
-            page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+            page = agencyStaffOvertimeReportRepository.findByStaffId(staff.getId(), pageable);
         }
-
         return page.map(this::toReportResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public OvertimeReportRes getOvertimeReportDetail(Long userId, Long reportId) {
-        AgencyProfileEntity agency = getAgencyByOwnerId(userId);
-
-        AgencyStaffOvertimeReportEntity report = agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(reportId, agency.getId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCodes.ERR_OVERTIME_REPORT_NOT_FOUND,
-                        "agency.overtime_report_not_found"
-                ));
-
+        Optional<AgencyProfileEntity> agencyOpt = agencyProfileRepository.findByOwnerId(userId);
+        AgencyStaffOvertimeReportEntity report;
+        if (agencyOpt.isPresent()) {
+            report = agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(reportId, agencyOpt.get().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            ErrorCodes.ERR_OVERTIME_REPORT_NOT_FOUND,
+                            "agency.overtime_report_not_found"
+                    ));
+        } else {
+            report = agencyStaffOvertimeReportRepository.findById(reportId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            ErrorCodes.ERR_OVERTIME_REPORT_NOT_FOUND,
+                            "agency.overtime_report_not_found"
+                    ));
+            boolean isStaffOwner = report.getStaff() != null
+                    && report.getStaff().getMua() != null
+                    && report.getStaff().getMua().getUser() != null
+                    && report.getStaff().getMua().getUser().getId().equals(userId);
+            if (!isStaffOwner) {
+                throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED, "common.unauthorized", HttpStatus.FORBIDDEN);
+            }
+        }
         return toReportResponse(report);
     }
 
@@ -464,7 +504,49 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
             AgencyOvertimeRuleEntity rule = resolveAllowanceRule(report);
             response.setEstimatedAllowanceAmount(calculateAllowance(report, rule));
         }
+        if (report.getBookingId() != null) {
+            BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
+            if (booking != null) {
+                response.setBookingCode(booking.getBookingCode());
+                if (booking.getServicePackage() != null) {
+                    response.setPackageName(booking.getServicePackage().getPackageName());
+                }
+            }
+            if (report.getStaff() != null) {
+                Optional<BookingStaffAssignmentEntity> assignmentOpt = bookingStaffAssignmentRepository
+                        .findByBookingIdAndStaffIdAndStatus(report.getBookingId(), report.getStaff().getId(), AssignmentStatus.ACTIVE);
+                if (assignmentOpt.isEmpty()) {
+                    assignmentOpt = bookingStaffAssignmentRepository.findByBookingId(report.getBookingId()).stream()
+                            .filter(sa -> sa.getStaff() != null && sa.getStaff().getId().equals(report.getStaff().getId()))
+                            .findFirst();
+                }
+                if (assignmentOpt.isPresent()) {
+                    AssignmentRole role = assignmentOpt.get().getAssignmentRole();
+                    response.setAssignmentRole(role != null ? role.name() : null);
+                    response.setAssignmentRoleName(role == AssignmentRole.PRIMARY_MUA ? "Thợ chính" : "Thợ phụ");
+                }
+            }
+        }
         return response;
+    }
+
+    private void broadcastOvertimeReport(AgencyStaffOvertimeReportEntity report) {
+        if (messagingTemplate == null || report == null) return;
+        try {
+            OvertimeReportRes res = toReportResponse(report);
+            if (report.getAgency() != null) {
+                messagingTemplate.convertAndSend("/topic/overtime-reports/" + report.getAgency().getId(), res);
+            }
+            if (report.getStaff() != null && report.getStaff().getMua() != null && report.getStaff().getMua().getUser() != null) {
+                Long staffUserId = report.getStaff().getMua().getUser().getId();
+                messagingTemplate.convertAndSend("/topic/staff-overtime/" + staffUserId, res);
+            }
+            if (report.getBookingId() != null) {
+                messagingTemplate.convertAndSend("/topic/booking-status/" + report.getBookingId(), res);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to broadcast overtime report event: {}", e.getMessage());
+        }
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long ownerId) {

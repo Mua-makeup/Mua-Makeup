@@ -121,9 +121,8 @@ export const AgencyCancelBookingModal = ({ isOpen, onClose, booking, onSuccess }
           <div>
             <span className="text-slate-400 block text-[11px]">{t('col_scheduled_time')}:</span>
             <span className="font-semibold text-slate-900 dark:text-white block">
-              {booking.scheduledStartTime
-                ? formatDateTime(booking.scheduledStartTime)
-                : formatBookingDateTime(booking.startTime, booking.bookingDate) || '—'}
+              {formatBookingDateTime(booking.startTime, booking.bookingDate)
+                || (booking.scheduledStartTime ? formatDateTime(booking.scheduledStartTime) : '—')}
             </span>
           </div>
           <div className="col-span-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">

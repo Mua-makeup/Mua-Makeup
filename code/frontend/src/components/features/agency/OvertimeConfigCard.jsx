@@ -8,6 +8,7 @@ import {
   Edit2,
   Trash2,
   Eye,
+  X,
 } from 'lucide-react';
 import { Button } from '../../base/Button';
 import { Badge } from '../../base/Badge';
@@ -48,6 +49,7 @@ export const OvertimeConfigCard = () => {
   const [reviewNote, setReviewNote] = useState('');
   const [customAllowance, setCustomAllowance] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState(null);
 
   // Delete Rule State
   const [ruleToDelete, setRuleToDelete] = useState(null);
@@ -788,14 +790,13 @@ export const OvertimeConfigCard = () => {
                         {r.explanationText || r.reason || '—'}
                       </p>
                       {r.proofImageUrl ? (
-                        <a
-                          href={r.proofImageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImageUrl(r.proofImageUrl)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1 cursor-pointer"
                         >
-                          <Eye className="w-3 h-3" /> Xem ảnh đối chứng
-                        </a>
+                          <Eye className="w-3.5 h-3.5" /> {t('overtime_view_proof') || 'Xem ảnh đối chứng'}
+                        </button>
                       ) : null}
                     </td>
                     <td className="px-5 py-3.5">
@@ -913,12 +914,23 @@ export const OvertimeConfigCard = () => {
             <p className="text-slate-500 dark:text-slate-400 italic mt-1">"{selectedReport?.explanationText || selectedReport?.reason}"</p>
             {selectedReport?.proofImageUrl && (
               <div className="pt-2">
-                <span className="font-semibold block text-slate-700 dark:text-slate-300 mb-1">Ảnh đối chứng từ thợ:</span>
-                <img
-                  src={selectedReport.proofImageUrl}
-                  alt="Ảnh đối chứng"
-                  className="max-h-40 rounded-lg border border-slate-200 dark:border-slate-700 object-cover"
-                />
+                <span className="font-semibold block text-slate-700 dark:text-slate-300 mb-1">
+                  {t('proof_image_from_staff') || 'Ảnh đối chứng từ thợ:'}
+                </span>
+                <div
+                  className="relative group cursor-pointer inline-block rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700"
+                  onClick={() => setPreviewImageUrl(selectedReport.proofImageUrl)}
+                  title={t('proof_document_view_full') || 'Bấm để xem ảnh lớn'}
+                >
+                  <img
+                    src={selectedReport.proofImageUrl}
+                    alt={t('overtime_proof_photo_title') || 'Ảnh đối chứng'}
+                    className="max-h-40 rounded-lg object-cover group-hover:opacity-90 transition-opacity"
+                  />
+                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1">
+                    <Eye className="w-4 h-4" /> {t('proof_document_view_full') || 'Xem ảnh lớn'}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -983,6 +995,33 @@ export const OvertimeConfigCard = () => {
           duration={3000}
           onClose={() => setToastMessage(null)}
         />
+      )}
+
+      {/* Lightbox Preview Modal (Z-Index cao hơn Modal chính z-[100010] để không bị che khuất) */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 z-[100010] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 transition-all"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImageUrl}
+              alt={t('overtime_proof_photo_title') || 'Ảnh đối chứng'}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-3.5 -right-3.5 bg-white text-slate-800 hover:bg-slate-100 p-1.5 rounded-full shadow-lg border border-slate-200 transition-colors cursor-pointer"
+              title={t('close') || 'Đóng'}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
