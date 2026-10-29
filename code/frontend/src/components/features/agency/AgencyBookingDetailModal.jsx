@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   ExternalLink,
   ShieldAlert,
+  MapPin,
+  CreditCard,
 } from 'lucide-react';
 import { Modal } from '../../base/Modal';
 import { Badge } from '../../base/Badge';
@@ -395,6 +397,17 @@ export const AgencyBookingDetailModal = ({
                   {booking.servicePackageName || booking.packageName || '—'}
                 </span>
               </div>
+              <div className="flex items-start gap-2 text-slate-800 dark:text-slate-200 pt-2 border-t border-slate-200/80 dark:border-slate-700/80">
+                <MapPin className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">
+                    {t('booking_destination_address') || 'Địa Chỉ Make-up'}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white leading-relaxed block break-words">
+                    {currentBooking?.destinationAddress || booking?.destinationAddress || t('address_not_provided') || 'Chưa cung cấp địa chỉ'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -707,6 +720,166 @@ export const AgencyBookingDetailModal = ({
             );
           })()}
         </div>
+
+        {/* Payment Stages Breakdown (Đợt 1 Cọc & Đợt 2 Quyết Toán) */}
+        {(() => {
+          const totalAmt = Number(currentBooking?.totalAmount ?? booking?.totalAmount ?? 0);
+          const depositAmt = Number(
+            currentBooking?.depositAmount ?? booking?.depositAmount ?? Math.round(totalAmt * 0.3)
+          );
+          const remainingAmt = Number(
+            currentBooking?.remainingAmount ?? booking?.remainingAmount ?? Math.max(0, totalAmt - depositAmt)
+          );
+
+          const getPaymentMethodLabel = (method) => {
+            switch (method?.toUpperCase()) {
+              case 'MOMO':
+                return t('payment_method_momo') || 'Ví MoMo';
+              case 'VNPAY':
+                return t('payment_method_vnpay') || 'Cổng VNPAY (QR / ATM / Visa)';
+              case 'WALLET':
+                return t('payment_method_wallet') || 'Ví Cá Nhân Nền Tảng';
+              case 'ESCROW':
+              case 'ESCROW_WALLET':
+                return t('payment_method_escrow') || 'Ví Escrow Sàn (Ký quỹ bảo chứng)';
+              case 'CASH':
+                return t('payment_method_cash') || 'Tiền mặt trực tiếp cho thợ';
+              case 'ONLINE':
+                return t('payment_method_online') || 'Chuyển khoản trực tuyến (MoMo / VNPay / Ví)';
+              case 'CASH_OR_ONLINE':
+                return t('payment_method_cash_or_online') || 'Tiền mặt khi xong ca (hoặc Online)';
+              case 'NONE':
+              case 'WAIVED':
+                return t('final_payment_waived') || 'Miễn thanh toán (Đơn hủy)';
+              default:
+                return method || (t('payment_method_cash_or_online') || 'Tiền mặt hoặc Chuyển khoản');
+            }
+          };
+
+          const isDepositPaid = Boolean(
+            currentBooking?.isDepositPaid ||
+            currentBooking?.depositStatus === 'PAID' ||
+            booking?.isDepositPaid ||
+            booking?.depositStatus === 'PAID' ||
+            !['PENDING_DEPOSIT', 'PENDING'].includes(currentStatus)
+          );
+
+          const isDepositRefunded =
+            currentBooking?.depositStatus === 'REFUNDED' ||
+            booking?.depositStatus === 'REFUNDED' ||
+            ['REFUNDED', 'DISPUTE_REFUNDED'].includes(currentStatus);
+
+          const isDepositWaived =
+            currentBooking?.depositStatus === 'WAIVED' ||
+            (!isDepositPaid && ['CANCELLED', 'CANCELLED_EXPIRED'].includes(currentStatus));
+
+          const isFinalPaid = Boolean(
+            currentBooking?.isFinalPaid ||
+            currentBooking?.finalPaymentStatus === 'PAID' ||
+            currentBooking?.settlementRecorded ||
+            booking?.isFinalPaid ||
+            booking?.finalPaymentStatus === 'PAID' ||
+            booking?.settlementRecorded ||
+            currentStatus === 'PAID_OUT'
+          );
+
+          const isFinalCustomerConfirmed =
+            (currentBooking?.finalPaymentStatus === 'CUSTOMER_CONFIRMED' ||
+             booking?.finalPaymentStatus === 'CUSTOMER_CONFIRMED') && !isFinalPaid;
+
+          const isFinalWaived =
+            currentBooking?.finalPaymentStatus === 'WAIVED' ||
+            ['CANCELLED', 'CANCELLED_EXPIRED', 'REFUNDED'].includes(currentStatus);
+
+          const isFinalDisputed =
+            currentBooking?.finalPaymentStatus === 'DISPUTED' ||
+            ['DISPUTED', 'DISPUTE_REFUNDED'].includes(currentStatus);
+
+          return (
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-3.5">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold uppercase text-xs tracking-wider">
+                  <CreditCard className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>{t('booking_payment_details_title') || 'Tiến Độ & Phương Thức Thanh Toán'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  <span>{t('col_total_amount') || 'Tổng Đơn'}:</span>
+                  <span className="font-extrabold text-sm text-rose-600 dark:text-rose-400">
+                    {formatCurrency(totalAmt)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {/* Đợt 1: Cọc 30% */}
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-750 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      {t('payment_stage_deposit_title') || 'Đợt 1: Cọc Bảo Chứng (30%)'}
+                    </span>
+                    {isDepositRefunded ? (
+                      <Badge variant="warning">{t('deposit_status_refunded') || 'Đã Hoàn Cọc 100%'}</Badge>
+                    ) : isDepositWaived ? (
+                      <Badge variant="inactive">{t('deposit_status_waived') || 'Miễn Cọc'}</Badge>
+                    ) : isDepositPaid ? (
+                      <Badge variant="success">{t('deposit_status_paid') || 'Đã Cọc Escrow (Bảo Chứng)'}</Badge>
+                    ) : (
+                      <Badge variant="pending">{t('deposit_status_pending') || 'Chờ Đặt Cọc'}</Badge>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">{t('payment_amount_label') || 'Số tiền cọc'}:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(depositAmt)}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400 shrink-0">{t('payment_method_label') || 'Phương thức'}:</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 text-right">
+                        {getPaymentMethodLabel(currentBooking?.depositPaymentMethod || booking?.depositPaymentMethod || (isDepositPaid ? 'ESCROW' : 'PENDING'))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Đợt 2: 70% Còn Lại */}
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-750 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${isFinalPaid ? 'bg-emerald-500' : isFinalWaived ? 'bg-slate-400' : 'bg-amber-500'}`} />
+                      {t('payment_stage_final_title') || 'Đợt 2: Quyết Toán Còn Lại (70%)'}
+                    </span>
+                    {isFinalWaived ? (
+                      <Badge variant="inactive">{t('final_payment_waived') || 'Miễn Thu (Đơn Hủy)'}</Badge>
+                    ) : isFinalDisputed ? (
+                      <Badge variant="rejected">{t('final_payment_disputed') || 'Tạm Dừng Do Khiếu Nại'}</Badge>
+                    ) : isFinalPaid ? (
+                      <Badge variant="success">{t('final_payment_paid') || 'Đã Quyết Toán Hoàn Tất'}</Badge>
+                    ) : isFinalCustomerConfirmed ? (
+                      <Badge variant="indigo">{t('final_payment_customer_confirmed') || 'Khách Đã Xác Nhận Tiền Mặt'}</Badge>
+                    ) : (
+                      <Badge variant="pending">{t('final_payment_pending') || 'Chờ Thu Khi Hoàn Tất Ca'}</Badge>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 dark:text-slate-400">{t('payment_amount_label') || 'Số tiền còn lại'}:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(remainingAmt)}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <span className="text-slate-500 dark:text-slate-400 shrink-0">{t('payment_method_label') || 'Phương thức'}:</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-200 text-right">
+                        {getPaymentMethodLabel(currentBooking?.finalPaymentMethod || booking?.finalPaymentMethod || (isFinalPaid ? 'CASH' : 'CASH_OR_ONLINE'))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Financial & Commission Breakdown Matrix */}
         <StaffCommissionSplitMatrix
