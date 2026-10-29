@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Sparkles, Lock, User, ArrowRight, Shield, Building2 } from 'lucide-react';
+import { Lock, User, ArrowRight, Shield, Building2 } from 'lucide-react';
+import { BrandLogo } from '../../components/base/BrandLogo';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useI18nStore } from '../../store/useI18nStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -155,7 +156,7 @@ export const LoginPage = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         <Link to="/" className="inline-flex items-center gap-2.5 group mb-3">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 via-rose-500 to-amber-400 flex items-center justify-center text-white shadow-md shadow-rose-500/20 group-hover:scale-105 transition-transform">
-            <Sparkles className="w-6 h-6" />
+            <BrandLogo className="w-6 h-6" />
           </div>
           <span className="font-extrabold text-slate-900 dark:text-white tracking-tight text-2xl">
             {t('app_title')}

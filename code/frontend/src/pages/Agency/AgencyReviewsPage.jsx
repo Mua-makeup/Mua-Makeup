@@ -6,7 +6,7 @@ import {
   Eye,
   X,
   User,
-  Sparkles,
+
   Camera,
   Calendar,
   Phone,

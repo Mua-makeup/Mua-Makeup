@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { BrandLogo } from '../../base/BrandLogo';
 import { useI18nStore } from '../../../store/useI18nStore';
 
 export const LandingFooter = () => {
@@ -14,7 +14,7 @@ export const LandingFooter = () => {
           <div className="flex flex-col sm:flex-row items-center gap-3 text-center sm:text-left">
             <Link to="/" className="flex items-center gap-2 shrink-0">
               <div className="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-xs">
-                <Sparkles className="w-4 h-4" />
+                <BrandLogo className="w-4 h-4" />
               </div>
               <span className="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight">
                 {t('app_title')}

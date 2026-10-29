@@ -5,7 +5,7 @@ import {
   Crown,
   Medal,
   Star,
-  Sparkles,
+
   TrendingUp,
   User,
   RotateCw,

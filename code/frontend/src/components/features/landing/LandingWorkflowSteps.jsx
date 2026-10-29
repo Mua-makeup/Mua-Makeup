@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palette, CalendarCheck, Sparkles, Building2 } from 'lucide-react';
+import { Palette, CalendarCheck, Crown, Building2 } from 'lucide-react';
 import { useI18nStore } from '../../../store/useI18nStore';
 
 export const LandingWorkflowSteps = () => {
@@ -24,7 +24,7 @@ export const LandingWorkflowSteps = () => {
       num: t('landing_step_3_num'),
       title: t('landing_step_3_title'),
       desc: t('landing_step_3_desc'),
-      icon: Sparkles,
+      icon: Crown,
       color: 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400',
     },
     {

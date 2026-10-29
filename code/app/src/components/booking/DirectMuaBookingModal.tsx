@@ -535,7 +535,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                         ]}
                       >
                         <Ionicons
-                          name={selectedStyle == null ? 'checkmark' : 'sparkles-outline'}
+                          name={selectedStyle == null ? 'checkmark' : 'color-palette-outline'}
                           size={15}
                           color={selectedStyle == null ? BrandColors.primary : '#94A3B8'}
                         />
@@ -819,7 +819,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                         }}
                         activeOpacity={0.75}
                       >
-                        <Ionicons name="sparkles" size={13} color="#BE185D" />
+                        <Ionicons name="color-palette" size={13} color="#BE185D" />
                         <Text style={styles.selectedTagText}>Bất kỳ phong cách nào (Mặc định)</Text>
                       </TouchableOpacity>
                     )}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
-import { Sparkles, X, ArrowRight, Clock, Bell, User, UserPlus, Phone, ShieldAlert, CalendarOff } from 'lucide-react';
+import { Package, X, ArrowRight, Clock, Bell, User, UserPlus, Phone, ShieldAlert, CalendarOff } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { USER_ROLES, STORAGE_KEYS } from '../../../constants/roles.constant';
 import { agencyService } from '../../../services/agency.service';
@@ -613,7 +613,7 @@ export const AgencyRealtimeNotifier = () => {
 
           <div className="flex items-center justify-between text-slate-800 dark:text-slate-200">
             <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <Package className="w-3.5 h-3.5 text-amber-500" />
               {t('package_label')}
             </span>
             <span className="font-medium truncate max-w-[180px]">{activeToast.servicePackageName}</span>

@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   User as UserIcon,
   ExternalLink,
-  Sparkles,
+  UserCheck,
   Scale,
   Gavel,
   Phone,
@@ -467,7 +467,7 @@ export const AdminDisputesPage = () => {
                 className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40 cursor-help"
                 title="Chuyên viên MUA báo cáo sự cố (Xem chi tiết để đọc lời khai)"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <UserCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>Thợ Báo</span>
               </span>
             ) : (
@@ -1004,7 +1004,7 @@ export const AdminDisputesPage = () => {
                     <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-700/80">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center font-bold text-xs">
-                          <Sparkles className="w-4 h-4" />
+                          <UserCheck className="w-4 h-4" />
                         </div>
                         <div>
                           <div className="font-bold text-xs text-slate-900 dark:text-white">

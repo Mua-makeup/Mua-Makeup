@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Clock, Sparkles } from 'lucide-react';
+import { ArrowRight, Clock, Tag } from 'lucide-react';
 import { useI18nStore } from '../../../store/useI18nStore';
 
 export const LandingStylesSection = ({ onSelectStyle }) => {
@@ -112,7 +112,7 @@ export const LandingStylesSection = ({ onSelectStyle }) => {
                   />
                   <div className="absolute top-2.5 left-2.5">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-900/80 text-white backdrop-blur-xs">
-                      <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                      <Tag className="w-2.5 h-2.5 text-amber-300" />
                       <span>{style.tag}</span>
                     </span>
                   </div>

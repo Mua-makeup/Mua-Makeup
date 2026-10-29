@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  Sparkles,
+
   Building2,
   CheckCircle2,
   XCircle,
@@ -410,7 +410,7 @@ export const JoinAgencyPage = () => {
                 {/* Next Steps Timeline */}
                 <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-slate-950/60 border border-rose-100 dark:border-slate-800 text-left space-y-3">
                   <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
-                    <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+                    <Clock className="w-3.5 h-3.5 text-rose-500" />
                     <span>{t('join_timeline_title')}</span>
                   </h4>
 

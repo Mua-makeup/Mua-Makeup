@@ -10,7 +10,7 @@ import {
   Calendar as CalendarIcon,
   MapPin,
   Clock,
-  Sparkles,
+  CalendarClock,
   X,
   CheckCircle2,
 } from 'lucide-react';
@@ -153,7 +153,7 @@ export const ScheduledBookingModal = ({
         <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-              <Sparkles className="w-4 h-4" />
+              <CalendarClock className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-100">{t('scheduled_booking_title')}</h3>
