@@ -924,6 +924,7 @@ export const TRANSLATIONS = {
     overtime_modal_title_penalty: 'Xác Nhận Chế Tài / Phạt Tăng Ca',
     overtime_view_proof: 'Xem ảnh đối chứng',
     overtime_proof_photo_title: 'Ảnh Đối Chứng Làm Thêm Giờ',
+    proof_image_from_staff: 'Ảnh đối chứng từ thợ:',
 
     // Auth (Login & Register)
     login_title: 'Đăng Nhập Hệ Thống',
@@ -3070,6 +3071,7 @@ export const TRANSLATIONS = {
     overtime_modal_title_penalty: 'Confirm Overtime Penalty Sanction',
     overtime_view_proof: 'View Proof Photo',
     overtime_proof_photo_title: 'Overtime Evidence Photo',
+    proof_image_from_staff: 'Staff proof photo:',
 
     // Auth (Login & Register)
     login_title: 'Sign In to Platform',
