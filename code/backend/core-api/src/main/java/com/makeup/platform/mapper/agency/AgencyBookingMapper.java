@@ -260,7 +260,7 @@ public class AgencyBookingMapper {
             }
         }
 
-        if (bStatus == BookingStatus.DISPUTE_REFUNDED) {
+        if (bStatus == BookingStatus.DISPUTE_REFUNDED || "REFUNDED".equalsIgnoreCase(depositStatus)) {
             depositStatus = "REFUNDED";
         } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
             if (!isDepositPaid) {
@@ -273,7 +273,7 @@ public class AgencyBookingMapper {
         String finalPaymentMethod = "CASH_OR_ONLINE";
         String finalPaymentStatus = "PENDING";
 
-        if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED || bStatus == BookingStatus.REFUNDED) {
+        if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
             finalPaymentStatus = "WAIVED";
             finalPaymentMethod = "NONE";
         } else if (bStatus == BookingStatus.DISPUTED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
