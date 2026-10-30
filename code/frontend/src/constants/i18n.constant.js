@@ -232,6 +232,21 @@ export const TRANSLATIONS = {
     agency_portfolio_add_sub_photo: 'Thêm ảnh',
     badge_new: 'Mới',
     agency_portfolio_field_featured_hint: 'Tác phẩm tiêu biểu sẽ được ưu tiên hiển thị đầu tiên trên App khách hàng',
+    agency_portfolio_err_invalid_format: 'Định dạng tệp không hợp lệ. Chỉ chấp nhận ảnh JPG, JPEG, PNG, WEBP.',
+    agency_portfolio_err_file_size: 'Kích thước ảnh không được vượt quá 10MB.',
+    agency_portfolio_err_title_required: 'Vui lòng nhập tiêu đề tác phẩm.',
+    agency_portfolio_err_main_required: 'Vui lòng chọn ảnh chính chất lượng cao của tác phẩm.',
+    agency_portfolio_err_additional_max: 'Tối đa 5 ảnh phụ chi tiết cho mỗi tác phẩm.',
+    agency_portfolio_err_additional_remaining: 'Chỉ có thể thêm tối đa {remaining} ảnh nữa (tổng tối đa 5 ảnh).',
+    agency_portfolio_file_hint: 'PNG, JPG, WEBP tối đa 10MB',
+    agency_portfolio_remove_sub: 'Gỡ ảnh này',
+    agency_portfolio_add_sub_photo_hint: 'Tải thêm ảnh phụ',
+    agency_portfolio_toast_pin: 'Đã ghim tác phẩm lên đầu danh sách!',
+    agency_portfolio_toast_unpin: 'Đã bỏ ghim tác phẩm.',
+    agency_portfolio_toast_show: 'Tác phẩm đang được hiển thị công khai.',
+    agency_portfolio_toast_hide: 'Đã ẩn tác phẩm khỏi danh mục công khai.',
+    agency_portfolio_no_image: 'Không có ảnh',
+    agency_portfolio_image_label: 'Hình ảnh',
 
     // Agency Disputes Page
     agency_disputes_title: 'Khiếu Nại & Sự Cố',
@@ -1190,6 +1205,7 @@ export const TRANSLATIONS = {
     pkg_addon_required_label: 'Bắt buộc khách phải chọn add-on này khi đặt gói',
     pkg_step_order_duplicate: 'Thứ tự bước này đã tồn tại, vui lòng chọn số thứ tự khác.',
     pkg_step_duration_exceeded: 'Tổng thời lượng các bước bắt buộc không được vượt quá thời lượng của gói ({total} phút). Còn lại có thể phân bổ: {remaining} phút.',
+    pkg_step_order_hint: 'Tự động gợi ý bước tiếp theo',
 
     // Super Admin Agency Management
     admin_agency_total: 'Tổng số:',
@@ -2574,6 +2590,21 @@ export const TRANSLATIONS = {
     agency_portfolio_add_sub_photo: 'Add photo',
     badge_new: 'New',
     agency_portfolio_field_featured_hint: 'Featured showcases will be prioritized on customer app',
+    agency_portfolio_err_invalid_format: 'Invalid file format. Only JPG, JPEG, PNG, and WEBP image files are allowed.',
+    agency_portfolio_err_file_size: 'Image file size must not exceed 10MB.',
+    agency_portfolio_err_title_required: 'Please enter a showcase title.',
+    agency_portfolio_err_main_required: 'Please select a high-quality cover photo for this showcase.',
+    agency_portfolio_err_additional_max: 'Maximum 5 detailed angle photos per showcase.',
+    agency_portfolio_err_additional_remaining: 'You can only add up to {remaining} more photos (5 photos total).',
+    agency_portfolio_file_hint: 'PNG, JPG, WEBP up to 10MB',
+    agency_portfolio_remove_sub: 'Remove this photo',
+    agency_portfolio_add_sub_photo_hint: 'Add additional photo',
+    agency_portfolio_toast_pin: 'Showcase pinned to the top!',
+    agency_portfolio_toast_unpin: 'Showcase unpinned.',
+    agency_portfolio_toast_show: 'Showcase is now publicly visible.',
+    agency_portfolio_toast_hide: 'Showcase has been hidden from public view.',
+    agency_portfolio_no_image: 'No image available',
+    agency_portfolio_image_label: 'Image',
 
     // Agency Disputes Page
     agency_disputes_title: 'Disputes & Incidents',
@@ -3532,6 +3563,7 @@ export const TRANSLATIONS = {
     pkg_addon_required_label: 'Make this add-on mandatory for customers',
     pkg_step_order_duplicate: 'This step order already exists, please choose a different number.',
     pkg_step_duration_exceeded: 'Total duration of mandatory steps cannot exceed package duration ({total} mins). Remaining: {remaining} mins.',
+    pkg_step_order_hint: 'Auto-suggest next step',
 
     // Super Admin Agency Management
     admin_agency_total: 'Total:',

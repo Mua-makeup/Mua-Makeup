@@ -92,12 +92,12 @@ export const AgencyPortfolioDetailModal = ({ isOpen, onClose, item, onEdit }) =>
               className="w-full h-full object-contain"
             />
           ) : (
-            <div className="text-xs text-slate-400">Không có ảnh</div>
+            <div className="text-xs text-slate-400">{t('agency_portfolio_no_image')}</div>
           )}
 
           {/* Label ảnh hiện tại */}
           <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold bg-black/60 text-white backdrop-blur-md border border-white/10">
-            {currentPhoto?.label || 'Hình ảnh'}
+            {currentPhoto?.label || t('agency_portfolio_image_label')}
           </div>
 
           {/* Đếm số trang ảnh */}
