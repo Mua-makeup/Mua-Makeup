@@ -11,7 +11,6 @@ import { formatCurrency } from '../../../utils/formatters';
 import { packageItemSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { useUndoDelete } from '../../../hooks/useUndoDelete';
-import { useUndoDelete } from '../../../hooks/useUndoDelete';
 
 export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
   const { t } = useI18nStore();
