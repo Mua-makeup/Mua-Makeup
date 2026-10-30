@@ -11,10 +11,12 @@ import { formatCurrency } from '../../../utils/formatters';
 import { packageItemSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { useUndoDelete } from '../../../hooks/useUndoDelete';
+import { useToastStore } from '../../../store/useToastStore';
 
 export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
   const { t } = useI18nStore();
   const { triggerUndoDelete } = useUndoDelete();
+  const showToast = useToastStore((state) => state.showToast);
   const [items, setItems] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -180,6 +182,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
       }
       resetForm();
       await loadItems();
+      showToast(t('save_success'), 'success');
     } catch (err) {
       const respData = err.response?.data?.data;
       const detailErr =
