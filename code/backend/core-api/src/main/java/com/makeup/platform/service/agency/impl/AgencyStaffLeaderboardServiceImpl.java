@@ -61,7 +61,6 @@ public class AgencyStaffLeaderboardServiceImpl implements AgencyStaffLeaderboard
         List<StaffLeaderboardItemRes> items = new ArrayList<>();
         Double agencyAvg = projections.stream().map(StaffLeaderboardProjection::getAgencyRating)
                 .filter(java.util.Objects::nonNull).findFirst().map(BigDecimal::doubleValue).orElse(null);
-        double prior = agencyAvg != null ? agencyAvg : 0.0;
 
         for (StaffLeaderboardProjection p : projections) {
             int totalReviews = p.getTotalReviews() != null ? p.getTotalReviews() : 0;
@@ -82,7 +81,7 @@ public class AgencyStaffLeaderboardServiceImpl implements AgencyStaffLeaderboard
                     .rank(null)
                     .primaryJobs(p.getPrimaryJobs())
                     .assistantJobs(p.getAssistantJobs())
-                    .rankingScore(totalReviews > 0 ? (p.getRatingAvg().doubleValue() * totalReviews + 5 * prior) / (totalReviews + 5) : null)
+                    .rankingScore(totalReviews > 0 ? p.getRatingAvg().doubleValue() : null)
                     .staffId(p.getStaffId())
                     .muaId(p.getMuaId())
                     .staffCode(p.getStaffCode())

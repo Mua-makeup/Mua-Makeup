@@ -409,7 +409,6 @@ export const StaffLeaderboardPage = () => {
               { header: t('leaderboard_col_rank'), align: 'center' },
               { header: t('leaderboard_col_staff') },
               { header: t('leaderboard_col_rating') },
-              { header: t('leaderboard_score') },
               { header: t('leaderboard_col_five_star_rate') },
               { header: t('leaderboard_col_completed_jobs'), align: 'center' },
               { header: t('leaderboard_col_total_reviews'), align: 'center' },
@@ -431,7 +430,6 @@ export const StaffLeaderboardPage = () => {
                   <th className="py-3 px-4 w-14 text-center whitespace-nowrap">{t('leaderboard_col_rank')}</th>
                   <th className="py-3 px-4 whitespace-nowrap">{t('leaderboard_col_staff')}</th>
                   <th className="py-3 px-4 whitespace-nowrap">{t('leaderboard_col_rating')}</th>
-                  <th className="py-3 px-4 whitespace-nowrap">{t('leaderboard_score')}</th>
                   <th className="py-3 px-4 whitespace-nowrap min-w-[140px]">{t('leaderboard_col_five_star_rate')}</th>
                   <th className="py-3 px-4 text-center whitespace-nowrap">{t('leaderboard_col_completed_jobs')}</th>
                   <th className="py-3 px-4 text-center whitespace-nowrap">{t('leaderboard_col_total_reviews')}</th>
@@ -499,7 +497,6 @@ export const StaffLeaderboardPage = () => {
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 font-mono font-medium whitespace-nowrap">{item.rankingScore == null ? '—' : item.rankingScore.toFixed(1)}</td>
                     {/* 5-Star Rate Progress */}
                     <td className="py-3.5 px-4 min-w-[140px]">
                       <div className="flex items-center justify-between text-[11px] mb-1">

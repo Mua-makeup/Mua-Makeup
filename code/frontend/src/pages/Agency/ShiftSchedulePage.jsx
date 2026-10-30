@@ -84,7 +84,7 @@ export const ShiftSchedulePage = () => {
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            Thời khóa biểu ca trực
+            {t('shift_tab_schedule') || 'Thời khóa biểu ca trực'}
           </button>
           <button
             type="button"
@@ -95,7 +95,7 @@ export const ShiftSchedulePage = () => {
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <span>Đơn xin nghỉ ca</span>
+            <span>{t('shift_tab_leave_requests') || 'Đơn xin nghỉ ca'}</span>
             {pendingLeaveCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white">
                 {pendingLeaveCount}

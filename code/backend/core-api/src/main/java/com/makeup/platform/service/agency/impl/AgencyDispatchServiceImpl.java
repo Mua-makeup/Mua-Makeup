@@ -40,6 +40,8 @@ import com.makeup.platform.repository.AgencyOvertimeRuleRepository;
 import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.AgencyStaffShiftRepository;
 import com.makeup.platform.repository.StaffMatrixRepository;
+import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.custom.projection.StaffLeaderboardProjection;
 import com.makeup.platform.repository.booking.BookingRepository;
 import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.repository.custom.projection.StaffMatrixProjection;
@@ -91,6 +93,7 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
     private final BookingRepository bookingRepository;
     private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
     private final StaffMatrixRepository staffMatrixRepository;
+    private final AgencyStaffRepository agencyStaffRepository;
     private final AgencyStaffShiftRepository agencyStaffShiftRepository;
     private final AgencyOvertimeRuleRepository agencyOvertimeRuleRepository;
     private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
@@ -152,7 +155,20 @@ public class AgencyDispatchServiceImpl implements AgencyDispatchService {
                 .filter(r -> Boolean.TRUE.equals(r.getIsActive()))
                 .toList();
 
-        return dispatchMatrixMapper.toMatrixRes(booking, projections, activeRules);
+        StaffAvailabilityMatrixRes result = dispatchMatrixMapper.toMatrixRes(booking, projections, activeRules);
+        // Use the same all-time, studio-scoped shared-booking statistics as the leaderboard.
+        var statistics = agencyStaffRepository.findStaffLeaderboard(agency.getId(), null, null)
+                .stream().collect(Collectors.toMap(
+                        StaffLeaderboardProjection::getStaffId,
+                        item -> item));
+        for (var staff : result.getStaffList()) {
+            var stats = statistics.get(staff.getStaffId());
+            staff.setTotalReviews(stats != null ? stats.getTotalReviews() : 0);
+            staff.setRatingAvg(stats != null && stats.getTotalReviews() != null && stats.getTotalReviews() > 0
+                    ? stats.getRatingAvg() : null);
+            staff.setTotalCompletedJobs(stats != null ? stats.getTotalCompletedJobs() : 0);
+        }
+        return result;
     }
 
     @Override
