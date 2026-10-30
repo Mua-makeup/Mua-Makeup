@@ -986,19 +986,19 @@ export const StaffAssignmentMatrixModal = ({ isOpen, onClose, booking, onSuccess
                                         {Number(staff.ratingAvg).toFixed(1)}
                                       </span>
                                       <span className="text-slate-400 text-[10px]">
-                                        ({staff.totalReviews} {t('reviews_count') || 'đánh giá'})
+                                        ({staff.totalReviews} {t('reviews_count')})
                                       </span>
                                     </>
                                   ) : (
                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                                      {t('staff_badge_new')}
+                                      {t('leaderboard_no_reviews')}
                                     </span>
                                   )}
                                   {staff.totalCompletedJobs > 0 && (
                                     <>
                                       <span>•</span>
                                       <span className="text-slate-500 dark:text-slate-400 text-[10px]">
-                                        {staff.totalCompletedJobs} {t('unit_jobs') || 'ca'}
+                                        {staff.totalCompletedJobs} {t('leaderboard_jobs_unit')}
                                       </span>
                                     </>
                                   )}
