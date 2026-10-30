@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("infrastructure")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class AgencyStaffLeaderboardQueryTest {
     @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
     @Test void creditsAssistantsOnceAndKeepsStudioAverageUnduplicated() throws Exception {

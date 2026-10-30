@@ -14,7 +14,7 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("infrastructure")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class BookingExecutionTimeQueryTest {
     @Container
     static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");

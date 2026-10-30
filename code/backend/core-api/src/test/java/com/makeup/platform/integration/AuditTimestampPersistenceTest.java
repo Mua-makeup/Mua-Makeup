@@ -15,7 +15,7 @@ import java.util.TimeZone;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("infrastructure")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class AuditTimestampPersistenceTest {
     @Container
     static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
