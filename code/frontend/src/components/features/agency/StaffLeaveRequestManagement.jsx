@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '../../base/Button';
 import { Modal } from '../../base/Modal';
 import { Toast } from '../../base/Toast';
+import { RotateCw } from 'lucide-react';
 import { agencyService } from '../../../services/agency.service';
 import { useI18nStore } from '../../../store/useI18nStore';
 
@@ -122,6 +123,22 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
     return dateStr;
   };
 
+  const formatShiftName = (name) => {
+    if (!name) return '';
+    if (name.includes('sáng') || name.toLowerCase().includes('morning')) {
+      return t('preset_morning') || name;
+    }
+    if (name.includes('chiều') || name.toLowerCase().includes('afternoon')) {
+      return t('preset_afternoon') || name;
+    }
+    if (name.includes('tối') || name.toLowerCase().includes('overtime') || name.toLowerCase().includes('evening')) {
+      return t('preset_overtime') || name;
+    }
+    if (name.includes('ngày') || name.toLowerCase().includes('full day')) {
+      return t('preset_full_day') || name;
+    }
+    return name;
+  };
   const formatTimeDisplay = (timeStr) => {
     if (!timeStr) return '';
     return timeStr.substring(0, 5);
@@ -131,30 +148,30 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
     switch (status) {
       case 'PENDING':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-            Chờ duyệt
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 whitespace-nowrap">
+            {t('status_pending') || 'Chờ duyệt'}
           </span>
         );
       case 'APPROVED':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-            Đã duyệt
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap">
+            {t('status_approved') || 'Đã duyệt'}
           </span>
         );
       case 'REJECTED':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-            Đã từ chối
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 whitespace-nowrap">
+            {t('status_rejected') || 'Đã từ chối'}
           </span>
         );
       case 'CANCELLED':
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-            Thợ đã hủy
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+            {t('leave_status_cancelled') || 'Thợ đã hủy'}
           </span>
         );
       default:
-        return <span className="text-xs">{status}</span>;
+        return <span className="text-xs whitespace-nowrap">{status}</span>;
     }
   };
 
@@ -199,9 +216,10 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
           type="button"
           onClick={fetchRequests}
           disabled={isLoading}
-          className="text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 self-start sm:self-auto cursor-pointer"
+          className="text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 self-start sm:self-auto cursor-pointer flex items-center gap-1.5"
         >
-          {isLoading ? (t('loading') || 'Đang tải...') : (t('btn_refresh') || 'Làm mới')}
+          <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <span>{isLoading ? (t('loading') || 'Đang tải...') : (t('btn_refresh') || 'Làm mới')}</span>
         </button>
       </div>
 
@@ -249,7 +267,7 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="font-medium text-slate-800 dark:text-slate-200">
-                        {req.shiftName}
+                        {formatShiftName(req.shiftName)}
                       </div>
                       <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                         {formatTimeDisplay(req.startTime)} - {formatTimeDisplay(req.endTime)}
@@ -277,14 +295,14 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
                             onClick={() => handleOpenApproveModal(req)}
                             className="px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition-colors"
                           >
-                            Duyệt
+                            {t('btn_approve') || 'Duyệt'}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleOpenRejectModal(req)}
                             className="px-2.5 py-1 text-xs font-semibold rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 cursor-pointer transition-colors"
                           >
-                            Từ chối
+                            {t('btn_reject') || 'Từ chối'}
                           </button>
                         </div>
                       ) : (
@@ -320,7 +338,7 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
                   <div>
                     <span className="font-semibold text-slate-700 dark:text-slate-300">{t('shift_label') || 'Ca'}: </span>
                     <span className="text-slate-800 dark:text-slate-200 font-medium">
-                      {req.shiftName} ({formatTimeDisplay(req.startTime)} - {formatTimeDisplay(req.endTime)})
+                      {formatShiftName(req.shiftName)} ({formatTimeDisplay(req.startTime)} - {formatTimeDisplay(req.endTime)})
                     </span>
                   </div>
                   <div>
@@ -341,14 +359,14 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
                       onClick={() => handleOpenApproveModal(req)}
                       className="flex-1 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white cursor-pointer hover:bg-emerald-700 transition-colors text-center"
                     >
-                      Duyệt nghỉ ca
+                      {t('btn_approve_leave') || 'Duyệt nghỉ ca'}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleOpenRejectModal(req)}
                       className="flex-1 py-1.5 text-xs font-bold rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100 cursor-pointer transition-colors text-center"
                     >
-                      Từ chối
+                      {t('btn_reject_leave') || 'Từ chối'}
                     </button>
                   </div>
                 )}
@@ -380,7 +398,7 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
             <strong className="text-slate-900 dark:text-white">
               {formatDateDisplay(selectedRequest?.leaveDate)}
             </strong>{' '}
-            ({selectedRequest?.shiftName})?
+            ({formatShiftName(selectedRequest?.shiftName)})?
           </p>
 
           <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-300 leading-relaxed">
@@ -397,7 +415,7 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
                 setSelectedRequest(null);
               }}
             >
-              Hủy
+              {t('cancel') || 'Hủy'}
             </Button>
             <Button
               type="button"
@@ -430,7 +448,7 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
             <strong className="text-slate-900 dark:text-white">
               {selectedRequest?.staffName}
             </strong>{' '}
-            vào ngày {formatDateDisplay(selectedRequest?.leaveDate)} ({selectedRequest?.shiftName}).
+            vào ngày {formatDateDisplay(selectedRequest?.leaveDate)} ({formatShiftName(selectedRequest?.shiftName)}).
             Ca làm việc của thợ sẽ được <strong>giữ nguyên</strong>.
           </p>
 
@@ -458,7 +476,7 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
                 setSelectedRequest(null);
               }}
             >
-              Hủy
+              {t('cancel') || 'Hủy'}
             </Button>
             <Button
               type="submit"
