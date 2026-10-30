@@ -64,7 +64,7 @@ export const AgencyPortfolioPage = () => {
         prev.map((p) => (p.id === item.id ? { ...p, isFeatured: newStatus } : p))
       );
       setToastMessage(
-        newStatus ? 'Đã ghim tác phẩm lên đầu danh sách!' : 'Đã bỏ ghim tác phẩm.'
+        newStatus ? t('agency_portfolio_toast_pin') : t('agency_portfolio_toast_unpin')
       );
     } catch (err) {
       setToastMessage(err.response?.data?.message || err.message || t('error_general'));
@@ -86,7 +86,7 @@ export const AgencyPortfolioPage = () => {
         )
       );
       setToastMessage(
-        newStatus ? 'Tác phẩm đang được hiển thị công khai.' : 'Đã ẩn tác phẩm khỏi danh mục công khai.'
+        newStatus ? t('agency_portfolio_toast_show') : t('agency_portfolio_toast_hide')
       );
     } catch (err) {
       setToastMessage(err.response?.data?.message || err.message || t('error_general'));
