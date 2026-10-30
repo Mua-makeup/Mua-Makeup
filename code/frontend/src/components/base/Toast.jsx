@@ -22,6 +22,18 @@ export const Toast = ({
 
   if (!message) return null;
 
+  const displayMessage =
+    typeof message === 'object' && message !== null
+      ? message.text || message.message || JSON.stringify(message)
+      : message;
+
+  if (!displayMessage) return null;
+
+  const resolvedType =
+    typeof message === 'object' && message !== null && message.type
+      ? message.type
+      : type;
+
   const typeConfig = {
     success: {
       bg: 'bg-emerald-50 dark:bg-emerald-950/90 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200',
@@ -40,22 +52,21 @@ export const Toast = ({
     },
   };
 
-  const config = typeConfig[type] || typeConfig.info;
+  const config = typeConfig[resolvedType] || typeConfig.info;
   const ActionIcon = action?.icon;
 
   return (
     <div
-      className={`fixed bottom-4 sm:bottom-5 right-4 sm:right-5 left-4 sm:left-auto z-[9999] max-w-md flex items-center gap-3 p-3.5 sm:p-4 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-bounce-short relative overflow-hidden ${config.bg} ${className}`}
+      className={`fixed bottom-4 sm:bottom-5 right-4 sm:right-5 left-4 sm:left-auto z-[999999] max-w-md flex items-center gap-3 p-3.5 sm:p-4 rounded-xl border shadow-2xl backdrop-blur-md transition-all overflow-hidden ${config.bg} ${className}`}
     >
       {config.icon}
-      <div className="flex-1 text-sm font-medium leading-snug">{message}</div>
+      <div className="flex-1 text-sm font-medium leading-snug">{displayMessage}</div>
 
       {action && (
         <button
           type="button"
           onClick={() => {
             action.onClick?.();
-            onClose?.();
           }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-900 text-white dark:bg-white dark:text-slate-900 hover:opacity-90 active:scale-95 transition-all shadow-xs shrink-0 cursor-pointer ml-1"
         >
@@ -68,7 +79,7 @@ export const Toast = ({
         <button
           type="button"
           onClick={onClose}
-          className="p-1 rounded-md opacity-60 hover:opacity-100 transition-opacity ml-1 shrink-0"
+          className="p-1 rounded-md opacity-60 hover:opacity-100 transition-opacity ml-1 shrink-0 cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>

@@ -344,7 +344,10 @@ export const ServicePackageListPage = () => {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         editingPackage={editingPackage}
-        onSuccess={loadPackages}
+        onSuccess={() => {
+          loadPackages();
+          setToastMessage(t('save_success'));
+        }}
       />
 
       {/* Package Item Manager Modal */}
