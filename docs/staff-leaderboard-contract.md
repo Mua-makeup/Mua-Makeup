@@ -16,3 +16,11 @@ Existing authorization and response envelope are unchanged.
 - Assignment attribution uses current active assignments on completed bookings. Historical assignment snapshots are not available in this query; subsequent assignment corrections affect attribution.
 
 Validation: service regression tests cover eligibility, ties, Bayesian scores, and nulls. `AgencyStaffLeaderboardQueryTest` (infrastructure tag) checks actual PostgreSQL SQL for assistant attribution, duplicate assignments, cancelled assignments, legacy fallback, deleted reviews, studio deduplication and period filtering. Run with `gradlew integrationTest --tests '*AgencyStaffLeaderboardQueryTest'` when Docker is available.
+
+## Automatic publication
+
+Customer-owned COMPLETED and PAID_OUT bookings publish reviews as APPROVED immediately, including repeat customers/devices. Ownership, one review per booking, rating validation, submission/edit windows and deleted-review restrictions remain enforced. Editing a review updates the existing record and republishes legacy machine-held reviews; it does not increment the count.
+
+ReviewSubmittedEvent aggregation now runs synchronously in the publishing transaction so profile totals read the saved review before the request succeeds. Leaderboard aggregation still reads the source review rows on refresh.
+
+Migration V20261030110000 publishes nondeleted legacy PENDING_AUDIT/FLAGGED_FRAUD reviews attached to their actual customer's completed/paid-out booking, excluding records with an explicit admin note. It recalculates affected Studio totals/averages/Bayesian ratings and recipient MUA totals/rolling/Bayesian ratings. Flyway applies this on backend startup; it does not change review timestamps or create duplicate reviews.

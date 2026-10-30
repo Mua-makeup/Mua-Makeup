@@ -70,9 +70,9 @@ export const StaffLeaderboardPage = () => {
   const renderBadge = (badgeCode, labelKey) => {
     switch (badgeCode) {
       case 'INSUFFICIENT_DATA':
-        return <span className="text-slate-500">{t('leaderboard_insufficient_data')}</span>;
+        return <span className="text-slate-500 whitespace-nowrap">{t('leaderboard_insufficient_data')}</span>;
       case 'RANKED':
-        return <span>{t('leaderboard_eligible')}</span>;
+        return <span className="whitespace-nowrap">{t('leaderboard_eligible')}</span>;
       case 'CHAMPION':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
@@ -425,24 +425,25 @@ export const StaffLeaderboardPage = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full min-w-[1050px] text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold text-xs">
-                  <th className="py-3 px-4 w-14 text-center">{t('leaderboard_col_rank')}</th>
-                  <th className="py-3 px-4">{t('leaderboard_col_staff')}</th>
-                  <th className="py-3 px-4">{t('leaderboard_col_rating')}</th><th className="py-3 px-4">{t('leaderboard_score')}</th>
-                  <th className="py-3 px-4">{t('leaderboard_col_five_star_rate')}</th>
-                  <th className="py-3 px-4 text-center">{t('leaderboard_col_completed_jobs')}</th>
-                  <th className="py-3 px-4 text-center">{t('leaderboard_col_total_reviews')}</th>
-                  <th className="py-3 px-4">{t('leaderboard_col_status')}</th>
-                  <th className="py-3 px-4 text-right">{t('leaderboard_col_actions')}</th>
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold text-xs whitespace-nowrap">
+                  <th className="py-3 px-4 w-14 text-center whitespace-nowrap">{t('leaderboard_col_rank')}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leaderboard_col_staff')}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leaderboard_col_rating')}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leaderboard_score')}</th>
+                  <th className="py-3 px-4 whitespace-nowrap min-w-[140px]">{t('leaderboard_col_five_star_rate')}</th>
+                  <th className="py-3 px-4 text-center whitespace-nowrap">{t('leaderboard_col_completed_jobs')}</th>
+                  <th className="py-3 px-4 text-center whitespace-nowrap">{t('leaderboard_col_total_reviews')}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leaderboard_col_status')}</th>
+                  <th className="py-3 px-4 text-right whitespace-nowrap">{t('leaderboard_col_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {items.map((item) => (
                   <tr
                     key={item.staffId}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors whitespace-nowrap"
                   >
                     {/* Rank */}
                     <td className="py-3.5 px-4 text-center">
@@ -498,7 +499,7 @@ export const StaffLeaderboardPage = () => {
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4">{item.rankingScore == null ? '—' : item.rankingScore.toFixed(3)}</td>
+                    <td className="py-3.5 px-4 font-mono font-medium whitespace-nowrap">{item.rankingScore == null ? '—' : item.rankingScore.toFixed(1)}</td>
                     {/* 5-Star Rate Progress */}
                     <td className="py-3.5 px-4 min-w-[140px]">
                       <div className="flex items-center justify-between text-[11px] mb-1">
@@ -518,9 +519,9 @@ export const StaffLeaderboardPage = () => {
                     </td>
 
                     {/* Completed Jobs */}
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-800 dark:text-slate-200">
-                      {item.completedJobs}
-                      <p className="text-xs text-slate-500 font-normal">{t('leaderboard_primary')}: {item.primaryJobs ?? 0} · {t('leaderboard_assistant')}: {item.assistantJobs ?? 0}</p>
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{item.completedJobs}</span>
+                      <p className="text-[11px] text-slate-400 font-normal whitespace-nowrap">{t('leaderboard_primary')}: {item.primaryJobs ?? 0} · {t('leaderboard_assistant')}: {item.assistantJobs ?? 0}</p>
                     </td>
 
                     {/* Total Reviews */}

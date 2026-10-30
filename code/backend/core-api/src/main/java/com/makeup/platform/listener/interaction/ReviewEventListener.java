@@ -45,9 +45,10 @@ public class ReviewEventListener {
     private static final double MIN_CONFIDENCE_AGENCY_REVIEWS = 15.0; // m = 15 đánh giá cho Studio
 
 
-    @Async
+    // Aggregate inside the publishing transaction: reads see the saved review and
+    // the response is not returned before profile statistics have been refreshed.
     @EventListener
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void handleReviewSubmitted(ReviewSubmittedEvent event) {
         Long muaId = event.getMuaId();
         log.info("[ReviewEvent] Handling ReviewSubmittedEvent for MUA id={}", muaId);
