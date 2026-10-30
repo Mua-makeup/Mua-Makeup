@@ -33,12 +33,18 @@ public class AgencyStaffMapper {
 
         Integer experienceYears = null;
         BigDecimal ratingAvg = null;
+        Integer totalReviews = null;
+        Integer totalCompletedJobs = null;
 
         if (mua != null) {
             muaId = mua.getId();
             muaCode = mua.getMuaCode();
             experienceYears = mua.getExperienceYears();
-            ratingAvg = (mua.getTotalReviews() != null && mua.getTotalReviews() > 0) ? mua.getRatingAvg() : null;
+            totalReviews = mua.getTotalReviews();
+            totalCompletedJobs = mua.getTotalCompletedJobs();
+            if (mua.getRatingAvg() != null && mua.getRatingAvg().compareTo(BigDecimal.ZERO) > 0) {
+                ratingAvg = mua.getRatingAvg();
+            }
             if (mua.getUser() != null) {
                 fullName = mua.getUser().getFullName();
                 email = mua.getUser().getEmail();
@@ -72,6 +78,8 @@ public class AgencyStaffMapper {
                 .joinedAt(entity.getJoinedAt())
                 .experienceYears(experienceYears)
                 .ratingAvg(ratingAvg)
+                .totalReviews(totalReviews)
+                .totalCompletedJobs(totalCompletedJobs)
                 .build();
     }
 
@@ -89,6 +97,8 @@ public class AgencyStaffMapper {
         String bio = null;
         Integer experienceYears = null;
         BigDecimal ratingAvg = null;
+        Integer totalReviews = null;
+        Integer totalCompletedJobs = null;
         Boolean isOnline = null;
         Boolean isBusy = null;
         Long muaId = null;
@@ -103,7 +113,11 @@ public class AgencyStaffMapper {
             muaCode = mua.getMuaCode();
             bio = mua.getBio();
             experienceYears = mua.getExperienceYears();
-            ratingAvg = (mua.getTotalReviews() != null && mua.getTotalReviews() > 0) ? mua.getRatingAvg() : null;
+            totalReviews = mua.getTotalReviews();
+            totalCompletedJobs = mua.getTotalCompletedJobs();
+            if (mua.getRatingAvg() != null && mua.getRatingAvg().compareTo(BigDecimal.ZERO) > 0) {
+                ratingAvg = mua.getRatingAvg();
+            }
             isOnline = mua.getIsOnline();
             isBusy = mua.getIsBusy();
             totalCompletedJobs = mua.getTotalCompletedJobs();
@@ -173,6 +187,8 @@ public class AgencyStaffMapper {
                 .bio(bio)
                 .experienceYears(experienceYears)
                 .ratingAvg(ratingAvg)
+                .totalReviews(totalReviews)
+                .totalCompletedJobs(totalCompletedJobs)
                 .isOnline(isOnline)
                 .isBusy(isBusy)
                 .agreedCommissionRate(entity.getAgreedCommissionRate())

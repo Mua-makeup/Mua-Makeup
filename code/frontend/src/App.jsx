@@ -57,6 +57,7 @@ export default function App() {
           message={toast.message}
           type={toast.type}
           duration={toast.duration}
+          action={toast.action}
           onClose={hideToast}
         />
       )}

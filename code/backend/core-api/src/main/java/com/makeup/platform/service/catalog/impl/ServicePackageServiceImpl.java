@@ -81,7 +81,12 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
         if (req.getStyleIds() != null && !req.getStyleIds().isEmpty()) {
             List<MakeupStyleEntity> styles = makeupStyleRepository.findAllById(req.getStyleIds());
-            pkg.setStyles(new HashSet<>(styles));
+            if (pkg.getStyles() == null) {
+                pkg.setStyles(new HashSet<>(styles));
+            } else {
+                pkg.getStyles().clear();
+                pkg.getStyles().addAll(styles);
+            }
         }
 
         if (req.getItems() != null && !req.getItems().isEmpty()) {
@@ -134,7 +139,12 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
         if (req.getStyleIds() != null) {
             List<MakeupStyleEntity> styles = makeupStyleRepository.findAllById(req.getStyleIds());
-            pkg.setStyles(new HashSet<>(styles));
+            if (pkg.getStyles() == null) {
+                pkg.setStyles(new HashSet<>(styles));
+            } else {
+                pkg.getStyles().clear();
+                pkg.getStyles().addAll(styles);
+            }
         }
 
         ServicePackageEntity updated = packageRepository.save(pkg);
@@ -280,7 +290,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     }
 
     public ServicePackageEntity findPackageAndCheckOwnership(Long userId, Long packageId) {
-        ServicePackageEntity pkg = packageRepository.findById(packageId)
+        ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "ERR_PACKAGE_NOT_FOUND", packageId));
 

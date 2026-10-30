@@ -52,6 +52,8 @@ import java.util.List;
 import java.util.Locale;
 import com.makeup.platform.entity.agency.AgencyStaffServiceEntity;
 import com.makeup.platform.repository.AgencyStaffServiceRepository;
+import com.makeup.platform.repository.custom.projection.StaffLeaderboardProjection;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
@@ -150,14 +152,14 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             if (val == null) {
                 // Đã hết hạn TTL trong Redis, dọn dẹp khỏi Set
                 redisTemplate.opsForSet().remove(setKey, inviteCode);
-            } else {
+ else {
                 try {
                     AgencyInvitationRedisDto dto = objectMapper.readValue(val.toString(), AgencyInvitationRedisDto.class);
                     list.add(agencyInvitationMapper.toRes(dto));
-                } catch (JsonProcessingException e) {
+     catch (JsonProcessingException e) {
                     log.warn("Failed to deserialize invitation from Redis: key={}", key, e);
-                }
-            }
+    
+
         }
         list.sort(Comparator.comparing(AgencyInvitationRes::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())));
         return list;
@@ -186,7 +188,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                         "ERR_AGENCY_ACCESS_DENIED",
                         HttpStatus.FORBIDDEN
                 );
-            }
+
         } catch (JsonProcessingException e) {
             log.warn("Error reading invitation json on cancel: key={}", key, e);
         }
@@ -230,9 +232,9 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                         .expiresAt(invitationDto.getExpiresAt())
                         .isExpired(isExpired)
                         .build();
-            } catch (JsonProcessingException e) {
+ catch (JsonProcessingException e) {
                 log.warn("Failed to parse invitation redis json for public view: key={}", key, e);
-            }
+
         }
 
         // Fallback: parse code format INV-{agencyCode}-{suffix}
@@ -255,7 +257,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                         .proposedCommissionRate(agency.getCommissionRateInternal())
                         .isExpired(true)
                         .build();
-            }
+
         }
 
         throw new ResourceNotFoundException(
@@ -320,14 +322,14 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                         "ERR_STAFF_ALREADY_EXISTS",
                         HttpStatus.BAD_REQUEST
                 );
-            }
+
             if ("PENDING".equalsIgnoreCase(existing.getStatus())) {
                 throw new CustomBusinessException(
                         ErrorCodes.ERR_STAFF_APPLICATION_PENDING,
                         "ERR_STAFF_APPLICATION_PENDING",
                         HttpStatus.BAD_REQUEST
                 );
-            }
+
             // Thợ từng nghỉ việc hoặc bị từ chối trước đó -> nộp đơn lại vào trạng thái PENDING chờ duyệt
             existing.setIsActive(false);
             existing.setStatus("PENDING");
@@ -380,7 +382,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             staff.setIsActive(true);
             if (req.getAgreedCommissionRate() != null) {
                 staff.setAgreedCommissionRate(req.getAgreedCommissionRate());
-            }
+
             staff.setNote(StringUtils.hasText(req.getNote()) ? req.getNote().trim() : "Đã được Studio phê duyệt");
 
             // Nâng cấp vai trò người dùng từ ROLE_FREELANCE_MUA sang ROLE_AGENCY_STAFF
@@ -390,8 +392,8 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                     staffUser.setRole(staffRole);
                     userRepository.save(staffUser);
                     log.info("Updated UserEntity role to ROLE_AGENCY_STAFF for userId={}", staffUser.getId());
-                });
-            }
+    );
+
 
             log.info("Studio APPROVED staff application: staffId={}, agencyId={}, agreedCommission={}%",
                     staffId, agency.getId(), staff.getAgreedCommissionRate());
@@ -459,6 +461,11 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                 .collect(Collectors.groupingBy(p -> p.getStaff().getId(),
                         Collectors.mapping(p -> p.getServicePackage().getId(), Collectors.toList())));
 
+        List<StaffLeaderboardProjection> leaderboardStats = agencyStaffRepository.findStaffLeaderboard(agency.getId(), null, null);
+        Map<Long, StaffLeaderboardProjection> statMap = leaderboardStats != null
+                ? leaderboardStats.stream().filter(s -> s.getStaffId() != null).collect(Collectors.toMap(StaffLeaderboardProjection::getStaffId, s -> s, (a, b) -> a))
+                : Collections.emptyMap();
+
         return page.map(entity -> {
             AgencyStaffRes res = agencyStaffMapper.toRes(entity);
             List<AssignedStyleRes> stList = styleMap.getOrDefault(entity.getId(), Collections.emptyList());
@@ -466,6 +473,28 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             res.setStyles(stList);
             res.setPackageCount(pkgList.size());
             res.setPackageIds(pkgList);
+
+            StaffLeaderboardProjection stat = statMap.get(entity.getId());
+            if (stat != null) {
+                if (stat.getRatingAvg() != null && stat.getTotalReviews() != null && stat.getTotalReviews() > 0) {
+                    res.setRatingAvg(stat.getRatingAvg().setScale(1, RoundingMode.HALF_UP));
+                    res.setTotalReviews(stat.getTotalReviews());
+                }
+                if (stat.getTotalCompletedJobs() != null) {
+                    res.setTotalCompletedJobs(stat.getTotalCompletedJobs());
+                }
+            }
+
+            StaffLeaderboardProjection stat = statMap.get(entity.getId());
+            if (stat != null) {
+                if (stat.getRatingAvg() != null && stat.getTotalReviews() != null && stat.getTotalReviews() > 0) {
+                    res.setRatingAvg(stat.getRatingAvg().setScale(1, RoundingMode.HALF_UP));
+                    res.setTotalReviews(stat.getTotalReviews());
+    
+                if (stat.getTotalCompletedJobs() != null) {
+                    res.setTotalCompletedJobs(stat.getTotalCompletedJobs());
+    
+
             return res;
         });
     }
@@ -507,7 +536,11 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                     .collect(Collectors.toList()));
         } else {
             res.setAssignedPackages(Collections.emptyList());
+
+
+
         }
+        enrichStaffDetailStats(res, staff.getId(), agency.getId());
         return res;
     }
 
@@ -536,7 +569,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                 staffUser.setRole(freelanceRole);
                 userRepository.save(staffUser);
                 log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
-            });
+);
         }
 
         AgencyStaffEntity saved = agencyStaffRepository.save(staff);
@@ -583,7 +616,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                 staffUser.setRole(freelanceRole);
                 userRepository.save(staffUser);
                 log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
-            });
+);
         }
 
         log.info("Removed staff from Studio: staffId={}, agencyId={}", staffId, agency.getId());
@@ -621,8 +654,56 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                     .collect(Collectors.toList()));
         } else {
             res.setAssignedPackages(Collections.emptyList());
+
+
+
+        }
+        if (staff.getAgency() != null) {
+            enrichStaffDetailStats(res, staff.getId(), staff.getAgency().getId());
         }
         return res;
+    }
+
+    private void enrichStaffDetailStats(AgencyStaffDetailRes res, Long staffId, Long agencyId) {
+        if (res == null || staffId == null || agencyId == null) {
+            return;
+        }
+        List<StaffLeaderboardProjection> leaderboardStats = agencyStaffRepository.findStaffLeaderboard(agencyId, null, null);
+        if (leaderboardStats != null) {
+            leaderboardStats.stream()
+                    .filter(s -> staffId.equals(s.getStaffId()))
+                    .findFirst()
+                    .ifPresent(stat -> {
+                        if (stat.getRatingAvg() != null && stat.getTotalReviews() != null && stat.getTotalReviews() > 0) {
+                            res.setRatingAvg(stat.getRatingAvg().setScale(1, RoundingMode.HALF_UP));
+                            res.setTotalReviews(stat.getTotalReviews());
+                        }
+                        if (stat.getTotalCompletedJobs() != null) {
+                            res.setTotalCompletedJobs(stat.getTotalCompletedJobs());
+                        }
+                    });
+        }
+    }
+
+    private void enrichStaffDetailStats(AgencyStaffDetailRes res, Long staffId, Long agencyId) {
+        if (res == null || staffId == null || agencyId == null) {
+            return;
+        }
+        List<StaffLeaderboardProjection> leaderboardStats = agencyStaffRepository.findStaffLeaderboard(agencyId, null, null);
+        if (leaderboardStats != null) {
+            leaderboardStats.stream()
+                    .filter(s -> staffId.equals(s.getStaffId()))
+                    .findFirst()
+                    .ifPresent(stat -> {
+                        if (stat.getRatingAvg() != null && stat.getTotalReviews() != null && stat.getTotalReviews() > 0) {
+                            res.setRatingAvg(stat.getRatingAvg().setScale(1, RoundingMode.HALF_UP));
+                            res.setTotalReviews(stat.getTotalReviews());
+            
+                        if (stat.getTotalCompletedJobs() != null) {
+                            res.setTotalCompletedJobs(stat.getTotalCompletedJobs());
+            
+        );
+        }
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long userId) {
@@ -675,7 +756,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
 
             if (mua.getCertificates() == null) {
                 mua.setCertificates(new ArrayList<>());
-            }
+
             mua.getCertificates().add(certificateItem);
             muaProfileRepository.save(mua);
 
@@ -684,7 +765,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             log.error("Lỗi khi tải lên chứng chỉ nhân viên Studio: {}", ex.getMessage());
             if (uploadedPublicId != null) {
                 mediaStorageService.deleteMedia(uploadedPublicId);
-            }
+
             throw ex;
         }
     }
