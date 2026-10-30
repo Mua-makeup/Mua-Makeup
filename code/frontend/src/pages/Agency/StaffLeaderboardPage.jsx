@@ -3,17 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Trophy,
   Crown,
-  Medal,
   Star,
 
   TrendingUp,
-  User,
   RotateCw,
   Eye,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
-  Calendar,
 } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
 import { Button } from '../../components/base/Button';
@@ -25,11 +19,12 @@ export const StaffLeaderboardPage = () => {
   const { t } = useI18nStore();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState('QUALITY');
   const [period, setPeriod] = useState('ALL_TIME'); // 'ALL_TIME' | 'THIS_MONTH' | 'LAST_MONTH'
   const [data, setData] = useState({
     period: 'ALL_TIME',
     totalStaff: 0,
-    agencyAverageRating: 5.0,
+    agencyAverageRating: null,
     items: [],
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +40,7 @@ export const StaffLeaderboardPage = () => {
         setData({
           period: resData.period || period,
           totalStaff: resData.totalStaff || 0,
-          agencyAverageRating: resData.agencyAverageRating || 5.0,
+          agencyAverageRating: resData.agencyAverageRating ?? null,
           items: Array.isArray(resData.items) ? resData.items : [],
         });
       }
@@ -62,12 +57,22 @@ export const StaffLeaderboardPage = () => {
     fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  const top1 = data.items.length > 0 ? data.items[0] : null;
-  const top2 = data.items.length > 1 ? data.items[1] : null;
-  const top3 = data.items.length > 2 ? data.items[2] : null;
+  const quality = mode === 'QUALITY';
+  const items = quality ? data.items : [...data.items].sort((a, b) => b.completedJobs - a.completedJobs || a.staffId - b.staffId).map((item, index, sorted) => ({
+    ...item,
+    rank: item.completedJobs > 0 ? sorted.findIndex(other => other.completedJobs === item.completedJobs) + 1 : null,
+  }));
+  const eligible = items.filter(item => item.rank != null);
+  const top1 = eligible[0];
+  const top2 = eligible[1];
+  const top3 = eligible[2];
 
   const renderBadge = (badgeCode, labelKey) => {
     switch (badgeCode) {
+      case 'INSUFFICIENT_DATA':
+        return <span className="text-slate-500">{t('leaderboard_insufficient_data')}</span>;
+      case 'RANKED':
+        return <span>{t('leaderboard_eligible')}</span>;
       case 'CHAMPION':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
@@ -186,6 +191,15 @@ export const StaffLeaderboardPage = () => {
         </div>
       )}
 
+      <div className="flex flex-wrap gap-2">
+        <Button variant={quality ? 'primary' : 'outline'} aria-pressed={quality} onClick={() => setMode('QUALITY')}>{t('leaderboard_quality')}</Button>
+        <Button variant={!quality ? 'primary' : 'outline'} aria-pressed={!quality} onClick={() => setMode('JOBS')}>{t('leaderboard_contribution')}</Button>
+      </div>
+      <div className="rounded-xl border p-4 text-sm space-y-2">
+        <p>{t(quality ? 'leaderboard_quality_rule' : 'leaderboard_contribution_rule')}</p>
+        <p className="text-slate-500">{t('leaderboard_shared_rule')}</p>
+        {!isLoading && !errorMsg && quality && !eligible.length && <p>{t('leaderboard_no_eligible')}</p>}
+      </div>
       {/* Top 3 Bục Vinh Danh (The Podium) */}
       {isLoading ? (
         <div className="relative pt-6 pb-6 px-4 rounded-3xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -222,7 +236,7 @@ export const StaffLeaderboardPage = () => {
             </div>
           </div>
         </div>
-      ) : data.items.length > 0 && (
+      ) : quality && eligible.length > 0 && new Set(eligible.map(item => item.rank)).size === eligible.length && (
         <div className="relative pt-6 pb-2 px-4 rounded-3xl bg-gradient-to-b from-slate-50 to-white dark:from-slate-900/80 dark:to-slate-900 border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
           {/* Background Ambient Glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-amber-500/10 dark:bg-amber-500/5 blur-3xl pointer-events-none rounded-full" />
@@ -265,7 +279,7 @@ export const StaffLeaderboardPage = () => {
                   </span>
                   <div className={`mt-2 flex items-center justify-center gap-1 font-bold text-sm ${top2.averageRating != null && top2.totalReviews > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
                     <Star className={`w-4 h-4 ${top2.averageRating != null && top2.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
-                    <span>{top2.averageRating != null && top2.totalReviews > 0 ? top2.averageRating.toFixed(1) : 'N/A'}</span>
+                    <span>{top2.averageRating != null && top2.totalReviews > 0 ? top2.averageRating.toFixed(1) : t('leaderboard_no_reviews')}</span>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex justify-around">
                     <span>{top2.completedJobs} {t('leaderboard_jobs_unit')}</span>
@@ -303,7 +317,7 @@ export const StaffLeaderboardPage = () => {
 
                 <div className="w-full p-5 rounded-2xl bg-gradient-to-b from-amber-50/60 to-white dark:from-amber-950/20 dark:to-slate-800/90 border-2 border-amber-300/80 dark:border-amber-600/60 text-center shadow-md">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                    {t('leaderboard_rank_gold')}
+                    {t('leaderboard_quality_leader')}
                   </span>
                   <h3 className="font-extrabold text-base text-slate-900 dark:text-white truncate mt-0.5">
                     {top1.fullName}
@@ -313,7 +327,7 @@ export const StaffLeaderboardPage = () => {
                   </span>
                   <div className={`mt-2.5 flex items-center justify-center gap-1.5 font-black text-base ${top1.averageRating != null && top1.totalReviews > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
                     <Star className={`w-5 h-5 ${top1.averageRating != null && top1.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
-                    <span>{top1.averageRating != null && top1.totalReviews > 0 ? top1.averageRating.toFixed(1) : 'N/A'}</span>
+                    <span>{top1.averageRating != null && top1.totalReviews > 0 ? top1.averageRating.toFixed(1) : t('leaderboard_no_reviews')}</span>
                   </div>
                   <div className="mt-2.5 pt-2.5 border-t border-amber-200/60 dark:border-amber-800/60 text-xs text-slate-600 dark:text-slate-300 flex justify-around font-medium">
                     <span>
@@ -359,7 +373,7 @@ export const StaffLeaderboardPage = () => {
                   </span>
                   <div className={`mt-2 flex items-center justify-center gap-1 font-bold text-sm ${top3.averageRating != null && top3.totalReviews > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
                     <Star className={`w-4 h-4 ${top3.averageRating != null && top3.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
-                    <span>{top3.averageRating != null && top3.totalReviews > 0 ? top3.averageRating.toFixed(1) : 'N/A'}</span>
+                    <span>{top3.averageRating != null && top3.totalReviews > 0 ? top3.averageRating.toFixed(1) : t('leaderboard_no_reviews')}</span>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex justify-around">
                     <span>{top3.completedJobs} {t('leaderboard_jobs_unit')}</span>
@@ -385,7 +399,7 @@ export const StaffLeaderboardPage = () => {
             </h2>
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400">
-            {t('leaderboard_agency_avg_score')}: <strong className="text-amber-500 font-bold">{data.agencyAverageRating.toFixed(1)} / 5.0</strong>
+            {t('leaderboard_agency_avg_score')}: <strong className="text-amber-500 font-bold">{data.agencyAverageRating == null ? t('leaderboard_no_reviews') : `${data.agencyAverageRating.toFixed(1)} / 5.0`}</strong>
           </div>
         </div>
 
@@ -395,6 +409,7 @@ export const StaffLeaderboardPage = () => {
               { header: t('leaderboard_col_rank'), align: 'center' },
               { header: t('leaderboard_col_staff') },
               { header: t('leaderboard_col_rating') },
+              { header: t('leaderboard_score') },
               { header: t('leaderboard_col_five_star_rate') },
               { header: t('leaderboard_col_completed_jobs'), align: 'center' },
               { header: t('leaderboard_col_total_reviews'), align: 'center' },
@@ -415,7 +430,7 @@ export const StaffLeaderboardPage = () => {
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold text-xs">
                   <th className="py-3 px-4 w-14 text-center">{t('leaderboard_col_rank')}</th>
                   <th className="py-3 px-4">{t('leaderboard_col_staff')}</th>
-                  <th className="py-3 px-4">{t('leaderboard_col_rating')}</th>
+                  <th className="py-3 px-4">{t('leaderboard_col_rating')}</th><th className="py-3 px-4">{t('leaderboard_score')}</th>
                   <th className="py-3 px-4">{t('leaderboard_col_five_star_rate')}</th>
                   <th className="py-3 px-4 text-center">{t('leaderboard_col_completed_jobs')}</th>
                   <th className="py-3 px-4 text-center">{t('leaderboard_col_total_reviews')}</th>
@@ -424,7 +439,7 @@ export const StaffLeaderboardPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {data.items.map((item) => (
+                {items.map((item) => (
                   <tr
                     key={item.staffId}
                     className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
@@ -445,7 +460,7 @@ export const StaffLeaderboardPage = () => {
                         </span>
                       ) : (
                         <span className="font-semibold text-slate-500 font-mono">
-                          #{item.rank}
+                          {item.rank == null ? '—' : `#${item.rank}`}
                         </span>
                       )}
                     </td>
@@ -479,15 +494,16 @@ export const StaffLeaderboardPage = () => {
                     <td className="py-3.5 px-4">
                       <div className={`flex items-center gap-1 font-bold ${item.averageRating != null && item.totalReviews > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                         <Star className={`w-4 h-4 ${item.averageRating != null && item.totalReviews > 0 ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`} />
-                        <span>{item.averageRating != null && item.totalReviews > 0 ? item.averageRating.toFixed(1) : 'N/A'}</span>
+                        <span>{item.averageRating != null && item.totalReviews > 0 ? item.averageRating.toFixed(1) : t('leaderboard_no_reviews')}</span>
                       </div>
                     </td>
 
+                    <td className="py-3.5 px-4">{item.rankingScore == null ? '—' : item.rankingScore.toFixed(3)}</td>
                     {/* 5-Star Rate Progress */}
                     <td className="py-3.5 px-4 min-w-[140px]">
                       <div className="flex items-center justify-between text-[11px] mb-1">
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
-                          {item.fiveStarRate.toFixed(0)}%
+                          {item.fiveStarRate == null ? '—' : `${item.fiveStarRate.toFixed(0)}%`}
                         </span>
                         <span className="text-slate-400">
                           {item.fiveStarCount}/{item.totalReviews}
@@ -504,6 +520,7 @@ export const StaffLeaderboardPage = () => {
                     {/* Completed Jobs */}
                     <td className="py-3.5 px-4 text-center font-bold text-slate-800 dark:text-slate-200">
                       {item.completedJobs}
+                      <p className="text-xs text-slate-500 font-normal">{t('leaderboard_primary')}: {item.primaryJobs ?? 0} · {t('leaderboard_assistant')}: {item.assistantJobs ?? 0}</p>
                     </td>
 
                     {/* Total Reviews */}
@@ -513,7 +530,7 @@ export const StaffLeaderboardPage = () => {
 
                     {/* Badge */}
                     <td className="py-3.5 px-4">
-                      {renderBadge(item.performanceBadge, item.badgeLabel)}
+                      {quality ? renderBadge(item.performanceBadge, item.badgeLabel) : item.rank === 1 ? t('leaderboard_jobs_leader') : '—'}
                     </td>
 
                     {/* Actions */}

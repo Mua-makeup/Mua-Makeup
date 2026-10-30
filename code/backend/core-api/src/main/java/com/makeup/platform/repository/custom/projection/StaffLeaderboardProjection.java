@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public interface StaffLeaderboardProjection {
+    BigDecimal getAgencyRating();
+    Integer getPrimaryJobs();
+    Integer getAssistantJobs();
     Long getStaffId();
     Long getMuaId();
     String getStaffCode();

@@ -7,6 +7,7 @@ import { agencyService } from '../../../services/agency.service';
 import { agencyProfileSchema, commissionRateSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { parseApiError } from '../../../utils/error';
 
 const DEFAULT_COMMISSION_RATE = 30;
 
@@ -50,7 +51,8 @@ export const AgencyProfileCommissionModal = ({ isOpen, onClose, onUpdated }) => 
           setCommissionRate(p.commissionRateInternal ?? DEFAULT_COMMISSION_RATE);
         }
       } catch (err) {
-        setServerError(err.response?.data?.message || err.message || t('error_api_connection'));
+        const parsed = parseApiError(err);
+        setServerError(parsed.message || t('error_api_connection'));
       } finally {
         setIsLoading(false);
       }
@@ -103,10 +105,13 @@ export const AgencyProfileCommissionModal = ({ isOpen, onClose, onUpdated }) => 
     try {
       // 1. Update Profile
       const updateRes = await agencyService.updateProfile(profilePayload);
-      const updatedProfile = updateRes?.data || updateRes;
+      let updatedProfile = updateRes?.data || updateRes;
 
       // 2. Update Commission Rate
-      await agencyService.updateCommissionRate(Number(commissionRate));
+      const commRes = await agencyService.updateCommissionRate(Number(commissionRate));
+      if (commRes?.data) {
+        updatedProfile = { ...updatedProfile, ...commRes.data };
+      }
 
       // Sync user logo into auth store if updated
       const u = useAuthStore.getState().user;
@@ -127,14 +132,18 @@ export const AgencyProfileCommissionModal = ({ isOpen, onClose, onUpdated }) => 
         }),
       );
 
-      setSuccessMessage(t('save_success') || 'Đã lưu thay đổi hồ sơ & hoa hồng thành công!');
+      setSuccessMessage(t('agency_profile_saved_success') || t('save_success') || 'Đã lưu thay đổi hồ sơ & hoa hồng thành công!');
       onUpdated?.(updatedProfile);
 
       setTimeout(() => {
         onClose();
       }, 900);
     } catch (err) {
-      setServerError(err.response?.data?.message || err.message || t('error_general'));
+      const parsed = parseApiError(err);
+      if (parsed.fieldErrors && Object.keys(parsed.fieldErrors).length > 0) {
+        setProfileErrors(parsed.fieldErrors);
+      }
+      setServerError(parsed.message || t('error_general'));
     } finally {
       setIsSubmitting(false);
     }
@@ -221,7 +230,7 @@ export const AgencyProfileCommissionModal = ({ isOpen, onClose, onUpdated }) => 
               value={addressDistrict}
               onChange={(e) => setAddressDistrict(e.target.value)}
               placeholder={t('agency_settings_field_district_ph') || 'Quận 1, Hoàng Mai...'}
-              error={profileErrors.district}
+              error={profileErrors.district || profileErrors.addressDistrict}
               required
             />
             <Input
@@ -229,7 +238,7 @@ export const AgencyProfileCommissionModal = ({ isOpen, onClose, onUpdated }) => 
               value={addressCity}
               onChange={(e) => setAddressCity(e.target.value)}
               placeholder={t('agency_settings_field_city_ph') || 'Hà Nội, TP. Hồ Chí Minh...'}
-              error={profileErrors.city}
+              error={profileErrors.city || profileErrors.addressCity}
               required
             />
           </div>
