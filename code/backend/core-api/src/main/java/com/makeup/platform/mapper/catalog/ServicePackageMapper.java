@@ -103,6 +103,9 @@ public class ServicePackageMapper {
         Set<Long> seenIds = new HashSet<>();
         List<PackageItemEntity> result = new ArrayList<>();
         for (PackageItemEntity item : items) {
+            if (Boolean.TRUE.equals(item.getIsDeleted())) {
+                continue;
+            }
             if (item.getId() == null || seenIds.add(item.getId())) {
                 result.add(item);
             }

@@ -29,6 +29,7 @@ import { SHIFT_DAYS } from '../../../constants/agency.constant';
 import { useShiftConflict } from '../../../hooks/useShiftConflict';
 import { shiftSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { useUndoDelete } from '../../../hooks/useUndoDelete';
 import { WeeklyShiftSkeleton } from '../../base/Skeleton';
 
 // Định nghĩa 3 buổi trong ngày
@@ -105,6 +106,7 @@ const getPeriodId = (startTime) => {
 
 export const WeeklyShiftTable = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
   const [shifts, setShifts] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [filterStaffId, setFilterStaffId] = useState('ALL');
@@ -523,19 +525,27 @@ export const WeeklyShiftTable = () => {
     }
   };
 
-  const handleConfirmDeleteShift = async () => {
+  const handleConfirmDeleteShift = () => {
     if (!deletingShift) return;
-    setIsDeleting(true);
-    try {
-      await agencyService.deleteShift(deletingShift.id);
-      setShifts((prev) => prev.filter((s) => s.id !== deletingShift.id));
-      setDeletingShift(null);
-    } catch {
-      setShifts((prev) => prev.filter((s) => s.id !== deletingShift.id));
-      setDeletingShift(null);
-    } finally {
-      setIsDeleting(false);
-    }
+    const target = deletingShift;
+    setDeletingShift(null);
+
+    triggerUndoDelete({
+      id: target.id,
+      itemName: target.staffName ? `${target.staffName} (${target.shiftName || target.timeRange || ''})` : (t('shift_label') || 'Ca trực'),
+      onOptimisticRemove: () => {
+        setShifts((prev) => prev.filter((s) => s.id !== target.id));
+      },
+      onUndo: () => {
+        setShifts((prev) => {
+          if (prev.some((s) => s.id === target.id)) return prev;
+          return [...prev, target];
+        });
+      },
+      onCommitDelete: async () => {
+        await agencyService.deleteShift(target.id);
+      },
+    });
   };
 
   const openAddForDayAndPeriod = (dayValue, periodId) => {

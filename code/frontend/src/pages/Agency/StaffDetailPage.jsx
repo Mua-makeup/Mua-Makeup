@@ -375,6 +375,11 @@ export const StaffDetailPage = () => {
                 <>
                   <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-400 text-amber-400 shrink-0" />
                   <span>{Number(detail.ratingAvg).toFixed(1)}</span>
+                  {detail.totalReviews ? (
+                    <span className="text-xs text-slate-400 font-normal">
+                      ({detail.totalReviews})
+                    </span>
+                  ) : null}
                 </>
               ) : (
                 <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">

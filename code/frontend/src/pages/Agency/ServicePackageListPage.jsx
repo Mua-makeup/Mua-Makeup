@@ -11,9 +11,11 @@ import { AgencyPendingVerificationNotice } from '../../components/features/agenc
 import { formatCurrency } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
+import { useUndoDelete } from '../../hooks/useUndoDelete';
 
 export const ServicePackageListPage = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
   const [packages, setPackages] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -100,16 +102,27 @@ export const ServicePackageListPage = () => {
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (!deletingPackage) return;
-    try {
-      const res = await agencyService.deletePackage(deletingPackage.id);
-      setPackages((prev) => prev.filter((p) => p.id !== deletingPackage.id));
-      setToastMessage(res?.message || t('delete_success'));
-      setDeletingPackage(null);
-    } catch (err) {
-      setToastMessage(err.message || t('error_general'));
-    }
+    const pkgToDelete = deletingPackage;
+    setDeletingPackage(null);
+
+    triggerUndoDelete({
+      id: pkgToDelete.id,
+      itemName: pkgToDelete.packageName,
+      onOptimisticRemove: () => {
+        setPackages((prev) => prev.filter((p) => p.id !== pkgToDelete.id));
+      },
+      onUndo: () => {
+        setPackages((prev) => {
+          if (prev.some((p) => p.id === pkgToDelete.id)) return prev;
+          return [...prev, pkgToDelete];
+        });
+      },
+      onCommitDelete: async () => {
+        await agencyService.deletePackage(pkgToDelete.id);
+      },
+    });
   };
 
   const filteredPackages = useMemo(() => {
