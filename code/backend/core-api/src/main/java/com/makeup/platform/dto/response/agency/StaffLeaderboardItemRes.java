@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
 @Builder
 public class StaffLeaderboardItemRes {
 
+    private Integer primaryJobs;
+    private Integer assistantJobs;
+    private Double rankingScore;
     private Integer rank;
     private Long staffId;
     private Long muaId;
