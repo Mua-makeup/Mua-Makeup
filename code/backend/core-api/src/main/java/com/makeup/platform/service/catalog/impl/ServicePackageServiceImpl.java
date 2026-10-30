@@ -163,6 +163,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Transactional(readOnly = true)
     public PackageDetailRes getPackageById(Long packageId) {
         ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
+                .or(() -> packageRepository.findById(packageId))
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "catalog.package_not_found", packageId));
         if (Boolean.TRUE.equals(pkg.getIsDeleted())) {
@@ -291,6 +292,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
     public ServicePackageEntity findPackageAndCheckOwnership(Long userId, Long packageId) {
         ServicePackageEntity pkg = packageRepository.findByIdWithDetails(packageId)
+                .or(() -> packageRepository.findById(packageId))
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_PACKAGE_NOT_FOUND,
                         "ERR_PACKAGE_NOT_FOUND", packageId));
 
