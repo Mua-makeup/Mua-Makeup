@@ -59,9 +59,9 @@ public class AgencyStaffLeaderboardServiceImpl implements AgencyStaffLeaderboard
         );
 
         List<StaffLeaderboardItemRes> items = new ArrayList<>();
-        double totalRatingSum = 0.0;
-        int ratingCount = 0;
-        int currentRank = 1;
+        Double agencyAvg = projections.stream().map(StaffLeaderboardProjection::getAgencyRating)
+                .filter(java.util.Objects::nonNull).findFirst().map(BigDecimal::doubleValue).orElse(null);
+        double prior = agencyAvg != null ? agencyAvg : 0.0;
 
         for (StaffLeaderboardProjection p : projections) {
             int totalReviews = p.getTotalReviews() != null ? p.getTotalReviews() : 0;
@@ -78,42 +78,11 @@ public class AgencyStaffLeaderboardServiceImpl implements AgencyStaffLeaderboard
                     .doubleValue()
                     : 0.0;
 
-            if (avgRating != null) {
-                totalRatingSum += avgRating;
-                ratingCount++;
-            }
-
-            String badge;
-            String badgeLabel;
-
-            if (completedJobs == 0 && totalReviews == 0) {
-                badge = "NEW_ARTIST";
-                badgeLabel = "leaderboard_badge_new";
-            } else if (currentRank == 1) {
-                badge = "CHAMPION";
-                badgeLabel = "leaderboard_rank_gold";
-            } else if (currentRank == 2) {
-                badge = "RUNNER_UP_1";
-                badgeLabel = "leaderboard_rank_silver";
-            } else if (currentRank == 3) {
-                badge = "RUNNER_UP_2";
-                badgeLabel = "leaderboard_rank_bronze";
-            } else if (totalReviews >= 3 && avgRating != null && avgRating >= 4.8) {
-                badge = "SUPER_STAR";
-                badgeLabel = "leaderboard_badge_super_star";
-            } else if (totalReviews >= 3 && avgRating != null && avgRating >= 4.0) {
-                badge = "RELIABLE";
-                badgeLabel = "leaderboard_badge_reliable";
-            } else if (totalReviews >= 3 && avgRating != null && avgRating < 4.0) {
-                badge = "NEED_IMPROVEMENT";
-                badgeLabel = "leaderboard_badge_need_improvement";
-            } else {
-                badge = "NEW_ARTIST";
-                badgeLabel = "leaderboard_badge_new";
-            }
-
             StaffLeaderboardItemRes item = StaffLeaderboardItemRes.builder()
-                    .rank(currentRank++)
+                    .rank(null)
+                    .primaryJobs(p.getPrimaryJobs())
+                    .assistantJobs(p.getAssistantJobs())
+                    .rankingScore(totalReviews > 0 ? (p.getRatingAvg().doubleValue() * totalReviews + 5 * prior) / (totalReviews + 5) : null)
                     .staffId(p.getStaffId())
                     .muaId(p.getMuaId())
                     .staffCode(p.getStaffCode())
@@ -123,19 +92,37 @@ public class AgencyStaffLeaderboardServiceImpl implements AgencyStaffLeaderboard
                     .averageRating(avgRating)
                     .totalReviews(totalReviews)
                     .fiveStarCount(fiveStarCount)
-                    .fiveStarRate(fiveStarRate)
+                    .fiveStarRate(totalReviews > 0 ? fiveStarRate : null)
                     .completedJobs(completedJobs)
-                    .performanceBadge(badge)
-                    .badgeLabel(badgeLabel)
+                    .performanceBadge("INSUFFICIENT_DATA")
+                    .badgeLabel("leaderboard_insufficient_data")
                     .joinedAt(p.getJoinedAt())
                     .build();
 
             items.add(item);
         }
 
-        Double agencyAvg = ratingCount > 0
-                ? BigDecimal.valueOf(totalRatingSum / ratingCount).setScale(1, RoundingMode.HALF_UP).doubleValue()
-                : 5.0;
+        items.sort(java.util.Comparator
+                .comparing((StaffLeaderboardItemRes i) -> i.getTotalReviews() >= 5).reversed()
+                .thenComparing(StaffLeaderboardItemRes::getRankingScore,
+                        java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder()))
+                .thenComparing(StaffLeaderboardItemRes::getTotalReviews, java.util.Comparator.reverseOrder())
+                .thenComparing(StaffLeaderboardItemRes::getStaffId));
+        int rank = 0;
+        int position = 0;
+        Double previousScore = null;
+        Integer previousCount = null;
+        for (StaffLeaderboardItemRes item : items) {
+            if (item.getTotalReviews() < 5) continue;
+            position++;
+            if (!java.util.Objects.equals(previousScore, item.getRankingScore())
+                    || !java.util.Objects.equals(previousCount, item.getTotalReviews())) rank = position;
+            item.setRank(rank);
+            item.setPerformanceBadge(rank == 1 ? "CHAMPION" : rank == 2 ? "RUNNER_UP_1" : rank == 3 ? "RUNNER_UP_2" : "RANKED");
+            item.setBadgeLabel(rank == 1 ? "leaderboard_quality_leader" : rank == 2 ? "leaderboard_rank_silver" : rank == 3 ? "leaderboard_rank_bronze" : "leaderboard_eligible");
+            previousScore = item.getRankingScore();
+            previousCount = item.getTotalReviews();
+        }
 
         return StaffLeaderboardRes.builder()
                 .period(normalizedPeriod)

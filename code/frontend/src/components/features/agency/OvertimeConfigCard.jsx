@@ -674,7 +674,7 @@ export const OvertimeConfigCard = () => {
               label={t('overtime_max_minutes')}
               type="number"
               min="0"
-              placeholder="VD: 240"
+              placeholder={t('overtime_max_minutes_ph') || 'VD: 240'}
               value={maxOvertimeMinutes}
               onChange={(e) => setMaxOvertimeMinutes(e.target.value)}
               helperText={t('overtime_max_minutes_helper')}
@@ -729,12 +729,18 @@ export const OvertimeConfigCard = () => {
               onChange={(e) => setPenaltyValue(e.target.value)}
               helperText={
                 penaltyType === 'PERCENT_COMMISSION'
-                  ? (policyType === 'ALLOWANCE' ? 'Tỷ lệ % hoa hồng được cộng thêm cho thợ' : 'Tỷ lệ % hoa hồng bị khấu trừ của thợ')
+                  ? (policyType === 'ALLOWANCE'
+                      ? (t('overtime_policy_allowance_percent_hint') || 'Tỷ lệ % hoa hồng được cộng thêm cho thợ')
+                      : (t('overtime_policy_penalty_percent_hint') || 'Tỷ lệ % hoa hồng bị khấu trừ của thợ'))
                   : penaltyType === 'PER_MINUTE'
-                  ? (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)' : 'Số tiền phạt khấu trừ cho mỗi phút vi phạm (VNĐ/phút)')
+                  ? (policyType === 'ALLOWANCE'
+                      ? (t('overtime_policy_allowance_per_min_hint') || 'Số tiền thù lao cộng thêm cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)')
+                      : (t('overtime_policy_penalty_per_min_hint') || 'Số tiền phạt khấu trừ cho mỗi phút vi phạm (VNĐ/phút)'))
                   : penaltyType === 'WARNING_ONLY'
                   ? t('overtime_penalty_type_warning')
-                  : (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho thợ (VNĐ)' : 'Số tiền phạt khấu trừ thợ (VNĐ)')
+                  : (policyType === 'ALLOWANCE'
+                      ? (t('overtime_policy_allowance_fixed_hint') || 'Số tiền thù lao cộng thêm cho thợ (VNĐ)')
+                      : (t('overtime_policy_penalty_fixed_hint') || 'Số tiền phạt khấu trừ thợ (VNĐ)'))
               }
               error={fieldErrors.penaltyValue}
             />
@@ -858,7 +864,7 @@ export const OvertimeConfigCard = () => {
                               icon={CheckCircle2}
                               onClick={() => openReview(r, 'WAIVE_PENALTY')}
                             >
-                              Duyệt Miễn Trừ
+                              {t('overtime_btn_waive') || 'Duyệt Miễn Trừ'}
                             </Button>
                           )}
                           <Button
@@ -867,7 +873,7 @@ export const OvertimeConfigCard = () => {
                             icon={XCircle}
                             onClick={() => openReview(r, 'DEDUCT_BY_RULE')}
                           >
-                            Phạt / Từ Chối
+                            {t('overtime_btn_penalty_reject') || 'Phạt / Từ Chối'}
                           </Button>
                         </div>
                       ) : (
