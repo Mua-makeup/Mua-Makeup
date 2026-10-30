@@ -105,8 +105,6 @@ public class AgencyStaffMapper {
 
         List<MuaCertificateItem> certificates = null;
         List<String> portfolioImages = null;
-        Integer totalCompletedJobs = null;
-        Integer totalReviews = null;
 
         if (mua != null) {
             muaId = mua.getId();
