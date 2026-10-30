@@ -58,6 +58,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.makeup.platform.repository.custom.projection.StaffLeaderboardProjection;
+import java.math.RoundingMode;
 
 import com.makeup.platform.common.constants.MediaConstants;
 import com.makeup.platform.common.utils.FileValidationUtils;
@@ -459,6 +461,11 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                 .collect(Collectors.groupingBy(p -> p.getStaff().getId(),
                         Collectors.mapping(p -> p.getServicePackage().getId(), Collectors.toList())));
 
+        List<StaffLeaderboardProjection> leaderboardStats = agencyStaffRepository.findStaffLeaderboard(agency.getId(), null, null);
+        Map<Long, StaffLeaderboardProjection> statMap = leaderboardStats != null
+                ? leaderboardStats.stream().filter(s -> s.getStaffId() != null).collect(Collectors.toMap(StaffLeaderboardProjection::getStaffId, s -> s, (a, b) -> a))
+                : Collections.emptyMap();
+
         return page.map(entity -> {
             AgencyStaffRes res = agencyStaffMapper.toRes(entity);
             List<AssignedStyleRes> stList = styleMap.getOrDefault(entity.getId(), Collections.emptyList());
@@ -466,6 +473,17 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             res.setStyles(stList);
             res.setPackageCount(pkgList.size());
             res.setPackageIds(pkgList);
+
+            StaffLeaderboardProjection stat = statMap.get(entity.getId());
+            if (stat != null) {
+                if (stat.getRatingAvg() != null && stat.getTotalReviews() != null && stat.getTotalReviews() > 0) {
+                    res.setRatingAvg(stat.getRatingAvg().setScale(1, RoundingMode.HALF_UP));
+                    res.setTotalReviews(stat.getTotalReviews());
+                }
+                if (stat.getTotalCompletedJobs() != null) {
+                    res.setTotalCompletedJobs(stat.getTotalCompletedJobs());
+                }
+            }
             return res;
         });
     }
@@ -508,6 +526,7 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         } else {
             res.setAssignedPackages(Collections.emptyList());
         }
+        enrichStaffDetailStats(res, staff.getId(), agency.getId());
         return res;
     }
 
@@ -622,7 +641,31 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         } else {
             res.setAssignedPackages(Collections.emptyList());
         }
+        if (staff.getAgency() != null) {
+            enrichStaffDetailStats(res, staff.getId(), staff.getAgency().getId());
+        }
         return res;
+    }
+
+    private void enrichStaffDetailStats(AgencyStaffDetailRes res, Long staffId, Long agencyId) {
+        if (res == null || staffId == null || agencyId == null) {
+            return;
+        }
+        List<StaffLeaderboardProjection> leaderboardStats = agencyStaffRepository.findStaffLeaderboard(agencyId, null, null);
+        if (leaderboardStats != null) {
+            leaderboardStats.stream()
+                    .filter(s -> staffId.equals(s.getStaffId()))
+                    .findFirst()
+                    .ifPresent(stat -> {
+                        if (stat.getRatingAvg() != null && stat.getTotalReviews() != null && stat.getTotalReviews() > 0) {
+                            res.setRatingAvg(stat.getRatingAvg().setScale(1, RoundingMode.HALF_UP));
+                            res.setTotalReviews(stat.getTotalReviews());
+                        }
+                        if (stat.getTotalCompletedJobs() != null) {
+                            res.setTotalCompletedJobs(stat.getTotalCompletedJobs());
+                        }
+                    });
+        }
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long userId) {

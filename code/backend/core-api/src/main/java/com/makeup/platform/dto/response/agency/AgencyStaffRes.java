@@ -34,4 +34,6 @@ public class AgencyStaffRes {
     private List<Long> packageIds;
     private Integer experienceYears;
     private BigDecimal ratingAvg;
+    private Integer totalReviews;
+    private Integer totalCompletedJobs;
 }

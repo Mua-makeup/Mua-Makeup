@@ -22,6 +22,7 @@ import { agencyService } from '../../../services/agency.service';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { overtimeRuleSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { useUndoDelete } from '../../../hooks/useUndoDelete';
 import { TableSkeleton } from '../../base/Skeleton';
 
 
@@ -39,6 +40,7 @@ const isValidImageUrl = (url) => {
 
 export const OvertimeConfigCard = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
 
   // Rules State
   const [rules, setRules] = useState([]);

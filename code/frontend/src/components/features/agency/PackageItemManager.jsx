@@ -10,9 +10,12 @@ import { agencyService } from '../../../services/agency.service';
 import { formatCurrency } from '../../../utils/formatters';
 import { packageItemSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { useUndoDelete } from '../../../hooks/useUndoDelete';
+import { useUndoDelete } from '../../../hooks/useUndoDelete';
 
 export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
   const [items, setItems] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -195,21 +198,30 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (!deletingItem) return;
-    setIsDeleting(true);
-    try {
-      await agencyService.deletePackageItem(pkg.id, deletingItem.id);
-      if (editingItem?.id === deletingItem.id) {
-        resetForm();
-      }
-      setDeletingItem(null);
-      await loadItems();
-    } catch (err) {
-      setError(err.message || t('pkg_item_delete_error'));
-    } finally {
-      setIsDeleting(false);
+    const itemToDelete = deletingItem;
+    if (editingItem?.id === itemToDelete.id) {
+      resetForm();
     }
+    setDeletingItem(null);
+
+    triggerUndoDelete({
+      id: itemToDelete.id,
+      itemName: itemToDelete.itemName,
+      onOptimisticRemove: () => {
+        setItems((prev) => prev.filter((i) => i.id !== itemToDelete.id));
+      },
+      onUndo: () => {
+        setItems((prev) => {
+          if (prev.some((i) => i.id === itemToDelete.id)) return prev;
+          return [...prev, itemToDelete].sort((a, b) => (a.stepOrder || 0) - (b.stepOrder || 0));
+        });
+      },
+      onCommitDelete: async () => {
+        await agencyService.deletePackageItem(pkg.id, itemToDelete.id);
+      },
+    });
   };
 
   return (
