@@ -497,14 +497,14 @@ export const OvertimeConfigCard = () => {
             </div>
           ) : (
             <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-xl">
-              <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-xs">
+              <table className="w-full min-w-[700px] divide-y divide-slate-100 dark:divide-slate-800 text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold text-slate-600 dark:text-slate-300">
-                  <tr>
-                    <th className="px-5 py-3.5">{t('overtime_rule_name')}</th>
-                    <th className="px-5 py-3.5">{t('overtime_threshold_label')}</th>
-                    <th className="px-5 py-3.5">{t('overtime_penalty_label')}</th>
-                    <th className="px-5 py-3.5">{t('status')}</th>
-                    <th className="px-5 py-3.5 text-right">{t('col_actions')}</th>
+                  <tr className="whitespace-nowrap">
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('overtime_rule_name')}</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('overtime_threshold_label')}</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('overtime_penalty_label')}</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('status')}</th>
+                    <th className="px-5 py-3.5 text-right whitespace-nowrap">{t('col_actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -523,7 +523,7 @@ export const OvertimeConfigCard = () => {
                       </td>
 
                       {/* Cột Ngưỡng Quá Giờ Thiết Kế Tối Ưu & Đẹp Mắt */}
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
                         <div className="flex flex-col gap-1">
                           <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50/90 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-900/50 w-fit shadow-2xs font-mono">
                             ≥ {r.minOvertimeMinutes} {t('unit_minutes')}
@@ -542,12 +542,12 @@ export const OvertimeConfigCard = () => {
                       </td>
 
                       {/* Chế tài áp dụng */}
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
                         {renderPenaltyDisplay(r)}
                       </td>
 
                       {/* Trạng thái Toggle Switch */}
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
                         <label className="relative inline-flex items-center cursor-pointer select-none">
                           <input
                             type="checkbox"
@@ -762,20 +762,20 @@ export const OvertimeConfigCard = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
+          <table className="w-full min-w-[850px] divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold text-slate-600 dark:text-slate-300">
-              <tr>
-                <th className="px-5 py-3">{t('col_staff_name')}</th>
-                <th className="px-5 py-3">{t('overtime_col_booking_time')}</th>
-                <th className="px-5 py-3">{t('overtime_col_incurred')}</th>
-                <th className="px-5 py-3">{t('overtime_col_reason')}</th>
-                <th className="px-5 py-3">{t('status')}</th>
-                <th className="px-5 py-3 text-right">{t('col_actions')}</th>
+              <tr className="whitespace-nowrap">
+                <th className="px-5 py-3 whitespace-nowrap">{t('col_staff_name')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('overtime_col_booking_time')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('overtime_col_incurred')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('overtime_col_reason')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('status')}</th>
+                <th className="px-5 py-3 text-right whitespace-nowrap">{t('col_actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {reports.length === 0 ? (
-                <tr>
+                <tr className="whitespace-nowrap">
                   <td colSpan={6} className="px-5 py-8 text-center text-xs text-slate-400 dark:text-slate-500 italic">
                     {t('empty_reports_msg')}
                   </td>
@@ -783,19 +783,19 @@ export const OvertimeConfigCard = () => {
               ) : (
                 reports.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3.5 whitespace-nowrap">
                       <span className="font-bold text-slate-900 dark:text-white block">
                         {r.staffName || `${t('staff_label')} #${r.staffId}`}
                       </span>
                       <span className="text-xs text-slate-400 font-mono">Staff ID: {r.staffId}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-xs">
+                    <td className="px-5 py-3.5 text-xs whitespace-nowrap">
                       <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 block">
                         {t('booking_label')} #{r.bookingId}
                       </span>
                       <span className="text-slate-400 font-mono">{formatDateTime(r.createdAt)}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-xs">
+                    <td className="px-5 py-3.5 text-xs whitespace-nowrap">
                       <span className="font-bold text-slate-900 dark:text-white block">
                         +{r.overtimeMinutes ?? r.actualOvertimeMinutes ?? 0} {t('unit_minutes') || 'phút'}
                       </span>

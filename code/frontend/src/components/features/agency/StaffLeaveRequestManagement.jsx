@@ -238,14 +238,14 @@ export const StaffLeaveRequestManagement = ({ onLeaveApproved }) => {
           <div className="hidden md:block overflow-x-auto bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
             <table className="w-full min-w-[720px] text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs">
-                  <th className="py-3 px-4">{t('staff_label') || 'Thợ Make-up'}</th>
-                  <th className="py-3 px-4">{t('leave_col_date') || 'Ngày xin nghỉ'}</th>
-                  <th className="py-3 px-4">{t('leave_col_shift') || 'Ca / Khung giờ'}</th>
-                  <th className="py-3 px-4">{t('leave_col_reason') || 'Lý do xin nghỉ'}</th>
-                  <th className="py-3 px-4">{t('status') || 'Trạng thái'}</th>
-                  <th className="py-3 px-4">{t('leave_col_submitted_at') || 'Ngày gửi đơn'}</th>
-                  <th className="py-3 px-4 text-right">{t('col_actions') || 'Thao tác'}</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-xs whitespace-nowrap">
+                  <th className="py-3 px-4 whitespace-nowrap">{t('staff_label') || 'Thợ Make-up'}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leave_col_date') || 'Ngày xin nghỉ'}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leave_col_shift') || 'Ca / Khung giờ'}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leave_col_reason') || 'Lý do xin nghỉ'}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('status') || 'Trạng thái'}</th>
+                  <th className="py-3 px-4 whitespace-nowrap">{t('leave_col_submitted_at') || 'Ngày gửi đơn'}</th>
+                  <th className="py-3 px-4 text-right whitespace-nowrap">{t('col_actions') || 'Thao tác'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
