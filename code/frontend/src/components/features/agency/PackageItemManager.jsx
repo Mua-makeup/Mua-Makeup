@@ -463,7 +463,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
               {itemType === 'COMPONENT' && remainingMinutes > 0 && !editingItem && durationMinutes !== remainingMinutes && (
                 <div className="mt-1 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500 dark:text-slate-400">
-                    {t('pkg_remaining_duration')}: <strong>{remainingMinutes}p</strong>
+                    {t('pkg_remaining_duration')}: <strong>{remainingMinutes}{t('unit_minutes_short')}</strong>
                   </span>
                   <button
                     type="button"
@@ -487,7 +487,7 @@ export const PackageItemManager = ({ isOpen, onClose, pkg }) => {
                 onChange={(e) => setSortOrder(e.target.value)}
               />
               <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                Tự động gợi ý bước tiếp theo
+                {t('pkg_step_order_hint') || 'Tự động gợi ý bước tiếp theo'}
               </p>
             </div>
           </div>
