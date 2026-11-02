@@ -16,6 +16,15 @@ import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.entity.booking.BookingStatus;
 import com.makeup.platform.entity.catalog.PackageItemType;
 import com.makeup.platform.service.wallet.PlatformFeeService;
+import com.makeup.platform.entity.payment.BookingDepositEntity;
+import com.makeup.platform.entity.payment.PaymentTransactionEntity;
+import com.makeup.platform.entity.wallet.BookingCashReceiptEntity;
+import com.makeup.platform.entity.wallet.BookingSettlementEntity;
+import com.makeup.platform.repository.payment.BookingDepositRepository;
+import com.makeup.platform.repository.payment.PaymentTransactionRepository;
+import com.makeup.platform.repository.wallet.BookingCashReceiptRepository;
+import com.makeup.platform.repository.wallet.BookingSettlementRepository;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +43,10 @@ public class BookingMapper {
 
     private final BookingStaffAssignmentMapper bookingStaffAssignmentMapper;
     private final PlatformFeeService platformFeeService;
+    private final BookingDepositRepository bookingDepositRepository;
+    private final BookingCashReceiptRepository cashReceiptRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
+    private final BookingSettlementRepository settlementRepository;
 
     public BookingStateTransitionRes toTransitionRes(BookingEntity entity, BookingStatus previousStatus, Long updatedByUserId) {
         if (entity == null) {
@@ -203,6 +216,149 @@ public class BookingMapper {
             muaId = primary.getStaffId();
         }
 
+        // 1. Stage 1: Deposit (30%)
+        BigDecimal totalAmount = entity.getTotalAmount() != null ? entity.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal depositAmount = entity.getDepositAmount() != null ? entity.getDepositAmount() : BigDecimal.ZERO;
+        BigDecimal remainingAmount = totalAmount.subtract(depositAmount).max(BigDecimal.ZERO);
+        boolean isDepositPaid = false;
+        String depositStatus = "PENDING";
+        String depositPaymentMethod = null;
+        BookingStatus bStatus = entity.getStatus();
+
+        if (bookingDepositRepository != null) {
+            Optional<BookingDepositEntity> depositOpt = bookingDepositRepository.findByBookingId(entity.getId());
+            if (depositOpt.isPresent()) {
+                BookingDepositEntity dep = depositOpt.get();
+                if (dep.getPaidAmount() != null && dep.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    depositAmount = dep.getPaidAmount();
+                    remainingAmount = totalAmount.subtract(depositAmount).max(BigDecimal.ZERO);
+                }
+                depositStatus = dep.getStatus();
+                if ("PAID".equalsIgnoreCase(depositStatus)) {
+                    isDepositPaid = true;
+                }
+                if (dep.getAppliedPayment() != null && dep.getAppliedPayment().getPaymentGateway() != null) {
+                    depositPaymentMethod = dep.getAppliedPayment().getPaymentGateway();
+                }
+            }
+        }
+
+        if (!isDepositPaid && bStatus != null && (bStatus == BookingStatus.ON_THE_WAY
+                || bStatus == BookingStatus.ARRIVED
+                || bStatus == BookingStatus.IN_PROGRESS
+                || bStatus == BookingStatus.COMPLETED
+                || bStatus == BookingStatus.PAID_OUT
+                || bStatus == BookingStatus.ACCEPTED
+                || bStatus == BookingStatus.AGENCY_ASSIGNED
+                || bStatus == BookingStatus.REQUESTED)) {
+            isDepositPaid = true;
+            if ("PENDING".equals(depositStatus) || "UNPAID".equals(depositStatus)) {
+                depositStatus = "PAID";
+            }
+        }
+
+        if (paymentTransactionRepository != null && (depositPaymentMethod == null || "ESCROW".equals(depositPaymentMethod))) {
+            List<PaymentTransactionEntity> successTxs = paymentTransactionRepository.findByBookingIdAndStatus(entity.getId(), "SUCCESS");
+            if (successTxs != null) {
+                for (PaymentTransactionEntity tx : successTxs) {
+                    if ("BOOKING_DEPOSIT".equalsIgnoreCase(tx.getPurpose()) || "DEPOSIT".equalsIgnoreCase(tx.getPurpose())) {
+                        depositPaymentMethod = tx.getPaymentGateway();
+                        isDepositPaid = true;
+                        depositStatus = "PAID";
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (depositPaymentMethod == null && isDepositPaid) {
+            depositPaymentMethod = "ESCROW";
+        }
+
+        if (bStatus == BookingStatus.DISPUTE_REFUNDED || "REFUNDED".equalsIgnoreCase(depositStatus)) {
+            depositStatus = "REFUNDED";
+        } else if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
+            if (!isDepositPaid) {
+                depositStatus = "WAIVED";
+            }
+        }
+
+        // 2. Stage 2: Final Settlement (70% Remaining)
+        boolean isFinalPaid = false;
+        String finalPaymentMethod = "CASH_OR_ONLINE";
+        String finalPaymentStatus = "PENDING";
+        boolean settlementRecorded = false;
+
+        Optional<BookingSettlementEntity> settlementOpt = (settlementRepository != null)
+                ? settlementRepository.findByBookingId(entity.getId())
+                : Optional.empty();
+
+        if (settlementOpt.isPresent() && "SETTLED".equalsIgnoreCase(settlementOpt.get().getStatus())) {
+            settlementRecorded = true;
+        }
+
+        if (bStatus == BookingStatus.CANCELLED || bStatus == BookingStatus.CANCELLED_EXPIRED) {
+            finalPaymentStatus = "WAIVED";
+            finalPaymentMethod = "NONE";
+        } else if (bStatus == BookingStatus.DISPUTED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
+            finalPaymentStatus = "DISPUTED";
+        } else {
+            // 1. Check Online Final Payment first (VNPAY, MOMO, etc. take precedence for exact gateway name)
+            if (paymentTransactionRepository != null) {
+                List<PaymentTransactionEntity> successTxs = paymentTransactionRepository.findByBookingIdAndStatus(entity.getId(), "SUCCESS");
+                if (successTxs != null) {
+                    for (PaymentTransactionEntity tx : successTxs) {
+                        if ("BOOKING_FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose()) || "FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose())) {
+                            isFinalPaid = true;
+                            finalPaymentStatus = "PAID";
+                            finalPaymentMethod = tx.getPaymentGateway();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 2. Check Cash Receipt
+            if (!isFinalPaid && cashReceiptRepository != null) {
+                Optional<BookingCashReceiptEntity> receiptOpt = cashReceiptRepository.findByBookingId(entity.getId());
+                if (receiptOpt.isPresent()) {
+                    BookingCashReceiptEntity receipt = receiptOpt.get();
+                    finalPaymentMethod = "CASH";
+                    if ("BOTH_CONFIRMED".equalsIgnoreCase(receipt.getStatus())) {
+                        isFinalPaid = true;
+                        finalPaymentStatus = "PAID";
+                    } else if ("CUSTOMER_CONFIRMED".equalsIgnoreCase(receipt.getStatus())) {
+                        finalPaymentStatus = "CUSTOMER_CONFIRMED";
+                    } else {
+                        finalPaymentStatus = "PENDING";
+                    }
+                }
+            }
+
+            // 3. Check Settlement
+            if (settlementRecorded) {
+                isFinalPaid = true;
+                finalPaymentStatus = "PAID";
+                if ("CASH_OR_ONLINE".equals(finalPaymentMethod)) {
+                    BookingSettlementEntity settlement = settlementOpt.get();
+                    if (settlement.getCashAmount() != null && settlement.getCashAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        finalPaymentMethod = "CASH";
+                    } else {
+                        finalPaymentMethod = "ONLINE";
+                    }
+                }
+            }
+
+            // 4. Fallback for PAID_OUT
+            if (bStatus == BookingStatus.PAID_OUT) {
+                isFinalPaid = true;
+                finalPaymentStatus = "PAID";
+                if ("CASH_OR_ONLINE".equals(finalPaymentMethod)) {
+                    finalPaymentMethod = "CASH";
+                }
+            }
+        }
+
         return AdminBookingRes.builder()
                 .id(entity.getId())
                 .bookingCode(entity.getBookingCode())
@@ -234,8 +390,16 @@ public class BookingMapper {
                 .serviceSubtotal(entity.getServiceSubtotal())
                 .distanceFee(entity.getDistanceFee())
                 .surchargeFee(entity.getSurchargeFee())
-                .totalAmount(entity.getTotalAmount())
-                .depositAmount(entity.getDepositAmount())
+                .totalAmount(totalAmount)
+                .depositAmount(depositAmount)
+                .remainingAmount(remainingAmount)
+                .isDepositPaid(isDepositPaid)
+                .depositPaymentMethod(depositPaymentMethod)
+                .depositStatus(depositStatus)
+                .isFinalPaid(isFinalPaid)
+                .finalPaymentMethod(finalPaymentMethod)
+                .finalPaymentStatus(finalPaymentStatus)
+                .settlementRecorded(settlementRecorded)
                 .completionPhotoUrl(entity.getCompletionPhotoUrl())
                 .cancellationReason(entity.getCancellationReason())
                 .createdAt(entity.getCreatedAt())

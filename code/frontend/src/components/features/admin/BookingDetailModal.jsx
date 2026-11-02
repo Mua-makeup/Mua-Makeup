@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { X, Calendar, Clock, MapPin, User, DollarSign, Image, AlertCircle, History, Package, AlertTriangle, ExternalLink, CreditCard } from 'lucide-react';
 import { superAdminService } from '../../../services/super-admin.service';
 import { useI18nStore } from '../../../store/useI18nStore';
@@ -698,7 +698,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
                       <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                         <span className="text-slate-500 dark:text-slate-400 shrink-0">{t('payment_method_label') || 'Phương thức'}:</span>
                         <span className="font-medium text-slate-800 dark:text-slate-200 text-right">
-                          {getPaymentMethodLabel(b.finalPaymentMethod || (isFinalPaid ? 'CASH' : 'CASH_OR_ONLINE'))}
+                          {getPaymentMethodLabel(b.finalPaymentMethod || b.paymentGateway || 'CASH_OR_ONLINE')}
                         </span>
                       </div>
                     </div>
