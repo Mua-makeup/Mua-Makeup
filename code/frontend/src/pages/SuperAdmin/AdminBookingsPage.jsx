@@ -21,7 +21,8 @@ import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 import { formatDate } from '../../utils/formatters';
 
 export const AdminBookingsPage = () => {
-  const { t } = useI18nStore();
+  const { t, language } = useI18nStore();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [overviewStats, setOverviewStats] = useState({
     totalBookings: 0,

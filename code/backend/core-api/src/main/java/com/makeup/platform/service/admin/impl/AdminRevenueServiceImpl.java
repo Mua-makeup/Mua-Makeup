@@ -131,13 +131,9 @@ public class AdminRevenueServiceImpl implements AdminRevenueService {
     ) {
         BigDecimal liveRate = platformFeeService.getRate();
 
-        var spec = BookingSpecifications.revenueEligible()
+        var spec = BookingSpecifications.revenueStatus(status)
                 .and(BookingSpecifications.partner(partner))
                 .and(BookingSpecifications.keyword(keyword));
-
-        if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
-            spec = spec.and(BookingSpecifications.adminStatus(status));
-        }
 
         Sort order = Sort.by(Sort.Direction.DESC, "createdAt", "id");
         Pageable queryPage = pageable == null || pageable.isUnpaged()
