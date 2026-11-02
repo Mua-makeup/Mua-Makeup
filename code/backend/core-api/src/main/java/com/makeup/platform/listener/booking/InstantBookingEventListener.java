@@ -58,7 +58,10 @@ public class InstantBookingEventListener {
                 matchedPayload.put("serviceName", booking.getServicePackage() != null
                         ? booking.getServicePackage().getPackageName() : "Trang Điểm Khẩn Cấp");
                 matchedPayload.put("basePrice", booking.getServiceSubtotal());
-                matchedPayload.put("emergencySurchargeFee", booking.getSurchargeFee());
+                matchedPayload.put("emergencySurchargeFee", new BigDecimal("150000"));
+                matchedPayload.put("surgeAmount", booking.getSurchargeFee().subtract(new BigDecimal("150000")).max(BigDecimal.ZERO));
+                matchedPayload.put("surgeMultiplier", booking.getSurgeMultiplier());
+                matchedPayload.put("pricingReason", booking.getInstantPricingReason());
                 matchedPayload.put("distanceFee", booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO);
                 matchedPayload.put("totalAmount", booking.getTotalAmount());
                 matchedPayload.put("depositAmount", booking.getDepositAmount());

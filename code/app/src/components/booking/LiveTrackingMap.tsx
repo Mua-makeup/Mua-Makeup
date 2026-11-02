@@ -364,7 +364,7 @@ export const LiveTrackingMap: React.FC<Props> = ({
   streamMode,
   role = 'CUSTOMER',
 }) => {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<object>>(null);
   const [isFollowing, setIsFollowing] = useState(true);
 
   // Goong base route state để tính Hybrid ETA mượt mà (không nhảy số)
@@ -482,7 +482,7 @@ export const LiveTrackingMap: React.FC<Props> = ({
             title="Live GPS Tracking Map"
           />
         ) : (
-          <WebView
+          <WebView<object>
             key="live-tracking-stable-webview"
             ref={webViewRef}
             originWhitelist={['*']}

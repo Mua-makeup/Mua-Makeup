@@ -189,7 +189,7 @@ export const StudioProfileHeader: React.FC<Props> = ({ studio, distanceKm }) => 
             },
           ]}
         >
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <StatusBar barStyle="light-content" />
           <View style={styles.zoomHeader}>
             <TouchableOpacity
               style={styles.zoomBackBtn}

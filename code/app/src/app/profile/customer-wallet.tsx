@@ -39,7 +39,7 @@ function formatDateShort(isoStr?: string): string {
 
 function formatDateTimeFull(isoStr?: string): string {
   if (!isoStr) return '';
-  return formatDateTimeVN(isoStr, true) || isoStr;
+  return formatDateTimeVN(isoStr) || isoStr;
 }
 
 export default function CustomerWalletScreen() {

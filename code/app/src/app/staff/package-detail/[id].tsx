@@ -35,7 +35,7 @@ export default function StaffPackageDetailScreen() {
   // Gallery slider state
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const imageScrollRef = useRef<ScrollView>(null);
+  const imageScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
     let isMounted = true;

@@ -7,6 +7,7 @@ import { BrandColors } from '@/constants/theme';
 import { CustomerBookingItem, BookingStatusType } from '@/services/booking.service';
 import { formatDateTimeVN } from '@/utils/date';
 import { router } from 'expo-router';
+import { getInstantCancellationLabel } from '@/utils/booking-payment';
 import { UserAvatar } from '@/components/common/UserAvatar';
 
 interface Props {
@@ -54,6 +55,10 @@ export const BookingHistoryCard: React.FC<Props> = ({
   );
 
   const getStatusBadge = (status: BookingStatusType) => {
+    const instantCancellationLabel = getInstantCancellationLabel(booking);
+    if (instantCancellationLabel) {
+      return { label: instantCancellationLabel, color: '#64748B', bg: '#F1F5F9' };
+    }
     if (isSlotTakenCancelled) {
       return { label: 'Trùng Lịch • Đã Hoàn Cọc', color: '#059669', bg: '#D1FAE5' };
     }

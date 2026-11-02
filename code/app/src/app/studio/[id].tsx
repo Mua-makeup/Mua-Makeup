@@ -192,7 +192,7 @@ export default function StudioProfileScreen() {
         title: sp.title,
         categoryName: catName,
         styleNames: sNames,
-        packageId: sp.packageId ? String(sp.packageId) : undefined,
+        packageId: sp.packageId ?? undefined,
         packageName: sp.packageName || linkedPkg?.packageName,
         price: linkedPkg?.price,
       });

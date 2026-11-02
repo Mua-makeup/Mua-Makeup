@@ -196,6 +196,8 @@
     "not_found": "Booking not found.",
     "unauthorized_transition": "Unauthorized booking status transition.",
     "invalid_status": "Invalid booking status for this operation.",
+    "quote_success": "Price quote generated successfully.",
+    "instant_quote_expired_or_changed": "The price quote has expired or the request has changed. Please preview the quote again before searching for a MUA.",
     "deposit_already_paid": "Deposit for this booking has already been paid.",
     "deposit_expired": "Deposit window has expired (15 minutes).",
     "deposit_not_found": "No deposit obligation found for this booking.",

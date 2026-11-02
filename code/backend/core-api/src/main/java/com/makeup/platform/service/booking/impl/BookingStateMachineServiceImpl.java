@@ -820,10 +820,12 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
         BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
         BigDecimal totalAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
         BigDecimal depositAmount = booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO;
+        boolean isDepositRefunded = false;
         if (bookingDepositRepository != null) {
             Optional<BookingDepositEntity> depositOpt = bookingDepositRepository.findByBookingId(bookingId);
             if (depositOpt.isPresent()) {
                 BookingDepositEntity dep = depositOpt.get();
+                isDepositRefunded = "REFUNDED".equalsIgnoreCase(dep.getStatus());
                 if (dep.getPaidAmount() != null && dep.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
                     depositAmount = dep.getPaidAmount();
                 } else if (dep.getRequiredAmount() != null && dep.getRequiredAmount().compareTo(BigDecimal.ZERO) > 0) {
@@ -1116,6 +1118,11 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .rating(rating)
                 .serviceSubtotal(serviceSubtotal)
                 .surchargeFee(surchargeFee)
+                .surgeMultiplier(booking.getSurgeMultiplier())
+                .instantBasePrice(booking.getInstantBasePrice())
+                .instantDemandCount(booking.getInstantDemandCount())
+                .instantSupplyCount(booking.getInstantSupplyCount())
+                .instantPricingReason(booking.getInstantPricingReason())
                 .distanceFee(distanceFee)
                 .totalAmount(totalAmount)
                 .depositAmount(depositAmount)
@@ -1129,6 +1136,7 @@ public class BookingStateMachineServiceImpl implements BookingStateMachineServic
                 .cancellationReason(booking.getCancellationReason())
                 .disputeOrigin(resolveDisputeOrigin(booking.getEmergencyReason(), booking.getCancellationReason()))
                 .isDepositPaid(isDepositPaid)
+                .isDepositRefunded(isDepositRefunded)
                 .depositTimeoutSeconds(depositTimeoutSeconds)
                 .confirmDeadline(booking.getConfirmDeadline())
                 .confirmTimeoutSeconds(confirmTimeoutSeconds)

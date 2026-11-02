@@ -41,7 +41,7 @@ export function FloatingAiAssistantBubble() {
   const pathname = usePathname();
   const segments = useSegments();
   const { width, height } = useWindowDimensions();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const { isAuthenticated, userInfo } = useAuthStore();
 
   const [isOpen, setIsOpen] = useState(false);

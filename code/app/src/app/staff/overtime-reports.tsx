@@ -25,7 +25,7 @@ type FilterTab = 'ALL' | 'PENDING' | 'APPROVED' | 'PENALIZED';
 
 export default function StaffOvertimeReportsScreen() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuthStore();
+  const { userInfo: user } = useAuthStore();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);

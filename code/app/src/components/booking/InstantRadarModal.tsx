@@ -1,3 +1,5 @@
+import { InstantQuoteSummary } from './InstantQuoteSummary';
+import type { InstantPriceQuote } from '@/services/booking.service';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -80,6 +82,8 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
   const [step, setStep] = useState<'IDLE' | 'SCANNING' | 'MATCHED' | 'TIMEOUT'>('IDLE');
   const [secondsLeft, setSecondsLeft] = useState(45);
+  const [priceQuote, setPriceQuote] = useState<InstantPriceQuote | null>(null);
+  const quoteRequestRef = useRef('');
   const [isSubmittingScan, setIsSubmittingScan] = useState(false);
   const [createdBooking, setCreatedBooking] = useState<InstantBookingCreatedRes | null>(null);
   const [matchedMua, setMatchedMua] = useState<{
@@ -93,7 +97,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
   const timerRef = useRef<any>(null);
   const statusPollRef = useRef<any>(null);
   const activeTopicRef = useRef<string | null>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
     if (suggestions.length > 0) {
@@ -388,6 +392,8 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
     }
   }, [step, createdBooking?.searchTimeoutSeconds]);
 
+  useEffect(() => { setPriceQuote(null); }, [visible, address, addressNote, selectedCategory?.id, selectedStyle?.id, searchRadius, currentTargetMua?.providerId]);
+
   const handleStartScan = async () => {
     if (isSubmittingScan) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -484,7 +490,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
 
       const sendAddress = address?.trim() || currentAddress || 'Vị trí hiện tại của bạn';
 
-      const res = await bookingService.createInstantBooking({
+      const payload = {
         masterCategoryId: selectedCategory.id,
         targetMuaId: currentTargetMua?.providerId,
         styleId: selectedStyle?.id,
@@ -493,7 +499,16 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
         destinationLatitude: targetLat,
         destinationLongitude: targetLng,
         note: addressNote?.trim(),
-      });
+      };
+      const requestKey = JSON.stringify(payload);
+      if (!priceQuote || quoteRequestRef.current !== requestKey || priceQuote.expiresAt <= Date.now()) {
+        const quote = await bookingService.previewInstantQuote(payload);
+        quoteRequestRef.current = requestKey;
+        setPriceQuote(quote);
+        return;
+      }
+      const res = await bookingService.createInstantBooking({ ...payload, quoteId: priceQuote.quoteId });
+      setPriceQuote(null);
 
       setCreatedBooking(res);
       setSecondsLeft(res.searchTimeoutSeconds || 45);
@@ -1026,6 +1041,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                 placeholderTextColor="#94A3B8"
               />
 
+              {priceQuote && <InstantQuoteSummary quote={priceQuote} />}
               {/* NÚT KÍCH HOẠT QUÉT THỢ */}
               <TouchableOpacity
                 style={[styles.startScanBtn, isSubmittingScan && { opacity: 0.6 }]}
@@ -1039,7 +1055,7 @@ export const InstantRadarModal: React.FC<Props> = ({ visible, onClose, targetMua
                   <>
                     <Ionicons name={currentTargetMua ? "paper-plane-outline" : "radio-outline"} size={17} color="#FFFFFF" />
                     <Text style={styles.startScanBtnText}>
-                      {currentTargetMua ? `Gửi Cuốc Hẹn Tới ${currentTargetMua.fullName}` : 'Bắt Đầu Quét Tìm Thợ Gần Nhất'}
+                      {priceQuote ? 'Xác Nhận Giá & Tìm Thợ' : 'Xem Báo Giá Khẩn Cấp'}
                     </Text>
                   </>
                 )}

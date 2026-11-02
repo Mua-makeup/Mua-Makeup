@@ -226,12 +226,15 @@ export default function InstantMatchedScreen() {
 
   // Tính toán hóa đơn
   const baseServicePrice = Number(
+    (selectedPackage?.id === bookingDetail?.packageId ? bookingDetail?.instantBasePrice : undefined) ??
     selectedPackage?.price ??
     bookingDetail?.packagePrice ??
     bookingDetail?.serviceSubtotal ??
     0
   );
-  const emergencySurcharge = Number(bookingDetail?.surchargeFee || 150000);
+  const emergencySurcharge = 150000;
+  const surgeMultiplier = Number(bookingDetail?.surgeMultiplier ?? 1);
+  const surgeAmount = Math.round(baseServicePrice * Math.max(0, surgeMultiplier - 1));
   const distanceFee = Number(bookingDetail?.distanceFee || 0);
 
   const availableAddons: AddOnOption[] = useMemo(() => {
@@ -258,7 +261,7 @@ export default function InstantMatchedScreen() {
   );
   const totalServiceDuration = baseServiceDuration + addonsExtraMinutes;
 
-  const totalAmount = baseServicePrice + emergencySurcharge + distanceFee + addonsTotal;
+  const totalAmount = baseServicePrice + emergencySurcharge + surgeAmount + distanceFee + addonsTotal;
   const depositAmount = Math.round(totalAmount * 0.3);
   const remainingAmount = totalAmount - depositAmount;
 
@@ -591,6 +594,11 @@ export default function InstantMatchedScreen() {
             <Text style={styles.billValue}>{formatVnd(emergencySurcharge)}</Text>
           </View>
 
+          <View style={styles.billRow}>
+            <Text style={styles.billLabel}>Phụ phí nhu cầu cao ({surgeMultiplier.toFixed(2)}×):</Text>
+            <Text style={styles.billValue}>{formatVnd(surgeAmount)}</Text>
+          </View>
+          {!!bookingDetail?.instantPricingReason && <Text style={styles.billLabel}>{bookingDetail.instantPricingReason}</Text>}
           {distanceFee > 0 && (
             <View style={styles.billRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

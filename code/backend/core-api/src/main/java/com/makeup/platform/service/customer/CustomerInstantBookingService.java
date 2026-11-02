@@ -10,6 +10,8 @@ import java.util.Map;
 
 public interface CustomerInstantBookingService {
 
+    Map<String, Object> previewInstantQuote(Long customerId, CreateInstantBookingReq req);
+
     InstantBookingCreatedRes createInstantBooking(Long customerId, CreateInstantBookingReq req);
 
     boolean dispatchNextCandidate(Long bookingId);

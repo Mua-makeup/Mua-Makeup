@@ -50,3 +50,32 @@ export function getBookingPaymentPresentation(input: {
       : input.isDepositPaid ? 'Đã Bảo Chứng' : 'Chờ Đặt Cọc',
   };
 }
+
+/** Older history-list responses omit bookingType; instant codes use BK-FAST-. */
+export function isInstantBooking(booking: { bookingType?: string; bookingCode?: string }) {
+  return booking.bookingType != null
+    ? booking.bookingType === 'REALTIME_INSTANT'
+    : booking.bookingCode?.startsWith('BK-FAST-') === true;
+}
+
+/** Preserve scheduled/studio cancellation behavior; only instant orders require the new payment evidence. */
+export function getCancelledDepositRefunded(
+  booking: { bookingType?: string; bookingCode?: string; isDepositRefunded?: boolean },
+  isCancelled: boolean,
+  legacyRefunded: boolean,
+) {
+  return isCancelled && (isInstantBooking(booking) ? booking.isDepositRefunded === true : legacyRefunded);
+}
+
+/** Return null so ordinary bookings retain their existing badge logic. */
+export function getInstantCancellationLabel(booking: {
+  bookingType?: string; bookingCode?: string; status: string;
+  isDepositPaid?: boolean; isDepositRefunded?: boolean; cancellationReason?: string;
+}) {
+  if (!isInstantBooking(booking) || booking.status !== 'CANCELLED') return null;
+  if (booking.isDepositPaid === true && booking.isDepositRefunded === true) return 'Đã Hoàn Cọc';
+  if (/không tìm thấy|hết thời gian quét|không có chuyên viên/i.test(booking.cancellationReason || '')) {
+    return 'Không Tìm Thấy Thợ';
+  }
+  return 'Đã Hủy';
+}

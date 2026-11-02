@@ -16,7 +16,7 @@ new Function('exports', 'require', compiled.outputText)(api, (name) => {
 const format = api.formatBookingExecutionTime;
 
 test('03:00 UTC execution displays as 10:00 Vietnam time, preserving the 11:00 appointment', () => {
-  for (const suffix of ['Z', '', '+00:00']) {
+  for (const suffix of ['Z', '+00:00']) {
     const result = format({ bookingDate: '2026-10-29', startTime: '11:00',
       startedAt: `2026-10-29T03:00:00${suffix}`, completedAt: `2026-10-29T03:06:00${suffix}` });
     assert.equal(result.startTime, '10:00');
@@ -63,4 +63,12 @@ test('ongoing and invalid completion timestamps are not reported as finished', (
   const result = format({ startedAt: '2026-10-26T20:20:00+07:00', completedAt: 'invalid' });
   assert.equal(result.timeRange, '20:20 - --:--');
   assert.equal(result.isCompleted, false);
+});
+
+test('offset-free server timestamps follow the Vietnam timezone contract', () => {
+  const result = format({ bookingDate: '2026-10-29', startTime: '11:00',
+    startedAt: '2026-10-29T10:00:00', completedAt: '2026-10-29T10:06:00' });
+  assert.equal(result.startTime, '10:00');
+  assert.equal(result.endTime, '10:06');
+  assert.equal(result.scheduledStartTime, '11:00');
 });
