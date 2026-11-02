@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { BrandLogo } from '../../components/base/BrandLogo';
 import {
   Lock,
   Mail,
@@ -12,6 +11,7 @@ import {
   CheckCircle2,
   Percent,
 } from 'lucide-react';
+import { BrandLogo } from '../../components/base/BrandLogo';
 import { authService } from '../../services/auth.service';
 import { agencyRegisterSchema } from '../../schemas/auth.schema';
 import { Input } from '../../components/base/Input';
