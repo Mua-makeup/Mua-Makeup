@@ -109,6 +109,15 @@ export const TRANSLATIONS = {
     revenue_type_instant: 'Cấp Tốc',
     revenue_badge_agency: 'Studio',
     revenue_badge_freelance: 'Thợ Tự Do',
+    studio_fee_reconcile_title: 'Đối soát phí Studio 20%',
+    studio_fee_check_recorded: 'Kiểm tra phí đã ghi sổ',
+    studio_fee_recorded: 'Phí đã ghi',
+    studio_fee_correct: 'Phí đúng',
+    studio_fee_recovery_notice: 'Thu hồi {amount} từ ví chủ Studio bằng bút toán điều chỉnh. Không trừ hoa hồng thợ.',
+    studio_fee_confirm_adjustment: 'Xác nhận điều chỉnh {amount}',
+    studio_fee_no_adjustment: 'Không có khoản điều chỉnh tự động cần áp dụng cho trạng thái hiện tại.',
+    studio_fee_reconcile_error: 'Không thể đối soát phí Studio.',
+    badge_emergency_cancelled: 'Báo bận',
 
     // Agency Admin Menus
     nav_agency_dashboard: 'Tổng Quan Studio',
@@ -2514,6 +2523,15 @@ export const TRANSLATIONS = {
     revenue_type_instant: 'Instant',
     revenue_badge_agency: 'Studio',
     revenue_badge_freelance: 'Freelancer',
+    studio_fee_reconcile_title: 'Studio 20% Fee Reconciliation',
+    studio_fee_check_recorded: 'Check recorded ledger fee',
+    studio_fee_recorded: 'Recorded fee',
+    studio_fee_correct: 'Correct fee',
+    studio_fee_recovery_notice: 'Recover {amount} from studio owner wallet via adjusting ledger entry. Artist commission remains untouched.',
+    studio_fee_confirm_adjustment: 'Confirm adjustment of {amount}',
+    studio_fee_no_adjustment: 'No automated adjustment required for the current state.',
+    studio_fee_reconcile_error: 'Unable to reconcile studio fee.',
+    badge_emergency_cancelled: 'Emergency Leave',
 
     // Agency Admin Menus
     nav_agency_dashboard: 'Studio Dashboard',
