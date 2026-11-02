@@ -9,7 +9,7 @@ function parseServerTime(value?: string): Date | null {
   if (normalized.includes('T')) {
     const timePart = normalized.split('T')[1];
     if (!timePart.endsWith('Z') && !timePart.includes('+') && !timePart.includes('-')) {
-      normalized += 'Z';
+      normalized += '+07:00';
     }
   }
   const date = new Date(normalized);

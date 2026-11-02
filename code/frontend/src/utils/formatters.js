@@ -20,8 +20,7 @@ export function parseToVietnamDate(date) {
       return new Date(Date.UTC(y, m - 1, day, 0, 0, 0));
     }
 
-    // Nếu là dạng ISO datetime (chứa T hoặc space)
-    // Server lưu UTC, nếu chưa có Z hoặc offset (+/-) ở phần time, thêm Z để chuẩn hóa thành UTC
+    // Server mặc định múi giờ Việt Nam (+07:00). Nếu chuỗi không có Z hoặc offset (+/-), gắn +07:00 để chuẩn hóa đúng giờ VN
     let isoString = trimmed;
     if (isoString.includes(' ') && !isoString.includes('T')) {
       isoString = isoString.replace(' ', 'T');
@@ -29,7 +28,7 @@ export function parseToVietnamDate(date) {
     if (isoString.includes('T')) {
       const timePart = isoString.split('T')[1];
       if (!timePart.endsWith('Z') && !timePart.includes('+') && !timePart.includes('-')) {
-        isoString += 'Z';
+        isoString += '+07:00';
       }
     }
 
