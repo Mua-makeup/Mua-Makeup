@@ -34,11 +34,13 @@ import { superAdminService } from '../../services/super-admin.service';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import { useI18nStore } from '../../store/useI18nStore';
 import { DetailLayoutSkeleton } from '../../components/base/Skeleton';
+import { useUndoDelete } from '../../hooks/useUndoDelete';
 
 export const StaffDetailPage = () => {
   const { staffId } = useParams();
   const navigate = useNavigate();
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
 
   const [detail, setDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -233,11 +235,31 @@ export const StaffDetailPage = () => {
   const handleConfirmRemoveStaff = async () => {
     try {
       setIsSaving(true);
-      const res = await agencyService.removeStaff(staffId);
-      setToastMessage(res?.message || t('delete_success'));
+      const checkRes = await agencyService.checkStaffRemovable(staffId);
+      const checkData = checkRes.data || checkRes;
+      if (checkData && checkData.canRemove === false) {
+        setIsRemovingStaff(false);
+        setToastMessage(checkData.reason || t('staff_cannot_be_removed_has_bookings'));
+        return;
+      }
+
       setIsRemovingStaff(false);
-      navigate('/agency/staff');
+      const targetName = detail?.fullName || t('staff_member');
+      triggerUndoDelete({
+        id: staffId,
+        itemName: targetName,
+        onOptimisticRemove: () => {
+          navigate('/agency/staff');
+        },
+        onUndo: () => {
+          // Rollback, no API call
+        },
+        onCommitDelete: async () => {
+          await agencyService.removeStaff(staffId);
+        },
+      });
     } catch (err) {
+      setIsRemovingStaff(false);
       setToastMessage(err.response?.data?.message || err.message || t('error_general'));
     } finally {
       setIsSaving(false);

@@ -271,6 +271,8 @@
   "ERR_STAFF_NOT_FOUND": "Không tìm thấy nhân viên trong Studio này.",
   "ERR_STAFF_ALREADY_EXISTS": "Thợ này hiện đã là nhân viên của Studio.",
   "ERR_STAFF_APPLICATION_PENDING": "Đơn xin gia nhập của bạn đang chờ Studio phê duyệt.",
+  "ERR_STAFF_HAS_ACTIVE_BOOKINGS": "Thợ này đang có {0} đơn đặt lịch chưa hoàn thành ({1}). Vui lòng điều phối lại thợ khác trước khi xóa thợ khỏi Studio.",
+  "agency.staff_has_active_future_bookings": "Thợ này đang có {0} đơn đặt lịch chưa hoàn thành ({1}). Vui lòng điều phối lại thợ khác trước khi xóa thợ khỏi Studio.",
   "ERR_INVITATION_NOT_FOUND": "Mã mời không tồn tại hoặc không hợp lệ.",
   "ERR_INVITATION_EXPIRED": "Mã mời đã hết hạn sử dụng.",
   "ERR_INVITATION_ALREADY_USED": "Mã mời đã được sử dụng hoặc đã bị hủy.",
@@ -442,7 +444,9 @@
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
     "dispute_resolved_success": "Phân xử khiếu nại thành công!",
     "platform_fee_get_success": "Lấy thông tin phí sàn thành công.",
-    "platform_fee_updated": "Cập nhật phí sàn thành công!"
+    "platform_fee_updated": "Cập nhật phí sàn thành công!",
+    "revenue_overview_success": "Lấy tổng quan báo cáo doanh thu và thực nhận thành công.",
+    "revenue_settlements_success": "Lấy danh sách đối soát doanh thu thành công."
   },
   "dispute": {
     "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",

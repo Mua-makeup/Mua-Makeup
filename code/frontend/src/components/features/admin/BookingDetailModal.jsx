@@ -225,9 +225,11 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
   };
 
   const getPartnerLabel = (partner) => {
-    if (partner === 'FREELANCER_DIRECT') return t('partner_freelancer');
-    if (partner === 'AGENCY_STUDIO') return t('partner_agency');
-    return partner || '';
+    if (!partner) return '';
+    const upper = String(partner).toUpperCase();
+    if (upper === 'FREELANCER_DIRECT' || upper === 'FREELANCER' || upper === 'FREELANCE') return t('partner_freelancer');
+    if (upper === 'AGENCY_DISPATCH' || upper === 'AGENCY_STUDIO' || upper === 'AGENCY') return t('partner_agency');
+    return partner;
   };
 
   const isTerminated = ['CANCELLED', 'CANCELLED_EXPIRED', 'COMPLETED', 'REFUNDED'].includes(b.status);
@@ -336,7 +338,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
                 </div>
                 {b.agencyName && (
                   <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded border border-rose-200 dark:border-rose-900/40">
-                    Studio: {b.agencyName}
+                    {t('field_agency_name') || 'Studio'}: {b.agencyName}
                   </span>
                 )}
               </div>
@@ -384,7 +386,7 @@ export const BookingDetailModal = ({ isOpen, onClose, booking }) => {
                             </Badge>
                             {primaryStaff.status === 'EMERGENCY_CANCELLED' && (
                               <span className="text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 px-1 py-0.5 rounded border border-red-200 dark:border-red-900/40">
-                                Báo bận
+                                {t('badge_emergency_cancelled') || 'Báo bận'}
                               </span>
                             )}
                           </div>

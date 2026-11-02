@@ -18,8 +18,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.SourceType;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -54,7 +52,7 @@ public class BookingHistoryEntity {
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
-    @CreationTimestamp(source = SourceType.DB)
+    @CreationTimestamp
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt;
 }

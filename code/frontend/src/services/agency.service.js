@@ -71,6 +71,7 @@ export const agencyService = {
     apiClient.put(`/agencies/staff/${staffId}/certificates/review`, data, {
       params: { certName },
     }),
+  checkStaffRemovable: (staffId) => apiClient.get(`/agencies/staff/${staffId}/removable`),
   removeStaff: (staffId) => apiClient.delete(`/agencies/staff/${staffId}`),
 
   // Phân quyền Style & Gói dịch vụ cho thợ

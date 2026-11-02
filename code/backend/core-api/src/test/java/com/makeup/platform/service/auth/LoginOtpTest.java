@@ -36,7 +36,7 @@ class LoginOtpTest {
         ReflectionTestUtils.setField(service, "otpTestMode", true);
         prepareResend();
         service.resend2FaOtp(Resend2FaReq.builder().tempToken("session").build());
-        verify(values).set("auth:2fa:otp:7", "test:123456", 5, TimeUnit.MINUTES);
+        verify(values).set("auth:2fa:otp:7", "test:123456", 60L, TimeUnit.SECONDS);
         verifyNoInteractions(email);
         assertEquals("123456", ReflectionTestUtils.invokeMethod(service, "generateLoginOtp"));
     }
@@ -45,9 +45,9 @@ class LoginOtpTest {
         prepareResend();
         service.resend2FaOtp(Resend2FaReq.builder().tempToken("session").build());
         var code = ArgumentCaptor.forClass(String.class);
-        verify(email).sendAdminLoginOtp(eq("mentor@example.com"), eq("Mentor"), code.capture(), eq(5));
+        verify(email).sendAdminLoginOtp(eq("mentor@example.com"), eq("Mentor"), code.capture(), eq(60));
         assertTrue(code.getValue().matches("[0-9]{6}"));
-        verify(values).set("auth:2fa:otp:7", code.getValue(), 5, TimeUnit.MINUTES);
+        verify(values).set("auth:2fa:otp:7", code.getValue(), 60L, TimeUnit.SECONDS);
     }
 
     @Test void switchingOffRejectsOutstandingTestOtp() {

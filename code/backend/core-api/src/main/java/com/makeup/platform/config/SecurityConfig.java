@@ -34,6 +34,7 @@ public class SecurityConfig {
     private static final List<String> ALLOWED_ORIGINS = List.of(
             "http://localhost:[*]",
             "http://127.0.0.1:[*]",
+            "https://mua-makeup.vercel.app",
             "https://*.vercel.app",
             "https://*.railway.app",
             "https://*.ngrok-free.app",

@@ -2,6 +2,7 @@ package com.makeup.platform.repository;
 
 import com.makeup.platform.entity.agency.AgencyStaffShiftEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -110,4 +111,13 @@ public interface AgencyStaffShiftRepository extends JpaRepository<AgencyStaffShi
             @Param("staffId") Long staffId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    @Modifying
+    @Query("UPDATE AgencyStaffShiftEntity s SET s.isActive = false " +
+            "WHERE s.staff.id = :staffId AND s.isActive = true " +
+            "AND (s.isRecurring = true OR (s.workDate IS NOT NULL AND s.workDate >= :fromDate))")
+    int deactivateFutureAndRecurringShiftsForStaff(
+            @Param("staffId") Long staffId,
+            @Param("fromDate") LocalDate fromDate
+    );
 }

@@ -16,6 +16,7 @@ import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.dto.response.agency.AssignedStyleRes;
 import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
+import com.makeup.platform.dto.response.agency.StaffRemovableRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffStyleEntity;
@@ -28,7 +29,10 @@ import com.makeup.platform.entity.auth.RoleEntity;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.AgencyStaffShiftRepository;
 import com.makeup.platform.repository.AgencyStaffStyleRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
+import com.makeup.platform.repository.mua.MUACalendarRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
@@ -45,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -81,6 +86,9 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
 
     private final AgencyProfileRepository agencyProfileRepository;
     private final AgencyStaffRepository agencyStaffRepository;
+    private final AgencyStaffShiftRepository agencyStaffShiftRepository;
+    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
+    private final MUACalendarRepository muaCalendarRepository;
     private final AgencyStaffStyleRepository agencyStaffStyleRepository;
     private final AgencyStaffServiceRepository agencyStaffServiceRepository;
     private final MuaProfileRepository muaProfileRepository;
@@ -390,7 +398,10 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                 UserEntity staffUser = staff.getMua().getUser();
                 roleRepository.findByName(SecurityConstants.ROLE_AGENCY_STAFF).ifPresent(staffRole -> {
                     staffUser.setRole(staffRole);
-                    userRepository.save(staffUser);
+                    int updated = userRepository.updateUserRole(staffUser.getId(), staffRole.getId());
+                    if (updated == 0) {
+                        userRepository.insertUserRole(staffUser.getId(), staffRole.getId());
+                    }
                     log.info("Updated UserEntity role to ROLE_AGENCY_STAFF for userId={}", staffUser.getId());
                 });
             }
@@ -553,7 +564,10 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             UserEntity staffUser = staff.getMua().getUser();
             roleRepository.findByName(SecurityConstants.ROLE_FREELANCE_MUA).ifPresent(freelanceRole -> {
                 staffUser.setRole(freelanceRole);
-                userRepository.save(staffUser);
+                int updated = userRepository.updateUserRole(staffUser.getId(), freelanceRole.getId());
+                if (updated == 0) {
+                    userRepository.insertUserRole(staffUser.getId(), freelanceRole.getId());
+                }
                 log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
             });
         }
@@ -592,20 +606,80 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                         "ERR_STAFF_NOT_FOUND"
                 ));
 
+        LocalDate today = LocalDate.now();
+
+        // 1. Safety Pre-check: Check if staff has active upcoming bookings
+        List<String> activeBookingCodes = bookingStaffAssignmentRepository.findActiveFutureBookingCodesForStaff(staffId, today);
+        if (activeBookingCodes != null && !activeBookingCodes.isEmpty()) {
+            String codes = String.join(", ", activeBookingCodes);
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_STAFF_HAS_ACTIVE_BOOKINGS,
+                    "agency.staff_has_active_future_bookings",
+                    new Object[]{activeBookingCodes.size(), codes},
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        // 2. Mark staff status as LEFT and inactive
         staff.setIsActive(false);
         staff.setStatus("LEFT");
         agencyStaffRepository.save(staff);
 
+        // 3. Revert UserEntity role to ROLE_FREELANCE_MUA
         if (staff.getMua() != null && staff.getMua().getUser() != null) {
             UserEntity staffUser = staff.getMua().getUser();
             roleRepository.findByName(SecurityConstants.ROLE_FREELANCE_MUA).ifPresent(freelanceRole -> {
                 staffUser.setRole(freelanceRole);
-                userRepository.save(staffUser);
+                int updated = userRepository.updateUserRole(staffUser.getId(), freelanceRole.getId());
+                if (updated == 0) {
+                    userRepository.insertUserRole(staffUser.getId(), freelanceRole.getId());
+                }
                 log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
             });
         }
 
+        // 4. Deactivate future and recurring shifts, leaving past shifts intact for historical audit
+        int deactivatedShifts = agencyStaffShiftRepository.deactivateFutureAndRecurringShiftsForStaff(staffId, today);
+        log.info("Deactivated {} future/recurring shifts for staffId={} upon removal", deactivatedShifts, staffId);
+
+        // 5. Release unbooked future calendar slots for the MUA
+        if (staff.getMua() != null) {
+            int releasedSlots = muaCalendarRepository.deleteUnbookedSlotsFromDate(staff.getMua().getId(), today);
+            log.info("Released {} unbooked future calendar slots for muaId={}", releasedSlots, staff.getMua().getId());
+        }
+
         log.info("Removed staff from Studio: staffId={}, agencyId={}", staffId, agency.getId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StaffRemovableRes checkStaffRemovable(Long userId, Long staffId) {
+        AgencyProfileEntity agency = getAgencyByOwnerId(userId);
+        AgencyStaffEntity staff = agencyStaffRepository.findById(staffId)
+                .filter(s -> s.getAgency().getId().equals(agency.getId()))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_STAFF_NOT_FOUND,
+                        "ERR_STAFF_NOT_FOUND"
+                ));
+
+        LocalDate today = LocalDate.now();
+        List<String> activeBookingCodes = bookingStaffAssignmentRepository.findActiveFutureBookingCodesForStaff(staffId, today);
+        if (activeBookingCodes != null && !activeBookingCodes.isEmpty()) {
+            String codes = String.join(", ", activeBookingCodes);
+            return StaffRemovableRes.builder()
+                    .canRemove(false)
+                    .activeBookingsCount(activeBookingCodes.size())
+                    .activeBookingCodes(activeBookingCodes)
+                    .reason("Thợ này đang có " + activeBookingCodes.size() + " đơn đặt lịch chưa hoàn thành (" + codes + "). Vui lòng điều phối lại thợ khác trước khi xóa thợ khỏi Studio.")
+                    .build();
+        }
+
+        return StaffRemovableRes.builder()
+                .canRemove(true)
+                .activeBookingsCount(0)
+                .activeBookingCodes(Collections.emptyList())
+                .reason(null)
+                .build();
     }
 
     @Override
