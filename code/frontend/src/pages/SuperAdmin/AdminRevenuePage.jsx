@@ -509,13 +509,9 @@ export const AdminRevenuePage = () => {
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('revenue_card_fee_rate')}
             </span>
-            <button
-              onClick={() => setIsPlatformFeeOpen(true)}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer"
-            >
-              <SlidersHorizontal className="w-3 h-3" />
-              <span>{t('revenue_btn_adjust_fee')}</span>
-            </button>
+            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
+              <SlidersHorizontal className="w-4 h-4" />
+            </div>
           </div>
           <div className="mt-2 text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
             {Math.round(overview.platformFeeRate * 100)}%

@@ -271,6 +271,8 @@
   "ERR_STAFF_NOT_FOUND": "Staff member not found in this Studio.",
   "ERR_STAFF_ALREADY_EXISTS": "This MUA is already a staff member in this Studio.",
   "ERR_STAFF_APPLICATION_PENDING": "Your join request is currently pending Studio approval.",
+  "ERR_STAFF_HAS_ACTIVE_BOOKINGS": "This staff member has {0} active upcoming booking(s) ({1}). Please reassign another staff member before removing them from the Studio.",
+  "agency.staff_has_active_future_bookings": "This staff member has {0} active upcoming booking(s) ({1}). Please reassign another staff member before removing them from the Studio.",
   "ERR_INVITATION_NOT_FOUND": "Invitation code not found or invalid.",
   "ERR_INVITATION_EXPIRED": "Invitation code has expired.",
   "ERR_INVITATION_ALREADY_USED": "Invitation code has already been used or cancelled.",

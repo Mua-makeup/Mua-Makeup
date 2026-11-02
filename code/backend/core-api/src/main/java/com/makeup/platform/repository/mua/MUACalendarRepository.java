@@ -175,6 +175,7 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
         @Param("fromDate") LocalDate fromDate
     );
 
+
     @Query(value = """
         SELECT c.* FROM mua_schema.mua_calendars c
         WHERE c.mua_id = :muaId
@@ -185,4 +186,8 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
         @Param("windowStart") OffsetDateTime windowStart,
         @Param("windowEnd") OffsetDateTime windowEnd
     );
+
+    @Modifying
+    @Query("DELETE FROM MUACalendarEntity c WHERE c.mua.id = :muaId AND c.booking IS NULL AND c.bookingDate >= :fromDate")
+    int deleteUnbookedSlotsFromDate(@Param("muaId") Long muaId, @Param("fromDate") LocalDate fromDate);
 }
