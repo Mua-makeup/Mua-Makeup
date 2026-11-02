@@ -12,6 +12,7 @@ import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
+import com.makeup.platform.dto.response.agency.StaffRemovableRes;
 import com.makeup.platform.service.agency.AgencyStaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -151,6 +152,15 @@ public class AgencyStaffController extends BaseController {
             @Valid @RequestBody UpdateStaffCommissionReq req) {
         AgencyStaffRes res = agencyStaffService.updateStaffCommission(userId, staffId, req);
         return ok(res, "agency.staff_commission_update_success");
+    }
+
+    @GetMapping("/staff/{staffId}/removable")
+    @PreAuthorize("hasRole('AGENCY_ADMIN')")
+    public ResponseEntity<ApiResponse<StaffRemovableRes>> checkStaffRemovable(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long staffId) {
+        StaffRemovableRes res = agencyStaffService.checkStaffRemovable(userId, staffId);
+        return ok(res, "agency.staff_removable_check_success");
     }
 
     @DeleteMapping("/staff/{staffId}")

@@ -232,22 +232,38 @@ export const StaffDetailPage = () => {
   };
 
 
-  const handleConfirmRemoveStaff = () => {
-    setIsRemovingStaff(false);
-    const targetName = detail?.fullName || t('staff_member');
-    triggerUndoDelete({
-      id: staffId,
-      itemName: targetName,
-      onOptimisticRemove: () => {
-        navigate('/agency/staff');
-      },
-      onUndo: () => {
-        // Rollback, no API call
-      },
-      onCommitDelete: async () => {
-        await agencyService.removeStaff(staffId);
-      },
-    });
+  const handleConfirmRemoveStaff = async () => {
+    try {
+      setIsSaving(true);
+      const checkRes = await agencyService.checkStaffRemovable(staffId);
+      const checkData = checkRes.data || checkRes;
+      if (checkData && checkData.canRemove === false) {
+        setIsRemovingStaff(false);
+        setToastMessage(checkData.reason || t('staff_cannot_be_removed_has_bookings'));
+        return;
+      }
+
+      setIsRemovingStaff(false);
+      const targetName = detail?.fullName || t('staff_member');
+      triggerUndoDelete({
+        id: staffId,
+        itemName: targetName,
+        onOptimisticRemove: () => {
+          navigate('/agency/staff');
+        },
+        onUndo: () => {
+          // Rollback, no API call
+        },
+        onCommitDelete: async () => {
+          await agencyService.removeStaff(staffId);
+        },
+      });
+    } catch (err) {
+      setIsRemovingStaff(false);
+      setToastMessage(err.response?.data?.message || err.message || t('error_general'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
