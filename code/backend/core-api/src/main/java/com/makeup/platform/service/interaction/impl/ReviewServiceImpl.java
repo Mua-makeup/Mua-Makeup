@@ -31,9 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,8 +62,8 @@ public class ReviewServiceImpl implements ReviewService {
                     "review.unauthorized", HttpStatus.FORBIDDEN);
         }
 
-        if (booking.getStatus() != BookingStatus.PAID_OUT) {
-            log.warn("[Review] Booking id={} status is {}, not eligible for review (must be PAID_OUT)", booking.getId(), booking.getStatus());
+        if (booking.getStatus() != BookingStatus.PAID_OUT && booking.getStatus() != BookingStatus.COMPLETED) {
+            log.warn("[Review] Booking id={} status is {}, not eligible for review (must be COMPLETED or PAID_OUT)", booking.getId(), booking.getStatus());
             throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
                     "review.booking_not_paid_out", HttpStatus.BAD_REQUEST);
         }
@@ -95,38 +93,8 @@ public class ReviewServiceImpl implements ReviewService {
         MuaProfileEntity mua = booking.getMua();
         Long muaId = mua.getId();
 
-        // 2. Thuật toán phát hiện gian lận và thông đồng (Review Fraud & Collusion Detection)
-        int fraudScore = 0;
-        StringBuilder fraudReason = new StringBuilder();
-
-        // Tiêu chí 1: Trùng lặp thiết bị (Device ID)
-        if (req.getDeviceId() != null && !req.getDeviceId().isBlank()) {
-            long deviceReviewCount = reviewRepository.countReviewsByDeviceIdAndMua(req.getDeviceId().trim(), muaId);
-            if (deviceReviewCount >= 2) {
-                fraudScore += 50;
-                fraudReason.append("Cùng mã thiết bị (Device ID) đã đánh giá thợ này ").append(deviceReviewCount).append(" lần; ");
-            }
-        }
-
-        // Tiêu chí 2: Tần suất đánh giá chéo giữa cùng 1 khách và 1 thợ trong 30 ngày qua
-        Instant thirtyDaysAgo = Instant.now().minus(30, ChronoUnit.DAYS);
-        long recentCrossReviews = reviewRepository.countReviewsBetweenCustomerAndMuaSince(customerUserId, muaId, thirtyDaysAgo);
-        if (recentCrossReviews >= 3) {
-            fraudScore += 30;
-            fraudReason.append("Khách hàng đã đánh giá thợ này ").append(recentCrossReviews).append(" lần trong 30 ngày qua; ");
-        }
-
-        // Tiêu chí 3: Phân loại trạng thái kiểm duyệt
+        // Verified completed bookings are published automatically, including repeat customers.
         ReviewStatus reviewStatus = ReviewStatus.APPROVED;
-        if (fraudScore >= 50) {
-            reviewStatus = ReviewStatus.FLAGGED_FRAUD;
-            log.warn("[ReviewFraud] FLAGGED_FRAUD booking id={} customer id={} mua id={} score={}: {}",
-                    booking.getId(), customerUserId, muaId, fraudScore, fraudReason);
-        } else if (fraudScore >= 25) {
-            reviewStatus = ReviewStatus.PENDING_AUDIT;
-            log.warn("[ReviewFraud] PENDING_AUDIT booking id={} customer id={} mua id={} score={}: {}",
-                    booking.getId(), customerUserId, muaId, fraudScore, fraudReason);
-        }
 
         // 3. Khởi tạo và lưu ReviewEntity
         ReviewEntity review = ReviewEntity.builder()
@@ -141,8 +109,8 @@ public class ReviewServiceImpl implements ReviewService {
                 .clientIp(clientIp)
                 .bankHash(req.getBankHash())
                 .status(reviewStatus)
-                .fraudRiskScore(fraudScore)
-                .fraudReason(fraudReason.length() > 0 ? fraudReason.toString() : null)
+                .fraudRiskScore(0)
+                .fraudReason(null)
                 .build();
 
         ReviewEntity saved = reviewRepository.save(review);
@@ -185,6 +153,16 @@ public class ReviewServiceImpl implements ReviewService {
                     "review.edit_expired", HttpStatus.BAD_REQUEST);
         }
 
+        // Editing must not restore deleted reviews or bypass booking eligibility.
+        if (Boolean.TRUE.equals(review.getIsDeleted()) || review.getBooking() == null
+                || (review.getBooking().getStatus() != BookingStatus.COMPLETED
+                    && review.getBooking().getStatus() != BookingStatus.PAID_OUT)) {
+            throw new CustomBusinessException(ErrorCodes.ERR_INVALID_STATE_TRANSITION,
+                    "review.booking_not_paid_out", HttpStatus.BAD_REQUEST);
+        }
+        review.setStatus(ReviewStatus.APPROVED);
+        review.setFraudRiskScore(0);
+        review.setFraudReason(null);
         review.setRating(req.getRating());
         review.setComment(req.getComment());
         if (req.getImageUrls() != null) {

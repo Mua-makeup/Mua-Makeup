@@ -8,6 +8,7 @@ import {
   Edit2,
   Trash2,
   Eye,
+  X,
 } from 'lucide-react';
 import { Button } from '../../base/Button';
 import { Badge } from '../../base/Badge';
@@ -21,16 +22,31 @@ import { agencyService } from '../../../services/agency.service';
 import { formatCurrency, formatDateTime } from '../../../utils/formatters';
 import { overtimeRuleSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { useUndoDelete } from '../../../hooks/useUndoDelete';
 import { TableSkeleton } from '../../base/Skeleton';
+
+
+const isValidImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.trim();
+  return (
+    clean.startsWith('http://') ||
+    clean.startsWith('https://') ||
+    clean.startsWith('data:image/') ||
+    clean.startsWith('/uploads/') ||
+    clean.startsWith('/api/v1/')
+  );
+};
 
 export const OvertimeConfigCard = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
 
   // Rules State
   const [rules, setRules] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState(null);
-  const [ruleName, setRuleName] = useState('Quy chế làm thêm giờ tiêu chuẩn');
+  const [ruleName, setRuleName] = useState(t('overtime_rule_default_name') || 'Quy chế làm thêm giờ tiêu chuẩn');
   const [minOvertimeMinutes, setMinOvertimeMinutes] = useState(15);
   const [maxOvertimeMinutes, setMaxOvertimeMinutes] = useState(240);
   const [policyType, setPolicyType] = useState('ALLOWANCE');
@@ -48,6 +64,8 @@ export const OvertimeConfigCard = () => {
   const [reviewNote, setReviewNote] = useState('');
   const [customAllowance, setCustomAllowance] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState(null);
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState(null);
 
   // Delete Rule State
   const [ruleToDelete, setRuleToDelete] = useState(null);
@@ -300,15 +318,22 @@ export const OvertimeConfigCard = () => {
     if (!selectedReport) return;
     setIsSaving(true);
     try {
-      await agencyService.reviewOvertimeReport(selectedReport.id, {
+      const response = await agencyService.reviewOvertimeReport(selectedReport.id, {
         action: reviewAction,
         customPenaltyAmount: (reviewAction === 'APPROVE_ALLOWANCE' && customAllowance) ? Number(customAllowance) : undefined,
         adminNotes: reviewNote.trim() || undefined,
       });
+      const reviewed = response?.data || response;
       setIsReviewModalOpen(false);
       setToastMessage({
         text: reviewAction === 'APPROVE_ALLOWANCE'
-          ? 'Đã duyệt thưởng tăng ca và trích chuyển tiền vào ví thợ thành công!'
+          ? (reviewed?.allowancePaymentStatus === 'PAID'
+            ? (t('overtime_pay_toast_paid') || 'Đã duyệt và chuyển tiền tăng ca vào ví thợ.')
+            : reviewed?.allowancePaymentStatus === 'RECONCILIATION_REQUIRED'
+              ? (t('overtime_pay_toast_reconciliation') || 'Đã duyệt. Khoản tăng ca cần đối soát trước khi thanh toán.')
+              : reviewed?.allowancePaymentStatus === 'NOT_APPLICABLE'
+                ? (t('overtime_pay_toast_not_applicable') || 'Đã duyệt báo cáo. Không có khoản thưởng cần thanh toán.')
+                : (t('overtime_pay_toast_pending') || 'Đã duyệt thưởng tăng ca. Khoản chưa thanh toán sẽ chờ ví Studio đủ số dư.'))
           : (t('update_success') || 'Đã xét duyệt báo cáo tăng ca thành công!'),
         type: 'success',
       });
@@ -361,13 +386,13 @@ export const OvertimeConfigCard = () => {
       if (isAllowance) {
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 font-mono shadow-2xs">
-            +{formatCurrency(rule.penaltyValue)}/phút
+            +{formatCurrency(rule.penaltyValue)}{t('overtime_per_minute') || '/phút'}
           </span>
         );
       }
       return (
         <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 shadow-2xs font-mono">
-          -{formatCurrency(rule.penaltyValue)}/phút
+          -{formatCurrency(rule.penaltyValue)}{t('overtime_per_minute') || '/phút'}
         </span>
       );
     }
@@ -474,14 +499,14 @@ export const OvertimeConfigCard = () => {
             </div>
           ) : (
             <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-xl">
-              <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-xs">
+              <table className="w-full min-w-[700px] divide-y divide-slate-100 dark:divide-slate-800 text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold text-slate-600 dark:text-slate-300">
-                  <tr>
-                    <th className="px-5 py-3.5">{t('overtime_rule_name')}</th>
-                    <th className="px-5 py-3.5">{t('overtime_threshold_label')}</th>
-                    <th className="px-5 py-3.5">{t('overtime_penalty_label')}</th>
-                    <th className="px-5 py-3.5">{t('status')}</th>
-                    <th className="px-5 py-3.5 text-right">{t('col_actions')}</th>
+                  <tr className="whitespace-nowrap">
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('overtime_rule_name')}</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('overtime_threshold_label')}</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('overtime_penalty_label')}</th>
+                    <th className="px-5 py-3.5 whitespace-nowrap">{t('status')}</th>
+                    <th className="px-5 py-3.5 text-right whitespace-nowrap">{t('col_actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -500,7 +525,7 @@ export const OvertimeConfigCard = () => {
                       </td>
 
                       {/* Cột Ngưỡng Quá Giờ Thiết Kế Tối Ưu & Đẹp Mắt */}
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
                         <div className="flex flex-col gap-1">
                           <div className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50/90 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-900/50 w-fit shadow-2xs font-mono">
                             ≥ {r.minOvertimeMinutes} {t('unit_minutes')}
@@ -519,12 +544,12 @@ export const OvertimeConfigCard = () => {
                       </td>
 
                       {/* Chế tài áp dụng */}
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
                         {renderPenaltyDisplay(r)}
                       </td>
 
                       {/* Trạng thái Toggle Switch */}
-                      <td className="px-5 py-3.5">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
                         <label className="relative inline-flex items-center cursor-pointer select-none">
                           <input
                             type="checkbox"
@@ -651,7 +676,7 @@ export const OvertimeConfigCard = () => {
               label={t('overtime_max_minutes')}
               type="number"
               min="0"
-              placeholder="VD: 240"
+              placeholder={t('overtime_max_minutes_ph') || 'VD: 240'}
               value={maxOvertimeMinutes}
               onChange={(e) => setMaxOvertimeMinutes(e.target.value)}
               helperText={t('overtime_max_minutes_helper')}
@@ -691,10 +716,10 @@ export const OvertimeConfigCard = () => {
             <Input
               label={
                 penaltyType === 'PERCENT_COMMISSION'
-                  ? `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp cộng thêm' : 'Mức phạt khấu trừ'} (%)`
+                  ? (policyType === 'ALLOWANCE' ? (t('overtime_allowance_rate_label') || 'Mức phụ cấp cộng thêm (%)') : (t('overtime_penalty_rate_label') || 'Mức phạt khấu trừ (%)'))
                   : penaltyType === 'PER_MINUTE'
-                  ? `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp tính theo mỗi phút' : 'Mức phạt khấu trừ theo mỗi phút'} (VNĐ/phút)`
-                  : `${policyType === 'ALLOWANCE' ? 'Mức phụ cấp cộng thêm' : 'Mức phạt khấu trừ'} (VNĐ)`
+                  ? (policyType === 'ALLOWANCE' ? (t('overtime_allowance_per_min_label') || 'Mức phụ cấp tính theo mỗi phút (VNĐ/phút)') : (t('overtime_penalty_per_min_label') || 'Mức phạt khấu trừ theo mỗi phút (VNĐ/phút)'))
+                  : (policyType === 'ALLOWANCE' ? (t('overtime_allowance_fixed_label') || 'Mức phụ cấp cộng thêm (VNĐ)') : (t('overtime_penalty_fixed_label') || 'Mức phạt khấu trừ (VNĐ)'))
               }
               type="number"
               min="0"
@@ -706,12 +731,18 @@ export const OvertimeConfigCard = () => {
               onChange={(e) => setPenaltyValue(e.target.value)}
               helperText={
                 penaltyType === 'PERCENT_COMMISSION'
-                  ? (policyType === 'ALLOWANCE' ? 'Tỷ lệ % hoa hồng được cộng thêm cho thợ' : 'Tỷ lệ % hoa hồng bị khấu trừ của thợ')
+                  ? (policyType === 'ALLOWANCE'
+                      ? (t('overtime_policy_allowance_percent_hint') || 'Tỷ lệ % hoa hồng được cộng thêm cho thợ')
+                      : (t('overtime_policy_penalty_percent_hint') || 'Tỷ lệ % hoa hồng bị khấu trừ của thợ'))
                   : penaltyType === 'PER_MINUTE'
-                  ? (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)' : 'Số tiền phạt khấu trừ cho mỗi phút vi phạm (VNĐ/phút)')
+                  ? (policyType === 'ALLOWANCE'
+                      ? (t('overtime_policy_allowance_per_min_hint') || 'Số tiền thù lao cộng thêm cho mỗi phút làm thêm giờ (Ví dụ: 1.000 đ/phút)')
+                      : (t('overtime_policy_penalty_per_min_hint') || 'Số tiền phạt khấu trừ cho mỗi phút vi phạm (VNĐ/phút)'))
                   : penaltyType === 'WARNING_ONLY'
                   ? t('overtime_penalty_type_warning')
-                  : (policyType === 'ALLOWANCE' ? 'Số tiền thù lao cộng thêm cho thợ (VNĐ)' : 'Số tiền phạt khấu trừ thợ (VNĐ)')
+                  : (policyType === 'ALLOWANCE'
+                      ? (t('overtime_policy_allowance_fixed_hint') || 'Số tiền thù lao cộng thêm cho thợ (VNĐ)')
+                      : (t('overtime_policy_penalty_fixed_hint') || 'Số tiền phạt khấu trừ thợ (VNĐ)'))
               }
               error={fieldErrors.penaltyValue}
             />
@@ -733,20 +764,20 @@ export const OvertimeConfigCard = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
+          <table className="w-full min-w-[850px] divide-y divide-slate-100 dark:divide-slate-800 text-left text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60 font-semibold text-slate-600 dark:text-slate-300">
-              <tr>
-                <th className="px-5 py-3">{t('col_staff_name')}</th>
-                <th className="px-5 py-3">{t('overtime_col_booking_time')}</th>
-                <th className="px-5 py-3">{t('overtime_col_incurred')}</th>
-                <th className="px-5 py-3">{t('overtime_col_reason')}</th>
-                <th className="px-5 py-3">{t('status')}</th>
-                <th className="px-5 py-3 text-right">{t('col_actions')}</th>
+              <tr className="whitespace-nowrap">
+                <th className="px-5 py-3 whitespace-nowrap">{t('col_staff_name')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('overtime_col_booking_time')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('overtime_col_incurred')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('overtime_col_reason')}</th>
+                <th className="px-5 py-3 whitespace-nowrap">{t('status')}</th>
+                <th className="px-5 py-3 text-right whitespace-nowrap">{t('col_actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {reports.length === 0 ? (
-                <tr>
+                <tr className="whitespace-nowrap">
                   <td colSpan={6} className="px-5 py-8 text-center text-xs text-slate-400 dark:text-slate-500 italic">
                     {t('empty_reports_msg')}
                   </td>
@@ -754,25 +785,25 @@ export const OvertimeConfigCard = () => {
               ) : (
                 reports.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-5 py-3.5">
+                    <td className="px-5 py-3.5 whitespace-nowrap">
                       <span className="font-bold text-slate-900 dark:text-white block">
                         {r.staffName || `${t('staff_label')} #${r.staffId}`}
                       </span>
                       <span className="text-xs text-slate-400 font-mono">Staff ID: {r.staffId}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-xs">
+                    <td className="px-5 py-3.5 text-xs whitespace-nowrap">
                       <span className="font-mono font-semibold text-slate-800 dark:text-slate-200 block">
                         {t('booking_label')} #{r.bookingId}
                       </span>
                       <span className="text-slate-400 font-mono">{formatDateTime(r.createdAt)}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-xs">
+                    <td className="px-5 py-3.5 text-xs whitespace-nowrap">
                       <span className="font-bold text-slate-900 dark:text-white block">
                         +{r.overtimeMinutes ?? r.actualOvertimeMinutes ?? 0} {t('unit_minutes') || 'phút'}
                       </span>
                       <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                        {r.status === 'PENDING_AGENCY_REVIEW'
-                          ? `Dự kiến: ${formatCurrency(r.estimatedAllowanceAmount ?? 0)}`
+                        {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING')
+                          ? `${t('overtime_estimated') || 'Dự kiến'}: ${formatCurrency(r.estimatedAllowanceAmount ?? 0)}`
                           : formatCurrency(r.penaltyAmountApplied || r.customerSurchargeAmount || 0)}
                       </span>
                     </td>
@@ -781,29 +812,39 @@ export const OvertimeConfigCard = () => {
                         {r.explanationText || r.reason || '—'}
                       </p>
                       {r.proofImageUrl ? (
-                        <a
-                          href={r.proofImageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1"
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImageUrl(r.proofImageUrl)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1 cursor-pointer"
                         >
-                          <Eye className="w-3 h-3" /> Xem ảnh đối chứng
-                        </a>
+                          <Eye className="w-3.5 h-3.5" /> {t('overtime_view_proof') || 'Xem ảnh đối chứng'}
+                        </button>
                       ) : null}
                     </td>
-                    <td className="px-5 py-3.5">
-                      {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING') && (
-                        <Badge variant="pending">{t('status_pending') || 'Chờ Duyệt'}</Badge>
-                      )}
-                      {(r.status === 'APPROVED_WAIVED' || r.status === 'APPROVED') && (
-                        <Badge variant="active">{t('status_verified') || 'Đã Miễn Trừ / Duyệt'}</Badge>
-                      )}
-                      {r.status === 'PENALIZED' && (
-                        <Badge variant="rejected">Đã Phạt Thợ</Badge>
-                      )}
-                      {r.status === 'CHARGED_CUSTOMER' && (
-                        <Badge variant="info">Thu Phụ Phí Khách</Badge>
-                      )}
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className="flex flex-col gap-1 items-start">
+                        {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING') && (
+                          <Badge variant="pending">{t('status_pending') || 'Chờ Duyệt'}</Badge>
+                        )}
+                        {(r.status === 'APPROVED_WAIVED' || r.status === 'APPROVED') && (
+                          <Badge variant="active">{t('status_verified') || 'Đã Miễn Trừ / Duyệt'}</Badge>
+                        )}
+                        {r.allowancePaymentStatus === 'PENDING_FUNDS' && (
+                          <Badge variant="pending">{t('overtime_pay_status_pending') || 'Chờ thanh toán'}</Badge>
+                        )}
+                        {r.allowancePaymentStatus === 'PAID' && (
+                          <Badge variant="active">{t('overtime_pay_status_paid') || 'Đã chuyển tiền'}</Badge>
+                        )}
+                        {r.allowancePaymentStatus === 'RECONCILIATION_REQUIRED' && (
+                          <Badge variant="rejected">{t('overtime_pay_status_reconciliation') || 'Cần đối soát'}</Badge>
+                        )}
+                        {r.status === 'PENALIZED' && (
+                          <Badge variant="rejected">{t('overtime_status_penalized') || 'Đã Phạt Thợ'}</Badge>
+                        )}
+                        {r.status === 'CHARGED_CUSTOMER' && (
+                          <Badge variant="info">{t('overtime_status_charged_customer') || 'Thu Phụ Phí Khách'}</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       {(r.status === 'PENDING_AGENCY_REVIEW' || r.status === 'PENDING') ? (
@@ -816,7 +857,7 @@ export const OvertimeConfigCard = () => {
                               onClick={() => openReview(r, 'APPROVE_ALLOWANCE')}
                               className="!bg-emerald-600 hover:!bg-emerald-700 text-white shadow-2xs font-medium"
                             >
-                              Duyệt Thưởng Tăng Ca
+                              {t('overtime_btn_approve_allowance') || 'Duyệt Thưởng Tăng Ca'}
                             </Button>
                           ) : (
                             <Button
@@ -825,7 +866,7 @@ export const OvertimeConfigCard = () => {
                               icon={CheckCircle2}
                               onClick={() => openReview(r, 'WAIVE_PENALTY')}
                             >
-                              Duyệt Miễn Trừ
+                              {t('overtime_btn_waive') || 'Duyệt Miễn Trừ'}
                             </Button>
                           )}
                           <Button
@@ -834,12 +875,12 @@ export const OvertimeConfigCard = () => {
                             icon={XCircle}
                             onClick={() => openReview(r, 'DEDUCT_BY_RULE')}
                           >
-                            Phạt / Từ Chối
+                            {t('overtime_btn_penalty_reject') || 'Phạt / Từ Chối'}
                           </Button>
                         </div>
                       ) : (
                         <span className="text-xs text-slate-400 italic">
-                          {r.adminNotes ? `Ghi chú: ${r.adminNotes}` : '—'}
+                          {r.adminNotes ? `${t('col_notes') || 'Ghi chú'}: ${r.adminNotes}` : '—'}
                         </span>
                       )}
                     </td>
@@ -858,10 +899,10 @@ export const OvertimeConfigCard = () => {
         title={
           <span className="font-bold text-slate-900 dark:text-white text-base">
             {reviewAction === 'APPROVE_ALLOWANCE'
-              ? 'Xác Nhận Duyệt Thưởng Tăng Ca Cho Thợ'
+              ? (t('overtime_modal_title_approve') || 'Xác Nhận Duyệt Thưởng Tăng Ca Cho Thợ')
               : reviewAction === 'WAIVE_PENALTY'
-              ? 'Xác Nhận Duyệt Miễn Trừ Tăng Ca'
-              : 'Xác Nhận Chế Tài / Phạt Tăng Ca'}
+              ? (t('overtime_modal_title_waive') || 'Xác Nhận Duyệt Miễn Trừ Tăng Ca')
+              : (t('overtime_modal_title_penalty') || 'Xác Nhận Chế Tài / Phạt Tăng Ca')}
           </span>
         }
         maxWidth="max-w-md"
@@ -881,10 +922,10 @@ export const OvertimeConfigCard = () => {
               className={reviewAction === 'APPROVE_ALLOWANCE' ? '!bg-emerald-600 hover:!bg-emerald-700 text-white' : undefined}
             >
               {reviewAction === 'APPROVE_ALLOWANCE'
-                ? 'Duyệt & Chuyển Tiền Vào Ví'
+                ? (t('overtime_btn_approve_allowance') || 'Duyệt Thưởng Tăng Ca')
                 : reviewAction === 'WAIVE_PENALTY'
-                ? 'Xác Nhận Duyệt'
-                : 'Áp Dụng Chế Tài'}
+                ? (t('overtime_btn_waive_penalty') || 'Xác Nhận Duyệt')
+                : (t('overtime_btn_apply_penalty') || 'Áp Dụng Chế Tài')}
             </Button>
           </>
         }
@@ -903,12 +944,37 @@ export const OvertimeConfigCard = () => {
             <p className="text-slate-500 dark:text-slate-400 italic mt-1">"{selectedReport?.explanationText || selectedReport?.reason}"</p>
             {selectedReport?.proofImageUrl && (
               <div className="pt-2">
-                <span className="font-semibold block text-slate-700 dark:text-slate-300 mb-1">Ảnh đối chứng từ thợ:</span>
-                <img
-                  src={selectedReport.proofImageUrl}
-                  alt="Ảnh đối chứng"
-                  className="max-h-40 rounded-lg border border-slate-200 dark:border-slate-700 object-cover"
-                />
+                <span className="font-semibold block text-slate-700 dark:text-slate-300 mb-1">
+                  {t('proof_image_from_staff') || 'Ảnh đối chứng từ thợ:'}
+                </span>
+                <div
+                  className="relative group cursor-pointer inline-block rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700"
+                  onClick={() => setPreviewImageUrl(selectedReport.proofImageUrl)}
+                  title={t('proof_document_view_full') || 'Bấm để xem ảnh lớn'}
+                >
+                  {isValidImageUrl(selectedReport.proofImageUrl) ? (
+                    <img
+                      src={selectedReport.proofImageUrl}
+                      alt={t('overtime_proof_photo_title') || 'Ảnh đối chứng'}
+                      className="max-h-40 rounded-lg object-cover group-hover:opacity-90 transition-opacity"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const el = document.getElementById('overtime-proof-fallback');
+                        if (el) el.style.display = 'block';
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    id="overtime-proof-fallback"
+                    style={{ display: isValidImageUrl(selectedReport.proofImageUrl) ? 'none' : 'block' }}
+                    className="p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 italic"
+                  >
+                    {t('overtime_proof_load_failed') || 'Không tải được ảnh đối chứng hoặc đường dẫn ảnh không hợp lệ.'}
+                  </div>
+                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold gap-1">
+                    <Eye className="w-4 h-4" /> {t('proof_document_view_full') || 'Xem ảnh lớn'}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -916,25 +982,25 @@ export const OvertimeConfigCard = () => {
           {reviewAction === 'APPROVE_ALLOWANCE' && (
             <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                <span>Trợ cấp tăng ca cho thợ:</span>
+                <span>{t('overtime_allowance_label') || 'Trợ cấp tăng ca cho thợ:'}</span>
                 {selectedReport?.penaltyType === 'PERCENT_COMMISSION' && selectedReport?.penaltyValue && (
                   <span className="font-mono text-emerald-700 dark:text-emerald-400">
-                    +{selectedReport.penaltyValue}% theo quy chế
+                    +{selectedReport.penaltyValue}% {t('overtime_according_to_rule') || 'theo quy chế'}
                   </span>
                 )}
               </div>
               <p className="text-xs text-emerald-800 dark:text-emerald-300">
-                Dự kiến theo quy tắc: <strong>{formatCurrency(selectedReport?.estimatedAllowanceAmount ?? 0)}</strong>. Để trống để tính tự động khi duyệt.
+                {t('overtime_estimated_by_rule') || 'Dự kiến theo quy tắc'}: <strong>{formatCurrency(selectedReport?.estimatedAllowanceAmount ?? 0)}</strong>. {t('overtime_leave_blank_auto') || 'Để trống để tính tự động khi duyệt.'}
               </p>
               <Input
-                label="Số tiền trợ cấp thưởng tăng ca (VND)"
+                label={t('overtime_allowance_amount_label') || 'Số tiền trợ cấp thưởng tăng ca (VND)'}
                 type="number"
-                placeholder={`Tự động: ${formatCurrency(selectedReport?.estimatedAllowanceAmount ?? 0)}`}
+                placeholder={`${t('overtime_auto_calc') || 'Tự động'}: ${formatCurrency(selectedReport?.estimatedAllowanceAmount ?? 0)}`}
                 value={customAllowance}
                 onChange={(e) => setCustomAllowance(e.target.value)}
               />
               <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed italic">
-                * Khi bấm duyệt, số tiền này sẽ được trích từ ví Studio / doanh thu đơn chuyển trực tiếp vào ví của thợ và gửi thông báo cho thợ.
+                {t('overtime_pay_helper_text') || '* Nếu ví Studio đủ tiền, hệ thống chuyển đủ khoản thưởng sang ví thợ. Nếu chưa đủ, khoản thưởng chờ thanh toán và được xử lý lại khi quyết toán hoặc khi thợ mở ví. Không trích một phần.'}
               </p>
             </div>
           )}
@@ -973,6 +1039,40 @@ export const OvertimeConfigCard = () => {
           duration={3000}
           onClose={() => setToastMessage(null)}
         />
+      )}
+
+      {/* Lightbox Preview Modal (Z-Index cao hơn Modal chính z-[100010] để không bị che khuất) */}
+      {previewImageUrl && (
+        <div
+          className="fixed inset-0 z-[100010] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 transition-all"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImageUrl}
+              onLoad={() => setFailedPreviewUrl(null)}
+              onError={() => setFailedPreviewUrl(previewImageUrl)}
+              alt={t('overtime_proof_photo_title') || 'Ảnh đối chứng'}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10"
+            />
+            {failedPreviewUrl === previewImageUrl && (
+              <p role="alert" className="bg-slate-900 text-white rounded-lg p-6 max-w-md text-center">
+                {t('overtime_proof_load_failed') || 'Không tải được ảnh đối chứng. Ảnh có thể chưa được tải lên hoặc đường dẫn không còn hợp lệ.'}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-3.5 -right-3.5 bg-white text-slate-800 hover:bg-slate-100 p-1.5 rounded-full shadow-lg border border-slate-200 transition-colors cursor-pointer"
+              title={t('close') || 'Đóng'}
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

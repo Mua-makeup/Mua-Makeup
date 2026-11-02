@@ -21,6 +21,12 @@ repositories {
     mavenCentral()
 }
 
+configurations.all {
+    resolutionStrategy {
+        force 'org.locationtech.jts:jts-core:1.18.2'
+    }
+}
+
 dependencies {
     // Web & Validation
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -35,6 +41,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.redisson:redisson-spring-boot-starter:3.34.1'
     implementation 'org.hibernate.orm:hibernate-spatial'
+    implementation 'org.locationtech.jts:jts-core:1.18.2'
 
     // Database Migration & Driver
     implementation 'org.flywaydb:flyway-core'

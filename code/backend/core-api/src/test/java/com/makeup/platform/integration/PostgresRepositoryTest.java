@@ -20,7 +20,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
 import org.springframework.dao.DataIntegrityViolationException;
 
-@Tag("infrastructure") @Testcontainers
+@Tag("infrastructure") @Testcontainers(disabledWithoutDocker = true)
 @DataJpaTest(properties={"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create",
     "spring.jpa.properties.hibernate.hbm2ddl.create_namespaces=true", "spring.jpa.show-sql=false"})
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)

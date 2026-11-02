@@ -8,6 +8,24 @@ import { Textarea } from '../../base/Textarea';
 import { agencyService } from '../../../services/agency.service';
 import { superAdminService } from '../../../services/super-admin.service';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { parseApiError } from '../../../utils/error';
+import { formatCurrency } from '../../../utils/formatters';
+
+const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+const ACCEPT_IMAGE_ATTR = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp';
+
+const isImageFile = (file) => {
+  if (!file) return false;
+  const fileName = file.name || '';
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  const mime = file.type?.toLowerCase();
+
+  const hasValidExt = ALLOWED_IMAGE_EXTENSIONS.includes(ext);
+  const hasValidMime = ALLOWED_IMAGE_MIME_TYPES.includes(mime);
+
+  return hasValidMime || (hasValidExt && (!mime || mime.startsWith('image/')));
+};
 
 export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }) => {
   const { t } = useI18nStore();
@@ -83,9 +101,15 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
 
   const handleMainFileChange = (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!isImageFile(file)) {
+      setClientErrors((prev) => ({ ...prev, mainFile: t('agency_portfolio_err_invalid_format') }));
+      return;
+    }
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
-        setClientErrors((prev) => ({ ...prev, mainFile: 'Kích thước ảnh không được vượt quá 10MB.' }));
+        setClientErrors((prev) => ({ ...prev, mainFile: t('agency_portfolio_err_file_size') }));
         return;
       }
       setMainFile(file);
@@ -100,18 +124,38 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
 
   const handleAdditionalFilesChange = (e) => {
     const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+
+    const invalidFiles = files.filter((f) => !isImageFile(f));
+    if (invalidFiles.length > 0) {
+      setClientErrors((prev) => ({
+        ...prev,
+        additionalFiles: t('agency_portfolio_err_invalid_format'),
+      }));
+      return;
+    }
+
+    const oversizedFiles = files.filter((f) => f.size > 10 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      setClientErrors((prev) => ({
+        ...prev,
+        additionalFiles: t('agency_portfolio_err_file_size'),
+      }));
+      return;
+    }
     const currentTotal = existingAdditionalImages.length + newAdditionalFiles.length;
     const remainingSlots = 5 - currentTotal;
 
     if (remainingSlots <= 0) {
-      setClientErrors((prev) => ({ ...prev, additionalFiles: 'Tối đa 5 ảnh phụ chi tiết cho mỗi tác phẩm.' }));
+      setClientErrors((prev) => ({ ...prev, additionalFiles: t('agency_portfolio_err_additional_max') }));
       return;
     }
 
     if (files.length > remainingSlots) {
       setClientErrors((prev) => ({
         ...prev,
-        additionalFiles: `Chỉ có thể thêm tối đa ${remainingSlots} ảnh nữa (tổng tối đa 5 ảnh).`,
+        additionalFiles: t('agency_portfolio_err_additional_remaining', { remaining: remainingSlots }),
       }));
     } else {
       setClientErrors((prev) => {
@@ -157,10 +201,16 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
 
     const errs = {};
     if (!title.trim()) {
-      errs.title = 'Vui lòng nhập tiêu đề tác phẩm.';
+      errs.title = t('agency_portfolio_err_title_required');
     }
     if (!editingItem && !mainFile) {
-      errs.mainFile = 'Vui lòng chọn ảnh chính chất lượng cao của tác phẩm.';
+      errs.mainFile = t('agency_portfolio_err_main_required');
+    }
+    if (mainFile && !isImageFile(mainFile)) {
+      errs.mainFile = t('agency_portfolio_err_invalid_format');
+    }
+    if (newAdditionalFiles.some((f) => !isImageFile(f))) {
+      errs.additionalFiles = t('agency_portfolio_err_invalid_format');
     }
 
     if (Object.keys(errs).length > 0) {
@@ -214,7 +264,20 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
       onSuccess?.();
       onClose();
     } catch (err) {
-      const respData = err.response?.data?.data;
+      const parsed = parseApiError(err);
+      if (
+        parsed.errorCode === 'INVALID_FILE_FORMAT' ||
+        parsed.errorCode === 'ERR_INVALID_FILE_FORMAT' ||
+        parsed.message === 'INVALID_FILE_FORMAT'
+      ) {
+        setServerError(t('agency_portfolio_err_invalid_format'));
+      } else if (
+        parsed.errorCode === 'FILE_SIZE_EXCEEDED' ||
+        parsed.errorCode === 'ERR_FILE_SIZE_EXCEEDED'
+      ) {
+        setServerError(t('agency_portfolio_err_file_size'));
+      } else {
+        const respData = err.response?.data?.data;
       const detailErr =
         respData && typeof respData === 'object'
           ? Object.values(respData).join('; ')
@@ -225,6 +288,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
           err.message ||
           t('error_general')
       );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -234,7 +298,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
     { value: '', label: t('agency_portfolio_field_package_placeholder') },
     ...packages.map((p) => ({
       value: String(p.id),
-      label: `${p.packageName} (${Number(p.price || 0).toLocaleString('vi-VN')} đ)`,
+      label: `${p.packageName} (${formatCurrency(p.price || 0)})`,
     })),
   ];
 
@@ -320,7 +384,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
           <input
             type="file"
             ref={fileInputRef}
-            accept="image/*"
+            accept={ACCEPT_IMAGE_ATTR}
             className="hidden"
             onChange={handleMainFileChange}
           />
@@ -357,7 +421,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
               <p className="text-xs font-medium text-slate-700 dark:text-slate-200">
                 {t('agency_portfolio_field_main_image_hint')}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, WEBP tối đa 10MB</p>
+              <p className="text-[11px] text-slate-400 mt-1">{t('agency_portfolio_file_hint')}</p>
             </div>
           )}
           {clientErrors.mainFile && (
@@ -379,7 +443,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
           <input
             type="file"
             ref={additionalFilesRef}
-            accept="image/*"
+            accept={ACCEPT_IMAGE_ATTR}
             multiple
             className="hidden"
             onChange={handleAdditionalFilesChange}
@@ -397,7 +461,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
                   type="button"
                   onClick={() => removeExistingAdditionalImage(idx)}
                   className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-rose-600 transition-colors shadow-sm"
-                  title="Gỡ ảnh này"
+                  title={t('agency_portfolio_remove_sub')}
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -418,7 +482,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
                   type="button"
                   onClick={() => removeNewAdditionalFile(idx)}
                   className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-rose-600 transition-colors shadow-sm"
-                  title="Gỡ ảnh này"
+                  title={t('agency_portfolio_remove_sub')}
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -431,7 +495,7 @@ export const AgencyPortfolioModal = ({ isOpen, onClose, editingItem, onSuccess }
                 type="button"
                 onClick={() => additionalFilesRef.current?.click()}
                 className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg aspect-square flex flex-col items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-500 hover:bg-rose-50/20 transition-all"
-                title="Tải thêm ảnh phụ"
+                title={t('agency_portfolio_add_sub_photo_hint')}
               >
                 <Plus className="w-5 h-5 mb-0.5" />
                 <span className="text-[10px] font-medium">{t('agency_portfolio_add_sub_photo')}</span>

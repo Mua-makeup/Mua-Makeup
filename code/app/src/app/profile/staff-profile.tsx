@@ -535,6 +535,28 @@ export default function StaffWorkProfileScreen() {
             </View>
           ) : null}
 
+          {/* LỊCH SỬ GIẢI TRÌNH TĂNG CA */}
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
+              onPress={() => router.push('/staff/overtime-reports' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="document-text-outline" size={20} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: BrandColors.slateHeading }}>
+                  Lịch Sử Giải Trình Tăng Ca
+                </Text>
+                <Text style={{ fontSize: 12, color: BrandColors.slateMuted, marginTop: 2 }}>
+                  Theo dõi trạng thái duyệt & tiền phụ cấp tăng ca
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={BrandColors.slateMuted} />
+            </TouchableOpacity>
+          </View>
+
           <View style={{ height: 30 }} />
         </ScrollView>
       ) : null}

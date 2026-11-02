@@ -17,32 +17,36 @@ import com.makeup.platform.entity.agency.OvertimePolicyType;
 import com.makeup.platform.entity.agency.OvertimeReasonType;
 import com.makeup.platform.entity.agency.OvertimeReportStatus;
 import com.makeup.platform.entity.agency.OvertimeReviewAction;
-import com.makeup.platform.entity.auth.UserEntity;
+import com.makeup.platform.entity.booking.AssignmentRole;
+import com.makeup.platform.entity.booking.AssignmentStatus;
 import com.makeup.platform.entity.booking.BookingEntity;
-import com.makeup.platform.entity.wallet.LedgerEntryEntity;
-import com.makeup.platform.entity.wallet.WalletEntity;
+import com.makeup.platform.entity.booking.BookingStaffAssignmentEntity;
 import com.makeup.platform.mapper.agency.AgencyOvertimeMapper;
 import com.makeup.platform.repository.AgencyOvertimeRuleRepository;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffOvertimeReportRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
 import com.makeup.platform.repository.booking.BookingRepository;
-import com.makeup.platform.repository.wallet.LedgerEntryRepository;
-import com.makeup.platform.repository.wallet.WalletRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
 import com.makeup.platform.service.agency.AgencyOvertimeService;
 import com.makeup.platform.service.interaction.NotificationService;
+import com.makeup.platform.service.wallet.impl.OvertimeAllowancePaymentService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -56,9 +60,12 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
     private final AgencyStaffOvertimeReportRepository agencyStaffOvertimeReportRepository;
     private final AgencyOvertimeMapper agencyOvertimeMapper;
     private final NotificationService notificationService;
-    private final WalletRepository walletRepository;
-    private final LedgerEntryRepository ledgerEntryRepository;
     private final BookingRepository bookingRepository;
+    private final BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
+    private final OvertimeAllowancePaymentService overtimePaymentService;
+
+    @Autowired(required = false)
+    private SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -163,6 +170,46 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                         HttpStatus.FORBIDDEN
                 ));
 
+        BookingEntity booking = bookingRepository.findById(req.getBookingId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_BOOKING_NOT_FOUND,
+                        "booking.not_found"
+                ));
+
+        // Kiểm tra phân công trong đơn hàng: Chỉ Thợ chính (PRIMARY_MUA) mới có quyền gửi giải trình
+        List<BookingStaffAssignmentEntity> assignments = bookingStaffAssignmentRepository
+                .findByBookingIdAndStatus(booking.getId(), AssignmentStatus.ACTIVE);
+        if (assignments.isEmpty()) {
+            assignments = bookingStaffAssignmentRepository.findByBookingId(booking.getId());
+        }
+
+        if (!assignments.isEmpty()) {
+            BookingStaffAssignmentEntity callerAssignment = assignments.stream()
+                    .filter(sa -> sa.getStaff() != null && sa.getStaff().getId().equals(staff.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new CustomBusinessException(
+                            ErrorCodes.ERR_FORBIDDEN,
+                            "agency.staff_not_assigned_to_booking",
+                            HttpStatus.FORBIDDEN
+                    ));
+
+            if (callerAssignment.getAssignmentRole() != AssignmentRole.PRIMARY_MUA) {
+                throw new CustomBusinessException(
+                        ErrorCodes.ERR_FORBIDDEN,
+                        "agency.only_primary_staff_can_submit_overtime",
+                        HttpStatus.FORBIDDEN
+                );
+            }
+        }
+
+        if (agencyStaffOvertimeReportRepository.existsByBookingIdAndStaffId(booking.getId(), staff.getId())) {
+            throw new CustomBusinessException(
+                    ErrorCodes.ERR_VALIDATION,
+                    "agency.overtime_report_already_submitted",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
         AgencyProfileEntity agency = staff.getAgency();
         AgencyOvertimeRuleEntity rule = null;
 
@@ -181,7 +228,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                     ));
         }
 
-        AgencyStaffOvertimeReportEntity report = AgencyStaffOvertimeReportEntity.builder()
+        AgencyStaffOvertimeReportEntity primaryReport = AgencyStaffOvertimeReportEntity.builder()
                 .bookingId(req.getBookingId())
                 .staff(staff)
                 .agency(agency)
@@ -195,9 +242,36 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
                 .customerSurchargeAmount(BigDecimal.ZERO)
                 .build();
 
-        AgencyStaffOvertimeReportEntity saved = agencyStaffOvertimeReportRepository.save(report);
-        log.info("Thợ staffId={} nộp giải trình quá giờ reportId={} cho ca bookingId={}",
+        AgencyStaffOvertimeReportEntity saved = agencyStaffOvertimeReportRepository.save(primaryReport);
+        log.info("Thợ chính staffId={} nộp giải trình quá giờ reportId={} cho ca bookingId={}",
                 staff.getId(), saved.getId(), req.getBookingId());
+
+        // Tự động đính kèm báo cáo tăng ca cho thợ phụ (ASSISTANT_MUA) nếu ca làm có thợ phụ
+        for (BookingStaffAssignmentEntity sa : assignments) {
+            if (sa.getStaff() != null && !sa.getStaff().getId().equals(staff.getId())
+                    && sa.getAssignmentRole() == AssignmentRole.ASSISTANT_MUA) {
+                if (!agencyStaffOvertimeReportRepository.existsByBookingIdAndStaffId(booking.getId(), sa.getStaff().getId())) {
+                    AgencyStaffOvertimeReportEntity assistantReport = AgencyStaffOvertimeReportEntity.builder()
+                            .bookingId(req.getBookingId())
+                            .staff(sa.getStaff())
+                            .agency(agency)
+                            .overtimeMinutes(req.getOvertimeMinutes())
+                            .reasonType(req.getReasonType())
+                            .rule(rule)
+                            .explanationText(req.getExplanationText())
+                            .proofImageUrl(req.getProofImageUrl())
+                            .status(OvertimeReportStatus.PENDING_AGENCY_REVIEW)
+                            .penaltyAmountApplied(BigDecimal.ZERO)
+                            .customerSurchargeAmount(BigDecimal.ZERO)
+                            .adminNotes("Báo cáo được đính kèm tự động từ giải trình của thợ chính")
+                            .build();
+                    AgencyStaffOvertimeReportEntity savedAssistant = agencyStaffOvertimeReportRepository.save(assistantReport);
+                    broadcastOvertimeReport(savedAssistant);
+                    log.info("Đính kèm tự động báo cáo quá giờ cho thợ phụ staffId={} theo đơn #{}",
+                            sa.getStaff().getId(), booking.getId());
+                }
+            }
+        }
 
         try {
             notificationService.createOvertimeReportSubmittedNotification(agency, staff, saved);
@@ -205,6 +279,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
             log.warn("Failed to create overtime report notification: {}", ex.getMessage());
         }
 
+        broadcastOvertimeReport(saved);
         return toReportResponse(saved);
     }
 
@@ -213,7 +288,7 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
     public OvertimeReportRes reviewOvertimeReport(Long userId, Long reportId, ReviewOvertimeReportReq req) {
         AgencyProfileEntity agency = getAgencyByOwnerId(userId);
 
-        AgencyStaffOvertimeReportEntity report = agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(reportId, agency.getId())
+        AgencyStaffOvertimeReportEntity report = agencyStaffOvertimeReportRepository.findByIdAndAgencyIdForReview(reportId, agency.getId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCodes.ERR_OVERTIME_REPORT_NOT_FOUND,
                         "agency.overtime_report_not_found"
@@ -289,145 +364,80 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
 
         AgencyStaffOvertimeReportEntity saved = agencyStaffOvertimeReportRepository.save(report);
 
-        // THỰC HIỆN CỘNG TIỀN VÀO VÍ THỢ & TRÍCH TỪ VÍ STUDIO THEO DOUBLE-ENTRY LEDGER
-        if (shouldCreditAllowance && allowanceAmount.compareTo(BigDecimal.ZERO) > 0) {
-            BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
-            String bookingCode = (booking != null && booking.getBookingCode() != null) ? booking.getBookingCode() : String.valueOf(report.getBookingId());
-
-            // 1. Trích từ ví Studio (Agency Owner Wallet - DEBIT)
-            UserEntity ownerUser = agency.getOwner();
-            if (ownerUser != null) {
-                WalletEntity ownerWallet = walletRepository.findByUserIdWithLock(ownerUser.getId())
-                        .orElseGet(() -> {
-                            WalletEntity newWallet = WalletEntity.builder()
-                                    .user(ownerUser)
-                                    .availableBalance(BigDecimal.ZERO)
-                                    .frozenBalance(BigDecimal.ZERO)
-                                    .currency("VND")
-                                    .build();
-                            return walletRepository.save(newWallet);
-                        });
-
-                
-                if (ownerWallet.getAvailableBalance() != null && ownerWallet.getAvailableBalance().compareTo(allowanceAmount) >= 0) {
-                    Long staffUserIdKey = (saved.getStaff() != null && saved.getStaff().getMua() != null && saved.getStaff().getMua().getUser() != null)
-                            ? saved.getStaff().getMua().getUser().getId() : (saved.getStaff() != null ? saved.getStaff().getId() : saved.getId());
-                    String debitKey = "ot:debit:booking:" + report.getBookingId() + ":staff:" + staffUserIdKey;
-                    if (!ledgerEntryRepository.existsByIdempotencyKey(debitKey)) {
-                        ownerWallet.setAvailableBalance(ownerWallet.getAvailableBalance().subtract(allowanceAmount));
-                        walletRepository.save(ownerWallet);
-
-                        String staffName = (saved.getStaff() != null && saved.getStaff().getMua() != null && saved.getStaff().getMua().getUser() != null)
-                                ? saved.getStaff().getMua().getUser().getFullName() : "nhân viên";
-
-                        LedgerEntryEntity debitEntry = LedgerEntryEntity.builder()
-                                .referenceType("OVERTIME_PAYMENT")
-                                .referenceId(saved.getId())
-                                .wallet(ownerWallet)
-                                .entryType("DEBIT")
-                                .amount(allowanceAmount)
-                                .balanceAfter(ownerWallet.getAvailableBalance())
-                                .description(String.format("Chi trả phụ cấp làm thêm giờ đơn #%s cho thợ %s (-%s đ)",
-                                        bookingCode, staffName, String.format("%,d", allowanceAmount.longValue())))
-                                .idempotencyKey(debitKey)
-                                .build();
-                        ledgerEntryRepository.save(debitEntry);
-                        log.info("[OvertimeReview] Debited {} VND from agency owner userId={} for overtime reportId={}",
-                                allowanceAmount, ownerUser.getId(), saved.getId());
-                    }
-                } else {
-                    log.info("[OvertimeReview] Ví Studio userId={} không đủ số dư ({} < {}), tiền tăng ca sẽ được trích từ doanh thu cọc đơn #{} khi quyết toán",
-                            ownerUser.getId(), ownerWallet.getAvailableBalance(), allowanceAmount, bookingCode);
-                }
-            }
-
-            // 2. Ghi có vào ví Thợ (Staff Wallet - CREDIT)
-            if (saved.getStaff() != null && saved.getStaff().getMua() != null && saved.getStaff().getMua().getUser() != null) {
-                UserEntity staffUser = saved.getStaff().getMua().getUser();
-                WalletEntity staffWallet = walletRepository.findByUserIdWithLock(staffUser.getId())
-                        .orElseGet(() -> {
-                            WalletEntity newWallet = WalletEntity.builder()
-                                    .user(staffUser)
-                                    .availableBalance(BigDecimal.ZERO)
-                                    .frozenBalance(BigDecimal.ZERO)
-                                    .currency("VND")
-                                    .build();
-                            return walletRepository.save(newWallet);
-                        });
-
-                String creditKey = "ot:credit:booking:" + report.getBookingId() + ":staff:" + staffUser.getId();
-                if (!ledgerEntryRepository.existsByIdempotencyKey(creditKey)) {
-                    staffWallet.setAvailableBalance(staffWallet.getAvailableBalance().add(allowanceAmount));
-                    walletRepository.save(staffWallet);
-
-                    LedgerEntryEntity creditEntry = LedgerEntryEntity.builder()
-                            .referenceType("OVERTIME_ALLOWANCE")
-                            .referenceId(saved.getId())
-                            .wallet(staffWallet)
-                            .entryType("CREDIT")
-                            .amount(allowanceAmount)
-                            .balanceAfter(staffWallet.getAvailableBalance())
-                            .description(String.format("Nhận trợ cấp làm thêm giờ đơn #%s (+%d phút) do Studio duyệt",
-                                    bookingCode, saved.getOvertimeMinutes()))
-                            .idempotencyKey(creditKey)
-                            .build();
-                    ledgerEntryRepository.save(creditEntry);
-                    log.info("[OvertimeReview] Credited {} VND to staff userId={} for overtime reportId={}",
-                            allowanceAmount, staffUser.getId(), saved.getId());
-                }
-
-                // 3. Gửi thông báo realtime (In-App + WebSocket STOMP + Push) đến Thợ
-                try {
-                    notificationService.createOvertimeApprovedNotification(
-                            staffUser,
-                            agency,
-                            bookingCode,
-                            saved.getOvertimeMinutes(),
-                            allowanceAmount
-                    );
-                } catch (Exception notifEx) {
-                    log.warn("[OvertimeReview] Failed to notify staff of overtime approval: {}", notifEx.getMessage());
-                }
-            }
+        if (shouldCreditAllowance && allowanceAmount.signum() > 0) {
+            overtimePaymentService.pay(saved.getId());
         }
 
         log.info("Admin userId={} phán quyết reportId={} với action={}, allowanceAmount={}",
                 userId, reportId, req.getAction(), allowanceAmount);
 
+        broadcastOvertimeReport(saved);
         return toReportResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<OvertimeReportRes> getOvertimeReports(Long userId, String status, Pageable pageable) {
-        AgencyProfileEntity agency = getAgencyByOwnerId(userId);
+        Optional<AgencyProfileEntity> agencyOpt = agencyProfileRepository.findByOwnerId(userId);
+        if (agencyOpt.isPresent()) {
+            AgencyProfileEntity agency = agencyOpt.get();
+            Page<AgencyStaffOvertimeReportEntity> page;
+            if (status != null && !status.isBlank()) {
+                try {
+                    OvertimeReportStatus reportStatus = OvertimeReportStatus.valueOf(status.trim().toUpperCase());
+                    page = agencyStaffOvertimeReportRepository.findByAgencyIdAndStatus(agency.getId(), reportStatus, pageable);
+                } catch (IllegalArgumentException e) {
+                    page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+                }
+            } else {
+                page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+            }
+            return page.map(this::toReportResponse);
+        }
+
+        AgencyStaffEntity staff = agencyStaffRepository.findActiveStaffByUserId(userId)
+                .or(() -> agencyStaffRepository.findActiveOrPendingStaffByUserId(userId).stream().findFirst())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCodes.ERR_AGENCY_NOT_FOUND, "ERR_AGENCY_NOT_FOUND"));
 
         Page<AgencyStaffOvertimeReportEntity> page;
         if (status != null && !status.isBlank()) {
             try {
                 OvertimeReportStatus reportStatus = OvertimeReportStatus.valueOf(status.trim().toUpperCase());
-                page = agencyStaffOvertimeReportRepository.findByAgencyIdAndStatus(agency.getId(), reportStatus, pageable);
+                page = agencyStaffOvertimeReportRepository.findByStaffIdAndStatus(staff.getId(), reportStatus, pageable);
             } catch (IllegalArgumentException e) {
-                page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+                page = agencyStaffOvertimeReportRepository.findByStaffId(staff.getId(), pageable);
             }
         } else {
-            page = agencyStaffOvertimeReportRepository.findByAgencyId(agency.getId(), pageable);
+            page = agencyStaffOvertimeReportRepository.findByStaffId(staff.getId(), pageable);
         }
-
         return page.map(this::toReportResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public OvertimeReportRes getOvertimeReportDetail(Long userId, Long reportId) {
-        AgencyProfileEntity agency = getAgencyByOwnerId(userId);
-
-        AgencyStaffOvertimeReportEntity report = agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(reportId, agency.getId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCodes.ERR_OVERTIME_REPORT_NOT_FOUND,
-                        "agency.overtime_report_not_found"
-                ));
-
+        Optional<AgencyProfileEntity> agencyOpt = agencyProfileRepository.findByOwnerId(userId);
+        AgencyStaffOvertimeReportEntity report;
+        if (agencyOpt.isPresent()) {
+            report = agencyStaffOvertimeReportRepository.findByIdAndAgencyIdWithDetails(reportId, agencyOpt.get().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            ErrorCodes.ERR_OVERTIME_REPORT_NOT_FOUND,
+                            "agency.overtime_report_not_found"
+                    ));
+        } else {
+            report = agencyStaffOvertimeReportRepository.findById(reportId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            ErrorCodes.ERR_OVERTIME_REPORT_NOT_FOUND,
+                            "agency.overtime_report_not_found"
+                    ));
+            boolean isStaffOwner = report.getStaff() != null
+                    && report.getStaff().getMua() != null
+                    && report.getStaff().getMua().getUser() != null
+                    && report.getStaff().getMua().getUser().getId().equals(userId);
+            if (!isStaffOwner) {
+                throw new CustomBusinessException(ErrorCodes.ERR_UNAUTHORIZED, "common.unauthorized", HttpStatus.FORBIDDEN);
+            }
+        }
         return toReportResponse(report);
     }
 
@@ -453,26 +463,90 @@ public class AgencyOvertimeServiceImpl implements AgencyOvertimeService {
 
     private BigDecimal calculateAllowance(AgencyStaffOvertimeReportEntity report, AgencyOvertimeRuleEntity rule) {
         if (rule == null) return BigDecimal.ZERO;
+        BigDecimal base = BigDecimal.ZERO;
         BigDecimal value = rule.getPenaltyValue() != null ? rule.getPenaltyValue() : BigDecimal.ZERO;
         if (rule.getPenaltyType() == OvertimePenaltyType.PER_MINUTE) {
-            return value.multiply(BigDecimal.valueOf(report.getOvertimeMinutes())).setScale(0, RoundingMode.HALF_UP);
-        }
-        if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) return value;
-        if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
+            base = value.multiply(BigDecimal.valueOf(report.getOvertimeMinutes())).setScale(0, RoundingMode.HALF_UP);
+        } else if (rule.getPenaltyType() == OvertimePenaltyType.FIXED_AMOUNT) {
+            base = value;
+        } else if (rule.getPenaltyType() == OvertimePenaltyType.PERCENT_COMMISSION) {
             BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
-            BigDecimal base = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
-            return base.multiply(value).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            BigDecimal total = booking != null && booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            base = total.multiply(value).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
         }
-        return BigDecimal.ZERO;
+
+        // PHÂN BIỆT ROLE: Thợ phụ (Assistant MUA) nhận phụ cấp tăng ca theo tỷ lệ hoa hồng hoặc mặc định 50%
+        if (report.getBookingId() != null && report.getStaff() != null && base.compareTo(BigDecimal.ZERO) > 0) {
+            Optional<BookingStaffAssignmentEntity> assignmentOpt = bookingStaffAssignmentRepository
+                    .findByBookingIdAndStaffIdAndStatus(report.getBookingId(), report.getStaff().getId(), AssignmentStatus.ACTIVE);
+            if (assignmentOpt.isEmpty()) {
+                assignmentOpt = bookingStaffAssignmentRepository.findByBookingId(report.getBookingId()).stream()
+                        .filter(sa -> sa.getStaff() != null && sa.getStaff().getId().equals(report.getStaff().getId()))
+                        .findFirst();
+            }
+            if (assignmentOpt.isPresent() && assignmentOpt.get().getAssignmentRole() == AssignmentRole.ASSISTANT_MUA) {
+                BigDecimal staffCommRate = assignmentOpt.get().getCommissionRate();
+                if (staffCommRate != null && staffCommRate.compareTo(BigDecimal.ZERO) > 0 && staffCommRate.compareTo(BigDecimal.valueOf(100)) < 0) {
+                    return base.multiply(staffCommRate).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                } else {
+                    return base.multiply(BigDecimal.valueOf(0.5)).setScale(0, RoundingMode.HALF_UP);
+                }
+            }
+        }
+
+        return base;
     }
 
     private OvertimeReportRes toReportResponse(AgencyStaffOvertimeReportEntity report) {
         OvertimeReportRes response = agencyOvertimeMapper.toReportRes(report);
+        response.setAllowancePaymentStatus(overtimePaymentService.status(report));
         if (report.getStatus() == OvertimeReportStatus.PENDING_AGENCY_REVIEW) {
             AgencyOvertimeRuleEntity rule = resolveAllowanceRule(report);
             response.setEstimatedAllowanceAmount(calculateAllowance(report, rule));
         }
+        if (report.getBookingId() != null) {
+            BookingEntity booking = bookingRepository.findById(report.getBookingId()).orElse(null);
+            if (booking != null) {
+                response.setBookingCode(booking.getBookingCode());
+                if (booking.getServicePackage() != null) {
+                    response.setPackageName(booking.getServicePackage().getPackageName());
+                }
+            }
+            if (report.getStaff() != null) {
+                Optional<BookingStaffAssignmentEntity> assignmentOpt = bookingStaffAssignmentRepository
+                        .findByBookingIdAndStaffIdAndStatus(report.getBookingId(), report.getStaff().getId(), AssignmentStatus.ACTIVE);
+                if (assignmentOpt.isEmpty()) {
+                    assignmentOpt = bookingStaffAssignmentRepository.findByBookingId(report.getBookingId()).stream()
+                            .filter(sa -> sa.getStaff() != null && sa.getStaff().getId().equals(report.getStaff().getId()))
+                            .findFirst();
+                }
+                if (assignmentOpt.isPresent()) {
+                    AssignmentRole role = assignmentOpt.get().getAssignmentRole();
+                    response.setAssignmentRole(role != null ? role.name() : null);
+                    response.setAssignmentRoleName(role == AssignmentRole.PRIMARY_MUA ? "Thợ chính" : "Thợ phụ");
+                }
+            }
+        }
         return response;
+    }
+
+    private void broadcastOvertimeReport(AgencyStaffOvertimeReportEntity report) {
+        if (messagingTemplate == null || report == null) return;
+        try {
+            OvertimeReportRes res = toReportResponse(report);
+            if (report.getAgency() != null) {
+                messagingTemplate.convertAndSend("/topic/overtime-reports/" + report.getAgency().getId(), res);
+            }
+            if (report.getStaff() != null && report.getStaff().getMua() != null && report.getStaff().getMua().getUser() != null) {
+                Long staffUserId = report.getStaff().getMua().getUser().getId();
+                messagingTemplate.convertAndSend("/topic/staff-overtime/" + staffUserId, res);
+            }
+            if (report.getBookingId() != null) {
+                messagingTemplate.convertAndSend("/topic/booking-status/" + report.getBookingId(), res);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to broadcast overtime report event: {}", e.getMessage());
+        }
     }
 
     private AgencyProfileEntity getAgencyByOwnerId(Long ownerId) {

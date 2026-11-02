@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -46,8 +47,9 @@ public class DiscordAlertServiceImpl implements DiscordAlertService {
         }
 
         try {
-            String exceptionName = ex != null ? ex.getClass().getSimpleName() : "UnknownException";
-            String rawMessage = ex != null && ex.getMessage() != null ? ex.getMessage() : "No message provided";
+            Throwable rootCause = ex != null ? NestedExceptionUtils.getMostSpecificCause(ex) : null;
+            String exceptionName = rootCause != null ? rootCause.getClass().getSimpleName() : (ex != null ? ex.getClass().getSimpleName() : "UnknownException");
+            String rawMessage = rootCause != null && rootCause.getMessage() != null ? rootCause.getMessage() : (ex != null && ex.getMessage() != null ? ex.getMessage() : "No message provided");
             String message = rawMessage.length() > 500 ? rawMessage.substring(0, 500) + "..." : rawMessage;
 
             String stackTraceSnippet = extractShortStackTrace(ex);
@@ -110,7 +112,8 @@ public class DiscordAlertServiceImpl implements DiscordAlertService {
         }
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
-        ex.printStackTrace(pw);
+        Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        (rootCause != null ? rootCause : ex).printStackTrace(pw);
         String fullTrace = sw.toString();
 
         String[] lines = fullTrace.split("\n");

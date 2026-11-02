@@ -21,14 +21,14 @@ class NotificationSoundEngine {
       window.removeEventListener('keydown', unlock);
       window.removeEventListener('touchstart', unlock);
       window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('mousemove', unlock);
+
     };
 
     window.addEventListener('click', unlock, { once: true, passive: true });
     window.addEventListener('keydown', unlock, { once: true, passive: true });
     window.addEventListener('touchstart', unlock, { once: true, passive: true });
     window.addEventListener('pointerdown', unlock, { once: true, passive: true });
-    window.addEventListener('mousemove', unlock, { once: true, passive: true });
+
   }
 
   getAudioContext() {

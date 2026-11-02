@@ -14,7 +14,7 @@ import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.ArrayList;
 
-@Tag("infrastructure") @Testcontainers
+@Tag("infrastructure") @Testcontainers(disabledWithoutDocker = true)
 class RedisInfrastructureTest {
     @Container static final GenericContainer<?> redis = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
     static LettuceConnectionFactory connection;

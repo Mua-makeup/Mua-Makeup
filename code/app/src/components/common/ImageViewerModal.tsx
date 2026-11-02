@@ -44,6 +44,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
 
   // Single Animation Value duy nhất điều khiển toàn bộ chuyển động mở/đóng
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -52,6 +53,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      setFailedImageUrl(null);
       isClosingRef.current = false;
       setCurrentIndex(initialIndex >= 0 && initialIndex < images.length ? initialIndex : 0);
       translateY.setValue(SCREEN_HEIGHT);
@@ -222,11 +224,20 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
           {/* Vùng hiển thị ảnh phóng to chiếm trọn không gian */}
           <View style={styles.viewerArea}>
             <Image
+              key={currentImageUrl}
               source={{ uri: currentImageUrl }}
               style={styles.fullImage}
               contentFit="contain"
               priority="high"
+              onError={() => setFailedImageUrl(currentImageUrl)}
             />
+            {failedImageUrl === currentImageUrl && (
+              <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+                <Text style={{ color: '#FFFFFF', textAlign: 'center' }}>
+                  Không tải được ảnh đối chứng. Ảnh có thể chưa được tải lên hoặc đường dẫn không còn hợp lệ.
+                </Text>
+              </View>
+            )}
 
             {/* Nút lùi ảnh < */}
             {hasMultiple && currentIndex > 0 && (

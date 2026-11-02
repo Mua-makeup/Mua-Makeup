@@ -753,6 +753,7 @@ export default function StaffScheduleScreen() {
         </TouchableOpacity>
       </View>
 
+
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: getBottomNavPadding(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
@@ -2667,5 +2668,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#64748B',
+  },
+  overtimeQuickLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  overtimeQuickLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B45309',
   },
 });

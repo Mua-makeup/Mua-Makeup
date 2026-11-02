@@ -148,7 +148,7 @@ export const TaxonomyManagementPage = () => {
       ),
     },
     {
-      header: 'Mô Tả',
+      header: t('col_description') || 'Mô Tả',
       accessor: 'description',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400 max-w-md block truncate">
@@ -157,7 +157,7 @@ export const TaxonomyManagementPage = () => {
       ),
     },
     {
-      header: 'Thứ Tự',
+      header: t('col_sort_order') || 'Thứ Tự',
       accessor: 'sortOrder',
       align: 'center',
       render: (row) => (
@@ -219,7 +219,7 @@ export const TaxonomyManagementPage = () => {
       ),
     },
     {
-      header: 'Mô Tả',
+      header: t('col_description') || 'Mô Tả',
       accessor: 'description',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400 max-w-md block truncate">

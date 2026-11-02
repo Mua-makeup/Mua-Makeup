@@ -46,6 +46,7 @@ export default function StudioReviewsScreen() {
 
   // Modals dropdown & Lightbox
   const [isStarModalVisible, setIsStarModalVisible] = useState(false);
+  const [isServiceModalVisible, setIsServiceModalVisible] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -1015,7 +1016,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   reviewPhotoMoreOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.52)',
     justifyContent: 'center',
     alignItems: 'center',

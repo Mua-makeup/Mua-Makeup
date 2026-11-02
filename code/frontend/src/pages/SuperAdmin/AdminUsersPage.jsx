@@ -315,13 +315,13 @@ export const AdminUsersPage = () => {
         }}
         onConfirm={handleToggleStatus}
         isLoading={isSubmitting}
-        title={selectedUser?.isActive ? 'Xác Nhận Khóa Tài Khoản' : 'Xác Nhận Mở Khóa Tài Khoản'}
+        title={selectedUser?.isActive ? (t('confirm_lock_title') || 'Khóa Tài Khoản') : (t('confirm_unlock_title') || 'Mở Khóa')}
         message={
           selectedUser?.isActive
-            ? `Bạn có chắc chắn muốn khóa tài khoản của "${selectedUser?.fullName || selectedUser?.phoneNumber}"? Người dùng này sẽ không thể đăng nhập vào hệ thống.`
-            : `Bạn có chắc chắn muốn kích hoạt lại tài khoản cho "${selectedUser?.fullName || selectedUser?.phoneNumber}"?`
+            ? (t('confirm_lock_user_msg') || `Bạn có chắc chắn muốn khóa tài khoản của "${selectedUser?.fullName || selectedUser?.phoneNumber}"? Người dùng này sẽ không thể đăng nhập vào hệ thống.`)
+            : (t('confirm_unlock_user_msg') || `Bạn có chắc chắn muốn kích hoạt lại tài khoản cho "${selectedUser?.fullName || selectedUser?.phoneNumber}"?`)
         }
-        confirmText={selectedUser?.isActive ? 'Khóa Tài Khoản' : 'Mở Khóa'}
+        confirmText={selectedUser?.isActive ? (t('btn_deactivate') || 'Khóa Tài Khoản') : (t('btn_activate') || 'Mở Khóa')}
         variant={selectedUser?.isActive ? 'danger' : 'primary'}
       />
 

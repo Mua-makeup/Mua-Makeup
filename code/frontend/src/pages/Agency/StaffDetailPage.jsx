@@ -18,7 +18,7 @@ import {
   Image as ImageIcon,
   Eye,
   X,
-  Loader2,
+
   Check,
   Save,
   Trash2,
@@ -272,7 +272,7 @@ export const StaffDetailPage = () => {
   const isPending = detail.status === 'PENDING';
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       {/* Top Breadcrumb & Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div className="flex items-center gap-3">
@@ -375,6 +375,11 @@ export const StaffDetailPage = () => {
                 <>
                   <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-400 text-amber-400 shrink-0" />
                   <span>{Number(detail.ratingAvg).toFixed(1)}</span>
+                  {detail.totalReviews ? (
+                    <span className="text-xs text-slate-400 font-normal">
+                      ({detail.totalReviews})
+                    </span>
+                  ) : null}
                 </>
               ) : (
                 <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">

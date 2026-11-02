@@ -29,6 +29,7 @@ import { SHIFT_DAYS } from '../../../constants/agency.constant';
 import { useShiftConflict } from '../../../hooks/useShiftConflict';
 import { shiftSchema } from '../../../schemas/agency.schema';
 import { useI18nStore } from '../../../store/useI18nStore';
+import { useUndoDelete } from '../../../hooks/useUndoDelete';
 import { WeeklyShiftSkeleton } from '../../base/Skeleton';
 
 // Định nghĩa 3 buổi trong ngày
@@ -105,6 +106,7 @@ const getPeriodId = (startTime) => {
 
 export const WeeklyShiftTable = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
   const [shifts, setShifts] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [filterStaffId, setFilterStaffId] = useState('ALL');
@@ -405,7 +407,7 @@ export const WeeklyShiftTable = () => {
       (p) => p.start === cleanStart.substring(0, 5) && p.end === cleanEnd.substring(0, 5)
     );
     if (!isPresetValid) {
-      setFormError('Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00-12:00), Ca chiều (13:00-17:00), Ca tối (18:00-21:30) hoặc Cả ngày (08:00-17:00)');
+      setFormError(t('err_shift_fixed_presets') || 'Chỉ được phân ca trong 4 ca cố định: Ca sáng (08:00-12:00), Ca chiều (13:00-17:00), Ca tối (18:00-21:30) hoặc Cả ngày (08:00-17:00)');
       return;
     }
 
@@ -523,19 +525,27 @@ export const WeeklyShiftTable = () => {
     }
   };
 
-  const handleConfirmDeleteShift = async () => {
+  const handleConfirmDeleteShift = () => {
     if (!deletingShift) return;
-    setIsDeleting(true);
-    try {
-      await agencyService.deleteShift(deletingShift.id);
-      setShifts((prev) => prev.filter((s) => s.id !== deletingShift.id));
-      setDeletingShift(null);
-    } catch {
-      setShifts((prev) => prev.filter((s) => s.id !== deletingShift.id));
-      setDeletingShift(null);
-    } finally {
-      setIsDeleting(false);
-    }
+    const target = deletingShift;
+    setDeletingShift(null);
+
+    triggerUndoDelete({
+      id: target.id,
+      itemName: target.staffName ? `${target.staffName} (${target.shiftName || target.timeRange || ''})` : (t('shift_label') || 'Ca trực'),
+      onOptimisticRemove: () => {
+        setShifts((prev) => prev.filter((s) => s.id !== target.id));
+      },
+      onUndo: () => {
+        setShifts((prev) => {
+          if (prev.some((s) => s.id === target.id)) return prev;
+          return [...prev, target];
+        });
+      },
+      onCommitDelete: async () => {
+        await agencyService.deleteShift(target.id);
+      },
+    });
   };
 
   const openAddForDayAndPeriod = (dayValue, periodId) => {
@@ -1334,7 +1344,7 @@ export const WeeklyShiftTable = () => {
                 readOnly
                 value={startTime}
                 className="bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed select-none text-slate-700 dark:text-slate-300 font-semibold font-mono"
-                helperText="Cố định theo ca"
+                helperText={t('shift_fixed_by_preset') || 'Cố định theo ca'}
               />
 
               <Input
@@ -1345,7 +1355,7 @@ export const WeeklyShiftTable = () => {
                 readOnly
                 value={endTime}
                 className="bg-slate-100 dark:bg-slate-800/80 cursor-not-allowed select-none text-slate-700 dark:text-slate-300 font-semibold font-mono"
-                helperText="Cố định theo ca"
+                helperText={t('shift_fixed_by_preset') || 'Cố định theo ca'}
               />
             </div>
 

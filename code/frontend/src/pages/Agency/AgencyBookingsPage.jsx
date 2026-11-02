@@ -296,9 +296,8 @@ export const AgencyBookingsPage = () => {
       accessor: 'scheduledStartTime',
       render: (row) => (
         <span className="text-xs text-slate-600 dark:text-slate-400">
-          {row.scheduledStartTime
-            ? formatDateTime(row.scheduledStartTime)
-            : formatBookingDateTime(row.startTime, row.bookingDate) || '—'}
+          {formatBookingDateTime(row.startTime, row.bookingDate)
+            || (row.scheduledStartTime ? formatDateTime(row.scheduledStartTime) : '—')}
         </span>
       ),
     },

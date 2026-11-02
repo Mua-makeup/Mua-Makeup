@@ -78,13 +78,13 @@ export const AdminProfileModal = ({ isOpen, onClose, onUpdated }) => {
 
     // Validate size
     if (file.size > MAX_AVATAR_SIZE_BYTES) {
-      setServerError('Ảnh không được vượt quá 20MB.');
+      setServerError(t('err_avatar_max_size') || 'Ảnh không được vượt quá 20MB.');
       return;
     }
 
     // Validate mime type
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setServerError('Định dạng ảnh không hợp lệ. Vui lòng chọn JPG, PNG hoặc WEBP.');
+      setServerError(t('err_avatar_invalid_format') || 'Định dạng ảnh không hợp lệ. Vui lòng chọn JPG, PNG hoặc WEBP.');
       return;
     }
 
@@ -289,7 +289,7 @@ export const AdminProfileModal = ({ isOpen, onClose, onUpdated }) => {
             label={t('col_user_name') || 'Họ và Tên'}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="VD: Quản Trị Viên Hệ Thống"
+            placeholder={t('admin_profile_fullname_placeholder') || 'VD: Quản Trị Viên Hệ Thống'}
             error={errors.fullName}
             required
           />

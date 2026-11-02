@@ -62,7 +62,7 @@ export const Badge = ({
 
   return (
     <span
-      className={`inline-flex items-center rounded-md font-medium border ${
+      className={`inline-flex items-center whitespace-nowrap rounded-md font-medium border ${
         sizeStyles[size] || sizeStyles.sm
       } ${variantStyles[variant] || variantStyles.active} ${className}`}
     >

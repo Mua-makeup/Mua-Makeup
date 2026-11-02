@@ -361,15 +361,15 @@ export const AgencyWalletPage = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-[850px] text-left text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800/60 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                <tr>
-                  <th className="py-3.5 px-4 sm:px-6">{t('col_tx_time') || 'Thời Gian'}</th>
-                  <th className="py-3.5 px-4">{t('col_tx_ref') || 'Mã Đơn / Bút Toán'}</th>
-                  <th className="py-3.5 px-4">{t('col_tx_type') || 'Nghiệp Vụ'}</th>
-                  <th className="py-3.5 px-4 min-w-[240px]">{t('col_tx_desc') || 'Diễn Giải'}</th>
-                  <th className="py-3.5 px-4 text-right">{t('col_tx_amount') || 'Biến Động'}</th>
-                  <th className="py-3.5 px-4 sm:px-6 text-right">{t('col_tx_balance_after') || 'Số Dư Sau GD'}</th>
+                <tr className="whitespace-nowrap">
+                  <th className="py-3.5 px-4 sm:px-6 whitespace-nowrap">{t('col_tx_time') || 'Thời Gian'}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">{t('col_tx_ref') || 'Mã Đơn / Bút Toán'}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">{t('col_tx_type') || 'Nghiệp Vụ'}</th>
+                  <th className="py-3.5 px-4 min-w-[240px] whitespace-nowrap">{t('col_tx_desc') || 'Diễn Giải'}</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap">{t('col_tx_amount') || 'Biến Động'}</th>
+                  <th className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">{t('col_tx_balance_after') || 'Số Dư Sau GD'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">

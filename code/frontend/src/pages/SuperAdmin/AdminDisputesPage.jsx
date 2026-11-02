@@ -460,7 +460,7 @@ export const AdminDisputesPage = () => {
                 title="Tranh Chấp 2 Chiều (Cả Khách & Thợ đều gửi khiếu nại - Xem chi tiết để đối chiếu)"
               >
                 <Scale className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span>2 Chiều</span>
+                <span>{t('dispute_origin_dual') || '2 Chiều'}</span>
               </span>
             ) : info.disputeOrigin === 'MUA' ? (
               <span
@@ -468,7 +468,7 @@ export const AdminDisputesPage = () => {
                 title="Chuyên viên MUA báo cáo sự cố (Xem chi tiết để đọc lời khai)"
               >
                 <UserCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Thợ Báo</span>
+                <span>{t('dispute_origin_mua') || 'Thợ Báo'}</span>
               </span>
             ) : (
               <span
@@ -476,7 +476,7 @@ export const AdminDisputesPage = () => {
                 title="Khách hàng khiếu nại (Xem chi tiết để đọc lời khai)"
               >
                 <UserIcon className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                <span>Khách Báo</span>
+                <span>{t('dispute_origin_customer') || 'Khách Báo'}</span>
               </span>
             )}
           </div>
@@ -484,7 +484,7 @@ export const AdminDisputesPage = () => {
       },
     },
     {
-      header: 'Minh Chứng',
+      header: t('col_proof') || 'Minh Chứng',
       accessor: 'emergencyProofUrl',
       headerClassName: 'text-center px-2 w-[85px]',
       className: 'text-center px-2',
@@ -564,10 +564,10 @@ export const AdminDisputesPage = () => {
                   ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20'
                   : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
               }`}
-              title={isDisputed ? 'Mở hồ sơ & phân xử khiếu nại' : 'Xem chi tiết'}
+              title={isDisputed ? (t('dispute_arbitrate_tooltip') || 'Mở hồ sơ & phân xử khiếu nại') : (t('view_detail') || 'Xem chi tiết')}
             >
               {isDisputed ? <Gavel className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              <span>{isDisputed ? 'Phân Xử' : 'Chi Tiết'}</span>
+              <span>{isDisputed ? (t('btn_arbitrate') || 'Phân Xử') : (t('col_actions_view') || 'Chi Tiết')}</span>
             </button>
           </div>
         );
@@ -845,7 +845,7 @@ export const AdminDisputesPage = () => {
                     {resolutionAction === 'APPROVE_REFUND_CUSTOMER'
                       ? (isPostCompletion ? 'Duyệt Hoàn Tiền Thực Trả' : (t('btn_approve_refund') || 'Phê Duyệt Hoàn 100% Khách'))
                       : resolutionAction === 'SPLIT_SETTLEMENT_50_50'
-                      ? 'Phán Quyết Hòa Giải 50% - 50%'
+                      ? `${t('dispute_verdict_prefix') || 'Phán Quyết'} ${t('dispute_choice_mediation') || 'Hòa Giải 50% - 50%'}`
                       : (isPostCompletion ? 'Duyệt Giải Trình Thợ (Không Trừ Tiền Thợ)' : (t('btn_reject_dispute') || 'Bác Bỏ & Bồi Thường 100% Thợ'))}
                   </Button>
                 ) : (
@@ -865,30 +865,30 @@ export const AdminDisputesPage = () => {
                   <div className="mt-1">{getStatusBadge(selectedDispute.status)}</div>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Loại Hình & Thời Gian</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('dispute_type_and_time') || 'Loại Hình & Thời Gian'}</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200 mt-1 block">
-                    {selectedDispute.bookingType === 'REALTIME_INSTANT' ? '⚡ Ca Gấp 30s' : '📅 Đặt Lịch'}
+                    {selectedDispute.bookingType === 'REALTIME_INSTANT' ? `⚡ ${t('booking_type_instant') || 'Ca Gấp 30s'}` : `📅 ${t('booking_type_scheduled') || 'Đặt Lịch'}`}
                   </span>
                   <span className="text-[11px] text-slate-500">
                     {formatDate(selectedDispute.bookingDate || selectedDispute.createdAt)} {selectedDispute.startTime ? `• ${selectedDispute.startTime}` : ''}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Tổng Giá Trị Đơn</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">{t('col_total_amount') || 'Tổng Giá Trị Đơn'}</span>
                   <span className="font-bold text-slate-900 dark:text-white mt-1 block">
                     {formatCurrency(selectedDispute.totalAmount)}
                   </span>
-                  <span className="text-[10px] text-slate-500">Gói: {selectedDispute.packageName || 'Dịch vụ make-up'}</span>
+                  <span className="text-[10px] text-slate-500">{t('package_label') || 'Gói'}: {selectedDispute.packageName || 'Dịch vụ make-up'}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-rose-500 font-bold uppercase block">
-                    {isPostCompletion ? 'Số Tiền Có Thể Hoàn' : 'Tiền Cọc Đóng Băng (Escrow)'}
+                    {isPostCompletion ? (t('dispute_arbitration_post_title') || 'Số Tiền Có Thể Hoàn') : (t('dispute_arbitration_deposit_title') || 'Tiền Cọc Đóng Băng (Escrow)')}
                   </span>
                   <span className="font-black text-rose-600 dark:text-rose-400 mt-1 block text-sm">
                     {formatCurrency(disputeAssetAmount)}
                   </span>
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                    {isPostCompletion ? 'Khiếu nại sau ca hoàn thành' : 'Tài sản tranh chấp'}
+                    {isPostCompletion ? (t('dispute_post_completion_notice') || 'Khiếu nại sau ca hoàn thành') : (t('dispute_asset_label') || 'Tài sản tranh chấp')}
                   </span>
                 </div>
               </div>
@@ -958,7 +958,7 @@ export const AdminDisputesPage = () => {
 
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                        Lời khai & Lý do khiếu nại:
+                        {t('dispute_statement_label') || 'Lời khai & Lý do khiếu nại'}:
                       </label>
                       <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
                         "{disputeInfo.customerStatement}"
@@ -969,7 +969,7 @@ export const AdminDisputesPage = () => {
                   {/* Customer Evidence (if any) */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">
-                      Ảnh minh chứng của Khách:
+                      {t('dispute_customer_proof') || 'Ảnh minh chứng của Khách'}:
                     </label>
                     {disputeInfo.customerProofUrls.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
@@ -993,7 +993,7 @@ export const AdminDisputesPage = () => {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-400 italic">Không có ảnh minh chứng đính kèm</span>
+                      <span className="text-[11px] text-slate-400 italic">{t('no_proof_photo_attached') || 'Không có ảnh minh chứng đính kèm'}</span>
                     )}
                   </div>
                 </div>
@@ -1022,7 +1022,7 @@ export const AdminDisputesPage = () => {
 
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
-                        Lời khai & Báo cáo phản hồi:
+                        {t('dispute_mua_statement_label') || 'Lời khai & Báo cáo phản hồi'}:
                       </label>
                       <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-medium">
                         "{disputeInfo.muaStatement}"
@@ -1033,7 +1033,7 @@ export const AdminDisputesPage = () => {
                   {/* MUA Evidence (if any) */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">
-                      Ảnh minh chứng của Thợ:
+                      {t('dispute_mua_proof') || 'Ảnh minh chứng của Thợ'}:
                     </label>
                     {disputeInfo.muaProofUrls.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
@@ -1094,24 +1094,24 @@ export const AdminDisputesPage = () => {
                       )}
                       <span>
                         {isSplit5050
-                          ? 'ĐÃ PHÁN QUYẾT: HÒA GIẢI 50% - 50% (CHIA ĐÔI TIỀN CỌC)'
+                          ? (t('dispute_arbitrated_split_badge') || 'ĐÃ PHÁN QUYẾT: HÒA GIẢI 50% - 50% (CHIA ĐÔI TIỀN CỌC)')
                           : isRefunded
                           ? (isPostCompletion
-                              ? 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CHO KHÁCH'
-                              : 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CỌC 100% CHO KHÁCH HÀNG')
+                              ? (t('dispute_arbitrated_refund_post_badge') || 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CHO KHÁCH')
+                              : (t('dispute_arbitrated_refund_pre_badge') || 'ĐÃ PHÁN QUYẾT: HOÀN TIỀN CỌC 100% CHO KHÁCH HÀNG'))
                           : isCompensated
                           ? (isPostCompletion
-                              ? 'ĐÃ PHÁN QUYẾT: DUYỆT GIẢI TRÌNH THỢ (BÁC KHIẾU NẠI & BẢO LƯU THÙ LAO)'
-                              : 'ĐÃ PHÁN QUYẾT: BÁC BỎ KHIẾU NẠI & BỒI THƯỜNG CHO THỢ')
-                          : 'ĐÃ PHÁN QUYẾT XONG VỤ VIỆC'}
+                              ? (t('dispute_arbitrated_dismiss_post_badge') || 'ĐÃ PHÁN QUYẾT: DUYỆT GIẢI TRÌNH THỢ (BÁC KHIẾU NẠI & BẢO LƯU THÙ LAO)')
+                              : (t('dispute_arbitrated_dismiss_pre_badge') || 'ĐÃ PHÁN QUYẾT: BÁC BỎ KHIẾU NẠI & BỒI THƯỜNG CHO THỢ'))
+                          : (t('dispute_arbitrated_general_badge') || 'ĐÃ PHÁN QUYẾT XONG VỤ VIỆC')}
                       </span>
                     </div>
                     <div className="text-xs leading-relaxed bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
                       <span className="font-bold block text-[11px] text-slate-600 dark:text-slate-400 mb-0.5">
-                        Căn cứ phán quyết lưu trữ:
+                        {t('dispute_verdict_grounds_label') || 'Căn cứ phán quyết lưu trữ:'}
                       </span>
                       <span className="font-medium text-slate-800 dark:text-slate-200">
-                        {selectedDispute.cancellationReason || 'Đã giải quyết theo quy định sàn.'}
+                        {selectedDispute.cancellationReason || t('dispute_verdict_default_reason') || 'Đã giải quyết theo quy định sàn.'}
                       </span>
                     </div>
                   </div>
@@ -1146,10 +1146,10 @@ export const AdminDisputesPage = () => {
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="font-bold text-xs flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          {isPostCompletion ? 'Duyệt Khiếu Nại (Hoàn 100%)' : 'Hoàn 100% Khách'}
+                          {isPostCompletion ? (t('dispute_choice_approve_post') || 'Duyệt Khiếu Nại (Hoàn 100%)') : (t('dispute_choice_approve_pre') || 'Hoàn 100% Khách')}
                         </span>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
-                          {isPostCompletion ? 'Hoàn Tiền Đơn' : 'Lỗi Thợ'}
+                          {isPostCompletion ? (t('dispute_badge_post_refund') || 'Hoàn Tiền Đơn') : (t('dispute_badge_staff_fault') || 'Lỗi Thợ')}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
@@ -1177,7 +1177,7 @@ export const AdminDisputesPage = () => {
                             Hòa Giải 50% - 50%
                           </span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
-                            Công Bằng
+                            {t('dispute_badge_fair') || 'Công Bằng'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
@@ -1199,10 +1199,10 @@ export const AdminDisputesPage = () => {
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="font-bold text-xs flex items-center gap-1.5">
                           <XCircle className="w-4 h-4 text-rose-600" />
-                          {isPostCompletion ? 'Công nhận kết quả dịch vụ' : (selectedDispute.financials ? 'Bồi thường cọc cho Studio' : 'Bồi Thường 100% Thợ')}
+                          {isPostCompletion ? (t('dispute_choice_dismiss_post') || 'Công nhận kết quả dịch vụ') : (selectedDispute.financials ? (t('dispute_choice_dismiss_pre_studio') || 'Bồi thường cọc cho Studio') : (t('dispute_choice_dismiss_pre_mua') || 'Bồi Thường 100% Thợ'))}
                         </span>
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
-                          {isPostCompletion ? 'Bác Khiếu Nại' : 'Lỗi Khách'}
+                          {isPostCompletion ? (t('dispute_badge_dismiss') || 'Bác Khiếu Nại') : (t('dispute_badge_customer_fault') || 'Lỗi Khách')}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
@@ -1238,11 +1238,11 @@ export const AdminDisputesPage = () => {
                   {/* Admin Note Input */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Ghi Chú & Căn Cứ Phán Quyết Của Admin <span className="text-rose-500">*</span>
+                      {t('dispute_admin_notes_label') || 'Ghi Chú & Căn Cứ Phán Quyết Của Admin'} <span className="text-rose-500">*</span>
                     </label>
                     <Textarea
                       rows={3}
-                      placeholder="Nhập chi tiết căn cứ và lý do phán quyết để thông báo minh bạch cho cả 2 bên..."
+                      placeholder={t('dispute_admin_notes_placeholder') || 'Nhập chi tiết căn cứ và lý do phán quyết để thông báo minh bạch cho cả 2 bên...'}
                       value={resolveNote}
                       onChange={(e) => {
                         setResolveNote(e.target.value);
@@ -1291,7 +1291,7 @@ export const AdminDisputesPage = () => {
                 <span>{t('open_image_new_tab') || 'Mở ảnh trong tab mới'}</span>
               </a>
               <span className="text-white/60 text-xs">
-                (Nhấn vùng trống bên ngoài để đóng)
+                {t('click_outside_to_close') || '(Nhấn vùng trống bên ngoài để đóng)'}
               </span>
             </div>
           </div>

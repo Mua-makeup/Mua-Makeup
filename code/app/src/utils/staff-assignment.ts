@@ -2,7 +2,19 @@ type Identity = { id?: number; muaId?: number | null; phoneNumber?: string | nul
 type Assignment = {
   userId?: number; muaId?: number; staffPhone?: string; status?: string;
   isConfirmedByStaff?: boolean; confirmedAt?: string | null;
+  commissionAmount?: number | null; commissionRate?: number | null;
 };
+
+// Match the per-assignment payout rules used by BookingSettlementServiceImpl.
+export function getAssignmentEarnings(assignment: Assignment | null | undefined, totalAmount: number): number | null {
+  if (!assignment) return null;
+  if (assignment.status !== 'ACTIVE') return 0;
+  const amount = Number(assignment.commissionAmount);
+  if (Number.isFinite(amount) && amount > 0) return amount;
+  if (assignment.commissionRate == null) return assignment.commissionAmount == null ? null : 0;
+  const rate = Number(assignment.commissionRate);
+  return Number.isFinite(rate) && rate >= 0 ? Math.round(totalAmount * rate / 100) : null;
+}
 
 export function findMyAssignment<T extends Assignment>(assignments: T[], user: Identity | null | undefined, muaId?: number): T | null {
   const matches = assignments.filter((staff) => {

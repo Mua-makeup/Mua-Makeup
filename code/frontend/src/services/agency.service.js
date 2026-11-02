@@ -9,6 +9,11 @@ export const agencyService = {
       commissionRate,
       commissionRateInternal: commissionRate,
     }),
+  updateCommissionRate: (commissionRate) =>
+    apiClient.put('/agencies/commission', {
+      commissionRate,
+      commissionRateInternal: commissionRate,
+    }),
 
   // Gói dịch vụ
   getMyPackages: (params) => apiClient.get('/packages/my', { params }),

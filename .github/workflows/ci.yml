@@ -45,7 +45,15 @@ jobs:
             code/backend/core-api/gradle.properties
             code/backend/core-api/gradle/wrapper/gradle-wrapper.properties
 
+      - name: Setup Docker socket for Testcontainers
+        run: |
+          sudo systemctl start docker || sudo service docker start || true
+          sudo chmod 666 /var/run/docker.sock || true
+
       - name: Run all backend tests
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
         run: bash ./gradlew test integrationTest jacocoTestReport --continue --no-daemon --console=plain
 
       - name: Upload test reports

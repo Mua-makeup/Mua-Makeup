@@ -22,10 +22,12 @@ import { Toast } from '../../components/base/Toast';
 import { StaffInvitationModal } from '../../components/features/agency/StaffInvitationModal';
 import { AgencyPendingVerificationNotice } from '../../components/features/agency/AgencyPendingVerificationNotice';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useUndoDelete } from '../../hooks/useUndoDelete';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const StaffManagementPage = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'pending' ? 'pending' : 'active';
@@ -170,16 +172,27 @@ export const StaffManagementPage = () => {
     }
   };
 
-  const handleConfirmRemoveStaff = async () => {
+  const handleConfirmRemoveStaff = () => {
     if (!removingStaff) return;
-    try {
-      const res = await agencyService.removeStaff(removingStaff.id);
-      setActiveStaff((prev) => prev.filter((s) => s.id !== removingStaff.id));
-      setToastMessage(res?.message || t('delete_success'));
-      setRemovingStaff(null);
-    } catch (err) {
-      setToastMessage(err.message || t('error_general'));
-    }
+    const target = removingStaff;
+    setRemovingStaff(null);
+
+    triggerUndoDelete({
+      id: target.id,
+      itemName: target.fullName,
+      onOptimisticRemove: () => {
+        setActiveStaff((prev) => prev.filter((s) => s.id !== target.id));
+      },
+      onUndo: () => {
+        setActiveStaff((prev) => {
+          if (prev.some((s) => s.id === target.id)) return prev;
+          return [...prev, target];
+        });
+      },
+      onCommitDelete: async () => {
+        await agencyService.removeStaff(target.id);
+      },
+    });
   };
 
   // Columns for Active Staff
@@ -224,6 +237,11 @@ export const StaffManagementPage = () => {
             <span className="flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
               {Number(row.ratingAvg).toFixed(1)}
+              {row.totalReviews ? (
+                <span className="text-slate-400 font-normal text-[11px]">
+                  ({row.totalReviews})
+                </span>
+              ) : null}
             </span>
           ) : (
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">

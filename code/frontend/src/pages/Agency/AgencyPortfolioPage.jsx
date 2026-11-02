@@ -18,9 +18,11 @@ import { Toast } from '../../components/base/Toast';
 import { AgencyPortfolioModal } from '../../components/features/agency/AgencyPortfolioModal';
 import { AgencyPortfolioDetailModal } from '../../components/features/agency/AgencyPortfolioDetailModal';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useUndoDelete } from '../../hooks/useUndoDelete';
 
 export const AgencyPortfolioPage = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
   const [portfolios, setPortfolios] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState(null);
@@ -64,7 +66,7 @@ export const AgencyPortfolioPage = () => {
         prev.map((p) => (p.id === item.id ? { ...p, isFeatured: newStatus } : p))
       );
       setToastMessage(
-        newStatus ? 'Đã ghim tác phẩm lên đầu danh sách!' : 'Đã bỏ ghim tác phẩm.'
+        newStatus ? t('agency_portfolio_toast_pin') : t('agency_portfolio_toast_unpin')
       );
     } catch (err) {
       setToastMessage(err.response?.data?.message || err.message || t('error_general'));
@@ -86,7 +88,7 @@ export const AgencyPortfolioPage = () => {
         )
       );
       setToastMessage(
-        newStatus ? 'Tác phẩm đang được hiển thị công khai.' : 'Đã ẩn tác phẩm khỏi danh mục công khai.'
+        newStatus ? t('agency_portfolio_toast_show') : t('agency_portfolio_toast_hide')
       );
     } catch (err) {
       setToastMessage(err.response?.data?.message || err.message || t('error_general'));
@@ -95,16 +97,27 @@ export const AgencyPortfolioPage = () => {
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = () => {
     if (!deletingItem) return;
-    try {
-      await agencyService.deletePortfolio(deletingItem.id);
-      setPortfolios((prev) => prev.filter((p) => p.id !== deletingItem.id));
-      setToastMessage(t('delete_success'));
-      setDeletingItem(null);
-    } catch (err) {
-      setToastMessage(err.response?.data?.message || err.message || t('error_general'));
-    }
+    const itemToDelete = deletingItem;
+    setDeletingItem(null);
+
+    triggerUndoDelete({
+      id: itemToDelete.id,
+      itemName: itemToDelete.title,
+      onOptimisticRemove: () => {
+        setPortfolios((prev) => prev.filter((p) => p.id !== itemToDelete.id));
+      },
+      onUndo: () => {
+        setPortfolios((prev) => {
+          if (prev.some((p) => p.id === itemToDelete.id)) return prev;
+          return [...prev, itemToDelete];
+        });
+      },
+      onCommitDelete: async () => {
+        await agencyService.deletePortfolio(itemToDelete.id);
+      },
+    });
   };
 
   // Danh sách packages duy nhất xuất hiện trong portfolio

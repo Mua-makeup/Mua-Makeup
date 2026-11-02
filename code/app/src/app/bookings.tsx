@@ -1,4 +1,5 @@
 import { DismissibleModal } from '@/components/common/DismissibleModal';
+import * as Haptics from 'expo-haptics';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
@@ -737,6 +738,7 @@ export default function BookingsScreen() {
           onTabChange={handleTabChange}
         />
       </View>
+
 
       {/* THANH TÌM KIẾM & NÚT MỞ BỘ LỌC */}
       <View style={styles.filterSection}>

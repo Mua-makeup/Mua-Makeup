@@ -146,14 +146,11 @@ export const OvertimeReportModal: React.FC<Props> = ({
       setIsSubmitting(true);
 
       let finalProofUrl = proofImageUri || undefined;
-      if (proofImageUri && (proofImageUri.startsWith('file://') || proofImageUri.startsWith('content://') || proofImageUri.startsWith('/'))) {
-        try {
-          const uploadRes = await bookingService.uploadDisputeProof(bookingId, proofImageUri);
-          if (uploadRes?.completionPhotoUrl) {
-            finalProofUrl = uploadRes.completionPhotoUrl;
-          }
-        } catch (uploadErr) {
-          console.warn('[OvertimeReport] Could not upload photo to Cloudinary, sending direct uri:', uploadErr);
+      if (proofImageUri && !/^https?:\/\//i.test(proofImageUri)) {
+        const uploadRes = await bookingService.uploadDisputeProof(bookingId, proofImageUri);
+        finalProofUrl = uploadRes?.completionPhotoUrl;
+        if (!finalProofUrl || !/^https?:\/\//i.test(finalProofUrl)) {
+          throw new Error('Không tải được ảnh đối chứng. Vui lòng thử lại trước khi gửi báo cáo.');
         }
       }
 

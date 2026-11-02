@@ -19,10 +19,12 @@ import { PlatformFeeModal } from '../../components/features/admin/PlatformFeeMod
 import { Percent } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { useI18nStore } from '../../store/useI18nStore';
+import { useUndoDelete } from '../../hooks/useUndoDelete';
 import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 
 export const SurgePricingManagementPage = () => {
   const { t } = useI18nStore();
+  const { triggerUndoDelete } = useUndoDelete();
   const [rules, setRules] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isH3SurgeEnabled, setIsH3SurgeEnabled] = useState(true);
@@ -152,32 +154,28 @@ export const SurgePricingManagementPage = () => {
   };
 
   // Handle Delete Rule
-  const handleDeleteRule = async () => {
+  const handleDeleteRule = () => {
     if (!deleteRuleTarget) return;
-    setIsDeleting(true);
-    try {
-      const deleteFn = superAdminService.deleteSurgeRule || superAdminService.deleteRule;
-      await deleteFn(deleteRuleTarget.id);
-      setDeleteRuleTarget(null);
-      setToastMessage({
-        type: 'success',
-        text: t('surge_delete_success'),
-      });
-      await fetchSurgeData();
-    } catch (err) {
-      console.error('[SurgePricing] Failed to delete surge rule:', err);
-      const errorText =
-        err.response?.data?.message ||
-        (typeof err.data === 'string' ? err.data : null) ||
-        err.message ||
-        t('error_general');
-      setToastMessage({
-        type: 'error',
-        text: errorText,
-      });
-    } finally {
-      setIsDeleting(false);
-    }
+    const target = deleteRuleTarget;
+    setDeleteRuleTarget(null);
+
+    triggerUndoDelete({
+      id: target.id,
+      itemName: target.ruleName,
+      onOptimisticRemove: () => {
+        setRules((prev) => prev.filter((r) => r.id !== target.id));
+      },
+      onUndo: () => {
+        setRules((prev) => {
+          if (prev.some((r) => r.id === target.id)) return prev;
+          return [...prev, target];
+        });
+      },
+      onCommitDelete: async () => {
+        const deleteFn = superAdminService.deleteSurgeRule || superAdminService.deleteRule;
+        await deleteFn(target.id);
+      },
+    });
   };
 
   const activeRulesCount = rules.filter((r) => r.isActive).length;
