@@ -279,18 +279,22 @@ public class AgencyBookingMapper {
         } else if (bStatus == BookingStatus.DISPUTED || bStatus == BookingStatus.DISPUTE_REFUNDED) {
             finalPaymentStatus = "DISPUTED";
         } else {
-            // Check Settlement
-            if (settlement != null && "SETTLED".equalsIgnoreCase(settlement.getStatus())) {
-                isFinalPaid = true;
-                finalPaymentStatus = "PAID";
-                if (settlement.getCashAmount() != null && settlement.getCashAmount().compareTo(BigDecimal.ZERO) > 0) {
-                    finalPaymentMethod = "CASH";
-                } else {
-                    finalPaymentMethod = "ONLINE";
+            // 1. Check Online Final Payment first to extract exact gateway (VNPAY, MOMO, etc.)
+            if (paymentTransactionRepository != null) {
+                List<PaymentTransactionEntity> successTxs = paymentTransactionRepository.findByBookingIdAndStatus(b.getId(), "SUCCESS");
+                if (successTxs != null) {
+                    for (PaymentTransactionEntity tx : successTxs) {
+                        if ("BOOKING_FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose()) || "FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose())) {
+                            isFinalPaid = true;
+                            finalPaymentStatus = "PAID";
+                            finalPaymentMethod = tx.getPaymentGateway();
+                            break;
+                        }
+                    }
                 }
             }
 
-            // Check Cash Receipt
+            // 2. Check Cash Receipt
             if (!isFinalPaid && cashReceiptRepository != null) {
                 Optional<BookingCashReceiptEntity> receiptOpt = cashReceiptRepository.findByBookingId(b.getId());
                 if (receiptOpt.isPresent()) {
@@ -307,21 +311,20 @@ public class AgencyBookingMapper {
                 }
             }
 
-            // Check Online Final Payment
-            if (!isFinalPaid && paymentTransactionRepository != null) {
-                List<PaymentTransactionEntity> successTxs = paymentTransactionRepository.findByBookingIdAndStatus(b.getId(), "SUCCESS");
-                if (successTxs != null) {
-                    for (PaymentTransactionEntity tx : successTxs) {
-                        if ("BOOKING_FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose()) || "FINAL_PAYMENT".equalsIgnoreCase(tx.getPurpose())) {
-                            isFinalPaid = true;
-                            finalPaymentStatus = "PAID";
-                            finalPaymentMethod = tx.getPaymentGateway();
-                            break;
-                        }
+            // 3. Check Settlement
+            if (settlement != null && "SETTLED".equalsIgnoreCase(settlement.getStatus())) {
+                isFinalPaid = true;
+                finalPaymentStatus = "PAID";
+                if ("CASH_OR_ONLINE".equals(finalPaymentMethod)) {
+                    if (settlement.getCashAmount() != null && settlement.getCashAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        finalPaymentMethod = "CASH";
+                    } else {
+                        finalPaymentMethod = "ONLINE";
                     }
                 }
             }
 
+            // 4. Fallback for PAID_OUT
             if (bStatus == BookingStatus.PAID_OUT) {
                 isFinalPaid = true;
                 finalPaymentStatus = "PAID";
