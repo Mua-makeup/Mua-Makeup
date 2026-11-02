@@ -18,3 +18,4 @@ public class StaffRemovableRes {
     private List<String> activeBookingCodes;
     private String reason;
 }
+
