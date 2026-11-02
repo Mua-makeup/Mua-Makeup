@@ -13,6 +13,7 @@ import {
   Briefcase,
   Star,
   RotateCw,
+  AlertCircle,
 } from 'lucide-react';
 import { agencyService } from '../../services/agency.service';
 import { Button } from '../../components/base/Button';
@@ -55,6 +56,7 @@ export const StaffManagementPage = () => {
   // Modals
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [removingStaff, setRemovingStaff] = useState(null);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [reviewingStaffApp, setReviewingStaffApp] = useState(null);
   const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
 
@@ -172,27 +174,43 @@ export const StaffManagementPage = () => {
     }
   };
 
-  const handleConfirmRemoveStaff = () => {
+  const handleConfirmRemoveStaff = async () => {
     if (!removingStaff) return;
     const target = removingStaff;
-    setRemovingStaff(null);
 
-    triggerUndoDelete({
-      id: target.id,
-      itemName: target.fullName,
-      onOptimisticRemove: () => {
-        setActiveStaff((prev) => prev.filter((s) => s.id !== target.id));
-      },
-      onUndo: () => {
-        setActiveStaff((prev) => {
-          if (prev.some((s) => s.id === target.id)) return prev;
-          return [...prev, target];
-        });
-      },
-      onCommitDelete: async () => {
-        await agencyService.removeStaff(target.id);
-      },
-    });
+    try {
+      setIsRemoving(true);
+      const checkRes = await agencyService.checkStaffRemovable(target.id);
+      const checkData = checkRes.data || checkRes;
+      if (checkData && checkData.canRemove === false) {
+        setRemovingStaff(null);
+        setToastMessage(checkData.reason || t('staff_cannot_be_removed_has_bookings'));
+        return;
+      }
+
+      setRemovingStaff(null);
+      triggerUndoDelete({
+        id: target.id,
+        itemName: target.fullName,
+        onOptimisticRemove: () => {
+          setActiveStaff((prev) => prev.filter((s) => s.id !== target.id));
+        },
+        onUndo: () => {
+          setActiveStaff((prev) => {
+            if (prev.some((s) => s.id === target.id)) return prev;
+            return [...prev, target];
+          });
+        },
+        onCommitDelete: async () => {
+          await agencyService.removeStaff(target.id);
+        },
+      });
+    } catch (err) {
+      setRemovingStaff(null);
+      setToastMessage(err.response?.data?.message || err.message || t('error_general'));
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   // Columns for Active Staff
@@ -536,6 +554,7 @@ export const StaffManagementPage = () => {
         message={`${t('confirm_remove_staff_msg')} (${removingStaff?.fullName})`}
         confirmText={t('btn_remove_staff')}
         isDangerous
+        isLoading={isRemoving}
       />
 
       <ConfirmDialog
