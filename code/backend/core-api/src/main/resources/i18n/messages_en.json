@@ -442,7 +442,9 @@
     "dispute_detail_fetch_success": "Retrieved dispute detail successfully.",
     "dispute_resolved_success": "Resolved dispute successfully!",
     "platform_fee_get_success": "Retrieved platform fee successfully.",
-    "platform_fee_updated": "Platform fee updated successfully!"
+    "platform_fee_updated": "Platform fee updated successfully!",
+    "revenue_overview_success": "Retrieved revenue and net earnings overview successfully.",
+    "revenue_settlements_success": "Retrieved revenue settlements successfully."
   },
   "dispute": {
     "escalate_success": "Dispute escalated to Platform Admin successfully.",

@@ -1,6 +1,7 @@
 package com.makeup.platform.repository.booking;
 
 import com.makeup.platform.entity.booking.BookingEntity;
+import com.makeup.platform.entity.booking.BookingPartner;
 import com.makeup.platform.entity.booking.BookingStatus;
 import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
@@ -14,6 +15,24 @@ public final class BookingSpecifications {
 
     public static Specification<BookingEntity> agency(Long agencyId) {
         return (root, query, cb) -> cb.equal(root.get("agency").get("id"), agencyId);
+    }
+
+    public static Specification<BookingEntity> partner(String partner) {
+        return (root, query, cb) -> {
+            if (partner == null || partner.isBlank() || partner.equalsIgnoreCase("ALL")) return cb.conjunction();
+            String norm = partner.toUpperCase(Locale.ROOT).trim();
+            if (norm.equals("AGENCY") || norm.equals("AGENCY_DISPATCH")) {
+                return cb.equal(root.get("bookingPartner"), BookingPartner.AGENCY_DISPATCH);
+            }
+            if (norm.equals("FREELANCE") || norm.equals("FREELANCER") || norm.equals("FREELANCER_DIRECT")) {
+                return cb.equal(root.get("bookingPartner"), BookingPartner.FREELANCER_DIRECT);
+            }
+            return cb.conjunction();
+        };
+    }
+
+    public static Specification<BookingEntity> revenueEligible() {
+        return (root, query, cb) -> root.get("status").in(List.of(BookingStatus.COMPLETED, BookingStatus.PAID_OUT));
     }
 
     public static Specification<BookingEntity> keyword(String keyword) {

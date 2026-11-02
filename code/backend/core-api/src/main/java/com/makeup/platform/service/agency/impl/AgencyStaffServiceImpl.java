@@ -390,7 +390,10 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
                 UserEntity staffUser = staff.getMua().getUser();
                 roleRepository.findByName(SecurityConstants.ROLE_AGENCY_STAFF).ifPresent(staffRole -> {
                     staffUser.setRole(staffRole);
-                    userRepository.save(staffUser);
+                    int updated = userRepository.updateUserRole(staffUser.getId(), staffRole.getId());
+                    if (updated == 0) {
+                        userRepository.insertUserRole(staffUser.getId(), staffRole.getId());
+                    }
                     log.info("Updated UserEntity role to ROLE_AGENCY_STAFF for userId={}", staffUser.getId());
                 });
             }
@@ -553,7 +556,10 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             UserEntity staffUser = staff.getMua().getUser();
             roleRepository.findByName(SecurityConstants.ROLE_FREELANCE_MUA).ifPresent(freelanceRole -> {
                 staffUser.setRole(freelanceRole);
-                userRepository.save(staffUser);
+                int updated = userRepository.updateUserRole(staffUser.getId(), freelanceRole.getId());
+                if (updated == 0) {
+                    userRepository.insertUserRole(staffUser.getId(), freelanceRole.getId());
+                }
                 log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
             });
         }
@@ -600,7 +606,10 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
             UserEntity staffUser = staff.getMua().getUser();
             roleRepository.findByName(SecurityConstants.ROLE_FREELANCE_MUA).ifPresent(freelanceRole -> {
                 staffUser.setRole(freelanceRole);
-                userRepository.save(staffUser);
+                int updated = userRepository.updateUserRole(staffUser.getId(), freelanceRole.getId());
+                if (updated == 0) {
+                    userRepository.insertUserRole(staffUser.getId(), freelanceRole.getId());
+                }
                 log.info("Reverted UserEntity role to ROLE_FREELANCE_MUA for userId={}", staffUser.getId());
             });
         }

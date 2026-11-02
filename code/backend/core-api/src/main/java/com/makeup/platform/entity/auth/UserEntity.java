@@ -60,8 +60,8 @@ public class UserEntity extends BaseEntity {
     @JoinTable(
             name = "user_roles",
             schema = "auth_schema",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id")
+            joinColumns = @JoinColumn(name = "user_id", updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "role_id", updatable = false)
     )
     private RoleEntity role;
 }
