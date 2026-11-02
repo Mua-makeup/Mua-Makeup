@@ -23,7 +23,7 @@ import { getSavedPageSize, savePageSize } from '../../utils/pagination.util';
 import { formatDate } from '../../utils/formatters';
 
 export const AdminRevenuePage = () => {
-  const { t } = useI18nStore();
+  const { t, language } = useI18nStore();
   const navigate = useNavigate();
 
   const [overview, setOverview] = useState({
@@ -156,19 +156,25 @@ export const AdminRevenuePage = () => {
       // Fallback: If backend is pending restart, fetch completed bookings and map financial values
       try {
         const bRes = await superAdminService.getBookings({
-          status: statusFilter === 'ALL' ? 'COMPLETED' : statusFilter,
+          status: 'COMPLETED',
           keyword: keyword.trim() || undefined,
-          page,
-          size,
+          page: 0,
+          size: 100,
         });
         const bData = bRes?.data || bRes || {};
         const bContent = bData.content || (Array.isArray(bData) ? bData : []);
         const feeRate = overview.platformFeeRate || 0.15;
 
         // Filter revenue-eligible items
-        const eligible = bContent.filter(
+        let eligible = bContent.filter(
           (b) => b.status === 'COMPLETED' || b.status === 'PAID_OUT'
         );
+
+        if (statusFilter === 'PAID_OUT') {
+          eligible = eligible.filter((b) => b.status === 'PAID_OUT');
+        } else if (statusFilter === 'COMPLETED') {
+          eligible = eligible.filter((b) => b.status === 'COMPLETED');
+        }
 
         const mapped = eligible.map((b) => {
           const total = Number(b.totalAmount) || 0;
@@ -208,13 +214,16 @@ export const AdminRevenuePage = () => {
           return true;
         });
 
-        setSettlements(filtered);
-        const totalCount = bData.totalElements ?? filtered.length;
+        // Slice for pagination in fallback
+        const start = page * size;
+        const pagedItems = filtered.slice(start, start + size);
+
+        setSettlements(pagedItems);
         setPageInfo({
           page,
           size,
-          totalElements: totalCount,
-          totalPages: Math.max(Math.ceil(totalCount / size), 1),
+          totalElements: filtered.length,
+          totalPages: Math.max(Math.ceil(filtered.length / size), 1),
         });
       } catch (fallbackErr) {
         setApiError(err.message || fallbackErr.message || t('error_api_connection'));
@@ -380,12 +389,12 @@ export const AdminRevenuePage = () => {
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs hover:border-rose-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 transition-all cursor-pointer"
           >
             <Eye className="w-3.5 h-3.5" />
-            {t('revenue_col_actions')}
+            {t('view_detail')}
           </button>
         ),
       },
     ],
-    [t]
+    [t, language]
   );
 
   return (
@@ -422,10 +431,10 @@ export const AdminRevenuePage = () => {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setIsPlatformFeeOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs hover:border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-rose-500" />
-            {t('revenue_btn_adjust_fee')}
+            <Percent className="w-4 h-4 shrink-0" />
+            <span>{t('btn_platform_fee') || 'Phí Sàn Nền Tảng'}</span>
           </button>
           <button
             onClick={handleReloadAll}
@@ -500,9 +509,13 @@ export const AdminRevenuePage = () => {
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               {t('revenue_card_fee_rate')}
             </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
-              <SlidersHorizontal className="w-4 h-4" />
-            </div>
+            <button
+              onClick={() => setIsPlatformFeeOpen(true)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer"
+            >
+              <SlidersHorizontal className="w-3 h-3" />
+              <span>{t('revenue_btn_adjust_fee')}</span>
+            </button>
           </div>
           <div className="mt-2 text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
             {Math.round(overview.platformFeeRate * 100)}%

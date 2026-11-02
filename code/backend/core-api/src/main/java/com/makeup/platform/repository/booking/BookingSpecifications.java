@@ -35,6 +35,18 @@ public final class BookingSpecifications {
         return (root, query, cb) -> root.get("status").in(List.of(BookingStatus.COMPLETED, BookingStatus.PAID_OUT));
     }
 
+    public static Specification<BookingEntity> revenueStatus(String status) {
+        if (status == null || status.isBlank() || status.equalsIgnoreCase("ALL")) return revenueEligible();
+        String normalized = status.toUpperCase(Locale.ROOT).trim();
+        if (normalized.equals("PAID_OUT") || normalized.equals("SETTLED")) {
+            return (root, query, cb) -> cb.equal(root.get("status"), BookingStatus.PAID_OUT);
+        }
+        if (normalized.equals("COMPLETED") || normalized.equals("PENDING") || normalized.equals("PENDING_SETTLEMENT")) {
+            return (root, query, cb) -> cb.equal(root.get("status"), BookingStatus.COMPLETED);
+        }
+        return (root, query, cb) -> cb.disjunction();
+    }
+
     public static Specification<BookingEntity> keyword(String keyword) {
         return (root, query, cb) -> {
             if (keyword == null || keyword.isBlank()) return cb.conjunction();
