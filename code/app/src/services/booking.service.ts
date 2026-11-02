@@ -1,3 +1,19 @@
+export interface InstantPriceQuote {
+  quoteId: string;
+  expiresAt: number;
+  basePrice: number;
+  emergencySurchargeFee: number;
+  surgeMultiplier: number;
+  surgeAmount: number;
+  distanceFee: number;
+  totalAmount: number;
+  depositAmount: number;
+  pricingReason: string;
+  demandCount?: number;
+  supplyCount?: number;
+  estimate: boolean;
+}
+
 import { apiClient } from './api';
 import { CreateBookingFormValues } from '@/schemas/booking-create.schema';
 import { CreateInstantBookingPayload } from '@/schemas/instant-booking.schema';
@@ -64,7 +80,12 @@ export interface ScheduledBookingCreatedRes {
     service_subtotal?: number;
     distanceFee?: number;
     distance_fee?: number;
-    surchargeFee?: number;
+    surgeMultiplier?: number;
+  instantBasePrice?: number;
+  instantDemandCount?: number;
+  instantSupplyCount?: number;
+  instantPricingReason?: string;
+  surchargeFee?: number;
     surcharge_fee?: number;
     discountAmount?: number;
     discount_amount?: number;
@@ -94,6 +115,8 @@ export interface InstantBookingCreatedRes {
 }
 
 export interface CustomerBookingItem {
+  completionPhotoUrl?: string;
+  completedAt?: string;
   id: number;
   bookingCode: string;
   muaId?: number;
@@ -147,6 +170,11 @@ export interface BookingStatusDetailRes {
   rating?: number;
   totalAmount?: number;
   serviceSubtotal?: number;
+  surgeMultiplier?: number;
+  instantBasePrice?: number;
+  instantDemandCount?: number;
+  instantSupplyCount?: number;
+  instantPricingReason?: string;
   surchargeFee?: number;
   distanceFee?: number;
   depositAmount?: number;
@@ -177,6 +205,7 @@ export interface BookingStatusDetailRes {
   disputeOrigin?: 'CUSTOMER' | 'MUA' | 'DUAL' | string;
   completionPhotoUrl?: string;
   isDepositPaid?: boolean;
+  isDepositRefunded?: boolean;
   depositTimeoutSeconds?: number;
   confirmDeadline?: string;
   confirmTimeoutSeconds?: number;
@@ -281,6 +310,11 @@ export const bookingService = {
   /**
    * Tạo đơn tìm thợ khẩn cấp 30s
    */
+  async previewInstantQuote(payload: CreateInstantBookingPayload): Promise<InstantPriceQuote> {
+    const response = await apiClient.post('/customer/bookings/instant/quote', payload);
+    return response.data.data;
+  },
+
   async createInstantBooking(payload: CreateInstantBookingPayload): Promise<InstantBookingCreatedRes> {
     const response = await apiClient.post('/customer/bookings/instant', payload);
     return response.data.data;

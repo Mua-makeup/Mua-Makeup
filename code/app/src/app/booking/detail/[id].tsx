@@ -25,7 +25,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { BrandColors } from '@/constants/theme';
-import { bookingService, BookingStatusDetailRes, BookingStatusType } from '@/services/booking.service';
+import { bookingService, BookingStatusDetailRes, BookingStatusType, StaffAssignmentItem } from '@/services/booking.service';
 import { websocketService } from '@/services/websocket.service';
 import { depositService } from '@/services/deposit.service';
 import { reviewService, ReviewItem } from '@/services/review.service';
@@ -851,8 +851,6 @@ export default function CustomerBookingDetailScreen() {
           );
 
           const isPostCompletion = Boolean(
-            bookingDetail.status === 'COMPLETED' ||
-            bookingDetail.status === 'PAID_OUT' ||
             bookingDetail.completionPhotoUrl ||
             (bookingDetail.totalAmount && bookingDetail.depositAmount && Number(bookingDetail.totalAmount) > Number(bookingDetail.depositAmount) &&
               !rawDisputeReason?.toLowerCase().includes('vắng mặt') &&

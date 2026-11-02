@@ -34,6 +34,10 @@ export interface InstantBookingOffer {
   basePrice?: number;
   emergencySurchargeFee?: number;
   surgeAmount?: number;
+  surgeMultiplier?: number;
+  distanceFee?: number;
+  platformFeeRate?: number;
+  pricingReason?: string;
   totalAmount: number;
   platformFee?: number;
   earningsAmount: number;

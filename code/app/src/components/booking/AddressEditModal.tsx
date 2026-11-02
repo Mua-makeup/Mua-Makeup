@@ -57,7 +57,7 @@ export const AddressEditModal: React.FC<Props> = ({
   const [geoWarning, setGeoWarning] = useState<string | null>(null);
 
   const debounceTimerRef = useRef<any>(null);
-  const searchInputRef = useRef<TextInput>(null);
+  const searchInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
     if (visible) {

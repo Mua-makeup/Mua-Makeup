@@ -214,10 +214,10 @@ export const StudioReviewSection: React.FC<Props> = ({
               ) : null}
 
               {/* Thumbnail ảnh đính kèm */}
-              {rev.imageUrls && rev.imageUrls.length > 0 ? (
+              {rev.imageUrls && (rev.imageUrls?.length ?? 0) > 0 ? (
                 <View style={styles.thumbnailRow}>
                   {rev.imageUrls.slice(0, 2).map((url, idx) => {
-                    const isSecondAndHasMore = idx === 1 && rev.imageUrls.length > 2;
+                    const isSecondAndHasMore = idx === 1 && (rev.imageUrls?.length ?? 0) > 2;
                     return (
                       <TouchableOpacity
                         key={idx}
@@ -228,7 +228,7 @@ export const StudioReviewSection: React.FC<Props> = ({
                         <Image source={{ uri: url }} style={styles.thumbnailLarge} contentFit="cover" />
                         {isSecondAndHasMore && (
                           <View style={styles.morePhotoOverlay}>
-                            <Text style={styles.morePhotoText}>+{rev.imageUrls.length - 2}</Text>
+                            <Text style={styles.morePhotoText}>+{(rev.imageUrls?.length ?? 0) - 2}</Text>
                           </View>
                         )}
                       </TouchableOpacity>

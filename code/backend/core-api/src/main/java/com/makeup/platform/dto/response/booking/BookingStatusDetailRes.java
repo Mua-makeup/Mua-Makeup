@@ -49,6 +49,11 @@ public class BookingStatusDetailRes {
     private BigDecimal depositAmount;
     private BigDecimal serviceSubtotal;
     private BigDecimal surchargeFee;
+    private BigDecimal surgeMultiplier;
+    private BigDecimal instantBasePrice;
+    private Integer instantDemandCount;
+    private Integer instantSupplyCount;
+    private String instantPricingReason;
     private BigDecimal distanceFee;
     private BigDecimal platformFee;
     private BigDecimal earningsAmount;
@@ -58,6 +63,7 @@ public class BookingStatusDetailRes {
     private String emergencyReason;
     private OffsetDateTime emergencyReportedAt;
     private Boolean isDepositPaid;
+    private Boolean isDepositRefunded;
     private Boolean isPaymentSettled;
     private Integer depositTimeoutSeconds;
     private OffsetDateTime confirmDeadline;

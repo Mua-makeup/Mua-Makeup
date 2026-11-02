@@ -1,3 +1,5 @@
+import { InstantQuoteSummary } from './InstantQuoteSummary';
+import type { InstantPriceQuote } from '@/services/booking.service';
 import { DismissibleModal, DismissibleSurface } from '@/components/common/DismissibleModal';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -95,10 +97,12 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const searchTimeoutRef = useRef<any>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   const [step, setStep] = useState<'IDLE' | 'SCANNING' | 'MATCHED' | 'TIMEOUT'>('IDLE');
   const [secondsLeft, setSecondsLeft] = useState(20);
+  const [priceQuote, setPriceQuote] = useState<InstantPriceQuote | null>(null);
+  const quoteRequestRef = useRef('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdBooking, setCreatedBooking] = useState<InstantBookingCreatedRes | null>(null);
   const [timeoutMessage, setTimeoutMessage] = useState<string | null>(null);
@@ -298,6 +302,8 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
     }
   }, [step, createdBooking?.searchTimeoutSeconds]);
 
+  useEffect(() => { setPriceQuote(null); }, [visible, address, addressNote, selectedPackage?.id, selectedStyle?.id, targetMua?.providerId]);
+
   const handleSendDirectRequest = async () => {
     if (!targetMua || isSubmitting) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -338,7 +344,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
       setIsSubmitting(true);
       setTimeoutMessage(null);
 
-      const res = await bookingService.createInstantBooking({
+      const payload = {
         masterCategoryId: selectedPackage.masterCategoryId || 1,
         packageId: selectedPackage.id,
         targetMuaId: targetMua.providerId,
@@ -348,7 +354,16 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
         destinationLatitude: lat,
         destinationLongitude: lng,
         note: addressNote?.trim(),
-      });
+      };
+      const requestKey = JSON.stringify(payload);
+      if (!priceQuote || quoteRequestRef.current !== requestKey || priceQuote.expiresAt <= Date.now()) {
+        const quote = await bookingService.previewInstantQuote(payload);
+        quoteRequestRef.current = requestKey;
+        setPriceQuote(quote);
+        return;
+      }
+      const res = await bookingService.createInstantBooking({ ...payload, quoteId: priceQuote.quoteId });
+      setPriceQuote(null);
 
       setCreatedBooking(res);
       setSecondsLeft(res.searchTimeoutSeconds || 20);
@@ -928,27 +943,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
               />
 
               {/* PHẦN 4: HÓA ĐƠN & ĐẶT CỌC */}
-              <View style={styles.invoiceCard}>
-                <View style={styles.invoiceRow}>
-                  <Text style={styles.invoiceLabel}>Giá gói của thợ:</Text>
-                  <Text style={styles.invoiceValue}>{formatVnd(basePrice)}</Text>
-                </View>
-                <View style={styles.invoiceRow}>
-                  <Text style={styles.invoiceLabel}>Phụ phí ca khẩn cấp 30p:</Text>
-                  <Text style={styles.invoiceValue}>+ {formatVnd(emergencySurcharge)}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.invoiceRow}>
-                  <Text style={styles.invoiceTotalLabel}>Tổng Hóa Đơn:</Text>
-                  <Text style={styles.invoiceTotalValue}>{formatVnd(totalAmount)}</Text>
-                </View>
-                <View style={styles.depositBanner}>
-                  <Ionicons name="shield-checkmark" size={14} color="#059669" />
-                  <Text style={styles.depositBannerText}>
-                    Cọc giữ chân thợ (30% Escrow): <Text style={{ fontWeight: '800' }}>{formatVnd(depositAmount)}</Text>
-                  </Text>
-                </View>
-              </View>
+              {priceQuote ? <InstantQuoteSummary quote={priceQuote} /> : <Text style={{ color: '#64748B', marginVertical: 12 }}>Bấm xem báo giá để biết phí nhu cầu cao, phí di chuyển và tổng tiền trước khi gửi yêu cầu.</Text>}
 
               {/* CẢNH BÁO NGOÀI BÁN KÍNH PHỤC VỤ NẾU CÓ */}
               {isOutOfRadius && (
@@ -973,7 +968,7 @@ export const DirectMuaBookingModal: React.FC<Props> = ({
                   <>
                     <Ionicons name="send-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
                     <Text style={styles.submitBtnText}>
-                      {isOutOfRadius ? 'Ngoài Bán Kính Phục Vụ' : 'Gửi Yêu Cầu Tới Thợ (20s)'}
+                      {isOutOfRadius ? 'Ngoài Bán Kính Phục Vụ' : priceQuote ? 'Xác Nhận Giá & Gửi Yêu Cầu (20s)' : 'Xem Báo Giá Khẩn Cấp'}
                     </Text>
                   </>
                 )}

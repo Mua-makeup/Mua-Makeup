@@ -205,16 +205,19 @@ export const CountdownAcceptModal: React.FC = () => {
                 • Tổng bill khách: {formatVnd(activeOffer.totalAmount)}
               </Text>
               <Text style={styles.breakdownLine}>
-                • Phụ phí gấp 30p: +{formatVnd(emergencyFee)} (Thợ nhận 100%)
+                • Phụ phí gấp 30p: +{formatVnd(emergencyFee)} (đã gồm trong bill)
               </Text>
+              <Text style={{ color: '#475569', fontSize: 12 }}>• Giá gói: {formatVnd(activeOffer.basePrice || 0)}</Text>
+              <Text style={{ color: '#475569', fontSize: 12 }}>• Nhu cầu cao ({Number(activeOffer.surgeMultiplier ?? 1).toFixed(2)}×): +{formatVnd(activeOffer.surgeAmount || 0)}</Text>
+              <Text style={{ color: '#475569', fontSize: 12 }}>• Di chuyển: {formatVnd(activeOffer.distanceFee || 0)}</Text>
               <Text style={styles.breakdownLine}>
-                • Phí nền tảng (20%): -{formatVnd(platformFee)}
+                • Phí nền tảng: -{formatVnd(platformFee)}
               </Text>
             </View>
             <View style={styles.escrowBadge}>
               <Ionicons name="shield-checkmark" size={13} color="#059669" />
               <Text style={styles.escrowText}>
-                Đã ký quỹ Escrow 30% • Đảm bảo thanh toán an toàn
+                Khách chưa đặt cọc • Chờ xác nhận và thanh toán
               </Text>
             </View>
           </View>

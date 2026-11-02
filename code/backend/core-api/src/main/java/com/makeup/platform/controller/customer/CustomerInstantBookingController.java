@@ -30,6 +30,12 @@ public class CustomerInstantBookingController extends BaseController {
 
     private final CustomerInstantBookingService customerInstantBookingService;
 
+    @PostMapping("/instant/quote")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> previewInstantQuote(@Valid @RequestBody CreateInstantBookingReq req) {
+        return ok(customerInstantBookingService.previewInstantQuote(SecurityContextUtils.getCurrentUserId(), req), "booking.quote_success");
+    }
+
     @PostMapping("/instant")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<InstantBookingCreatedRes>> createInstantBooking(

@@ -171,17 +171,6 @@ export default function MuaReviewsScreen() {
     loadReviews(0, selectedFilter, catId);
   };
 
-  // Toggle Tag Filter
-  const handleToggleTag = (tag: string) => {
-    Haptics.selectionAsync();
-    if (selectedTag === tag) {
-      setSelectedTag(null);
-    } else {
-      setSelectedTag(tag);
-    }
-  };
-
-
   // Toggle Read More Comment
   const toggleExpandComment = (reviewId: number) => {
     setExpandedCommentIds((prev) => ({
@@ -240,7 +229,7 @@ export default function MuaReviewsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* 1. TOP BAR CHUẨN ĐỒNG BỘ ỨNG DỤNG */}
       <View style={styles.navBar}>
@@ -573,7 +562,7 @@ export default function MuaReviewsScreen() {
                           }}
                           activeOpacity={0.88}
                         >
-                          <Image source={{ uri: url }} style={styles.reviewPhotoImage} contentFit="cover" />
+                          <Image source={{ uri: url }} style={styles.reviewPhotoImage} resizeMode="cover" />
 
                           {/* Lớp phủ +N nếu có nhiều hơn 2 ảnh */}
                           {isSecondWithMore && (
@@ -615,7 +604,7 @@ export default function MuaReviewsScreen() {
                   : 'Không tìm thấy đánh giá phù hợp với bộ lọc hiện tại.'}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
         ListFooterComponent={
           isLoadingMore ? (
@@ -786,7 +775,7 @@ export default function MuaReviewsScreen() {
               <Image
                 source={{ uri: lightboxImages[lightboxIndex] }}
                 style={styles.lightboxImage}
-                contentFit="contain"
+                resizeMode="contain"
               />
             )}
 
@@ -1153,7 +1142,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   reviewPhotoMoreOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.52)',
     justifyContent: 'center',
     alignItems: 'center',

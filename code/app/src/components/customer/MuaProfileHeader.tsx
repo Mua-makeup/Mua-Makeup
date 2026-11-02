@@ -173,7 +173,7 @@ export const MuaProfileHeader: React.FC<Props> = ({ profile }) => {
         statusBarTranslucent
       >
         <View style={[styles.zoomContainer, { paddingTop: modalTopInset, paddingBottom: Math.max(insets.bottom, 20) }]}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <StatusBar barStyle="light-content" />
           <View style={styles.zoomHeader}>
             <TouchableOpacity
               style={styles.zoomBackBtn}

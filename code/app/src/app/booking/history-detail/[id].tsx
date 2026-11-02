@@ -1,5 +1,5 @@
 import { formatBookingExecutionTime } from '@/utils/booking-time';
-import { getBookingPaymentPresentation } from '@/utils/booking-payment';
+import { getBookingPaymentPresentation, getCancelledDepositRefunded } from '@/utils/booking-payment';
 import { DismissibleModal } from '@/components/common/DismissibleModal';
 import { ImageViewerModal } from '@/components/common/ImageViewerModal';
 import React, { useState, useEffect, useRef } from 'react';
@@ -553,13 +553,13 @@ export default function BookingHistoryDetailScreen() {
     cancelReasonLower.includes('từ chối') ||
     cancelReasonLower.includes('bận');
 
-  // Đơn hoàn cọc 100%: nếu thợ hủy/từ chối, hoặc backend trả về isDepositPaid, hoặc có thợ nhận mà bị hủy (trừ khi khách quá hạn cọc / không tìm thấy thợ), hoặc bị hủy do trùng lịch
-  const isDepositRefunded = isCancelled && (
+  // Keep existing scheduled/studio behavior; instant cancellations use payment evidence.
+  const isDepositRefunded = getCancelledDepositRefunded(bookingDetail, isCancelled, Boolean(
     isSlotTakenCancelled ||
     bookingDetail.isDepositPaid ||
     isCancelledByMua ||
     (!isNoMuaFound && !isDepositExpired && hasAssignedMua)
-  );
+  ));
 
   // Phán quyết Hòa giải 50-50
   const isSplit5050 =
@@ -2410,10 +2410,17 @@ export default function BookingHistoryDetailScreen() {
 
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>Gói dịch vụ chính</Text>
-            <Text style={styles.billValue}>{formatPrice(bookingDetail.serviceSubtotal || totalAmount)}</Text>
+            <Text style={styles.billValue}>{formatPrice(bookingDetail.instantBasePrice ?? bookingDetail.serviceSubtotal ?? totalAmount)}</Text>
           </View>
 
-          {(bookingDetail.surchargeFee && bookingDetail.surchargeFee > 0) ? (
+          {bookingDetail.instantBasePrice != null && Number(bookingDetail.serviceSubtotal) > Number(bookingDetail.instantBasePrice) ?
+            <View style={styles.billRow}><Text style={styles.billLabel}>Dịch vụ mua thêm</Text><Text style={styles.billValue}>+{formatPrice(Number(bookingDetail.serviceSubtotal) - Number(bookingDetail.instantBasePrice))}</Text></View> : null}
+          {bookingDetail.instantPricingReason ? <>
+            <Text style={styles.billLabel}>{bookingDetail.instantPricingReason}</Text>
+            <View style={styles.billRow}><Text style={styles.billLabel}>Phí khẩn cấp cố định</Text><Text style={styles.billValue}>{formatPrice(150000)}</Text></View>
+            <View style={styles.billRow}><Text style={styles.billLabel}>Nhu cầu cao ({Number(bookingDetail.surgeMultiplier ?? 1).toFixed(2)}×)</Text><Text style={styles.billValue}>+{formatPrice(Math.max(0, Number(bookingDetail.surchargeFee || 0) - 150000))}</Text></View>
+          </> : null}
+          {(!bookingDetail.instantPricingReason && bookingDetail.surchargeFee && bookingDetail.surchargeFee > 0) ? (
             <View style={styles.billRow}>
               <Text style={styles.billLabel}>Phụ phí phát sinh</Text>
               <Text style={styles.billValue}>+{formatPrice(bookingDetail.surchargeFee)}</Text>

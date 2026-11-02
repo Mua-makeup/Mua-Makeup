@@ -33,7 +33,7 @@ import { DismissibleModal } from '@/components/common/DismissibleModal';
 
 export default function CreateBookingScreen() {
   const insets = useSafeAreaInsets();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const calendarSectionYRef = useRef<number>(0);
   const [showStyleModal, setShowStyleModal] = useState(false);
   const params = useLocalSearchParams<{ packageId?: string; muaId?: string; providerId?: string; providerType?: string }>();

@@ -200,7 +200,7 @@ export default function StudioReviewsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* 1. TOP BAR CHUẨN ĐỒNG BỘ ỨNG DỤNG */}
       <View style={styles.navBar}>
@@ -456,7 +456,7 @@ export default function StudioReviewsScreen() {
                   : 'Studio chưa nhận được đánh giá nào.'}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
         ItemSeparatorComponent={() => <View style={styles.shopeeCardDivider} />}
         renderItem={({ item }) => (

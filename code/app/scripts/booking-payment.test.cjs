@@ -64,3 +64,39 @@ test('settled online payment survives transition to a dispute', () => {
   assert.equal(result.paid, true);
   assert.equal(result.depositLabel, 'Đã Giải Ngân · Đang Khiếu Nại');
 });
+
+test('unmatched emergency booking never presents an unpaid deposit as refunded', () => {
+  const result = present({ isCancelled: true, isDepositPaid: false, isDepositRefunded: false, remainingAmount: 140000 });
+  assert.equal(result.depositLabel, 'Miễn Cọc');
+  assert.equal(result.remainingAmount, 0);
+  assert.equal(result.paid, false);
+});
+
+test('instant refund evidence never changes scheduled or studio cancellation outcomes', () => {
+  for (const bookingType of ['SCHEDULED', 'SCHEDULED_APPOINTMENT']) {
+    for (const legacyRefunded of [true, false]) {
+      for (const isDepositRefunded of [true, false, undefined]) {
+        const booking = { bookingType, bookingCode: 'BK-20261103', isDepositRefunded };
+        assert.equal(moduleExports.getCancelledDepositRefunded(booking, true, legacyRefunded), legacyRefunded);
+        assert.equal(moduleExports.getCancelledDepositRefunded(booking, false, legacyRefunded), false);
+        assert.equal(moduleExports.getInstantCancellationLabel({ ...booking, status: 'CANCELLED' }), null);
+      }
+    }
+  }
+});
+test('unpaid instant timeout cannot inherit legacy refund inference from the word tho', () => {
+  const booking = { bookingType: 'REALTIME_INSTANT', bookingCode: 'BK-FAST-5506269',
+    status: 'CANCELLED', isDepositPaid: false, isDepositRefunded: false,
+    cancellationReason: 'Không tìm thấy thợ trong thời gian quét' };
+  assert.equal(moduleExports.getCancelledDepositRefunded(booking, true, true), false);
+  assert.equal(moduleExports.getInstantCancellationLabel(booking), 'Không Tìm Thấy Thợ');
+  // Legacy list responses may infer refunds from the reason; without payment they still must not claim a refund.
+  assert.equal(moduleExports.getInstantCancellationLabel({ ...booking, isDepositRefunded: true }), 'Không Tìm Thấy Thợ');
+  assert.equal(moduleExports.getCancelledDepositRefunded({ ...booking, isDepositRefunded: true }, true, false), true);
+});
+test('old list responses use the instant code only when the explicit type is absent', () => {
+  assert.equal(moduleExports.isInstantBooking({ bookingCode: 'BK-FAST-123' }), true);
+  assert.equal(moduleExports.isInstantBooking({ bookingCode: 'BK-123' }), false);
+  assert.equal(moduleExports.isInstantBooking({ bookingType: 'SCHEDULED', bookingCode: 'BK-FAST-123' }), false);
+  assert.equal(moduleExports.getInstantCancellationLabel({ bookingCode: 'BK-FAST-123', status: 'ACCEPTED' }), null);
+});
