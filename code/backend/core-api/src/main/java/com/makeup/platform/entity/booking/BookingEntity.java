@@ -120,6 +120,16 @@ public class BookingEntity extends BaseEntity {
     @Builder.Default
     private BigDecimal surchargeFee = BigDecimal.ZERO;
 
+    @Column(name = "instant_base_price", precision = 12, scale = 2)
+    private BigDecimal instantBasePrice;
+
+    @Column(name = "instant_demand_count")
+    private Integer instantDemandCount;
+    @Column(name = "instant_supply_count")
+    private Integer instantSupplyCount;
+    @Column(name = "instant_pricing_reason")
+    private String instantPricingReason;
+
     @Column(name = "surge_multiplier", precision = 3, scale = 2)
     @Builder.Default
     private BigDecimal surgeMultiplier = BigDecimal.ONE;

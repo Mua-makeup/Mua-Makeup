@@ -195,6 +195,8 @@
     "deposit_success": "Xác nhận đặt cọc thành công!",
     "not_found": "Không tìm thấy thông tin đơn đặt lịch.",
     "unauthorized_transition": "Bạn không có quyền thay đổi trạng thái đơn đặt lịch này.",
+    "quote_success": "Báo giá khẩn cấp đã được tạo thành công.",
+    "instant_quote_expired_or_changed": "Báo giá đã hết hạn hoặc thông tin yêu cầu đã thay đổi. Vui lòng xem lại báo giá trước khi tìm thợ.",
     "invalid_status": "Trạng thái đơn hàng không hợp lệ cho thao tác này.",
     "deposit_already_paid": "Khoản cọc cho đơn hẹn này đã được thanh toán trước đó.",
     "deposit_expired": "Khoản cọc đã quá thời hạn thanh toán (15 phút).",

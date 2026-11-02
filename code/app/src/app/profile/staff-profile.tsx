@@ -566,7 +566,7 @@ export default function StaffWorkProfileScreen() {
         visible={isUploadModalOpen}
         animationType="fade"
         transparent
-        onRequestClose={() => !isSubmittingCert && setIsUploadModalOpen(false)}
+        onRequestClose={() => { if (!isSubmittingCert) setIsUploadModalOpen(false); }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>

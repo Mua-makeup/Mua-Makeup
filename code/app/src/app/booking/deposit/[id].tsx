@@ -48,7 +48,7 @@ export default function BookingDepositScreen() {
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
 
   const pollIntervalRef = useRef<any>(null);
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const appStateRef = useRef(AppState.currentState);
   const hasNavigatedRef = useRef<boolean>(false);
   const isPaymentBrowserOpenRef = useRef<boolean>(false);
 
@@ -278,7 +278,7 @@ export default function BookingDepositScreen() {
     // 3. Lắng nghe AppState khi người dùng quay lại từ app MoMo / WebBrowser
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (
-        appStateRef.current.match(/inactive|background/) &&
+        appStateRef.current?.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
         isPaymentBrowserOpenRef.current = false;

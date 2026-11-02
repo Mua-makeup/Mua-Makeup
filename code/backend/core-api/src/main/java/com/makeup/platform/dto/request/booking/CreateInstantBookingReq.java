@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class CreateInstantBookingReq {
 
+    private String quoteId;
+
     private Long targetMuaId;
 
     private Long packageId;

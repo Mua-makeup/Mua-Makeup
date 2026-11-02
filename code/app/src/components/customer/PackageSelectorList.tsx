@@ -33,7 +33,7 @@ export const PackageSelectorList: React.FC<Props> = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedCat, setSelectedCat] = useState<string>('ALL');
   const [showAllModal, setShowAllModal] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   // Danh sách các danh mục có trong các gói
   const categories = useMemo(() => {

@@ -383,6 +383,7 @@ export const DisputeDossierModal: React.FC<DisputeDossierModalProps> = ({
   };
 
   const handleModalEscalateToAdmin = () => {
+    if (bookingId == null) return;
     Alert.alert(
       'Chuyển Khiếu Nại Lên Admin Sàn',
       'Bạn không đồng ý với quyết định của Studio và muốn chuyển hồ sơ lên Ban Quản Trị Sàn để làm trọng tài phân xử tối hậu?',

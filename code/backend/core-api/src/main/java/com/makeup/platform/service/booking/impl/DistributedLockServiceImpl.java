@@ -165,31 +165,8 @@ public class DistributedLockServiceImpl implements DistributedLockService {
 
                 if (pkg != null) {
                     booking.setServicePackage(pkg);
-                    booking.setServiceSubtotal(pkg.getPrice());
-                    BigDecimal emergencyFee = new BigDecimal("150000.00");
-                    booking.setSurchargeFee(emergencyFee);
-
-                        double distanceKm = 1.5;
-                        if (muaProfile.getBaseAddressLat() != null && muaProfile.getBaseAddressLng() != null
-                                && booking.getDestinationLatitude() != null && booking.getDestinationLongitude() != null) {
-                            distanceKm = GeoDistanceUtils.calculateDistanceKm(
-                                    muaProfile.getBaseAddressLat().doubleValue(),
-                                    muaProfile.getBaseAddressLng().doubleValue(),
-                                    booking.getDestinationLatitude().doubleValue(),
-                                    booking.getDestinationLongitude().doubleValue());
-                        }
-                        BigDecimal distanceFee = BigDecimal.ZERO;
-                        if (distanceKm > 2.0) {
-                            distanceFee = BigDecimal.valueOf((distanceKm - 2.0) * 10000).setScale(0, RoundingMode.HALF_UP);
-                        }
-                        booking.setDistanceFee(distanceFee);
-
-                        BigDecimal total = pkg.getPrice().add(emergencyFee).add(distanceFee);
-                        booking.setTotalAmount(total);
-                        BigDecimal rawDeposit = total.multiply(new BigDecimal("0.30"));
-                        BigDecimal deposit = rawDeposit.setScale(2, RoundingMode.HALF_UP);
-                        booking.setDepositAmount(deposit);
-                    }
+                    // The dispatched offer is the price snapshot: accepting must not reprice it.
+                }
 
                 booking.setStatus(BookingStatus.ACCEPTED);
                 booking.setMua(muaProfile);

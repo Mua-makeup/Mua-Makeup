@@ -33,7 +33,7 @@ const QUICK_PROMPTS = [
 
 export default function SupportChatScreen() {
   const router = useRouter();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const { isAuthenticated, userInfo } = useAuthStore();
 
   const [sessionCode, setSessionCode] = useState<string | undefined>(undefined);
@@ -148,7 +148,7 @@ export default function SupportChatScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header Cao Cấp */}
       <View style={styles.header}>

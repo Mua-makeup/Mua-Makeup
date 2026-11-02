@@ -8,7 +8,6 @@ import com.makeup.platform.common.exception.CustomBusinessException;
 import com.makeup.platform.dto.request.booking.CreateInstantBookingReq;
 import com.makeup.platform.dto.response.booking.InstantBookingCreatedRes;
 import com.makeup.platform.dto.response.booking.RecentAddressRes;
-import com.makeup.platform.dto.response.pricing.InvoicePreviewRes;
 import com.makeup.platform.entity.auth.UserEntity;
 import com.makeup.platform.entity.booking.BookingEntity;
 import com.makeup.platform.entity.booking.BookingPartner;
@@ -29,13 +28,13 @@ import com.makeup.platform.service.wallet.PlatformFeeService;
 import com.makeup.platform.service.booking.BookingMessagePublisher;
 import com.makeup.platform.service.customer.CustomerInstantBookingService;
 import com.makeup.platform.service.customer.InstantDispatchLeaseService;
-import com.makeup.platform.service.pricing.SurgePricingService;
 import com.makeup.platform.service.telemetry.RedisGeoService;
 import com.makeup.platform.common.utils.GeoDistanceUtils;
 import com.makeup.platform.entity.catalog.MakeupStyleEntity;
 import com.makeup.platform.entity.catalog.PackageItemEntity;
 import com.makeup.platform.entity.catalog.ServicePackageEntity;
 import com.makeup.platform.repository.catalog.MakeupStyleRepository;
+import com.makeup.platform.service.pricing.InstantPricingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -87,7 +86,7 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final ServicePackageRepository servicePackageRepository;
     private final PackageItemRepository packageItemRepository;
     private final MakeupStyleRepository makeupStyleRepository;
-    private final SurgePricingService surgePricingService;
+    private final InstantPricingService instantPricingService;
     private final BookingAuditService bookingAuditService;
     private final RedisGeoService redisGeoService;
     private final BookingMessagePublisher messagePublisher;
@@ -103,6 +102,25 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
     private final PlatformFeeService platformFeeService;
 
     @Override
+    public Map<String, Object> previewInstantQuote(Long customerId, CreateInstantBookingReq req) {
+        List<Long> candidates = findAvailableCandidates(req);
+        if (candidates.isEmpty()) throw new CustomBusinessException(ErrorCodes.ERR_MUA_NOT_AVAILABLE,
+            "booking.no_mua_available_in_radius", HttpStatus.BAD_REQUEST);
+        Long provider = candidates.get(0);
+        List<ServicePackageEntity> packages = servicePackageRepository.findCandidatePackagesForMua(provider, req.getMasterCategoryId(), req.getStyleId());
+        ServicePackageEntity pkg = packages.stream().filter(p -> req.getPackageId() == null || req.getPackageId().equals(p.getId())).findFirst()
+            .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE, "catalog.package_not_available", HttpStatus.BAD_REQUEST));
+        Map<String,Object> demand = instantPricingService.demand(customerId, req);
+        BookingEntity preview = BookingEntity.builder().servicePackage(pkg).serviceSubtotal(pkg.getPrice())
+            .destinationLatitude(req.getDestinationLatitude()).destinationLongitude(req.getDestinationLongitude())
+            .surgeMultiplier((BigDecimal)demand.get("surgeMultiplier")).build();
+        Map<String,Object> price = createOfferPayload(preview, provider, null, null);
+        price.putAll(demand);
+        price.put("estimate", req.getTargetMuaId() == null);
+        return instantPricingService.saveQuote(customerId, req, price);
+    }
+
+    @Override
     @Transactional
     public InstantBookingCreatedRes createInstantBooking(Long customerId, CreateInstantBookingReq req) {
         log.info("[InstantBooking] Customer id={} creating instant booking at address={}", customerId,
@@ -111,6 +129,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         UserEntity customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_USER_NOT_FOUND,
                         "auth.user_not_found", HttpStatus.NOT_FOUND));
+
+        Map<String, Object> quote = instantPricingService.requireQuote(customerId, req);
 
         // 0. Quét dọn và tự động hủy tất cả đơn cũ còn ở trạng thái REQUESTED của khách hàng này
         List<Long> customerBookings = bookingRepository.findCustomerPendingIds(
@@ -132,41 +152,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                     "booking.customer_has_active_instant_booking", HttpStatus.CONFLICT);
         }
 
-        // 1. Tính toán giá dịch vụ & Hệ số Surge thời gian thực (Dynamic Pricing Engine)
-        BigDecimal basePrice = DEFAULT_BASE_PRICE;
-        if (req.getPackageId() != null) {
-            var packageOpt = servicePackageRepository.findById(req.getPackageId());
-            if (packageOpt.isPresent() && packageOpt.get().getPrice() != null) {
-                if (Boolean.FALSE.equals(packageOpt.get().getIsAvailable())) {
-                    throw new CustomBusinessException(
-                            ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE,
-                            "catalog.package_not_available",
-                            HttpStatus.BAD_REQUEST
-                    );
-                }
-                basePrice = packageOpt.get().getPrice();
-            }
-        } else if (req.getTargetMuaId() != null && req.getMasterCategoryId() != null) {
-            List<ServicePackageEntity> packages = servicePackageRepository.findCandidatePackagesForMua(
-                    req.getTargetMuaId(), req.getMasterCategoryId(), req.getStyleId());
-            if (!packages.isEmpty() && packages.get(0).getPrice() != null) {
-                basePrice = packages.get(0).getPrice();
-            }
-        }
-
-        InvoicePreviewRes.SurgePricingInfo surgeInfo = surgePricingService.calculateSurge(
-                basePrice,
-                LocalDateTime.now(),
-                "ALL",
-                req.getDestinationLatitude(),
-                req.getDestinationLongitude());
-
-        BigDecimal surgeMultiplier = (surgeInfo != null && surgeInfo.getMultiplier() != null)
-                ? surgeInfo.getMultiplier()
-                : BigDecimal.ONE;
-        BigDecimal surgeAmount = (surgeInfo != null && surgeInfo.getSurgeAmount() != null)
-                ? surgeInfo.getSurgeAmount()
-                : BigDecimal.ZERO;
+        BigDecimal basePrice = new BigDecimal(quote.get("basePrice").toString());
+        BigDecimal surgeMultiplier = new BigDecimal(quote.get("surgeMultiplier").toString());
+        BigDecimal surgeAmount = InstantPricingService.surge(basePrice, surgeMultiplier);
 
         BigDecimal emergencySurchargeFee = EMERGENCY_SURCHARGE; // Phụ phí ca khẩn cấp 30 phút
         BigDecimal totalSurchargeFee = emergencySurchargeFee.add(surgeAmount);
@@ -212,6 +200,9 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 .distanceFee(BigDecimal.ZERO)
                 .surchargeFee(totalSurchargeFee)
                 .surgeMultiplier(surgeMultiplier)
+                .instantDemandCount(quote.get("demandCount") == null ? null : ((Number)quote.get("demandCount")).intValue())
+                .instantSupplyCount(quote.get("supplyCount") == null ? null : ((Number)quote.get("supplyCount")).intValue())
+                .instantPricingReason((String)quote.get("pricingReason"))
                 .discountAmount(BigDecimal.ZERO)
                 .totalAmount(totalAmount)
                 .depositAmount(depositAmount)
@@ -283,9 +274,15 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             startCandidateOffer(savedBooking.getId(), firstTargetMuaId, firstStr);
         }
 
+        Map<String, Object> offerPayload = createOfferPayload(savedBooking, firstTargetMuaId,
+                customer.getFullName(), customer.getPhoneNumber());
+        // Direct bookings must match the price explicitly confirmed by the customer.
+        if (req.getTargetMuaId() != null && new BigDecimal(quote.get("totalAmount").toString()).compareTo((BigDecimal)offerPayload.get("totalAmount")) != 0) {
+            throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE,
+                "Giá gói hoặc phí di chuyển đã thay đổi. Vui lòng xem lại báo giá.", HttpStatus.CONFLICT);
+        }
+        persistOfferPrice(savedBooking, offerPayload);
         try {
-            Map<String, Object> offerPayload = createOfferPayload(savedBooking, firstTargetMuaId,
-                    customer.getFullName(), customer.getPhoneNumber());
             offerPayload.put("targetUserId", firstTargetUserId);
             offerPayload.put("candidateIndex", 1);
             offerPayload.put("totalCandidates", potentialCount);
@@ -382,6 +379,8 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             Map<String, Object> offerPayload = createOfferPayload(booking, nextMuaId,
                     customer != null ? customer.getFullName() : "Khách hàng",
                     customer != null ? customer.getPhoneNumber() : "");
+
+            persistOfferPrice(booking, offerPayload);
 
             String totalStr = stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(bookingId) + ":total");
             int totalCandidates = 1;
@@ -782,6 +781,15 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 customer != null ? customer.getFullName() : "Khách hàng",
                 customer != null ? customer.getPhoneNumber() : ""
         );
+        // REST polling must return the dispatched amounts, even if catalog prices/GPS change.
+        BigDecimal fee = booking.getTotalAmount().multiply(platformFeeService.getRate()).setScale(0, RoundingMode.HALF_UP);
+        offerPayload.put("basePrice", booking.getServiceSubtotal());
+        offerPayload.put("surgeAmount", booking.getSurchargeFee().subtract(EMERGENCY_SURCHARGE).max(BigDecimal.ZERO));
+        offerPayload.put("distanceFee", booking.getDistanceFee());
+        offerPayload.put("totalAmount", booking.getTotalAmount());
+        offerPayload.put("depositAmount", booking.getDepositAmount());
+        offerPayload.put("platformFee", fee);
+        offerPayload.put("earningsAmount", booking.getTotalAmount().subtract(fee));
         offerPayload.put("timestamp", sentAtMs);
         offerPayload.put("countdownSeconds", OFFER_TIMEOUT_SECONDS);
         return offerPayload;
@@ -904,15 +912,24 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             booking.setServicePackage(selectedPkg);
             booking.setDurationMinutes(selectedPkg.getEstimatedDurationMinutes());
             booking.setServiceSubtotal(selectedPkg.getPrice());
+            booking.setInstantBasePrice(selectedPkg.getPrice());
         }
 
-        BigDecimal basePrice = booking.getServicePackage() != null ? booking.getServicePackage().getPrice()
+        BigDecimal basePrice = booking.getInstantBasePrice() != null ? booking.getInstantBasePrice() : booking.getServicePackage() != null ? booking.getServicePackage().getPrice()
                 : (booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO);
-        BigDecimal extra = (addOnTotal != null && addOnTotal.compareTo(BigDecimal.ZERO) > 0)
-                ? addOnTotal : BigDecimal.ZERO;
+        BigDecimal extra = BigDecimal.ZERO;
+        if (addOnNames != null && !addOnNames.isEmpty() && booking.getServicePackage() != null) {
+            var addons = packageItemRepository.findByServicePackageIdAndIsDeletedFalseOrderByStepOrderAsc(booking.getServicePackage().getId());
+            for (String name : new java.util.HashSet<>(addOnNames)) {
+                var addon = addons.stream().filter(item -> name.equals(item.getItemName()) && item.getItemPrice() != null && item.getItemPrice().signum() > 0).findFirst()
+                    .orElseThrow(() -> new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE, "Dịch vụ mua thêm không hợp lệ. Vui lòng chọn lại.", HttpStatus.BAD_REQUEST));
+                extra = extra.add(addon.getItemPrice());
+            }
+        }
         booking.setServiceSubtotal(basePrice.add(extra));
 
-        BigDecimal surchargeFee = booking.getSurchargeFee() != null ? booking.getSurchargeFee() : BigDecimal.ZERO;
+        BigDecimal surchargeFee = EMERGENCY_SURCHARGE.add(InstantPricingService.surge(basePrice, booking.getSurgeMultiplier()));
+        booking.setSurchargeFee(surchargeFee);
         BigDecimal distanceFee = booking.getDistanceFee() != null ? booking.getDistanceFee() : BigDecimal.ZERO;
         BigDecimal total = basePrice.add(extra).add(surchargeFee).add(distanceFee);
         booking.setTotalAmount(total);
@@ -1055,6 +1072,19 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         stringRedisTemplate.delete(InstantBookingKeys.meta(bookingId) + ":total");
     }
 
+    // Keep history aligned with the latest quote actually dispatched, even if nobody accepts.
+    private void persistOfferPrice(BookingEntity booking, Map<String, Object> offer) {
+        BigDecimal total = (BigDecimal) offer.get("totalAmount");
+        booking.setServiceSubtotal((BigDecimal) offer.get("basePrice"));
+        booking.setInstantBasePrice((BigDecimal) offer.get("basePrice"));
+        if (offer.get("packageId") instanceof Long packageId) booking.setServicePackage(servicePackageRepository.findById(packageId).orElseThrow());
+        booking.setSurchargeFee(((BigDecimal) offer.get("emergencySurchargeFee")).add((BigDecimal) offer.getOrDefault("surgeAmount", BigDecimal.ZERO)));
+        booking.setDistanceFee((BigDecimal) offer.getOrDefault("distanceFee", BigDecimal.ZERO));
+        booking.setTotalAmount(total);
+        booking.setDepositAmount(total.multiply(DEPOSIT_RATE).setScale(2, RoundingMode.HALF_UP));
+        bookingRepository.save(booking);
+    }
+
     private Map<String, Object> createOfferPayload(BookingEntity booking, Long targetMuaId,
                                                   String customerName, String customerPhone) {
         Map<String, Object> offerPayload = new HashMap<>();
@@ -1068,19 +1098,20 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         offerPayload.put("customerName", customerName);
         offerPayload.put("customerPhone", customerPhone);
 
-        BigDecimal basePrice = DEFAULT_BASE_PRICE;
+        BigDecimal basePrice = booking.getServiceSubtotal() != null ? booking.getServiceSubtotal() : BigDecimal.ZERO;
         BigDecimal emergencyFee = EMERGENCY_SURCHARGE;
         BigDecimal instantFeeRate = platformFeeService.getRate();
-        BigDecimal platformFee = basePrice.multiply(instantFeeRate).setScale(0, RoundingMode.HALF_UP);
-        BigDecimal earnings = basePrice.subtract(platformFee).add(emergencyFee);
-        BigDecimal total = basePrice.add(emergencyFee);
+        // platformFee, earnings, total computed accurately after surge + distanceFee are resolved
+        BigDecimal platformFee = BigDecimal.ZERO;
+        BigDecimal earnings = BigDecimal.ZERO;
+        BigDecimal total = BigDecimal.ZERO;
         String serviceName = "Trang Điểm Khẩn Cấp";
         int durationMinutes = (booking.getDurationMinutes() != null && booking.getDurationMinutes() > 0)
                 ? booking.getDurationMinutes() : 60;
         List<String> styleNames = new ArrayList<>();
         List<String> packageItems = new ArrayList<>();
 
-        String meta = stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(booking.getId()));
+        String meta = booking.getId() == null ? null : stringRedisTemplate.opsForValue().get(InstantBookingKeys.meta(booking.getId()));
         Integer categoryId = null;
         Integer styleId = null;
         if (meta != null && meta.contains(":")) {
@@ -1097,11 +1128,16 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
             }
         }
 
-        if (targetMuaId != null && categoryId != null) {
-            List<ServicePackageEntity> candidatePackages = servicePackageRepository.findCandidatePackagesForMua(
-                    targetMuaId, categoryId, styleId);
+        if (targetMuaId != null) {
+            List<ServicePackageEntity> candidatePackages = categoryId == null ? new ArrayList<>() : new ArrayList<>(servicePackageRepository.findCandidatePackagesForMua(targetMuaId, categoryId, styleId));
+            ServicePackageEntity selected = booking.getServicePackage();
+            if (selected != null && selected.getMua() != null && targetMuaId.equals(selected.getMua().getId())) {
+                candidatePackages = List.of(selected);
+            }
+            if (candidatePackages.isEmpty()) throw new CustomBusinessException(ErrorCodes.ERR_PACKAGE_NOT_AVAILABLE, "catalog.package_not_available", HttpStatus.BAD_REQUEST);
             if (!candidatePackages.isEmpty()) {
                 ServicePackageEntity pkg = candidatePackages.get(0);
+                offerPayload.put("packageId", pkg.getId());
                 if (pkg.getPrice() != null) {
                     basePrice = pkg.getPrice();
                 }
@@ -1117,13 +1153,11 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
                 if (pkg.getPackageItems() != null) {
                     packageItems = pkg.getPackageItems().stream().map(PackageItemEntity::getItemName).toList();
                 }
-                total = basePrice.add(emergencyFee);
-                platformFee = total.multiply(instantFeeRate).setScale(0, RoundingMode.HALF_UP);
-                earnings = total.subtract(platformFee);
+                // total, platformFee, earnings will be finalised below after surge + distanceFee
             }
         }
 
-        double distanceKm = 1.8;
+        double distanceKm = 0;
         if (targetMuaId != null) {
             var muaOpt = muaProfileRepository.findById(targetMuaId);
             if (muaOpt.isPresent() && muaOpt.get().getBaseAddressLat() != null && muaOpt.get().getBaseAddressLng() != null
@@ -1137,6 +1171,20 @@ public class CustomerInstantBookingServiceImpl implements CustomerInstantBooking
         }
         int travelMinutes = (int) Math.max(5, Math.round(distanceKm * 3.5));
 
+        BigDecimal surge = InstantPricingService.surge(basePrice, booking.getSurgeMultiplier());
+        BigDecimal distanceFee = InstantPricingService.distanceFee(distanceKm);
+        total = basePrice.add(emergencyFee).add(surge).add(distanceFee);
+        platformFee = total.multiply(instantFeeRate).setScale(0, RoundingMode.HALF_UP);
+        earnings = total.subtract(platformFee);
+        offerPayload.put("surgeMultiplier", booking.getSurgeMultiplier());
+        offerPayload.put("pricingReason", booking.getInstantPricingReason());
+        offerPayload.put("demandCount", booking.getInstantDemandCount());
+        offerPayload.put("supplyCount", booking.getInstantSupplyCount());
+        offerPayload.put("surgeAmount", surge);
+        offerPayload.put("distanceFee", distanceFee);
+        offerPayload.put("depositAmount", total.multiply(DEPOSIT_RATE).setScale(0, RoundingMode.HALF_UP));
+        offerPayload.put("platformFeeRate", instantFeeRate);
+        offerPayload.put("isDepositPaid", false);
         offerPayload.put("serviceName", serviceName);
         offerPayload.put("basePrice", basePrice);
         offerPayload.put("emergencySurchargeFee", emergencyFee);

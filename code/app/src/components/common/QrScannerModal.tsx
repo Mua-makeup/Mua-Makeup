@@ -241,7 +241,7 @@ export const QrScannerView: React.FC<QrScannerViewProps> = ({
 
   return (
     <View style={styles.fullscreenContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" />
 
       {/* TRƯỜNG HỢP 1: ĐANG CHỜ QUYỀN CAMERA HOẶC CHƯA CẤP QUYỀN */}
       {!permission ? (

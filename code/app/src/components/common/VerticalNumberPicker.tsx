@@ -14,7 +14,7 @@ interface Props {
 
 /** Compact wheel with a highlighted selection and one adjacent value on each side. */
 export function VerticalNumberPicker({ label, unit, value, options, onChange }: Props) {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const selectedIndex = Math.max(0, options.indexOf(value));
   const indexRef = useRef(selectedIndex);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

@@ -232,7 +232,7 @@ export const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
               onError={() => setFailedImageUrl(currentImageUrl)}
             />
             {failedImageUrl === currentImageUrl && (
-              <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+              <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
                 <Text style={{ color: '#FFFFFF', textAlign: 'center' }}>
                   Không tải được ảnh đối chứng. Ảnh có thể chưa được tải lên hoặc đường dẫn không còn hợp lệ.
                 </Text>
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
   modalSheet: {
