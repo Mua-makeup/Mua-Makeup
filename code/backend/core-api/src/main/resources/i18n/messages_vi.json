@@ -442,7 +442,9 @@
     "dispute_detail_fetch_success": "Lấy chi tiết khiếu nại thành công.",
     "dispute_resolved_success": "Phân xử khiếu nại thành công!",
     "platform_fee_get_success": "Lấy thông tin phí sàn thành công.",
-    "platform_fee_updated": "Cập nhật phí sàn thành công!"
+    "platform_fee_updated": "Cập nhật phí sàn thành công!",
+    "revenue_overview_success": "Lấy tổng quan báo cáo doanh thu và thực nhận thành công.",
+    "revenue_settlements_success": "Lấy danh sách đối soát doanh thu thành công."
   },
   "dispute": {
     "escalate_success": "Đã chuyển khiếu nại lên Ban Quản Trị Sàn thành công.",

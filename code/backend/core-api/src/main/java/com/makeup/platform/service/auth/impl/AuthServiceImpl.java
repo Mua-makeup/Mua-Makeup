@@ -91,6 +91,9 @@ public class AuthServiceImpl implements AuthService {
     @Value("${auth.otp.test-mode:false}")
     private boolean otpTestMode;
 
+    @Value("${auth.otp.expiration-seconds:60}")
+    private long otpExpirationSeconds;
+
     private String generateLoginOtp() {
         return otpTestMode ? "123456" : String.format("%06d", new SecureRandom().nextInt(1_000_000));
     }
@@ -101,7 +104,7 @@ public class AuthServiceImpl implements AuthService {
 
     private void deliverLoginOtp(UserEntity user, String code) {
         if (!otpTestMode) {
-            emailService.sendAdminLoginOtp(user.getEmail(), user.getFullName(), code, 5);
+            emailService.sendAdminLoginOtp(user.getEmail(), user.getFullName(), code, (int) otpExpirationSeconds);
         }
     }
 
@@ -253,7 +256,7 @@ public class AuthServiceImpl implements AuthService {
 
                 redisTemplate.opsForValue().set("auth:2fa:temp:" + tempToken, String.valueOf(user.getId()), 5,
                         TimeUnit.MINUTES);
-                redisTemplate.opsForValue().set("auth:2fa:otp:" + user.getId(), storedLoginOtp(otpCode), 5, TimeUnit.MINUTES);
+                redisTemplate.opsForValue().set("auth:2fa:otp:" + user.getId(), storedLoginOtp(otpCode), otpExpirationSeconds, TimeUnit.SECONDS);
 
                 deliverLoginOtp(user, otpCode);
                 log.info("Created 2FA OTP challenge for admin user: {} (role: {})", user.getId(), roleName);
@@ -467,7 +470,7 @@ public class AuthServiceImpl implements AuthService {
 
         String otpCode = generateLoginOtp();
         redisTemplate.expire(tempKey, 5, TimeUnit.MINUTES);
-        redisTemplate.opsForValue().set("auth:2fa:otp:" + userId, storedLoginOtp(otpCode), 5, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set("auth:2fa:otp:" + userId, storedLoginOtp(otpCode), otpExpirationSeconds, TimeUnit.SECONDS);
         redisTemplate.opsForValue().set(rateKey, "1", 60, TimeUnit.SECONDS);
 
         deliverLoginOtp(user, otpCode);

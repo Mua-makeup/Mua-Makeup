@@ -61,6 +61,11 @@ export const superAdminService = {
   // Platform Fee Settings
   getPlatformFee: () => apiClient.get('/admin/settings/platform-fee'),
   updatePlatformFee: (feeRate) => apiClient.put('/admin/settings/platform-fee', { feeRate }),
+
+  // Revenue & Partner Net Earnings
+  getRevenueOverview: () => apiClient.get('/admin/revenue/overview'),
+  getRevenueSettlements: (params) => apiClient.get('/admin/revenue/settlements', { params }),
+
   // Customer & MUA Booking Disputes Management
   getDisputes: (params) => apiClient.get('/admin/disputes', { params }),
   getDisputeStats: () => apiClient.get('/admin/disputes/stats'),

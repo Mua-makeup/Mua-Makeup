@@ -9,7 +9,7 @@ import java.time.LocalTime;
 
 public interface EmailService {
 
-    void sendAdminLoginOtp(String toEmail, String recipientName, String otpCode, int expiryMinutes);
+    void sendAdminLoginOtp(String toEmail, String recipientName, String otpCode, int expirySeconds);
 
     void sendAgencyNewBookingNotification(String toEmail, String agencyName, ScheduledBookingCreatedEvent event, String destinationAddress);
 

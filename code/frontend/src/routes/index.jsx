@@ -18,6 +18,7 @@ import { NotFoundPage } from '../pages/NotFound/NotFoundPage';
 // Super Admin Pages
 import { AdminDashboardPage } from '../pages/SuperAdmin/AdminDashboardPage';
 import { AdminBookingsPage } from '../pages/SuperAdmin/AdminBookingsPage';
+import { AdminRevenuePage } from '../pages/SuperAdmin/AdminRevenuePage';
 import { AdminUsersPage } from '../pages/SuperAdmin/AdminUsersPage';
 import { AdminAgenciesPage } from '../pages/SuperAdmin/AdminAgenciesPage';
 import { MuaVerificationPage } from '../pages/SuperAdmin/MuaVerificationPage';
@@ -64,6 +65,7 @@ export const AppRoutes = () => {
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboardPage />} />
           <Route path="bookings" element={<AdminBookingsPage />} />
+          <Route path="revenue" element={<AdminRevenuePage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="agencies" element={<AdminAgenciesPage />} />
           <Route path="muas/credentials" element={<MuaVerificationPage />} />

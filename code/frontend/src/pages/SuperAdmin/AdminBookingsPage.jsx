@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   RefreshCw,
@@ -9,6 +10,7 @@ import {
   DollarSign,
   Clock,
   CalendarDays,
+  CalendarCheck,
 } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 import { useI18nStore } from '../../store/useI18nStore';
@@ -317,6 +319,18 @@ export const AdminBookingsPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Sub-Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60 shadow-2xs">
+          <CalendarCheck className="w-4 h-4" />
+          {t('revenue_tab_bookings')}
+        </button>
+        <button onClick={() => navigate('/admin/revenue')} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-all cursor-pointer">
+          <DollarSign className="w-4 h-4" />
+          {t('revenue_tab_revenue')}
+        </button>
+      </div>
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
