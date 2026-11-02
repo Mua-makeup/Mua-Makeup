@@ -22,7 +22,10 @@ import com.makeup.platform.mapper.agency.AgencyInvitationMapper;
 import com.makeup.platform.mapper.agency.AgencyStaffMapper;
 import com.makeup.platform.repository.AgencyProfileRepository;
 import com.makeup.platform.repository.AgencyStaffRepository;
+import com.makeup.platform.repository.AgencyStaffShiftRepository;
 import com.makeup.platform.repository.AgencyStaffStyleRepository;
+import com.makeup.platform.repository.booking.BookingStaffAssignmentRepository;
+import com.makeup.platform.repository.mua.MUACalendarRepository;
 import com.makeup.platform.repository.MuaProfileRepository;
 import com.makeup.platform.repository.RoleRepository;
 import com.makeup.platform.repository.UserRepository;
@@ -71,6 +74,15 @@ class AgencyStaffServiceImplTest {
 
     @Mock
     private AgencyStaffRepository agencyStaffRepository;
+
+    @Mock
+    private AgencyStaffShiftRepository agencyStaffShiftRepository;
+
+    @Mock
+    private BookingStaffAssignmentRepository bookingStaffAssignmentRepository;
+
+    @Mock
+    private MUACalendarRepository muaCalendarRepository;
 
     @Mock
     private AgencyStaffServiceRepository agencyStaffServiceRepository;

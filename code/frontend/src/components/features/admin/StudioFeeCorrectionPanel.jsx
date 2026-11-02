@@ -3,7 +3,7 @@ import { superAdminService } from '../../../services/super-admin.service';
 import { useI18nStore } from '../../../store/useI18nStore';
 
 export const StudioFeeCorrectionPanel = ({ bookingId }) => {
-  const { t } = useI18nStore();
+  const { t, language } = useI18nStore();
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

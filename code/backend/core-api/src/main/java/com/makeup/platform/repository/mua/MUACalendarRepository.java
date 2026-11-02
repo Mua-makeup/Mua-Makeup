@@ -180,6 +180,10 @@ public interface MUACalendarRepository extends JpaRepository<MUACalendarEntity, 
         WHERE c.mua_id = :muaId
           AND tstzrange(c.start_at, c.end_at) && tstzrange(:windowStart, :windowEnd)
     """, nativeQuery = true)
+    @Modifying
+    @Query("DELETE FROM MUACalendarEntity c WHERE c.mua.id = :muaId AND c.booking IS NULL AND c.bookingDate >= :fromDate")
+    int deleteUnbookedSlotsFromDate(@Param("muaId") Long muaId, @Param("fromDate") LocalDate fromDate);
+
     List<MUACalendarEntity> findOverlappingSlots(
         @Param("muaId") Long muaId,
         @Param("windowStart") OffsetDateTime windowStart,
