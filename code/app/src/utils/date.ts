@@ -26,11 +26,11 @@ export function getVietnamParts(value: string | Date | number | null | undefined
     if (clean.includes(' ') && !clean.includes('T')) {
       clean = clean.replace(' ', 'T');
     }
-    // Server lưu UTC, nếu có T mà chưa có Z hoặc offset (+/-), thêm Z để chuẩn hóa thành UTC
+    // Server mặc định múi giờ Việt Nam (+07:00). Nếu chuỗi không có Z hoặc offset (+/-), gắn +07:00 để chuẩn hóa đúng giờ VN
     if (clean.includes('T')) {
       const timePart = clean.split('T')[1];
       if (!timePart.endsWith('Z') && !timePart.includes('+') && !timePart.includes('-')) {
-        clean += 'Z';
+        clean += '+07:00';
       }
     }
     d = new Date(clean);

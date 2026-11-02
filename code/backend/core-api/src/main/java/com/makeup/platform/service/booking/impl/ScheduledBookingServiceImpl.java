@@ -710,6 +710,39 @@ public class ScheduledBookingServiceImpl implements ScheduledBookingService {
                     }
                 }
 
+                if (b.getAgency() != null) {
+                    try {
+                        messagingTemplate.convertAndSend(
+                                "/topic/agency/" + b.getAgency().getId() + "/bookings",
+                                Map.of(
+                                        "type", "BOOKING_CANCELLED_EXPIRED",
+                                        "bookingId", b.getId(),
+                                        "bookingCode", b.getBookingCode() != null ? b.getBookingCode() : "",
+                                        "status", "CANCELLED_EXPIRED",
+                                        "reason", reason
+                                )
+                        );
+                    } catch (Exception ex) {
+                        log.warn("[ConfirmationExpiration] Failed to broadcast agency booking expired: {}", ex.getMessage());
+                    }
+                }
+
+                if (b.getCustomer() != null) {
+                    try {
+                        Map<String, Object> customerPayload = Map.of(
+                                "type", "BOOKING_CANCELLED_EXPIRED",
+                                "bookingId", b.getId(),
+                                "bookingCode", b.getBookingCode() != null ? b.getBookingCode() : "",
+                                "status", "CANCELLED_EXPIRED",
+                                "reason", reason
+                        );
+                        messagingTemplate.convertAndSend("/topic/customer-bookings/" + b.getCustomer().getId(), customerPayload);
+                        messagingTemplate.convertAndSend("/topic/booking-status/" + b.getId(), customerPayload);
+                    } catch (Exception ex) {
+                        log.warn("[ConfirmationExpiration] Failed to broadcast customer booking expired: {}", ex.getMessage());
+                    }
+                }
+
                 // Ghi nhận ca bị hết hạn do thợ không bấm xác nhận và cập nhật lại acceptance_rate / rank_score
                 if (b.getMua() != null) {
                     muaReputationService.recordOfferAndRecalculate(
