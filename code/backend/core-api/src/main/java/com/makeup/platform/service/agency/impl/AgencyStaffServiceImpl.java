@@ -16,6 +16,7 @@ import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.dto.response.agency.AssignedStyleRes;
 import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
+import com.makeup.platform.dto.response.agency.StaffRemovableRes;
 import com.makeup.platform.entity.agency.AgencyProfileEntity;
 import com.makeup.platform.entity.agency.AgencyStaffEntity;
 import com.makeup.platform.entity.agency.AgencyStaffStyleEntity;
@@ -648,6 +649,37 @@ public class AgencyStaffServiceImpl implements AgencyStaffService {
         }
 
         log.info("Removed staff from Studio: staffId={}, agencyId={}", staffId, agency.getId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StaffRemovableRes checkStaffRemovable(Long userId, Long staffId) {
+        AgencyProfileEntity agency = getAgencyByOwnerId(userId);
+        AgencyStaffEntity staff = agencyStaffRepository.findById(staffId)
+                .filter(s -> s.getAgency().getId().equals(agency.getId()))
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCodes.ERR_STAFF_NOT_FOUND,
+                        "ERR_STAFF_NOT_FOUND"
+                ));
+
+        LocalDate today = LocalDate.now();
+        List<String> activeBookingCodes = bookingStaffAssignmentRepository.findActiveFutureBookingCodesForStaff(staffId, today);
+        if (activeBookingCodes != null && !activeBookingCodes.isEmpty()) {
+            String codes = String.join(", ", activeBookingCodes);
+            return StaffRemovableRes.builder()
+                    .canRemove(false)
+                    .activeBookingsCount(activeBookingCodes.size())
+                    .activeBookingCodes(activeBookingCodes)
+                    .reason("Thợ này đang có " + activeBookingCodes.size() + " đơn đặt lịch chưa hoàn thành (" + codes + "). Vui lòng điều phối lại thợ khác trước khi xóa thợ khỏi Studio.")
+                    .build();
+        }
+
+        return StaffRemovableRes.builder()
+                .canRemove(true)
+                .activeBookingsCount(0)
+                .activeBookingCodes(Collections.emptyList())
+                .reason(null)
+                .build();
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.makeup.platform.dto.response.agency.AgencyInvitationRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffDetailRes;
 import com.makeup.platform.dto.response.agency.AgencyStaffRes;
 import com.makeup.platform.dto.response.agency.PublicAgencyInvitationRes;
+import com.makeup.platform.dto.response.agency.StaffRemovableRes;
 import com.makeup.platform.dto.response.mua.CertificateRes;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,6 +57,8 @@ public interface AgencyStaffService {
 
     // Studio Admin: Xóa nhân viên khỏi Studio
     void removeStaff(Long userId, Long staffId);
+
+    StaffRemovableRes checkStaffRemovable(Long userId, Long staffId);
 
     // Staff/MUA: Lấy thông tin hồ sơ nhân viên trực thuộc Studio của tài khoản hiện tại
     AgencyStaffDetailRes getMyStaffProfile(Long userId);
