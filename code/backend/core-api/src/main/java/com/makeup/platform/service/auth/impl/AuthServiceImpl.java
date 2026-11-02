@@ -92,7 +92,7 @@ public class AuthServiceImpl implements AuthService {
     private boolean otpTestMode;
 
     @Value("${auth.otp.expiration-seconds:60}")
-    private long otpExpirationSeconds;
+    private long otpExpirationSeconds = 60L;
 
     private String generateLoginOtp() {
         return otpTestMode ? "123456" : String.format("%06d", new SecureRandom().nextInt(1_000_000));
