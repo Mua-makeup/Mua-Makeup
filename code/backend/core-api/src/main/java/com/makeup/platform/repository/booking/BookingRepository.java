@@ -278,7 +278,8 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long>, J
     @Query("""
             SELECT b FROM BookingEntity b
             WHERE (b.status = com.makeup.platform.entity.booking.BookingStatus.REQUESTED
-                   OR b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_AGENCY_DISPATCH)
+                   OR b.status = com.makeup.platform.entity.booking.BookingStatus.PENDING_AGENCY_DISPATCH
+                   OR b.status = com.makeup.platform.entity.booking.BookingStatus.AGENCY_ASSIGNED)
               AND (
                   (b.confirmDeadline IS NOT NULL AND b.confirmDeadline < :now)
                   OR (b.bookingDate < :today)
