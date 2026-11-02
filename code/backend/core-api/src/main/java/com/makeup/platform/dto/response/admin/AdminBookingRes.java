@@ -67,6 +67,16 @@ public class AdminBookingRes {
     private BigDecimal surchargeFee;
     private BigDecimal totalAmount;
     private BigDecimal depositAmount;
+    private BigDecimal remainingAmount;
+
+    // Payment Stages (Đợt 1 Cọc & Đợt 2 Quyết Toán)
+    private Boolean isDepositPaid;
+    private String depositPaymentMethod;
+    private String depositStatus;
+    private Boolean isFinalPaid;
+    private String finalPaymentMethod;
+    private String finalPaymentStatus;
+    private Boolean settlementRecorded;
 
     // Meta & Completion
     private String completionPhotoUrl;
