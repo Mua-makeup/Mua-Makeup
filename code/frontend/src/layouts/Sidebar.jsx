@@ -10,6 +10,7 @@ import {
   Users,
   CalendarDays,
   CalendarCheck,
+  DollarSign,
   UserCheck,
   TrendingUp,
   MapPin,
@@ -39,6 +40,11 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
       to: '/admin/bookings',
       label: t('nav_admin_bookings'),
       icon: CalendarCheck,
+    },
+    {
+      to: '/admin/revenue',
+      label: t('nav_admin_revenue'),
+      icon: DollarSign,
     },
     {
       to: '/admin/disputes',

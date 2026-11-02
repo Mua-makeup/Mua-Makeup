@@ -38,14 +38,14 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     @Async
-    public void sendAdminLoginOtp(String toEmail, String recipientName, String otpCode, int expiryMinutes) {
+    public void sendAdminLoginOtp(String toEmail, String recipientName, String otpCode, int expirySeconds) {
         if (toEmail == null || toEmail.isBlank()) {
             log.warn("[EmailService] Cannot send OTP: recipient email is missing");
             return;
         }
 
         String subject = BRAND_NAME + " - Mã Xác Thực 2FA (OTP) cho đăng nhập quản trị viên";
-        String htmlContent = buildAdminOtpEmailHtml(recipientName, otpCode, expiryMinutes);
+        String htmlContent = buildAdminOtpEmailHtml(recipientName, otpCode, expirySeconds);
 
         sendHtmlEmail(toEmail, subject, htmlContent);
     }
@@ -84,8 +84,11 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    private String buildAdminOtpEmailHtml(String recipientName, String otpCode, int expiryMinutes) {
+    private String buildAdminOtpEmailHtml(String recipientName, String otpCode, int expirySeconds) {
         String name = (recipientName != null && !recipientName.isBlank()) ? recipientName : "Quản trị viên";
+        String expiryDisplay = (expirySeconds % 60 == 0 && expirySeconds > 60)
+                ? (expirySeconds / 60) + " phút"
+                : expirySeconds + " giây";
         return """
             <!DOCTYPE html>
             <html lang="vi">
@@ -130,7 +133,7 @@ public class EmailServiceImpl implements EmailService {
                               %s
                             </span>
                             <p style="margin: 10px 0 0 0; font-size: 12px; color: #78350f; font-weight: 500;">
-                              Mã có hiệu lực trong vòng <strong>%d phút</strong>.
+                              Mã có hiệu lực trong vòng <strong>%s</strong>.
                             </p>
                           </div>
                           
@@ -159,7 +162,7 @@ public class EmailServiceImpl implements EmailService {
               </table>
             </body>
             </html>
-            """.formatted(name, otpCode, expiryMinutes);
+            """.formatted(name, otpCode, expiryDisplay);
     }
 
     private String buildAgencyNewBookingEmailHtml(String agencyName, ScheduledBookingCreatedEvent event, String destinationAddress) {

@@ -106,3 +106,4 @@ discord:
 auth:
   otp:
     test-mode: ${AUTH_OTP_TEST_MODE:false}
+    expiration-seconds: ${AUTH_OTP_EXPIRATION_SECONDS:60}
