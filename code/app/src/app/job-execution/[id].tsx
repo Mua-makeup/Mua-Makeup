@@ -253,6 +253,11 @@ export default function JobExecutionScreen() {
     booking?.bookingPartner === 'AGENCY' ||
     booking?.bookingPartner === 'AGENCY_DISPATCH' ||
     Boolean(booking?.agencyId || (booking as any)?.agency || (booking?.assignedStaff && booking.assignedStaff.length > 0) || myAssignment);
+  const canReportOvertime = Boolean(
+    userInfo?.roles?.includes('ROLE_AGENCY_STAFF') &&
+    !userInfo?.roles?.includes('ROLE_FREELANCE_MUA') &&
+    isAgencyBooking && isPrimaryRole
+  );
 
   const myEarnings = isAgencyBooking
     ? getAssignmentEarnings(myAssignment, booking?.totalAmount ?? 0)
@@ -2521,7 +2526,7 @@ export default function JobExecutionScreen() {
                         <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
                       </TouchableOpacity>
 
-                      {isAgencyBooking && isPrimaryRole && (
+                      {canReportOvertime && (
                         <TouchableOpacity
                           style={styles.overtimeReportBtn}
                           onPress={() => setIsOvertimeModalVisible(true)}
@@ -2835,7 +2840,7 @@ export default function JobExecutionScreen() {
       />
 
       {/* Modal Giải trình quá giờ dành cho thợ chính studio */}
-      {isAgencyBooking && isPrimaryRole && <OvertimeReportModal
+      {canReportOvertime && <OvertimeReportModal
         visible={isOvertimeModalVisible}
         bookingId={bookingId}
         bookingCode={booking?.bookingCode || id}
