@@ -2521,7 +2521,7 @@ export default function JobExecutionScreen() {
                         <Text style={styles.btnText}>CHỤP ẢNH NGHIỆM THU</Text>
                       </TouchableOpacity>
 
-                      {isPrimaryRole && (
+                      {isAgencyBooking && isPrimaryRole && (
                         <TouchableOpacity
                           style={styles.overtimeReportBtn}
                           onPress={() => setIsOvertimeModalVisible(true)}
@@ -2834,8 +2834,8 @@ export default function JobExecutionScreen() {
         }}
       />
 
-      {/* Modal Giải trình quá giờ dành cho thợ */}
-      <OvertimeReportModal
+      {/* Modal Giải trình quá giờ dành cho thợ chính studio */}
+      {isAgencyBooking && isPrimaryRole && <OvertimeReportModal
         visible={isOvertimeModalVisible}
         bookingId={bookingId}
         bookingCode={booking?.bookingCode || id}
@@ -2845,7 +2845,7 @@ export default function JobExecutionScreen() {
         onSuccess={() => {
           setIsOvertimeModalVisible(false);
         }}
-      />
+      />}
 
       {/* Cancellation / Dispute Modal (Đã bọc KeyboardAvoidingView chống che nút) */}
       {/* Cancellation / Dispute Modal (Cân đối chính giữa màn hình) */}
